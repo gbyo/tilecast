@@ -14,11 +14,13 @@ import {
   createPrimitivePlacement,
   distributeOffsets,
   flushLatestLayoutDraft,
-  nextPlaylistPreviewIndex,
   offsetPlacements,
-  playlistPreviewDuration,
   recentLayoutLibraryItems,
 } from "./LayoutEditorPage";
+import {
+  nextPlaylistPreviewIndex,
+  playlistPreviewDuration,
+} from "../components/layout-editor/WidgetLivePreview";
 
 const canvas = {
   width: 1920,

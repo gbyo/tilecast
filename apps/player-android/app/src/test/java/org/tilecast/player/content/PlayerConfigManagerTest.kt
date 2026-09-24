@@ -6,9 +6,28 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.tilecast.player.network.PlayerCachePolicy
 import org.tilecast.player.network.PlayerConfig
+import org.tilecast.player.network.DataEnvelope
 import org.tilecast.player.network.PlayerReliabilityPolicy
+import org.tilecast.player.network.RegionalFormatting
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
 
 class PlayerConfigManagerTest {
+	@Test fun playerConfigV1AcceptsOldAndAdditiveRegionalPlaybackPayloads() {
+		val json = Json { ignoreUnknownKeys = true }
+		val oldServer = json.decodeFromString(
+			DataEnvelope.serializer(PlayerConfig.serializer()),
+			"""{"data":{"schemaVersion":1,"configRevision":4,"generatedAt":"2026-07-12T18:00:00Z","playback":{"defaultVolume":0.5}}}""",
+		).data
+		assertEquals(null, oldServer.playback.regionalFormat)
+
+		val newServer = json.decodeFromString(
+			DataEnvelope.serializer(PlayerConfig.serializer()),
+			"""{"data":{"schemaVersion":1,"configRevision":5,"generatedAt":"2026-07-12T18:00:00Z","playback":{"regionalFormat":{"locale":"de-DE","timezone":"Europe/Berlin","dateFormat":"locale","timeFormat":"locale","firstDayOfWeek":"monday"}}}}""",
+		).data
+		assertEquals(RegionalFormatting("de-DE", "Europe/Berlin", "locale", "locale", "monday"), newServer.playback.regionalFormat)
+	}
+
 	@Test fun webviewWatchdogUsesTheAuthoritativeWebviewThreshold(){
 		val policy=PlayerReliabilityPolicy(playbackStallSeconds=30,webviewStallSeconds=75)
 		assertEquals(75,watchdogThresholdSeconds(policy,true))

@@ -78,6 +78,9 @@ func (w *ProjectionWorker) RunDue(ctx context.Context) error {
 		FROM data_source_refresh_states rs
 		JOIN data_sources ds ON ds.id=rs.data_source_id AND ds.deleted_at IS NULL AND ds.provider='form'
 		WHERE rs.next_refresh_at<=now()
+			-- Forms left behind without an installation (a restore or manual
+			-- edit; Remove refuses while Forms exist) are not advanced.
+			AND EXISTS(SELECT 1 FROM plugin_installations WHERE plugin_id='forms')
 		FOR UPDATE OF rs SKIP LOCKED
 		LIMIT 50`)
 	if err != nil {

@@ -20,7 +20,7 @@ func TestProjectDataDocumentCoercesTypedValues(t *testing.T) {
 	raw := json.RawMessage(`{
 		"fields":[
 			{"key":"name","label":"Name","type":"text"},
-			{"key":"price","label":"Price","type":"currency"},
+			{"key":"price","label":"Price","type":"currency","currency":"EUR"},
 			{"key":"active","label":"Active","type":"boolean"}
 		],
 		"records":[{"id":"row-1","values":{"name":"Coffee","price":"3.50","active":"true"}}],
@@ -35,6 +35,9 @@ func TestProjectDataDocumentCoercesTypedValues(t *testing.T) {
 		t.Fatalf("unexpected document: %#v", document)
 	}
 	values := document.Datasets[0].Records[0].Values
+	if document.Datasets[0].Fields[1].Currency != "EUR" {
+		t.Fatalf("currency metadata was dropped: %#v", document.Datasets[0].Fields[1])
+	}
 	if values["name"].Kind != "text" || values["price"].Kind != "currency" || values["price"].Number == nil || *values["price"].Number != 3.5 || values["active"].Boolean == nil || !*values["active"].Boolean {
 		t.Fatalf("typed values were not coerced: %#v", values)
 	}
@@ -155,7 +158,7 @@ func TestNewsFeedAndRSSTickerCompileToProviderAgnosticNativeNodes(t *testing.T) 
 }
 
 func TestProjectMultiDatasetDocument(t *testing.T) {
-	raw := json.RawMessage(`{"datasets":[{"id":"current","kind":"object","fields":[{"key":"aqi","label":"AQI","type":"integer"}],"values":{"aqi":"42"},"attribution":"Example"},{"id":"hourly","kind":"time_series","fields":[{"key":"pm2_5","label":"PM2.5","type":"number"}],"points":[{"at":"2026-07-16T12:00:00Z","values":{"pm2_5":"8.5"}}]}]}`)
+	raw := json.RawMessage(`{"datasets":[{"id":"current","kind":"object","fields":[{"key":"aqi","label":"AQI","type":"integer"}],"values":{"aqi":"42"},"attribution":"Example"},{"id":"hourly","kind":"time_series","fields":[{"key":"price","label":"Price","type":"currency","currency":"EUR"}],"points":[{"at":"2026-07-16T12:00:00Z","values":{"price":"8.5"}}]}]}`)
 	document, err := projectDataDocument(raw)
 	if err != nil {
 		t.Fatal(err)
@@ -163,8 +166,11 @@ func TestProjectMultiDatasetDocument(t *testing.T) {
 	if len(document.Datasets) != 2 || document.Datasets[0].Value == nil || document.Datasets[0].Value.Object["aqi"].Integer == nil {
 		t.Fatalf("document=%+v", document)
 	}
-	if len(document.Datasets[1].Points) != 1 || document.Datasets[1].Points[0].Values["pm2_5"].Number == nil {
+	if len(document.Datasets[1].Points) != 1 || document.Datasets[1].Points[0].Values["price"].Number == nil {
 		t.Fatalf("points=%+v", document.Datasets[1].Points)
+	}
+	if document.Datasets[1].Fields[0].Currency != "EUR" {
+		t.Fatalf("dataset currency metadata was dropped: %#v", document.Datasets[1].Fields)
 	}
 }
 

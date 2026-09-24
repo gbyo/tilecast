@@ -1,6 +1,7 @@
+import { useTranslation } from "react-i18next";
 import type { SettingDefinition } from "../api/types";
 import { dependencyState } from "./settingDependencies";
-import { descriptionFor, groupsFor } from "./settingDisplay";
+import { descriptionFor, groupsFor, titleFor } from "./settingDisplay";
 import type { SettingsSectionId } from "./settingsNavigation";
 import { SettingControl } from "./SettingControl";
 
@@ -19,38 +20,50 @@ export function SettingsSection({
   onChange: (key: string, value: unknown) => void;
   before?: React.ReactNode;
 }) {
+  const { t } = useTranslation(["settings", "common"]);
   return (
-    <div className="settings-sections">
+    <div className="grid gap-4">
       {before}
       {groupsFor(section, definitions).map((group) => (
-        <section className="settings-subsection" key={group.title}>
-          <header>
-            <h3>{group.title}</h3>
-            {group.description && <p>{group.description}</p>}
+        <section
+          className="grid gap-4 rounded-xl border border-border p-4"
+          key={group.titleKey}
+        >
+          <header className="grid gap-1">
+            <h3 className="text-base font-semibold">{t(group.titleKey)}</h3>
+            {group.descriptionKey && (
+              <p className="text-sm text-muted-foreground">
+                {t(group.descriptionKey)}
+              </p>
+            )}
           </header>
           {group.definitions.map((definition) => {
             const dependency = dependencyState(definition.key, values);
             const disabled = !editable || dependency.disabled;
             return (
               <div
-                className={`setting-row${disabled ? " setting-row--disabled" : ""}`}
+                className="grid gap-3 has-[:disabled]:opacity-60 sm:grid-cols-2"
                 key={definition.key}
               >
-                <div className="setting-copy">
-                  <label>{definition.title}</label>
-                  <p>{descriptionFor(definition)}</p>
+                <div className="grid content-start gap-1">
+                  <span className="text-sm font-medium">
+                    {titleFor(definition)}
+                  </span>
+                  <p className="text-sm text-muted-foreground">
+                    {descriptionFor(definition)}
+                  </p>
                   {definition.futureOnly && (
-                    <span className="setting-note">
-                      Applies to future processing only
+                    <span className="text-xs text-muted-foreground">
+                      {t("section.futureOnly")}
                     </span>
                   )}
                   {dependency.disabled && (
-                    <span className="setting-dependency">
-                      {dependency.message}
+                    <span className="text-xs text-muted-foreground">
+                      {t(dependency.messageKey)}
                     </span>
                   )}
                 </div>
-                <div className="setting-control">
+                <div className="grid content-start gap-2">
                   <SettingControl
                     definition={definition}
                     value={values[definition.key] ?? definition.default}

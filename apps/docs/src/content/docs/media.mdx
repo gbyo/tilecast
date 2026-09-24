@@ -1,0 +1,51 @@
+---
+title: Upload and organize media
+description: Add images and videos to the Tilecast media library and prepare them for playlists and Layouts.
+---
+
+Tilecast Studio's **Media** library stores images and videos for reuse in Playlists and Layouts. An upload must finish processing and show **Ready** before you can add it to a presentation.
+
+Website Apps also appear in the library under **Websites**. See [Add website content](../website-content/) to create one and check its network and offline limits.
+
+import { Steps } from "@astrojs/starlight/components";
+
+## Upload images and videos
+
+An Owner, Administrator, or Editor can upload media.
+
+<Steps>
+
+1. Open **Content** > **Media**.
+2. Select **Upload assets**, or drag files into the library.
+3. Choose image or video files. The file picker accepts JPEG, PNG, WebP, and GIF images, plus MP4, MOV, WebM, and MKV video files.
+4. Wait for each item to reach **Ready**. Tilecast checks the file and prepares it for Player playback. Items that are still **Uploading**, **Inspecting**, or **Processing** aren't available to presentations.
+
+</Steps>
+
+If the browser loses its connection during an upload, select the original file again to resume it. It must have the same name and size as the file used to start that upload. Open the asset details for a failed item and select **Retry processing** when that action is available.
+
+The default maximum upload size is 10 GiB per file. An administrator can change it with `TILECAST_MAX_UPLOAD_BYTES` on the server.
+
+## Organize the library
+
+Select an asset to edit its name, description, and organization. Each asset belongs to one **Folder** and can belong to more than one **Collection** or **Tag**:
+
+- Use a Folder for a broad location or department. An asset can be in only one Folder.
+- Use a Collection to group assets that you reuse together. An asset can be in several Collections.
+- Use Tags as labels and filters. A Tag can also drive a [Tag-driven Playlist](../playlists/).
+
+Create and manage Folders, Collections, and Tags from the media library toolbar. Changing or deleting one of these labels doesn't delete its assets. Deleting a Folder leaves its assets in the library as **Unfiled**; deleting a Tag removes that Tag from its assets.
+
+In an asset's details, set **Available from** to delay when it can be used. Set **Expires at** to stop the Player using it at the selected local date and time, including when the Player is offline. An expired item appears in **Archive**.
+
+## Archive or delete an asset
+
+Use **Archive** to remove an asset from the active library while keeping it available to restore. You can restore archived or expired assets from **Archive**. Tilecast blocks archiving an asset that's used by a Playlist, Layout, or shared configuration; remove those references first.
+
+In **Archive**, select **Delete permanently** to remove an asset and its stored media. This can't be undone, and Tilecast won't delete an asset that is still in use. If Studio reports a reference, remove it before trying again.
+
+## Next steps
+
+- Add Ready assets to a [Playlist](../playlists/).
+- Arrange images and videos in a [Layout](../layouts/).
+- Use [Tags in a Tag-driven Playlist](../playlists/) to select matching media automatically.

@@ -1,15 +1,29 @@
-import {
-  Button,
-  EmptyState,
-  Notice,
-  PageHeader,
-  Select,
-  ViewToggle,
-} from "../components/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { Grid2X2, List, Plus } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useParams } from "react-router";
+import { apiErrorMessage } from "../i18n";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Button } from "../components/ui/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../components/ui/empty";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { Skeleton } from "../components/ui/skeleton";
+import { toast } from "../components/ui/toast";
+import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import { api, ApiError } from "../api/client";
 import type { Asset } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
@@ -27,7 +41,6 @@ import { GenericWidgetEditor } from "../content/GenericDefinitionEditors";
 import { UsedByPanel } from "../content/UsedByPanel";
 import { WidgetSnapshotBackfill } from "../content/WidgetSnapshotBackfill";
 import { inAppPath, withParam } from "../navigation/returnPaths";
-import { WorkspaceTabs, contentTabs } from "../navigation/WorkspaceTabs";
 import {
   AssetCollection,
   WebsiteEditor,
@@ -35,6 +48,7 @@ import {
 } from "./ContentPage";
 
 export function WidgetsPage() {
+  const { t } = useTranslation(["content", "common"]);
   const auth = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -59,84 +73,116 @@ export function WidgetsPage() {
     queryFn: api.contentDefinitions,
   });
   const filterProviders = definitions.data?.widgets ?? [];
+  const providerOptions = [
+    { value: "", label: t("widgets.list.allTypes") },
+    ...filterProviders.map((item) => ({ value: item.id, label: item.name })),
+  ];
   const duplicate = useMutation({
     mutationFn: (id: string) => api.duplicateWidget(id, csrf),
     onSuccess: (widget) => {
+      toast.add({ title: "Widget duplicated.", type: "success" });
       void queryClient.invalidateQueries({ queryKey: ["assets"] });
       void navigate(`/widgets/${widget.id}`);
     },
   });
-  const remove = useMutation({
-    mutationFn: (id: string) => api.deleteAsset(id, csrf),
-    onSuccess: () =>
-      void queryClient.invalidateQueries({ queryKey: ["assets"] }),
-  });
-
   return (
-    <section className="content-page apps-page">
-      <WorkspaceTabs label="Content library" tabs={contentTabs} />
-      <PageHeader
-        title="Widgets"
-        description="Reusable visual content for playlists and Layouts."
-        actions={
-          canManage ? (
-            <Button
-              variant="primary"
-              onClick={() => void navigate("/widgets/new")}
-            >
-              <Plus size={16} aria-hidden="true" /> Create Widget
+    <section className="w-full min-w-0 space-y-5">
+      <header className="space-y-1">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-xl font-semibold">{t("widgets.list.title")}</h1>
+          {canManage && (
+            <Button type="button" onClick={() => void navigate("/widgets/new")}>
+              <Plus size={16} aria-hidden="true" /> {t("widgets.list.create")}
             </Button>
-          ) : undefined
-        }
-      />
+          )}
+        </div>
+        <p className="text-sm text-muted-foreground">
+          {t("widgets.list.subtitle")}
+        </p>
+      </header>
       <DashboardListToolbar>
         <DashboardSearch
           value={search}
           onValueChange={setSearch}
-          label="Search Widgets"
-          placeholder="Search Widgets"
+          label={t("widgets.list.search")}
+          placeholder={t("widgets.list.search")}
         />
         <Select
-          className="dashboard-list-toolbar__filter"
-          aria-label="Filter by Widget provider"
+          items={providerOptions}
           value={provider}
-          onChange={(event) => setProvider(event.target.value)}
+          onValueChange={(next) => {
+            if (typeof next === "string") setProvider(next);
+          }}
         >
-          <option value="">All Widget types</option>
-          {filterProviders.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name}
-            </option>
-          ))}
+          <SelectTrigger
+            aria-label={t("widgets.list.filterProvider")}
+            className="w-56 max-sm:flex-1"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">{t("widgets.list.allTypes")}</SelectItem>
+            {filterProviders.map((item) => (
+              <SelectItem key={item.id} value={item.id}>
+                {item.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
         </Select>
-        <ViewToggle value={view} onValueChange={setView} />
+        <ToggleGroup
+          aria-label={t("widgets.list.view")}
+          variant="outline"
+          spacing={0}
+          multiple={false}
+          value={[view]}
+          onValueChange={(next) => {
+            const first = next[0];
+            if (first === "grid" || first === "list") setView(first);
+          }}
+        >
+          <ToggleGroupItem value="grid" aria-label={t("widgets.list.gridView")}>
+            <Grid2X2 size={16} aria-hidden="true" />
+          </ToggleGroupItem>
+          <ToggleGroupItem value="list" aria-label={t("widgets.list.listView")}>
+            <List size={16} aria-hidden="true" />
+          </ToggleGroupItem>
+        </ToggleGroup>
       </DashboardListToolbar>
       {widgets.isError && (
-        <Notice variant="danger">
-          {widgets.error instanceof ApiError
-            ? widgets.error.message
-            : "Widgets could not be loaded."}
-        </Notice>
+        <Alert variant="destructive">
+          <AlertDescription>
+            {widgets.error instanceof ApiError
+              ? apiErrorMessage(widgets.error)
+              : t("widgets.list.loadError")}
+          </AlertDescription>
+        </Alert>
       )}
       {widgets.isLoading ? (
-        <div className="table-loading">Loading Widgets...</div>
+        <div className="grid gap-2" aria-label={t("widgets.list.loading")}>
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+        </div>
       ) : widgets.data?.items?.length === 0 ? (
-        <EmptyState
-          className="content-empty"
-          icon={<Plus size={24} aria-hidden="true" />}
-          title="No Widgets yet"
-          message="Create a reusable Widget for signage content."
-          action={
-            canManage ? (
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Plus size={24} aria-hidden="true" />
+            </EmptyMedia>
+            <EmptyTitle>{t("widgets.list.emptyTitle")}</EmptyTitle>
+            <EmptyDescription>{t("widgets.list.emptyHint")}</EmptyDescription>
+          </EmptyHeader>
+          {canManage && (
+            <EmptyContent>
               <Button
-                variant="primary"
+                type="button"
                 onClick={() => void navigate("/widgets/new")}
               >
-                Create Widget
+                {t("widgets.list.create")}
               </Button>
-            ) : undefined
-          }
-        />
+            </EmptyContent>
+          )}
+        </Empty>
       ) : (
         <>
           <AssetCollection
@@ -145,9 +191,6 @@ export function WidgetsPage() {
             onSelect={(widget) => void navigate(`/widgets/${widget.id}`)}
             canManage={canManage}
             onDuplicate={(widget) => duplicate.mutate(widget.id)}
-            onDelete={(widget) => {
-              if (confirm(`Delete ${widget.name}?`)) remove.mutate(widget.id);
-            }}
           />
           {/* Storing a capture is an editor-or-above action, so viewers browse the library without
               it and simply see the unavailable state until someone who can manage content visits. */}
@@ -162,6 +205,7 @@ export function WidgetsPage() {
 }
 
 export function WidgetEditorPage() {
+  const { t } = useTranslation(["content", "common"]);
   const auth = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -229,16 +273,35 @@ export function WidgetEditorPage() {
     );
   }
   if (id && widget.isLoading)
-    return <div className="table-loading">Loading Widget...</div>;
+    return (
+      <Skeleton
+        className="h-24"
+        aria-label={t("widgets.detail.loadingWidget")}
+      />
+    );
   if (definitions.isLoading)
-    return <div className="table-loading">Loading Widget definition...</div>;
+    return (
+      <Skeleton
+        className="h-24"
+        aria-label={t("widgets.detail.loadingDefinition")}
+      />
+    );
   if ((id && !asset) || !provider || !definition) {
     return (
-      <section className="empty-state">
-        <h2>Widget unavailable</h2>
-        <button className="button" onClick={close}>
-          Back to Widgets
-        </button>
+      <section className="w-full min-w-0 space-y-5">
+        <Empty>
+          <EmptyHeader>
+            <EmptyTitle>{t("widgets.detail.unavailableTitle")}</EmptyTitle>
+            <EmptyDescription>
+              {t("widgets.detail.unavailableHint")}
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button type="button" onClick={close}>
+              {t("widgets.detail.backToWidgets")}
+            </Button>
+          </EmptyContent>
+        </Empty>
       </section>
     );
   }
@@ -269,19 +332,21 @@ export function WidgetEditorPage() {
           consumers, and so editing a shared Widget shows what else it would change. */}
       {asset && (
         <UsedByPanel
-          emptyMessage="No playlist or Layout uses this Widget yet."
+          emptyMessage={t("widgets.detail.noUsage")}
           groups={[
             {
-              label: "Playlists",
+              label: t("widgets.detail.usedInPlaylists"),
               items: asset.playlistsUsing ?? [],
               to: (playlistId) => `/playlists/${playlistId}`,
             },
             {
-              label: "Layouts",
+              label: t("widgets.detail.usedInLayouts"),
               items: (asset.layoutUsage ?? []).map((usage) => ({
                 id: usage.id,
                 name: usage.name,
-                hint: usage.published ? "Published" : "Draft",
+                hint: usage.published
+                  ? t("widgets.detail.published")
+                  : t("widgets.detail.draft"),
               })),
               to: (layoutId) => `/layouts/${layoutId}`,
             },

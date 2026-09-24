@@ -1,27 +1,11 @@
-/* Bulk changes (Screens ▸ Bulk changes).
-
-   This page previously borrowed the Settings and Backups class names
-   (.settings-subsection, .backup-job-list, .backup-summary, .empty-card), so a
-   fleet screen rendered as a stack of settings rows and one empty state that had
-   no rule behind it at all. Everything it needs now lives here under a bulk-
-   namespace, and every length, colour, radius, and font comes from
-   packages/design-tokens rather than a literal.
-
-   Anything the system already ships is reused rather than restated: the tab strip
-   is .view-tabs, the header is .page-header, buttons are .button, alerts are
-   .notice, pills are .status-chip tones, and the picker rows keep
-   .checkbox-control for their hit target. */
+/* Bulk-specific structure and spacing use this namespace and design tokens.
+   Shared actions, alerts, and status use Button, Alert, and Badge components. */
 
 .bulk-page {
   display: grid;
   /* Matches .screens-page so the two fleet pages keep one vertical rhythm. */
   gap: var(--tc-space-6);
   width: min(1180px, 100%);
-}
-
-.bulk-page > .page-header,
-.bulk-page > .view-tabs {
-  margin-bottom: 0;
 }
 
 /* Work area ------------------------------------------------------------
@@ -111,10 +95,6 @@
   align-items: center;
   gap: var(--tc-space-2);
   margin-left: auto;
-}
-
-.bulk-panel .notice {
-  margin: 0 var(--tc-space-4) var(--tc-space-4);
 }
 
 /* The preview is the decision point on this page, so it is the one panel that
@@ -328,20 +308,6 @@
 .bulk-history__note {
   color: var(--tc-text-secondary);
   font: var(--tc-text-supporting);
-}
-
-.bulk-empty {
-  display: grid;
-  justify-items: center;
-  gap: var(--tc-space-1);
-  padding: var(--tc-space-8) var(--tc-space-4);
-  color: var(--tc-text-secondary);
-  font: var(--tc-text-body);
-  text-align: center;
-}
-
-.bulk-empty svg {
-  color: var(--tc-text-disabled);
 }
 
 /* Responsive ------------------------------------------------------------ */

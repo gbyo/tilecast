@@ -1,54 +1,59 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Command } from "cmdk";
 import {
-  Bell,
-  Blocks,
   CalendarClock,
-  ChevronDown,
   ChevronRight,
-  Database,
   FileSliders,
   Image,
   Layers3,
   ListVideo,
   Monitor,
   MonitorCheck,
-  Plus,
-  Search,
+  Puzzle,
   Settings,
   Upload,
   UserRound,
 } from "lucide-react";
 import { useEffect, useState, type ComponentType } from "react";
 import {
-  Link,
   matchRoutes,
   useLocation,
   useNavigate,
   type RouteObject,
 } from "react-router";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { api } from "../api/client";
-import type { Screen, ScreenStatus, User } from "../api/types";
-import {
-  useNotifications,
-  type NotificationPriority,
-} from "../notifications/useNotifications";
+import type { PluginSummary, Screen, ScreenStatus, User } from "../api/types";
+import { hasStudioRoute, pluginsQueryKey } from "../plugins/pluginCatalog";
+import { useNotifications } from "../notifications/useNotifications";
 import {
   studioRouteHandle,
   useStudioRoutes,
   type BreadcrumbResource,
 } from "../navigation/studioRoutes";
-import { UploadContentDialog } from "./content-picker/UploadContentDialog";
-import { Button, Dialog, IconButton, Popover } from "./ui";
+import {
+  Command,
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "./ui/command";
+import { Kbd } from "./ui/kbd";
+import { SiteHeader } from "./studio/SiteHeader";
+import { MediaUploadDialog } from "./content-picker/MediaUploadDialog";
 
+// Command categories are translation keys into palette.groups. Display names
+// are resolved with t() at render in groupCommandResults.
 type CommandGroupName =
-  | "Quick actions"
-  | "Screens"
-  | "Content"
-  | "Presentations"
-  | "Scheduling"
-  | "Administration"
-  | "Navigation";
+  | "quickActions"
+  | "screens"
+  | "content"
+  | "presentations"
+  | "scheduling"
+  | "administration"
+  | "navigation";
 
 type CommandAction = "upload-media";
 
@@ -74,30 +79,31 @@ type CommandProvider = {
   results: () => (Omit<CommandResult, "score"> & { keywords?: string[] })[];
 };
 
-const statusLabels: Record<ScreenStatus, string> = {
-  online: "Online",
-  recent: "Recently online",
-  stale: "Stale",
-  offline: "Offline",
-  disabled: "Disabled",
-  revoked: "Pairing revoked",
+const statusLabelKeys: Record<
+  ScreenStatus,
+  | "palette.screenStatus.online"
+  | "palette.screenStatus.recent"
+  | "palette.screenStatus.stale"
+  | "palette.screenStatus.offline"
+  | "palette.screenStatus.disabled"
+  | "palette.screenStatus.revoked"
+> = {
+  online: "palette.screenStatus.online",
+  recent: "palette.screenStatus.recent",
+  stale: "palette.screenStatus.stale",
+  offline: "palette.screenStatus.offline",
+  disabled: "palette.screenStatus.disabled",
+  revoked: "palette.screenStatus.revoked",
 };
 
-const notificationGroups: { priority: NotificationPriority; label: string }[] =
-  [
-    { priority: "critical", label: "Critical" },
-    { priority: "warning", label: "Needs attention" },
-    { priority: "info", label: "Info" },
-  ];
-
 const commandGroupOrder: CommandGroupName[] = [
-  "Quick actions",
-  "Screens",
-  "Content",
-  "Presentations",
-  "Scheduling",
-  "Administration",
-  "Navigation",
+  "quickActions",
+  "screens",
+  "content",
+  "presentations",
+  "scheduling",
+  "administration",
+  "navigation",
 ];
 
 const defaultRouteIds = new Set([
@@ -149,16 +155,16 @@ function resultIcon(to: string) {
 }
 
 function routeGroup(to: string): CommandGroupName {
-  if (to.startsWith("/screens") || to.startsWith("/groups")) return "Screens";
+  if (to.startsWith("/screens") || to.startsWith("/groups")) return "screens";
   if (
     to.startsWith("/assets") ||
     to.startsWith("/widgets") ||
     to.startsWith("/data-sources")
   )
-    return "Content";
+    return "content";
   if (to.startsWith("/playlists") || to.startsWith("/layouts"))
-    return "Presentations";
-  if (to.startsWith("/schedules")) return "Scheduling";
+    return "presentations";
+  if (to.startsWith("/schedules")) return "scheduling";
   if (
     to.startsWith("/settings") ||
     to.startsWith("/preferences") ||
@@ -166,11 +172,11 @@ function routeGroup(to: string): CommandGroupName {
     to.startsWith("/approvals") ||
     to.startsWith("/activity")
   )
-    return "Administration";
-  return "Navigation";
+    return "administration";
+  return "navigation";
 }
 
-function collectRouteResults(routes: readonly RouteObject[]) {
+function collectRouteResults(routes: readonly RouteObject[], t: NavigationT) {
   const results: (Omit<CommandResult, "score"> & { keywords?: string[] })[] =
     [];
   const seen = new Set<string>();
@@ -181,7 +187,9 @@ function collectRouteResults(routes: readonly RouteObject[]) {
       results.push({
         id: `route:${item.to}`,
         label: item.label,
-        description: item.description,
+        description: item.descriptionKey
+          ? t(item.descriptionKey, item.descriptionValues)
+          : item.description,
         to: item.to,
         category: routeGroup(item.to),
         Icon: resultIcon(item.to),
@@ -194,61 +202,98 @@ function collectRouteResults(routes: readonly RouteObject[]) {
   return results;
 }
 
-function collectActionResults(permissions: CommandPermissions) {
+type NavigationT = TFunction<"navigation", undefined>;
+
+// Search aliases stay in English in every language: they are matching tokens,
+// not displayed text, and the locale files hold strings only.
+// i18n-ignore: command-palette search aliases below
+const actionKeywords = {
+  pairScreen: ["add screen", "new device", "player"],
+  uploadMedia: ["content", "asset", "file"],
+  createPlaylist: ["new presentation"],
+  createLayout: ["new presentation", "canvas"],
+  createSchedule: ["new deployment", "publish"],
+} as const;
+
+function collectActionResults(t: NavigationT, permissions: CommandPermissions) {
   const results: (Omit<CommandResult, "score"> & { keywords?: string[] })[] =
     [];
   if (permissions.canPair) {
     results.push({
       id: "action:pair-screen",
-      label: "Pair a screen",
-      description: "Connect a new signage player",
+      label: t("palette.actions.pairScreen.label"),
+      description: t("palette.actions.pairScreen.description"),
       to: "/screens/pair",
-      category: "Quick actions",
+      category: "quickActions",
       Icon: MonitorCheck,
-      keywords: ["add screen", "new device", "player"],
+      keywords: [...actionKeywords.pairScreen],
     });
   }
   if (permissions.canCreate) {
     results.push(
       {
         id: "action:upload-media",
-        label: "Upload media",
-        description: "Add images, videos, or documents",
+        label: t("palette.actions.uploadMedia.label"),
+        description: t("palette.actions.uploadMedia.description"),
         action: "upload-media",
-        category: "Quick actions",
+        category: "quickActions",
         Icon: Upload,
-        keywords: ["content", "asset", "file"],
+        keywords: [...actionKeywords.uploadMedia],
       },
       {
         id: "action:create-playlist",
-        label: "Create playlist",
-        description: "Build a new fullscreen presentation",
+        label: t("palette.actions.createPlaylist.label"),
+        description: t("palette.actions.createPlaylist.description"),
         to: "/playlists?create=1",
-        category: "Quick actions",
+        category: "quickActions",
         Icon: ListVideo,
-        keywords: ["new presentation"],
+        keywords: [...actionKeywords.createPlaylist],
       },
       {
         id: "action:create-layout",
-        label: "Create layout",
-        description: "Arrange content on a presentation canvas",
+        label: t("palette.actions.createLayout.label"),
+        description: t("palette.actions.createLayout.description"),
         to: "/layouts?create=1",
-        category: "Quick actions",
+        category: "quickActions",
         Icon: Layers3,
-        keywords: ["new presentation", "canvas"],
+        keywords: [...actionKeywords.createLayout],
       },
       {
         id: "action:create-schedule",
-        label: "Create schedule",
-        description: "Plan where and when content plays",
+        label: t("palette.actions.createSchedule.label"),
+        description: t("palette.actions.createSchedule.description"),
         to: "/schedules/new",
-        category: "Quick actions",
+        category: "quickActions",
         Icon: CalendarClock,
-        keywords: ["new deployment", "publish"],
+        keywords: [...actionKeywords.createSchedule],
       },
     );
   }
   return results;
+}
+
+/**
+ * Plugins come from the server catalog rather than static routes. An installed
+ * plugin is an ordinary destination; an uninstalled one is offered as a
+ * discovery result that opens Add plugin on it, never as its management page.
+ */
+function collectPluginResults(t: NavigationT, plugins: PluginSummary[]) {
+  return plugins.map((plugin) => ({
+    id: `plugin:${plugin.id}`,
+    label: plugin.name,
+    description: plugin.installed
+      ? t("palette.plugin")
+      : t("palette.pluginNotInstalled"),
+    to:
+      plugin.installed && hasStudioRoute(plugin.managementPath)
+        ? plugin.managementPath
+        : plugin.installed
+          ? "/plugins"
+          : `/plugins?add=${encodeURIComponent(plugin.id)}`,
+    category: "navigation" as const,
+    Icon: Puzzle,
+    keywords: [plugin.category, plugin.description, ...plugin.capabilities],
+  }));
 }
 
 export function buildCommandResults(
@@ -256,19 +301,22 @@ export function buildCommandResults(
   screens: Screen[],
   query: string,
   permissions: CommandPermissions = { canCreate: true, canPair: true },
+  plugins: PluginSummary[] = [],
+  t: NavigationT,
 ) {
   const providers: CommandProvider[] = [
-    { id: "actions", results: () => collectActionResults(permissions) },
-    { id: "routes", results: () => collectRouteResults(routes) },
+    { id: "actions", results: () => collectActionResults(t, permissions) },
+    { id: "routes", results: () => collectRouteResults(routes, t) },
+    { id: "plugins", results: () => collectPluginResults(t, plugins) },
     {
       id: "screens",
       results: () =>
         screens.map((screen) => ({
           id: `screen:${screen.id}`,
           label: screen.name,
-          description: `${statusLabels[screen.status]}${screen.location ? ` · ${screen.location}` : ""}`,
+          description: `${t(statusLabelKeys[screen.status])}${screen.location ? ` · ${screen.location}` : ""}`,
           to: `/screens/${screen.id}`,
-          category: "Screens" as const,
+          category: "screens" as const,
           Icon: Monitor,
           keywords: [
             screen.location,
@@ -303,17 +351,17 @@ export function buildCommandResults(
   if (!normalizedQuery) {
     return results.filter(
       (result) =>
-        result.category === "Quick actions" || defaultRouteIds.has(result.id),
+        result.category === "quickActions" || defaultRouteIds.has(result.id),
     );
   }
 
   return results.slice(0, 20);
 }
 
-function groupCommandResults(results: CommandResult[]) {
+function groupCommandResults(t: NavigationT, results: CommandResult[]) {
   return commandGroupOrder
     .map((name) => ({
-      name,
+      name: t(`palette.groups.${name}` as const),
       results: results.filter((result) => result.category === name),
     }))
     .filter((group) => group.results.length > 0);
@@ -333,8 +381,18 @@ function breadcrumbQueryKey(resource?: BreadcrumbResource, id?: string) {
       return ["playlists", id] as const;
     case "layout":
       return ["layout", id] as const;
+    case "campaign":
+      return ["campaign", id] as const;
     case "schedule":
       return ["schedules", id] as const;
+    case "form":
+      return ["form-data-source", id] as const;
+    case "countdown-bar":
+      return ["countdown-bar", id] as const;
+    case "brand-bug":
+      return ["brand-bug", id] as const;
+    case "noise-meter":
+      return ["noise-meter", id] as const;
     default:
       return ["breadcrumb", "none"] as const;
   }
@@ -357,8 +415,18 @@ function breadcrumbResource(resource: BreadcrumbResource, id: string) {
       return api.playlist(id);
     case "layout":
       return api.layout(id);
+    case "campaign":
+      return api.campaign(id);
     case "schedule":
       return api.schedule(id);
+    case "form":
+      return api.getForm(id);
+    case "countdown-bar":
+      return api.countdownBar(id);
+    case "brand-bug":
+      return api.brandBug(id);
+    case "noise-meter":
+      return api.noiseMeter(id);
   }
 }
 
@@ -400,41 +468,12 @@ function useBreadcrumbs(routes: readonly RouteObject[], pathname: string) {
   });
 }
 
-function BreadcrumbTrail({ items }: { items: Breadcrumb[] }) {
-  return (
-    <nav className="topbar__breadcrumbs" aria-label="Breadcrumb">
-      <ol>
-        {items.map((item, index) => {
-          const current = index === items.length - 1;
-          return (
-            <li key={`${item.to}:${item.label}`}>
-              {index > 0 && (
-                <span className="topbar__breadcrumb-separator" aria-hidden>
-                  /
-                </span>
-              )}
-              {current ? (
-                <span aria-current="page">{item.label}</span>
-              ) : (
-                <Link to={item.to}>{item.label}</Link>
-              )}
-            </li>
-          );
-        })}
-      </ol>
-    </nav>
-  );
-}
-
 function isModalTextInput(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false;
-  const textInput =
-    target.matches(
-      'input:not([type="button"]):not([type="submit"]), textarea',
-    ) || target.isContentEditable;
   return (
-    textInput &&
-    Boolean(target.closest('dialog, [role="dialog"], .modal, .drawer'))
+    target.matches(
+      'input:not([type="button"]):not([type="submit"]):not([type="checkbox"]):not([type="radio"]), textarea, [contenteditable="true"]',
+    ) || target.isContentEditable
   );
 }
 
@@ -456,12 +495,23 @@ function CommandPalette({
   canPair: boolean;
 }) {
   const navigate = useNavigate();
+  const { t } = useTranslation(["navigation", "common"]);
   const [query, setQuery] = useState("");
-  const results = buildCommandResults(routes, screens, query, {
-    canCreate,
-    canPair,
+  // Read only while searching; the catalog is shared with the Plugins page.
+  const plugins = useQuery({
+    queryKey: pluginsQueryKey,
+    queryFn: api.plugins,
+    enabled: open,
   });
-  const groups = groupCommandResults(results);
+  const results = buildCommandResults(
+    routes,
+    screens,
+    query,
+    { canCreate, canPair },
+    plugins.data?.items ?? [],
+    t,
+  );
+  const groups = groupCommandResults(t, results);
 
   useEffect(() => {
     if (open) setQuery("");
@@ -477,69 +527,79 @@ function CommandPalette({
   };
 
   return (
-    <Dialog
+    <CommandDialog
       open={open}
-      title="Search Tilecast"
-      className="command-palette-dialog"
-      onClose={onClose}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onClose();
+      }}
+      title={t("palette.title")}
+      description={t("palette.description")}
+      className="w-[min(42rem,calc(100vw-2rem))]"
     >
       <Command
-        className="command-palette"
-        label="Search Tilecast"
+        className="min-h-72 p-1"
+        label={t("palette.label")}
         loop
         shouldFilter={false}
       >
-        <label className="command-palette__input">
-          <Search size={18} aria-hidden="true" />
-          <Command.Input
-            autoFocus
-            value={query}
-            onValueChange={setQuery}
-            placeholder="Search screens, media, playlists…"
-            aria-label="Search Tilecast"
-          />
-          <kbd>{platformShortcut()}</kbd>
-        </label>
-        <Command.List
-          className="command-palette__results"
-          label="Search results"
+        <CommandInput
+          autoFocus
+          value={query}
+          onValueChange={setQuery}
+          placeholder={t("palette.placeholder")}
+          aria-label={t("palette.label")}
+        />
+        <CommandList
+          label={t("palette.resultsLabel")}
+          className="max-h-[min(65vh,28rem)]"
         >
-          <Command.Empty className="command-palette__empty">
+          <CommandEmpty>
             {query.trim()
-              ? `No results for “${query.trim()}”.`
-              : "No destinations available."}
-          </Command.Empty>
+              ? t("palette.noResults", { query: query.trim() })
+              : t("palette.noDestinations")}
+          </CommandEmpty>
           {groups.map((group) => (
-            <Command.Group
-              className="command-palette__group"
-              heading={group.name}
-              key={group.name}
-            >
+            <CommandGroup heading={group.name} key={group.name}>
               {group.results.map((result) => (
-                <Command.Item
-                  className="command-palette__result"
+                <CommandItem
                   key={result.id}
                   value={result.id}
                   onSelect={() => select(result)}
+                  className="min-h-11"
                 >
-                  <result.Icon size={18} aria-hidden="true" />
-                  <span>
-                    <strong>{result.label}</strong>
-                    <small>{result.description}</small>
+                  <result.Icon aria-hidden="true" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">
+                      {result.label}
+                    </span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {result.description}
+                    </span>
                   </span>
-                  <ChevronRight size={16} aria-hidden="true" />
-                </Command.Item>
+                  <ChevronRight aria-hidden="true" />
+                </CommandItem>
               ))}
-            </Command.Group>
+            </CommandGroup>
           ))}
-        </Command.List>
-        <footer className="command-palette__footer">
-          <span>↑↓ Move</span>
-          <span>Enter Open</span>
-          <span>Esc Close</span>
-        </footer>
+        </CommandList>
+        <div className="flex items-center gap-3 border-t px-3 py-2 text-xs text-muted-foreground">
+          <span>
+            {/* i18n-ignore: arrow-key glyphs, not language text */}
+            <Kbd>↑</Kbd> <Kbd>↓</Kbd> {t("palette.hints.move")}
+          </span>
+          <span>
+            {/* i18n-ignore: key name, not language text */}
+            <Kbd>Enter</Kbd> {t("palette.hints.open")}
+          </span>
+          <span>
+            {/* i18n-ignore: key name, not language text */}
+            <Kbd>Esc</Kbd> {t("palette.hints.close")}
+          </span>
+          {/* i18n-ignore: keyboard shortcut glyphs, not language text */}
+          <span className="ml-auto">{platformShortcut()}</span>
+        </div>
       </Command>
-    </Dialog>
+    </CommandDialog>
   );
 }
 
@@ -586,155 +646,12 @@ export function StudioTopbar({
   }, [location.pathname]);
 
   return (
-    <header className="topbar">
-      <div className="topbar__left">
-        {/* A single crumb is just the page title repeated above the page's own <h1>,
-            so the trail only appears once it actually describes a path. */}
-        {breadcrumbs.length > 1 && <BreadcrumbTrail items={breadcrumbs} />}
-      </div>
-      <button
-        className="topbar__search"
-        type="button"
-        aria-label="Search Tilecast"
-        aria-haspopup="dialog"
-        onClick={() => setPaletteOpen(true)}
-      >
-        <Search size={17} aria-hidden="true" />
-        {/* Deliberately not "Search screens…": pages carry their own list filter,
-            and two controls promising to search screens read as competitors. */}
-        <span className="topbar__search-placeholder">Search Tilecast…</span>
-        <kbd>{platformShortcut()}</kbd>
-      </button>
-      <div className="topbar__utilities">
-        {/* Not a menu: the panel carries a heading, a count, and labelled
-            groups, none of which an ARIA menu may contain — a screen reader
-            drops them and announces a bare item count. It is a labelled surface
-            holding grouped lists of links. */}
-        <Popover
-          label="Notifications"
-          className="topbar__notifications"
-          panelClassName="topbar__alerts"
-          width="22rem"
-          align="end"
-          trigger={(props) => (
-            <IconButton label="Notifications" {...props}>
-              <Bell size={18} aria-hidden="true" />
-              {notifications.count > 0 && (
-                <span
-                  className={`topbar__notification-badge topbar__notification-badge--${notifications.topPriority}`}
-                  aria-hidden="true"
-                >
-                  {notifications.count > 99 ? "99+" : notifications.count}
-                </span>
-              )}
-            </IconButton>
-          )}
-        >
-          <header>
-            <strong>Notifications</strong>
-            <span>{notifications.count || "No"} active</span>
-          </header>
-          {notifications.count === 0 ? (
-            <p>You&rsquo;re all caught up.</p>
-          ) : (
-            <div className="topbar__alert-groups">
-              {notificationGroups.map((group) => {
-                const groupItems = notifications.items.filter(
-                  (item) => item.priority === group.priority,
-                );
-                if (groupItems.length === 0) return null;
-                return (
-                  <div className="topbar__alert-group" key={group.priority}>
-                    <p
-                      className="topbar__alert-group-label"
-                      id={`topbar-alert-group-${group.priority}`}
-                    >
-                      {group.label}
-                      <span>{groupItems.length}</span>
-                    </p>
-                    <ul
-                      className="topbar__alert-list"
-                      aria-labelledby={`topbar-alert-group-${group.priority}`}
-                    >
-                      {groupItems.map((item) => (
-                        <li key={item.id}>
-                          <Link to={item.to}>
-                            <span
-                              className={`topbar__alert-marker topbar__alert-marker--${item.priority}`}
-                              aria-hidden
-                            />
-                            <span>
-                              <strong>{item.title}</strong>
-                              <small>{item.detail}</small>
-                            </span>
-                            <ChevronRight size={15} aria-hidden="true" />
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </Popover>
-        <span className="topbar__divider" aria-hidden="true" />
-        {canPair && (
-          <Link
-            className="button button--secondary topbar__pair"
-            to="/screens/pair"
-            aria-label="Pair screen"
-          >
-            <MonitorCheck size={16} aria-hidden="true" />
-            <span>Pair screen</span>
-          </Link>
-        )}
-        {canCreate && (
-          <Popover
-            label="Create"
-            mode="menu"
-            className="topbar__create"
-            panelClassName="topbar__create-menu"
-            align="end"
-            trigger={(props) => (
-              <Button variant="primary" {...props}>
-                <Plus size={16} aria-hidden="true" /> Create
-                <ChevronDown size={15} aria-hidden="true" />
-              </Button>
-            )}
-          >
-            {(close) => (
-              <>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    close();
-                    setUploadOpen(true);
-                  }}
-                >
-                  <Upload size={16} aria-hidden="true" /> Upload media
-                </button>
-                <Link role="menuitem" to="/widgets/new" onClick={close}>
-                  <Blocks size={16} aria-hidden="true" /> Create widget
-                </Link>
-                <Link role="menuitem" to="/data-sources/new" onClick={close}>
-                  <Database size={16} aria-hidden="true" /> Create data source
-                </Link>
-                <Link role="menuitem" to="/playlists?create=1" onClick={close}>
-                  <ListVideo size={16} aria-hidden="true" /> Create playlist
-                </Link>
-                <Link role="menuitem" to="/layouts?create=1" onClick={close}>
-                  <Layers3 size={16} aria-hidden="true" /> Create layout
-                </Link>
-                <Link role="menuitem" to="/schedules/new" onClick={close}>
-                  <CalendarClock size={16} aria-hidden="true" /> Create schedule
-                </Link>
-              </>
-            )}
-          </Popover>
-        )}
-      </div>
+    <>
+      <SiteHeader
+        breadcrumbs={breadcrumbs}
+        notifications={notifications}
+        onSearch={() => setPaletteOpen(true)}
+      />
       <CommandPalette
         open={paletteOpen}
         onClose={() => setPaletteOpen(false)}
@@ -744,16 +661,14 @@ export function StudioTopbar({
         canCreate={canCreate}
         canPair={canPair}
       />
-      {uploadOpen && (
-        <UploadContentDialog
-          csrf={csrfToken}
-          closeLabel="Done"
-          onCreated={() => {
-            void queryClient.invalidateQueries({ queryKey: ["assets"] });
-          }}
-          onClose={() => setUploadOpen(false)}
-        />
-      )}
-    </header>
+      <MediaUploadDialog
+        open={uploadOpen}
+        csrf={csrfToken}
+        onAsset={() => {
+          void queryClient.invalidateQueries({ queryKey: ["assets"] });
+        }}
+        onClose={() => setUploadOpen(false)}
+      />
+    </>
   );
 }

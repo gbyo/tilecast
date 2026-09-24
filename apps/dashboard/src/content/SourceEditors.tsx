@@ -1,10 +1,44 @@
-import { Select } from "../components/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { DateTimeInput } from "../components/date-picker";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../components/ui/alert-dialog";
+import { Button } from "../components/ui/button";
+import { Checkbox } from "../components/ui/checkbox";
+import {
+  Field,
+  FieldDescription,
+  FieldLabel,
+  FieldTitle,
+} from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import { Slider } from "../components/ui/slider";
+import { Switch } from "../components/ui/switch";
+import { Textarea } from "../components/ui/textarea";
+import { toast } from "../components/ui/toast";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
+import { Trans, useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import QRCode from "qrcode";
 import { api } from "../api/client";
+import { apiErrorMessage, useFormatLocale } from "../i18n";
 import type {
   Asset,
   DataSource,
@@ -40,6 +74,53 @@ import { PreviewTimeControl } from "./PreviewTimeControl";
 import { initialPreviewTime, resolvePreviewNow } from "./previewTime";
 import { captureWidgetPreview } from "./widgetPreviewCapture";
 
+export type WidgetsT = TFunction<["content", "common"], undefined>;
+
+// Snapshot-capture failures surface through the Widget save mutation. They are
+// thrown by widgetPreviewCapture (which has no translator), so the editors map
+// the known English messages here; everything else keeps apiErrorMessage.
+const captureErrorKeys = {
+  "Preview is not ready yet.": "widgets.errors.capture.notReady",
+  "Preview could not be rasterized.": "widgets.errors.capture.rasterize",
+  "Preview image could not be created.": "widgets.errors.capture.create",
+  "Preview canvas is unavailable.": "widgets.errors.capture.canvas",
+  "Preview image is too detailed to store.": "widgets.errors.capture.tooLarge",
+} as const;
+
+export function widgetSaveErrorMessage(t: WidgetsT, error: unknown): string {
+  if (error instanceof Error) {
+    const key =
+      captureErrorKeys[error.message as keyof typeof captureErrorKeys];
+    if (key) return t(key);
+  }
+  return apiErrorMessage(error);
+}
+
+function galleryCategoryLabel(t: WidgetsT, name: string): string {
+  switch (name) {
+    case "All":
+      return t("widgets.gallery.categories.all");
+    case "News":
+      return t("widgets.gallery.categories.news");
+    case "Google":
+      return t("widgets.gallery.categories.google");
+    case "Design & Documents":
+      return t("widgets.gallery.categories.designDocuments");
+    case "Dashboards":
+      return t("widgets.gallery.categories.dashboards");
+    case "Feeds":
+      return t("widgets.gallery.categories.feeds");
+    case "Video":
+      return t("widgets.gallery.categories.video");
+    case "Social":
+      return t("widgets.gallery.categories.social");
+    case "Building Blocks / Advanced":
+      return t("widgets.gallery.categories.buildingBlocks");
+    default:
+      return name;
+  }
+}
+
 export function WidgetProviderGallery({
   onChoose,
   onClose,
@@ -49,6 +130,7 @@ export function WidgetProviderGallery({
   onClose: () => void;
   page?: boolean;
 }) {
+  const { t } = useTranslation(["content", "common"]);
   const definitions = useQuery({
     queryKey: ["content-definitions"],
     queryFn: api.contentDefinitions,
@@ -113,27 +195,40 @@ export function WidgetProviderGallery({
   const card = (definition: (typeof catalog)[number]) => {
     const disabled = definition.availability?.enabled === false;
     return (
-      <button
+      <Button
         type="button"
+        variant="outline"
         key={definition.id}
         disabled={disabled}
         aria-describedby={
           disabled ? `widget-availability-${definition.id}` : undefined
         }
         onClick={() => onChoose(definition.id)}
+        className="grid h-auto min-w-0 w-full grid-cols-1 justify-items-stretch gap-2 p-3 text-left whitespace-normal transition-colors hover:border-foreground/20 disabled:opacity-60"
       >
-        <WidgetThumbnail
-          name={definition.thumbnail ?? definition.id}
-          label={definition.name}
-        />
-        <strong>{definition.name}</strong>
-        <span>{definition.description}</span>
-        {disabled && (
-          <small id={`widget-availability-${definition.id}`}>
-            {definition.availability?.reason}
-          </small>
-        )}
-      </button>
+        <span className="grid aspect-video w-full place-items-center overflow-hidden rounded-xl bg-muted">
+          <WidgetThumbnail
+            name={definition.thumbnail ?? definition.id}
+            label={definition.name}
+          />
+        </span>
+        <span className="grid min-w-0 gap-0.5">
+          <strong className="truncate text-sm font-medium">
+            {definition.name}
+          </strong>
+          <span className="text-xs text-muted-foreground">
+            {definition.description}
+          </span>
+          {disabled && (
+            <small
+              id={`widget-availability-${definition.id}`}
+              className="text-xs text-muted-foreground"
+            >
+              {definition.availability?.reason}
+            </small>
+          )}
+        </span>
+      </Button>
     );
   };
 
@@ -143,78 +238,105 @@ export function WidgetProviderGallery({
   );
 
   return (
-    <div className="details-backdrop" role={page ? undefined : "presentation"}>
+    <div
+      className={
+        page
+          ? "w-full min-w-0 space-y-5"
+          : "fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4"
+      }
+      role={page ? undefined : "presentation"}
+    >
       <section
-        className="source-gallery source-gallery--catalog"
+        className={
+          page
+            ? "w-full min-w-0 space-y-5"
+            : "mx-auto w-full max-w-4xl space-y-5 rounded-xl bg-background p-5"
+        }
         role={page ? undefined : "dialog"}
         aria-modal={page ? undefined : true}
         aria-labelledby="source-gallery-title"
       >
-        <header>
-          <div>
-            <h2 id="source-gallery-title">Create Widget</h2>
-            <p>Choose an App or building block for your signage.</p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1">
+            <h2 id="source-gallery-title" className="text-xl font-semibold">
+              {t("widgets.gallery.title")}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {t("widgets.gallery.subtitle")}
+            </p>
           </div>
-          <button className="icon-button" aria-label="Close" onClick={onClose}>
-            <X size={18} />
-          </button>
-        </header>
-        <div className="widget-catalog-toolbar">
-          <label className="widget-catalog-search">
-            <span className="sr-only">Search Widget catalog</span>
-            <input
-              type="search"
-              value={search}
-              placeholder="Search Apps and Widgets"
-              onChange={(event) => setSearch(event.target.value)}
-            />
-          </label>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label={t("common:actions.close")}
+            onClick={onClose}
+          >
+            <X aria-hidden="true" />
+          </Button>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            type="search"
+            value={search}
+            placeholder={t("widgets.gallery.searchPlaceholder")}
+            aria-label={t("widgets.gallery.searchLabel")}
+            onChange={(event) => setSearch(event.target.value)}
+            className="max-w-xs"
+          />
           <div
-            className="widget-catalog-categories"
-            aria-label="Widget categories"
+            className="flex flex-wrap items-center gap-1"
+            aria-label={t("widgets.gallery.categoriesLabel")}
           >
             {["All", ...categories].map((name) => (
-              <button
+              <Button
                 type="button"
                 key={name}
-                className={category === name ? "is-active" : ""}
+                variant={category === name ? "secondary" : "ghost"}
+                size="sm"
                 aria-pressed={category === name}
                 onClick={() => setCategory(name)}
               >
-                {name}
-              </button>
+                {galleryCategoryLabel(t, name)}
+              </Button>
             ))}
           </div>
         </div>
-        <div className="source-provider-groups">
+        <div className="grid gap-6">
           {category === "All" && !needle && featured.length > 0 && (
-            <section className="source-provider-group source-provider-group--featured">
-              <header className="source-provider-group__heading">
-                <h3>Featured</h3>
-                <p>Recommended integrations for common signage needs.</p>
-              </header>
-              <div className="source-provider-grid">{featured.map(card)}</div>
+            <section className="grid gap-2">
+              <div className="space-y-0.5">
+                <h3 className="text-sm font-semibold">
+                  {t("widgets.gallery.featured")}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {t("widgets.gallery.featuredHint")}
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {featured.map(card)}
+              </div>
             </section>
           )}
           {sections.map((section) => (
-            <section className="source-provider-group" key={section.name}>
-              <header className="source-provider-group__heading">
-                <h3>{section.name}</h3>
-              </header>
+            <section className="grid gap-2" key={section.name}>
+              <h3 className="text-sm font-semibold">
+                {galleryCategoryLabel(t, section.name)}
+              </h3>
               {section.items.length > 0 ? (
-                <div className="source-provider-grid">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {section.items.map(card)}
                 </div>
               ) : (
-                <p className="source-gallery__no-results">
-                  No Widgets match this search.
+                <p className="text-sm text-muted-foreground">
+                  {t("widgets.gallery.noResults")}
                 </p>
               )}
             </section>
           ))}
           {visible.length === 0 && (
-            <p className="source-gallery__no-results">
-              No Apps or Widgets match “{search}”.
+            <p className="text-sm text-muted-foreground">
+              {t("widgets.gallery.noMatch", { search })}
             </p>
           )}
         </div>
@@ -258,19 +380,19 @@ type NativeConfig =
   | ProgressWidgetConfig
   | TimelineWidgetConfig
   | WorldClockWidgetConfig;
-const nativeDefault = (provider: NativeProvider): NativeConfig => {
+const nativeDefault = (provider: NativeProvider, t: WidgetsT): NativeConfig => {
   const colors = { foregroundColor: "#F5F7FA", backgroundColor: "#0E141B" };
   if (provider === "clock")
     return {
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-      format: "12",
+      timezone: "",
+      format: "locale",
       showSeconds: false,
       ...colors,
     };
   if (provider === "date")
     return {
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-      format: "full",
+      timezone: "",
+      format: "locale",
       ...colors,
     };
   if (provider === "qrcode")
@@ -289,7 +411,7 @@ const nativeDefault = (provider: NativeProvider): NativeConfig => {
       recurrence: "none",
       layout: "stacked",
       label: "",
-      completionText: "Event started",
+      completionText: t("widgets.defaults.eventStarted"),
       completionAction: "completed_text",
       showDays: true,
       showHours: true,
@@ -305,7 +427,7 @@ const nativeDefault = (provider: NativeProvider): NativeConfig => {
       format: "number",
       precision: 0,
       alignment: "center",
-      emptyState: "No value available",
+      emptyState: t("widgets.defaults.noValue"),
       ...colors,
     };
   if (provider === "cards")
@@ -315,7 +437,7 @@ const nativeDefault = (provider: NativeProvider): NativeConfig => {
       columns: 2,
       maximumItems: 6,
       density: "comfortable",
-      emptyState: "No items available",
+      emptyState: t("widgets.defaults.noItems"),
       ...colors,
     };
   if (provider === "weather")
@@ -333,15 +455,21 @@ const nativeDefault = (provider: NativeProvider): NativeConfig => {
     return {
       dataSourceId: "",
       titleField: "",
-      emptyState: "No information available",
+      emptyState: t("widgets.defaults.noInformation"),
       ...colors,
     };
   if (provider === "stat_grid")
     return {
       dataSourceId: "",
-      metrics: [{ label: "Value", valueField: "", format: "number" }],
+      metrics: [
+        {
+          label: t("widgets.defaults.metricLabel"),
+          valueField: "",
+          format: "number",
+        },
+      ],
       columns: 2,
-      emptyState: "No information available",
+      emptyState: t("widgets.defaults.noInformation"),
       ...colors,
     };
   if (provider === "chart")
@@ -349,10 +477,16 @@ const nativeDefault = (provider: NativeProvider): NativeConfig => {
       dataSourceId: "",
       dataset: "records",
       chartType: "line",
-      series: [{ field: "", label: "Series 1", color: "#4DB6FF" }],
+      series: [
+        {
+          field: "",
+          label: t("widgets.defaults.seriesFirst"),
+          color: "#4DB6FF",
+        },
+      ],
       showLegend: true,
       showAxes: true,
-      emptyState: "No chart data available",
+      emptyState: t("widgets.defaults.noChartData"),
       ...colors,
     };
   if (provider === "progress")
@@ -360,10 +494,10 @@ const nativeDefault = (provider: NativeProvider): NativeConfig => {
       dataSourceId: "",
       valueField: "",
       staticTarget: 100,
-      label: "Progress",
+      label: t("widgets.defaults.progressLabel"),
       showPercent: true,
-      completionText: "Complete",
-      emptyState: "No information available",
+      completionText: t("widgets.defaults.complete"),
+      emptyState: t("widgets.defaults.noInformation"),
       ...colors,
     };
   if (provider === "timeline")
@@ -373,18 +507,18 @@ const nativeDefault = (provider: NativeProvider): NativeConfig => {
       titleField: "",
       orientation: "vertical",
       maximumItems: 8,
-      emptyState: "No milestones available",
+      emptyState: t("widgets.defaults.noMilestones"),
       ...colors,
     };
   if (provider === "world_clock")
     return {
       zones: [
         {
-          label: "Local",
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+          label: t("widgets.defaults.zoneLocal"),
+          timezone: "",
         },
       ],
-      format: "12",
+      format: "locale",
       showSeconds: false,
       showDate: true,
       columns: 1,
@@ -395,7 +529,7 @@ const nativeDefault = (provider: NativeProvider): NativeConfig => {
       dataSourceId: "",
       fields: ["title", "subtitle"],
       maximumItems: provider === "menu" ? 2 : 20,
-      emptyState: "No items available",
+      emptyState: t("widgets.defaults.noItems"),
       rowSpacing: "comfortable",
       mode: provider === "menu" ? "single_record" : "records",
       ...colors,
@@ -406,12 +540,12 @@ const nativeDefault = (provider: NativeProvider): NativeConfig => {
     separator: " • ",
     speed: "normal",
     direction: "left",
-    emptyState: "No items available",
+    emptyState: t("widgets.defaults.noItems"),
     ...colors,
   };
 };
 
-function nativeWidgetGuidance(provider: NativeProvider) {
+function nativeWidgetGuidance(provider: NativeProvider, t: WidgetsT) {
   if (
     [
       "ticker",
@@ -429,11 +563,11 @@ function nativeWidgetGuidance(provider: NativeProvider) {
       "timeline",
     ].includes(provider)
   )
-    return "Connect the information to show, choose how it is presented, and check the live preview.";
-  return "Configure what appears on screen and check the live preview as you work.";
+    return t("widgets.editors.native.guidanceData");
+  return t("widgets.editors.native.guidanceSimple");
 }
 
-function nativeWidgetContentGuidance(provider: NativeProvider) {
+function nativeWidgetContentGuidance(provider: NativeProvider, t: WidgetsT) {
   if (
     [
       "ticker",
@@ -451,16 +585,16 @@ function nativeWidgetContentGuidance(provider: NativeProvider) {
       "timeline",
     ].includes(provider)
   )
-    return "Start by choosing the data this Widget should use, then map and format the fields that appear.";
+    return t("widgets.editors.native.contentGuidanceData");
   if (provider === "countdown")
-    return "Set the target time, decide what happens when it is reached, and choose which time units appear.";
+    return t("widgets.editors.native.contentGuidanceCountdown");
   if (provider === "qrcode")
-    return "Enter the destination people should open after scanning, then add an optional on-screen label.";
+    return t("widgets.editors.native.contentGuidanceQr");
   if (provider === "world_clock")
-    return "Add each location and its IANA timezone, such as America/New_York or Europe/London.";
+    return t("widgets.editors.native.contentGuidanceWorldClock");
   if (provider === "clock" || provider === "date")
-    return "Choose the timezone and format that should appear on the screen.";
-  return "Enter the content people should see and choose how it behaves on screen.";
+    return t("widgets.editors.native.contentGuidanceClock");
+  return t("widgets.editors.native.contentGuidanceText");
 }
 
 export function NativeAppEditor({
@@ -482,13 +616,14 @@ export function NativeAppEditor({
   page?: boolean;
   presetId?: WidgetPreset;
 }) {
+  const { t } = useTranslation(["content", "common"]);
   const queryClient = useQueryClient();
   const previewRef = useRef<HTMLDivElement>(null);
   const [name, setName] = useState(asset?.name ?? "");
   const [description, setDescription] = useState(asset?.description ?? "");
   const [configuration, setConfiguration] = useState<NativeConfig>(
     (asset?.widget?.configuration as NativeConfig | undefined) ??
-      nativeDefault(provider),
+      nativeDefault(provider, t),
   );
   const [previewTime, setPreviewTime] = useState(initialPreviewTime);
   const dataSources = useQuery({
@@ -625,8 +760,8 @@ export function NativeAppEditor({
         !compiledPreview.data ||
         (selectedDataSourceId && sourcePreview.isLoading)
       )
-        throw new Error("Wait for the Widget preview before saving.");
-      const previewImage = await captureWidgetPreview(previewRef.current);
+        throw new Error(t("widgets.errors.previewWait"));
+      const previewImage = await captureWidgetPreview(previewRef.current, t);
       const input = { provider, presetId, name, description, configuration };
       const saved = asset
         ? api.updateWidget(asset.id, input, csrf)
@@ -639,6 +774,10 @@ export function NativeAppEditor({
       };
     },
     onSuccess: (saved) => {
+      toast.add({
+        title: asset ? "Widget updated." : "Widget created.",
+        type: "success",
+      });
       void queryClient.invalidateQueries({ queryKey: ["assets"] });
       onSaved(saved);
     },
@@ -653,76 +792,119 @@ export function NativeAppEditor({
       ? configuration.imageAssetId
       : "";
   return (
-    <div className="details-backdrop" role={page ? undefined : "presentation"}>
+    <div
+      className={
+        page
+          ? "grid w-full min-w-0 gap-5"
+          : "fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4"
+      }
+      role={page ? undefined : "presentation"}
+    >
       <section
-        className="asset-details source-editor widget-editor"
+        className={
+          page
+            ? "grid w-full min-w-0 gap-5"
+            : "mx-auto grid w-full max-w-5xl gap-5 rounded-xl bg-background p-5"
+        }
         role={page ? undefined : "dialog"}
         aria-modal={page ? undefined : true}
         aria-labelledby="native-app-title"
       >
-        <header>
-          <div>
-            <h2 id="native-app-title">
-              {asset ? "Edit" : "Create"}{" "}
-              {provider === "qrcode"
-                ? "QR Code"
-                : provider[0]!.toUpperCase() + provider.slice(1)}{" "}
-              Widget
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1">
+            <h2 id="native-app-title" className="text-xl font-semibold">
+              {t(
+                asset
+                  ? "widgets.editors.native.editTitle"
+                  : "widgets.editors.native.createTitle",
+                {
+                  // i18n-ignore: provider IDs stay English; only "QR Code" is a display name
+                  provider:
+                    provider === "qrcode"
+                      ? t("widgets.editors.native.qrCodeName")
+                      : provider[0]!.toUpperCase() + provider.slice(1),
+                },
+              )}
             </h2>
-            <p>{nativeWidgetGuidance(provider)}</p>
+            <p className="text-sm text-muted-foreground">
+              {nativeWidgetGuidance(provider, t)}
+            </p>
           </div>
-          <button className="icon-button" aria-label="Close" onClick={onClose}>
-            <X size={18} />
-          </button>
-        </header>
-        <div className="source-editor__body">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label={t("common:actions.close")}
+            onClick={onClose}
+          >
+            <X aria-hidden="true" />
+          </Button>
+        </div>
+        <div className="grid min-w-0 gap-5">
           {presetId && (
-            <div className="notice">
-              Guided preset: <strong>{presetId.replaceAll("_", " ")}</strong>.
-              This saves as a reusable {provider.replaceAll("_", " ")} Widget;
-              playback does not depend on the preset.
-            </div>
+            <Alert>
+              <AlertDescription>
+                <Trans
+                  i18nKey="widgets.editors.native.presetNotice"
+                  ns="content"
+                  values={{
+                    preset: presetId.replaceAll("_", " "),
+                    provider: provider.replaceAll("_", " "),
+                  }}
+                  components={{ strong: <strong /> }}
+                />
+              </AlertDescription>
+            </Alert>
           )}
           <section className="widget-editor__section">
             <header>
-              <h3>Widget details</h3>
-              <p>Name this Widget so it is easy to recognize later.</p>
+              <h3>{t("widgets.editors.shared.detailsTitle")}</h3>
+              <p>{t("widgets.editors.shared.detailsHint")}</p>
             </header>
             <div className="widget-editor__section-body">
-              <label className="field">
-                <span className="field__label">Widget name</span>
-                <input
+              <Field>
+                <FieldLabel htmlFor="widget-name">
+                  {t("widgets.editors.shared.widgetName")}
+                </FieldLabel>
+                <Input
+                  id="widget-name"
                   value={name}
                   disabled={readOnly}
                   onChange={(e) => setName(e.target.value)}
                 />
-                <small>
-                  Used to find this Widget in Content and playlists.
-                </small>
-              </label>
-              <label className="field">
-                <span className="field__label">Description</span>
-                <input
+                <FieldDescription>
+                  {t("widgets.editors.native.nameHint")}
+                </FieldDescription>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="description">
+                  {t("widgets.editors.shared.description")}
+                </FieldLabel>
+                <Input
+                  id="description"
                   value={description}
                   disabled={readOnly}
                   onChange={(e) => setDescription(e.target.value)}
                 />
-                <small>
-                  Optional notes for other people managing this installation.
-                </small>
-              </label>
+                <FieldDescription>
+                  {t("widgets.editors.shared.descriptionHint")}
+                </FieldDescription>
+              </Field>
             </div>
           </section>
           <section className="widget-editor__section">
             <header>
-              <h3>Content and behavior</h3>
-              <p>{nativeWidgetContentGuidance(provider)}</p>
+              <h3>{t("widgets.editors.native.contentTitle")}</h3>
+              <p>{nativeWidgetContentGuidance(provider, t)}</p>
             </header>
             <div className="widget-editor__section-body">
               {(provider === "clock" || provider === "date") && (
-                <label className="field">
-                  <span className="field__label">Timezone</span>
-                  <input
+                <Field>
+                  <FieldLabel htmlFor="timezone">
+                    {t("widgets.editors.shared.timezone")}
+                  </FieldLabel>
+                  <Input
+                    id="timezone"
                     value={
                       (configuration as ClockWidgetConfig | DateWidgetConfig)
                         .timezone
@@ -735,86 +917,168 @@ export function NativeAppEditor({
                       }))
                     }
                   />
-                  <small>
-                    Use an IANA timezone such as America/New_York. Use UTC for
-                    universal time.
-                  </small>
-                </label>
+                  <FieldDescription>
+                    {t("widgets.editors.clock.timezoneHint")}
+                  </FieldDescription>
+                </Field>
               )}
               {provider === "clock" && (
-                <div className="form-grid form-grid--2">
-                  <label className="field">
-                    <span className="field__label">Time format</span>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field>
+                    <FieldLabel htmlFor="widget-time-format">
+                      {t("widgets.editors.shared.timeFormat")}
+                    </FieldLabel>
                     <Select
+                      items={[
+                        {
+                          value: "locale",
+                          label: t(
+                            "widgets.editors.options.organizationFormat",
+                          ),
+                        },
+                        {
+                          value: "12",
+                          label: t("widgets.editors.options.hour12"),
+                        },
+                        {
+                          value: "24",
+                          label: t("widgets.editors.options.hour24"),
+                        },
+                      ]}
                       value={(configuration as ClockWidgetConfig).format}
                       disabled={readOnly}
-                      onChange={(e) =>
+                      onValueChange={(next) =>
                         setConfiguration((current) => ({
                           ...(current as ClockWidgetConfig),
-                          format: e.target.value as "12" | "24",
+                          format: next as ClockWidgetConfig["format"],
                         }))
                       }
                     >
-                      <option value="12">12-hour</option>
-                      <option value="24">24-hour</option>
+                      <SelectTrigger
+                        id="widget-time-format"
+                        aria-label={t("widgets.editors.shared.timeFormat")}
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="locale">
+                          {t("widgets.editors.options.organizationFormat")}
+                        </SelectItem>
+                        <SelectItem value="12">
+                          {t("widgets.editors.options.hour12")}
+                        </SelectItem>
+                        <SelectItem value="24">
+                          {t("widgets.editors.options.hour24")}
+                        </SelectItem>
+                      </SelectContent>
                     </Select>
-                  </label>
-                  <label className="switch-row">
-                    <input
-                      type="checkbox"
+                  </Field>
+                  <label className="flex items-center gap-2 self-end pb-2 text-sm">
+                    <Switch
                       checked={(configuration as ClockWidgetConfig).showSeconds}
                       disabled={readOnly}
-                      onChange={(e) =>
+                      onCheckedChange={(checked) =>
                         setConfiguration((current) => ({
                           ...current,
-                          showSeconds: e.target.checked,
+                          showSeconds: checked === true,
                         }))
                       }
+                      aria-label={t("widgets.editors.clock.showSeconds")}
                     />
-                    <span>Show seconds</span>
+                    <span>{t("widgets.editors.clock.showSeconds")}</span>
                   </label>
                 </div>
               )}
               {provider === "date" && (
-                <label className="field">
-                  <span className="field__label">Date format</span>
+                <Field>
+                  <FieldLabel htmlFor="widget-date-format">
+                    {t("widgets.editors.date.dateFormat")}
+                  </FieldLabel>
                   <Select
+                    items={[
+                      {
+                        value: "locale",
+                        label: t("widgets.editors.options.organizationFormat"),
+                      },
+                      {
+                        value: "full",
+                        label: t("widgets.editors.options.dateFull"),
+                      },
+                      {
+                        value: "long",
+                        label: t("widgets.editors.options.dateLong"),
+                      },
+                      {
+                        value: "medium",
+                        label: t("widgets.editors.options.dateMedium"),
+                      },
+                      {
+                        value: "short",
+                        label: t("widgets.editors.options.dateShort"),
+                      },
+                    ]}
                     value={(configuration as DateWidgetConfig).format}
                     disabled={readOnly}
-                    onChange={(e) =>
+                    onValueChange={(next) =>
                       setConfiguration((current) => ({
                         ...(current as DateWidgetConfig),
-                        format: e.target.value as DateWidgetConfig["format"],
+                        format: next as DateWidgetConfig["format"],
                       }))
                     }
                   >
-                    <option value="full">Full</option>
-                    <option value="long">Long</option>
-                    <option value="medium">Medium</option>
-                    <option value="short">Short</option>
+                    <SelectTrigger
+                      id="widget-date-format"
+                      aria-label={t("widgets.editors.date.dateFormat")}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="locale">
+                        {t("widgets.editors.options.organizationFormat")}
+                      </SelectItem>
+                      <SelectItem value="full">
+                        {t("widgets.editors.options.dateFull")}
+                      </SelectItem>
+                      <SelectItem value="long">
+                        {t("widgets.editors.options.dateLong")}
+                      </SelectItem>
+                      <SelectItem value="medium">
+                        {t("widgets.editors.options.dateMedium")}
+                      </SelectItem>
+                      <SelectItem value="short">
+                        {t("widgets.editors.options.dateShort")}
+                      </SelectItem>
+                    </SelectContent>
                   </Select>
-                </label>
+                </Field>
               )}
               {provider === "countdown" && (
                 <>
-                  <div className="form-grid form-grid--2">
-                    <label className="field">
-                      <span className="field__label">Target date and time</span>
-                      <input
-                        type="datetime-local"
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field>
+                      <FieldLabel htmlFor="countdown-target">
+                        {t("widgets.editors.countdown.target")}
+                      </FieldLabel>
+                      <DateTimeInput
+                        id="countdown-target"
+                        aria-label={t("widgets.editors.countdown.target")}
+                        timeLabel={t("widgets.editors.countdown.targetTime")}
                         value={(configuration as CountdownWidgetConfig).target}
                         disabled={readOnly}
-                        onChange={(event) =>
+                        onChange={(value) =>
                           setConfiguration((current) => ({
                             ...current,
-                            target: event.target.value,
+                            target: value,
                           }))
                         }
                       />
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Timezone</span>
-                      <input
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="countdown-timezone">
+                        {t("widgets.editors.shared.timezone")}
+                      </FieldLabel>
+                      <Input
+                        id="countdown-timezone"
                         value={
                           (configuration as CountdownWidgetConfig).timezone
                         }
@@ -826,32 +1090,91 @@ export function NativeAppEditor({
                           }))
                         }
                       />
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Mode</span>
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="countdown-mode">
+                        {t("widgets.editors.countdown.mode")}
+                      </FieldLabel>
                       <Select
+                        items={[
+                          {
+                            value: "locale",
+                            label: t(
+                              "widgets.editors.options.organizationFormat",
+                            ),
+                          },
+                          {
+                            value: "locale",
+                            label: t(
+                              "widgets.editors.options.organizationFormat",
+                            ),
+                          },
+                          {
+                            value: "countdown",
+                            label: t("widgets.editors.countdown.modeDown"),
+                          },
+                          {
+                            value: "count_up",
+                            label: t("widgets.editors.countdown.modeUp"),
+                          },
+                        ]}
                         value={(configuration as CountdownWidgetConfig).mode}
                         disabled={readOnly}
-                        onChange={(event) =>
+                        onValueChange={(next) =>
                           setConfiguration((current) => ({
                             ...(current as CountdownWidgetConfig),
-                            mode: event.target
-                              .value as CountdownWidgetConfig["mode"],
+                            mode: next as CountdownWidgetConfig["mode"],
                             recurrence:
-                              event.target.value === "count_up"
+                              next === "count_up"
                                 ? "none"
                                 : ((current as CountdownWidgetConfig)
                                     .recurrence ?? "none"),
                           }))
                         }
                       >
-                        <option value="countdown">Count down</option>
-                        <option value="count_up">Count up</option>
+                        <SelectTrigger
+                          id="countdown-mode"
+                          aria-label={t("widgets.editors.countdown.mode")}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="countdown">
+                            {t("widgets.editors.countdown.modeDown")}
+                          </SelectItem>
+                          <SelectItem value="count_up">
+                            {t("widgets.editors.countdown.modeUp")}
+                          </SelectItem>
+                        </SelectContent>
                       </Select>
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Repeat</span>
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="countdown-repeat">
+                        {t("widgets.editors.countdown.repeat")}
+                      </FieldLabel>
                       <Select
+                        items={[
+                          {
+                            value: "none",
+                            label: t("widgets.editors.countdown.repeatNone"),
+                          },
+                          {
+                            value: "daily",
+                            label: t("widgets.editors.countdown.repeatDaily"),
+                          },
+                          {
+                            value: "weekly",
+                            label: t("widgets.editors.countdown.repeatWeekly"),
+                          },
+                          {
+                            value: "monthly",
+                            label: t("widgets.editors.countdown.repeatMonthly"),
+                          },
+                          {
+                            value: "yearly",
+                            label: t("widgets.editors.countdown.repeatYearly"),
+                          },
+                        ]}
                         value={
                           (configuration as CountdownWidgetConfig).recurrence ??
                           "none"
@@ -861,47 +1184,114 @@ export function NativeAppEditor({
                           (configuration as CountdownWidgetConfig).mode ===
                             "count_up"
                         }
-                        onChange={(event) =>
+                        onValueChange={(next) =>
                           setConfiguration((current) => ({
                             ...(current as CountdownWidgetConfig),
-                            recurrence: event.target
-                              .value as CountdownWidgetConfig["recurrence"],
+                            recurrence:
+                              next as CountdownWidgetConfig["recurrence"],
                           }))
                         }
                       >
-                        <option value="none">Does not repeat</option>
-                        <option value="daily">Daily</option>
-                        <option value="weekly">Weekly</option>
-                        <option value="monthly">Monthly</option>
-                        <option value="yearly">Yearly</option>
+                        <SelectTrigger
+                          id="countdown-repeat"
+                          aria-label={t("widgets.editors.countdown.repeat")}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">
+                            {t("widgets.editors.countdown.repeatNone")}
+                          </SelectItem>
+                          <SelectItem value="daily">
+                            {t("widgets.editors.countdown.repeatDaily")}
+                          </SelectItem>
+                          <SelectItem value="weekly">
+                            {t("widgets.editors.countdown.repeatWeekly")}
+                          </SelectItem>
+                          <SelectItem value="monthly">
+                            {t("widgets.editors.countdown.repeatMonthly")}
+                          </SelectItem>
+                          <SelectItem value="yearly">
+                            {t("widgets.editors.countdown.repeatYearly")}
+                          </SelectItem>
+                        </SelectContent>
                       </Select>
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Layout</span>
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="countdown-layout">
+                        {t("widgets.editors.countdown.layout")}
+                      </FieldLabel>
                       <Select
+                        items={[
+                          {
+                            value: "stacked",
+                            label: t("widgets.editors.countdown.layoutStacked"),
+                          },
+                          {
+                            value: "horizontal",
+                            label: t(
+                              "widgets.editors.countdown.layoutHorizontal",
+                            ),
+                          },
+                          {
+                            value: "countdown_only",
+                            label: t("widgets.editors.countdown.layoutOnly"),
+                          },
+                        ]}
                         value={
                           (configuration as CountdownWidgetConfig).layout ??
                           "stacked"
                         }
                         disabled={readOnly}
-                        onChange={(event) =>
+                        onValueChange={(next) =>
                           setConfiguration((current) => ({
                             ...(current as CountdownWidgetConfig),
-                            layout: event.target
-                              .value as CountdownWidgetConfig["layout"],
+                            layout: next as CountdownWidgetConfig["layout"],
                           }))
                         }
                       >
-                        <option value="stacked">Title above countdown</option>
-                        <option value="horizontal">
-                          Title beside countdown
-                        </option>
-                        <option value="countdown_only">Countdown only</option>
+                        <SelectTrigger
+                          id="countdown-layout"
+                          aria-label={t("widgets.editors.countdown.layout")}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="stacked">
+                            {t("widgets.editors.countdown.layoutStacked")}
+                          </SelectItem>
+                          <SelectItem value="horizontal">
+                            {t("widgets.editors.countdown.layoutHorizontal")}
+                          </SelectItem>
+                          <SelectItem value="countdown_only">
+                            {t("widgets.editors.countdown.layoutOnly")}
+                          </SelectItem>
+                        </SelectContent>
                       </Select>
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Completion behavior</span>
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="countdown-completion">
+                        {t("widgets.editors.countdown.completion")}
+                      </FieldLabel>
                       <Select
+                        items={[
+                          {
+                            value: "completed_text",
+                            label: t(
+                              "widgets.editors.countdown.completionText",
+                            ),
+                          },
+                          {
+                            value: "hide",
+                            label: t("widgets.editors.countdown.hide"),
+                          },
+                          {
+                            value: "count_up",
+                            label: t(
+                              "widgets.editors.countdown.completionCountUp",
+                            ),
+                          },
+                        ]}
                         value={
                           (configuration as CountdownWidgetConfig)
                             .completionAction
@@ -911,26 +1301,41 @@ export function NativeAppEditor({
                           ((configuration as CountdownWidgetConfig)
                             .recurrence ?? "none") !== "none"
                         }
-                        onChange={(event) =>
+                        onValueChange={(next) =>
                           setConfiguration((current) => ({
                             ...current,
-                            completionAction: event.target
-                              .value as CountdownWidgetConfig["completionAction"],
+                            completionAction:
+                              next as CountdownWidgetConfig["completionAction"],
                           }))
                         }
                       >
-                        <option value="completed_text">
-                          Show completion text
-                        </option>
-                        <option value="hide">Hide</option>
-                        <option value="count_up">Continue counting up</option>
+                        <SelectTrigger
+                          id="countdown-completion"
+                          aria-label={t("widgets.editors.countdown.completion")}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="completed_text">
+                            {t("widgets.editors.countdown.completionText")}
+                          </SelectItem>
+                          <SelectItem value="hide">
+                            {t("widgets.editors.countdown.hide")}
+                          </SelectItem>
+                          <SelectItem value="count_up">
+                            {t("widgets.editors.countdown.completionCountUp")}
+                          </SelectItem>
+                        </SelectContent>
                       </Select>
-                    </label>
+                    </Field>
                   </div>
-                  <div className="form-grid form-grid--2">
-                    <label className="field">
-                      <span className="field__label">Title</span>
-                      <input
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field>
+                      <FieldLabel htmlFor="countdown-title">
+                        {t("widgets.editors.countdown.title")}
+                      </FieldLabel>
+                      <Input
+                        id="countdown-title"
                         value={
                           (configuration as CountdownWidgetConfig).label ?? ""
                         }
@@ -946,10 +1351,13 @@ export function NativeAppEditor({
                           }))
                         }
                       />
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Completion text</span>
-                      <input
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="countdown-completion-text">
+                        {t("widgets.editors.countdown.completionLabel")}
+                      </FieldLabel>
+                      <Input
+                        id="countdown-completion-text"
                         value={
                           (configuration as CountdownWidgetConfig)
                             .completionText ?? ""
@@ -966,44 +1374,57 @@ export function NativeAppEditor({
                           }))
                         }
                       />
-                    </label>
+                    </Field>
                   </div>
-                  <fieldset>
-                    <legend>Visible units</legend>
-                    <div className="checkbox-grid">
-                      {(["Days", "Hours", "Minutes", "Seconds"] as const).map(
-                        (unit) => {
-                          const key =
-                            `show${unit}` as keyof CountdownWidgetConfig;
-                          return (
-                            <label key={unit}>
-                              <input
-                                type="checkbox"
-                                checked={Boolean(
-                                  (configuration as CountdownWidgetConfig)[key],
-                                )}
-                                disabled={readOnly}
-                                onChange={(event) =>
-                                  setConfiguration((current) => ({
-                                    ...current,
-                                    [key]: event.target.checked,
-                                  }))
-                                }
-                              />
-                              <span>{unit}</span>
-                            </label>
-                          );
-                        },
-                      )}
+                  <fieldset className="grid gap-2">
+                    <legend className="text-sm font-medium">
+                      {t("widgets.editors.countdown.units")}
+                    </legend>
+                    <div className="flex flex-wrap gap-x-4 gap-y-2">
+                      {(
+                        [
+                          ["Days", "widgets.editors.countdown.unitsDays"],
+                          ["Hours", "widgets.editors.countdown.unitsHours"],
+                          ["Minutes", "widgets.editors.countdown.unitsMinutes"],
+                          ["Seconds", "widgets.editors.countdown.unitsSeconds"],
+                        ] as const
+                      ).map(([unit, labelKey]) => {
+                        const key =
+                          `show${unit}` as keyof CountdownWidgetConfig;
+                        return (
+                          <label
+                            key={unit}
+                            className="flex items-center gap-2 text-sm"
+                          >
+                            <Checkbox
+                              checked={Boolean(
+                                (configuration as CountdownWidgetConfig)[key],
+                              )}
+                              disabled={readOnly}
+                              onCheckedChange={(checked) =>
+                                setConfiguration((current) => ({
+                                  ...current,
+                                  [key]: checked === true,
+                                }))
+                              }
+                              aria-label={t(labelKey)}
+                            />
+                            <span>{t(labelKey)}</span>
+                          </label>
+                        );
+                      })}
                     </div>
                   </fieldset>
                 </>
               )}
               {provider === "qrcode" && (
                 <>
-                  <label className="field">
-                    <span className="field__label">Text or URL</span>
-                    <textarea
+                  <Field>
+                    <FieldLabel htmlFor="qrcode-value">
+                      {t("widgets.editors.qrcode.valueLabel")}
+                    </FieldLabel>
+                    <Textarea
+                      id="qrcode-value"
                       value={(configuration as QRCodeWidgetConfig).value}
                       maxLength={2048}
                       disabled={readOnly}
@@ -1014,11 +1435,14 @@ export function NativeAppEditor({
                         }))
                       }
                     />
-                  </label>
-                  <div className="form-grid form-grid--2">
-                    <label className="field">
-                      <span className="field__label">Label</span>
-                      <input
+                  </Field>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field>
+                      <FieldLabel htmlFor="qrcode-label">
+                        {t("widgets.editors.shared.label")}
+                      </FieldLabel>
+                      <Input
+                        id="qrcode-label"
                         value={
                           (configuration as QRCodeWidgetConfig).label ?? ""
                         }
@@ -1030,75 +1454,165 @@ export function NativeAppEditor({
                           }))
                         }
                       />
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Error correction</span>
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="qrcode-error-correction">
+                        {t("widgets.editors.qrcode.errorCorrection")}
+                      </FieldLabel>
                       <Select
+                        items={[
+                          {
+                            value: "low",
+                            label: t("widgets.editors.qrcode.levelLow"),
+                          },
+                          {
+                            value: "medium",
+                            label: t("widgets.editors.qrcode.levelMedium"),
+                          },
+                          {
+                            value: "quartile",
+                            label: t("widgets.editors.qrcode.levelQuartile"),
+                          },
+                          {
+                            value: "high",
+                            label: t("widgets.editors.qrcode.levelHigh"),
+                          },
+                        ]}
                         value={
                           (configuration as QRCodeWidgetConfig).errorCorrection
                         }
                         disabled={readOnly}
-                        onChange={(e) =>
+                        onValueChange={(next) =>
                           setConfiguration((current) => ({
                             ...current,
-                            errorCorrection: e.target
-                              .value as QRCodeWidgetConfig["errorCorrection"],
+                            errorCorrection:
+                              next as QRCodeWidgetConfig["errorCorrection"],
                           }))
                         }
                       >
-                        <option value="low">Low</option>
-                        <option value="medium">Medium</option>
-                        <option value="quartile">Quartile</option>
-                        <option value="high">High</option>
+                        <SelectTrigger
+                          id="qrcode-error-correction"
+                          aria-label={t(
+                            "widgets.editors.qrcode.errorCorrection",
+                          )}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="low">
+                            {t("widgets.editors.qrcode.levelLow")}
+                          </SelectItem>
+                          <SelectItem value="medium">
+                            {t("widgets.editors.qrcode.levelMedium")}
+                          </SelectItem>
+                          <SelectItem value="quartile">
+                            {t("widgets.editors.qrcode.levelQuartile")}
+                          </SelectItem>
+                          <SelectItem value="high">
+                            {t("widgets.editors.qrcode.levelHigh")}
+                          </SelectItem>
+                        </SelectContent>
                       </Select>
-                      <small>
-                        Higher correction is easier to scan if the code is
-                        damaged, but makes the pattern denser.
-                      </small>
-                    </label>
+                      <FieldDescription>
+                        {t("widgets.editors.qrcode.levelHint")}
+                      </FieldDescription>
+                    </Field>
                   </div>
-                  <div className="form-grid form-grid--2">
-                    <label className="field">
-                      <span className="field__label">Speed</span>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field>
+                      <FieldLabel htmlFor="qrcode-speed">
+                        {t("widgets.editors.qrcode.speed")}
+                      </FieldLabel>
                       <Select
+                        items={[
+                          {
+                            value: "slow",
+                            label: t("widgets.editors.options.speedSlow"),
+                          },
+                          {
+                            value: "normal",
+                            label: t("widgets.editors.options.speedNormal"),
+                          },
+                          {
+                            value: "fast",
+                            label: t("widgets.editors.options.speedFast"),
+                          },
+                        ]}
                         value={(configuration as TickerWidgetConfig).speed}
                         disabled={readOnly}
-                        onChange={(event) =>
+                        onValueChange={(next) =>
                           setConfiguration((current) => ({
                             ...current,
-                            speed: event.target
-                              .value as TickerWidgetConfig["speed"],
+                            speed: next as TickerWidgetConfig["speed"],
                           }))
                         }
                       >
-                        <option value="slow">Slow</option>
-                        <option value="normal">Normal</option>
-                        <option value="fast">Fast</option>
+                        <SelectTrigger
+                          id="qrcode-speed"
+                          aria-label={t("widgets.editors.qrcode.speed")}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="slow">
+                            {t("widgets.editors.options.speedSlow")}
+                          </SelectItem>
+                          <SelectItem value="normal">
+                            {t("widgets.editors.options.speedNormal")}
+                          </SelectItem>
+                          <SelectItem value="fast">
+                            {t("widgets.editors.options.speedFast")}
+                          </SelectItem>
+                        </SelectContent>
                       </Select>
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Direction</span>
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="qrcode-direction">
+                        {t("widgets.editors.qrcode.direction")}
+                      </FieldLabel>
                       <Select
+                        items={[
+                          {
+                            value: "left",
+                            label: t("widgets.editors.options.alignLeft"),
+                          },
+                          {
+                            value: "right",
+                            label: t("widgets.editors.options.alignRight"),
+                          },
+                        ]}
                         value={(configuration as TickerWidgetConfig).direction}
                         disabled={readOnly}
-                        onChange={(event) =>
+                        onValueChange={(next) =>
                           setConfiguration((current) => ({
                             ...current,
-                            direction: event.target
-                              .value as TickerWidgetConfig["direction"],
+                            direction: next as TickerWidgetConfig["direction"],
                           }))
                         }
                       >
-                        <option value="left">Left</option>
-                        <option value="right">Right</option>
+                        <SelectTrigger
+                          id="qrcode-direction"
+                          aria-label={t("widgets.editors.qrcode.direction")}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="left">
+                            {t("widgets.editors.options.alignLeft")}
+                          </SelectItem>
+                          <SelectItem value="right">
+                            {t("widgets.editors.options.alignRight")}
+                          </SelectItem>
+                        </SelectContent>
                       </Select>
-                    </label>
+                    </Field>
                   </div>
                   {(configuration as QRCodeWidgetConfig).value.length > 500 && (
-                    <div className="notice notice--warning">
-                      Dense QR Code. Test scanning at the intended display
-                      distance.
-                    </div>
+                    <Alert>
+                      <AlertDescription>
+                        {t("widgets.editors.qrcode.denseAlert")}
+                      </AlertDescription>
+                    </Alert>
                   )}
                 </>
               )}
@@ -1117,19 +1631,23 @@ export function NativeAppEditor({
                       }))
                     }
                   />
-                  <div className="form-grid form-grid--2">
-                    <fieldset>
-                      <legend>Fields (up to three)</legend>
-                      <div className="checkbox-grid">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <fieldset className="grid gap-2">
+                      <legend className="text-sm font-medium">
+                        {t("widgets.editors.ticker.fields")}
+                      </legend>
+                      <div className="flex flex-wrap gap-x-4 gap-y-2">
                         {availableFields.map((field) => {
                           const config = configuration as TickerWidgetConfig;
                           const selected = (
                             config.fields ?? [config.field]
                           ).includes(field.key);
                           return (
-                            <label key={field.key}>
-                              <input
-                                type="checkbox"
+                            <label
+                              key={field.key}
+                              className="flex items-center gap-2 text-sm"
+                            >
+                              <Checkbox
                                 checked={selected}
                                 disabled={
                                   readOnly ||
@@ -1138,18 +1656,19 @@ export function NativeAppEditor({
                                       Boolean,
                                     ).length >= 3)
                                 }
-                                onChange={(event) =>
+                                onCheckedChange={(checked) =>
                                   setConfiguration((current) => {
                                     const ticker =
                                       current as TickerWidgetConfig;
                                     const fields = (
                                       ticker.fields ?? [ticker.field]
                                     ).filter(Boolean);
-                                    const next = event.target.checked
-                                      ? [...fields, field.key]
-                                      : fields.filter(
-                                          (item) => item !== field.key,
-                                        );
+                                    const next =
+                                      checked === true
+                                        ? [...fields, field.key]
+                                        : fields.filter(
+                                            (item) => item !== field.key,
+                                          );
                                     return {
                                       ...ticker,
                                       fields: next,
@@ -1157,6 +1676,7 @@ export function NativeAppEditor({
                                     };
                                   })
                                 }
+                                aria-label={field.label}
                               />
                               <span>{field.label}</span>
                             </label>
@@ -1164,9 +1684,12 @@ export function NativeAppEditor({
                         })}
                       </div>
                     </fieldset>
-                    <label className="field">
-                      <span className="field__label">Separator</span>
-                      <input
+                    <Field>
+                      <FieldLabel htmlFor="ticker-separator">
+                        {t("widgets.editors.ticker.separator")}
+                      </FieldLabel>
+                      <Input
+                        id="ticker-separator"
                         value={(configuration as TickerWidgetConfig).separator}
                         disabled={readOnly}
                         onChange={(e) =>
@@ -1176,10 +1699,13 @@ export function NativeAppEditor({
                           }))
                         }
                       />
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Field separator</span>
-                      <input
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="ticker-field-separator">
+                        {t("widgets.editors.ticker.fieldSeparator")}
+                      </FieldLabel>
+                      <Input
+                        id="ticker-field-separator"
                         value={
                           (configuration as TickerWidgetConfig)
                             .fieldSeparator ?? " — "
@@ -1192,7 +1718,7 @@ export function NativeAppEditor({
                           }))
                         }
                       />
-                    </label>
+                    </Field>
                   </div>
                 </>
               )}
@@ -1211,39 +1737,47 @@ export function NativeAppEditor({
                       }))
                     }
                   />
-                  <fieldset>
-                    <legend>Displayed fields</legend>
+                  <fieldset className="grid gap-2">
+                    <legend className="text-sm font-medium">
+                      {t("widgets.editors.display.displayedFields")}
+                    </legend>
                     {!availableFields.length ? (
-                      <small>Select a Data Source to choose its fields.</small>
+                      <p className="text-sm text-muted-foreground">
+                        {t("widgets.editors.display.noSource")}
+                      </p>
                     ) : (
-                      <div className="checkbox-grid">
+                      <div className="flex flex-wrap gap-x-4 gap-y-2">
                         {availableFields.map((field) => {
                           const selected = (
                             configuration as DisplayWidgetConfig
                           ).fields.includes(field.key);
                           return (
-                            <label key={field.key}>
-                              <input
-                                type="checkbox"
+                            <label
+                              key={field.key}
+                              className="flex items-center gap-2 text-sm"
+                            >
+                              <Checkbox
                                 checked={selected}
                                 disabled={readOnly}
-                                onChange={(event) =>
+                                onCheckedChange={(checked) =>
                                   setConfiguration((current) => {
                                     const config =
                                       current as DisplayWidgetConfig;
-                                    const fields = event.target.checked
-                                      ? [
-                                          ...config.fields.filter(
+                                    const fields =
+                                      checked === true
+                                        ? [
+                                            ...config.fields.filter(
+                                              (item) => item !== field.key,
+                                            ),
+                                            field.key,
+                                          ]
+                                        : config.fields.filter(
                                             (item) => item !== field.key,
-                                          ),
-                                          field.key,
-                                        ]
-                                      : config.fields.filter(
-                                          (item) => item !== field.key,
-                                        );
+                                          );
                                     return { ...config, fields };
                                   })
                                 }
+                                aria-label={field.label}
                               />
                               <span>{field.label}</span>
                             </label>
@@ -1253,18 +1787,24 @@ export function NativeAppEditor({
                     )}
                   </fieldset>
                   {provider === "list" && (
-                    <div className="form-grid form-grid--2">
+                    <div className="grid gap-3 sm:grid-cols-2">
                       {(
                         [
-                          ["primaryField", "Primary field"],
-                          ["secondaryField", "Secondary field"],
-                          ["leadingField", "Leading field"],
-                          ["trailingField", "Trailing field"],
+                          ["primaryField", "widgets.editors.list.primaryField"],
+                          [
+                            "secondaryField",
+                            "widgets.editors.shared.secondaryField",
+                          ],
+                          ["leadingField", "widgets.editors.list.leadingField"],
+                          [
+                            "trailingField",
+                            "widgets.editors.list.trailingField",
+                          ],
                         ] as const
-                      ).map(([key, label]) => (
+                      ).map(([key, labelKey]) => (
                         <FieldSelect
                           key={key}
-                          label={label}
+                          label={t(labelKey)}
                           value={
                             (configuration as DisplayWidgetConfig)[key] ?? ""
                           }
@@ -1279,54 +1819,75 @@ export function NativeAppEditor({
                           }
                         />
                       ))}
-                      <label className="switch-row">
-                        <input
-                          type="checkbox"
+                      <label className="flex items-center gap-2 text-sm">
+                        <Switch
                           checked={
                             (configuration as DisplayWidgetConfig)
                               .showDividers ?? false
                           }
                           disabled={readOnly}
-                          onChange={(event) =>
+                          onCheckedChange={(checked) =>
                             setConfiguration((current) => ({
                               ...current,
-                              showDividers: event.target.checked,
+                              showDividers: checked === true,
                             }))
                           }
+                          aria-label={t("widgets.editors.list.showDividers")}
                         />
-                        <span>Show row dividers</span>
+                        <span>{t("widgets.editors.list.showDividers")}</span>
                       </label>
                     </div>
                   )}
                   {provider === "menu" && (
-                    <div className="form-grid form-grid--2">
-                      <label className="field">
-                        <span className="field__label">Presentation</span>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field>
+                        <FieldLabel htmlFor="menu-presentation">
+                          {t("widgets.editors.menu.presentation")}
+                        </FieldLabel>
                         <Select
+                          items={[
+                            {
+                              value: "single_record",
+                              label: t("widgets.editors.menu.modeSingle"),
+                            },
+                            {
+                              value: "records",
+                              label: t("widgets.editors.menu.modeRows"),
+                            },
+                          ]}
                           value={
                             (configuration as DisplayWidgetConfig).mode ??
                             "single_record"
                           }
                           disabled={readOnly}
-                          onChange={(event) =>
+                          onValueChange={(next) =>
                             setConfiguration((current) => ({
                               ...(current as DisplayWidgetConfig),
-                              mode: event.target
-                                .value as DisplayWidgetConfig["mode"],
+                              mode: next as DisplayWidgetConfig["mode"],
                             }))
                           }
                         >
-                          <option value="single_record">
-                            Fields from one record
-                          </option>
-                          <option value="records">Label and value rows</option>
+                          <SelectTrigger
+                            id="menu-presentation"
+                            aria-label={t("widgets.editors.menu.presentation")}
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="single_record">
+                              {t("widgets.editors.menu.modeSingle")}
+                            </SelectItem>
+                            <SelectItem value="records">
+                              {t("widgets.editors.menu.modeRows")}
+                            </SelectItem>
+                          </SelectContent>
                         </Select>
-                      </label>
+                      </Field>
                       {(configuration as DisplayWidgetConfig).mode ===
                         "records" && (
                         <>
                           <FieldSelect
-                            label="Label field"
+                            label={t("widgets.editors.shared.labelField")}
                             value={
                               (configuration as DisplayWidgetConfig)
                                 .labelField ?? ""
@@ -1341,7 +1902,7 @@ export function NativeAppEditor({
                             }
                           />
                           <FieldSelect
-                            label="Value field"
+                            label={t("widgets.editors.shared.valueField")}
                             value={
                               (configuration as DisplayWidgetConfig)
                                 .valueField ?? ""
@@ -1361,44 +1922,46 @@ export function NativeAppEditor({
                   )}
                   {provider === "table" && (
                     <>
-                      <div className="checkbox-grid">
-                        <label>
-                          <input
-                            type="checkbox"
+                      <div className="flex flex-wrap gap-x-4 gap-y-2">
+                        <label className="flex items-center gap-2 text-sm">
+                          <Checkbox
                             checked={
                               (configuration as DisplayWidgetConfig)
                                 .showHeader ?? false
                             }
                             disabled={readOnly}
-                            onChange={(event) =>
+                            onCheckedChange={(checked) =>
                               setConfiguration((current) => ({
                                 ...current,
-                                showHeader: event.target.checked,
+                                showHeader: checked === true,
                               }))
                             }
+                            aria-label={t("widgets.editors.table.showHeader")}
                           />
-                          <span>Show column headers</span>
+                          <span>{t("widgets.editors.table.showHeader")}</span>
                         </label>
-                        <label>
-                          <input
-                            type="checkbox"
+                        <label className="flex items-center gap-2 text-sm">
+                          <Checkbox
                             checked={
                               (configuration as DisplayWidgetConfig)
                                 .alternatingRows ?? false
                             }
                             disabled={readOnly}
-                            onChange={(event) =>
+                            onCheckedChange={(checked) =>
                               setConfiguration((current) => ({
                                 ...current,
-                                alternatingRows: event.target.checked,
+                                alternatingRows: checked === true,
                               }))
                             }
+                            aria-label={t("widgets.editors.table.alternating")}
                           />
-                          <span>Alternate row backgrounds</span>
+                          <span>{t("widgets.editors.table.alternating")}</span>
                         </label>
                       </div>
-                      <fieldset>
-                        <legend>Column presentation</legend>
+                      <fieldset className="grid gap-2">
+                        <legend className="text-sm font-medium">
+                          {t("widgets.editors.table.columnPresentation")}
+                        </legend>
                         {(configuration as DisplayWidgetConfig).fields.map(
                           (fieldKey) => {
                             const config = configuration as DisplayWidgetConfig;
@@ -1431,12 +1994,17 @@ export function NativeAppEditor({
                               });
                             return (
                               <div
-                                className="form-grid form-grid--4"
+                                className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
                                 key={fieldKey}
                               >
-                                <label className="field">
-                                  <span className="field__label">Label</span>
-                                  <input
+                                <Field>
+                                  <FieldLabel
+                                    htmlFor={`column-label-${fieldKey}`}
+                                  >
+                                    {t("widgets.editors.shared.label")}
+                                  </FieldLabel>
+                                  <Input
+                                    id={`column-label-${fieldKey}`}
                                     value={existing.label ?? ""}
                                     disabled={readOnly}
                                     onChange={(event) =>
@@ -1445,52 +2013,184 @@ export function NativeAppEditor({
                                       })
                                     }
                                   />
-                                </label>
-                                <label className="field">
-                                  <span className="field__label">Format</span>
+                                </Field>
+                                <Field>
+                                  <FieldLabel
+                                    htmlFor={`column-format-${fieldKey}`}
+                                  >
+                                    {t("widgets.editors.shared.format")}
+                                  </FieldLabel>
                                   <Select
+                                    items={[
+                                      {
+                                        value: "text",
+                                        label: t(
+                                          "widgets.editors.options.formatText",
+                                        ),
+                                      },
+                                      {
+                                        value: "number",
+                                        label: t(
+                                          "widgets.editors.options.formatNumber",
+                                        ),
+                                      },
+                                      {
+                                        value: "integer",
+                                        label: t(
+                                          "widgets.editors.options.formatInteger",
+                                        ),
+                                      },
+                                      {
+                                        value: "percent",
+                                        label: t(
+                                          "widgets.editors.options.formatPercent",
+                                        ),
+                                      },
+                                      {
+                                        value: "currency",
+                                        label: t(
+                                          "widgets.editors.options.formatCurrency",
+                                        ),
+                                      },
+                                      {
+                                        value: "date-short",
+                                        label: t(
+                                          "widgets.editors.options.formatDateShort",
+                                        ),
+                                      },
+                                      {
+                                        value: "date-long",
+                                        label: t(
+                                          "widgets.editors.options.formatDateLong",
+                                        ),
+                                      },
+                                    ]}
                                     value={existing.format ?? "text"}
                                     disabled={readOnly}
-                                    onChange={(event) =>
+                                    onValueChange={(next) =>
                                       updateColumn({
-                                        format: event.target
-                                          .value as FieldFormat["format"],
+                                        format: next as FieldFormat["format"],
                                       })
                                     }
                                   >
-                                    <option value="text">Text</option>
-                                    <option value="number">Number</option>
-                                    <option value="integer">Integer</option>
-                                    <option value="percent">Percent</option>
-                                    <option value="currency">Currency</option>
-                                    <option value="date-short">
-                                      Short date
-                                    </option>
-                                    <option value="date-long">Long date</option>
+                                    <SelectTrigger
+                                      id={`column-format-${fieldKey}`}
+                                      aria-label={t(
+                                        "widgets.editors.table.formatFor",
+                                        { field: fieldKey },
+                                      )}
+                                    >
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="text">
+                                        {t(
+                                          "widgets.editors.options.formatText",
+                                        )}
+                                      </SelectItem>
+                                      <SelectItem value="number">
+                                        {t(
+                                          "widgets.editors.options.formatNumber",
+                                        )}
+                                      </SelectItem>
+                                      <SelectItem value="integer">
+                                        {t(
+                                          "widgets.editors.options.formatInteger",
+                                        )}
+                                      </SelectItem>
+                                      <SelectItem value="percent">
+                                        {t(
+                                          "widgets.editors.options.formatPercent",
+                                        )}
+                                      </SelectItem>
+                                      <SelectItem value="currency">
+                                        {t(
+                                          "widgets.editors.options.formatCurrency",
+                                        )}
+                                      </SelectItem>
+                                      <SelectItem value="date-short">
+                                        {t(
+                                          "widgets.editors.options.formatDateShort",
+                                        )}
+                                      </SelectItem>
+                                      <SelectItem value="date-long">
+                                        {t(
+                                          "widgets.editors.options.formatDateLong",
+                                        )}
+                                      </SelectItem>
+                                    </SelectContent>
                                   </Select>
-                                </label>
-                                <label className="field">
-                                  <span className="field__label">
-                                    Alignment
-                                  </span>
+                                </Field>
+                                <Field>
+                                  <FieldLabel
+                                    htmlFor={`column-alignment-${fieldKey}`}
+                                  >
+                                    {t("widgets.editors.shared.alignment")}
+                                  </FieldLabel>
                                   <Select
+                                    items={[
+                                      {
+                                        value: "left",
+                                        label: t(
+                                          "widgets.editors.options.alignLeft",
+                                        ),
+                                      },
+                                      {
+                                        value: "center",
+                                        label: t(
+                                          "widgets.editors.options.alignCenter",
+                                        ),
+                                      },
+                                      {
+                                        value: "right",
+                                        label: t(
+                                          "widgets.editors.options.alignRight",
+                                        ),
+                                      },
+                                    ]}
                                     value={existing.alignment ?? "left"}
                                     disabled={readOnly}
-                                    onChange={(event) =>
+                                    onValueChange={(next) =>
                                       updateColumn({
-                                        alignment: event.target
-                                          .value as FieldFormat["alignment"],
+                                        alignment:
+                                          next as FieldFormat["alignment"],
                                       })
                                     }
                                   >
-                                    <option value="left">Left</option>
-                                    <option value="center">Center</option>
-                                    <option value="right">Right</option>
+                                    <SelectTrigger
+                                      id={`column-alignment-${fieldKey}`}
+                                      aria-label={t(
+                                        "widgets.editors.table.alignmentFor",
+                                        { field: fieldKey },
+                                      )}
+                                    >
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="left">
+                                        {t("widgets.editors.options.alignLeft")}
+                                      </SelectItem>
+                                      <SelectItem value="center">
+                                        {t(
+                                          "widgets.editors.options.alignCenter",
+                                        )}
+                                      </SelectItem>
+                                      <SelectItem value="right">
+                                        {t(
+                                          "widgets.editors.options.alignRight",
+                                        )}
+                                      </SelectItem>
+                                    </SelectContent>
                                   </Select>
-                                </label>
-                                <label className="field">
-                                  <span className="field__label">Width %</span>
-                                  <input
+                                </Field>
+                                <Field>
+                                  <FieldLabel
+                                    htmlFor={`column-width-${fieldKey}`}
+                                  >
+                                    {t("widgets.editors.table.columnWidth")}
+                                  </FieldLabel>
+                                  <Input
+                                    id={`column-width-${fieldKey}`}
                                     type="number"
                                     min={0}
                                     max={100}
@@ -1502,7 +2202,7 @@ export function NativeAppEditor({
                                       })
                                     }
                                   />
-                                </label>
+                                </Field>
                               </div>
                             );
                           },
@@ -1511,19 +2211,25 @@ export function NativeAppEditor({
                     </>
                   )}
                   {provider === "agenda" && (
-                    <div className="form-grid form-grid--2">
+                    <div className="grid gap-3 sm:grid-cols-2">
                       {(
                         [
-                          ["dateField", "Date field"],
-                          ["timeField", "Time field"],
-                          ["titleField", "Title field"],
-                          ["locationField", "Location field"],
-                          ["descriptionField", "Description field"],
+                          ["dateField", "widgets.editors.shared.dateField"],
+                          ["timeField", "widgets.editors.agenda.timeField"],
+                          ["titleField", "widgets.editors.shared.titleField"],
+                          [
+                            "locationField",
+                            "widgets.editors.agenda.locationField",
+                          ],
+                          [
+                            "descriptionField",
+                            "widgets.editors.agenda.descriptionField",
+                          ],
                         ] as const
-                      ).map(([key, label]) => (
+                      ).map(([key, labelKey]) => (
                         <FieldSelect
                           key={key}
-                          label={label}
+                          label={t(labelKey)}
                           value={
                             (configuration as DisplayWidgetConfig)[key] ?? ""
                           }
@@ -1540,9 +2246,12 @@ export function NativeAppEditor({
                       ))}
                     </div>
                   )}
-                  <label className="field">
-                    <span className="field__label">Maximum items</span>
-                    <input
+                  <Field>
+                    <FieldLabel htmlFor="display-maximum-items">
+                      {t("widgets.editors.shared.maximumItems")}
+                    </FieldLabel>
+                    <Input
+                      id="display-maximum-items"
                       type="number"
                       min={1}
                       max={100}
@@ -1557,15 +2266,16 @@ export function NativeAppEditor({
                         }))
                       }
                     />
-                    <small>
-                      Limits how many rows or events can appear at once.
-                    </small>
-                  </label>
-                  <label className="field">
-                    <span className="field__label">
-                      Message when there is no data
-                    </span>
-                    <input
+                    <FieldDescription>
+                      {t("widgets.editors.display.maximumHint")}
+                    </FieldDescription>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="display-empty-state">
+                      {t("widgets.editors.display.emptyLabel")}
+                    </FieldLabel>
+                    <Input
+                      id="display-empty-state"
                       value={
                         (configuration as DisplayWidgetConfig).emptyState ?? ""
                       }
@@ -1577,10 +2287,10 @@ export function NativeAppEditor({
                         }))
                       }
                     />
-                    <small>
-                      Shown on screen when the source returns no usable records.
-                    </small>
-                  </label>
+                    <FieldDescription>
+                      {t("widgets.editors.display.emptyHint")}
+                    </FieldDescription>
+                  </Field>
                 </>
               )}
               {provider === "metric" && (
@@ -1598,9 +2308,9 @@ export function NativeAppEditor({
                       }))
                     }
                   />
-                  <div className="form-grid form-grid--2">
+                  <div className="grid gap-3 sm:grid-cols-2">
                     <FieldSelect
-                      label="Value field"
+                      label={t("widgets.editors.shared.valueField")}
                       value={(configuration as MetricWidgetConfig).valueField}
                       fields={availableFields.filter((field) =>
                         ["number", "integer", "percent", "currency"].includes(
@@ -1615,9 +2325,12 @@ export function NativeAppEditor({
                         }))
                       }
                     />
-                    <label className="field">
-                      <span className="field__label">Static label</span>
-                      <input
+                    <Field>
+                      <FieldLabel htmlFor="static-label">
+                        {t("widgets.editors.metric.staticLabel")}
+                      </FieldLabel>
+                      <Input
+                        id="static-label"
                         value={
                           (configuration as MetricWidgetConfig).label ?? ""
                         }
@@ -1629,9 +2342,9 @@ export function NativeAppEditor({
                           }))
                         }
                       />
-                    </label>
+                    </Field>
                     <FieldSelect
-                      label="Label field"
+                      label={t("widgets.editors.shared.labelField")}
                       value={
                         (configuration as MetricWidgetConfig).labelField ?? ""
                       }
@@ -1646,7 +2359,7 @@ export function NativeAppEditor({
                       }
                     />
                     <FieldSelect
-                      label="Secondary field"
+                      label={t("widgets.editors.shared.secondaryField")}
                       value={
                         (configuration as MetricWidgetConfig).secondaryField ??
                         ""
@@ -1661,28 +2374,66 @@ export function NativeAppEditor({
                         }))
                       }
                     />
-                    <label className="field">
-                      <span className="field__label">Format</span>
+                    <Field>
+                      <FieldLabel htmlFor="metric-format">
+                        {t("widgets.editors.shared.format")}
+                      </FieldLabel>
                       <Select
+                        items={[
+                          {
+                            value: "number",
+                            label: t("widgets.editors.options.formatNumber"),
+                          },
+                          {
+                            value: "integer",
+                            label: t("widgets.editors.options.formatInteger"),
+                          },
+                          {
+                            value: "percent",
+                            label: t("widgets.editors.options.formatPercent"),
+                          },
+                          {
+                            value: "currency",
+                            label: t("widgets.editors.options.formatCurrency"),
+                          },
+                        ]}
                         value={(configuration as MetricWidgetConfig).format}
                         disabled={readOnly}
-                        onChange={(event) =>
+                        onValueChange={(next) =>
                           setConfiguration((current) => ({
                             ...(current as MetricWidgetConfig),
-                            format: event.target
-                              .value as MetricWidgetConfig["format"],
+                            format: next as MetricWidgetConfig["format"],
                           }))
                         }
                       >
-                        <option value="number">Number</option>
-                        <option value="integer">Integer</option>
-                        <option value="percent">Percent</option>
-                        <option value="currency">Currency</option>
+                        <SelectTrigger
+                          id="metric-format"
+                          aria-label={t("widgets.editors.shared.format")}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="number">
+                            {t("widgets.editors.options.formatNumber")}
+                          </SelectItem>
+                          <SelectItem value="integer">
+                            {t("widgets.editors.options.formatInteger")}
+                          </SelectItem>
+                          <SelectItem value="percent">
+                            {t("widgets.editors.options.formatPercent")}
+                          </SelectItem>
+                          <SelectItem value="currency">
+                            {t("widgets.editors.options.formatCurrency")}
+                          </SelectItem>
+                        </SelectContent>
                       </Select>
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Decimal places</span>
-                      <input
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="metric-precision">
+                        {t("widgets.editors.metric.precision")}
+                      </FieldLabel>
+                      <Input
+                        id="metric-precision"
                         type="number"
                         min={0}
                         max={6}
@@ -1695,10 +2446,13 @@ export function NativeAppEditor({
                           }))
                         }
                       />
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Prefix</span>
-                      <input
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="prefix">
+                        {t("widgets.editors.metric.prefix")}
+                      </FieldLabel>
+                      <Input
+                        id="prefix"
                         value={
                           (configuration as MetricWidgetConfig).prefix ?? ""
                         }
@@ -1710,10 +2464,13 @@ export function NativeAppEditor({
                           }))
                         }
                       />
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Suffix</span>
-                      <input
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="suffix">
+                        {t("widgets.editors.metric.suffix")}
+                      </FieldLabel>
+                      <Input
+                        id="suffix"
                         value={
                           (configuration as MetricWidgetConfig).suffix ?? ""
                         }
@@ -1725,29 +2482,61 @@ export function NativeAppEditor({
                           }))
                         }
                       />
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Alignment</span>
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="metric-alignment">
+                        {t("widgets.editors.shared.alignment")}
+                      </FieldLabel>
                       <Select
+                        items={[
+                          {
+                            value: "left",
+                            label: t("widgets.editors.options.alignLeft"),
+                          },
+                          {
+                            value: "center",
+                            label: t("widgets.editors.options.alignCenter"),
+                          },
+                          {
+                            value: "right",
+                            label: t("widgets.editors.options.alignRight"),
+                          },
+                        ]}
                         value={(configuration as MetricWidgetConfig).alignment}
                         disabled={readOnly}
-                        onChange={(event) =>
+                        onValueChange={(next) =>
                           setConfiguration((current) => ({
                             ...current,
-                            alignment: event.target
-                              .value as MetricWidgetConfig["alignment"],
+                            alignment: next as MetricWidgetConfig["alignment"],
                           }))
                         }
                       >
-                        <option value="left">Left</option>
-                        <option value="center">Center</option>
-                        <option value="right">Right</option>
+                        <SelectTrigger
+                          id="metric-alignment"
+                          aria-label={t("widgets.editors.shared.alignment")}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="left">
+                            {t("widgets.editors.options.alignLeft")}
+                          </SelectItem>
+                          <SelectItem value="center">
+                            {t("widgets.editors.options.alignCenter")}
+                          </SelectItem>
+                          <SelectItem value="right">
+                            {t("widgets.editors.options.alignRight")}
+                          </SelectItem>
+                        </SelectContent>
                       </Select>
-                    </label>
+                    </Field>
                   </div>
-                  <label className="field">
-                    <span className="field__label">Empty state</span>
-                    <input
+                  <Field>
+                    <FieldLabel htmlFor="metric-empty-state">
+                      {t("widgets.editors.metric.emptyState")}
+                    </FieldLabel>
+                    <Input
+                      id="metric-empty-state"
                       value={
                         (configuration as TickerWidgetConfig).emptyState ?? ""
                       }
@@ -1759,7 +2548,7 @@ export function NativeAppEditor({
                         }))
                       }
                     />
-                  </label>
+                  </Field>
                 </>
               )}
               {provider === "cards" && (
@@ -1777,9 +2566,9 @@ export function NativeAppEditor({
                       }))
                     }
                   />
-                  <div className="form-grid form-grid--2">
+                  <div className="grid gap-3 sm:grid-cols-2">
                     <FieldSelect
-                      label="Title field"
+                      label={t("widgets.editors.shared.titleField")}
                       value={(configuration as CardsWidgetConfig).titleField}
                       fields={availableFields}
                       disabled={readOnly}
@@ -1791,11 +2580,18 @@ export function NativeAppEditor({
                       }
                     />
                     {(
-                      ["subtitleField", "bodyField", "badgeField"] as const
-                    ).map((key) => (
+                      [
+                        [
+                          "subtitleField",
+                          "widgets.editors.cards.subtitleLabel",
+                        ],
+                        ["bodyField", "widgets.editors.cards.bodyLabel"],
+                        ["badgeField", "widgets.editors.cards.badgeLabel"],
+                      ] as const
+                    ).map(([key, labelKey]) => (
                       <FieldSelect
                         key={key}
-                        label={key.replace("Field", "")}
+                        label={t(labelKey)}
                         value={(configuration as CardsWidgetConfig)[key] ?? ""}
                         fields={availableFields}
                         allowEmpty
@@ -1808,9 +2604,12 @@ export function NativeAppEditor({
                         }
                       />
                     ))}
-                    <label className="field">
-                      <span className="field__label">Columns</span>
-                      <input
+                    <Field>
+                      <FieldLabel htmlFor="columns">
+                        {t("widgets.editors.shared.columns")}
+                      </FieldLabel>
+                      <Input
+                        id="columns"
                         type="number"
                         min={1}
                         max={4}
@@ -1823,10 +2622,13 @@ export function NativeAppEditor({
                           }))
                         }
                       />
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Maximum items</span>
-                      <input
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="maximum-items">
+                        {t("widgets.editors.shared.maximumItems")}
+                      </FieldLabel>
+                      <Input
+                        id="maximum-items"
                         type="number"
                         min={1}
                         max={12}
@@ -1841,24 +2643,49 @@ export function NativeAppEditor({
                           }))
                         }
                       />
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Density</span>
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="cards-density">
+                        {t("widgets.editors.cards.density")}
+                      </FieldLabel>
                       <Select
+                        items={[
+                          {
+                            value: "comfortable",
+                            label: t(
+                              "widgets.editors.cards.densityComfortable",
+                            ),
+                          },
+                          {
+                            value: "compact",
+                            label: t("widgets.editors.cards.densityCompact"),
+                          },
+                        ]}
                         value={(configuration as CardsWidgetConfig).density}
                         disabled={readOnly}
-                        onChange={(event) =>
+                        onValueChange={(next) =>
                           setConfiguration((current) => ({
                             ...current,
-                            density: event.target
-                              .value as CardsWidgetConfig["density"],
+                            density: next as CardsWidgetConfig["density"],
                           }))
                         }
                       >
-                        <option value="comfortable">Comfortable</option>
-                        <option value="compact">Compact</option>
+                        <SelectTrigger
+                          id="cards-density"
+                          aria-label={t("widgets.editors.cards.density")}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="comfortable">
+                            {t("widgets.editors.cards.densityComfortable")}
+                          </SelectItem>
+                          <SelectItem value="compact">
+                            {t("widgets.editors.cards.densityCompact")}
+                          </SelectItem>
+                        </SelectContent>
                       </Select>
-                    </label>
+                    </Field>
                   </div>
                 </>
               )}
@@ -1877,40 +2704,57 @@ export function NativeAppEditor({
                       }))
                     }
                   />
-                  <div className="checkbox-grid">
-                    {[
-                      ["showLocation", "Location"],
-                      ["showCurrent", "Current conditions"],
-                      ["showHumidity", "Humidity"],
-                      ["showWind", "Wind"],
-                      ["showPrecipitation", "Precipitation"],
-                    ].map(([key, label]) => (
-                      <label key={key}>
-                        <input
-                          type="checkbox"
+                  <div className="flex flex-wrap gap-x-4 gap-y-2">
+                    {(
+                      [
+                        [
+                          "showLocation",
+                          "widgets.editors.weather.showLocation",
+                        ],
+                        ["showCurrent", "widgets.editors.weather.showCurrent"],
+                        [
+                          "showHumidity",
+                          "widgets.editors.weather.showHumidity",
+                        ],
+                        ["showWind", "widgets.editors.weather.showWind"],
+                        [
+                          "showPrecipitation",
+                          "widgets.editors.weather.showPrecipitation",
+                        ],
+                      ] as const
+                    ).map(([key, labelKey]) => (
+                      <label
+                        key={key}
+                        className="flex items-center gap-2 text-sm"
+                      >
+                        <Checkbox
                           checked={Boolean(
                             (
                               configuration as unknown as Record<
                                 string,
                                 unknown
                               >
-                            )[key!],
+                            )[key],
                           )}
                           disabled={readOnly}
-                          onChange={(event) =>
+                          onCheckedChange={(checked) =>
                             setConfiguration((current) => ({
                               ...current,
-                              [key!]: event.target.checked,
+                              [key]: checked === true,
                             }))
                           }
+                          aria-label={t(labelKey)}
                         />
-                        <span>{label}</span>
+                        <span>{t(labelKey)}</span>
                       </label>
                     ))}
                   </div>
-                  <label className="field">
-                    <span className="field__label">Forecast days</span>
-                    <input
+                  <Field>
+                    <FieldLabel htmlFor="weather-forecast-days">
+                      {t("widgets.editors.weather.forecastDays")}
+                    </FieldLabel>
+                    <Input
+                      id="weather-forecast-days"
                       type="number"
                       min={0}
                       max={7}
@@ -1925,7 +2769,7 @@ export function NativeAppEditor({
                         }))
                       }
                     />
-                  </label>
+                  </Field>
                 </>
               )}
               {provider === "spotlight" && (
@@ -1945,19 +2789,31 @@ export function NativeAppEditor({
                       }))
                     }
                   />
-                  <div className="form-grid form-grid--2">
+                  <div className="grid gap-3 sm:grid-cols-2">
                     {(
                       [
-                        ["titleField", "Title field", false],
-                        ["subtitleField", "Subtitle field", true],
-                        ["bodyField", "Body field", true],
-                        ["badgeField", "Badge field", true],
-                        ["dateField", "Date field", true],
+                        [
+                          "titleField",
+                          "widgets.editors.shared.titleField",
+                          false,
+                        ],
+                        [
+                          "subtitleField",
+                          "widgets.editors.shared.subtitleField",
+                          true,
+                        ],
+                        ["bodyField", "widgets.editors.shared.bodyField", true],
+                        [
+                          "badgeField",
+                          "widgets.editors.shared.badgeField",
+                          true,
+                        ],
+                        ["dateField", "widgets.editors.shared.dateField", true],
                       ] as const
-                    ).map(([key, label, allowEmpty]) => (
+                    ).map(([key, labelKey, allowEmpty]) => (
                       <FieldSelect
                         key={key}
-                        label={label}
+                        label={t(labelKey)}
                         value={
                           (configuration as SpotlightWidgetConfig)[key] ?? ""
                         }
@@ -1972,29 +2828,58 @@ export function NativeAppEditor({
                         }
                       />
                     ))}
-                    <label className="field">
-                      <span className="field__label">Uploaded image</span>
+                    <Field>
+                      <FieldLabel htmlFor="spotlight-image">
+                        {t("widgets.editors.spotlight.image")}
+                      </FieldLabel>
                       <Select
+                        items={[
+                          {
+                            value: "",
+                            label: t("widgets.editors.spotlight.noImage"),
+                          },
+                          ...(imageAssets.data?.items ?? []).map((item) => ({
+                            value: item.id,
+                            label: item.name,
+                          })),
+                        ]}
                         value={
                           (configuration as SpotlightWidgetConfig)
                             .imageAssetId ?? ""
                         }
                         disabled={readOnly}
-                        onChange={(event) =>
+                        onValueChange={(next) =>
                           setConfiguration((current) => ({
                             ...current,
-                            imageAssetId: event.target.value || undefined,
+                            imageAssetId: next || undefined,
                           }))
                         }
                       >
-                        <option value="">No image</option>
-                        {(imageAssets.data?.items ?? []).map((item) => (
-                          <option key={item.id} value={item.id}>
-                            {item.name}
-                          </option>
-                        ))}
+                        <SelectTrigger
+                          id="spotlight-image"
+                          aria-label={t("widgets.editors.spotlight.image")}
+                        >
+                          <SelectValue>
+                            {(imageAssets.data?.items ?? []).find(
+                              (item) =>
+                                item.id ===
+                                (configuration as SpotlightWidgetConfig)
+                                  .imageAssetId,
+                            )?.name ?? t("widgets.editors.spotlight.noImage")}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">
+                            {t("widgets.editors.spotlight.noImage")}
+                          </SelectItem>
+                          {(imageAssets.data?.items ?? []).map((item) => (
+                            <SelectItem key={item.id} value={item.id}>
+                              {item.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
                       </Select>
-                    </label>
+                    </Field>
                   </div>
                 </>
               )}
@@ -2013,9 +2898,12 @@ export function NativeAppEditor({
                       }))
                     }
                   />
-                  <label className="field">
-                    <span className="field__label">Columns</span>
-                    <input
+                  <Field>
+                    <FieldLabel htmlFor="stat-grid-columns">
+                      {t("widgets.editors.shared.columns")}
+                    </FieldLabel>
+                    <Input
+                      id="stat-grid-columns"
                       type="number"
                       min={1}
                       max={4}
@@ -2028,15 +2916,21 @@ export function NativeAppEditor({
                         }))
                       }
                     />
-                  </label>
+                  </Field>
                   <fieldset>
-                    <legend>Metrics</legend>
+                    <legend>{t("widgets.editors.statGrid.metrics")}</legend>
                     {(configuration as StatGridWidgetConfig).metrics.map(
                       (metric, index) => (
-                        <div className="form-grid form-grid--4" key={index}>
-                          <label className="field">
-                            <span className="field__label">Label</span>
-                            <input
+                        <div
+                          className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+                          key={index}
+                        >
+                          <Field>
+                            <FieldLabel htmlFor={`stat-grid-label-${index}`}>
+                              {t("widgets.editors.shared.label")}
+                            </FieldLabel>
+                            <Input
+                              id={`stat-grid-label-${index}`}
                               value={metric.label ?? ""}
                               disabled={readOnly}
                               onChange={(event) =>
@@ -2058,9 +2952,9 @@ export function NativeAppEditor({
                                 })
                               }
                             />
-                          </label>
+                          </Field>
                           <FieldSelect
-                            label="Value field"
+                            label={t("widgets.editors.shared.valueField")}
                             value={metric.valueField}
                             fields={availableFields.filter((field) =>
                               [
@@ -2086,12 +2980,40 @@ export function NativeAppEditor({
                               })
                             }
                           />
-                          <label className="field">
-                            <span className="field__label">Format</span>
+                          <Field>
+                            <FieldLabel htmlFor={`stat-grid-format-${index}`}>
+                              {t("widgets.editors.shared.format")}
+                            </FieldLabel>
                             <Select
+                              items={[
+                                {
+                                  value: "number",
+                                  label: t(
+                                    "widgets.editors.options.formatNumber",
+                                  ),
+                                },
+                                {
+                                  value: "integer",
+                                  label: t(
+                                    "widgets.editors.options.formatInteger",
+                                  ),
+                                },
+                                {
+                                  value: "percent",
+                                  label: t(
+                                    "widgets.editors.options.formatPercent",
+                                  ),
+                                },
+                                {
+                                  value: "currency",
+                                  label: t(
+                                    "widgets.editors.options.formatCurrency",
+                                  ),
+                                },
+                              ]}
                               value={metric.format ?? "number"}
                               disabled={readOnly}
-                              onChange={(event) =>
+                              onValueChange={(next) =>
                                 setConfiguration((current) => {
                                   const config =
                                     current as StatGridWidgetConfig;
@@ -2102,8 +3024,8 @@ export function NativeAppEditor({
                                         itemIndex === index
                                           ? {
                                               ...item,
-                                              format: event.target
-                                                .value as typeof metric.format,
+                                              format:
+                                                next as typeof metric.format,
                                             }
                                           : item,
                                     ),
@@ -2111,15 +3033,34 @@ export function NativeAppEditor({
                                 })
                               }
                             >
-                              <option value="number">Number</option>
-                              <option value="integer">Integer</option>
-                              <option value="percent">Percent</option>
-                              <option value="currency">Currency</option>
+                              <SelectTrigger
+                                id={`stat-grid-format-${index}`}
+                                aria-label={t(
+                                  "widgets.editors.statGrid.formatFor",
+                                  { index: index + 1 },
+                                )}
+                              >
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="number">
+                                  {t("widgets.editors.options.formatNumber")}
+                                </SelectItem>
+                                <SelectItem value="integer">
+                                  {t("widgets.editors.options.formatInteger")}
+                                </SelectItem>
+                                <SelectItem value="percent">
+                                  {t("widgets.editors.options.formatPercent")}
+                                </SelectItem>
+                                <SelectItem value="currency">
+                                  {t("widgets.editors.options.formatCurrency")}
+                                </SelectItem>
+                              </SelectContent>
                             </Select>
-                          </label>
-                          <button
+                          </Field>
+                          <Button
                             type="button"
-                            className="button"
+                            variant="secondary"
                             disabled={
                               readOnly ||
                               (configuration as StatGridWidgetConfig).metrics
@@ -2136,14 +3077,14 @@ export function NativeAppEditor({
                               }))
                             }
                           >
-                            Remove
-                          </button>
+                            {t("widgets.editors.shared.remove")}
+                          </Button>
                         </div>
                       ),
                     )}
-                    <button
+                    <Button
                       type="button"
-                      className="button"
+                      variant="secondary"
                       disabled={
                         readOnly ||
                         (configuration as StatGridWidgetConfig).metrics
@@ -2155,7 +3096,7 @@ export function NativeAppEditor({
                           metrics: [
                             ...(current as StatGridWidgetConfig).metrics,
                             {
-                              label: "Value",
+                              label: t("widgets.defaults.metricLabel"),
                               valueField: "",
                               format: "number",
                             },
@@ -2163,8 +3104,8 @@ export function NativeAppEditor({
                         }))
                       }
                     >
-                      Add metric
-                    </button>
+                      {t("widgets.editors.statGrid.addMetric")}
+                    </Button>
                   </fieldset>
                 </>
               )}
@@ -2183,28 +3124,60 @@ export function NativeAppEditor({
                       }))
                     }
                   />
-                  <div className="form-grid form-grid--2">
-                    <label className="field">
-                      <span className="field__label">Chart type</span>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field>
+                      <FieldLabel htmlFor="chart-type">
+                        {t("widgets.editors.chart.chartType")}
+                      </FieldLabel>
                       <Select
+                        items={[
+                          {
+                            value: "line",
+                            label: t("widgets.editors.chart.chartLine"),
+                          },
+                          {
+                            value: "bar",
+                            label: t("widgets.editors.chart.chartBar"),
+                          },
+                          {
+                            value: "donut",
+                            label: t("widgets.editors.chart.chartDonut"),
+                          },
+                        ]}
                         value={(configuration as ChartWidgetConfig).chartType}
                         disabled={readOnly}
-                        onChange={(event) =>
+                        onValueChange={(next) =>
                           setConfiguration((current) => ({
                             ...current,
-                            chartType: event.target
-                              .value as ChartWidgetConfig["chartType"],
+                            chartType: next as ChartWidgetConfig["chartType"],
                           }))
                         }
                       >
-                        <option value="line">Line</option>
-                        <option value="bar">Bar</option>
-                        <option value="donut">Donut</option>
+                        <SelectTrigger
+                          id="chart-type"
+                          aria-label={t("widgets.editors.chart.chartType")}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="line">
+                            {t("widgets.editors.chart.chartLine")}
+                          </SelectItem>
+                          <SelectItem value="bar">
+                            {t("widgets.editors.chart.chartBar")}
+                          </SelectItem>
+                          <SelectItem value="donut">
+                            {t("widgets.editors.chart.chartDonut")}
+                          </SelectItem>
+                        </SelectContent>
                       </Select>
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Dataset</span>
-                      <input
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="chart-dataset">
+                        {t("widgets.editors.chart.dataset")}
+                      </FieldLabel>
+                      <Input
+                        id="chart-dataset"
                         value={
                           (configuration as ChartWidgetConfig).dataset ?? ""
                         }
@@ -2216,15 +3189,18 @@ export function NativeAppEditor({
                           }))
                         }
                       />
-                    </label>
+                    </Field>
                   </div>
                   <fieldset>
-                    <legend>Series</legend>
+                    <legend>{t("widgets.editors.chart.series")}</legend>
                     {(configuration as ChartWidgetConfig).series.map(
                       (series, index) => (
-                        <div className="form-grid form-grid--4" key={index}>
+                        <div
+                          className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+                          key={index}
+                        >
                           <FieldSelect
-                            label="Numeric field"
+                            label={t("widgets.editors.chart.numericField")}
                             value={series.field}
                             fields={availableFields.filter((field) =>
                               [
@@ -2250,9 +3226,12 @@ export function NativeAppEditor({
                               })
                             }
                           />
-                          <label className="field">
-                            <span className="field__label">Label</span>
-                            <input
+                          <Field>
+                            <FieldLabel htmlFor={`chart-label-${index}`}>
+                              {t("widgets.editors.shared.label")}
+                            </FieldLabel>
+                            <Input
+                              id={`chart-label-${index}`}
                               value={series.label ?? ""}
                               disabled={readOnly}
                               onChange={(event) =>
@@ -2273,10 +3252,13 @@ export function NativeAppEditor({
                                 })
                               }
                             />
-                          </label>
-                          <label className="field">
-                            <span className="field__label">Color</span>
-                            <input
+                          </Field>
+                          <Field>
+                            <FieldLabel htmlFor={`chart-color-${index}`}>
+                              {t("widgets.editors.chart.seriesColor")}
+                            </FieldLabel>
+                            <Input
+                              id={`chart-color-${index}`}
                               type="color"
                               value={series.color ?? "#4DB6FF"}
                               disabled={readOnly}
@@ -2298,10 +3280,10 @@ export function NativeAppEditor({
                                 })
                               }
                             />
-                          </label>
-                          <button
+                          </Field>
+                          <Button
                             type="button"
-                            className="button"
+                            variant="secondary"
                             disabled={
                               readOnly ||
                               (configuration as ChartWidgetConfig).series
@@ -2318,14 +3300,14 @@ export function NativeAppEditor({
                               }))
                             }
                           >
-                            Remove
-                          </button>
+                            {t("widgets.editors.shared.remove")}
+                          </Button>
                         </div>
                       ),
                     )}
-                    <button
+                    <Button
                       type="button"
-                      className="button"
+                      variant="secondary"
                       disabled={
                         readOnly ||
                         (configuration as ChartWidgetConfig).series.length >= 4
@@ -2337,15 +3319,15 @@ export function NativeAppEditor({
                             ...(current as ChartWidgetConfig).series,
                             {
                               field: "",
-                              label: "Series",
+                              label: t("widgets.defaults.seriesAdded"),
                               color: "#FFB547",
                             },
                           ],
                         }))
                       }
                     >
-                      Add series
-                    </button>
+                      {t("widgets.editors.chart.addSeries")}
+                    </Button>
                   </fieldset>
                 </>
               )}
@@ -2364,9 +3346,9 @@ export function NativeAppEditor({
                       }))
                     }
                   />
-                  <div className="form-grid form-grid--2">
+                  <div className="grid gap-3 sm:grid-cols-2">
                     <FieldSelect
-                      label="Value field"
+                      label={t("widgets.editors.shared.valueField")}
                       value={(configuration as ProgressWidgetConfig).valueField}
                       fields={availableFields.filter((field) =>
                         ["number", "integer", "percent", "currency"].includes(
@@ -2382,7 +3364,7 @@ export function NativeAppEditor({
                       }
                     />
                     <FieldSelect
-                      label="Target field"
+                      label={t("widgets.editors.progress.targetField")}
                       value={
                         (configuration as ProgressWidgetConfig).targetField ??
                         ""
@@ -2401,9 +3383,12 @@ export function NativeAppEditor({
                         }))
                       }
                     />
-                    <label className="field">
-                      <span className="field__label">Static target</span>
-                      <input
+                    <Field>
+                      <FieldLabel htmlFor="static-target">
+                        {t("widgets.editors.progress.staticTarget")}
+                      </FieldLabel>
+                      <Input
+                        id="static-target"
                         type="number"
                         value={
                           (configuration as ProgressWidgetConfig)
@@ -2422,10 +3407,13 @@ export function NativeAppEditor({
                           }))
                         }
                       />
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Label</span>
-                      <input
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="label-3">
+                        {t("widgets.editors.shared.label")}
+                      </FieldLabel>
+                      <Input
+                        id="label-3"
                         value={
                           (configuration as ProgressWidgetConfig).label ?? ""
                         }
@@ -2437,7 +3425,7 @@ export function NativeAppEditor({
                           }))
                         }
                       />
-                    </label>
+                    </Field>
                   </div>
                 </>
               )}
@@ -2456,18 +3444,30 @@ export function NativeAppEditor({
                       }))
                     }
                   />
-                  <div className="form-grid form-grid--2">
+                  <div className="grid gap-3 sm:grid-cols-2">
                     {(
                       [
-                        ["dateField", "Date field", false],
-                        ["titleField", "Title field", false],
-                        ["bodyField", "Body field", true],
-                        ["statusField", "Status field", true],
+                        [
+                          "dateField",
+                          "widgets.editors.shared.dateField",
+                          false,
+                        ],
+                        [
+                          "titleField",
+                          "widgets.editors.shared.titleField",
+                          false,
+                        ],
+                        ["bodyField", "widgets.editors.shared.bodyField", true],
+                        [
+                          "statusField",
+                          "widgets.editors.timeline.statusField",
+                          true,
+                        ],
                       ] as const
-                    ).map(([key, label, allowEmpty]) => (
+                    ).map(([key, labelKey, allowEmpty]) => (
                       <FieldSelect
                         key={key}
-                        label={label}
+                        label={t(labelKey)}
                         value={
                           (configuration as TimelineWidgetConfig)[key] ?? ""
                         }
@@ -2482,51 +3482,116 @@ export function NativeAppEditor({
                         }
                       />
                     ))}
-                    <label className="field">
-                      <span className="field__label">Orientation</span>
+                    <Field>
+                      <FieldLabel htmlFor="timeline-orientation">
+                        {t("widgets.editors.timeline.orientation")}
+                      </FieldLabel>
                       <Select
+                        items={[
+                          {
+                            value: "vertical",
+                            label: t(
+                              "widgets.editors.timeline.orientationVertical",
+                            ),
+                          },
+                          {
+                            value: "horizontal",
+                            label: t(
+                              "widgets.editors.timeline.orientationHorizontal",
+                            ),
+                          },
+                        ]}
                         value={
                           (configuration as TimelineWidgetConfig).orientation
                         }
                         disabled={readOnly}
-                        onChange={(event) =>
+                        onValueChange={(next) =>
                           setConfiguration((current) => ({
                             ...current,
-                            orientation: event.target
-                              .value as TimelineWidgetConfig["orientation"],
+                            orientation:
+                              next as TimelineWidgetConfig["orientation"],
                           }))
                         }
                       >
-                        <option value="vertical">Vertical</option>
-                        <option value="horizontal">Horizontal</option>
+                        <SelectTrigger
+                          id="timeline-orientation"
+                          aria-label={t("widgets.editors.timeline.orientation")}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="vertical">
+                            {t("widgets.editors.timeline.orientationVertical")}
+                          </SelectItem>
+                          <SelectItem value="horizontal">
+                            {t(
+                              "widgets.editors.timeline.orientationHorizontal",
+                            )}
+                          </SelectItem>
+                        </SelectContent>
                       </Select>
-                    </label>
+                    </Field>
                   </div>
                 </>
               )}
               {provider === "world_clock" && (
                 <>
-                  <div className="form-grid form-grid--2">
-                    <label className="field">
-                      <span className="field__label">Time format</span>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field>
+                      <FieldLabel htmlFor="world-clock-format">
+                        {t("widgets.editors.shared.timeFormat")}
+                      </FieldLabel>
                       <Select
+                        items={[
+                          {
+                            value: "locale",
+                            label: t(
+                              "widgets.editors.options.organizationFormat",
+                            ),
+                          },
+                          {
+                            value: "12",
+                            label: t("widgets.editors.options.hour12"),
+                          },
+                          {
+                            value: "24",
+                            label: t("widgets.editors.options.hour24"),
+                          },
+                        ]}
                         value={(configuration as WorldClockWidgetConfig).format}
                         disabled={readOnly}
-                        onChange={(event) =>
+                        onValueChange={(next) =>
                           setConfiguration((current) => ({
                             ...(current as WorldClockWidgetConfig),
-                            format: event.target
-                              .value as WorldClockWidgetConfig["format"],
+                            format: next as WorldClockWidgetConfig["format"],
                           }))
                         }
                       >
-                        <option value="12">12-hour</option>
-                        <option value="24">24-hour</option>
+                        <SelectTrigger
+                          id="world-clock-format"
+                          aria-label={t("widgets.editors.shared.timeFormat")}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="locale">
+                            {t("widgets.editors.options.organizationFormat")}
+                          </SelectItem>
+                          <SelectItem value="12">
+                            {t("widgets.editors.options.hour12")}
+                          </SelectItem>
+                          <SelectItem value="24">
+                            {t("widgets.editors.options.hour24")}
+                          </SelectItem>
+                        </SelectContent>
                       </Select>
-                    </label>
-                    <label className="field">
-                      <span className="field__label">Columns</span>
-                      <input
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="world-clock-columns">
+                        {t("widgets.editors.shared.columns")}
+                      </FieldLabel>
+                      <Input
+                        id="world-clock-columns"
                         type="number"
                         min={1}
                         max={4}
@@ -2541,16 +3606,21 @@ export function NativeAppEditor({
                           }))
                         }
                       />
-                    </label>
+                    </Field>
                   </div>
-                  <fieldset>
-                    <legend>Locations</legend>
+                  <fieldset className="grid gap-2">
+                    <legend className="text-sm font-medium">
+                      {t("widgets.editors.worldClock.locations")}
+                    </legend>
                     {(configuration as WorldClockWidgetConfig).zones.map(
                       (zone, index) => (
-                        <div className="form-grid form-grid--2" key={index}>
-                          <label className="field">
-                            <span className="field__label">Label</span>
-                            <input
+                        <div className="grid gap-3 sm:grid-cols-2" key={index}>
+                          <Field>
+                            <FieldLabel htmlFor={`world-clock-label-${index}`}>
+                              {t("widgets.editors.shared.label")}
+                            </FieldLabel>
+                            <Input
+                              id={`world-clock-label-${index}`}
                               value={zone.label}
                               disabled={readOnly}
                               onChange={(event) =>
@@ -2572,10 +3642,15 @@ export function NativeAppEditor({
                                 })
                               }
                             />
-                          </label>
-                          <label className="field">
-                            <span className="field__label">IANA timezone</span>
-                            <input
+                          </Field>
+                          <Field>
+                            <FieldLabel
+                              htmlFor={`world-clock-timezone-${index}`}
+                            >
+                              {t("widgets.editors.worldClock.ianaLabel")}
+                            </FieldLabel>
+                            <Input
+                              id={`world-clock-timezone-${index}`}
                               value={zone.timezone}
                               disabled={readOnly}
                               onChange={(event) =>
@@ -2597,13 +3672,13 @@ export function NativeAppEditor({
                                 })
                               }
                             />
-                          </label>
+                          </Field>
                         </div>
                       ),
                     )}
-                    <button
+                    <Button
                       type="button"
-                      className="button"
+                      variant="secondary"
                       disabled={
                         readOnly ||
                         (configuration as WorldClockWidgetConfig).zones
@@ -2614,13 +3689,16 @@ export function NativeAppEditor({
                           ...current,
                           zones: [
                             ...(current as WorldClockWidgetConfig).zones,
-                            { label: "Location", timezone: "UTC" },
+                            {
+                              label: t("widgets.defaults.zoneAdded"),
+                              timezone: "UTC",
+                            },
                           ],
                         }))
                       }
                     >
-                      Add location
-                    </button>
+                      {t("widgets.editors.worldClock.addLocation")}
+                    </Button>
                   </fieldset>
                 </>
               )}
@@ -2628,89 +3706,100 @@ export function NativeAppEditor({
           </section>
           <section className="widget-editor__section">
             <header>
-              <h3>Appearance</h3>
-              <p>
-                Adjust spacing, scale, and colors after the content looks right.
-              </p>
+              <h3>{t("widgets.editors.appearance.title")}</h3>
+              <p>{t("widgets.editors.appearance.hint")}</p>
             </header>
             <div className="widget-editor__section-body">
               <div className="widget-editor__subsection">
                 <header>
-                  <strong>Size and spacing</strong>
-                  <p>Control how much of the Widget the content occupies.</p>
+                  <strong>{t("widgets.editors.appearance.sizeTitle")}</strong>
+                  <p>{t("widgets.editors.appearance.sizeHint")}</p>
                 </header>
-                <label className="switch-row">
-                  <input
-                    type="checkbox"
+                <label className="flex items-center gap-2 text-sm">
+                  <Switch
                     checked={configuration.textScale !== undefined}
                     disabled={readOnly}
-                    onChange={(event) =>
+                    onCheckedChange={(checked) =>
                       setConfiguration((current) => {
-                        if (event.target.checked)
+                        if (checked === true)
                           return { ...current, textScale: 100 };
                         const automatic = { ...current };
                         delete automatic.textScale;
                         return automatic;
                       })
                     }
+                    aria-label={t("widgets.editors.appearance.customScale")}
                   />
-                  <span>Use a custom scale</span>
+                  <span>{t("widgets.editors.appearance.customScale")}</span>
                 </label>
                 {configuration.textScale !== undefined && (
-                  <label className="field">
-                    <span className="field__label">
-                      Scale ({configuration.textScale}%)
-                    </span>
-                    <input
-                      type="range"
+                  <Field>
+                    <FieldTitle>
+                      {t("widgets.editors.appearance.scaleTitle", {
+                        value: configuration.textScale,
+                      })}
+                    </FieldTitle>
+                    <Slider
+                      aria-label={t("widgets.editors.appearance.scaleAria", {
+                        value: configuration.textScale,
+                      })}
                       min={25}
                       max={500}
                       step={25}
-                      value={configuration.textScale}
+                      value={[configuration.textScale]}
                       disabled={readOnly}
-                      onChange={(event) =>
+                      onValueChange={(next: number | readonly number[]) => {
+                        const values =
+                          typeof next === "number" ? [next] : [...next];
+                        const [first] = values;
                         setConfiguration((current) => ({
                           ...current,
-                          textScale: Number(event.target.value),
-                        }))
-                      }
+                          textScale: first ?? configuration.textScale,
+                        }));
+                      }}
                     />
-                  </label>
+                  </Field>
                 )}
-                <label className="field">
-                  <span className="field__label">
-                    Padding ({configuration.contentPadding ?? 10}%)
-                  </span>
-                  <input
-                    type="range"
+                <Field>
+                  <FieldTitle>
+                    {t("widgets.editors.appearance.paddingTitle", {
+                      value: configuration.contentPadding ?? 10,
+                    })}
+                  </FieldTitle>
+                  <Slider
+                    aria-label={t("widgets.editors.appearance.paddingAria", {
+                      value: configuration.contentPadding ?? 10,
+                    })}
                     min={0}
                     max={40}
                     step={1}
-                    value={configuration.contentPadding ?? 10}
+                    value={[configuration.contentPadding ?? 10]}
                     disabled={readOnly}
-                    onChange={(event) =>
+                    onValueChange={(next: number | readonly number[]) => {
+                      const values =
+                        typeof next === "number" ? [next] : [...next];
+                      const [first] = values;
                       setConfiguration((current) => ({
                         ...current,
-                        contentPadding: Number(event.target.value),
-                      }))
-                    }
+                        contentPadding: first ?? 10,
+                      }));
+                    }}
                   />
-                </label>
-                <small>
-                  By default, content uses the center 80% of the Widget. Reduce
-                  padding to let it fill more space; custom scale ranges up to
-                  500% and still fits long text within the available area.
-                </small>
+                </Field>
+                <small>{t("widgets.editors.appearance.paddingHint")}</small>
               </div>
               <div className="widget-editor__subsection">
                 <header>
-                  <strong>Colors</strong>
-                  <p>Set the foreground and background used on screen.</p>
+                  <strong>{t("widgets.editors.appearance.colorsTitle")}</strong>
+                  <p>{t("widgets.editors.appearance.colorsHint")}</p>
                 </header>
-                <div className="form-grid form-grid--2">
-                  <label className="field">
-                    <span className="field__label">Text and accent color</span>
-                    <input
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field>
+                    <FieldLabel htmlFor="text-and-accent-color">
+                      {t("widgets.editors.appearance.foreground")}
+                    </FieldLabel>
+                    <Input
+                      id="text-and-accent-color"
                       type="color"
                       value={configuration.foregroundColor}
                       disabled={readOnly}
@@ -2718,10 +3807,13 @@ export function NativeAppEditor({
                         updateColors("foregroundColor", e.target.value)
                       }
                     />
-                  </label>
-                  <label className="field">
-                    <span className="field__label">Background color</span>
-                    <input
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="background-color">
+                      {t("widgets.editors.appearance.background")}
+                    </FieldLabel>
+                    <Input
+                      id="background-color"
                       type="color"
                       value={configuration.backgroundColor}
                       disabled={readOnly}
@@ -2729,15 +3821,18 @@ export function NativeAppEditor({
                         updateColors("backgroundColor", e.target.value)
                       }
                     />
-                  </label>
+                  </Field>
                 </div>
               </div>
             </div>
           </section>
-          <aside className="widget-editor__preview" aria-label="Live preview">
+          <aside
+            className="widget-editor__preview"
+            aria-label={t("widgets.editors.shared.livePreview")}
+          >
             <header>
-              <strong>Live preview</strong>
-              <span>Updates as you make changes.</span>
+              <strong>{t("widgets.editors.shared.livePreview")}</strong>
+              <span>{t("widgets.editors.shared.livePreviewHint")}</span>
             </header>
             <PreviewTimeControl value={previewTime} onChange={setPreviewTime} />
             <div
@@ -2756,18 +3851,23 @@ export function NativeAppEditor({
                   }
                 />
               ) : compiledPreview.isLoading || sourcePreview.isLoading ? (
-                "Preparing preview…"
+                t("widgets.editors.shared.preparingPreview")
               ) : (
-                "Complete the required fields to see a preview."
+                t("widgets.editors.native.completeFields")
               )}
             </div>
           </aside>
-          {save.error && <p className="form-error">{save.error.message}</p>}
+          {save.error && (
+            <Alert variant="destructive">
+              <AlertDescription>
+                {widgetSaveErrorMessage(t, save.error)}
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
         <footer>
           {!readOnly && (
-            <button
-              className="button button--primary"
+            <Button
               disabled={
                 save.isPending ||
                 !name.trim() ||
@@ -2776,8 +3876,10 @@ export function NativeAppEditor({
               }
               onClick={() => save.mutate()}
             >
-              {save.isPending ? "Saving…" : "Save Widget"}
-            </button>
+              {save.isPending
+                ? t("common:actions.saving")
+                : t("widgets.editors.shared.saveWidget")}
+            </Button>
           )}
         </footer>
       </section>
@@ -2803,6 +3905,7 @@ export function DeclarativePresentationPreview({
   assetImageUrl?: string;
   onWebReady?: () => void;
 }) {
+  const { t } = useTranslation(["content", "common"]);
   const [liveNow, setLiveNow] = useState(() => now ?? new Date());
   useEffect(() => {
     if (now || presentation.kind !== "native") return;
@@ -2814,14 +3917,14 @@ export function DeclarativePresentationPreview({
   }, [now, presentation.kind]);
   if (presentation.kind === "web") {
     const url = presentation.web?.url;
-    if (!url) return "Web presentation URL is unavailable.";
+    if (!url) return t("widgets.preview.webUnavailable");
     const external =
       new URL(url, window.location.href).origin !== window.location.origin;
     return (
       <iframe
         className="presentation-preview__web"
         src={url}
-        title="Web Widget preview"
+        title={t("widgets.preview.webTitle")}
         sandbox={`allow-scripts allow-forms allow-popups allow-presentation${external ? " allow-same-origin" : ""}`}
         allow="autoplay; encrypted-media; fullscreen"
         referrerPolicy="strict-origin-when-cross-origin"
@@ -2840,7 +3943,7 @@ export function DeclarativePresentationPreview({
       assetImageUrl={assetImageUrl}
     />
   ) : (
-    "Presentation root is unavailable."
+    t("widgets.preview.rootUnavailable")
   );
 }
 
@@ -3057,6 +4160,8 @@ function PreviewNode({
   now: Date;
   assetImageUrl?: string;
 }) {
+  const { t } = useTranslation(["content", "common"]);
+  const formatLocale = useFormatLocale();
   const props = node.props ?? {};
   const binding = node.binding;
   // A node reads the dataset it names. An unknown name falls back to the primary records so a
@@ -3065,18 +4170,31 @@ function PreviewNode({
     (name && datasets?.[name]) || records;
   const resolveBinding = (candidate: PresentationBinding) => {
     if (candidate.source === "literal")
-      return formatPresentationValue(candidate.value ?? "", candidate, now);
+      return formatPresentationValue(
+        candidate.value ?? "",
+        candidate,
+        now,
+        undefined,
+        formatLocale,
+        t,
+      );
     if (candidate.source === "repeat")
       return formatPresentationValue(
         record?.[candidate.path ?? ""] ?? candidate.fallback ?? "",
         candidate,
         now,
+        undefined,
+        formatLocale,
+        t,
       );
     if (candidate.source === "repeat_index")
       return formatPresentationValue(
         String((recordIndex ?? 0) + 1),
         candidate,
         now,
+        undefined,
+        formatLocale,
+        t,
       );
     if (candidate.source === "dataset") {
       const scoped = selectTemporalRecords(
@@ -3091,6 +4209,9 @@ function PreviewNode({
           scoped[0]?.[candidate.path] ?? candidate.fallback ?? "",
           candidate,
           now,
+          undefined,
+          formatLocale,
+          t,
         );
       const joined =
         scoped
@@ -3104,19 +4225,26 @@ function PreviewNode({
           .join(candidate.separator ?? " ") ||
         candidate.fallback ||
         "";
-      return formatPresentationValue(joined, candidate, now);
+      return formatPresentationValue(
+        joined,
+        candidate,
+        now,
+        undefined,
+        formatLocale,
+        t,
+      );
     }
     if (candidate.source === "environment") {
       const format = candidate.format?.split(":") ?? [];
       const timezone = format.at(-1) || "UTC";
       if (format[0] === "date")
-        return new Intl.DateTimeFormat(undefined, {
+        return new Intl.DateTimeFormat(formatLocale, {
           dateStyle:
             (format[1] as "full" | "long" | "medium" | "short") ?? "full",
           timeZone: timezone,
         }).format(now);
       if (format[0] === "time")
-        return new Intl.DateTimeFormat(undefined, {
+        return new Intl.DateTimeFormat(formatLocale, {
           timeStyle: format[2] === "true" ? "medium" : "short",
           hour12: format[1] !== "24",
           timeZone: timezone,
@@ -3417,6 +4545,8 @@ export function formatPresentationValue(
   // Field metadata carries the ISO currency code. Preview records are flat strings, so the
   // callers below have none to pass; see the currency fallback in the numeric branch.
   currency?: string,
+  locale?: string,
+  t?: WidgetsT,
 ) {
   let result = value;
   if (value && binding.format === "relative-countdown") {
@@ -3429,7 +4559,7 @@ export function formatPresentationValue(
       const trailingSeconds = seconds % 60;
       result =
         remaining <= 0
-          ? "Now"
+          ? (t?.("widgets.preview.relativeNow") ?? "Now")
           : days > 0
             ? `${days}d ${hours}h`
             : hours > 0
@@ -3441,7 +4571,7 @@ export function formatPresentationValue(
   } else if (value && binding.format === "time") {
     const parsed = new Date(value);
     if (!Number.isNaN(parsed.getTime()))
-      result = new Intl.DateTimeFormat(undefined, {
+      result = new Intl.DateTimeFormat(locale, {
         timeStyle: "short",
       }).format(parsed);
   } else {
@@ -3464,7 +4594,7 @@ export function formatPresentationValue(
             : binding.format === "currency" && currency
               ? "currency"
               : "decimal";
-        result = new Intl.NumberFormat(undefined, {
+        result = new Intl.NumberFormat(locale, {
           style,
           currency: style === "currency" ? currency : undefined,
           maximumFractionDigits: precision,
@@ -3475,7 +4605,7 @@ export function formatPresentationValue(
     } else if (value && binding.format?.startsWith("date")) {
       const parsed = new Date(value);
       if (!Number.isNaN(parsed.getTime()))
-        result = new Intl.DateTimeFormat(undefined, {
+        result = new Intl.DateTimeFormat(locale, {
           dateStyle: binding.format === "date-long" ? "long" : "short",
         }).format(parsed);
     }
@@ -3521,6 +4651,7 @@ export function selectTemporalRecords(
 }
 
 function PresentationQrCode({ value }: { value: string }) {
+  const { t } = useTranslation(["content", "common"]);
   const [url, setUrl] = useState("");
   useEffect(() => {
     let current = true;
@@ -3543,10 +4674,10 @@ function PresentationQrCode({ value }: { value: string }) {
     <img
       className="presentation-preview__qr-code"
       src={url}
-      alt={`QR Code for ${value}`}
+      alt={t("widgets.preview.qrAlt", { value })}
     />
   ) : (
-    <span>Preparing QR Code…</span>
+    <span>{t("widgets.preview.qrPreparing")}</span>
   );
 }
 
@@ -3569,10 +4700,11 @@ function DataSourceSelect({
   disabled?: boolean;
   onChange: (value: string) => void;
 }) {
+  const { t } = useTranslation(["content", "common"]);
   return (
     <DataSourcePicker
       value={value}
-      description="Choose the information this Widget should display. You can connect a new source without leaving the editor."
+      description={t("widgets.editors.dataSourceDescription")}
       sources={sources}
       createProviders={createProviders}
       csrf={csrf}
@@ -3597,27 +4729,44 @@ function FieldSelect({
   allowEmpty?: boolean;
   onChange: (value: string) => void;
 }) {
+  const { t } = useTranslation(["content", "common"]);
+  const id = useId();
+  const emptyLabel = allowEmpty
+    ? t("widgets.editors.shared.none")
+    : t("widgets.editors.shared.selectSourceFirst");
   return (
-    <label className="field">
-      <span className="field__label">{label}</span>
+    <Field>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
       <Select
+        items={[
+          { value: "", label: emptyLabel },
+          ...fields.map((field) => ({
+            value: field.key,
+            label: field.label,
+          })),
+        ]}
         value={value}
         disabled={disabled || fields.length === 0}
-        onChange={(event) => onChange(event.target.value)}
+        onValueChange={(next) => {
+          if (typeof next === "string") onChange(next);
+        }}
       >
-        <option value="">
-          {allowEmpty ? "None" : "Select a Data Source first"}
-        </option>
-        {fields.map((field) => (
-          <option key={field.key} value={field.key}>
-            {field.label}
-          </option>
-        ))}
+        <SelectTrigger id={id} aria-label={label}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="">{emptyLabel}</SelectItem>
+          {fields.map((field) => (
+            <SelectItem key={field.key} value={field.key}>
+              {field.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
       </Select>
-      <small>
-        Choose which field from the connected data supplies this value.
-      </small>
-    </label>
+      <FieldDescription>
+        {t("widgets.editors.fieldDescription")}
+      </FieldDescription>
+    </Field>
   );
 }
 
@@ -3649,6 +4798,7 @@ export function YouTubeSourceEditor({
   onSaved: (asset: Asset) => void;
   page?: boolean;
 }) {
+  const { t } = useTranslation(["content", "common"]);
   const queryClient = useQueryClient();
   const configured = asset?.widget?.configuration as YouTubeConfig | undefined;
   const [name, setName] = useState(asset?.name ?? "");
@@ -3696,50 +4846,78 @@ export function YouTubeSourceEditor({
         : api.createWidget(input, csrf);
     },
     onSuccess: (saved) => {
+      toast.add({
+        title: asset ? "Widget updated." : "Widget created.",
+        type: "success",
+      });
       setDirty(false);
       void queryClient.invalidateQueries({ queryKey: ["assets"] });
       onSaved(saved);
     },
   });
-  const close = () => {
-    if (!dirty || confirm("Discard unsaved YouTube Widget changes?")) onClose();
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const requestClose = () => {
+    if (dirty) setConfirmDiscard(true);
+    else onClose();
   };
+  const close = requestClose;
   useEffect(() => {
     const escape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.stopPropagation();
-        if (!dirty || confirm("Discard unsaved YouTube Widget changes?"))
-          onClose();
+        if (dirty) setConfirmDiscard(true);
+        else onClose();
       }
     };
     addEventListener("keydown", escape);
     return () => removeEventListener("keydown", escape);
   }, [dirty, onClose]);
   return (
-    <div className="details-backdrop" role={page ? undefined : "presentation"}>
+    <div
+      className={
+        page
+          ? "grid w-full min-w-0 gap-5"
+          : "fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4"
+      }
+      role={page ? undefined : "presentation"}
+    >
       <section
-        className="asset-details source-editor"
+        className={
+          page
+            ? "grid w-full min-w-0 gap-5"
+            : "mx-auto grid w-full max-w-3xl gap-5 rounded-xl bg-background p-5"
+        }
         role={page ? undefined : "dialog"}
         aria-modal={page ? undefined : true}
         aria-labelledby="youtube-source-title"
       >
-        <header>
-          <div>
-            <h2 id="youtube-source-title">
-              {asset ? "Edit YouTube Widget" : "Create YouTube Widget"}
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1">
+            <h2 id="youtube-source-title" className="text-xl font-semibold">
+              {asset
+                ? t("widgets.editors.youtube.editTitle")
+                : t("widgets.editors.youtube.createTitle")}
             </h2>
-            <p>
-              Videos and playlists play fullscreen through YouTube’s embedded
-              player.
+            <p className="text-sm text-muted-foreground">
+              {t("widgets.editors.youtube.hint")}
             </p>
           </div>
-          <button className="icon-button" aria-label="Close" onClick={close}>
-            <X size={18} />
-          </button>
-        </header>
-        <label className="field">
-          <span className="field__label">Name</span>
-          <input
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label={t("common:actions.close")}
+            onClick={close}
+          >
+            <X aria-hidden="true" />
+          </Button>
+        </div>
+        <Field>
+          <FieldLabel htmlFor="name">
+            {t("widgets.editors.youtube.nameLabel")}
+          </FieldLabel>
+          <Input
+            id="name"
             disabled={readOnly}
             value={name}
             onChange={(event) => {
@@ -3747,10 +4925,13 @@ export function YouTubeSourceEditor({
               setDirty(true);
             }}
           />
-        </label>
-        <label className="field">
-          <span className="field__label">Description</span>
-          <textarea
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="youtube-description">
+            {t("widgets.editors.shared.description")}
+          </FieldLabel>
+          <Textarea
+            id="youtube-description"
             disabled={readOnly}
             value={description}
             onChange={(event) => {
@@ -3758,23 +4939,28 @@ export function YouTubeSourceEditor({
               setDirty(true);
             }}
           />
-        </label>
-        <label className="field">
-          <span className="field__label">YouTube video or playlist URL</span>
-          <input
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="youtube-url">
+            {t("widgets.editors.youtube.urlLabel")}
+          </FieldLabel>
+          <Input
+            id="youtube-url"
             disabled={readOnly}
             value={configuration.url}
             onChange={(event) => set("url", event.target.value)}
           />
-          <small>
-            Tilecast detects whether this is a video or playlist. No YouTube API
-            key is required.
-          </small>
-        </label>
-        <div className="source-editor__columns">
-          <label className="field">
-            <span className="field__label">Start time (seconds)</span>
-            <input
+          <FieldDescription>
+            {t("widgets.editors.youtube.urlHint")}
+          </FieldDescription>
+        </Field>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field>
+            <FieldLabel htmlFor="youtube-start">
+              {t("widgets.editors.youtube.startLabel")}
+            </FieldLabel>
+            <Input
+              id="youtube-start"
               type="number"
               min={0}
               disabled={readOnly}
@@ -3783,10 +4969,13 @@ export function YouTubeSourceEditor({
                 set("startSeconds", Number(event.target.value))
               }
             />
-          </label>
-          <label className="field">
-            <span className="field__label">End time (optional)</span>
-            <input
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="youtube-end">
+              {t("widgets.editors.youtube.endLabel")}
+            </FieldLabel>
+            <Input
+              id="youtube-end"
               type="number"
               min={1}
               disabled={readOnly}
@@ -3798,71 +4987,105 @@ export function YouTubeSourceEditor({
                 )
               }
             />
-          </label>
-          <label className="field">
-            <span className="field__label">Volume</span>
-            <div className="unit-input">
-              <input
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="youtube-volume">
+              {t("widgets.editors.youtube.volumeLabel")}
+            </FieldLabel>
+            <div className="flex items-center gap-2">
+              <Input
+                id="youtube-volume"
                 type="number"
                 min={0}
                 max={100}
                 disabled={readOnly || configuration.muted}
                 value={configuration.volume}
                 onChange={(event) => set("volume", Number(event.target.value))}
+                className="max-w-28"
               />
-              <span>%</span>
+              <span className="text-sm text-muted-foreground">%</span>
             </div>
-          </label>
-          <label className="field">
-            <span className="field__label">Caption language</span>
-            <input
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="youtube-captions">
+              {t("widgets.editors.youtube.captionsLabel")}
+            </FieldLabel>
+            <Input
+              id="youtube-captions"
               disabled={readOnly || !configuration.captions}
               placeholder="en"
               value={configuration.captionLanguage}
               onChange={(event) => set("captionLanguage", event.target.value)}
             />
-          </label>
+          </Field>
         </div>
-        <div className="source-switches">
+        <div className="flex flex-wrap gap-x-4 gap-y-2">
           {(
             [
-              ["loop", "Loop playback"],
-              ["muted", "Mute audio"],
-              ["captions", "Show captions"],
-              ["controls", "Show YouTube controls"],
+              ["loop", "widgets.editors.youtube.loop"],
+              ["muted", "widgets.editors.youtube.muted"],
+              ["captions", "widgets.editors.youtube.captions"],
+              ["controls", "widgets.editors.youtube.controls"],
             ] as const
-          ).map(([key, label]) => (
-            <label key={key}>
-              <input
-                type="checkbox"
+          ).map(([key, labelKey]) => (
+            <label key={key} className="flex items-center gap-2 text-sm">
+              <Switch
                 disabled={readOnly}
                 checked={configuration[key]}
-                onChange={(event) => set(key, event.target.checked)}
-              />{" "}
-              {label}
+                onCheckedChange={(checked) => set(key, checked === true)}
+                aria-label={t(labelKey)}
+              />
+              <span>{t(labelKey)}</span>
             </label>
           ))}
         </div>
-        <label className="field">
-          <span className="field__label">Playlist item behavior</span>
+        <Field>
+          <FieldLabel htmlFor="youtube-playback-mode">
+            {t("widgets.editors.youtube.behavior")}
+          </FieldLabel>
           <Select
+            items={[
+              {
+                value: "until_end",
+                label: t("widgets.editors.youtube.behaviorUntilEnd"),
+              },
+              {
+                value: "fixed_duration",
+                label: t("widgets.editors.youtube.behaviorFixed"),
+              },
+            ]}
             disabled={readOnly}
             value={configuration.playlistPlaybackMode}
-            onChange={(event) =>
+            onValueChange={(next) =>
               set(
                 "playlistPlaybackMode",
-                event.target.value as YouTubeConfig["playlistPlaybackMode"],
+                next as YouTubeConfig["playlistPlaybackMode"],
               )
             }
           >
-            <option value="until_end">Play until video ends</option>
-            <option value="fixed_duration">Play for a fixed duration</option>
+            <SelectTrigger
+              id="youtube-playback-mode"
+              aria-label={t("widgets.editors.youtube.behavior")}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="until_end">
+                {t("widgets.editors.youtube.behaviorUntilEnd")}
+              </SelectItem>
+              <SelectItem value="fixed_duration">
+                {t("widgets.editors.youtube.behaviorFixed")}
+              </SelectItem>
+            </SelectContent>
           </Select>
-        </label>
+        </Field>
         {configuration.playlistPlaybackMode === "fixed_duration" && (
-          <label className="field">
-            <span className="field__label">Fixed duration (seconds)</span>
-            <input
+          <Field>
+            <FieldLabel htmlFor="youtube-fixed-duration">
+              {t("widgets.editors.youtube.fixedDuration")}
+            </FieldLabel>
+            <Input
+              id="youtube-fixed-duration"
               type="number"
               min={1}
               max={86400}
@@ -3872,59 +5095,134 @@ export function YouTubeSourceEditor({
                 set("fixedDurationSeconds", Number(event.target.value))
               }
             />
-          </label>
+          </Field>
         )}
-        <label className="field">
-          <span className="field__label">Failure behavior</span>
+        <Field>
+          <FieldLabel htmlFor="youtube-failure">
+            {t("widgets.editors.youtube.failure")}
+          </FieldLabel>
           <Select
+            items={[
+              {
+                value: "placeholder",
+                label: t("widgets.editors.youtube.failurePlaceholder"),
+              },
+              {
+                value: "fallback_image",
+                label: t("widgets.editors.youtube.failureImage"),
+              },
+              {
+                value: "skip",
+                label: t("widgets.editors.youtube.failureSkip"),
+              },
+            ]}
             disabled={readOnly}
             value={configuration.failureBehavior}
-            onChange={(event) =>
-              set(
-                "failureBehavior",
-                event.target.value as YouTubeConfig["failureBehavior"],
-              )
+            onValueChange={(next) =>
+              set("failureBehavior", next as YouTubeConfig["failureBehavior"])
             }
           >
-            <option value="placeholder">Show Tilecast placeholder</option>
-            <option value="fallback_image">Show fallback image</option>
-            <option value="skip">Skip playlist item</option>
+            <SelectTrigger
+              id="youtube-failure"
+              aria-label={t("widgets.editors.youtube.failure")}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="placeholder">
+                {t("widgets.editors.youtube.failurePlaceholder")}
+              </SelectItem>
+              <SelectItem value="fallback_image">
+                {t("widgets.editors.youtube.failureImage")}
+              </SelectItem>
+              <SelectItem value="skip">
+                {t("widgets.editors.youtube.failureSkip")}
+              </SelectItem>
+            </SelectContent>
           </Select>
-        </label>
-        <label className="field">
-          <span className="field__label">Fallback image</span>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="youtube-fallback">
+            {t("widgets.editors.youtube.fallback")}
+          </FieldLabel>
           <Select
+            items={[
+              { value: "", label: t("widgets.editors.shared.none") },
+              ...(images.data?.items ?? []).map((image) => ({
+                value: image.id,
+                label: image.name,
+              })),
+            ]}
             disabled={readOnly}
             value={configuration.fallbackImageAssetId ?? ""}
-            onChange={(event) =>
-              set("fallbackImageAssetId", event.target.value || undefined)
+            onValueChange={(next) =>
+              set("fallbackImageAssetId", next || undefined)
             }
           >
-            <option value="">None</option>
-            {images.data?.items?.map((image) => (
-              <option key={image.id} value={image.id}>
-                {image.name}
-              </option>
-            ))}
+            <SelectTrigger
+              id="youtube-fallback"
+              aria-label={t("widgets.editors.youtube.fallback")}
+            >
+              <SelectValue>
+                {images.data?.items?.find(
+                  (image) => image.id === configuration.fallbackImageAssetId,
+                )?.name ?? t("widgets.editors.shared.none")}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">
+                {t("widgets.editors.shared.none")}
+              </SelectItem>
+              {images.data?.items?.map((image) => (
+                <SelectItem key={image.id} value={image.id}>
+                  {image.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
           </Select>
-        </label>
+        </Field>
         {save.error && (
-          <div className="notice notice--error">{save.error.message}</div>
+          <Alert variant="destructive">
+            <AlertDescription>
+              {widgetSaveErrorMessage(t, save.error)}
+            </AlertDescription>
+          </Alert>
         )}
-        <footer>
+        <footer className="flex flex-wrap items-center gap-2">
           {!readOnly && (
-            <button
-              className="button button--primary"
+            <Button
               disabled={save.isPending || !name.trim()}
               onClick={() => save.mutate()}
             >
-              {save.isPending ? "Saving…" : "Save Widget"}
-            </button>
+              {save.isPending
+                ? t("common:actions.saving")
+                : t("widgets.editors.shared.saveWidget")}
+            </Button>
           )}
-          <button className="button button--quiet" onClick={close}>
-            Cancel
-          </button>
+          <Button type="button" variant="outline" onClick={requestClose}>
+            {t("common:actions.cancel")}
+          </Button>
         </footer>
+        <AlertDialog open={confirmDiscard} onOpenChange={setConfirmDiscard}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {t("widgets.editors.youtube.discardTitle")}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {t("widgets.editors.youtube.discardHint")}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>
+                {t("widgets.editors.youtube.keepEditing")}
+              </AlertDialogCancel>
+              <AlertDialogAction onClick={onClose}>
+                {t("widgets.editors.youtube.discard")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </section>
     </div>
   );

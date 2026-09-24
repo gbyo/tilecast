@@ -1,5 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import type { TFunction } from "i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { Asset } from "../api/types";
 import {
@@ -7,8 +9,26 @@ import {
   PlaylistPicker,
   type PlaylistPickerChoice,
 } from "./content-picker";
-import { Button, Checkbox, Dialog, Field, Select, ToggleGroup } from "./ui";
-import "./QuickPresentDialog.css";
+import { Button } from "./ui/button";
+import { Checkbox } from "./ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group";
+import { Alert, AlertDescription } from "./ui/alert";
+import { toast } from "./ui/toast";
 
 type QuickPresentContentType = "playlist" | "layout" | "asset";
 
@@ -21,19 +41,22 @@ type QuickPresentSelection = {
 
 const contentTypes: readonly {
   value: QuickPresentContentType;
-  label: string;
+  labelKey:
+    | "quickPresent.contentTypes.playlist"
+    | "quickPresent.contentTypes.layout"
+    | "quickPresent.contentTypes.asset";
 }[] = [
-  { value: "playlist", label: "Playlist" },
-  { value: "layout", label: "Layout" },
-  { value: "asset", label: "Media / web" },
+  { value: "playlist", labelKey: "quickPresent.contentTypes.playlist" },
+  { value: "layout", labelKey: "quickPresent.contentTypes.layout" },
+  { value: "asset", labelKey: "quickPresent.contentTypes.asset" },
 ];
 
-function assetDetail(asset: Asset) {
-  if (asset.type === "image") return "Image";
-  if (asset.type === "video") return "Video";
+function assetDetail(asset: Asset, t: TFunction<"alerts">) {
+  if (asset.type === "image") return t("quickPresent.assetTypes.image");
+  if (asset.type === "video") return t("quickPresent.assetTypes.video");
   return asset.widget?.provider === "youtube"
-    ? "YouTube widget"
-    : "Website widget";
+    ? t("quickPresent.assetTypes.youtube")
+    : t("quickPresent.assetTypes.website");
 }
 
 export function QuickPresentDialog({
@@ -53,6 +76,7 @@ export function QuickPresentDialog({
   onClose: () => void;
   onSuccess?: () => void;
 }) {
+  const { t } = useTranslation(["alerts", "common"]);
   const queryClient = useQueryClient();
   const [contentType, setContentType] =
     useState<QuickPresentContentType>("playlist");
@@ -64,13 +88,18 @@ export function QuickPresentDialog({
   const [selectedContent, setSelectedContent] =
     useState<QuickPresentSelection>();
   const [picker, setPicker] = useState<QuickPresentContentType>();
-  const pickerOpen = open && picker !== undefined;
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const chooseContent = (selection: QuickPresentSelection) => {
     setContentType(selection.type);
     setContentId(selection.id);
     setSelectedContent(selection);
-    setPicker(undefined);
+    setPickerOpen(false);
+  };
+
+  const openPicker = (type: QuickPresentContentType) => {
+    setPicker(type);
+    setPickerOpen(true);
   };
 
   const changeContentType = (type: QuickPresentContentType) => {
@@ -93,6 +122,7 @@ export function QuickPresentDialog({
         csrfToken,
       ),
     onSuccess: async () => {
+      toast.add({ title: "Show Now started.", type: "success" });
       await queryClient.invalidateQueries({
         queryKey: ["presentation-overrides"],
       });
@@ -102,109 +132,164 @@ export function QuickPresentDialog({
   });
   const selectedForType =
     selectedContent?.type === contentType ? selectedContent : undefined;
-  const contentTypeLabel =
-    contentType === "asset" ? "media or web" : contentType;
+  const chooseLabel = {
+    playlist: t("quickPresent.choosePlaylist"),
+    layout: t("quickPresent.chooseLayout"),
+    asset: t("quickPresent.chooseAsset"),
+  }[contentType];
+  const durationOptions = [
+    { value: "5", label: t("quickPresent.durations.fiveMinutes") },
+    { value: "15", label: t("quickPresent.durations.fifteenMinutes") },
+    { value: "30", label: t("quickPresent.durations.thirtyMinutes") },
+    { value: "60", label: t("quickPresent.durations.oneHour") },
+    { value: "0", label: t("quickPresent.durations.untilStopped") },
+  ];
   return (
     <>
       <Dialog
-        open={open && !pickerOpen}
-        title="Show now"
-        onClose={() => {
-          if (!pickerOpen) onClose();
+        open={open && picker === undefined}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen && picker === undefined) onClose();
         }}
-        className="quick-present-dialog"
       >
-        <div className="quick-present-dialog__body">
-          <p className="quick-present-dialog__intro">
-            Temporarily show content on <strong>{destinationName}</strong>.
-            <span>
-              Normal content resumes when this session ends. Emergency Takeovers
-              and AirPlay remain higher priority.
-            </span>
-          </p>
-          <Field label="Content" required>
-            <ToggleGroup
-              className="quick-present-dialog__content-type"
-              label="Content type"
-              value={contentType}
-              items={contentTypes}
-              onValueChange={changeContentType}
-            />
-            {selectedForType ? (
-              <div className="quick-present-dialog__content-selection">
-                <span className="quick-present-dialog__content-selection-copy">
-                  <strong>{selectedForType.name}</strong>
-                  <small>{selectedForType.detail}</small>
-                </span>
+        <DialogContent className="max-h-[min(90vh,54rem)] max-w-xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{t("quickPresent.title")}</DialogTitle>
+            <DialogDescription>
+              <Trans
+                i18nKey="quickPresent.description"
+                ns="alerts"
+                values={{ name: destinationName }}
+                components={{ destination: <strong /> }}
+              />
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <div className="grid gap-2 text-sm font-medium">
+              <span>{t("quickPresent.contentLabel")}</span>
+              <ToggleGroup
+                aria-label={t("quickPresent.contentTypeAria")}
+                className="grid w-full grid-cols-1 gap-1 sm:grid-cols-3"
+                value={[contentType]}
+                onValueChange={(values) => {
+                  const value = values[0];
+                  if (
+                    value === "playlist" ||
+                    value === "layout" ||
+                    value === "asset"
+                  ) {
+                    changeContentType(value);
+                  }
+                }}
+                multiple={false}
+                variant="outline"
+                size="sm"
+                spacing={1}
+              >
+                {contentTypes.map((type) => (
+                  <ToggleGroupItem
+                    key={type.value}
+                    value={type.value}
+                    className="min-w-0"
+                  >
+                    {t(type.labelKey)}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+              {selectedForType ? (
+                <div className="flex min-h-10 items-center justify-between gap-3 rounded-xl border border-border bg-muted/30 px-3 py-2">
+                  <span className="grid min-w-0 gap-0.5">
+                    <strong className="truncate text-sm">
+                      {selectedForType.name}
+                    </strong>
+                    <small className="truncate text-xs text-muted-foreground">
+                      {selectedForType.detail}
+                    </small>
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openPicker(contentType)}
+                    disabled={present.isPending}
+                  >
+                    {t("quickPresent.change")}
+                  </Button>
+                </div>
+              ) : (
                 <Button
                   type="button"
-                  variant="quiet"
-                  compact
-                  onClick={() => setPicker(contentType)}
+                  variant="outline"
+                  onClick={() => openPicker(contentType)}
                   disabled={present.isPending}
                 >
-                  Change
+                  {chooseLabel}
                 </Button>
-              </div>
-            ) : (
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setPicker(contentType)}
-                disabled={present.isPending}
-              >
-                Choose {contentTypeLabel}
-              </Button>
-            )}
-          </Field>
-          <Field label="Duration">
-            <Select
-              value={durationMinutes}
-              onChange={(event) =>
-                setDurationMinutes(
-                  Number(event.target.value) as 0 | 5 | 15 | 30 | 60,
-                )
-              }
-            >
-              <option value={5}>5 minutes</option>
-              <option value={15}>15 minutes</option>
-              <option value={30}>30 minutes</option>
-              <option value={60}>1 hour</option>
-              <option value={0}>Until stopped</option>
-            </Select>
-          </Field>
-          <Checkbox
-            label="Wake display if needed"
-            checked={wakeDisplay}
-            onChange={(event) => setWakeDisplay(event.target.checked)}
-          />
-          {present.error && (
-            <div className="notice notice--error" role="alert">
-              {present.error.message}
+              )}
             </div>
-          )}
-        </div>
-        <footer className="form-actions quick-present-dialog__actions">
-          <Button type="button" variant="quiet" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            variant="primary"
-            disabled={present.isPending || !contentId}
-            onClick={() => present.mutate()}
-          >
-            {present.isPending ? "Showing…" : "Show now"}
-          </Button>
-        </footer>
+            <div className="grid gap-2 text-sm font-medium">
+              <span>{t("quickPresent.durationLabel")}</span>
+              <Select
+                items={durationOptions}
+                value={String(durationMinutes)}
+                onValueChange={(value) => {
+                  if (value) {
+                    setDurationMinutes(Number(value) as 0 | 5 | 15 | 30 | 60);
+                  }
+                }}
+              >
+                <SelectTrigger
+                  className="w-full"
+                  aria-label={t("quickPresent.durationLabel")}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {durationOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={wakeDisplay}
+                onCheckedChange={(checked) => setWakeDisplay(checked === true)}
+              />
+              {t("quickPresent.wakeDisplay")}
+            </label>
+            {present.error && (
+              <Alert variant="destructive">
+                <AlertDescription>{present.error.message}</AlertDescription>
+              </Alert>
+            )}
+          </div>
+          <DialogFooter className="border-t border-border pt-4">
+            <Button type="button" variant="outline" onClick={onClose}>
+              {t("common:actions.cancel")}
+            </Button>
+            <Button
+              type="button"
+              variant="default"
+              disabled={present.isPending || !contentId}
+              onClick={() => present.mutate()}
+            >
+              {present.isPending
+                ? t("quickPresent.showing")
+                : t("quickPresent.showNow")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
-      {open && picker === "playlist" && (
+      {picker === "playlist" && (
         <PlaylistPicker
-          open
+          open={open && pickerOpen}
           allowedKinds={["playlist"]}
-          title="Choose playlist"
-          description="Select a playlist from your library to show now."
-          confirmLabel="Use playlist"
+          title={t("quickPresent.playlistPicker.title")}
+          description={t("quickPresent.playlistPicker.description")}
+          confirmLabel={t("quickPresent.playlistPicker.confirm")}
           selectedId={contentType === "playlist" ? contentId : ""}
           onConfirm={(choice: PlaylistPickerChoice) => {
             if (choice.kind !== "playlist") return;
@@ -212,19 +297,24 @@ export function QuickPresentDialog({
               type: "playlist",
               id: choice.playlist.id,
               name: choice.playlist.name,
-              detail: `${choice.playlist.itemCount} item${choice.playlist.itemCount === 1 ? "" : "s"}`,
+              detail: t("quickPresent.itemCount", {
+                count: choice.playlist.itemCount,
+              }),
             });
           }}
-          onClose={() => setPicker(undefined)}
+          onClose={() => setPickerOpen(false)}
+          onCloseComplete={() => {
+            if (!pickerOpen) setPicker(undefined);
+          }}
         />
       )}
-      {open && picker === "layout" && (
+      {picker === "layout" && (
         <PlaylistPicker
-          open
+          open={open && pickerOpen}
           allowedKinds={["layout"]}
-          title="Choose layout"
-          description="Select a published layout from your library to show now."
-          confirmLabel="Use layout"
+          title={t("quickPresent.layoutPicker.title")}
+          description={t("quickPresent.layoutPicker.description")}
+          confirmLabel={t("quickPresent.layoutPicker.confirm")}
           selectedId={contentType === "layout" ? contentId : ""}
           onConfirm={(choice: PlaylistPickerChoice) => {
             if (choice.kind !== "layout") return;
@@ -232,22 +322,29 @@ export function QuickPresentDialog({
               type: "layout",
               id: choice.layout.id,
               name: choice.layout.name,
-              detail: `${choice.layout.canvasWidth} × ${choice.layout.canvasHeight} · revision ${choice.layout.publishedRevision}`,
+              detail: t("quickPresent.layoutDetail", {
+                width: choice.layout.canvasWidth,
+                height: choice.layout.canvasHeight,
+                revision: choice.layout.publishedRevision,
+              }),
             });
           }}
-          onClose={() => setPicker(undefined)}
+          onClose={() => setPickerOpen(false)}
+          onCloseComplete={() => {
+            if (!pickerOpen) setPicker(undefined);
+          }}
         />
       )}
-      {open && picker === "asset" && (
+      {picker === "asset" && (
         <ContentPicker
-          open
+          open={open && pickerOpen}
           mode="single"
           csrf={csrfToken}
           allowedTypes={["image", "video", "widget"]}
           selectedIds={contentType === "asset" && contentId ? [contentId] : []}
-          title="Choose media or web"
-          description="Select ready media or a website or app from your content library."
-          confirmLabel="Use content"
+          title={t("quickPresent.assetPicker.title")}
+          description={t("quickPresent.assetPicker.description")}
+          confirmLabel={t("quickPresent.assetPicker.confirm")}
           onConfirm={(items) => {
             const asset = items[0];
             if (!asset) return;
@@ -255,10 +352,13 @@ export function QuickPresentDialog({
               type: "asset",
               id: asset.id,
               name: asset.name,
-              detail: assetDetail(asset),
+              detail: assetDetail(asset, t),
             });
           }}
-          onClose={() => setPicker(undefined)}
+          onClose={() => setPickerOpen(false)}
+          onCloseComplete={() => {
+            if (!pickerOpen) setPicker(undefined);
+          }}
         />
       )}
     </>

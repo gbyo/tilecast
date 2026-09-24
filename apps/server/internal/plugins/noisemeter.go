@@ -222,6 +222,9 @@ func (s *Service) writeNoiseMeter(ctx context.Context, id, organizationID, userI
 		return err
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
+	if err = LockInstallation(ctx, tx, NoiseMeterID); err != nil {
+		return err
+	}
 	if err = validateTargets(ctx, tx, input.TargetScope, input.TargetIDs); err != nil {
 		return err
 	}

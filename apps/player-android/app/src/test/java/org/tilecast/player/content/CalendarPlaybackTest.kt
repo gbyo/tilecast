@@ -6,8 +6,26 @@ import org.tilecast.player.network.CalendarEvent
 import org.tilecast.player.network.CalendarPreparedData
 import org.tilecast.player.network.CalendarSourceConfig
 import java.time.Instant
+import java.time.DayOfWeek
 
 class CalendarPlaybackTest {
+    @Test
+    fun thisWeekUsesConfiguredFirstDay() {
+        val config = CalendarSourceConfig(
+            displayMode = "this_week",
+            timezone = "UTC",
+            data = CalendarPreparedData(events = listOf(
+                CalendarEvent("friday", "School", "Friday", "2026-07-10T09:00:00Z", "2026-07-10T10:00:00Z", false),
+                CalendarEvent("sunday", "School", "Sunday", "2026-07-12T09:00:00Z", "2026-07-12T10:00:00Z", false),
+                CalendarEvent("saturday", "School", "Saturday", "2026-07-18T09:00:00Z", "2026-07-18T10:00:00Z", false),
+            )),
+        )
+        val now = Instant.parse("2026-07-15T12:00:00Z")
+        assertEquals(listOf("Sunday", "Saturday"), visibleCalendarEvents(config, now, DayOfWeek.SUNDAY).map { it.title })
+        assertEquals(listOf("Saturday"), visibleCalendarEvents(config, now, DayOfWeek.MONDAY).map { it.title })
+        assertEquals(listOf("Friday", "Sunday"), visibleCalendarEvents(config, now, DayOfWeek.FRIDAY).map { it.title })
+    }
+
     @Test
     fun todayUsesConfiguredTimezoneAndIncludesAllDayEvents() {
         val config = CalendarSourceConfig(

@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Plus, Trash2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { api } from "../api/client";
 import type {
   ContentDefinitionField,
@@ -7,7 +9,23 @@ import type {
   DataSourceDefinition,
   DataSourceField,
 } from "../api/types";
-import { Select } from "../components/ui";
+import { DateInput, DateTimeInput } from "../components/date-picker";
+import { Button } from "../components/ui/button";
+import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { Switch } from "../components/ui/switch";
+import { Textarea } from "../components/ui/textarea";
+import {
+  localDateTimeToRfc3339,
+  rfc3339ToLocalDateTime,
+} from "../lib/dateTime";
 import { DataSourcePicker, type DataFormatGuide } from "./DataSourcePicker";
 
 type Values = Record<string, unknown>;
@@ -108,7 +126,7 @@ export function DefinitionForm({
     onChange({ ...value, [key]: next });
 
   return (
-    <div className="form-grid">
+    <div className="grid gap-4">
       {fields.map((field) => (
         <DefinitionControl
           key={field.key}
@@ -201,9 +219,12 @@ function preferredExampleType(key: string, types: string[]) {
   return types[0] ?? "text";
 }
 
+type WidgetsT = TFunction<["content", "common"], undefined>;
+
 export function dataFormatGuideFor(
   sourceField: ContentDefinitionField,
   fields: ContentDefinitionField[],
+  t?: WidgetsT,
 ): DataFormatGuide {
   const sourceFields = fields.filter(
     (candidate) => candidate.control === "data_source",
@@ -258,27 +279,31 @@ export function dataFormatGuideFor(
   const shape = kinds
     .map((kind) =>
       kind === "records"
-        ? "record rows"
+        ? (t?.("widgets.form.guide.shapeRecords") ?? "record rows")
         : kind === "object"
-          ? "a single object"
+          ? (t?.("widgets.form.guide.shapeObject") ?? "a single object")
           : kind === "time_series"
-            ? "a time series"
+            ? (t?.("widgets.form.guide.shapeTimeSeries") ?? "a time series")
             : kind.replaceAll("_", " "),
     )
-    .join(" or ");
+    .join(t?.("widgets.form.guide.or") ?? " or ");
   const example = Object.fromEntries(
     deduplicated.map((field) => {
       const type = preferredExampleType(field.key, field.types);
       return [field.key, exampleValue(field.key, type)];
     }),
   );
-  if (Object.keys(example).length === 0) example.title = "Example information";
+  if (Object.keys(example).length === 0)
+    example.title =
+      t?.("widgets.form.guide.exampleTitle") ?? "Example information";
   return {
     shape: shape[0]!.toUpperCase() + shape.slice(1),
     summary:
       deduplicated.length > 0
-        ? "Use these field roles and types. Field names can differ because you map them below."
-        : "Use one item per row; after connecting the source, choose which fields appear.",
+        ? (t?.("widgets.form.guide.summaryMapped") ??
+          "Use these field roles and types. Field names can differ because you map them below.")
+        : (t?.("widgets.form.guide.summaryUnmapped") ??
+          "Use one item per row; after connecting the source, choose which fields appear."),
     fields: deduplicated,
     example,
   };
@@ -307,6 +332,7 @@ function DefinitionControl({
   dataSourceDefinitions: DataSourceDefinition[];
   assets: { id: string; name: string; type: string }[];
 }) {
+  const { t } = useTranslation(["content", "common"]);
   // A field picker resolves against the source chosen by its own `data_source` control, not a
   // hardcoded `dataSourceId`, so a definition may reference several Data Sources.
   const fieldSourceKey =
@@ -323,12 +349,8 @@ function DefinitionControl({
     disabled: readOnly,
     required: field.required,
   };
-  const label = (
-    <span className="field__label">
-      {field.label}
-      {field.required ? " *" : ""}
-    </span>
-  );
+  const requiredMark = field.required ? " *" : "";
+  const labelText = `${field.label}${requiredMark}`;
   if (field.control === "data_source")
     return (
       <DataSourcePicker
@@ -337,7 +359,7 @@ function DefinitionControl({
         value={fieldText(value)}
         sources={compatibleSources(field, dataSources, dataSourceDefinitions)}
         createProviders={creatableProviders(field, dataSourceDefinitions)}
-        formatGuide={dataFormatGuideFor(field, fields)}
+        formatGuide={dataFormatGuideFor(field, fields, t)}
         csrf={csrf}
         disabled={readOnly}
         required={field.required}
@@ -345,36 +367,38 @@ function DefinitionControl({
       />
     );
   if (field.control === "boolean")
+    // The wrapping label names the switch; the span carries the label text
+    // alone so the accessible name stays exact, with no extra aria-label.
     return (
-      <div className="field definition-switch-field">
-        {label}
-        <button
-          type="button"
-          role="switch"
-          aria-label={field.label}
-          aria-checked={!!value}
-          className="setting-switch"
-          disabled={readOnly}
-          onClick={() => setValue(!value)}
-        >
-          <span aria-hidden="true" />
-          <strong>{value ? "On" : "Off"}</strong>
-        </button>
-        {field.description && <small>{field.description}</small>}
-      </div>
+      <Field>
+        <FieldLabel className="flex items-center gap-2 text-sm">
+          <Switch
+            checked={!!value}
+            disabled={readOnly}
+            onCheckedChange={(checked) => setValue(checked === true)}
+          />
+          <span>{labelText}</span>
+        </FieldLabel>
+        {field.description && (
+          <FieldDescription>{field.description}</FieldDescription>
+        )}
+      </Field>
     );
   if (field.control === "multiline_text")
     return (
-      <label className="field field--wide">
-        {label}
-        <textarea
+      <Field>
+        <FieldLabel htmlFor={`definition-${field.key}`}>{labelText}</FieldLabel>
+        <Textarea
+          id={`definition-${field.key}`}
           {...common}
           value={fieldText(value)}
           maxLength={field.maxLength}
           onChange={(event) => setValue(event.target.value)}
         />
-        {field.description && <small>{field.description}</small>}
-      </label>
+        {field.description && (
+          <FieldDescription>{field.description}</FieldDescription>
+        )}
+      </Field>
     );
   if (
     field.control === "select" ||
@@ -404,34 +428,43 @@ function DefinitionControl({
               .map((asset) => ({ value: asset.id, label: asset.name }));
     const placeholder =
       field.control === "data_source_field" && !fieldSourceID
-        ? "Select a Data Source first"
-        : "Select…";
+        ? t("widgets.form.selectSourceFirst")
+        : t("widgets.form.selectPlaceholder");
+    const labeledOptions = [{ value: "", label: placeholder }, ...options];
     return (
-      <label className="field">
-        {label}
+      <Field>
+        <FieldLabel htmlFor={`definition-${field.key}`}>{labelText}</FieldLabel>
         <Select
-          {...common}
           value={fieldText(value)}
-          onChange={(event) => setValue(event.target.value)}
+          disabled={readOnly}
+          required={field.required}
+          onValueChange={(next) => setValue(next)}
+          items={labeledOptions}
         >
-          <option value="">{placeholder}</option>
-          {options.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
+          <SelectTrigger id={`definition-${field.key}`} aria-label={labelText}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {labeledOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
         </Select>
-        {field.description && <small>{field.description}</small>}
-      </label>
+        {field.description && (
+          <FieldDescription>{field.description}</FieldDescription>
+        )}
+      </Field>
     );
   }
   if (field.control === "repeating_group") {
     const items = Array.isArray(value) ? (value as Values[]) : [];
     return (
-      <fieldset className="field field--wide">
-        <legend>{field.label}</legend>
+      <fieldset className="grid gap-3">
+        <legend className="text-sm font-medium">{labelText}</legend>
         {items.map((item, index) => (
-          <div className="source-mapping-row" key={index}>
+          <div className="grid gap-3 rounded-lg border p-3" key={index}>
             <DefinitionForm
               fields={field.itemFields ?? []}
               value={item}
@@ -446,47 +479,80 @@ function DefinitionControl({
               }
             />
             {!readOnly && (
-              <button
+              <Button
                 type="button"
-                className="icon-button"
-                aria-label={`Remove ${field.label} item ${index + 1}`}
+                variant="ghost"
+                size="icon"
+                aria-label={t("widgets.form.removeItem", {
+                  label: field.label,
+                  index: index + 1,
+                })}
                 onClick={() =>
                   setValue(items.filter((_, current) => current !== index))
                 }
               >
-                <Trash2 size={15} />
-              </button>
+                <Trash2 size={15} aria-hidden="true" />
+              </Button>
             )}
           </div>
         ))}
         {!readOnly && items.length < (field.maximumItems ?? 0) && (
-          <button
+          <Button
             type="button"
-            className="button button--quiet"
+            variant="outline"
             onClick={() => setValue([...items, {}])}
           >
-            <Plus size={15} /> Add item
-          </button>
+            <Plus size={15} aria-hidden="true" /> {t("widgets.form.addItem")}
+          </Button>
         )}
       </fieldset>
     );
   }
+  if (field.control === "date")
+    return (
+      <Field>
+        <FieldLabel htmlFor={`definition-${field.key}`}>{labelText}</FieldLabel>
+        <DateInput
+          id={`definition-${field.key}`}
+          {...common}
+          aria-label={labelText}
+          value={fieldText(value)}
+          onChange={setValue}
+        />
+        {field.description && (
+          <FieldDescription>{field.description}</FieldDescription>
+        )}
+      </Field>
+    );
+  if (field.control === "datetime")
+    return (
+      <Field>
+        <FieldLabel htmlFor={`definition-${field.key}`}>{labelText}</FieldLabel>
+        <DateTimeInput
+          id={`definition-${field.key}`}
+          {...common}
+          aria-label={labelText}
+          value={rfc3339ToLocalDateTime(fieldText(value))}
+          onChange={(next) => setValue(localDateTimeToRfc3339(next))}
+        />
+        {field.description && (
+          <FieldDescription>{field.description}</FieldDescription>
+        )}
+      </Field>
+    );
   const inputType =
     field.control === "number" || field.control === "integer"
       ? "number"
-      : field.control === "datetime"
-        ? "datetime-local"
-        : field.control === "color"
-          ? "color"
-          : field.control === "date"
-            ? "date"
-            : field.control === "url"
-              ? "url"
-              : "text";
+      : field.control === "color"
+        ? "color"
+        : field.control === "url"
+          ? "url"
+          : "text";
   return (
-    <label className="field">
-      {label}
-      <input
+    <Field>
+      <FieldLabel htmlFor={`definition-${field.key}`}>{labelText}</FieldLabel>
+      <Input
+        id={`definition-${field.key}`}
         {...common}
         type={inputType}
         value={fieldText(value)}
@@ -500,13 +566,13 @@ function DefinitionControl({
               ? event.target.value === ""
                 ? undefined
                 : Number(event.target.value)
-              : field.control === "datetime" && event.target.value
-                ? new Date(event.target.value).toISOString()
-                : event.target.value,
+              : event.target.value,
           )
         }
       />
-      {field.description && <small>{field.description}</small>}
-    </label>
+      {field.description && (
+        <FieldDescription>{field.description}</FieldDescription>
+      )}
+    </Field>
   );
 }

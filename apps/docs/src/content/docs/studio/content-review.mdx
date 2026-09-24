@@ -1,0 +1,46 @@
+---
+title: Review content before publication
+description: Review Playlist, Layout, and Campaign submissions separately from Form responses.
+---
+
+Tilecast Studio has separate review workflows for presentation content and Form responses. Use the **Content review** submission inbox for Playlists, Layouts, and Campaigns. Use **Approvals** for submitted Form records.
+
+import { Steps } from "@astrojs/starlight/components";
+
+## Review a Playlist, Layout, or Campaign
+
+<Steps>
+
+1. Open the Playlist, Layout, or Campaign and select **Submit for review**.
+2. Open **Content review** and select **Open submission inbox**.
+3. Open a submission to review the exact snapshot that was submitted.
+4. Select **Approve** or **Request changes**. A request for changes needs a reason for the author.
+5. For an approved submission, select **Publish now** or **Schedule** if it is not published automatically.
+
+</Steps>
+
+Submitting freezes the draft the reviewer sees. The author can continue editing while it is under review; Studio marks that a newer private draft exists. Approval and publication apply to the submitted snapshot. A newer draft stays private until someone submits it separately.
+
+An Owner or Administrator sets **Content review policy** under **Settings** > **Content review** to **Off**, **Contributors**, or **Everyone**. The policy determines which direct publication actions require review. **Allow self-approval** controls whether an author can approve their own submission. **Automatically publish approved submissions** controls whether an authorized approval publishes immediately or at the requested time; otherwise, a reviewer with publication permission chooses **Publish now** or **Schedule**.
+
+Owners, Administrators, and Editors can review and publish Playlists and Layouts. Contributors can create and submit Playlists and Layouts, but cannot review or publish them. Campaign authoring is available to Owners, Administrators, and Editors; only Owners and Administrators can publish Campaigns.
+
+## Understand the other content review queue
+
+The **Content review** page also links to a legacy revision queue. It tracks the review state of the current Playlist or Layout revision; it does not create the immutable submission snapshot described above. Use **Open submission inbox** to review explicit submissions and their history.
+
+## Approve a Form response
+
+The **Approvals** inbox is for submitted records from Forms. It appears in Studio navigation only when your account has review access to at least one Form. Open a record to review its values and choose an available action.
+
+- **Approve** moves the record to the approved state. A Form View that feeds signage must include the approved state for the record to appear in its output.
+- **Request changes** requires a note. The submitter can edit the record and submit it again.
+- Rejecting a record is final.
+
+Form approval is separate from publishing a Playlist, Layout, or Campaign.
+
+## Next steps
+
+- Use approved Form records in a [Data Source](../../data-sources/) for a Widget or Layout.
+- Review [users and roles](../../administration/users-and-roles/) to understand who can submit and approve.
+- Build a [Playlist](../../playlists/) and submit it for review.

@@ -1,21 +1,31 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { ListVideo, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
 import {
-  Button,
-  Dialog,
-  EmptyState,
-  Field,
-  PageHeader,
-} from "../components/ui";
-import {
   DashboardListToolbar,
   DashboardSearch,
 } from "../components/DashboardListToolbar";
-import { WorkspaceTabs, presentationTabs } from "../navigation/WorkspaceTabs";
+import { Button } from "../components/ui/button";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../components/ui/empty";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from "../components/ui/item";
+import { PlaylistCreateDialog } from "../components/playlist-editor/PlaylistCreateDialog";
 import { PlaylistEditorPage } from "../components/playlist-editor/PlaylistEditor";
 import {
   canManagePlaylists,
@@ -37,6 +47,7 @@ export {
 export { PlaylistEditorPage };
 
 export function PlaylistsPage() {
+  const { t } = useTranslation("playlists");
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
   const canManage = canManagePlaylists(auth.status?.user?.role);
@@ -44,16 +55,9 @@ export function PlaylistsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState("");
   const [creating, setCreating] = useState(false);
-  const [name, setName] = useState("");
-  const [sourceType, setSourceType] = useState<"static" | "tag">("static");
   const query = useQuery({
     queryKey: ["playlists", search],
     queryFn: () => api.playlists(search),
-  });
-  const create = useMutation({
-    mutationFn: () =>
-      api.createPlaylist({ name, description: "", sourceType }, csrf),
-    onSuccess: (playlist) => void navigate(`/playlists/${playlist.id}`),
   });
   useEffect(() => {
     if (searchParams.get("create") === "1") setCreating(true);
@@ -67,99 +71,82 @@ export function PlaylistsPage() {
     }
   };
   return (
-    <section className="playlists-page">
-      <WorkspaceTabs label="Presentations" tabs={presentationTabs} />
-      <PageHeader
-        title="Playlists"
-        description="Ordered fullscreen playback for assigned screens."
-        actions={
-          canManage ? (
-            <Button variant="primary" onClick={() => setCreating(true)}>
+    <section className="grid gap-4">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {t("list.title")}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t("list.subtitle")}
+          </p>
+        </div>
+        {canManage && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" onClick={() => setCreating(true)}>
               <Plus size={16} aria-hidden="true" />
-              Create playlist
+              {t("list.create")}
             </Button>
-          ) : undefined
-        }
-      />
+          </div>
+        )}
+      </header>
       <DashboardListToolbar>
         <DashboardSearch
           value={search}
           onValueChange={setSearch}
-          label="Search playlists"
-          placeholder="Search playlists"
+          label={t("list.searchLabel")}
+          placeholder={t("list.searchPlaceholder")}
         />
       </DashboardListToolbar>
       {query.isLoading ? (
-        <div className="table-loading">Loading playlists…</div>
+        <div className="grid gap-2">
+          <div className="h-12 animate-pulse rounded-xl bg-muted" />
+          <div className="h-12 animate-pulse rounded-xl bg-muted" />
+        </div>
       ) : query.data?.items?.length === 0 ? (
-        <EmptyState
-          className="content-empty"
-          icon={<ListVideo size={24} aria-hidden="true" />}
-          title="No playlists yet"
-          message={
-            canManage
-              ? "Create a playlist, then add ready images and videos."
-              : "An Owner, Administrator, or Editor can create playlists."
-          }
-        />
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <ListVideo size={24} aria-hidden="true" />
+            </EmptyMedia>
+            <EmptyTitle>{t("list.emptyTitle")}</EmptyTitle>
+            <EmptyDescription>
+              {canManage
+                ? t("list.emptyDescriptionManage")
+                : t("list.emptyDescriptionReadonly")}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
-        <div className="playlist-list">
+        <ItemGroup className="gap-2">
           {query.data?.items?.map((playlist) => (
-            <Link key={playlist.id} to={`/playlists/${playlist.id}`}>
-              <span>
-                <strong>{playlist.name}</strong>
-                <small>{playlist.description || "No description"}</small>
-              </span>
-              <span>Revision {playlist.revision}</span>
-              <span>{playlist.itemCount} items</span>
-            </Link>
+            <Item
+              key={playlist.id}
+              variant="outline"
+              render={<Link to={`/playlists/${playlist.id}`} />}
+            >
+              <ItemContent className="min-w-0">
+                <ItemTitle>{playlist.name}</ItemTitle>
+                <ItemDescription className="truncate">
+                  {playlist.description || t("list.noDescription")}
+                </ItemDescription>
+              </ItemContent>
+              <ItemActions className="text-xs text-muted-foreground">
+                <span>
+                  {t("list.revision", { revision: playlist.revision })}
+                </span>
+                <span>{t("count.items", { count: playlist.itemCount })}</span>
+              </ItemActions>
+            </Item>
           ))}
-        </div>
+        </ItemGroup>
       )}
-      <Dialog open={creating} title="Create playlist" onClose={closeCreate}>
-        <Field label="Name">
-          <input
-            autoFocus
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-          />
-        </Field>
-        <fieldset className="playlist-type-chooser">
-          <legend>Playlist type</legend>
-          <button
-            type="button"
-            aria-pressed={sourceType === "static"}
-            onClick={() => setSourceType("static")}
-          >
-            <strong>Standard playlist</strong>
-            <span>Manually arrange media and Layouts in a timeline.</span>
-          </button>
-          <button
-            type="button"
-            aria-pressed={sourceType === "tag"}
-            onClick={() => setSourceType("tag")}
-          >
-            <strong>Tag-driven playlist</strong>
-            <span>Automatically include ready media that matches tags.</span>
-          </button>
-        </fieldset>
-        {create.error && (
-          <div className="notice notice--error">{create.error.message}</div>
-        )}
-        <div className="form-actions">
-          <Button variant="quiet" onClick={closeCreate}>
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            disabled={!name.trim()}
-            loading={create.isPending}
-            onClick={() => create.mutate()}
-          >
-            Create playlist
-          </Button>
-        </div>
-      </Dialog>
+      <PlaylistCreateDialog
+        open={creating}
+        csrf={csrf}
+        onClose={closeCreate}
+        onCreated={(id) => void navigate(`/playlists/${id}`)}
+      />
     </section>
   );
 }

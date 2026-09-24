@@ -1,11 +1,15 @@
 import { Navigate, useRoutes, type RouteObject } from "react-router";
-import { AssetFilterPortal } from "./components/AssetFilterPortal";
+import { Toaster } from "./components/ui/toast";
 import { GitHubOAuthSetupPortal } from "./components/GitHubOAuthSetupPortal";
 import { StudioRoutesProvider } from "./navigation/studioRoutes";
 import { settingsItems } from "./settings/settingsNavigation";
 import { AuthPage } from "./pages/AuthPage";
 import { DashboardShell, FoundationPage } from "./pages/Dashboard";
-import { PairScreenPage, ScreensPage } from "./pages/ScreensPage";
+import {
+  PairScreenPage,
+  ScreensPage,
+  ScreensWorkspacePage,
+} from "./pages/ScreensPage";
 import { FleetBulkPage } from "./pages/FleetBulkPage";
 import { ContentReviewPage } from "./pages/ContentReviewPage";
 import { ContentSubmissionInboxPage } from "./pages/ContentSubmissionInboxPage";
@@ -28,15 +32,13 @@ import { LayoutEditorPage } from "./pages/LayoutEditorPage";
 import { WidgetEditorPage, WidgetsPage } from "./pages/WidgetsPage";
 import { DataSourceEditorPage, DataSourcesPage } from "./pages/DataSourcesPage";
 import { ActivityPage } from "./pages/ActivityPage";
+import { PluginsPage } from "./pages/PluginsPage";
 import {
-  BrandBugEditorPage,
-  BrandBugsPage,
-  NoiseMeterEditorPage,
-  NoiseMetersPage,
   CountdownBarEditorPage,
   CountdownBarsPage,
-  PluginsPage,
-} from "./pages/PluginsPage";
+} from "./pages/CountdownBarsPage";
+import { BrandBugEditorPage, BrandBugsPage } from "./pages/BrandBugsPage";
+import { NoiseMeterEditorPage, NoiseMetersPage } from "./pages/NoiseMetersPage";
 import { NoiseMeterHistoryPage } from "./pages/NoiseMeterHistoryPage";
 import { EmergencyAlertsPage } from "./pages/EmergencyAlertsPage";
 import { ApprovalsPage } from "./pages/ApprovalsPage";
@@ -49,7 +51,7 @@ import {
 import { FormsPluginPage } from "./pages/FormsPluginPage";
 import { CreateFormDataSourcePage } from "./pages/CreateFormDataSourcePage";
 import { FormDataSourcePage } from "./pages/FormDataSourcePage";
-import { DependencyGraphPage } from "./pages/DependencyGraphPage";
+import { PluginRouteGate } from "./plugins/PluginRouteGate";
 import { CampaignsPage } from "./pages/CampaignsPage";
 
 const search = (
@@ -58,6 +60,29 @@ const search = (
   to: string,
   keywords?: string[],
 ) => ({ label, description, to, keywords });
+
+const settingsSearch: Partial<
+  Record<
+    string,
+    {
+      descriptionKey: "palette.settingsSearch.dependencyGraph";
+      keywords: string[];
+    }
+  >
+> = {
+  "dependency-graph": {
+    descriptionKey: "palette.settingsSearch.dependencyGraph",
+    // Search aliases stay in English in every language: they are matching
+    // tokens, not displayed text, and the locale files hold strings only.
+    keywords: [
+      "content map",
+      "used by",
+      "relationships",
+      "impact",
+      "system tools",
+    ],
+  },
+};
 
 export const studioRoutes: RouteObject[] = [
   { path: "/setup", element: <AuthPage mode="setup" /> },
@@ -92,7 +117,25 @@ export const studioRoutes: RouteObject[] = [
           ),
         },
         children: [
-          { index: true, element: <ScreensPage /> },
+          {
+            element: <ScreensWorkspacePage />,
+            children: [
+              { index: true, element: <ScreensPage /> },
+              {
+                path: "archive",
+                element: <ArchivedScreensPage />,
+                handle: {
+                  breadcrumb: "Archive",
+                  search: search(
+                    "Screen archive",
+                    "Review players whose pairings were revoked",
+                    "/screens/archive",
+                    ["revoked", "archived", "players", "devices"],
+                  ),
+                },
+              },
+            ],
+          },
           {
             path: "bulk",
             element: <FleetBulkPage />,
@@ -120,19 +163,6 @@ export const studioRoutes: RouteObject[] = [
             path: "pair/request/:requestId",
             element: <PairScreenPage />,
             handle: { breadcrumb: "Pair screen" },
-          },
-          {
-            path: "archive",
-            element: <ArchivedScreensPage />,
-            handle: {
-              breadcrumb: "Archive",
-              search: search(
-                "Screen archive",
-                "Review players whose pairings were revoked",
-                "/screens/archive",
-                ["revoked", "archived", "players", "devices"],
-              ),
-            },
           },
           {
             path: ":id",
@@ -252,7 +282,11 @@ export const studioRoutes: RouteObject[] = [
         },
         children: [
           { index: true, element: <ContentReviewPage /> },
-          { path: "submissions", element: <ContentSubmissionInboxPage /> },
+          {
+            path: "submissions",
+            element: <ContentSubmissionInboxPage />,
+            handle: { breadcrumb: "Submissions" },
+          },
         ],
       },
       {
@@ -345,120 +379,169 @@ export const studioRoutes: RouteObject[] = [
           breadcrumb: "Plugins",
           search: search(
             "Plugins",
-            "Manage built-in features that operate outside playlists",
+            "Add and manage optional Tilecast features",
             "/plugins",
-            [
-              "countdown bar",
-              "emergency alerts",
-              "brand bug",
-              "watermark",
-              "logo",
-              "player features",
-            ],
+            ["add plugin", "integrations", "player features"],
           ),
         },
         children: [
           { index: true, element: <PluginsPage /> },
+          // Dependency Graph is a system tool, not a plugin. The old address
+          // keeps working for bookmarks for at least one release.
           {
             path: "dependency-graph",
-            element: <DependencyGraphPage />,
-            handle: {
-              breadcrumb: "Dependency Graph",
-              search: search(
-                "Dependency Graph",
-                "Trace content, presentations, schedules, groups, and screens",
-                "/plugins/dependency-graph",
-                ["content map", "used by", "relationships", "impact"],
-              ),
-            },
+            element: <Navigate to="/settings/dependency-graph" replace />,
           },
           {
             path: "countdown-bar",
-            element: <CountdownBarsPage />,
             handle: { breadcrumb: "Countdown Bar" },
-          },
-          {
-            path: "countdown-bar/new",
-            element: <CountdownBarEditorPage />,
-            handle: { breadcrumb: "New instance" },
-          },
-          {
-            path: "countdown-bar/:id",
-            element: <CountdownBarEditorPage />,
-            handle: { breadcrumb: "Countdown Bar instance" },
+            children: [
+              {
+                index: true,
+                element: (
+                  <PluginRouteGate pluginId="countdown_bar">
+                    <CountdownBarsPage />
+                  </PluginRouteGate>
+                ),
+              },
+              {
+                path: "new",
+                element: (
+                  <PluginRouteGate pluginId="countdown_bar">
+                    <CountdownBarEditorPage />
+                  </PluginRouteGate>
+                ),
+                handle: { breadcrumb: "New instance" },
+              },
+              {
+                path: ":id",
+                element: (
+                  <PluginRouteGate pluginId="countdown_bar">
+                    <CountdownBarEditorPage />
+                  </PluginRouteGate>
+                ),
+                handle: { breadcrumb: "Instance", resource: "countdown-bar" },
+              },
+            ],
           },
           {
             path: "emergency-alerts",
-            element: <EmergencyAlertsPage />,
-            handle: {
-              breadcrumb: "Emergency Alerts",
-              // This used to live in Settings, so the words people already
-              // search for have to lead here rather than to a dead end.
-              search: search(
-                "Emergency Alerts",
-                "Automatic NWS weather alert monitoring and takeover rules",
-                "/plugins/emergency-alerts",
-                ["emergency", "weather", "nws", "alerts", "tornado", "warning"],
-              ),
-            },
+            element: (
+              <PluginRouteGate pluginId="emergency_alerts">
+                <EmergencyAlertsPage />
+              </PluginRouteGate>
+            ),
+            handle: { breadcrumb: "Emergency Alerts" },
           },
           {
             path: "forms",
-            element: <FormsPluginPage />,
-            handle: {
-              breadcrumb: "Forms",
-              search: search(
-                "Forms",
-                "Collect submissions and publish approved records to signage",
-                "/plugins/forms",
-                ["submissions", "workflow", "approvals"],
-              ),
-            },
-          },
-          {
-            path: "forms/new",
-            element: <CreateFormDataSourcePage />,
-            handle: { breadcrumb: "Create form" },
-          },
-          {
-            path: "forms/:id",
-            element: <FormDataSourcePage />,
-            handle: { breadcrumb: "Form", resource: "form" },
+            handle: { breadcrumb: "Forms" },
+            children: [
+              {
+                index: true,
+                element: (
+                  <PluginRouteGate pluginId="forms">
+                    <FormsPluginPage />
+                  </PluginRouteGate>
+                ),
+              },
+              {
+                path: "new",
+                element: (
+                  <PluginRouteGate pluginId="forms">
+                    <CreateFormDataSourcePage />
+                  </PluginRouteGate>
+                ),
+                handle: { breadcrumb: "Create form" },
+              },
+              {
+                path: ":id",
+                element: (
+                  <PluginRouteGate pluginId="forms">
+                    <FormDataSourcePage />
+                  </PluginRouteGate>
+                ),
+                handle: { breadcrumb: "Form", resource: "form" },
+              },
+            ],
           },
           {
             path: "brand-bug",
-            element: <BrandBugsPage />,
             handle: { breadcrumb: "Brand Bug / Watermark" },
-          },
-          {
-            path: "brand-bug/new",
-            element: <BrandBugEditorPage />,
-            handle: { breadcrumb: "New instance" },
-          },
-          {
-            path: "brand-bug/:id",
-            element: <BrandBugEditorPage />,
-            handle: { breadcrumb: "Brand Bug instance" },
+            children: [
+              {
+                index: true,
+                element: (
+                  <PluginRouteGate pluginId="brand_bug">
+                    <BrandBugsPage />
+                  </PluginRouteGate>
+                ),
+              },
+              {
+                path: "new",
+                element: (
+                  <PluginRouteGate pluginId="brand_bug">
+                    <BrandBugEditorPage />
+                  </PluginRouteGate>
+                ),
+                handle: { breadcrumb: "New instance" },
+              },
+              {
+                path: ":id",
+                element: (
+                  <PluginRouteGate pluginId="brand_bug">
+                    <BrandBugEditorPage />
+                  </PluginRouteGate>
+                ),
+                handle: { breadcrumb: "Instance", resource: "brand-bug" },
+              },
+            ],
           },
           {
             path: "noise-meter",
-            element: <NoiseMetersPage />,
             handle: { breadcrumb: "Noise Meter" },
-          },
-          {
-            path: "noise-meter/new",
-            element: <NoiseMeterEditorPage />,
-            handle: { breadcrumb: "New instance" },
-          },
-          {
-            path: "noise-meter/:id",
-            element: <NoiseMeterEditorPage />,
-            handle: { breadcrumb: "Noise Meter instance" },
-          },
-          {
-            path: "noise-meter/:id/history",
-            element: <NoiseMeterHistoryPage />,
-            handle: { breadcrumb: "History" },
+            children: [
+              {
+                index: true,
+                element: (
+                  <PluginRouteGate pluginId="noise_meter">
+                    <NoiseMetersPage />
+                  </PluginRouteGate>
+                ),
+              },
+              {
+                path: "new",
+                element: (
+                  <PluginRouteGate pluginId="noise_meter">
+                    <NoiseMeterEditorPage />
+                  </PluginRouteGate>
+                ),
+                handle: { breadcrumb: "New instance" },
+              },
+              {
+                path: ":id",
+                handle: { breadcrumb: "Instance", resource: "noise-meter" },
+                children: [
+                  {
+                    index: true,
+                    element: (
+                      <PluginRouteGate pluginId="noise_meter">
+                        <NoiseMeterEditorPage />
+                      </PluginRouteGate>
+                    ),
+                  },
+                  {
+                    path: "history",
+                    element: (
+                      <PluginRouteGate pluginId="noise_meter">
+                        <NoiseMeterHistoryPage />
+                      </PluginRouteGate>
+                    ),
+                    handle: { breadcrumb: "History" },
+                  },
+                ],
+              },
+            ],
           },
         ],
       },
@@ -536,19 +619,28 @@ export const studioRoutes: RouteObject[] = [
             index: true,
             element: <Navigate to="/settings/general" replace />,
           },
-          ...settingsItems.map((item) => ({
-            path: item.path,
-            element: <SettingsPage />,
-            handle: {
-              breadcrumb: item.label,
-              search: search(
-                item.label,
-                `${item.label} settings`,
-                `/settings/${item.path}`,
-                ["settings"],
-              ),
-            },
-          })),
+          ...settingsItems.map((item) => {
+            const entry = settingsSearch[item.id];
+            return {
+              path: item.path,
+              element: <SettingsPage />,
+              handle: {
+                breadcrumb: item.label,
+                search: {
+                  ...search(
+                    item.label,
+                    `${item.label} settings`,
+                    `/settings/${item.path}`,
+                    ["settings", ...(entry?.keywords ?? [])],
+                  ),
+                  descriptionKey:
+                    entry?.descriptionKey ??
+                    "palette.settingsSearch.sectionFallback",
+                  descriptionValues: entry ? undefined : { label: item.label },
+                },
+              },
+            };
+          }),
           {
             path: "preferences",
             element: <Navigate to="/account#preferences" replace />,
@@ -586,11 +678,11 @@ function RoutedApp() {
 export function App() {
   return (
     <>
-      <AssetFilterPortal />
       <GitHubOAuthSetupPortal />
       <StudioRoutesProvider routes={studioRoutes}>
         <RoutedApp />
       </StudioRoutesProvider>
+      <Toaster />
     </>
   );
 }

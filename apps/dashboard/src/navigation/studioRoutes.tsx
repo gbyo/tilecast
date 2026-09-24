@@ -9,7 +9,11 @@ export type BreadcrumbResource =
   | "playlist"
   | "layout"
   | "campaign"
-  | "schedule";
+  | "schedule"
+  | "form"
+  | "countdown-bar"
+  | "brand-bug"
+  | "noise-meter";
 
 export type StudioRouteHandle = {
   breadcrumb?: string;
@@ -17,6 +21,12 @@ export type StudioRouteHandle = {
   search?: {
     label: string;
     description: string;
+    /** Translation key resolved with t() at render; description is English. */
+    descriptionKey?:
+      | "palette.settingsSearch.dependencyGraph"
+      | "palette.settingsSearch.sectionFallback";
+    /** Interpolation values for descriptionKey, resolved at render. */
+    descriptionValues?: { label: string };
     to: string;
     keywords?: string[];
   };

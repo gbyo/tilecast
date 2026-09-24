@@ -1,7 +1,7 @@
-import { Drawer, Select } from "../components/ui";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
+import { useTranslation } from "react-i18next";
 import {
   AlertTriangle,
   ChevronRight,
@@ -14,7 +14,6 @@ import {
   ActivityPagination,
   activityParams,
   activityRequest,
-  EmptyState,
   ErrorNotice,
   formatDuration,
   formatWhen,
@@ -25,6 +24,51 @@ import {
   TechnicalDetails,
   useActivityCursor,
 } from "./ActivityShared";
+import { MetricTile } from "../components/MetricTile";
+import { Button } from "../components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../components/ui/table";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "../components/ui/drawer";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../components/ui/empty";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { Field, FieldLabel } from "../components/ui/field";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "../components/ui/sheet";
+import { useDesktopLayout } from "../hooks/use-desktop-layout";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "../components/ui/collapsible";
 import type {
   AuditPage,
   EventPage,
@@ -54,9 +98,11 @@ export function ProofTab({
   onExtendRange: () => void;
   onViewScreenEvents?: () => void;
 }) {
+  const { t } = useTranslation("activity");
   const [selectedRecord, setSelectedRecord] = useState<ProofRecord | null>(
     null,
   );
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const params = activityParams(range, filters);
   const paramsKey = params.toString();
   const pagination = useActivityCursor(paramsKey);
@@ -116,11 +162,14 @@ export function ProofTab({
     };
   }, [screenSummary.data]);
 
-  useEffect(() => setSelectedRecord(null), [paramsKey]);
+  useEffect(() => {
+    setSelectedRecord(null);
+    setDetailsOpen(false);
+  }, [paramsKey]);
   useEffect(() => {
     if (!selectedRecord) return;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setSelectedRecord(null);
+      if (event.key === "Escape") setDetailsOpen(false);
     };
     document.addEventListener("keydown", closeOnEscape);
     return () => document.removeEventListener("keydown", closeOnEscape);
@@ -135,250 +184,310 @@ export function ProofTab({
   return (
     <>
       {hasSummaryData && (
-        <section className="activity-panel activity-proof-summary">
-          <header>
-            <div>
-              <h3>Proof-of-play summary</h3>
-              <p>
-                Only Player-confirmed intervals are counted. Screen time is the
-                union of root presentations; exposure sums the content inside
-                them and can be larger when zones play at once.
+        <section
+          className="grid gap-3 rounded-xl border border-border p-4"
+          aria-label={t("proof.summaryLabel")}
+        >
+          <header className="flex flex-wrap items-start justify-between gap-3">
+            <div className="grid min-w-0 flex-1 gap-1">
+              <h3 className="text-base font-semibold">
+                {t("proof.summaryTitle")}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {t("proof.summaryDescription")}
               </p>
             </div>
-            <label className="activity-group-by">
-              <span>Group by</span>
-              <Select
-                value={dimension}
-                onChange={(e) => setDimension(e.target.value)}
+            <Field className="w-fit gap-1">
+              <FieldLabel
+                htmlFor="proof-group-by"
+                className="text-xs font-medium"
               >
-                <option value="screen">Screen</option>
-                <option value="content">Content</option>
-                <option value="presentation">Playlist or Layout</option>
-                <option value="schedule">Schedule</option>
+                {t("proof.groupBy")}
+              </FieldLabel>
+              <Select
+                items={proofDimensionOptions.map((option) => ({
+                  value: option.value,
+                  label: t(option.labelKey),
+                }))}
+                value={dimension}
+                onValueChange={(next) => {
+                  if (next) setDimension(next);
+                }}
+              >
+                <SelectTrigger id="proof-group-by" size="sm" className="w-44">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {proofDimensionOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {t(option.labelKey)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
-            </label>
+            </Field>
           </header>
-          <div className="activity-proof-metrics">
-            <article>
-              <PlayCircle size={18} aria-hidden="true" />
-              <strong>{metrics.records.toLocaleString()}</strong>
-              <span>Confirmed plays</span>
-              <small>Total intervals</small>
-            </article>
-            <article>
-              <Clock3 size={18} aria-hidden="true" />
-              <strong>{formatDuration(metrics.screenPlayback)}</strong>
-              <span>Confirmed screen playback</span>
-              <small>Wall clock, overlaps merged</small>
-            </article>
-            <article>
-              <Layers size={18} aria-hidden="true" />
-              <strong>{formatDuration(metrics.exposure)}</strong>
-              <span>Content exposure</span>
-              <small>Sums simultaneous zones</small>
-            </article>
-            <article>
-              <MonitorCheck size={18} aria-hidden="true" />
-              <strong>{metrics.completion.toFixed(0)}%</strong>
-              <span>Session completion rate</span>
-              <small>
-                Across {metrics.screens} screen
-                {metrics.screens === 1 ? "" : "s"}
-              </small>
-            </article>
-            <article>
-              <AlertTriangle size={18} aria-hidden="true" />
-              <strong>{metrics.failures.toLocaleString()}</strong>
-              <span>Failed sessions</span>
-              <small>
-                {metrics.interrupted.toLocaleString()} ended unexpectedly
-              </small>
-            </article>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+            <MetricTile
+              icon={PlayCircle}
+              label={t("proof.tiles.plays")}
+              value={metrics.records.toLocaleString()}
+              hint={t("proof.tiles.playsHint")}
+            />
+            <MetricTile
+              icon={Clock3}
+              label={t("proof.tiles.playback")}
+              value={formatDuration(metrics.screenPlayback)}
+              hint={t("proof.tiles.playbackHint")}
+            />
+            <MetricTile
+              icon={Layers}
+              label={t("proof.tiles.exposure")}
+              value={formatDuration(metrics.exposure)}
+              hint={t("proof.tiles.exposureHint")}
+            />
+            <MetricTile
+              icon={MonitorCheck}
+              label={t("proof.tiles.completionRate")}
+              value={`${metrics.completion.toFixed(0)}%`}
+              hint={t("proof.tiles.acrossScreens", {
+                count: metrics.screens,
+              })}
+            />
+            <MetricTile
+              icon={AlertTriangle}
+              label={t("proof.tiles.failed")}
+              value={metrics.failures.toLocaleString()}
+              hint={t("proof.tiles.endedUnexpectedly", {
+                count: metrics.interrupted,
+                value: metrics.interrupted.toLocaleString(),
+              })}
+            />
           </div>
           {(summary.data?.items?.length ?? 0) > 0 && (
-            <details className="activity-summary-breakdown">
-              <summary>
-                View {dimensionLabel(dimension)} breakdown
+            <Collapsible className="grid gap-2 rounded-xl border border-border p-3">
+              <CollapsibleTrigger className="flex cursor-pointer items-center gap-1 text-left text-sm font-medium">
+                {t("proof.viewBreakdown", {
+                  dimension: dimensionLabel(dimension),
+                })}
                 <ChevronRight size={15} aria-hidden="true" />
-              </summary>
-              <div className="activity-summary-table">
+              </CollapsibleTrigger>
+              <CollapsibleContent className="grid gap-2">
                 {summary.data?.items?.slice(0, 12).map((item) => (
-                  <div key={item.key}>
-                    <span>
-                      <strong>{item.label}</strong>
-                      <small>{item.records} confirmed records</small>
+                  <div
+                    key={item.key}
+                    className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-sm"
+                  >
+                    <span className="grid min-w-0 gap-0.5">
+                      <strong className="truncate">{item.label}</strong>
+                      <small className="text-xs text-muted-foreground">
+                        {t("proof.confirmedRecords", { count: item.records })}
+                      </small>
                     </span>
-                    <span>
+                    <span className="tabular-nums">
                       {formatDuration(item.confirmedScreenPlaybackMs)}
                     </span>
-                    <span>
-                      {item.sessionCompletionPercent.toFixed(0)}% completed
+                    <span className="tabular-nums">
+                      {t("proof.percentCompleted", {
+                        value: item.sessionCompletionPercent.toFixed(0),
+                      })}
                     </span>
-                    <span>{item.failures} failures</span>
+                    <span className="tabular-nums">
+                      {t("proof.failures", { count: item.failures })}
+                    </span>
                   </div>
                 ))}
-              </div>
-            </details>
+              </CollapsibleContent>
+            </Collapsible>
           )}
         </section>
       )}
 
-      <section className="activity-panel activity-records-panel">
-        <header>
-          <div>
-            <h3>Playback records</h3>
-          </div>
+      <section className="grid gap-3 rounded-xl border border-border p-4">
+        <header className="grid gap-1">
+          <h3 className="text-base font-semibold">{t("proof.tableTitle")}</h3>
         </header>
         {records.length > 0 && (
-          <div className="activity-table-wrap">
-            <table className="activity-table activity-proof-table">
-              <thead>
-                <tr>
-                  <th>Started</th>
-                  <th>Screen</th>
-                  <th>Presentation</th>
-                  <th>Content</th>
-                  <th>Duration</th>
-                  <th>Result</th>
-                  <th aria-label="Open details" />
-                </tr>
-              </thead>
-              <tbody>
+          <div className="overflow-x-auto rounded-xl border border-border">
+            <Table className="w-full min-w-[52rem] text-sm">
+              <TableHeader>
+                <TableRow className="border-b border-border text-left text-xs text-muted-foreground">
+                  <TableHead className="px-3 py-2 font-medium">
+                    {t("proof.headers.started")}
+                  </TableHead>
+                  <TableHead className="px-3 py-2 font-medium">
+                    {t("proof.headers.screen")}
+                  </TableHead>
+                  <TableHead className="px-3 py-2 font-medium">
+                    {t("proof.headers.presentation")}
+                  </TableHead>
+                  <TableHead className="px-3 py-2 font-medium">
+                    {t("proof.headers.content")}
+                  </TableHead>
+                  <TableHead className="px-3 py-2 text-right font-medium">
+                    {t("proof.headers.duration")}
+                  </TableHead>
+                  <TableHead className="px-3 py-2 font-medium">
+                    {t("proof.headers.result")}
+                  </TableHead>
+                  <TableHead
+                    aria-label={t("proof.openDetails")}
+                    className="w-10"
+                  />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {records.map((item) => (
-                  <tr
+                  <TableRow
                     key={item.id}
-                    className="activity-clickable-row"
-                    tabIndex={0}
-                    onClick={(event) => {
-                      if (
-                        (event.target as HTMLElement).closest(
-                          "a, button, input, select, summary, details",
-                        )
-                      )
-                        return;
-                      setSelectedRecord(item);
-                    }}
-                    onKeyDown={(event) => {
-                      if (
-                        (event.target as HTMLElement).closest(
-                          "a, button, input, select, summary, details",
-                        )
-                      )
-                        return;
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        setSelectedRecord(item);
-                      }
-                    }}
+                    className="border-b border-border last:border-0 hover:bg-muted"
                   >
-                    <td>
+                    <TableCell className="px-3 py-2 whitespace-nowrap tabular-nums">
                       <time>{formatWhen(item.startedAt)}</time>
-                    </td>
-                    <td>
-                      <Link to={`/screens/${item.screenId}?tab=activity`}>
-                        {item.screenName}
-                      </Link>
-                      <small>{item.groupName}</small>
-                    </td>
-                    <td>
-                      <strong>
-                        <ResourceLink
-                          type={item.presentationType}
-                          id={item.presentationId}
-                          label={
-                            item.presentationName || item.presentationId || "—"
-                          }
-                        />
-                      </strong>
-                      <small>
-                        {[
-                          item.presentationType,
-                          item.presentationRevision &&
-                            `rev ${item.presentationRevision}`,
-                          item.trigger,
-                          item.scheduleId && `schedule ${item.scheduleId}`,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </small>
-                    </td>
-                    <td>
-                      <strong>
-                        <ResourceLink
-                          type={item.contentType}
-                          id={item.contentId}
-                          label={
-                            item.contentName ||
-                            item.contentId ||
-                            "Root presentation"
-                          }
-                        />
-                      </strong>
-                      <small>{item.contentType}</small>
-                    </td>
-                    <td>
+                    </TableCell>
+                    <TableCell className="px-3 py-2">
+                      <span className="grid gap-0.5">
+                        <Link
+                          to={`/screens/${item.screenId}?tab=activity`}
+                          className="font-medium text-primary hover:underline"
+                        >
+                          {item.screenName}
+                        </Link>
+                        <small className="text-xs text-muted-foreground">
+                          {item.groupName}
+                        </small>
+                      </span>
+                    </TableCell>
+                    <TableCell className="px-3 py-2">
+                      <span className="grid gap-0.5">
+                        <strong className="font-medium">
+                          <ResourceLink
+                            type={item.presentationType}
+                            id={item.presentationId}
+                            label={
+                              item.presentationName ||
+                              item.presentationId ||
+                              "—"
+                            }
+                          />
+                        </strong>
+                        <small className="text-xs text-muted-foreground">
+                          {[
+                            item.presentationType,
+                            item.presentationRevision &&
+                              t("proof.revisionShort", {
+                                value: item.presentationRevision,
+                              }),
+                            item.trigger,
+                            item.scheduleId &&
+                              t("proof.scheduleShort", {
+                                value: item.scheduleId,
+                              }),
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </small>
+                      </span>
+                    </TableCell>
+                    <TableCell className="px-3 py-2">
+                      <span className="grid gap-0.5">
+                        <strong className="font-medium">
+                          <ResourceLink
+                            type={item.contentType}
+                            id={item.contentId}
+                            label={
+                              item.contentName ||
+                              item.contentId ||
+                              t("shared.rootPresentation")
+                            }
+                          />
+                        </strong>
+                        <small className="text-xs text-muted-foreground">
+                          {item.contentType}
+                        </small>
+                      </span>
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-right whitespace-nowrap tabular-nums">
                       {item.actualDurationMs == null
-                        ? "In progress"
+                        ? t("proof.inProgress")
                         : formatDuration(item.actualDurationMs)}
-                    </td>
-                    <td>
+                    </TableCell>
+                    <TableCell className="px-3 py-2">
                       <ResultBadge value={item.result} />
-                    </td>
-                    <td className="activity-row-disclosure">
-                      <ChevronRight size={17} aria-hidden="true" />
-                    </td>
-                  </tr>
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-muted-foreground">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={t("proof.openRecordDetails", {
+                          screen: item.screenName,
+                        })}
+                        className="rounded-md p-1 hover:bg-muted hover:text-foreground"
+                        onClick={() => {
+                          setSelectedRecord(item);
+                          setDetailsOpen(true);
+                        }}
+                      >
+                        <ChevronRight size={17} aria-hidden="true" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
         {!records.length && (
-          <div className="activity-empty activity-empty--actionable">
-            <MonitorCheck size={24} aria-hidden="true" />
-            <h3>
-              {hasActiveFilters
-                ? "No playback matches the current filters"
-                : "No confirmed playback found"}
-            </h3>
-            <p>
-              {hasActiveFilters
-                ? "Try adjusting or clearing the filters to see more records."
-                : "No players reported proof of play during this date range. Try a longer range or check screen connectivity."}
-            </p>
-            <div className="activity-empty-actions">
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <MonitorCheck size={24} aria-hidden="true" />
+              </EmptyMedia>
+              <EmptyTitle>
+                {hasActiveFilters
+                  ? t("proof.emptyFilteredTitle")
+                  : t("proof.emptyNoneTitle")}
+              </EmptyTitle>
+              <EmptyDescription>
+                {hasActiveFilters
+                  ? t("proof.emptyFilteredHint")
+                  : t("proof.emptyNoneHint")}
+              </EmptyDescription>
+            </EmptyHeader>
+            <div className="flex flex-wrap justify-center gap-2">
               {hasActiveFilters ? (
-                <button
+                <Button
                   type="button"
-                  className="button button--secondary"
+                  variant="secondary"
                   onClick={onClearFilters}
                 >
-                  Clear filters
-                </button>
+                  {t("shared.clearFilters")}
+                </Button>
               ) : (
                 <>
                   {canExtendRange && (
-                    <button
+                    <Button
                       type="button"
-                      className="button button--secondary"
+                      variant="secondary"
                       onClick={onExtendRange}
                     >
-                      Last 7 days
-                    </button>
+                      {t("proof.extendRange")}
+                    </Button>
                   )}
                   {onViewScreenEvents && (
-                    <button
+                    <Button
                       type="button"
-                      className="button button--quiet"
+                      variant="ghost"
                       onClick={onViewScreenEvents}
                     >
-                      View screen events
-                    </button>
+                      {t("proof.viewScreenEvents")}
+                    </Button>
                   )}
                 </>
               )}
             </div>
-          </div>
+          </Empty>
         )}
         <ActivityPagination
           pagination={pagination}
@@ -389,7 +498,12 @@ export function ProofTab({
       {selectedRecord && (
         <ProofDetailsDrawer
           record={selectedRecord}
-          onClose={() => setSelectedRecord(null)}
+          open={detailsOpen}
+          onOpenChange={setDetailsOpen}
+          onOpenChangeComplete={(open) => {
+            if (!open) setSelectedRecord(null);
+          }}
+          onClose={() => setDetailsOpen(false)}
         />
       )}
     </>
@@ -398,11 +512,19 @@ export function ProofTab({
 
 function ProofDetailsDrawer({
   record,
+  open,
+  onOpenChange,
+  onOpenChangeComplete,
   onClose,
 }: {
   record: ProofRecord;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onOpenChangeComplete: (open: boolean) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation("activity");
+  const desktop = useDesktopLayout();
   const technicalDetails = {
     recordId: record.id,
     manifestVersion: record.manifestVersion,
@@ -423,110 +545,182 @@ function ProofDetailsDrawer({
     return typeof value !== "boolean" || value;
   });
 
-  return (
-    <Drawer
-      className="activity-detail-drawer"
-      eyebrow="Playback record"
-      title={record.contentName || record.presentationName || record.screenName}
-      closeLabel="Close playback details"
-      onClose={onClose}
+  const header = desktop ? (
+    <SheetHeader>
+      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+        {t("proof.drawer.eyebrow")}
+      </p>
+      <SheetTitle>
+        {record.contentName || record.presentationName || record.screenName}
+      </SheetTitle>
+      <SheetDescription>{t("proof.drawer.description")}</SheetDescription>
+    </SheetHeader>
+  ) : (
+    <DrawerHeader>
+      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+        {t("proof.drawer.eyebrow")}
+      </p>
+      <DrawerTitle>
+        {record.contentName || record.presentationName || record.screenName}
+      </DrawerTitle>
+      <DrawerDescription>{t("proof.drawer.description")}</DrawerDescription>
+    </DrawerHeader>
+  );
+  const content = (
+    <div
+      className={
+        desktop
+          ? "grid gap-6 px-4 pb-6"
+          : "min-h-0 flex-1 overflow-y-auto px-4 pb-6 grid gap-6"
+      }
     >
-      <div className="activity-drawer-body">
-        <div className="activity-drawer-result">
-          <ResultBadge value={record.result} />
-          <span>
-            {record.actualDurationMs == null
-              ? "Playback is still in progress"
-              : `${formatDuration(record.actualDurationMs)} confirmed`}
-          </span>
-        </div>
+      <p className="flex flex-wrap items-center gap-2 text-sm">
+        <ResultBadge value={record.result} />
+        <span>
+          {record.actualDurationMs == null
+            ? t("proof.drawer.inProgress")
+            : t("proof.drawer.confirmedDuration", {
+                duration: formatDuration(record.actualDurationMs),
+              })}
+        </span>
+      </p>
 
-        <section>
-          <h3>Playback</h3>
-          <dl className="activity-detail-list">
-            <DetailRow
-              label="Started"
-              value={formatFullWhen(record.startedAt)}
-            />
-            <DetailRow
-              label="Ended"
-              value={record.endedAt ? formatFullWhen(record.endedAt) : "—"}
-            />
-            <DetailRow
-              label="Screen"
-              value={
-                <Link to={`/screens/${record.screenId}?tab=activity`}>
-                  {record.screenName}
-                </Link>
-              }
-            />
-            <DetailRow label="Group" value={record.groupName || "—"} />
-            <DetailRow label="Trigger" value={record.trigger || "—"} />
+      <section className="grid gap-2">
+        <h3 className="text-sm font-semibold">
+          {t("proof.drawer.sections.playback")}
+        </h3>
+        <dl className="grid gap-1.5 text-sm">
+          <DetailRow
+            label={t("proof.drawer.rows.started")}
+            value={formatFullWhen(record.startedAt)}
+          />
+          <DetailRow
+            label={t("proof.drawer.rows.ended")}
+            value={record.endedAt ? formatFullWhen(record.endedAt) : "—"}
+          />
+          <DetailRow
+            label={t("proof.drawer.rows.screen")}
+            value={
+              <Link
+                to={`/screens/${record.screenId}?tab=activity`}
+                className="font-medium text-primary hover:underline"
+              >
+                {record.screenName}
+              </Link>
+            }
+          />
+          <DetailRow
+            label={t("proof.drawer.rows.group")}
+            value={record.groupName || "—"}
+          />
+          <DetailRow
+            label={t("proof.drawer.rows.trigger")}
+            value={record.trigger || "—"}
+          />
+        </dl>
+      </section>
+
+      <section className="grid gap-2">
+        <h3 className="text-sm font-semibold">
+          {t("proof.drawer.sections.content")}
+        </h3>
+        <dl className="grid gap-1.5 text-sm">
+          <DetailRow
+            label={t("proof.drawer.rows.presentation")}
+            value={
+              <ResourceLink
+                type={record.presentationType}
+                id={record.presentationId}
+                label={record.presentationName || record.presentationId || "—"}
+              />
+            }
+          />
+          <DetailRow
+            label={t("proof.drawer.rows.revision")}
+            value={record.presentationRevision || "—"}
+          />
+          <DetailRow
+            label={t("proof.drawer.rows.content")}
+            value={
+              <ResourceLink
+                type={record.contentType}
+                id={record.contentId}
+                label={
+                  record.contentName ||
+                  record.contentId ||
+                  t("shared.rootPresentation")
+                }
+              />
+            }
+          />
+          <DetailRow
+            label={t("proof.drawer.rows.scheduleId")}
+            value={record.scheduleId || "—"}
+          />
+          <DetailRow
+            label={t("proof.drawer.rows.takeoverId")}
+            value={record.takeoverId || "—"}
+          />
+        </dl>
+      </section>
+
+      {entries.length > 0 && (
+        <section className="grid gap-2">
+          <h3 className="text-sm font-semibold">
+            {t("proof.drawer.sections.metadata")}
+          </h3>
+          <dl className="grid gap-1.5 text-sm">
+            {entries.map(([key, value]) => (
+              <DetailRow
+                key={key}
+                label={humanize(key)}
+                value={formatTechnicalValue(
+                  value,
+                  t("shared.detailsUnavailable"),
+                )}
+              />
+            ))}
           </dl>
         </section>
+      )}
+    </div>
+  );
+  const handleOpenChange = (nextOpen: boolean) => {
+    onOpenChange(nextOpen);
+    if (!nextOpen) onClose();
+  };
 
-        <section>
-          <h3>Content</h3>
-          <dl className="activity-detail-list">
-            <DetailRow
-              label="Presentation"
-              value={
-                <ResourceLink
-                  type={record.presentationType}
-                  id={record.presentationId}
-                  label={
-                    record.presentationName || record.presentationId || "—"
-                  }
-                />
-              }
-            />
-            <DetailRow
-              label="Revision"
-              value={record.presentationRevision || "—"}
-            />
-            <DetailRow
-              label="Content"
-              value={
-                <ResourceLink
-                  type={record.contentType}
-                  id={record.contentId}
-                  label={
-                    record.contentName ||
-                    record.contentId ||
-                    "Root presentation"
-                  }
-                />
-              }
-            />
-            <DetailRow label="Schedule ID" value={record.scheduleId || "—"} />
-            <DetailRow label="Takeover ID" value={record.takeoverId || "—"} />
-          </dl>
-        </section>
-
-        {entries.length > 0 && (
-          <section>
-            <h3>Technical metadata</h3>
-            <dl className="activity-detail-list activity-detail-list--technical">
-              {entries.map(([key, value]) => (
-                <DetailRow
-                  key={key}
-                  label={humanize(key)}
-                  value={formatTechnicalValue(value)}
-                />
-              ))}
-            </dl>
-          </section>
-        )}
-      </div>
+  return desktop ? (
+    <Sheet
+      open={open}
+      onOpenChange={handleOpenChange}
+      onOpenChangeComplete={onOpenChangeComplete}
+    >
+      <SheetContent side="right" className="overflow-y-auto">
+        {header}
+        {content}
+      </SheetContent>
+    </Sheet>
+  ) : (
+    <Drawer
+      open={open}
+      onOpenChange={handleOpenChange}
+      onOpenChangeComplete={onOpenChangeComplete}
+      showSwipeHandle
+    >
+      <DrawerContent className="max-h-[calc(100dvh-2rem)]">
+        {header}
+        {content}
+      </DrawerContent>
     </Drawer>
   );
 }
 
 function DetailRow({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div>
-      <dt>{label}</dt>
-      <dd>{value}</dd>
+    <div className="flex flex-wrap gap-x-2">
+      <dt className="shrink-0 text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 flex-1 break-words">{value}</dd>
     </div>
   );
 }
@@ -534,6 +728,15 @@ function DetailRow({ label, value }: { label: string; value: ReactNode }) {
 function dimensionLabel(value: string) {
   return value === "presentation" ? "presentation" : value;
 }
+
+// Dimension structures hold translation keys, never rendered text. Labels are
+// resolved with t() at render so the tab follows language changes.
+const proofDimensionOptions = [
+  { value: "screen", labelKey: "proof.dimensions.screen" },
+  { value: "content", labelKey: "proof.dimensions.content" },
+  { value: "presentation", labelKey: "proof.dimensions.presentation" },
+  { value: "schedule", labelKey: "proof.dimensions.schedule" },
+] as const;
 
 function formatFullWhen(value: string) {
   return new Date(value).toLocaleString([], {
@@ -546,7 +749,7 @@ function formatFullWhen(value: string) {
   });
 }
 
-function formatTechnicalValue(value: unknown): string {
+function formatTechnicalValue(value: unknown, unavailable: string): string {
   if (typeof value === "string") return value;
   if (typeof value === "number" || typeof value === "boolean") {
     return String(value);
@@ -555,7 +758,7 @@ function formatTechnicalValue(value: unknown): string {
   try {
     return JSON.stringify(value);
   } catch {
-    return "Details unavailable";
+    return unavailable;
   }
 }
 
@@ -566,6 +769,7 @@ export function EventsTab({
   range: { from: string; to: string };
   filters: Record<string, string>;
 }) {
+  const { t } = useTranslation("activity");
   const params = activityParams(range, filters);
   const pagination = useActivityCursor(params.toString());
   const pageParams = new URLSearchParams(params);
@@ -578,71 +782,109 @@ export function EventsTab({
   if (query.isLoading) return <Loading />;
   if (query.error) return <ErrorNotice error={query.error} />;
   return (
-    <section className="activity-panel">
-      <header>
-        <div>
-          <h3>Screen Events</h3>
-          <p>
-            Technical state transitions and meaningful Player or server
-            activity. Routine successful heartbeats are excluded.
-          </p>
-        </div>
+    <section className="grid gap-3 rounded-xl border border-border p-4">
+      <header className="grid gap-1">
+        <h3 className="text-base font-semibold">{t("events.title")}</h3>
+        <p className="text-sm text-muted-foreground">
+          {t("events.description")}
+        </p>
       </header>
-      <div className="activity-table-wrap">
-        <table className="activity-table">
-          <thead>
-            <tr>
-              <th>Severity</th>
-              <th>Time</th>
-              <th>Screen</th>
-              <th>Event</th>
-              <th>Related resource</th>
-              <th>Result</th>
-              <th>Details</th>
-            </tr>
-          </thead>
-          <tbody>
+      <div className="overflow-x-auto rounded-xl border border-border">
+        <Table className="w-full min-w-[56rem] text-sm">
+          <TableHeader>
+            <TableRow className="border-b border-border text-left text-xs text-muted-foreground">
+              <TableHead className="px-3 py-2 font-medium">
+                {t("events.headers.severity")}
+              </TableHead>
+              <TableHead className="px-3 py-2 font-medium">
+                {t("events.headers.time")}
+              </TableHead>
+              <TableHead className="px-3 py-2 font-medium">
+                {t("events.headers.screen")}
+              </TableHead>
+              <TableHead className="px-3 py-2 font-medium">
+                {t("events.headers.event")}
+              </TableHead>
+              <TableHead className="px-3 py-2 font-medium">
+                {t("events.headers.resource")}
+              </TableHead>
+              <TableHead className="px-3 py-2 font-medium">
+                {t("events.headers.result")}
+              </TableHead>
+              <TableHead className="px-3 py-2 font-medium">
+                {t("events.headers.details")}
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {query.data?.items?.map((item) => (
-              <tr key={item.id}>
-                <td>
+              <TableRow
+                key={item.id}
+                className="border-b border-border align-top last:border-0"
+              >
+                <TableCell className="px-3 py-2">
                   <ResultBadge value={item.severity} />
-                </td>
-                <td>
-                  <time>{formatWhen(item.timestamp)}</time>
-                  <small>Received {formatWhen(item.receivedAt)}</small>
-                </td>
-                <td>
-                  <Link to={`/screens/${item.screenId}?tab=activity`}>
-                    {item.screenName}
-                  </Link>
-                  <small>{item.groupName}</small>
-                </td>
-                <td>
-                  <strong>{humanize(item.eventType)}</strong>
-                  <small>
-                    {item.category} · seq {item.sequence ?? "server"}
-                  </small>
-                </td>
-                <td>
+                </TableCell>
+                <TableCell className="px-3 py-2">
+                  <span className="grid gap-0.5">
+                    <time className="whitespace-nowrap tabular-nums">
+                      {formatWhen(item.timestamp)}
+                    </time>
+                    <small className="text-xs whitespace-nowrap text-muted-foreground tabular-nums">
+                      {t("events.receivedAt", {
+                        when: formatWhen(item.receivedAt),
+                      })}
+                    </small>
+                  </span>
+                </TableCell>
+                <TableCell className="px-3 py-2">
+                  <span className="grid gap-0.5">
+                    <Link
+                      to={`/screens/${item.screenId}?tab=activity`}
+                      className="font-medium text-primary hover:underline"
+                    >
+                      {item.screenName}
+                    </Link>
+                    <small className="text-xs text-muted-foreground">
+                      {item.groupName}
+                    </small>
+                  </span>
+                </TableCell>
+                <TableCell className="px-3 py-2">
+                  <span className="grid gap-0.5">
+                    <strong className="font-medium">
+                      {humanize(item.eventType)}
+                    </strong>
+                    <small className="text-xs text-muted-foreground">
+                      {t("events.sequence", {
+                        category: item.category,
+                        sequence: item.sequence ?? t("events.serverAssigned"),
+                      })}
+                    </small>
+                  </span>
+                </TableCell>
+                <TableCell className="px-3 py-2">
                   {item.relatedId ? (
-                    <>
-                      <strong>
+                    <span className="grid gap-0.5">
+                      <strong className="font-medium">
                         <ResourceLink
                           type={item.relatedType}
                           id={item.relatedId}
                           label={item.relatedId}
                         />
                       </strong>
-                      <small>{item.relatedType}</small>
-                    </>
+                      <small className="text-xs text-muted-foreground">
+                        {item.relatedType}
+                      </small>
+                    </span>
                   ) : (
                     "—"
                   )}
-                </td>
-                <td>
+                </TableCell>
+                <TableCell className="px-3 py-2">
                   <ResultBadge value={item.result} />
-                </td>
-                <td>
+                </TableCell>
+                <TableCell className="px-3 py-2">
                   <TechnicalDetails
                     value={{
                       failureCode: item.failureCode,
@@ -651,14 +893,19 @@ export function EventsTab({
                       ...item.details,
                     }}
                   />
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
       {!query.data?.items?.length && (
-        <EmptyState message="No technical screen events matched these filters." />
+        <Empty className="min-h-40 p-6">
+          <EmptyHeader>
+            <EmptyTitle>{t("events.emptyTitle")}</EmptyTitle>
+            <EmptyDescription>{t("events.empty")}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       )}
       <ActivityPagination
         pagination={pagination}
@@ -675,6 +922,7 @@ export function AuditTab({
   range: { from: string; to: string };
   filters: Record<string, string>;
 }) {
+  const { t } = useTranslation("activity");
   const params = activityParams(range, filters);
   const pagination = useActivityCursor(params.toString());
   const pageParams = new URLSearchParams(params);
@@ -686,58 +934,86 @@ export function AuditTab({
   if (query.isLoading) return <Loading />;
   if (query.error) return <ErrorNotice error={query.error} />;
   return (
-    <section className="activity-panel">
-      <header>
-        <div>
-          <h3>Audit Log</h3>
-          <p>
-            Authenticated user and administrator changes. Player behavior is
-            kept in Screen Events.
-          </p>
-        </div>
+    <section className="grid gap-3 rounded-xl border border-border p-4">
+      <header className="grid gap-1">
+        <h3 className="text-base font-semibold">{t("audit.title")}</h3>
+        <p className="text-sm text-muted-foreground">
+          {t("audit.description")}
+        </p>
       </header>
-      <div className="activity-table-wrap">
-        <table className="activity-table">
-          <thead>
-            <tr>
-              <th>Time</th>
-              <th>Actor</th>
-              <th>Action</th>
-              <th>Resource</th>
-              <th>Result</th>
-              <th>Summary</th>
-              <th>Details</th>
-            </tr>
-          </thead>
-          <tbody>
+      <div className="overflow-x-auto rounded-xl border border-border">
+        <Table className="w-full min-w-[56rem] text-sm">
+          <TableHeader>
+            <TableRow className="border-b border-border text-left text-xs text-muted-foreground">
+              <TableHead className="px-3 py-2 font-medium">
+                {t("audit.headers.time")}
+              </TableHead>
+              <TableHead className="px-3 py-2 font-medium">
+                {t("audit.headers.actor")}
+              </TableHead>
+              <TableHead className="px-3 py-2 font-medium">
+                {t("audit.headers.action")}
+              </TableHead>
+              <TableHead className="px-3 py-2 font-medium">
+                {t("audit.headers.resource")}
+              </TableHead>
+              <TableHead className="px-3 py-2 font-medium">
+                {t("audit.headers.result")}
+              </TableHead>
+              <TableHead className="px-3 py-2 font-medium">
+                {t("audit.headers.summary")}
+              </TableHead>
+              <TableHead className="px-3 py-2 font-medium">
+                {t("audit.headers.details")}
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {query.data?.items?.map((item) => (
-              <tr key={item.id}>
-                <td>
+              <TableRow
+                key={item.id}
+                className="border-b border-border align-top last:border-0"
+              >
+                <TableCell className="px-3 py-2 whitespace-nowrap tabular-nums">
                   <time>{formatWhen(item.timestamp)}</time>
-                </td>
-                <td>
-                  <strong>{item.actorName}</strong>
-                  <small>{item.actorUsername}</small>
-                </td>
-                <td>
-                  <strong>{humanize(item.action)}</strong>
-                  <small>{item.action}</small>
-                </td>
-                <td>
-                  <strong>
-                    <ResourceLink
-                      type={item.resourceType}
-                      id={item.resourceId}
-                      label={item.resourceName || item.resourceId || "—"}
-                    />
-                  </strong>
-                  <small>{item.resourceType}</small>
-                </td>
-                <td>
+                </TableCell>
+                <TableCell className="px-3 py-2">
+                  <span className="grid gap-0.5">
+                    <strong className="font-medium">{item.actorName}</strong>
+                    <small className="text-xs text-muted-foreground">
+                      {item.actorUsername}
+                    </small>
+                  </span>
+                </TableCell>
+                <TableCell className="px-3 py-2">
+                  <span className="grid gap-0.5">
+                    <strong className="font-medium">
+                      {humanize(item.action)}
+                    </strong>
+                    <small className="text-xs text-muted-foreground">
+                      {item.action}
+                    </small>
+                  </span>
+                </TableCell>
+                <TableCell className="px-3 py-2">
+                  <span className="grid gap-0.5">
+                    <strong className="font-medium">
+                      <ResourceLink
+                        type={item.resourceType}
+                        id={item.resourceId}
+                        label={item.resourceName || item.resourceId || "—"}
+                      />
+                    </strong>
+                    <small className="text-xs text-muted-foreground">
+                      {item.resourceType}
+                    </small>
+                  </span>
+                </TableCell>
+                <TableCell className="px-3 py-2">
                   <ResultBadge value={item.result} />
-                </td>
-                <td>{item.summary}</td>
-                <td>
+                </TableCell>
+                <TableCell className="px-3 py-2">{item.summary}</TableCell>
+                <TableCell className="px-3 py-2">
                   <TechnicalDetails
                     value={{
                       requestId: item.requestId,
@@ -745,14 +1021,19 @@ export function AuditTab({
                       ...item.metadata,
                     }}
                   />
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
       {!query.data?.items?.length && (
-        <EmptyState message="No administrative changes matched these filters." />
+        <Empty className="min-h-40 p-6">
+          <EmptyHeader>
+            <EmptyTitle>{t("audit.emptyTitle")}</EmptyTitle>
+            <EmptyDescription>{t("audit.empty")}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       )}
       <ActivityPagination
         pagination={pagination}

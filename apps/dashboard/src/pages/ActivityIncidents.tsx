@@ -1,10 +1,21 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
-import { MetricTile, type ResolvedTimeRange } from "../components/ui";
+import { useTranslation } from "react-i18next";
+import { translateKnown } from "../i18n";
+import { MetricTile } from "../components/MetricTile";
+import type { ResolvedTimeRange } from "../components/TimeRangePicker";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "../components/ui/empty";
+import { buttonVariants } from "../components/ui/button";
 import {
   activityParams,
   activityRequest,
-  EmptyState,
   ErrorNotice,
   humanize,
   Loading,
@@ -51,7 +62,7 @@ type Breakdown = { key: string; label: string; count: number };
 function formatSeconds(value: number | null) {
   // Null means nothing recovered in this range. Showing 0 would read as
   // instant recovery, which is the opposite of no data.
-  if (value == null) return "No data";
+  if (value == null) return translateKnown("activity:shared.noData", "No data");
   const minutes = Math.round(value / 60);
   if (minutes < 60) return `${minutes}m`;
   const hours = Math.floor(minutes / 60);
@@ -78,6 +89,7 @@ const PREVIEW_FAILING = 5;
  * a range-scoped report, and says so.
  */
 export function NeedsAttentionPanel() {
+  const { t } = useTranslation("activity");
   const canAct = useCanActOnIncidents();
   const act = useIncidentAction();
   const query = useQuery({
@@ -105,39 +117,45 @@ export function NeedsAttentionPanel() {
 
   return (
     <section
-      className="activity-panel activity-incidents"
-      aria-label="Needs attention"
+      className="grid gap-3 rounded-xl border border-border p-4"
+      aria-label={t("incidents.attentionLabel")}
     >
-      <header>
-        <div>
-          <h3>
-            Needs attention
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="grid gap-1">
+          <h3 className="flex items-center gap-2 text-base font-semibold">
+            {t("incidents.attentionTitle")}
             {failing.length > 0 && (
-              <span className="activity-attention-count">{failing.length}</span>
+              <Badge variant="destructive">{failing.length}</Badge>
             )}
           </h3>
-          <p>
-            Open incidents right now, not over the selected range. Repeats of
-            one condition are a single incident.
+          <p className="text-sm text-muted-foreground">
+            {t("incidents.attentionDescription")}
           </p>
         </div>
         <Link
-          className="button button--secondary"
+          className={buttonVariants({ variant: "outline" })}
           to={buildActivityLink("incidents")}
         >
-          All incidents
+          {t("incidents.allIncidents")}
         </Link>
       </header>
 
       {act.error && (
-        <div className="notice notice--error">{act.error.message}</div>
+        <Alert variant="destructive">
+          <AlertDescription>{act.error.message}</AlertDescription>
+        </Alert>
       )}
 
       {failing.length === 0 ? (
-        <EmptyState message="Nothing is currently failing." />
+        <Empty className="min-h-40 p-6">
+          <EmptyHeader>
+            <EmptyTitle>{t("incidents.emptyAttentionTitle")}</EmptyTitle>
+            <EmptyDescription>{t("incidents.emptyAttention")}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <>
-          <ul className="activity-incident-list">
+          <ul className="grid list-none gap-2 p-0">
             {failing.slice(0, PREVIEW_FAILING).map((incident) => (
               <IncidentRow
                 key={incident.id}
@@ -146,11 +164,7 @@ export function NeedsAttentionPanel() {
               />
             ))}
           </ul>
-          <TruncationNotice
-            shown={PREVIEW_FAILING}
-            total={failing.length}
-            noun="still failing"
-          />
+          <TruncationNotice shown={PREVIEW_FAILING} total={failing.length} />
         </>
       )}
     </section>
@@ -162,21 +176,17 @@ export function NeedsAttentionPanel() {
  * as "this is all of them", which is the one thing a truncated list of open
  * problems must never imply.
  */
-function TruncationNotice({
-  shown,
-  total,
-  noun,
-}: {
-  shown: number;
-  total: number;
-  noun: string;
-}) {
+function TruncationNotice({ shown, total }: { shown: number; total: number }) {
+  const { t } = useTranslation("activity");
   const hidden = total - shown;
   if (hidden <= 0) return null;
   return (
-    <p className="activity-incidents__more">
-      <Link to={buildActivityLink("incidents")}>
-        {hidden} more {noun}
+    <p className="text-sm">
+      <Link
+        to={buildActivityLink("incidents")}
+        className="font-medium text-primary hover:underline"
+      >
+        {t("incidents.moreStillFailing", { count: hidden })}
       </Link>
     </p>
   );
@@ -191,6 +201,7 @@ export function IncidentAnalyticsPanel({
 }: {
   range: ResolvedTimeRange;
 }) {
+  const { t } = useTranslation("activity");
   const query = useQuery({
     queryKey: ["activity", "incident-analytics", range.from, range.to],
     queryFn: () =>
@@ -204,71 +215,89 @@ export function IncidentAnalyticsPanel({
   // collections at all; the panel indexes into them directly.
   const recurring = data.recurring ?? [];
 
+  const duringRange = t("overview.duringRange", { range: range.label });
   return (
     <section
-      className="activity-panel activity-incident-analytics-panel"
-      aria-label="Incident analytics"
+      className="grid gap-3 rounded-xl border border-border p-4"
+      aria-label={t("incidents.analyticsLabel")}
     >
-      <header>
-        <div>
-          <h3>Incident analytics</h3>
-          <p>
-            Measured over {range.label}, except where a tile says otherwise.
-          </p>
-        </div>
+      <header className="grid gap-1">
+        <h3 className="text-base font-semibold">
+          {t("incidents.analyticsTitle")}
+        </h3>
+        <p className="text-sm text-muted-foreground">
+          {t("incidents.analyticsDescription", { range: range.label })}
+        </p>
       </header>
-      <div className="activity-incident-analytics">
-        <div className="activity-incident-analytics__tiles">
+      <div className="grid gap-4">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           <MetricTile
-            label="Active incidents"
+            label={t("incidents.tiles.active")}
             value={data.activeIncidents}
             // The one tile that is not range-scoped, said plainly rather than
             // left to look like part of the historical set.
-            hint="Right now, not over the range"
+            hint={t("incidents.tiles.activeHint")}
           />
           <MetricTile
-            label="Opened"
+            label={t("incidents.tiles.opened")}
             value={data.incidentsOpened}
-            hint={`During ${range.label}`}
+            hint={duringRange}
           />
           <MetricTile
-            label="Resolved"
+            label={t("incidents.tiles.resolved")}
             value={data.incidentsResolved}
-            hint={`During ${range.label}`}
+            hint={duringRange}
           />
           <MetricTile
-            label="Mean time to recover"
+            label={t("incidents.tiles.mean")}
             value={formatSeconds(data.meanTimeToRecoverSeconds)}
             // The median is shown beside the mean because one long outage
             // drags the mean away from the typical case.
-            hint={`Median ${formatSeconds(data.medianTimeToRecoverSeconds)}`}
+            hint={t("incidents.tiles.medianHint", {
+              value: formatSeconds(data.medianTimeToRecoverSeconds),
+            })}
           />
           <MetricTile
-            label="Longest incident"
+            label={t("incidents.tiles.longest")}
             value={formatSeconds(data.longestIncidentSeconds)}
-            hint={data.longestIncidentTitle || `During ${range.label}`}
+            hint={data.longestIncidentTitle || duringRange}
           />
           <MetricTile
-            label="Recovered on their own"
+            label={t("incidents.tiles.recoveredOwn")}
             value={data.automaticRecoveries}
-            hint={`${data.manualRecoveries} closed by hand`}
+            hint={t("incidents.tiles.closedByHand", {
+              count: data.manualRecoveries,
+            })}
           />
         </div>
 
         {recurring.length > 0 && (
-          <div className="activity-incident-recurring">
-            <h4>Recurring problems</h4>
-            <ul>
+          <div className="grid gap-2">
+            <h4 className="text-sm font-semibold">
+              {t("incidents.recurringTitle")}
+            </h4>
+            <ul className="grid gap-2">
               {recurring.map((item) => (
-                <li key={`${item.screenId}-${item.incidentType}`}>
-                  <span>
-                    <strong>{item.screenName}</strong>
-                    <small>{humanize(item.incidentType)}</small>
+                <li
+                  key={`${item.screenId}-${item.incidentType}`}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border p-3 text-sm"
+                >
+                  <span className="grid min-w-0 gap-0.5">
+                    <strong className="truncate">{item.screenName}</strong>
+                    <small className="text-xs text-muted-foreground">
+                      {humanize(item.incidentType)}
+                    </small>
                   </span>
                   {/* Separate counts: five short outages and one outage
                       reported five times are different problems. */}
-                  <span>
-                    {item.incidents} incidents · {item.occurrences} occurrences
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    {t("incidents.recurringIncidents", {
+                      count: item.incidents,
+                    })}{" "}
+                    ·{" "}
+                    {t("incidents.recurringOccurrences", {
+                      count: item.occurrences,
+                    })}
                   </span>
                 </li>
               ))}
@@ -276,26 +305,36 @@ export function IncidentAnalyticsPanel({
           </div>
         )}
 
-        <div className="activity-incident-breakdowns">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {(
             [
-              ["By screen", data.byScreen ?? []],
-              ["By location", data.byLocation ?? []],
-              ["By device model", data.byDeviceModel ?? []],
-              ["By Player version", data.byPlayerVersion ?? []],
-              ["By failure code", data.byFailureCode ?? []],
-              ["By category", data.byType ?? []],
+              [t("incidents.groups.byScreen"), data.byScreen ?? []],
+              [t("incidents.groups.byLocation"), data.byLocation ?? []],
+              [t("incidents.groups.byDeviceModel"), data.byDeviceModel ?? []],
+              [
+                t("incidents.groups.byPlayerVersion"),
+                data.byPlayerVersion ?? [],
+              ],
+              [t("incidents.groups.byFailureCode"), data.byFailureCode ?? []],
+              [t("incidents.groups.byType"), data.byType ?? []],
             ] as [string, Breakdown[]][]
           )
             .filter(([, items]) => items.length > 0)
             .map(([label, items]) => (
-              <section key={label}>
-                <h4>{label}</h4>
-                <ul>
+              <section key={label} className="grid gap-1.5">
+                <h4 className="text-sm font-semibold">{label}</h4>
+                <ul className="grid gap-1 text-sm">
                   {items.slice(0, 6).map((item) => (
-                    <li key={item.key || item.label}>
-                      <span>{humanize(item.label)}</span>
-                      <span>{item.count}</span>
+                    <li
+                      key={item.key || item.label}
+                      className="flex items-center justify-between gap-2"
+                    >
+                      <span className="min-w-0 truncate">
+                        {humanize(item.label)}
+                      </span>
+                      <span className="shrink-0 tabular-nums">
+                        {item.count}
+                      </span>
                     </li>
                   ))}
                 </ul>

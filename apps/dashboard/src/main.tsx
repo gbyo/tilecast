@@ -3,32 +3,18 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { RouterProvider, createBrowserRouter } from "react-router";
 import "@tilecast/design-tokens/tokens.css";
-import "./theme";
 import { App } from "./App";
 import { AuthProvider } from "./auth/AuthProvider";
-import { installCommandPaletteFocus } from "./commandPaletteFocus";
+import { initI18n } from "./i18n";
 import "./styles.css";
 import "./styles/layout-fonts.css";
 import "./styles/signal.css";
-import "./styles/topbar.css";
-import "./styles/topbar-width-fixes.css";
 // Page-specific refinements intentionally load after shared Signal styles.
-import "./styles/reliability.css";
 import "./styles/screens.css";
-import "./styles/sync-groups.css";
-import "./styles/account-menu.css";
-import "./styles/issue-fixes.css";
-import "./styles/issues-37-45.css";
-import "./styles/issues-48-49.css";
 import "./styles/data-sources.css";
 import "./styles/forms.css";
 import "./styles/player-updates.css";
-import "./styles/context-menu.css";
-import "./styles/popover.css";
-import "./styles/screens-media-fixes.css";
-import "./styles/playlist-editor.css";
-
-installCommandPaletteFocus();
+import { TooltipProvider } from "./components/ui/tooltip";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { refetchOnWindowFocus: false } },
@@ -39,12 +25,20 @@ const queryClient = new QueryClient({
 // splat route rendering <App/>, which continues to resolve studioRoutes via useRoutes.
 const router = createBrowserRouter([{ path: "*", element: <App /> }]);
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <RouterProvider router={router} />
-      </AuthProvider>
-    </QueryClientProvider>
-  </StrictMode>,
-);
+function render() {
+  createRoot(document.getElementById("root")!).render(
+    <StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <TooltipProvider>
+            <RouterProvider router={router} />
+          </TooltipProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </StrictMode>,
+  );
+}
+
+// A translation chunk that fails to load leaves English in place rather than
+// a blank page; i18next falls back to the bundled English strings.
+void initI18n().then(render, render);

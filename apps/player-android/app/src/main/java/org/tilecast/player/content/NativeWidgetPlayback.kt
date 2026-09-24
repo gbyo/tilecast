@@ -36,7 +36,6 @@ import com.google.zxing.qrcode.QRCodeWriter
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import java.time.Instant
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
@@ -120,20 +119,17 @@ fun WidgetItem(item: ManifestItem, widget: ManifestWidget, session: PlaybackSess
 
 @Composable
 private fun ClockWidget(config: ClockWidgetConfig) {
+    val regional = LocalTilecastRegionalFormatting.current
     val serverNow = LocalTilecastServerNow.current
     var now by remember { mutableStateOf(serverNow()) }
-    LaunchedEffect(config.timezone, config.showSeconds) {
+    LaunchedEffect(config.timezone, config.showSeconds, regional) {
         while (true) {
             now = serverNow()
             delay(if (config.showSeconds) 1_000 else 15_000)
         }
     }
-    val pattern = if (config.format == "24") {
-        if (config.showSeconds) "HH:mm:ss" else "HH:mm"
-    } else {
-        if (config.showSeconds) "h:mm:ss a" else "h:mm a"
-    }
-    val text = now.atZone(ZoneId.of(config.timezone)).format(DateTimeFormatter.ofPattern(pattern))
+    val zone = runCatching { ZoneId.of(config.timezone) }.getOrDefault(regional.formatZone())
+    val text = regional.formatTime(now.atZone(zone), config.format, config.showSeconds)
     CenteredWidget(config.backgroundColor, config.contentPadding) {
         FittedWidgetText(text, parseColor(config.foregroundColor), FontWeight.SemiBold, textScale = config.textScale)
     }
@@ -141,21 +137,24 @@ private fun ClockWidget(config: ClockWidgetConfig) {
 
 @Composable
 private fun DateWidget(config: DateWidgetConfig) {
+    val regional = LocalTilecastRegionalFormatting.current
     val serverNow = LocalTilecastServerNow.current
     var now by remember { mutableStateOf(serverNow()) }
-    LaunchedEffect(config.timezone) {
+    LaunchedEffect(config.timezone, regional) {
         while (true) {
             now = serverNow()
             delay(30_000)
         }
     }
     val style = when (config.format) {
+        "locale" -> null
         "short" -> FormatStyle.SHORT
         "medium" -> FormatStyle.MEDIUM
         "long" -> FormatStyle.LONG
         else -> FormatStyle.FULL
     }
-    val text = now.atZone(ZoneId.of(config.timezone)).format(DateTimeFormatter.ofLocalizedDate(style))
+    val zone = runCatching { ZoneId.of(config.timezone) }.getOrDefault(regional.formatZone())
+    val text = regional.formatDate(now.atZone(zone).toLocalDate(), style)
     CenteredWidget(config.backgroundColor, config.contentPadding) {
         FittedWidgetText(text, parseColor(config.foregroundColor), FontWeight.Medium, textScale = config.textScale)
     }
@@ -196,6 +195,7 @@ private fun QRCodeWidget(config: QRCodeWidgetConfig) {
 }
 @Composable
 private fun TickerWidget(config: TickerWidgetConfig, data: StructuredSourceConfig) {
+    val regional = LocalTilecastRegionalFormatting.current
     val serverNow = LocalTilecastServerNow.current
     var now by remember { mutableStateOf(serverNow()) }
     LaunchedEffect(data.dateSelection.timezone) {
@@ -204,7 +204,7 @@ private fun TickerWidget(config: TickerWidgetConfig, data: StructuredSourceConfi
             delay(30_000)
         }
     }
-    val records = selectDateAwareRecords(data, now)
+    val records = selectDateAwareRecords(data, now, regional.firstDay())
     val text = records.mapNotNull { record ->
         structuredFieldValue(record, config.field).takeIf { it.isNotBlank() }
     }.joinToString(config.separator).ifBlank { data.emptyState }
@@ -214,6 +214,7 @@ private fun TickerWidget(config: TickerWidgetConfig, data: StructuredSourceConfi
 }
 @Composable
 private fun MenuWidget(name: String, config: DisplayWidgetConfig, data: StructuredSourceConfig) {
+    val regional = LocalTilecastRegionalFormatting.current
     val serverNow = LocalTilecastServerNow.current
     var now by remember { mutableStateOf(serverNow()) }
     LaunchedEffect(data.dateSelection.timezone) {
@@ -222,7 +223,7 @@ private fun MenuWidget(name: String, config: DisplayWidgetConfig, data: Structur
             delay(30_000)
         }
     }
-    val record = selectDateAwareRecords(data, now).firstOrNull()
+    val record = selectDateAwareRecords(data, now, regional.firstDay()).firstOrNull()
     BoxWithConstraints(Modifier.fillMaxSize().background(parseColor(config.backgroundColor))) {
         val horizontalInset = maxWidth.value * widgetPaddingFraction(config.contentPadding)
         val verticalInset = maxHeight.value * widgetPaddingFraction(config.contentPadding)
@@ -284,6 +285,7 @@ internal fun menuContentScale(itemCount: Int, availableHeightDp: Float, textScal
 
 @Composable
 private fun DisplayStructuredWidget(config: DisplayWidgetConfig, data: StructuredSourceConfig) {
+    val regional = LocalTilecastRegionalFormatting.current
     val serverNow = LocalTilecastServerNow.current
     var now by remember { mutableStateOf(serverNow()) }
     LaunchedEffect(data.dateSelection.timezone) {
@@ -292,7 +294,7 @@ private fun DisplayStructuredWidget(config: DisplayWidgetConfig, data: Structure
             delay(30_000)
         }
     }
-    val rows = selectDateAwareRecords(data, now).take(config.maximumItems).map { record ->
+    val rows = selectDateAwareRecords(data, now, regional.firstDay()).take(config.maximumItems).map { record ->
         config.fields.mapNotNull { field -> structuredFieldValue(record, field).takeIf(String::isNotBlank) }.joinToString("  ")
     }.filter(String::isNotBlank)
     DisplayRows(config, rows, data.emptyState)
@@ -316,8 +318,14 @@ internal fun menuFieldLabel(field: String): String {
 }
 @Composable
 private fun DisplayCalendarWidget(config: DisplayWidgetConfig, data: org.tilecast.player.network.CalendarSourceConfig) {
-    val rows = data.data.events.take(config.maximumItems).map { event ->
-        listOf(event.start, event.title, event.location).filter(String::isNotBlank).joinToString("  ")
+    val regional = LocalTilecastRegionalFormatting.current
+    val now = LocalTilecastServerNow.current()
+    val zone = runCatching { ZoneId.of(data.timezone) }.getOrDefault(regional.formatZone())
+    val rows = visibleCalendarEvents(data, now, regional.firstDay()).take(config.maximumItems).map { event ->
+        val whenText = runCatching {
+            Instant.parse(event.start).atZone(zone).let { "${regional.formatDate(it.toLocalDate())} ${regional.formatTime(it)}" }
+        }.getOrDefault(event.start)
+        listOf(whenText, event.title, event.location).filter(String::isNotBlank).joinToString("  ")
     }
     DisplayRows(config, rows, "No items available")
 }

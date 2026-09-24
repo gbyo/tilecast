@@ -18,6 +18,22 @@ func TestRegistryRejectsUnknownAndUnsafeValues(t *testing.T) {
 	}
 }
 
+func TestLanguagePreferenceAcceptsOnlyShippedLocales(t *testing.T) {
+	for _, language := range []string{"system", "en", "es", "ru"} {
+		if _, err := Validate(map[string]any{"preference.language": language}, ScopePreference); err != nil {
+			t.Fatalf("%s rejected: %v", language, err)
+		}
+	}
+	for _, language := range []string{"", "de", "en-US", "RU"} {
+		if _, err := Validate(map[string]any{"preference.language": language}, ScopePreference); err == nil {
+			t.Fatalf("%q accepted", language)
+		}
+	}
+	if _, err := Validate(map[string]any{"preference.language": "es"}, ScopeOrganization); err == nil {
+		t.Fatal("language preference accepted at organization scope")
+	}
+}
+
 func TestLegacyApprovalRequiredStillEnforcesReviewPolicy(t *testing.T) {
 	merged := mergeOrganizationDefaults(map[string]any{"content.approval_required": true})
 	if merged["content.review_policy"] != "everyone" {
@@ -58,6 +74,58 @@ func TestLegacyLocalTimesNormalizeAndFixedTimezoneNamesFail(t *testing.T) {
 	}
 	if _, err := Validate(map[string]any{"organization.timezone": "America/New_York"}, ScopeOrganization); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestRegionalLocaleAndWeekdaySettings(t *testing.T) {
+	values, err := Validate(map[string]any{
+		"organization.locale":            "ja-jp",
+		"organization.first_day_of_week": "friday",
+	}, ScopeOrganization)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if values["organization.locale"] != "ja-JP" {
+		t.Fatalf("locale was not canonicalized: %#v", values["organization.locale"])
+	}
+	for _, day := range []string{"sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "locale"} {
+		if _, err := Validate(map[string]any{"organization.first_day_of_week": day}, ScopeOrganization); err != nil {
+			t.Errorf("first day %q rejected: %v", day, err)
+		}
+	}
+	for _, locale := range []string{"ru-RU", "ja-JP", "ar-SA", "zh-Hant-TW"} {
+		if _, err := Validate(map[string]any{"organization.locale": locale}, ScopeOrganization); err != nil {
+			t.Errorf("valid BCP-47 locale %q rejected: %v", locale, err)
+		}
+	}
+	for _, locale := range []string{"", "not a locale", "en--US"} {
+		if _, err := Validate(map[string]any{"organization.locale": locale}, ScopeOrganization); err == nil {
+			t.Errorf("invalid locale %q accepted", locale)
+		}
+	}
+	if defaults := Defaults(ScopeOrganization); defaults["organization.first_day_of_week"] != "sunday" {
+		t.Fatalf("legacy first-weekday default changed: %#v", defaults["organization.first_day_of_week"])
+	}
+}
+
+func TestRegionalFormattingResolvesLocaleWeekDefaultsAndOverrides(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		input map[string]any
+		day   string
+	}{
+		{name: "US locale-derived", input: map[string]any{"organization.locale": "en-US", "organization.first_day_of_week": "locale"}, day: "sunday"},
+		{name: "UK locale-derived", input: map[string]any{"organization.locale": "en-GB", "organization.first_day_of_week": "locale"}, day: "monday"},
+		{name: "German locale-derived", input: map[string]any{"organization.locale": "de-DE", "organization.first_day_of_week": "locale"}, day: "monday"},
+		{name: "Maldives locale-derived", input: map[string]any{"organization.locale": "dv-MV", "organization.first_day_of_week": "locale"}, day: "friday"},
+		{name: "explicit override", input: map[string]any{"organization.locale": "de-DE", "organization.first_day_of_week": "saturday"}, day: "saturday"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			profile := regionalFormatting(test.input)
+			if profile.FirstDayOfWeek != test.day {
+				t.Fatalf("firstDayOfWeek=%q, want %q", profile.FirstDayOfWeek, test.day)
+			}
+		})
 	}
 }
 

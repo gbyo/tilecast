@@ -11,7 +11,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CompliancePanel } from "./ActivityCompliance";
-import type { ResolvedTimeRange } from "../components/ui";
+import type { ResolvedTimeRange } from "../components/TimeRangePicker";
 
 const range: ResolvedTimeRange = {
   from: "2026-07-26T00:00:00.000Z",
@@ -146,9 +146,7 @@ describe("Playback compliance", () => {
   it("names the main reason time went missing", async () => {
     renderPanel();
 
-    const row = (await screen.findByText("Lobby north")).closest(
-      ".activity-compliance__row",
-    )!;
+    const row = (await screen.findByText("Lobby north")).closest("tr")!;
     expect(row.textContent).toContain("Screen Offline");
   });
 
@@ -169,7 +167,9 @@ describe("Playback compliance", () => {
       "Date",
       "Failure reason",
     ]) {
-      expect(screen.getByRole("option", { name: dimension })).toBeTruthy();
+      expect(
+        await screen.findByRole("option", { name: dimension }),
+      ).toBeTruthy();
     }
 
     await user.click(screen.getByRole("option", { name: "Schedule" }));

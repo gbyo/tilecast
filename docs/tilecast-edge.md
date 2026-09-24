@@ -8,6 +8,8 @@
 **Date:** 2026-09-23
 **Audience:** maintainers and contributors who work on `apps/edge`, the Linux packaging, and the server player API that Edge uses.
 
+> Fabric development is paused until the Edge 1 and WPE work in this document is complete (see [`tilecast-edge-future.md`](tilecast-edge-future.md)).
+
 > This document is the Edge 1 design. It is prescriptive. The implementation state and the verification ledger are in [`tilecast-edge-next.md`](tilecast-edge-next.md). Work that is not part of Edge 1 is recorded in [`tilecast-edge-future.md`](tilecast-edge-future.md) and is not a requirement here.
 
 ---

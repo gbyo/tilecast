@@ -741,7 +741,7 @@ export type AirplaySession = {
   endReason?: string;
   screens: AirplaySessionScreenState[];
 };
-export type UptimeWindow = "24h" | "7d";
+export type UptimeWindow = "24h" | "7d" | "30d";
 /** A screen spends every measured second in exactly one of these states. */
 export type UptimeState = "up" | "impaired" | "down" | "unknown";
 export type UptimeBucket = {
@@ -1113,12 +1113,57 @@ export type ScreenGroupList = {
   pageSize: number;
 };
 
+export type PluginRequirement = {
+  kind: string;
+  label: string;
+  description?: string;
+};
+
+export type PluginAttention = {
+  code: string;
+  message: string;
+};
+
+/**
+ * One release-owned plugin joined with this installation's state. Installed,
+ * configured, and active are separate questions; a plugin is never "enabled"
+ * merely by being installed.
+ */
 export type PluginSummary = {
   id: string;
+  version: number;
   name: string;
   description: string;
-  enabled: boolean;
+  category: string;
+  icon: string;
+  managementPath: string;
+  instanceNounSingular: string;
+  instanceNounPlural: string;
+  requirements: PluginRequirement[];
+  capabilities: string[];
+  documentation?: string;
+  installed: boolean;
+  installable: boolean;
+  configured: boolean;
+  active: boolean;
   instanceCount: number;
+  attention: PluginAttention[];
+};
+
+export type UnsupportedPluginInstallation = {
+  pluginId: string;
+  installedAt: string;
+};
+
+export type PluginCatalog = {
+  items: PluginSummary[];
+  unsupportedInstallations: UnsupportedPluginInstallation[];
+};
+
+export type PluginInUseResource = {
+  kind: string;
+  count: number;
+  label: string;
 };
 
 export type DependencyNodeType =
@@ -2416,7 +2461,14 @@ export type StructuredInspection = {
 export type DateSelection = {
   enabled: boolean;
   dateFormat:
-    "auto" | "iso_date" | "us_date" | "us_short" | "day_month_name" | "rfc3339";
+    | "auto"
+    | "iso_date"
+    | "us_date"
+    | "us_short"
+    | "day_first_date"
+    | "day_first_short"
+    | "day_month_name"
+    | "rfc3339";
   timezone: string;
   mode:
     "today" | "tomorrow" | "next_available" | "current_week" | "custom_range";
@@ -2518,7 +2570,7 @@ export type TypedDatasetPayload = {
 };
 export type ClockWidgetConfig = {
   timezone: string;
-  format: "12" | "24";
+  format: "locale" | "12" | "24";
   showSeconds: boolean;
   foregroundColor: string;
   backgroundColor: string;
@@ -2527,7 +2579,7 @@ export type ClockWidgetConfig = {
 };
 export type DateWidgetConfig = {
   timezone: string;
-  format: "full" | "long" | "medium" | "short";
+  format: "locale" | "full" | "long" | "medium" | "short";
   foregroundColor: string;
   backgroundColor: string;
   textScale?: number;
@@ -2726,7 +2778,7 @@ export type TimelineWidgetConfig = WidgetVisualConfig & {
 };
 export type WorldClockWidgetConfig = WidgetVisualConfig & {
   zones: { label: string; timezone: string }[];
-  format: "12" | "24";
+  format: "locale" | "12" | "24";
   showSeconds: boolean;
   showDate: boolean;
   columns: number;

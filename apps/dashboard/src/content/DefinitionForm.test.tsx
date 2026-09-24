@@ -3,13 +3,14 @@ import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   cleanup,
+  fireEvent,
   render,
   screen,
   waitFor,
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
 import type {
   ContentDefinitionCatalog,
@@ -18,6 +19,10 @@ import type {
   DataSourceDefinition,
   DataSourceDetail,
 } from "../api/types";
+import {
+  localDateTimeToRfc3339,
+  rfc3339ToLocalDateTime,
+} from "../lib/dateTime";
 import {
   DefinitionForm,
   dataFormatGuideFor,
@@ -84,16 +89,16 @@ function catalog(dataSources: DataSourceDefinition[]) {
   } as ContentDefinitionCatalog;
 }
 
-// Field pickers use the shared Select primitive, which renders a visually hidden native <select>
-// behind a trigger button, so option text is read from that native element rather than through the
-// option role. The Data Source control is a chooser dialog and is driven directly.
-function optionsFor(labelText: string | RegExp) {
-  const field = screen
-    .getAllByText(labelText)
-    .map((match) => match.closest("label"))
-    .find(Boolean);
-  const select = field?.querySelector("select");
-  return Array.from(select?.options ?? []).map((option) => option.textContent);
+// Field pickers use the Base UI Select primitive: a combobox trigger with popup
+// options and no native select element, so option text is read by opening the
+// dropdown. The Data Source control is a chooser dialog and is driven directly.
+async function optionsFor(labelText: string | RegExp) {
+  const trigger = screen.getByRole("combobox", { name: labelText });
+  await userEvent.click(trigger);
+  const options = await screen.findAllByRole("option");
+  const texts = options.map((option) => option.textContent);
+  await userEvent.keyboard("{Escape}");
+  return texts;
 }
 
 function form(
@@ -116,6 +121,46 @@ function form(
   );
   return { ...result, onChange };
 }
+
+describe("DefinitionForm date controls", () => {
+  beforeEach(() => {
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue(catalog([]));
+  });
+
+  it("uses the calendar composition and preserves YYYY-MM-DD values", async () => {
+    const { onChange } = form(
+      [{ key: "publishDate", label: "Publish date", control: "date" }],
+      { publishDate: "2026-09-23" },
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Publish date" }));
+    await screen.findByRole("grid");
+    await userEvent.click(
+      await screen.findByRole("button", { name: /September 25/ }),
+    );
+
+    expect(onChange).toHaveBeenLastCalledWith({ publishDate: "2026-09-25" });
+    expect(document.querySelector('input[type="date"]')).toBeNull();
+  });
+
+  it("shows stored instants in local time and saves datetime edits as RFC 3339", () => {
+    const stored = "2026-09-23T16:30:00.000Z";
+    const local = rfc3339ToLocalDateTime(stored);
+    const { onChange } = form(
+      [{ key: "startsAt", label: "Starts at", control: "datetime" }],
+      { startsAt: stored },
+    );
+    const time = screen.getByLabelText("Starts at time");
+
+    expect(time).toHaveValue(local.slice(11, 16));
+    fireEvent.change(time, { target: { value: "09:45" } });
+
+    expect(onChange).toHaveBeenLastCalledWith({
+      startsAt: localDateTimeToRfc3339(`${local.slice(0, 11)}09:45`),
+    });
+    expect(document.querySelector('input[type="datetime-local"]')).toBeNull();
+  });
+});
 
 describe("dataSourceKeysIn", () => {
   it("collects every Data Source a configuration references", () => {
@@ -477,14 +522,14 @@ describe("DefinitionForm data source controls", () => {
 
     // Each picker lists only its own source's fields. Before the fix both listed the source at
     // the hardcoded `dataSourceId` key, so the second picker showed the wrong schema.
-    await waitFor(() =>
-      expect(optionsFor("Primary field")).toContain("Lunch (text)"),
+    await waitFor(async () =>
+      expect(await optionsFor("Primary field")).toContain("Lunch (text)"),
     );
-    await waitFor(() =>
-      expect(optionsFor("Compare field")).toContain("Dinner (text)"),
+    await waitFor(async () =>
+      expect(await optionsFor("Compare field")).toContain("Dinner (text)"),
     );
-    expect(optionsFor("Primary field")).not.toContain("Dinner (text)");
-    expect(optionsFor("Compare field")).not.toContain("Lunch (text)");
+    expect(await optionsFor("Primary field")).not.toContain("Dinner (text)");
+    expect(await optionsFor("Compare field")).not.toContain("Lunch (text)");
   });
 
   it("tells the author to choose a Data Source before offering fields", async () => {
@@ -507,8 +552,8 @@ describe("DefinitionForm data source controls", () => {
       },
     ]);
 
-    await waitFor(() =>
-      expect(optionsFor("Primary field")).toEqual([
+    await waitFor(async () =>
+      expect(await optionsFor("Primary field")).toEqual([
         "Select a Data Source first",
       ]),
     );

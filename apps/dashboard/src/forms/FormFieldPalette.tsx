@@ -1,3 +1,6 @@
+import { useTranslation } from "react-i18next";
+import { Separator } from "../components/ui/separator";
+import { Button } from "../components/ui/button";
 import type { FormFieldControl } from "../api/types";
 import { CONTROLS } from "./formSchema";
 
@@ -10,22 +13,30 @@ export function FormFieldPalette({
   onAdd: (control: FormFieldControl) => void;
   disabled?: boolean;
 }) {
+  const { t } = useTranslation("forms");
   return (
-    <div className="form-builder__palette">
-      <h3 className="form-builder__palette-title">Add a field</h3>
-      <div className="form-builder__palette-grid">
+    <div className="grid gap-2 border-t border-border pt-3">
+      <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+        {t("palette.title")}
+      </h3>
+      <Separator />
+      <div className="grid grid-cols-2 gap-1">
         {CONTROLS.map((meta) => (
-          <button
+          <Button
             key={meta.control}
             type="button"
-            className="form-builder__palette-item"
+            variant="outline"
+            size="sm"
+            className="h-auto flex-col items-start gap-0.5 px-2.5 py-2"
             disabled={disabled}
             onClick={() => onAdd(meta.control)}
-            title={meta.description}
+            title={t(meta.descriptionKey)}
           >
-            <strong>{meta.label}</strong>
-            <span>{meta.description}</span>
-          </button>
+            <span className="text-xs font-medium">{t(meta.labelKey)}</span>
+            <span className="text-left text-[0.7rem] font-normal text-muted-foreground">
+              {t(meta.descriptionKey)}
+            </span>
+          </Button>
         ))}
       </div>
     </div>

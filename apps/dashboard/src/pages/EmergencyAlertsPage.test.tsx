@@ -6,11 +6,14 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
+import { i18n } from "../i18n";
 import {
   emergencyDisplayLabel,
   emergencyPlaylistLabel,
   EmergencyAlertsPage,
 } from "./EmergencyAlertsPage";
+
+const t = i18n.getFixedT("en", "alerts");
 
 let role = "owner";
 
@@ -168,8 +171,10 @@ describe("Emergency Alerts plugin", () => {
     );
 
     expect(
-      await screen.findByLabelText("Automated NWS monitoring"),
-    ).toHaveProperty("disabled", true);
+      (
+        await screen.findByRole("switch", { name: "Automated NWS monitoring" })
+      ).getAttribute("aria-disabled"),
+    ).toBe("true");
     expect(screen.getByLabelText("State or territory")).toHaveProperty(
       "disabled",
       true,
@@ -370,7 +375,7 @@ describe("Emergency Alerts plugin", () => {
     const eventNames = screen.getByLabelText("NWS event names");
     await user.clear(eventNames);
     await user.type(eventNames, "Tornado Warning, Flash Flood Warning");
-    await user.click(await screen.findByLabelText("Lobby"));
+    await user.click(await screen.findByRole("checkbox", { name: "Lobby" }));
     await user.click(screen.getByRole("button", { name: "Add rule" }));
 
     expect(create).toHaveBeenCalledWith(
@@ -387,7 +392,7 @@ describe("Emergency Alerts plugin", () => {
     // mode rather than as a third kind of presentation. A saved rule empties the
     // editor, so the second rule is entered from scratch.
     await user.type(screen.getByLabelText("Rule name"), "Ticker warnings");
-    await user.click(await screen.findByLabelText("Lobby"));
+    await user.click(await screen.findByRole("checkbox", { name: "Lobby" }));
     await user.selectOptions(
       screen.getByLabelText(/Emergency display/),
       "ticker",
@@ -411,26 +416,32 @@ describe("Emergency Alerts plugin", () => {
 
   it("names what a rule will do without opening its editor", () => {
     expect(
-      emergencyDisplayLabel({
-        responseMode: "ticker",
-        presentationMode: "builtin",
-      }),
+      emergencyDisplayLabel(
+        {
+          responseMode: "ticker",
+          presentationMode: "builtin",
+        },
+        t,
+      ),
     ).toBe("Tilecast live NWS ticker bar");
     expect(
-      emergencyDisplayLabel({
-        responseMode: "takeover",
-        presentationMode: "playlist",
-        playlistName: "Closure",
-      }),
+      emergencyDisplayLabel(
+        {
+          responseMode: "takeover",
+          presentationMode: "playlist",
+          playlistName: "Closure",
+        },
+        t,
+      ),
     ).toBe("Closure");
   });
 
   it("makes playlist readiness visible before a weather rule is saved", () => {
-    expect(emergencyPlaylistLabel({ name: "Tornado", itemCount: 3 })).toBe(
+    expect(emergencyPlaylistLabel({ name: "Tornado", itemCount: 3 }, t)).toBe(
       "Tornado — 3 items",
     );
     expect(
-      emergencyPlaylistLabel({ name: "Closure draft", itemCount: 0 }),
+      emergencyPlaylistLabel({ name: "Closure draft", itemCount: 0 }, t),
     ).toBe("Closure draft — empty, add content first");
   });
 });

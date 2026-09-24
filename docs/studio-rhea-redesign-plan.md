@@ -1,11 +1,18 @@
 # Tilecast Studio UI/UX Redesign Plan
 
-**Status:** Final implementation plan  
-**Design system:** shadcn/ui + Base UI + Rhea  
-**Primary shell block:** `dashboard-01`  
-**Authentication block:** `login-03`  
-**Future documentation shell:** `sidebar-03` + shadcn/typeset  
+**Status:** Reference implementation plan; visual foundation superseded by the Base Vega baseline
+**Design system:** shadcn/ui + Base UI + Rhea (historical)
+**Primary shell block:** `dashboard-01`
+**Authentication block:** `login-03`
+**Future documentation shell:** `sidebar-03` + shadcn/typeset
 **Verified against:** Tilecast `main` after PR #523 and current shadcn/ui documentation on 2026-09-22
+
+> **Current visual baseline:** PR 1 replaces Rhea with the official shadcn Base
+> Vega style, neutral theme, Geist, Lucide, and a small radius. Sections in this
+> plan remain useful for information architecture, workflows, accessibility,
+> route behavior, and component intent. Its Rhea-specific visual choices,
+> expandable route grouping, icon-collapse behavior, and workspace navigation
+> are superseded by the current implementation objective.
 
 ---
 
@@ -283,10 +290,7 @@ Current Base UI shadcn Button documentation explicitly warns against rendering a
 For actions that navigate:
 
 ```tsx
-<Link
-  to="/screens/pair"
-  className={buttonVariants({ variant: "default" })}
->
+<Link to="/screens/pair" className={buttonVariants({ variant: "default" })}>
   Pair screen
 </Link>
 ```
@@ -355,7 +359,7 @@ data-table-pagination.tsx
 data-table-view-options.tsx
 ```
 
-but build feature-specific tables for Screens, Data Sources, Activity, Users, Approvals, etc.
+but build one feature-specific table per workspace that needs a grid, such as Screens, Data Sources, Activity, Users, and Approvals.
 
 Do not create `UniversalDataTable<T>` with dozens of props.
 
@@ -439,11 +443,13 @@ Use:
 Examples:
 
 Button Group:
+
 - Undo / Redo
 - zoom minus / reset / plus
 - Restart / restart options
 
 Toggle Group:
+
 - Grid / List
 - alignment
 - preview size mode
@@ -728,35 +734,35 @@ On collapsed sidebar, the avatar remains a natural footer trigger.
 
 ## 9. Shared interaction policy
 
-| User intent | Preferred component |
-|---|---|
-| navigate | React Router Link/NavLink |
-| primary/secondary action | Button |
-| related sibling actions | Button Group |
-| persistent state/mode | Toggle / Toggle Group |
-| overflow action list | Dropdown Menu |
-| right-click shortcut | Context Menu |
-| simple transient options | Popover |
-| inspect complementary details | Sheet |
-| mobile bottom/side interaction | Drawer |
-| short interrupting task | Dialog |
-| destructive/irreversible confirmation | Alert Dialog |
-| long complex editor | dedicated route |
-| searchable single resource selection | Combobox |
-| searchable multi-resource selection | Combobox multiple + chips |
-| short fixed enum | Select |
-| plain browser-native enum only when intentionally desired | Native Select |
-| in-page layered panels | Tabs |
-| route-level facets | WorkspaceNav using links |
-| long settings categories | semantic settings nav |
-| optional one-off section | Collapsible |
-| mutually related expandable sections | Accordion |
-| temporary mutation result | Toast |
-| persistent warning/error | Alert |
-| empty collection | Empty |
-| initial loading | Skeleton |
-| button mutation | Spinner |
-| long-running process | Progress |
+| User intent                                               | Preferred component       |
+| --------------------------------------------------------- | ------------------------- |
+| navigate                                                  | React Router Link/NavLink |
+| primary/secondary action                                  | Button                    |
+| related sibling actions                                   | Button Group              |
+| persistent state/mode                                     | Toggle / Toggle Group     |
+| overflow action list                                      | Dropdown Menu             |
+| right-click shortcut                                      | Context Menu              |
+| simple transient options                                  | Popover                   |
+| inspect complementary details                             | Sheet                     |
+| mobile bottom/side interaction                            | Drawer                    |
+| short interrupting task                                   | Dialog                    |
+| destructive/irreversible confirmation                     | Alert Dialog              |
+| long complex editor                                       | dedicated route           |
+| searchable single resource selection                      | Combobox                  |
+| searchable multi-resource selection                       | Combobox multiple + chips |
+| short fixed enum                                          | Select                    |
+| plain browser-native enum only when intentionally desired | Native Select             |
+| in-page layered panels                                    | Tabs                      |
+| route-level facets                                        | WorkspaceNav using links  |
+| long settings categories                                  | semantic settings nav     |
+| optional one-off section                                  | Collapsible               |
+| mutually related expandable sections                      | Accordion                 |
+| temporary mutation result                                 | Toast                     |
+| persistent warning/error                                  | Alert                     |
+| empty collection                                          | Empty                     |
+| initial loading                                           | Skeleton                  |
+| button mutation                                           | Spinner                   |
+| long-running process                                      | Progress                  |
 
 ---
 
@@ -1031,7 +1037,7 @@ Online · Fire TV 4K Max · Player 1.14.2
 [Present] [Restart] [More]
 ```
 
-Only one obvious primary action.
+Only one primary action.
 
 ### Tabs
 
@@ -1714,7 +1720,7 @@ Offer:
 - List
 - Timeline only if the current/custom timeline provides meaningful scheduling insight
 
-Do not create a decorative timeline simply because calendars look attractive.
+Do not create a decorative timeline because calendars look attractive.
 
 List = Data Table:
 
@@ -1880,23 +1886,29 @@ Applied filters should remain visible as compact removable Badges/chips.
 ### Reports
 
 Overview:
+
 - compact metrics
 - charts
 
 Proof of Play:
+
 - Data Table
 
 Incidents:
+
 - Data Table or grouped Item list
 - Sheet detail
 
 Content Health:
+
 - table/list depending data shape
 
 Screen Events:
+
 - dense Data Table
 
 Audit:
+
 - dense Data Table
 
 ### Components
@@ -2040,12 +2052,14 @@ Use Toggle Group for fixed position options when the data model maps naturally.
 Instances = Item list.
 
 Editor:
+
 - source/device settings
 - visual meter preview
 - thresholds
 - targets
 
 History:
+
 - Chart first
 - exact readings/events table below
 
@@ -2121,15 +2135,18 @@ Fields            Preview                 Inspector
 Use Resizable.
 
 Fields:
+
 - Item list
 - add/reorder
 - Context Menu/Dropdown Menu
 
 Preview:
-- actual shadcn Field/Input/Select/etc.
+
+- actual shadcn Field, Input, Select, Checkbox, Radio Group, Switch, and Textarea controls
 - should closely represent submitter experience
 
 Inspector:
+
 - selected field configuration
 
 Higher-level local panels:
@@ -2140,6 +2157,7 @@ Higher-level local panels:
 - Access
 
 Responses:
+
 - Data Table
 - Sheet detail/review
 
@@ -2236,6 +2254,7 @@ Organization        General
 ```
 
 Mobile:
+
 - settings nav opens in Sheet
 
 ### Forms
@@ -2283,15 +2302,19 @@ Data Table:
 - actions
 
 Create/invite:
+
 - Dialog
 
 Edit permissions:
+
 - Dialog or Sheet depending complexity
 
 Reset MFA:
+
 - Alert Dialog with explicit consequences
 
 Deactivate:
+
 - Alert Dialog
 
 Remove native confirms.
@@ -2309,15 +2332,18 @@ Data Table:
 - actions
 
 Create backup:
+
 - Button
 - Progress/toast.promise if long-running
 
 Restore:
+
 - Alert Dialog
 - include destructive consequences
 - use typed/name confirmation if warranted by the risk and existing behavior
 
 Delete:
+
 - Alert Dialog
 
 Do not weaken current safety behavior.
@@ -2351,13 +2377,16 @@ Data Table:
 - actions
 
 Create:
+
 - Dialog
 
 Generated secret:
+
 - one-time Alert
 - Input Group + copy button
 
 Revoke:
+
 - Alert Dialog
 
 ---
@@ -2477,72 +2506,72 @@ Do not add sidebar.
 
 This matrix is the default decision for the component catalog verified on 2026-09-22.
 
-| Component | Tilecast decision |
-|---|---|
-| Accordion | Use sparingly for groups of expandable advanced settings |
-| Alert | Yes — persistent warnings/errors/system conditions |
-| Alert Dialog | Yes — destructive/revoke/reset/archive/restore confirmations |
-| Aspect Ratio | Yes — media/layout/playlist/widget previews |
-| Attachment | Yes — Media upload queue |
-| Avatar | Yes — account and user surfaces |
-| Badge | Yes — labeled state/type/status |
-| Breadcrumb | Yes — Studio header and folder paths |
-| Bubble | No current Studio use; chat-specific |
-| Button | Yes — actions |
-| Button Group | Yes — grouped editor/actions |
-| Calendar | Yes through date/scheduling compositions |
-| Card | Yes, but only bounded objects/metrics |
-| Carousel | No planned use |
-| Chart | Yes — Overview, Activity, Noise Meter |
-| Checkbox | Yes — boolean choices and table selection |
-| Collapsible | Yes — individual advanced/inspector sections |
-| Combobox | Yes — major resource picker primitive |
-| Command | Yes — global search/quick actions; keep `cmdk` |
-| Context Menu | Yes — convenience actions in editors/media, never sole access |
-| Data Table | Yes — feature-specific TanStack v9 tables |
-| Date Picker | Yes — as documented Popover + Calendar composition |
-| Dialog | Yes — short interrupting create/edit tasks |
-| Direction | No immediate surface; keep generated components compatible |
-| Drawer | Limited — responsive/mobile dialog/inspector patterns |
-| Dropdown Menu | Yes — overflow/action menus |
-| Empty | Yes — all real empty resource states |
-| Field | Yes — all form composition |
-| Hover Card | Optional only for helpful previews; never required interaction |
-| Input | Yes |
-| Input Group | Yes — search, geometry, units, copyable secrets/URLs |
-| Input OTP | Yes where pairing/MFA code format fits |
-| Item | Yes — major compact-list primitive |
-| Kbd | Yes — command/editor shortcuts |
-| Label | Used within canonical Field compositions |
-| Marker | No normal Studio use; conversation-oriented |
-| Menubar | Not in initial migration; reconsider only if editors truly need File/Edit/View command hierarchy |
-| Message | No current Studio use |
-| Message Scroller | No current Studio use |
-| Native Select | Rare; use only when native behavior is intentionally preferred |
-| Navigation Menu | No main Studio use; possible future public/docs nav |
-| Pagination | Yes when API/data size requires pages |
-| Popover | Yes — small transient filters/options/date/color composition |
-| Progress | Yes — uploads, backups, update rollouts |
-| Questionnaire | Yes — setup and guided Form creation only |
-| Radio Group | Yes — mutually exclusive form choices |
-| Resizable | Yes — Layout, Form, Playlist editors |
-| Scroll Area | Yes — editor panes and contained secondary nav |
-| Select | Yes — short fixed enums |
-| Separator | Yes — restrained hierarchy |
-| Sheet | Yes — complementary desktop details/inspectors/content picker |
-| Sidebar | Yes — `dashboard-01` shell |
-| Skeleton | Yes — initial/collection loading |
-| Slider | Yes — opacity/thresholds/scales |
-| Spinner | Yes — button/pending mutations |
-| Switch | Yes — boolean settings |
-| Table | Yes — simple tables and TanStack rendering |
-| Tabs | Yes — local layered panels, not route facets |
-| Textarea | Yes |
-| Toast | Yes — transient mutation outcomes |
-| Toggle | Yes — one toolbar on/off state |
-| Toggle Group | Yes — grid/list, alignment, single mode selection |
-| Tooltip | Yes — icon actions and shortcut hints |
-| Typography | Use semantic HTML/Tailwind conventions; do not create a Typography wrapper layer |
+| Component        | Tilecast decision                                                                                |
+| ---------------- | ------------------------------------------------------------------------------------------------ |
+| Accordion        | Use sparingly for groups of expandable advanced settings                                         |
+| Alert            | Yes — persistent warnings/errors/system conditions                                               |
+| Alert Dialog     | Yes — destructive/revoke/reset/archive/restore confirmations                                     |
+| Aspect Ratio     | Yes — media/layout/playlist/widget previews                                                      |
+| Attachment       | Yes — Media upload queue                                                                         |
+| Avatar           | Yes — account and user surfaces                                                                  |
+| Badge            | Yes — labeled state/type/status                                                                  |
+| Breadcrumb       | Yes — Studio header and folder paths                                                             |
+| Bubble           | No current Studio use; chat-specific                                                             |
+| Button           | Yes — actions                                                                                    |
+| Button Group     | Yes — grouped editor/actions                                                                     |
+| Calendar         | Yes through date/scheduling compositions                                                         |
+| Card             | Yes, but only bounded objects/metrics                                                            |
+| Carousel         | No planned use                                                                                   |
+| Chart            | Yes — Overview, Activity, Noise Meter                                                            |
+| Checkbox         | Yes — boolean choices and table selection                                                        |
+| Collapsible      | Yes — individual advanced/inspector sections                                                     |
+| Combobox         | Yes — major resource picker primitive                                                            |
+| Command          | Yes — global search/quick actions; keep `cmdk`                                                   |
+| Context Menu     | Yes — convenience actions in editors/media, never sole access                                    |
+| Data Table       | Yes — feature-specific TanStack v9 tables                                                        |
+| Date Picker      | Yes — as documented Popover + Calendar composition                                               |
+| Dialog           | Yes — short interrupting create/edit tasks                                                       |
+| Direction        | No immediate surface; keep generated components compatible                                       |
+| Drawer           | Limited — responsive/mobile dialog/inspector patterns                                            |
+| Dropdown Menu    | Yes — overflow/action menus                                                                      |
+| Empty            | Yes — all real empty resource states                                                             |
+| Field            | Yes — all form composition                                                                       |
+| Hover Card       | Optional only for helpful previews; never required interaction                                   |
+| Input            | Yes                                                                                              |
+| Input Group      | Yes — search, geometry, units, copyable secrets/URLs                                             |
+| Input OTP        | Yes where pairing/MFA code format fits                                                           |
+| Item             | Yes — major compact-list primitive                                                               |
+| Kbd              | Yes — command/editor shortcuts                                                                   |
+| Label            | Used within canonical Field compositions                                                         |
+| Marker           | No normal Studio use; conversation-oriented                                                      |
+| Menubar          | Not in initial migration; reconsider only if editors truly need File/Edit/View command hierarchy |
+| Message          | No current Studio use                                                                            |
+| Message Scroller | No current Studio use                                                                            |
+| Native Select    | Rare; use only when native behavior is intentionally preferred                                   |
+| Navigation Menu  | No main Studio use; possible future public/docs nav                                              |
+| Pagination       | Yes when API/data size requires pages                                                            |
+| Popover          | Yes — small transient filters/options/date/color composition                                     |
+| Progress         | Yes — uploads, backups, update rollouts                                                          |
+| Questionnaire    | Yes — setup and guided Form creation only                                                        |
+| Radio Group      | Yes — mutually exclusive form choices                                                            |
+| Resizable        | Yes — Layout, Form, Playlist editors                                                             |
+| Scroll Area      | Yes — editor panes and contained secondary nav                                                   |
+| Select           | Yes — short fixed enums                                                                          |
+| Separator        | Yes — restrained hierarchy                                                                       |
+| Sheet            | Yes — complementary desktop details/inspectors/content picker                                    |
+| Sidebar          | Yes — `dashboard-01` shell                                                                       |
+| Skeleton         | Yes — initial/collection loading                                                                 |
+| Slider           | Yes — opacity/thresholds/scales                                                                  |
+| Spinner          | Yes — button/pending mutations                                                                   |
+| Switch           | Yes — boolean settings                                                                           |
+| Table            | Yes — simple tables and TanStack rendering                                                       |
+| Tabs             | Yes — local layered panels, not route facets                                                     |
+| Textarea         | Yes                                                                                              |
+| Toast            | Yes — transient mutation outcomes                                                                |
+| Toggle           | Yes — one toolbar on/off state                                                                   |
+| Toggle Group     | Yes — grid/list, alignment, single mode selection                                                |
+| Tooltip          | Yes — icon actions and shortcut hints                                                            |
+| Typography       | Use semantic HTML/Tailwind conventions; do not create a Typography wrapper layer                 |
 
 ---
 
@@ -2910,6 +2939,7 @@ Actions:
 9. add only foundation components required by shell/theme
 
 Exit:
+
 - build/test green
 - old UI still functional through `legacy-ui`
 - shadcn `components/ui` is cleanly owned
@@ -2931,6 +2961,7 @@ Implement:
 Preserve auth/routing/query behavior.
 
 Exit:
+
 - every old page can render inside new shell
 - sidebar collapses to icons
 - mobile shell works
@@ -3114,7 +3145,7 @@ Add focused UI tests around:
 
 ### Existing suites
 
-Do not delete tests simply because markup changed.
+Do not delete tests because markup changed.
 
 Prefer role/name queries.
 

@@ -1,0 +1,85 @@
+/*
+ * Tilecast theme for Starlight.
+ *
+ * Starlight builds its palette from a gray ramp, three accent steps, and a few
+ * semantic aliases. This file points those documented variables at the shared
+ * Tilecast tokens. Semantic tokens such as --tc-bg-canvas resolve per theme
+ * because the head script in astro.config.mjs mirrors Starlight's
+ * `data-theme` onto `html.dark`.
+ *
+ * The gray ramp runs from the highest-contrast text (`white`) to the page
+ * background (`black`), so it inverts between themes. `:root` holds the dark
+ * ramp, which is also Starlight's default, and the light block reverses it.
+ */
+
+:root {
+  --sl-font: "Geist Variable", var(--tc-font-sans);
+  --sl-font-mono: var(--tc-font-mono);
+
+  --sl-color-accent-low: color-mix(
+    in srgb,
+    var(--tc-accent) 24%,
+    var(--tc-bg-canvas)
+  );
+  --sl-color-accent: var(--tc-accent);
+  --sl-color-accent-high: var(--tc-blue-400);
+
+  --sl-color-white: var(--tc-text-primary);
+  --sl-color-gray-1: var(--tc-neutral-50);
+  --sl-color-gray-2: var(--tc-neutral-200);
+  --sl-color-gray-3: var(--tc-text-secondary);
+  --sl-color-gray-4: var(--tc-neutral-500);
+  --sl-color-gray-5: var(--tc-border-strong);
+  --sl-color-gray-6: var(--tc-bg-surface);
+  --sl-color-gray-7: var(--tc-bg-elevated);
+  --sl-color-black: var(--tc-bg-canvas);
+
+  --sl-color-bg-nav: var(--tc-bg-surface);
+  --sl-color-bg-sidebar: var(--tc-bg-surface);
+  --sl-color-bg-inline-code: var(--tc-bg-subtle);
+  --sl-color-hairline: var(--tc-border-default);
+  --sl-color-hairline-light: var(--tc-border-default);
+  --sl-color-hairline-shade: var(--tc-bg-canvas);
+  --sl-color-backdrop-overlay: var(--tc-overlay-scrim);
+
+  /* A flatter heading scale than Starlight's, closer to Studio's density. */
+  --sl-text-h1: var(--sl-text-4xl);
+  --sl-text-h2: var(--sl-text-2xl);
+  --sl-text-h3: var(--sl-text-xl);
+  --sl-text-h4: var(--sl-text-lg);
+  --sl-text-h5: var(--sl-text-base);
+}
+
+:root[data-theme="light"] {
+  --sl-color-accent-low: var(--tc-blue-50);
+  --sl-color-accent-high: var(--tc-blue-800);
+
+  --sl-color-gray-1: var(--tc-neutral-900);
+  --sl-color-gray-2: var(--tc-neutral-800);
+  --sl-color-gray-3: var(--tc-neutral-700);
+  --sl-color-gray-4: var(--tc-neutral-500);
+  --sl-color-gray-5: var(--tc-neutral-300);
+  --sl-color-gray-6: var(--tc-neutral-50);
+  --sl-color-gray-7: var(--tc-neutral-25);
+  --sl-color-black: var(--tc-neutral-0);
+
+  --sl-color-bg-sidebar: var(--tc-bg-canvas);
+}
+
+/* A visible Tilecast focus ring for keyboard users on every control. */
+:focus-visible {
+  outline: 2px solid var(--tc-focus-ring);
+  outline-offset: 2px;
+}
+
+/* Homepage cards: quiet surface, Tilecast radius, accent border on hover. */
+.sl-link-card {
+  border-color: var(--tc-border-default);
+  border-radius: var(--tc-radius-card);
+  background-color: var(--tc-bg-surface);
+}
+
+.sl-link-card:hover {
+  border-color: var(--tc-accent);
+  background-color: var(--tc-bg-surface);
+}

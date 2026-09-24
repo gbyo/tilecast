@@ -1,0 +1,93 @@
+---
+title: Installation
+description: Run Tilecast Server with Docker Compose and choose a safe address for Studio and Players.
+---
+
+Tilecast Server runs on a host you control with Docker Engine and Docker Compose v2. The repository Compose file builds the server and starts PostgreSQL beside it. Cloudflare Tunnel is optional.
+
+import { FileTree, Steps } from "@astrojs/starlight/components";
+
+## Before you start
+
+- Choose a host that can stay on while displays need Tilecast.
+- Choose the address that browsers and Players will use. Set this as `TILECAST_PUBLIC_URL`.
+- Use HTTPS before allowing access from outside a trusted local network.
+
+## Start Tilecast Server
+
+Run these commands from the root of a clone of the [Tilecast repository](https://github.com/gbyo/tilecast).
+
+<Steps>
+
+1. Copy the example environment file.
+
+   ```sh
+   cp deploy/docker/.env.example deploy/docker/.env
+   ```
+
+2. Edit `deploy/docker/.env`. Replace `POSTGRES_PASSWORD` with a long, random value. Do not commit this file.
+
+3. Set the address and cookie setting for your access path.
+
+   | Access path                                      | Environment values                                                                                                                              |
+   | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+   | Trusted LAN over HTTP                            | `TILECAST_PUBLIC_URL=http://tilecast.local:8080` and `TILECAST_COOKIE_SECURE=false`. Restrict port 8080 to the trusted network with a firewall. |
+   | HTTPS hostname through a reverse proxy or tunnel | Set `TILECAST_PUBLIC_URL=https://signage.example.org` and `TILECAST_COOKIE_SECURE=true`.                                                        |
+
+   The Player requires HTTPS for public hostnames. It accepts HTTP for local addresses such as a private IPv4 address, `localhost`, or a `.local` name. HTTP traffic is not encrypted.
+
+4. Start the services.
+
+   ```sh
+   docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml up -d --build
+   ```
+
+5. Open `TILECAST_PUBLIC_URL` in a browser. On first visit, enter the organization name and create the first Owner account.
+
+</Steps>
+
+The server applies its database migrations before it accepts requests. There is no separate migration command.
+
+:::caution
+Set up HTTPS before creating the Owner account if the installation will be reachable from the public internet. The Owner password and dashboard session must not travel over an untrusted HTTP connection.
+:::
+
+## Connect Players
+
+The default Compose configuration disables LAN discovery. Enter the server address on each Player if it does not appear in the nearby-server list. Discovery can also fail across VLANs, guest Wi-Fi, access-point isolation, or Docker bridge networks.
+
+When using HTTPS behind a proxy, keep `TILECAST_PUBLIC_URL` set to the external HTTPS address. The repository includes a [reverse-proxy Compose example](https://github.com/gbyo/tilecast/blob/main/deploy/examples/compose.reverse-proxy.yml). The optional [Cloudflare Tunnel setup](https://github.com/gbyo/tilecast/blob/main/deploy/cloudflare/README.md) uses the `tunnel` Compose profile and a tunnel token.
+
+## Check server readiness
+
+Use `/healthz` to check whether the server process answers. Use `/readyz` to check whether the database, media storage, FFmpeg, and FFprobe are ready. Replace the example address below with your configured `TILECAST_PUBLIC_URL`.
+
+```sh
+curl --fail http://tilecast.local:8080/readyz
+```
+
+The Compose health check uses `/readyz`. A failed readiness check returns HTTP 503.
+
+## Preserve installation data
+
+Compose uses two named volumes. Preserve both when replacing containers or hosts.
+
+<FileTree>
+
+- postgres_data/ Tilecast database.
+- tilecast_data/ Media, backups, and cached Player releases under `/data`.
+  - media/ Uploaded and processed media and thumbnails.
+  - backups/ Full installation archives from **Settings** \> **Backup and restore**.
+  - updates/ Verified Android and Linux Player releases cached for deployment.
+
+</FileTree>
+
+:::caution
+`docker compose down --volumes` removes the named volumes and their stored data. Do not use it when you only want to recreate or update the containers.
+:::
+
+## Next steps
+
+- [Get started with your first display](../getting-started/).
+- [Install Tilecast Player](../players/) on an Android TV device or Linux computer.
+- See the repository [deployment reference](https://github.com/gbyo/tilecast/blob/main/docs/deployment.md) for all server environment settings.

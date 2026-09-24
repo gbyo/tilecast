@@ -1,4 +1,7 @@
 import { Component, type ReactNode } from "react";
+import { Trans } from "react-i18next";
+import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
+import { Button } from "./ui/button";
 
 type State = { error?: Error };
 
@@ -18,22 +21,30 @@ export class RouteErrorBoundary extends Component<
   }
 
   render() {
+    // A class component cannot call useTranslation. Trans reads the same
+    // i18next context, so the message still follows language changes. The
+    // raw error message is runtime output and stays untranslated.
     if (this.state.error) {
       return (
-        <div className="notice notice--error" role="alert">
-          <strong>This page could not be displayed.</strong>
-          <p>
-            {this.state.error.message ||
-              "An unexpected error occurred while rendering this page."}
-          </p>
-          <button
+        <Alert variant="destructive">
+          <AlertTitle>
+            <Trans i18nKey="error.title" ns="navigation" />
+          </AlertTitle>
+          <AlertDescription>
+            {this.state.error.message || (
+              <Trans i18nKey="error.fallback" ns="navigation" />
+            )}
+          </AlertDescription>
+          <Button
             type="button"
-            className="button button--secondary"
+            variant="secondary"
+            size="sm"
+            className="mt-2"
             onClick={() => this.setState({ error: undefined })}
           >
-            Try again
-          </button>
-        </div>
+            <Trans i18nKey="error.retry" ns="navigation" />
+          </Button>
+        </Alert>
       );
     }
     return this.props.children;

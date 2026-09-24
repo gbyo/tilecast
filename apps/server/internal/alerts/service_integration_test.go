@@ -53,6 +53,9 @@ func TestAlertTakeoverLifecycle(t *testing.T) {
 	if _, err = pool.Exec(ctx, `INSERT INTO organization_settings(singleton,organization_name,id) VALUES(TRUE,'Alert Test',$1)`, organizationID); err != nil {
 		t.Fatal(err)
 	}
+	if _, err = pool.Exec(ctx, `INSERT INTO plugin_installations(organization_id,plugin_id) VALUES($1,'emergency_alerts')`, organizationID); err != nil {
+		t.Fatal(err)
+	}
 	if _, err = pool.Exec(ctx, `INSERT INTO users(id,name,username,password_hash,role,active) VALUES($1,'Owner','alert-owner','unused-test-hash','owner',TRUE)`, userID); err != nil {
 		t.Fatal(err)
 	}

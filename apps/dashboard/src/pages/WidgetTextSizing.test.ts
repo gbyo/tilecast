@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { widgetContentArea } from "./LayoutEditorPage";
+import { widgetContentArea } from "../components/layout-editor/WidgetLivePreview";
 
 describe("Widget text sizing", () => {
   it("uses the center 80 percent of a Widget by default", () => {

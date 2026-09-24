@@ -35,6 +35,8 @@ export interface DataSourceField {
   key: string;
   label: string;
   type: string; // text|number|integer|percent|currency|boolean|date|datetime|url
+  /** Semantic ISO 4217 code for currency values; never inferred from locale. */
+  currency?: string;
 }
 
 export interface TypedRecord {
@@ -120,6 +122,7 @@ export interface DocumentField {
   key: string;
   label: string;
   type: string;
+  currency?: string;
 }
 
 export interface DocumentDataset {

@@ -7,10 +7,12 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { previewApi } from "../api/previews";
+import { i18n } from "../i18n";
 import type { Screen, User } from "../api/types";
 import type { PairingRequest } from "../api/types";
 import {
@@ -29,12 +31,14 @@ import {
   zeroTouchReadiness,
 } from "./ScreensPage";
 
+const t = i18n.getFixedT("en", "screens");
+
 describe("reliability status display", () => {
   it("formats reported status values without rendering response objects", () => {
-    expect(formatReportedStatus("needs_attention")).toBe("needs attention");
-    expect(formatReportedStatus(" ")).toBe("Not reported");
-    expect(formatReportedStatus(undefined)).toBe("Not reported");
-    expect(formatReportedStatus({ id: "player-1", name: "Lobby" })).toBe(
+    expect(formatReportedStatus("needs_attention", t)).toBe("needs attention");
+    expect(formatReportedStatus(" ", t)).toBe("Not reported");
+    expect(formatReportedStatus(undefined, t)).toBe("Not reported");
+    expect(formatReportedStatus({ id: "player-1", name: "Lobby" }, t)).toBe(
       "Not reported",
     );
   });
@@ -72,9 +76,10 @@ describe("screen management", () => {
     expect(
       screen.getByRole("heading", { name: "No screens paired" }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: "Pair your first screen" }),
-    ).toHaveAttribute("href", "/screens/pair");
+    expect(screen.getByRole("link", { name: "Pair screen" })).toHaveAttribute(
+      "href",
+      "/screens/pair",
+    );
   });
 
   it("explains restrictions in the viewer empty state", () => {
@@ -154,7 +159,7 @@ describe("screen management", () => {
     expect(link).toHaveTextContent("Lobby");
     expect(link).not.toHaveTextContent("android-tv");
     expect(link).not.toHaveTextContent("1920×1080");
-    const row = screen.getByRole("article");
+    const row = screen.getByRole("row", { name: /Lobby/ });
     expect(within(row).getByText("Online")).toBeInTheDocument();
     expect(within(row).getByText(/1920×1080/)).toBeInTheDocument();
   });
@@ -244,16 +249,16 @@ describe("screen management", () => {
 
     render(
       <QueryClientProvider client={queryClient}>
-        <ScreenGridCard
-          screen={item}
-          csrfToken="csrf-token"
-          selected={false}
-          canManage={false}
-          showLocation
-          onSelect={vi.fn()}
-          onOpen={vi.fn()}
-          onMenu={vi.fn()}
-        />
+        <MemoryRouter>
+          <ScreenGridCard
+            screen={item}
+            csrfToken="csrf-token"
+            selected={false}
+            canManage={false}
+            showLocation
+            onSelect={vi.fn()}
+          />
+        </MemoryRouter>
       </QueryClientProvider>,
     );
 
@@ -266,22 +271,89 @@ describe("screen management", () => {
     expect(
       screen.getByAltText("Latest preview from Lobby"),
     ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Lobby" })).toHaveAttribute(
+      "href",
+      "/screens/screen-1",
+    );
+    expect(screen.getByRole("link", { name: "Open Lobby" })).toHaveAttribute(
+      "href",
+      "/screens/screen-1",
+    );
+    const interaction = userEvent.setup();
+    await interaction.click(
+      screen.getByRole("button", { name: "Actions for Lobby" }),
+    );
+    expect(
+      await screen.findByRole("menuitem", { name: "Open screen" }),
+    ).toBeTruthy();
+  });
+
+  it("keeps card selection separate from navigation links", async () => {
+    const item = {
+      id: "screen-2",
+      name: "Hallway",
+      screenWidth: 1920,
+      screenHeight: 1080,
+      status: "online",
+      lastContactAt: new Date().toISOString(),
+    } as Screen;
+    const onSelect = vi.fn();
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    class SilentIntersectionObserver {
+      observe() {}
+      disconnect() {}
+      unobserve() {}
+      takeRecords() {
+        return [];
+      }
+      readonly root = null;
+      readonly rootMargin = "0px";
+      readonly thresholds = [0];
+    }
+    vi.stubGlobal("IntersectionObserver", SilentIntersectionObserver);
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <ScreenGridCard
+            screen={item}
+            csrfToken=""
+            selected={false}
+            canManage
+            showLocation
+            onSelect={onSelect}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    const checkbox = screen.getByRole("checkbox", { name: "Select Hallway" });
+    expect(checkbox.closest("a")).toBeNull();
+    const interaction = userEvent.setup();
+    checkbox.focus();
+    await interaction.keyboard(" ");
+    expect(onSelect).toHaveBeenCalledWith(true);
   });
 
   it("does not confuse requested Managed Kiosk with effective capability", () => {
     expect(
-      reliabilityCapabilityWarning({
-        configuredMode: "managed_kiosk",
-        effectiveMode: "standard",
-        powerAssist: {
-          deviceSleep: "untested",
-          tvStandby: "untested",
-          deviceWake: "untested",
-          tvWake: "untested",
-          inputSelection: "untested",
-          tilecastStartup: "untested",
+      reliabilityCapabilityWarning(
+        {
+          configuredMode: "managed_kiosk",
+          effectiveMode: "standard",
+          powerAssist: {
+            deviceSleep: "untested",
+            tvStandby: "untested",
+            deviceWake: "untested",
+            tvWake: "untested",
+            inputSelection: "untested",
+            tilecastStartup: "untested",
+          },
         },
-      }),
+        t,
+      ),
     ).toContain("not confirmed");
   });
 
@@ -295,50 +367,62 @@ describe("screen management", () => {
       tilecastStartup: "untested",
     };
     expect(
-      zeroTouchReadiness({
-        commissioningState: "complete",
-        accessibilityServiceState: "enabled",
-        bootLaunchVerified: true,
-        immersiveModeActive: true,
-        keepScreenOn: true,
-        cachedFallbackAvailable: true,
-        updateReadiness: "ready",
-        safeMode: false,
-        powerAssist,
-      }),
+      zeroTouchReadiness(
+        {
+          commissioningState: "complete",
+          accessibilityServiceState: "enabled",
+          bootLaunchVerified: true,
+          immersiveModeActive: true,
+          keepScreenOn: true,
+          cachedFallbackAvailable: true,
+          updateReadiness: "ready",
+          safeMode: false,
+          powerAssist,
+        },
+        t,
+      ),
     ).toBe("Ready");
     expect(
-      zeroTouchReadiness({
-        commissioningState: "complete",
-        accessibilityServiceState: "disabled",
-        powerAssist,
-      }),
+      zeroTouchReadiness(
+        {
+          commissioningState: "complete",
+          accessibilityServiceState: "disabled",
+          powerAssist,
+        },
+        t,
+      ),
     ).toBe("Partially ready");
     expect(
-      zeroTouchReadiness({
-        commissioningState: "complete",
-        accessibilityServiceState: "unsupported",
-        bootLaunchVerified: true,
-        immersiveModeActive: true,
-        keepScreenOn: true,
-        cachedFallbackAvailable: false,
-        updateReadiness: "ready",
-        safeMode: false,
-        powerAssist,
-      }),
+      zeroTouchReadiness(
+        {
+          commissioningState: "complete",
+          accessibilityServiceState: "unsupported",
+          bootLaunchVerified: true,
+          immersiveModeActive: true,
+          keepScreenOn: true,
+          cachedFallbackAvailable: false,
+          updateReadiness: "ready",
+          safeMode: false,
+          powerAssist,
+        },
+        t,
+      ),
     ).toBe("Partially ready");
     expect(
-      zeroTouchReadiness({
-        commissioningState: "complete",
-        accessibilityServiceState: "enabled",
-        bootLaunchVerified: true,
-        immersiveModeActive: true,
-        keepScreenOn: true,
-        cachedFallbackAvailable: false,
-        updateReadiness: "ready",
-        safeMode: false,
-        powerAssist,
-      }),
+      zeroTouchReadiness(
+        {
+          commissioningState: "complete",
+          accessibilityServiceState: "enabled",
+          bootLaunchVerified: true,
+          immersiveModeActive: true,
+          keepScreenOn: true,
+          cachedFallbackAvailable: false,
+          updateReadiness: "ready",
+          safeMode: false,
+          powerAssist,
+        },
+        t,
+      ),
     ).toBe("Ready");
   });
 
@@ -352,41 +436,53 @@ describe("screen management", () => {
       tilecastStartup: "untested",
     };
     expect(
-      autostartSummary({
-        autostartState: "installed",
-        autostartTarget: "graphical-session.target",
-        bootLaunchVerified: false,
-        powerAssist,
-      }),
+      autostartSummary(
+        {
+          autostartState: "installed",
+          autostartTarget: "graphical-session.target",
+          bootLaunchVerified: false,
+          powerAssist,
+        },
+        t,
+      ),
     ).toBe("Installed · graphical-session.target · not yet seen at boot");
     expect(
-      autostartSummary({
-        autostartState: "installed",
-        autostartTarget: "graphical-session.target",
-        bootLaunchVerified: true,
-        powerAssist,
-      }),
+      autostartSummary(
+        {
+          autostartState: "installed",
+          autostartTarget: "graphical-session.target",
+          bootLaunchVerified: true,
+          powerAssist,
+        },
+        t,
+      ),
     ).toContain("verified at boot");
     expect(
-      autostartSummary({ autostartState: "not_installed", powerAssist }),
+      autostartSummary({ autostartState: "not_installed", powerAssist }, t),
     ).toBe("Not installed");
     expect(
-      autostartSummary({
-        autostartState: "unsupported",
-        autostartError: "player is not running as a managed AppImage",
-        powerAssist,
-      }),
+      autostartSummary(
+        {
+          autostartState: "unsupported",
+          autostartError: "player is not running as a managed AppImage",
+          powerAssist,
+        },
+        t,
+      ),
     ).toContain("managed AppImage");
     // A device whose probe failed is not the same as a device that reports
     // nothing, and the difference is what the operator has to act on.
     expect(
-      autostartSummary({
-        autostartState: "unknown",
-        autostartError: "EACCES /home/kiosk/.config",
-        powerAssist,
-      }),
+      autostartSummary(
+        {
+          autostartState: "unknown",
+          autostartError: "EACCES /home/kiosk/.config",
+          powerAssist,
+        },
+        t,
+      ),
     ).toBe("Could not determine · EACCES /home/kiosk/.config");
-    expect(autostartSummary({ powerAssist })).toBe("Not reported");
+    expect(autostartSummary({ powerAssist }, t)).toBe("Not reported");
   });
 
   it("hides Linux autostart controls for players that do not report it", () => {
@@ -417,40 +513,49 @@ describe("screen management", () => {
       tilecastStartup: "untested",
     };
     expect(
-      autostartWarning({ autostartState: "not_installed", powerAssist }),
+      autostartWarning({ autostartState: "not_installed", powerAssist }, t),
     ).toContain("will not return on its own");
     // default.target without lingering does not survive logout, and enabling
     // lingering needs root — so it has to be said, not silently tolerated.
     expect(
-      autostartWarning({
-        autostartState: "installed",
-        autostartTarget: "default.target",
-        autostartLingerEnabled: false,
-        powerAssist,
-      }),
+      autostartWarning(
+        {
+          autostartState: "installed",
+          autostartTarget: "default.target",
+          autostartLingerEnabled: false,
+          powerAssist,
+        },
+        t,
+      ),
     ).toContain("enable-linger");
     expect(
-      autostartWarning({ autostartState: "needs_attention", powerAssist }),
+      autostartWarning({ autostartState: "needs_attention", powerAssist }, t),
     ).toContain("not report it as enabled");
     // A failed probe carries its own reason, and must not read as healthy.
     expect(
-      autostartWarning({
-        autostartState: "unknown",
-        autostartError: "EACCES /home/kiosk/.config",
-        powerAssist,
-      }),
+      autostartWarning(
+        {
+          autostartState: "unknown",
+          autostartError: "EACCES /home/kiosk/.config",
+          powerAssist,
+        },
+        t,
+      ),
     ).toContain("EACCES /home/kiosk/.config");
     expect(
-      autostartWarning({
-        autostartState: "installed",
-        autostartTarget: "graphical-session.target",
-        autostartLingerEnabled: false,
-        powerAssist,
-      }),
+      autostartWarning(
+        {
+          autostartState: "installed",
+          autostartTarget: "graphical-session.target",
+          autostartLingerEnabled: false,
+          powerAssist,
+        },
+        t,
+      ),
     ).toBeUndefined();
     // Android screens never see an autostart warning.
     expect(
-      autostartWarning({ commissioningState: "complete", powerAssist }),
+      autostartWarning({ commissioningState: "complete", powerAssist }, t),
     ).toBe(undefined);
   });
 
@@ -479,7 +584,9 @@ describe("screen management", () => {
         timezone: "America/New_York",
       },
     };
-    expect(pairingApprovalLabel(request)).toBe("Repair and replace credential");
+    expect(pairingApprovalLabel(request, t)).toBe(
+      "Repair and replace credential",
+    );
     expect(
       pairingApprovalPayload(request, {
         name: "Cafeteria Display",
@@ -521,7 +628,7 @@ describe("screen management", () => {
         timezone: "America/New_York",
       },
     };
-    expect(pairingApprovalLabel(request, "replace_hardware")).toBe(
+    expect(pairingApprovalLabel(request, t, "replace_hardware")).toBe(
       "Replace hardware",
     );
     expect(

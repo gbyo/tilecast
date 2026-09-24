@@ -1,23 +1,39 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
+import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router";
 import { useAuth } from "../auth/AuthProvider";
 import {
-  loginSchema,
-  mfaSchema,
-  setupSchema,
+  makeLoginSchema,
+  makeMfaSchema,
   type LoginForm,
   type MFAForm,
-  type SetupForm,
 } from "../auth/schemas";
 import { passkeysSupported } from "../auth/webauthn";
 import { Brand } from "../components/Brand";
-import { FormField } from "../components/FormField";
-import "./AuthPage.css";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Button } from "../components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+} from "../components/ui/card";
+import {
+  Field,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldSeparator,
+} from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import { Spinner } from "../components/ui/spinner";
+import { SetupFlow } from "./SetupFlow";
 
 export function AuthPage({ mode }: { mode: "setup" | "login" }) {
   const auth = useAuth();
+  const { t } = useTranslation(["auth", "common"]);
   const navigate = useNavigate();
   const location = useLocation();
   const requestedReturn = new URLSearchParams(location.search).get("returnTo");
@@ -34,105 +50,69 @@ export function AuthPage({ mode }: { mode: "setup" | "login" }) {
   }, [auth.status, mode, navigate, returnTo]);
 
   if (auth.isLoading) return <LoadingScreen />;
+  // login-03: a muted shell with a compact centered card. Setup uses the same
+  // language with a slightly wider card for the guided questions. There are
+  // no social-provider buttons: this installation has only local accounts.
   return (
-    <main className="auth-page">
-      <section className="auth-panel">
-        <div className="auth-panel__logo">
+    <main className="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted p-6 md:p-10">
+      <div
+        className={`flex w-full flex-col gap-6 ${mode === "setup" ? "max-w-md" : "max-w-sm"}`}
+      >
+        <div className="flex justify-center">
           <Brand compact />
         </div>
-        {mode === "setup" ? (
-          <SetupFormView />
-        ) : auth.challenge ? (
-          <ChallengeFormView />
-        ) : (
-          <LoginFormView />
-        )}
-      </section>
+        <Card>
+          {mode === "setup" ? (
+            <CardContent className="pt-6">
+              <SetupFlow />
+            </CardContent>
+          ) : auth.challenge ? (
+            <>
+              <CardHeader className="text-center">
+                <h1
+                  data-slot="card-title"
+                  className="font-heading text-xl font-medium"
+                >
+                  {t("challenge.title")}
+                </h1>
+                <CardDescription>
+                  {auth.challenge.methods.includes("totp") ||
+                  auth.challenge.methods.includes("recovery_code")
+                    ? t("challenge.codeDescription")
+                    : t("challenge.passkeyDescription")}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ChallengeFormView />
+              </CardContent>
+            </>
+          ) : (
+            <>
+              <CardHeader className="text-center">
+                <h1
+                  data-slot="card-title"
+                  className="font-heading text-xl font-medium"
+                >
+                  {t("login.title")}
+                </h1>
+                <CardDescription>{t("login.description")}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <LoginFormView />
+              </CardContent>
+            </>
+          )}
+        </Card>
+      </div>
     </main>
   );
 }
 
-function SetupFormView() {
-  const { setup, error, isSubmitting } = useAuth();
-  const form = useForm<SetupForm>({
-    resolver: zodResolver(setupSchema),
-    defaultValues: {
-      organizationName: "",
-      ownerName: "",
-      username: "",
-      password: "",
-      confirmPassword: "",
-    },
-  });
-  const submit = form.handleSubmit(async (values) => {
-    await setup({
-      organizationName: values.organizationName,
-      ownerName: values.ownerName,
-      username: values.username,
-      password: values.password,
-    });
-  });
+function AuthError({ message }: { message: string }) {
   return (
-    <div className="auth-form auth-form--setup" aria-labelledby="setup-title">
-      <header>
-        <h1 id="setup-title">Set up Tilecast</h1>
-        <p>Create the first owner account for this installation.</p>
-      </header>
-      {error && (
-        <div className="notice notice--error" role="alert">
-          {error.message}
-        </div>
-      )}
-      <form onSubmit={(event) => void submit(event)} noValidate>
-        <FormField
-          id="organizationName"
-          label="Organization name"
-          autoComplete="organization"
-          error={form.formState.errors.organizationName?.message}
-          {...form.register("organizationName")}
-        />
-        <FormField
-          id="ownerName"
-          label="Your name"
-          autoComplete="name"
-          error={form.formState.errors.ownerName?.message}
-          {...form.register("ownerName")}
-        />
-        <FormField
-          id="username"
-          label="Email or username"
-          autoComplete="username"
-          error={form.formState.errors.username?.message}
-          {...form.register("username")}
-        />
-        <div className="auth-form__passwords">
-          <FormField
-            id="password"
-            label="Password"
-            type="password"
-            autoComplete="new-password"
-            hint="At least 12 characters"
-            error={form.formState.errors.password?.message}
-            {...form.register("password")}
-          />
-          <FormField
-            id="confirmPassword"
-            label="Confirm password"
-            type="password"
-            autoComplete="new-password"
-            error={form.formState.errors.confirmPassword?.message}
-            {...form.register("confirmPassword")}
-          />
-        </div>
-        <button
-          className="button button--primary auth-form__submit"
-          type="submit"
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? "Creating installation…" : "Create installation"}
-        </button>
-      </form>
-    </div>
+    <Alert variant="destructive" className="mb-4">
+      <AlertDescription>{message}</AlertDescription>
+    </Alert>
   );
 }
 
@@ -145,8 +125,12 @@ function LoginFormView() {
     isSubmitting,
     status,
   } = useAuth();
+  const { t } = useTranslation(["auth", "common"]);
+  // The schema is built at render time so its messages follow the interface
+  // language.
+  const schema = useMemo(() => makeLoginSchema(t), [t]);
   const form = useForm<LoginForm>({
-    resolver: zodResolver(loginSchema),
+    resolver: zodResolver(schema),
     defaultValues: { username: "", password: "" },
   });
   const submit = form.handleSubmit(async (values) => {
@@ -169,55 +153,55 @@ function LoginFormView() {
   // always fails would be worse than not offering one.
   const passkeys = Boolean(status?.passkeysAvailable) && passkeysSupported();
   return (
-    <div className="auth-form" aria-labelledby="login-title">
-      <header>
-        <h1 id="login-title">Sign in</h1>
-        <p>Manage your Tilecast displays.</p>
-      </header>
-      {error && (
-        <div className="notice notice--error" role="alert">
-          {error.message}
-        </div>
-      )}
-      <form onSubmit={(event) => void submit(event)} noValidate>
-        <FormField
-          id="username"
-          label="Email or username"
-          autoComplete="username webauthn"
-          autoFocus
-          error={form.formState.errors.username?.message}
-          {...form.register("username")}
-        />
-        <FormField
-          id="password"
-          label="Password"
-          type="password"
-          autoComplete="current-password"
-          error={form.formState.errors.password?.message}
-          {...form.register("password")}
-        />
-        <button
-          className="button button--primary auth-form__submit"
-          type="submit"
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? "Signing in…" : "Sign in"}
-        </button>
-      </form>
-      {passkeys && (
-        <>
-          <p className="auth-form__divider">or</p>
-          <button
-            className="button auth-form__submit"
-            type="button"
-            disabled={isSubmitting}
-            onClick={() => void loginWithPasskey()}
-          >
-            Sign in with a passkey
-          </button>
-        </>
-      )}
-    </div>
+    <form onSubmit={(event) => void submit(event)} noValidate>
+      <FieldGroup>
+        {error && <AuthError message={error.message} />}
+        <Field>
+          <FieldLabel htmlFor="username">{t("fields.username")}</FieldLabel>
+          <Input
+            id="username"
+            autoComplete="username webauthn"
+            autoFocus
+            aria-invalid={Boolean(form.formState.errors.username)}
+            {...form.register("username")}
+          />
+          <FieldError errors={[form.formState.errors.username]} />
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="password">{t("fields.password")}</FieldLabel>
+          <Input
+            id="password"
+            type="password"
+            autoComplete="current-password"
+            aria-invalid={Boolean(form.formState.errors.password)}
+            {...form.register("password")}
+          />
+          <FieldError errors={[form.formState.errors.password]} />
+        </Field>
+        <Field>
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? t("login.submitting") : t("login.submit")}
+          </Button>
+        </Field>
+        {passkeys && (
+          <>
+            <FieldSeparator className="*:data-[slot=field-separator-content]:bg-card">
+              {t("separators.or")}
+            </FieldSeparator>
+            <Field>
+              <Button
+                variant="outline"
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => void loginWithPasskey()}
+              >
+                {t("login.passkeyButton")}
+              </Button>
+            </Field>
+          </>
+        )}
+      </FieldGroup>
+    </form>
   );
 }
 
@@ -234,8 +218,10 @@ function ChallengeFormView() {
     error,
     isSubmitting,
   } = useAuth();
+  const { t } = useTranslation(["auth", "common"]);
+  const schema = useMemo(() => makeMfaSchema(t), [t]);
   const form = useForm<MFAForm>({
-    resolver: zodResolver(mfaSchema),
+    resolver: zodResolver(schema),
     defaultValues: { code: "" },
   });
   const submit = form.handleSubmit(async (values) => {
@@ -247,72 +233,67 @@ function ChallengeFormView() {
     challenge?.methods.includes("totp") ||
     challenge?.methods.includes("recovery_code"),
   );
+  // The challenge accepts both authenticator codes and recovery codes, which
+  // have different shapes, so this stays a plain input rather than a
+  // segmented one-time-code field.
   return (
-    <div className="auth-form" aria-labelledby="mfa-title">
-      <header>
-        <h1 id="mfa-title">Two-step verification</h1>
-        <p>
-          {canUseCode
-            ? "Enter the six-digit code from your authenticator app, or one of your recovery codes."
-            : "Confirm your passkey to finish signing in."}
-        </p>
-      </header>
-      {error && (
-        <div className="notice notice--error" role="alert">
-          {error.message}
-        </div>
-      )}
+    <div className="grid gap-4">
+      {error && <AuthError message={error.message} />}
       {canUseCode && (
         <form onSubmit={(event) => void submit(event)} noValidate>
-          <FormField
-            id="code"
-            label="Verification code"
-            autoComplete="one-time-code"
-            inputMode="text"
-            autoFocus
-            error={form.formState.errors.code?.message}
-            {...form.register("code")}
-          />
-          <button
-            className="button button--primary auth-form__submit"
-            type="submit"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? "Verifying…" : "Verify"}
-          </button>
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="code">{t("challenge.codeLabel")}</FieldLabel>
+              <Input
+                id="code"
+                autoComplete="one-time-code"
+                inputMode="text"
+                autoFocus
+                aria-invalid={Boolean(form.formState.errors.code)}
+                {...form.register("code")}
+              />
+              <FieldError errors={[form.formState.errors.code]} />
+            </Field>
+            <Field>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting
+                  ? t("challenge.submitting")
+                  : t("challenge.submit")}
+              </Button>
+            </Field>
+          </FieldGroup>
         </form>
       )}
       {canUsePasskey && (
-        <>
-          {canUseCode && <p className="auth-form__divider">or</p>}
-          <button
-            className="button auth-form__submit"
+        <div className="grid gap-4">
+          {canUseCode && (
+            <FieldSeparator className="*:data-[slot=field-separator-content]:bg-card">
+              {t("separators.or")}
+            </FieldSeparator>
+          )}
+          <Button
+            variant="outline"
             type="button"
             disabled={isSubmitting}
             onClick={() => void verifyMfaPasskey()}
           >
-            Use a passkey
-          </button>
-        </>
+            {t("challenge.passkeyButton")}
+          </Button>
+        </div>
       )}
-      <button
-        className="button button--quiet auth-form__cancel"
-        type="button"
-        onClick={cancelChallenge}
-      >
-        Back to sign in
-      </button>
+      <Button variant="ghost" type="button" onClick={cancelChallenge}>
+        {t("challenge.back")}
+      </Button>
     </div>
   );
 }
 
 function LoadingScreen() {
+  const { t } = useTranslation(["auth", "common"]);
   return (
-    <div className="loading-screen auth-loading">
-      <div className="auth-panel__logo">
-        <Brand compact />
-      </div>
-      <span className="spinner" aria-label="Loading" />
+    <div className="flex min-h-svh items-center justify-center gap-3 bg-muted">
+      <Brand compact />
+      <Spinner aria-label={t("status.loading")} />
     </div>
   );
 }

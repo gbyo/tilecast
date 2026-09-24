@@ -5,17 +5,12 @@ import {
   useQueryClient,
   type UseQueryResult,
 } from "@tanstack/react-query";
-import {
-  CalendarDays,
-  Check,
-  ChevronDown,
-  Clock3,
-  Search,
-  X,
-} from "lucide-react";
+import { CalendarDays, Clock3, X } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router";
 import { api } from "../api/client";
+import { apiErrorMessage, useFormatLocale } from "../i18n";
 import type {
   Playlist,
   LayoutSummary,
@@ -26,14 +21,48 @@ import type {
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import {
-  Button,
-  Field,
-  Notice,
-  PageHeader,
-  Popover,
-  Switch,
-} from "../components/ui";
+  isTimezoneIdentifier,
+  normalizeTimezone,
+  timezoneLabel,
+  timezoneOptions,
+} from "../settings/settingValues";
 import { PlaylistPicker } from "../components/content-picker";
+import { useConfirm } from "../components/ConfirmDialog";
+import { DateInput, DateTimeInput } from "../components/date-picker";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Button } from "../components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import {
+  Combobox,
+  ComboboxChips,
+  ComboboxChipsInput,
+  ComboboxChip,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxValue,
+  useComboboxAnchor,
+} from "../components/ui/combobox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { Skeleton } from "../components/ui/skeleton";
+import { Switch } from "../components/ui/switch";
+import { Textarea } from "../components/ui/textarea";
+import { toast } from "../components/ui/toast";
 import {
   conflictWinnerReason,
   countTargetScreens,
@@ -43,10 +72,11 @@ import {
   priorityPreset,
   scheduleIsDirty,
   schedulePreviewTimestamp,
+  scheduleWeekdayLabels,
   scheduleWeekdays,
-  setTargetSelected,
   validateScheduleInput,
   type PriorityPreset,
+  type SchedulesT,
 } from "./scheduleBuilderModel";
 
 const initialSchedule = (): ScheduleInput => ({
@@ -94,7 +124,10 @@ export function ScheduleEditorPage() {
   const navigate = useNavigate();
   const auth = useAuth();
   const client = useQueryClient();
+  const { t } = useTranslation(["schedules", "common"]);
+  const formatLocale = useFormatLocale();
   const csrf = auth.status?.csrfToken ?? "";
+  const { confirm, dialog: confirmDialog } = useConfirm();
   const existing = useQuery({
     queryKey: ["schedules", id],
     queryFn: () => api.schedule(id!),
@@ -145,7 +178,7 @@ export function ScheduleEditorPage() {
   }, [baseline, defaultTimezoneApplied, defaults.data?.defaultTimezone, id]);
 
   const dirty = scheduleIsDirty(input, baseline);
-  const errors = useMemo(() => validateScheduleInput(input), [input]);
+  const errors = useMemo(() => validateScheduleInput(input, t), [input, t]);
   const valid = Object.keys(errors).length === 0;
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
@@ -213,6 +246,10 @@ export function ScheduleEditorPage() {
         ? api.updateSchedule(id, input, csrf)
         : api.createSchedule(input, csrf),
     onSuccess: (schedule) => {
+      toast.add({
+        title: id ? t("notifications.updated") : t("notifications.created"),
+        type: "success",
+      });
       const next = scheduleToInput(schedule);
       setBaseline(next);
       setInput(next);
@@ -222,263 +259,303 @@ export function ScheduleEditorPage() {
   });
   const remove = useMutation({
     mutationFn: () => api.deleteSchedule(id!, csrf),
-    onSuccess: () => void navigate("/schedules"),
+    onSuccess: () => {
+      toast.add({ title: t("notifications.deleted"), type: "success" });
+      void navigate("/schedules");
+    },
   });
 
   if (id && existing.isLoading)
-    return <div className="table-loading">Loading schedule…</div>;
+    return (
+      <div className="grid gap-2" aria-label={t("editor.loading")}>
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
   return (
-    <section className="schedule-builder-page">
-      <PageHeader
-        className="schedule-builder-heading"
-        title={id ? "Edit schedule" : "Create schedule"}
-        description="Build the playback rule, then review its effect before saving."
-      />
-      <form
-        className="schedule-builder"
-        onSubmit={(event) => {
-          event.preventDefault();
-          setAttempted(true);
-          if (valid) save.mutate();
-        }}
-      >
-        <main className="schedule-builder__main">
-          <BuilderSection
-            number="1"
-            title="Content"
-            description="Name this schedule and choose what it should play."
-          >
-            <Field
-              label="Schedule name"
-              required
-              error={attempted ? errors.name : undefined}
+    <>
+      {confirmDialog}
+      <section className="schedule-builder-page">
+        <header className="schedule-builder-heading">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {id ? t("editor.editTitle") : t("editor.createTitle")}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t("editor.subtitle")}
+          </p>
+        </header>
+        <form
+          className="schedule-builder"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setAttempted(true);
+            if (valid) save.mutate();
+          }}
+        >
+          <main className="schedule-builder__main">
+            <BuilderSection
+              number="1"
+              title={t("editor.content")}
+              description={t("editor.sections.content.description")}
             >
-              <input
-                value={input.name}
-                maxLength={180}
-                onChange={(event) => set("name", event.target.value)}
-                placeholder="Morning announcements"
-              />
-            </Field>
-            <div
-              className="schedule-segmented"
-              role="group"
-              aria-label="Schedule content type"
-            >
-              <button
-                type="button"
-                aria-pressed={!input.displayAction}
-                onClick={() => set("displayAction", undefined)}
-              >
-                Content
-              </button>
-              <button
-                type="button"
-                aria-pressed={Boolean(input.displayAction)}
-                onClick={() => {
-                  set("playlistId", undefined);
-                  set("layoutId", undefined);
-                  set(
-                    "displayAction",
-                    input.displayAction ?? { type: "display_power_on" },
-                  );
-                }}
-              >
-                Display Control
-              </button>
-            </div>
-            {input.displayAction ? (
-              <DisplayControlSelection
-                action={input.displayAction}
-                onChange={(displayAction) =>
-                  set("displayAction", displayAction)
-                }
-                error={attempted ? errors.playlistId : undefined}
-              />
-            ) : (
-              <PlaylistSelection
-                playlist={selectedPlaylistData}
-                layout={selectedLayout}
-                onChoose={() => setPlaylistOpen(true)}
-                error={attempted ? errors.playlistId : undefined}
-              />
-            )}
-          </BuilderSection>
-
-          <BuilderSection
-            number="2"
-            title="Timing"
-            description="Choose when this content takes precedence."
-          >
-            <div
-              className="schedule-segmented"
-              role="group"
-              aria-label="Schedule type"
-            >
-              <button
-                type="button"
-                aria-pressed={input.type === "weekly"}
-                onClick={() => set("type", "weekly")}
-              >
-                Weekly recurring
-              </button>
-              <button
-                type="button"
-                aria-pressed={input.type === "one_time"}
-                onClick={() => {
-                  if (!input.oneTimeStart) {
-                    const start = new Date();
-                    start.setMinutes(
-                      Math.ceil(start.getMinutes() / 15) * 15,
-                      0,
-                      0,
+              <Field>
+                <FieldLabel htmlFor="schedule-name">
+                  {t("editor.nameLabel")} <span aria-hidden="true">*</span>
+                </FieldLabel>
+                <Input
+                  id="schedule-name"
+                  value={input.name}
+                  maxLength={180}
+                  onChange={(event) => set("name", event.target.value)}
+                  placeholder={t("editor.namePlaceholder")}
+                  aria-invalid={attempted && errors.name ? true : undefined}
+                />
+                {attempted && errors.name && (
+                  <FieldError>{errors.name}</FieldError>
+                )}
+              </Field>
+              <ToggleGroup
+                variant="outline"
+                spacing={0}
+                className="max-sm:w-full max-sm:*:flex-1"
+                aria-label={t("editor.contentTypeLabel")}
+                multiple={false}
+                value={[input.displayAction ? "display" : "content"]}
+                onValueChange={(next) => {
+                  if (next[0] === "content") set("displayAction", undefined);
+                  else if (next[0] === "display") {
+                    set("playlistId", undefined);
+                    set("layoutId", undefined);
+                    set(
+                      "displayAction",
+                      input.displayAction ?? { type: "display_power_on" },
                     );
-                    const end = new Date(start.getTime() + 60 * 60 * 1000);
-                    setInput((current) => ({
-                      ...current,
-                      type: "one_time",
-                      oneTimeStart: start.toISOString(),
-                      oneTimeEnd: end.toISOString(),
-                    }));
-                  } else set("type", "one_time");
+                  }
                 }}
               >
-                One-time event
-              </button>
-            </div>
-            {input.type === "weekly" ? (
-              <WeeklyTiming
-                input={input}
-                set={set}
-                showDateRange={showDateRange}
-                setShowDateRange={setShowDateRange}
-                errors={attempted ? errors : {}}
-              />
-            ) : (
-              <OneTimeTiming
-                input={input}
-                set={set}
-                error={attempted ? errors.oneTime : undefined}
-              />
-            )}
-            <TimezonePicker
-              value={input.timezone}
-              onChange={(value) => set("timezone", value)}
-              error={attempted ? errors.timezone : undefined}
-            />
-            <div className="schedule-human-summary">
-              <CalendarDays size={18} />
-              <span>{describeScheduleTiming(input)}</span>
-            </div>
-          </BuilderSection>
+                <ToggleGroupItem value="content">
+                  {t("editor.content")}
+                </ToggleGroupItem>
+                <ToggleGroupItem value="display">
+                  {t("editor.displayControl")}
+                </ToggleGroupItem>
+              </ToggleGroup>
+              {input.displayAction ? (
+                <DisplayControlSelection
+                  action={input.displayAction}
+                  onChange={(displayAction) =>
+                    set("displayAction", displayAction)
+                  }
+                  error={attempted ? errors.playlistId : undefined}
+                />
+              ) : (
+                <PlaylistSelection
+                  playlist={selectedPlaylistData}
+                  layout={selectedLayout}
+                  onChoose={() => setPlaylistOpen(true)}
+                  error={attempted ? errors.playlistId : undefined}
+                />
+              )}
+            </BuilderSection>
 
-          <BuilderSection
-            number="3"
-            title="Targets"
-            description="Select independent screens or synchronized groups. Grouped screens are scheduled together."
-          >
-            <TargetPicker
-              targets={input.targets}
-              screens={screens.data?.items ?? []}
-              groups={groups.data?.items ?? []}
-              tab={targetTab}
-              setTab={setTargetTab}
-              search={targetSearch}
-              setSearch={setTargetSearch}
-              onChange={(targets) => set("targets", targets)}
-              error={attempted ? errors.targets : undefined}
-            />
-          </BuilderSection>
-
-          <BuilderSection
-            number="4"
-            title="Advanced options"
-            description="Control availability, precedence, and administrator notes."
-            compact
-          >
-            <Switch
-              label="Enabled"
-              description="Disabled schedules remain saved but do not affect playback."
-              checked={input.enabled}
-              onChange={(event) => set("enabled", event.target.checked)}
-            />
-            <PriorityControl
-              value={input.priority}
-              onChange={(value) => set("priority", value)}
-              error={attempted ? errors.priority : undefined}
-            />
-            <Field
-              label="Description"
-              description="Optional internal note shown in Studio."
+            <BuilderSection
+              number="2"
+              title={t("editor.sections.timing.title")}
+              description={t("editor.sections.timing.description")}
             >
-              <textarea
-                value={input.description}
-                maxLength={2000}
-                rows={3}
-                onChange={(event) => set("description", event.target.value)}
+              <ToggleGroup
+                variant="outline"
+                spacing={0}
+                className="max-sm:w-full max-sm:*:flex-1"
+                aria-label={t("editor.scheduleTypeLabel")}
+                multiple={false}
+                value={[input.type]}
+                onValueChange={(next) => {
+                  if (next[0] === "weekly") set("type", "weekly");
+                  else if (next[0] === "one_time") {
+                    if (!input.oneTimeStart) {
+                      const start = new Date();
+                      start.setMinutes(
+                        Math.ceil(start.getMinutes() / 15) * 15,
+                        0,
+                        0,
+                      );
+                      const end = new Date(start.getTime() + 60 * 60 * 1000);
+                      setInput((current) => ({
+                        ...current,
+                        type: "one_time",
+                        oneTimeStart: start.toISOString(),
+                        oneTimeEnd: end.toISOString(),
+                      }));
+                    } else set("type", "one_time");
+                  }
+                }}
+              >
+                <ToggleGroupItem value="weekly">
+                  {t("editor.typeWeekly")}
+                </ToggleGroupItem>
+                <ToggleGroupItem value="one_time">
+                  {t("editor.typeOneTime")}
+                </ToggleGroupItem>
+              </ToggleGroup>
+              {input.type === "weekly" ? (
+                <WeeklyTiming
+                  input={input}
+                  set={set}
+                  showDateRange={showDateRange}
+                  setShowDateRange={setShowDateRange}
+                  errors={attempted ? errors : {}}
+                />
+              ) : (
+                <OneTimeTiming
+                  input={input}
+                  set={set}
+                  error={attempted ? errors.oneTime : undefined}
+                />
+              )}
+              <TimezonePicker
+                value={input.timezone}
+                onChange={(value) => set("timezone", value)}
+                error={attempted ? errors.timezone : undefined}
               />
-            </Field>
-          </BuilderSection>
-        </main>
+              <div className="schedule-human-summary">
+                <CalendarDays size={18} />
+                <span>{describeScheduleTiming(input, t, formatLocale)}</span>
+              </div>
+            </BuilderSection>
 
-        <ScheduleSummary
-          input={input}
-          playlist={selectedPlaylistData}
-          layout={selectedLayout}
-          targetCount={targetCount}
-          preview={preview}
-        />
+            <BuilderSection
+              number="3"
+              title={t("editor.sections.targets.title")}
+              description={t("editor.sections.targets.description")}
+            >
+              <TargetPicker
+                targets={input.targets}
+                screens={screens.data?.items ?? []}
+                groups={groups.data?.items ?? []}
+                tab={targetTab}
+                setTab={setTargetTab}
+                search={targetSearch}
+                setSearch={setTargetSearch}
+                onChange={(targets) => set("targets", targets)}
+                error={attempted ? errors.targets : undefined}
+              />
+            </BuilderSection>
 
-        <footer className="schedule-builder__actions">
-          <span>
-            {dirty
-              ? "Unsaved changes"
-              : id
-                ? "All changes saved"
-                : "Complete the required fields"}
-          </span>
-          {id && (
+            <BuilderSection
+              number="4"
+              title={t("editor.sections.advanced.title")}
+              description={t("editor.sections.advanced.description")}
+              compact
+            >
+              {/* The wrapping label names the switch; no extra aria-label. */}
+              <label className="flex items-start gap-2 text-sm">
+                <Switch
+                  checked={input.enabled}
+                  onCheckedChange={(checked) =>
+                    set("enabled", checked === true)
+                  }
+                  className="mt-0.5"
+                />
+                <span className="grid gap-0.5">
+                  <strong className="font-medium">
+                    {t("editor.enabledLabel")}
+                  </strong>
+                  <small className="text-xs text-muted-foreground">
+                    {t("editor.enabledHint")}
+                  </small>
+                </span>
+              </label>
+              <PriorityControl
+                value={input.priority}
+                onChange={(value) => set("priority", value)}
+                error={attempted ? errors.priority : undefined}
+              />
+              <Field>
+                <FieldLabel htmlFor="schedule-description">
+                  {t("editor.descriptionLabel")}
+                </FieldLabel>
+                <Textarea
+                  id="schedule-description"
+                  value={input.description}
+                  maxLength={2000}
+                  rows={3}
+                  onChange={(event) => set("description", event.target.value)}
+                />
+                <FieldDescription>
+                  {t("editor.descriptionHint")}
+                </FieldDescription>
+              </Field>
+            </BuilderSection>
+          </main>
+
+          <ScheduleSummary
+            input={input}
+            playlist={selectedPlaylistData}
+            layout={selectedLayout}
+            targetCount={targetCount}
+            preview={preview}
+          />
+
+          <footer className="schedule-builder__actions">
+            <span>
+              {dirty
+                ? t("editor.status.unsaved")
+                : id
+                  ? t("editor.status.saved")
+                  : t("editor.status.incomplete")}
+            </span>
+            {id && (
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={remove.isPending}
+                onClick={() =>
+                  void confirm({
+                    title: t("editor.deleteTitle", { name: input.name }),
+                    action: t("common:actions.delete"),
+                    destructive: true,
+                  }).then((ok) => {
+                    if (ok) remove.mutate();
+                  })
+                }
+              >
+                {t("common:actions.delete")}
+              </Button>
+            )}
             <Button
               type="button"
-              variant="danger"
-              disabled={remove.isPending}
-              onClick={() =>
-                confirm(`Delete ${input.name}?`) && remove.mutate()
-              }
+              variant="ghost"
+              onClick={() => {
+                if (!dirty) {
+                  void navigate("/schedules");
+                  return;
+                }
+                void confirm({
+                  title: t("editor.discardTitle"),
+                  action: t("editor.discardAction"),
+                  destructive: true,
+                }).then((ok) => {
+                  if (ok) void navigate("/schedules");
+                });
+              }}
             >
-              Delete
+              {t("common:actions.cancel")}
             </Button>
-          )}
-          <Button
-            type="button"
-            variant="quiet"
-            onClick={() => {
-              if (!dirty || confirm("Discard unsaved schedule changes?"))
-                void navigate("/schedules");
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            variant="primary"
-            loading={save.isPending}
-            disabled={!valid || !dirty}
-          >
-            Save schedule
-          </Button>
-          {save.error && (
-            <span className="field__error" role="alert">
-              {save.error.message}
-            </span>
-          )}
-        </footer>
-      </form>
-      {playlistOpen && (
+            <Button type="submit" disabled={!valid || !dirty || save.isPending}>
+              {save.isPending ? t("common:actions.saving") : t("editor.save")}
+            </Button>
+            {save.error && (
+              <span className="text-sm text-destructive" role="alert">
+                {apiErrorMessage(save.error)}
+              </span>
+            )}
+          </footer>
+        </form>
         <PlaylistPicker
-          open
+          open={playlistOpen}
           includeLayouts
-          confirmLabel="Use this presentation"
+          confirmLabel={t("editor.useSelected")}
           selectedId={input.layoutId ?? input.playlistId ?? ""}
           onClose={() => setPlaylistOpen(false)}
           onConfirm={(choice) => {
@@ -494,8 +571,8 @@ export function ScheduleEditorPage() {
             setPlaylistOpen(false);
           }}
         />
-      )}
-    </section>
+      </section>
+    </>
   );
 }
 
@@ -539,12 +616,13 @@ function PlaylistSelection({
   onChoose: () => void;
   error?: string;
 }) {
-  const duration = playlist ? playlistDuration(playlist) : "";
+  const { t } = useTranslation("schedules");
+  const duration = playlist ? playlistDuration(playlist, t) : "";
   const thumbnail = playlist?.items?.[0]?.thumbnailUrl;
   return (
     <div className="schedule-playlist-field">
-      <span className="field__label">
-        Presentation <span aria-hidden="true">*</span>
+      <span className="text-sm font-medium">
+        {t("editor.presentationLabel")} <span aria-hidden="true">*</span>
       </span>
       {playlist || layout ? (
         <div className="schedule-playlist-card">
@@ -552,27 +630,42 @@ function PlaylistSelection({
             {thumbnail ? (
               <img src={thumbnail} alt="" />
             ) : (
-              <span>{layout ? "Layout" : "Playlist"}</span>
+              <span>
+                {layout
+                  ? t("editor.presentationLayoutFallback")
+                  : t("editor.presentationPlaylistFallback")}
+              </span>
             )}
           </div>
           <div>
             <strong>{layout?.name ?? playlist?.name}</strong>
             <span>
               {layout
-                ? `${layout.canvasWidth} × ${layout.canvasHeight} · revision ${layout.publishedRevision}`
-                : `${playlist!.itemCount} item${playlist!.itemCount === 1 ? "" : "s"} · ${duration}`}
+                ? t("editor.presentationLayoutMeta", {
+                    width: layout.canvasWidth,
+                    height: layout.canvasHeight,
+                    revision: layout.publishedRevision,
+                  })
+                : t("editor.presentationPlaylistMeta", {
+                    count: playlist!.itemCount,
+                    duration,
+                  })}
             </span>
           </div>
-          <Button type="button" variant="quiet" compact onClick={onChoose}>
-            Change
+          <Button type="button" variant="ghost" size="sm" onClick={onChoose}>
+            {t("editor.change")}
           </Button>
         </div>
       ) : (
         <Button type="button" variant="secondary" onClick={onChoose}>
-          Choose presentation
+          {t("editor.choosePresentation")}
         </Button>
       )}
-      {error && <span className="field__error">{error}</span>}
+      {error && (
+        <span className="text-sm text-destructive" role="alert">
+          {error}
+        </span>
+      )}
     </div>
   );
 }
@@ -586,53 +679,73 @@ function DisplayControlSelection({
   onChange: (action: DisplayControlAction) => void;
   error?: string;
 }) {
+  const { t } = useTranslation("schedules");
   const setType = (type: DisplayControlAction["type"]) => {
     onChange({ type });
   };
   return (
     <div className="schedule-playlist-field">
-      <span className="field__label">
-        Display action <span aria-hidden="true">*</span>
+      <span className="text-sm font-medium">
+        {t("displayAction.label")} <span aria-hidden="true">*</span>
       </span>
       <div className="schedule-control-action">
-        <Field label="Action">
-          <select
+        <Field>
+          <FieldLabel htmlFor="schedule-display-action">
+            {t("displayAction.actionLabel")}
+          </FieldLabel>
+          <Select
+            items={displayActionOptions.map((option) => ({
+              value: option.value,
+              label: t(option.labelKey),
+            }))}
             value={action.type}
-            onChange={(event) =>
-              setType(event.target.value as DisplayControlAction["type"])
-            }
+            onValueChange={(next) => {
+              if (next) setType(next);
+            }}
           >
-            <option value="display_power_on">Power on</option>
-            <option value="display_power_off">Power off</option>
-            <option value="display_set_input">Set input</option>
-            <option value="display_set_volume">Set volume</option>
-            <option value="display_mute">Mute</option>
-            <option value="display_unmute">Unmute</option>
-            <option value="display_set_brightness">Set brightness</option>
-          </select>
+            <SelectTrigger
+              id="schedule-display-action"
+              aria-label={t("displayAction.actionLabel")}
+            >
+              <SelectValue>
+                {displayActionOptionLabel(action.type, t)}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {displayActionOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {t(option.labelKey)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
         {action.type === "display_set_input" && (
-          <Field
-            label="Input identifier"
-            description="For HDMI-CEC, use a physical address such as 1.0.0.0."
-          >
-            <input
+          <Field>
+            <FieldLabel htmlFor="schedule-display-input">
+              {t("displayAction.inputLabel")}
+            </FieldLabel>
+            <Input
+              id="schedule-display-input"
               value={action.input ?? ""}
               maxLength={32}
               onChange={(event) =>
                 onChange({ ...action, input: event.target.value })
               }
             />
+            <FieldDescription>{t("displayAction.inputHint")}</FieldDescription>
           </Field>
         )}
         {(action.type === "display_set_volume" ||
           action.type === "display_set_brightness") && (
-          <Field
-            label={
-              action.type === "display_set_volume" ? "Volume" : "Brightness"
-            }
-          >
-            <input
+          <Field>
+            <FieldLabel htmlFor="schedule-display-level">
+              {action.type === "display_set_volume"
+                ? t("displayAction.volumeLabel")
+                : t("displayAction.brightnessLabel")}
+            </FieldLabel>
+            <Input
+              id="schedule-display-level"
               type="number"
               min={0}
               max={100}
@@ -656,11 +769,14 @@ function DisplayControlSelection({
           </Field>
         )}
       </div>
-      <Notice variant="info">
-        The action uses the same schedule timing, priority, and targets as
-        content schedules. Players report whether the panel state is confirmed.
-      </Notice>
-      {error && <span className="field__error">{error}</span>}
+      <Alert>
+        <AlertDescription>{t("displayAction.note")}</AlertDescription>
+      </Alert>
+      {error && (
+        <span className="text-sm text-destructive" role="alert">
+          {error}
+        </span>
+      )}
     </div>
   );
 }
@@ -678,103 +794,128 @@ function WeeklyTiming({
   setShowDateRange: (value: boolean) => void;
   errors: Record<string, string>;
 }) {
+  const { t } = useTranslation("schedules");
   const overnight = (input.dailyEnd ?? "") <= (input.dailyStart ?? "");
   return (
     <div className="schedule-timing-fields">
-      <div className="schedule-weekdays" aria-label="Active weekdays">
-        {scheduleWeekdays.map((day) => (
-          <button
-            type="button"
-            key={day.value}
-            aria-pressed={input.daysOfWeek.includes(day.value)}
-            onClick={() =>
-              set(
-                "daysOfWeek",
-                input.daysOfWeek.includes(day.value)
-                  ? input.daysOfWeek.filter((value) => value !== day.value)
-                  : [...input.daysOfWeek, day.value],
-              )
-            }
-          >
-            {day.short}
-          </button>
-        ))}
-      </div>
+      <ToggleGroup
+        className="grid w-full grid-cols-7 gap-2 max-sm:grid-cols-4"
+        variant="outline"
+        aria-label={t("timing.weekdaysLabel")}
+        multiple
+        value={input.daysOfWeek.map(String)}
+        onValueChange={(next) => {
+          const days = next.map(Number).sort((a, b) => a - b);
+          if (days.length > 0) set("daysOfWeek", days);
+        }}
+      >
+        {scheduleWeekdays.map((day) => {
+          const labels = scheduleWeekdayLabels(day.value, t);
+          return (
+            <ToggleGroupItem
+              key={day.value}
+              value={String(day.value)}
+              aria-label={labels.long}
+              className="h-11 w-full"
+            >
+              {labels.short}
+            </ToggleGroupItem>
+          );
+        })}
+      </ToggleGroup>
       {errors.daysOfWeek && (
-        <span className="field__error">{errors.daysOfWeek}</span>
+        <span className="text-sm text-destructive" role="alert">
+          {errors.daysOfWeek}
+        </span>
       )}
       <div className="schedule-time-pair">
-        <Field label="Starts">
-          <input
+        <Field>
+          <FieldLabel htmlFor="schedule-daily-start">
+            {t("timing.starts")}
+          </FieldLabel>
+          <Input
+            id="schedule-daily-start"
             type="time"
             value={input.dailyStart ?? ""}
             onChange={(event) => set("dailyStart", event.target.value)}
           />
         </Field>
-        <Field label="Ends">
-          <input
+        <Field>
+          <FieldLabel htmlFor="schedule-daily-end">
+            {t("timing.ends")}
+          </FieldLabel>
+          <Input
+            id="schedule-daily-end"
             type="time"
             value={input.dailyEnd ?? ""}
             onChange={(event) => set("dailyEnd", event.target.value)}
           />
         </Field>
       </div>
-      {errors.time && <span className="field__error">{errors.time}</span>}
+      {errors.time && (
+        <span className="text-sm text-destructive" role="alert">
+          {errors.time}
+        </span>
+      )}
       {overnight && (
-        <Notice
-          variant="info"
-          title={
-            input.dailyEnd === input.dailyStart
-              ? "24-hour window"
-              : "Overnight schedule"
-          }
-        >
-          Playback ends the following day.
-        </Notice>
+        <Alert>
+          <AlertTitle>
+            {input.dailyEnd === input.dailyStart
+              ? t("timing.overnight24h")
+              : t("timing.overnightTitle")}
+          </AlertTitle>
+          <AlertDescription>{t("timing.overnightHint")}</AlertDescription>
+        </Alert>
       )}
       {!showDateRange ? (
         <Button
           type="button"
-          variant="quiet"
-          compact
+          variant="ghost"
+          size="sm"
           onClick={() => setShowDateRange(true)}
         >
-          Add date range
+          {t("timing.addDateRange")}
         </Button>
       ) : (
         <div className="schedule-date-range">
-          <Field label="First active date">
-            <input
-              type="date"
+          <Field>
+            <FieldLabel htmlFor="schedule-start-date">
+              {t("timing.firstDate")}
+            </FieldLabel>
+            <DateInput
+              id="schedule-start-date"
               value={input.startDate ?? ""}
-              onChange={(event) =>
-                set("startDate", event.target.value || undefined)
-              }
+              max={input.endDate}
+              onChange={(value) => set("startDate", value || undefined)}
             />
           </Field>
-          <Field label="Last active date">
-            <input
-              type="date"
+          <Field>
+            <FieldLabel htmlFor="schedule-end-date">
+              {t("timing.lastDate")}
+            </FieldLabel>
+            <DateInput
+              id="schedule-end-date"
               value={input.endDate ?? ""}
-              onChange={(event) =>
-                set("endDate", event.target.value || undefined)
-              }
+              min={input.startDate}
+              onChange={(value) => set("endDate", value || undefined)}
             />
           </Field>
           <Button
             type="button"
-            variant="quiet"
-            compact
+            variant="ghost"
+            size="sm"
             onClick={() => {
               set("startDate", undefined);
               set("endDate", undefined);
               setShowDateRange(false);
             }}
           >
-            Remove date range
+            {t("timing.removeDateRange")}
           </Button>
           {errors.dateRange && (
-            <span className="field__error">{errors.dateRange}</span>
+            <span className="text-sm text-destructive" role="alert">
+              {errors.dateRange}
+            </span>
           )}
         </div>
       )}
@@ -791,33 +932,45 @@ function OneTimeTiming({
   set: <K extends keyof ScheduleInput>(key: K, value: ScheduleInput[K]) => void;
   error?: string;
 }) {
+  const { t } = useTranslation("schedules");
   return (
     <div className="schedule-timing-fields">
       <div className="schedule-datetime-pair">
-        <Field label="Starts">
-          <input
-            type="datetime-local"
+        <Field>
+          <FieldLabel htmlFor="schedule-onetime-start">
+            {t("timing.starts")}
+          </FieldLabel>
+          <DateTimeInput
+            id="schedule-onetime-start"
+            aria-label={t("timing.starts")}
+            timeLabel={t("timing.startsTimeLabel")}
             value={localDateTime(input.oneTimeStart)}
-            onChange={(event) =>
-              set("oneTimeStart", toISOString(event.target.value))
-            }
+            onChange={(value) => set("oneTimeStart", toISOString(value))}
           />
         </Field>
-        <Field label="Ends">
-          <input
-            type="datetime-local"
+        <Field>
+          <FieldLabel htmlFor="schedule-onetime-end">
+            {t("timing.ends")}
+          </FieldLabel>
+          <DateTimeInput
+            id="schedule-onetime-end"
+            aria-label={t("timing.ends")}
+            timeLabel={t("timing.endsTimeLabel")}
             value={localDateTime(input.oneTimeEnd)}
-            onChange={(event) =>
-              set("oneTimeEnd", toISOString(event.target.value))
-            }
+            min={localDateTime(input.oneTimeStart)}
+            onChange={(value) => set("oneTimeEnd", toISOString(value))}
           />
         </Field>
       </div>
       <div className="schedule-duration">
-        <Clock3 size={17} />
-        <span>{oneTimeDuration(input)}</span>
+        <Clock3 size={17} aria-hidden="true" />
+        <span>{oneTimeDuration(input, t)}</span>
       </div>
-      {error && <span className="field__error">{error}</span>}
+      {error && (
+        <span className="text-sm text-destructive" role="alert">
+          {error}
+        </span>
+      )}
     </div>
   );
 }
@@ -831,69 +984,65 @@ function TimezonePicker({
   onChange: (value: string) => void;
   error?: string;
 }) {
+  const { t } = useTranslation("schedules");
   const [search, setSearch] = useState("");
-  const zones = useMemo(timezones, []);
-  const filtered = zones
-    .filter((zone) =>
-      timezoneLabel(zone).toLowerCase().includes(search.toLowerCase()),
-    )
-    .slice(0, 80);
+  const [open, setOpen] = useState(false);
+  const zones = useMemo(() => timezoneOptions(value), [value]);
+  const candidate = normalizeTimezone(search);
+  const options = useMemo(
+    () =>
+      isTimezoneIdentifier(candidate) && !zones.includes(candidate)
+        ? [...zones, candidate]
+        : zones,
+    [candidate, zones],
+  );
+  const filtered = options.filter((zone) =>
+    timezoneLabel(zone).toLowerCase().includes(search.toLowerCase()),
+  );
   return (
     <div className="schedule-timezone">
-      <span className="field__label" id="schedule-timezone-label">
-        Timezone <span aria-hidden="true">*</span>
-      </span>
-      <Popover
-        label="Timezone"
-        panelClassName="schedule-timezone__menu"
-        matchTriggerWidth
-        onOpenChange={(open) => {
-          if (!open) setSearch("");
-        }}
-        trigger={(props) => (
-          <button
-            type="button"
-            className="schedule-timezone__trigger"
-            aria-labelledby="schedule-timezone-label"
-            {...props}
-          >
-            <span>{timezoneLabel(value)}</span>
-            <ChevronDown size={17} aria-hidden="true" />
-          </button>
-        )}
-      >
-        {(close) => (
-          <>
-            <label>
-              <Search size={16} aria-hidden="true" />
-              <input
-                type="search"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search city or region"
-                aria-label="Search timezones"
-              />
-            </label>
-            <div>
-              {filtered.map((zone) => (
-                <button
-                  type="button"
-                  key={zone}
-                  className={zone === value ? "selected" : ""}
-                  onClick={() => {
-                    onChange(zone);
-                    close();
-                  }}
-                >
+      <Field>
+        <FieldLabel htmlFor="schedule-timezone">
+          {t("timing.timezoneLabel")} <span aria-hidden="true">*</span>
+        </FieldLabel>
+        <Combobox
+          items={options}
+          filteredItems={filtered}
+          value={value}
+          open={open}
+          inputValue={open ? search : timezoneLabel(value)}
+          onOpenChange={(next) => {
+            setOpen(next);
+            if (next) setSearch("");
+          }}
+          onValueChange={(next) => {
+            if (typeof next === "string" && isTimezoneIdentifier(next))
+              onChange(next);
+          }}
+          itemToStringLabel={timezoneLabel}
+          onInputValueChange={setSearch}
+        >
+          <ComboboxInput
+            id="schedule-timezone"
+            placeholder={t("timing.timezoneSearch")}
+          />
+          <ComboboxContent>
+            <ComboboxEmpty>{t("timing.timezoneEmpty")}</ComboboxEmpty>
+            <ComboboxList>
+              {(zone: string) => (
+                <ComboboxItem key={zone} value={zone}>
                   {timezoneLabel(zone)}
-                  {zone === value && <Check size={16} aria-hidden="true" />}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-      </Popover>
-      {error && <span className="field__error">{error}</span>}
+                </ComboboxItem>
+              )}
+            </ComboboxList>
+          </ComboboxContent>
+        </Combobox>
+      </Field>
+      {error && (
+        <span className="text-sm text-destructive" role="alert">
+          {error}
+        </span>
+      )}
     </div>
   );
 }
@@ -919,126 +1068,219 @@ function TargetPicker({
   onChange: (targets: ScheduleTarget[]) => void;
   error?: string;
 }) {
+  const { t } = useTranslation("schedules");
   const screenGroups = new Map(
     groups.flatMap((group) =>
       group.screens.map((screen) => [screen.id, group] as const),
     ),
   );
-  const add = (target: ScheduleTarget) => {
-    onChange(setTargetSelected(targets, target, true));
-  };
-  const remove = (target: ScheduleTarget) =>
-    onChange(setTargetSelected(targets, target, false));
-  const query = search.toLowerCase();
-  const results =
-    tab === "screens"
-      ? screens
-          .filter((screen) =>
-            `${screen.name} ${screen.location}`.toLowerCase().includes(query),
-          )
-          .map((screen) => {
-            const group = screenGroups.get(screen.id);
-            return group
-              ? {
-                  type: "group" as const,
-                  id: group.id,
-                  name: group.name,
-                  detail: `Display Group: ${group.name}`,
-                }
-              : {
-                  type: "screen" as const,
-                  id: screen.id,
-                  name: screen.name,
-                  detail: screen.location || "No location",
-                };
-          })
-      : groups
-          .filter((group) => group.name.toLowerCase().includes(query))
-          .map((group) => ({
-            type: "group" as const,
+  const anchor = useComboboxAnchor();
+  // Grouped screens schedule as their Display Group. Dedupe so a group with
+  // several matching screens still offers one row.
+  const screenOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const options: TargetOption[] = [];
+    for (const screen of screens) {
+      const group = screenGroups.get(screen.id);
+      const option: TargetOption = group
+        ? {
+            key: `group:${group.id}`,
+            type: "group",
             id: group.id,
             name: group.name,
-            detail: `${group.membershipCount} screen${group.membershipCount === 1 ? "" : "s"}`,
-          }));
+            detail: t("targets.groupDetail", { name: group.name }),
+          }
+        : {
+            key: `screen:${screen.id}`,
+            type: "screen",
+            id: screen.id,
+            name: screen.name,
+            detail: screen.location || t("targets.noLocation"),
+          };
+      if (!seen.has(option.key)) {
+        seen.add(option.key);
+        options.push(option);
+      }
+    }
+    return options;
+    // screenGroups derives from screens and groups, so it stays out of deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screens, groups, t]);
+  const groupOptions: TargetOption[] = groups.map((group) => ({
+    key: `group:${group.id}`,
+    type: "group",
+    id: group.id,
+    name: group.name,
+    detail: t("targets.groupCount", { count: group.membershipCount }),
+  }));
+  const known = useMemo(
+    () =>
+      new Map(
+        [...screenOptions, ...groupOptions].map((option) => [
+          option.key,
+          option,
+        ]),
+      ),
+    [screenOptions, groupOptions],
+  );
+  const query = search.toLowerCase();
+  const tabOptions = tab === "screens" ? screenOptions : groupOptions;
+  // An option survives when a screen behind it matches, exactly as the
+  // previous list did; group rows are deduped to one per group.
+  const matchingKeys = new Set(
+    screens
+      .filter((screen) =>
+        `${screen.name} ${screen.location}`.toLowerCase().includes(query),
+      )
+      .map((screen) => {
+        const group = screenGroups.get(screen.id);
+        return group ? `group:${group.id}` : `screen:${screen.id}`;
+      }),
+  );
+  const results = tabOptions.filter((option) =>
+    tab === "screens"
+      ? matchingKeys.has(option.key)
+      : option.name.toLowerCase().includes(query),
+  );
+  const selectedKeys = new Set(
+    targets.map((target) => `${target.type}:${target.id}`),
+  );
+  const selected = targets.map(
+    (target) =>
+      known.get(`${target.type}:${target.id}`) ?? {
+        key: `${target.type}:${target.id}`,
+        type: target.type,
+        id: target.id,
+        name: target.name ?? t("targets.unknownTarget"),
+        detail: "",
+      },
+  );
+  const searchLabel =
+    tab === "groups" ? t("targets.searchGroups") : t("targets.searchScreens");
   return (
     <div className="schedule-target-picker">
-      {targets.length > 0 && (
-        <div className="schedule-target-chips">
-          {targets.map((target) => (
-            <span key={`${target.type}-${target.id}`}>
-              {target.name ?? "Selected target"}
-              <button
-                type="button"
-                aria-label={`Remove ${target.name ?? "target"}`}
-                onClick={() => remove(target)}
-              >
-                <X size={14} />
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
-      <div
-        className="schedule-target-tabs"
-        role="tablist"
-        aria-label="Target type"
+      <ToggleGroup
+        variant="outline"
+        spacing={0}
+        className="max-sm:w-full max-sm:*:flex-1"
+        aria-label={t("targets.tabLabel")}
+        multiple={false}
+        value={[tab]}
+        onValueChange={(next) => {
+          if (next[0] === "screens" || next[0] === "groups") setTab(next[0]);
+        }}
       >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "screens"}
-          onClick={() => setTab("screens")}
-        >
-          Screens
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "groups"}
-          onClick={() => setTab("groups")}
-        >
-          Display Groups
-        </button>
-      </div>
-      <label className="schedule-picker-search">
-        <Search size={17} />
-        <input
-          type="search"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder={
-            tab === "groups" ? "Search Display Groups" : "Search screens"
+        <ToggleGroupItem value="screens">
+          {t("targets.screensTab")}
+        </ToggleGroupItem>
+        <ToggleGroupItem value="groups">
+          {t("targets.groupsTab")}
+        </ToggleGroupItem>
+      </ToggleGroup>
+      <div ref={anchor}>
+        <Combobox
+          multiple
+          items={tabOptions}
+          filteredItems={results}
+          value={selected}
+          onValueChange={(next) =>
+            onChange(
+              next.map((option) => ({
+                type: option.type,
+                id: option.id,
+                name: option.name,
+              })),
+            )
           }
-        />
-      </label>
-      <div className="schedule-target-results">
-        {results.map((result) => {
-          const selected = targets.some(
-            (target) => target.type === result.type && target.id === result.id,
-          );
-          return (
-            <button
-              type="button"
-              key={result.id}
-              disabled={selected}
-              onClick={() =>
-                add({ type: result.type, id: result.id, name: result.name })
-              }
-            >
-              <span>
-                <strong>{result.name}</strong>
-                <small>{result.detail}</small>
-              </span>
-              <span>{selected ? "Selected" : "Add"}</span>
-            </button>
-          );
-        })}
-        {!results.length && <p>No {tab} match this search.</p>}
+          isItemEqualToValue={(a, b) => a.key === b.key}
+          onInputValueChange={setSearch}
+        >
+          <ComboboxValue>
+            {(value: TargetOption[]) => (
+              <ComboboxChips aria-label={t("targets.selectedLabel")}>
+                {value.map((option) => (
+                  <ComboboxChip
+                    key={option.key}
+                    showRemove={false}
+                    aria-label={option.name}
+                  >
+                    {option.name}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      className="-ml-0.5 size-4.5 opacity-50 hover:opacity-100"
+                      aria-label={t("targets.removeOption", {
+                        name: option.name,
+                      })}
+                      onClick={() =>
+                        onChange(
+                          targets.filter(
+                            (target) =>
+                              `${target.type}:${target.id}` !== option.key,
+                          ),
+                        )
+                      }
+                    >
+                      <X size={14} aria-hidden="true" />
+                    </Button>
+                  </ComboboxChip>
+                ))}
+                <ComboboxChipsInput
+                  placeholder={searchLabel}
+                  aria-label={searchLabel}
+                />
+              </ComboboxChips>
+            )}
+          </ComboboxValue>
+          <ComboboxContent anchor={anchor}>
+            <ComboboxEmpty>
+              {tab === "groups"
+                ? t("targets.emptyGroups")
+                : t("targets.emptyScreens")}
+            </ComboboxEmpty>
+            <ComboboxList>
+              {(option: TargetOption) => (
+                <ComboboxItem
+                  key={option.key}
+                  value={option}
+                  disabled={selectedKeys.has(option.key)}
+                >
+                  <span className="grid min-w-0 flex-1 gap-0.5 text-left">
+                    <strong className="truncate font-medium">
+                      {option.name}
+                    </strong>
+                    <small className="truncate text-xs text-muted-foreground">
+                      {option.detail}
+                    </small>
+                  </span>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {selectedKeys.has(option.key)
+                      ? t("targets.selectedMark")
+                      : t("targets.addMark")}
+                  </span>
+                </ComboboxItem>
+              )}
+            </ComboboxList>
+          </ComboboxContent>
+        </Combobox>
       </div>
-      {error && <span className="field__error">{error}</span>}
+      {error && (
+        <span className="text-sm text-destructive" role="alert">
+          {error}
+        </span>
+      )}
     </div>
   );
 }
+
+type TargetOption = {
+  key: string;
+  type: ScheduleTarget["type"];
+  id: string;
+  name: string;
+  detail: string;
+};
 
 function PriorityControl({
   value,
@@ -1049,6 +1291,7 @@ function PriorityControl({
   onChange: (value: number) => void;
   error?: string;
 }) {
+  const { t } = useTranslation("schedules");
   const preset = priorityPreset(value);
   const choose = (next: PriorityPreset) => {
     if (next === "normal") onChange(0);
@@ -1056,32 +1299,45 @@ function PriorityControl({
     else if (next === "special") onChange(500);
     else if (preset !== "custom") onChange(1);
   };
+  const presetLabels: Record<PriorityPreset, string> = {
+    normal: t("priority.presets.normal"),
+    important: t("priority.presets.important"),
+    special: t("priority.presets.special"),
+    custom: t("priority.presets.custom"),
+  };
   return (
     <div className="schedule-priority">
-      <span className="field__label">Priority</span>
-      <span className="field__hint">
-        Higher-priority schedules win when times and targets overlap.
+      <span className="text-sm font-medium">{t("priority.label")}</span>
+      <span className="text-sm text-muted-foreground">
+        {t("priority.hint")}
       </span>
-      <div role="radiogroup" aria-label="Schedule priority">
+      <ToggleGroup
+        variant="outline"
+        spacing={0}
+        className="max-sm:w-full max-sm:*:flex-1"
+        aria-label={t("priority.controlLabel")}
+        multiple={false}
+        value={[preset]}
+        onValueChange={(next) => {
+          const option = next[0] as PriorityPreset | undefined;
+          if (option) choose(option);
+        }}
+      >
         {(["normal", "important", "special", "custom"] as PriorityPreset[]).map(
           (option) => (
-            <button
-              type="button"
-              role="radio"
-              aria-checked={preset === option}
-              key={option}
-              onClick={() => choose(option)}
-            >
-              {option === "special"
-                ? "Special event"
-                : option.charAt(0).toUpperCase() + option.slice(1)}
-            </button>
+            <ToggleGroupItem key={option} value={option}>
+              {presetLabels[option]}
+            </ToggleGroupItem>
           ),
         )}
-      </div>
+      </ToggleGroup>
       {preset === "custom" && (
-        <Field label="Custom priority">
-          <input
+        <Field>
+          <FieldLabel htmlFor="schedule-custom-priority">
+            {t("priority.customLabel")}
+          </FieldLabel>
+          <Input
+            id="schedule-custom-priority"
             type="number"
             min="-999"
             max="999"
@@ -1090,7 +1346,11 @@ function PriorityControl({
           />
         </Field>
       )}
-      {error && <span className="field__error">{error}</span>}
+      {error && (
+        <span className="text-sm text-destructive" role="alert">
+          {error}
+        </span>
+      )}
     </div>
   );
 }
@@ -1108,82 +1368,92 @@ function ScheduleSummary({
   targetCount: number;
   preview: UseQueryResult<SchedulePreview, Error>;
 }) {
+  const { t } = useTranslation("schedules");
+  const formatLocale = useFormatLocale();
   const conflicts = preview.data?.conflicts ?? [];
   const applicable = preview.data?.applicableSchedules ?? [];
   const winner = preview.data?.winningSchedule;
+  const overlapCount = Math.max(conflicts.length, applicable.length - 1);
   return (
-    <aside className="schedule-builder-summary" aria-label="Schedule summary">
-      <h3>Schedule summary</h3>
+    <aside className="schedule-builder-summary" aria-label={t("summary.title")}>
+      <h3>{t("summary.title")}</h3>
       <dl>
         <div>
-          <dt>When</dt>
-          <dd>
-            {input.type === "weekly"
-              ? `${describeScheduleTiming(input)}`
-              : describeScheduleTiming(input)}
-          </dd>
+          <dt>{t("summary.when")}</dt>
+          <dd>{describeScheduleTiming(input, t, formatLocale)}</dd>
         </div>
         <div>
-          <dt>Content</dt>
+          <dt>{t("editor.content")}</dt>
           <dd>
             {input.displayAction
-              ? displayActionLabel(input.displayAction)
+              ? displayActionLabel(input.displayAction, t)
               : layout
-                ? `Shows Layout ${layout.name}`
+                ? t("summary.showsLayout", { name: layout.name })
                 : playlist
-                  ? `Plays ${playlist.name}`
-                  : "No presentation selected"}
+                  ? t("summary.playsPlaylist", { name: playlist.name })
+                  : t("editor.noSelection")}
           </dd>
         </div>
         <div>
-          <dt>Targets</dt>
+          <dt>{t("editor.sections.targets.title")}</dt>
           <dd>
             {targetCount
-              ? `On ${targetCount} screen${targetCount === 1 ? "" : "s"}`
-              : "No targets selected"}
+              ? t("summary.targetCount", { count: targetCount })
+              : t("summary.noTargets")}
           </dd>
         </div>
         <div>
-          <dt>Priority</dt>
-          <dd>{priorityLabel(input.priority)}</dd>
+          <dt>{t("priority.label")}</dt>
+          <dd>{priorityLabel(input.priority, t)}</dd>
         </div>
       </dl>
       <div className="schedule-conflicts">
-        <h4>Conflict preview</h4>
+        <h4>{t("summary.conflictTitle")}</h4>
         {!input.targets.length ||
         (!input.playlistId && !input.layoutId && !input.displayAction) ? (
-          <Notice variant="neutral">
-            Choose content and targets to check conflicts.
-          </Notice>
+          <Alert>
+            <AlertDescription>{t("summary.conflictHint")}</AlertDescription>
+          </Alert>
         ) : preview.isLoading ? (
-          <Notice variant="info">Checking applicable schedules…</Notice>
+          <Alert>
+            <AlertDescription>{t("summary.checking")}</AlertDescription>
+          </Alert>
         ) : preview.isError ? (
-          <Notice variant="danger" title="Conflict check unavailable">
-            {preview.error.message}
-          </Notice>
+          <Alert variant="destructive">
+            <AlertTitle>{t("summary.unavailable")}</AlertTitle>
+            <AlertDescription>
+              {apiErrorMessage(preview.error)}
+            </AlertDescription>
+          </Alert>
         ) : conflicts.length === 0 && applicable.length <= 1 ? (
-          <Notice variant="success" title="No conflicts">
-            No other schedule overlaps this preview time.
-          </Notice>
+          <Alert>
+            <AlertTitle>{t("summary.noConflicts")}</AlertTitle>
+            <AlertDescription>{t("summary.noOverlap")}</AlertDescription>
+          </Alert>
         ) : (
           <>
-            <Notice
-              variant="warning"
-              title={`${Math.max(conflicts.length, applicable.length - 1)} overlapping schedule${Math.max(conflicts.length, applicable.length - 1) === 1 ? "" : "s"}`}
-            >
-              {winner
-                ? `${winner.name} wins because ${conflictWinnerReason(winner, input.priority)}.`
-                : "Direct fallback content plays when no schedule is active."}
-            </Notice>
+            <Alert>
+              <AlertTitle>
+                {t("summary.overlapCount", { count: overlapCount })}
+              </AlertTitle>
+              <AlertDescription>
+                {winner
+                  ? t("summary.winner", {
+                      name: winner.name,
+                      reason: conflictWinnerReason(winner, input.priority, t),
+                    })
+                  : t("summary.fallbackNote")}
+              </AlertDescription>
+            </Alert>
             <ul>
               {applicable.map((schedule) => (
                 <li key={schedule.id}>
                   <strong>{schedule.name}</strong>
                   <span>
-                    {priorityLabel(schedule.priority)} ·{" "}
+                    {priorityLabel(schedule.priority, t)} ·{" "}
                     {schedule.specificity > 0
-                      ? "Direct screen target"
-                      : "Group target"}
+                      ? t("summary.directTarget")
+                      : t("summary.groupTarget")}
                   </span>
                 </li>
               ))}
@@ -1194,30 +1464,75 @@ function ScheduleSummary({
           </>
         )}
       </div>
-      <p className="schedule-summary-note">
-        Direct screen assignments remain fallback content when no schedule is
-        active.
-      </p>
+      <p className="schedule-summary-note">{t("summary.note")}</p>
     </aside>
   );
 }
 
-function displayActionLabel(action: DisplayControlAction) {
-  const labels: Record<DisplayControlAction["type"], string> = {
-    display_power_on: "Power on display",
-    display_power_off: "Power off display",
-    display_set_input: `Set display input to ${action.input ?? "not set"}`,
-    display_set_volume: `Set display volume to ${action.volume ?? "not set"}`,
-    display_mute: "Mute display",
-    display_unmute: "Unmute display",
-    display_set_brightness: `Set display brightness to ${action.brightness ?? "not set"}`,
-  };
-  return labels[action.type];
+const displayActionOptions: {
+  value: DisplayControlAction["type"];
+  labelKey:
+    | "displayAction.options.powerOn"
+    | "displayAction.options.powerOff"
+    | "displayAction.options.setInput"
+    | "displayAction.options.setVolume"
+    | "displayAction.options.mute"
+    | "displayAction.options.unmute"
+    | "displayAction.options.setBrightness";
+}[] = [
+  { value: "display_power_on", labelKey: "displayAction.options.powerOn" },
+  { value: "display_power_off", labelKey: "displayAction.options.powerOff" },
+  { value: "display_set_input", labelKey: "displayAction.options.setInput" },
+  { value: "display_set_volume", labelKey: "displayAction.options.setVolume" },
+  { value: "display_mute", labelKey: "displayAction.options.mute" },
+  { value: "display_unmute", labelKey: "displayAction.options.unmute" },
+  {
+    value: "display_set_brightness",
+    labelKey: "displayAction.options.setBrightness",
+  },
+];
+
+function displayActionOptionLabel(
+  value: DisplayControlAction["type"],
+  t: SchedulesT,
+) {
+  const option = displayActionOptions.find(
+    (candidate) => candidate.value === value,
+  );
+  return option ? t(option.labelKey) : value;
 }
 
-function playlistDuration(playlist: Playlist) {
+function displayActionLabel(action: DisplayControlAction, t: SchedulesT) {
+  const unset = t("displayAction.notSet");
+  switch (action.type) {
+    case "display_power_on":
+      return t("displayAction.summary.powerOn");
+    case "display_power_off":
+      return t("displayAction.summary.powerOff");
+    case "display_set_input":
+      return t("displayAction.summary.setInput", {
+        value: action.input ?? unset,
+      });
+    case "display_set_volume":
+      return t("displayAction.summary.setVolume", {
+        value: action.volume ?? unset,
+      });
+    case "display_mute":
+      return t("displayAction.summary.mute");
+    case "display_unmute":
+      return t("displayAction.summary.unmute");
+    case "display_set_brightness":
+      return t("displayAction.summary.setBrightness", {
+        value: action.brightness ?? unset,
+      });
+  }
+}
+
+function playlistDuration(playlist: Playlist, t: SchedulesT) {
   if (!playlist.items?.length)
-    return playlist.itemCount ? "Duration varies" : "Empty playlist";
+    return playlist.itemCount
+      ? t("editor.durationVaries")
+      : t("editor.emptyPlaylist");
   const seconds = playlist.items.reduce(
     (total, item) =>
       total +
@@ -1226,12 +1541,12 @@ function playlistDuration(playlist: Playlist) {
         : (item.assetDurationSeconds ?? 0)),
     0,
   );
-  if (!seconds) return "Duration varies";
+  if (!seconds) return t("editor.durationVaries");
   const minutes = Math.floor(seconds / 60);
   const remainder = Math.round(seconds % 60);
   return minutes
-    ? `${minutes} min${remainder ? ` ${remainder} sec` : ""}`
-    : `${remainder} sec`;
+    ? `${t("duration.minutes", { count: minutes })}${remainder ? ` ${t("duration.seconds", { count: remainder })}` : ""}`
+    : t("duration.seconds", { count: remainder });
 }
 
 function localDateTime(value?: string) {
@@ -1243,24 +1558,6 @@ function localDateTime(value?: string) {
 }
 function toISOString(value: string) {
   return value ? new Date(value).toISOString() : undefined;
-}
-function timezones() {
-  const supported = (
-    Intl as typeof Intl & { supportedValuesOf?: (key: "timeZone") => string[] }
-  ).supportedValuesOf?.("timeZone");
-  return supported?.length
-    ? supported
-    : [
-        "UTC",
-        "America/New_York",
-        "America/Chicago",
-        "America/Denver",
-        "America/Los_Angeles",
-        "Europe/London",
-      ];
-}
-function timezoneLabel(zone: string) {
-  return zone === "UTC" ? "UTC" : zone.replaceAll("_", " ").replace("/", " — ");
 }
 function humanizeConflict(value: string) {
   return value

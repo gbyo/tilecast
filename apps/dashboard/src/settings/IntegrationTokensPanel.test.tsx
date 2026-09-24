@@ -1,13 +1,8 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { IntegrationTokensPanel } from "./IntegrationTokensPanel";
@@ -115,6 +110,11 @@ describe("Integration tokens", () => {
     });
     renderPanel();
     const user = userEvent.setup();
+    const today = new Date();
+    const day = today.getDate();
+    const calendarDay = new RegExp(
+      today.toLocaleString("en-US", { month: "long" }) + " " + day,
+    );
 
     await user.type(await screen.findByLabelText("Name"), "Menu importer");
     await user.click(screen.getByRole("button", { name: "Create token" }));
@@ -123,20 +123,30 @@ describe("Integration tokens", () => {
     expect(create.mock.calls[0]?.[0]?.expiresAt).toBeUndefined();
 
     // The name is cleared after a successful create, and it is required.
+    await waitFor(() => expect(screen.getByLabelText("Name")).toHaveValue(""));
     await user.type(screen.getByLabelText("Name"), "Menu importer");
-    fireEvent.change(screen.getByLabelText("Expires on"), {
-      target: { value: "2027-06-30" },
-    });
+    await user.click(screen.getByRole("button", { name: "Expires on" }));
+    await user.click(await screen.findByRole("button", { name: calendarDay }));
+    const expectedExpiry = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate(),
+      23,
+      59,
+      59,
+      999,
+    ).toISOString();
+    expect(screen.getByRole("button", { name: "Clear date" })).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Create token" }));
     await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
     const sent = create.mock.calls[1]?.[0]?.expiresAt;
-    if (!sent) throw new Error("no expiry was sent");
-    // The end of that day where the operator is, so a token set to expire on
-    // the 30th still works through the 30th.
+    expect(sent).toBe(expectedExpiry);
+    if (!sent) throw new Error("the selected expiry was not sent");
+    // The end of the selected local day keeps the token active through that day.
     const when = new Date(sent);
-    expect(when.getFullYear()).toBe(2027);
-    expect(when.getMonth()).toBe(5);
-    expect(when.getDate()).toBe(30);
+    expect(when.getFullYear()).toBe(today.getFullYear());
+    expect(when.getMonth()).toBe(today.getMonth());
+    expect(when.getDate()).toBe(today.getDate());
     expect(when.getHours()).toBe(23);
     // The last instant of the day, so nothing in the final second is cut off.
     expect(when.getMinutes()).toBe(59);

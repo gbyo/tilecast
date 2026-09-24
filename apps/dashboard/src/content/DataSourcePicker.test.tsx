@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DataSource, DataSourceDefinition } from "../api/types";
@@ -30,7 +36,7 @@ vi.mock("../api/client", async (importOriginal) => {
   };
 });
 
-vi.mock("./DataSourceEditors", () => ({
+vi.mock("./data-sources/dispatcher", () => ({
   DataSourceEditor: ({
     provider,
     onSaved,
@@ -99,14 +105,12 @@ function picker(sources: DataSource[]) {
   });
   const result = render(
     <QueryClientProvider client={client}>
-      <div className="asset-details-drawer">
-        <DataSourcePicker
-          value=""
-          sources={sources}
-          csrf="csrf-token"
-          onChange={onChange}
-        />
-      </div>
+      <DataSourcePicker
+        value=""
+        sources={sources}
+        csrf="csrf-token"
+        onChange={onChange}
+      />
     </QueryClientProvider>,
   );
   return { ...result, onChange };
@@ -120,9 +124,8 @@ describe("DataSourcePicker", () => {
       screen.getByRole("button", { name: /Connect new data/ }),
     );
     // The in-editor path runs the same gallery the Data Sources page runs.
-    expect(
-      screen.getByRole("dialog", { name: "Create Data Source" }),
-    ).toHaveClass("source-gallery");
+    const gallery = screen.getByRole("dialog", { name: "Create Data Source" });
+    expect(within(gallery).getByRole("button", { name: /CSV/ })).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: /CSV/ }));
     // The chosen provider opens with the same setup guidance the page shows, not a bare
     // editor.
@@ -172,8 +175,7 @@ describe("DataSourcePicker", () => {
 
     const dialog = screen.getByRole("dialog", { name: "Choose data" });
     expect(dialog).toBeTruthy();
-    // Portaling prevents the drawer's descendant reset from stripping the modal surface.
-    expect(dialog.closest(".asset-details-drawer")).toBeNull();
+    // The dialog remains portaled outside the editing surface.
     expect(dialog.parentElement?.parentElement).toBe(document.body);
     expect(screen.getByText("CSV")).toBeTruthy();
     expect(screen.getByText("Ready")).toBeTruthy();

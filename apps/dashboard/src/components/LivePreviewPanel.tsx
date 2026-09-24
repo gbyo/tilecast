@@ -11,23 +11,32 @@ import {
   WifiOff,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { api } from "../api/client";
 import { previewApi } from "../api/previews";
 import { useAuth } from "../auth/AuthProvider";
+import { useFormatLocale } from "../i18n";
 import { LiveStreamDialog } from "./LiveStreamDialog";
-import { Button } from "./ui";
+import { Button } from "./ui/button";
 import {
   livePreviewState,
   previewAge,
   previewUnavailableMessage,
 } from "./livePreviewState";
-import "./LivePreviewPanel.css";
 
 const LEASE_RENEWAL_MILLIS = 30_000;
 const METADATA_REFRESH_MILLIS = 5_000;
+const captureAgeToneClasses = {
+  fresh: "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300",
+  aging: "bg-amber-500/15 text-amber-800 dark:text-amber-300",
+  old: "bg-destructive/10 text-destructive",
+} as const;
 
 export function LivePreviewPanel({ screenId }: { screenId: string }) {
   const auth = useAuth();
+  const { t } = useTranslation(["screens", "common"]);
+  const formatLocale = useFormatLocale();
   const [renewalError, setRenewalError] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now);
   const [watchingLive, setWatchingLive] = useState(false);
@@ -54,7 +63,9 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
       } catch (error) {
         if (active)
           setRenewalError(
-            error instanceof Error ? error.message : "Preview session failed.",
+            error instanceof Error
+              ? error.message
+              : t("livePreview.sessionFailed"),
           );
       }
     };
@@ -67,7 +78,7 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
       active = false;
       window.clearInterval(interval);
     };
-  }, [csrfToken, screenId]);
+  }, [csrfToken, screenId, t]);
 
   const manualRefresh = useMutation({
     mutationFn: async () => {
@@ -89,7 +100,7 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
     ? new Date(preview.data.capturedAt)
     : null;
   const captureAge = preview.data?.capturedAt
-    ? previewAge(preview.data.capturedAt, now)
+    ? previewAge(preview.data.capturedAt, now, t)
     : null;
 
   useEffect(() => {
@@ -99,38 +110,50 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
   }, [preview.data?.capturedAt]);
 
   return (
-    <aside className="live-preview-panel" aria-label="Live preview">
-      <header className="live-preview-panel__header">
+    <aside
+      className="live-preview-panel grid gap-4 rounded-xl border border-border bg-card p-4"
+      aria-label={t("livePreview.title")}
+    >
+      <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <span className="live-preview-panel__eyebrow">On demand</span>
-          <h2>Live preview</h2>
+          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {t("livePreview.onDemand")}
+          </span>
+          <h2 className="mt-0.5 text-base font-semibold">
+            {t("livePreview.title")}
+          </h2>
         </div>
-        <div className="live-preview-panel__actions">
+        <div className="flex flex-wrap justify-end gap-2">
           <Button
-            compact
-            variant="quiet"
+            size="sm"
+            variant="outline"
             onClick={() => manualRefresh.mutate()}
-            loading={manualRefresh.isPending}
+            disabled={manualRefresh.isPending}
           >
-            <RefreshCw size={15} aria-hidden="true" />
-            Refresh
+            <RefreshCw aria-hidden="true" />
+            {manualRefresh.isPending
+              ? t("common:actions.refreshing")
+              : t("common:actions.refresh")}
           </Button>
           <Button
-            compact
+            size="sm"
             onClick={() => setWatchingLive(true)}
             disabled={screen.data?.status !== "online" || !csrfToken}
           >
-            <Video size={15} aria-hidden="true" />
-            Watch live
+            <Video aria-hidden="true" />
+            {t("livePreview.watchLive")}
           </Button>
         </div>
       </header>
 
-      <div className={`live-preview-frame live-preview-frame--${state}`}>
+      <div className="relative grid aspect-video overflow-hidden rounded-xl border border-border bg-[#080b0f]">
         {(state === "live" || state === "stale") && imageUrl ? (
           <img
+            className="size-full bg-black object-contain"
             src={imageUrl}
-            alt={`Current Tilecast output for ${screen.data?.name ?? "screen"}`}
+            alt={t("livePreview.imageAlt", {
+              name: screen.data?.name ?? t("livePreview.unknownScreen"),
+            })}
           />
         ) : (
           <PreviewState
@@ -140,9 +163,13 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
         )}
         {imageUrl && captureAge && (
           <span
-            className={`live-preview-frame__banner live-preview-frame__banner--${captureAge.tone}`}
+            className={`absolute right-2 bottom-2 rounded-md px-2 py-1 text-xs font-semibold ${captureAgeToneClasses[captureAge.tone]}`}
             title={
-              capturedAt ? `Captured ${capturedAt.toLocaleString()}` : undefined
+              capturedAt
+                ? t("livePreview.capturedTitle", {
+                    date: capturedAt.toLocaleString(formatLocale),
+                  })
+                : undefined
             }
           >
             {captureAge.label}
@@ -150,42 +177,53 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
         )}
       </div>
 
-      <div className="live-preview-panel__status" aria-live="polite">
-        <strong>{stateLabel(state)}</strong>
-        <span>{stateDescription(state, renewalError)}</span>
+      <div className="grid gap-1" aria-live="polite">
+        <strong className="text-sm font-medium">
+          {t(stateLabelKeys[state])}
+        </strong>
+        <span className="text-sm text-muted-foreground">
+          {stateDescription(state, renewalError, t)}
+        </span>
       </div>
 
-      <dl className="live-preview-panel__meta">
-        <div>
-          <dt>Last capture</dt>
-          <dd>{capturedAt ? capturedAt.toLocaleString() : "Not captured"}</dd>
-        </div>
-        <div>
-          <dt>Player</dt>
-          <dd>
-            {preview.data?.playerVersion ||
-              screen.data?.playerVersion ||
-              "Unknown"}
+      <dl className="grid gap-3 border-y border-border py-3 text-xs sm:grid-cols-3">
+        <div className="grid gap-1">
+          <dt>{t("livePreview.lastCapture")}</dt>
+          <dd className="m-0 break-words text-muted-foreground">
+            {capturedAt
+              ? capturedAt.toLocaleString(formatLocale)
+              : t("livePreview.notCaptured")}
           </dd>
         </div>
-        <div>
-          <dt>Image</dt>
-          <dd>
+        <div className="grid gap-1">
+          <dt>{t("livePreview.player")}</dt>
+          <dd className="m-0 break-words text-muted-foreground">
+            {preview.data?.playerVersion ||
+              screen.data?.playerVersion ||
+              t("shared.unknown")}
+          </dd>
+        </div>
+        <div className="grid gap-1">
+          <dt>{t("livePreview.image")}</dt>
+          <dd className="m-0 break-words text-muted-foreground">
             {preview.data?.width && preview.data?.height
               ? `${preview.data.width}×${preview.data.height} · ${formatBytes(preview.data.fileSize ?? 0)}`
-              : "No image"}
+              : t("livePreview.noImage")}
           </dd>
         </div>
       </dl>
-      <div className="live-preview-panel__privacy">
-        <ShieldCheck size={15} aria-hidden="true" />
-        <span>Protected screens are not captured.</span>
+      <div className="flex items-center gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
+        <ShieldCheck
+          className="size-4 text-emerald-700 dark:text-emerald-400"
+          aria-hidden="true"
+        />
+        <span>{t("livePreview.protectedNote")}</span>
       </div>
       {csrfToken && (
         <LiveStreamDialog
           open={watchingLive}
           screenId={screenId}
-          screenName={screen.data?.name ?? "Screen"}
+          screenName={screen.data?.name ?? t("livePreview.unnamedScreen")}
           csrfToken={csrfToken}
           onClose={() => setWatchingLive(false)}
         />
@@ -194,6 +232,24 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
   );
 }
 
+const stateLabelKeys = {
+  loading: "livePreview.states.loading.label",
+  live: "livePreview.states.live.label",
+  offline: "livePreview.states.offline.label",
+  stale: "livePreview.states.stale.label",
+  unavailable: "livePreview.states.unavailable.label",
+  "capture-error": "livePreview.states.captureError.label",
+} as const;
+
+const stateDescriptionKeys = {
+  loading: "livePreview.states.loading.description",
+  live: "livePreview.states.live.description",
+  offline: "livePreview.states.offline.description",
+  stale: "livePreview.states.stale.description",
+  unavailable: "livePreview.states.unavailable.description",
+  "capture-error": "livePreview.states.captureError.description",
+} as const;
+
 function PreviewState({
   state,
   failureStatus,
@@ -201,50 +257,46 @@ function PreviewState({
   state: ReturnType<typeof livePreviewState>;
   failureStatus?: string;
 }) {
+  const { t } = useTranslation("screens");
   const content = {
-    loading: [Clock3, "Requesting a fresh capture…"],
-    offline: [WifiOff, "The player is offline."],
-    stale: [Clock3, "The latest preview is stale."],
-    unavailable: [ShieldAlert, previewUnavailableMessage(failureStatus)],
-    "capture-error": [
-      AlertTriangle,
-      "The player could not capture its window.",
-    ],
-    live: [Monitor, "Live preview is ready."],
+    loading: [Clock3, "livePreview.overlay.loading"],
+    offline: [WifiOff, "livePreview.overlay.offline"],
+    stale: [Clock3, "livePreview.overlay.stale"],
+    unavailable: [ShieldAlert, null],
+    "capture-error": [AlertTriangle, "livePreview.overlay.captureError"],
+    live: [Monitor, "livePreview.overlay.live"],
   } as const;
-  const [Icon, message] = content[state] ?? [ImageOff, "Preview unavailable."];
+  const [Icon, messageKey] = content[state] ?? [
+    ImageOff,
+    "livePreview.overlay.unknown",
+  ];
+  const stateClasses =
+    state === "capture-error"
+      ? "bg-destructive/10 text-destructive"
+      : state === "offline" || state === "unavailable"
+        ? "bg-muted"
+        : "";
   return (
-    <div className="live-preview-frame__empty">
-      <Icon size={28} aria-hidden="true" />
-      <span>{message}</span>
+    <div
+      className={`grid place-content-center justify-items-center gap-2 p-4 text-center text-muted-foreground ${stateClasses}`}
+    >
+      <Icon className="size-7" aria-hidden="true" />
+      <span>
+        {messageKey
+          ? t(messageKey)
+          : previewUnavailableMessage(failureStatus, t)}
+      </span>
     </div>
   );
-}
-
-function stateLabel(state: ReturnType<typeof livePreviewState>) {
-  return {
-    loading: "Loading",
-    live: "Live",
-    offline: "Offline",
-    stale: "Stale",
-    unavailable: "Unavailable",
-    "capture-error": "Capture error",
-  }[state];
 }
 
 function stateDescription(
   state: ReturnType<typeof livePreviewState>,
   renewalError: string | null,
+  t: TFunction<["screens", "common"]>,
 ) {
   if (renewalError) return renewalError;
-  return {
-    loading: "Waiting for the paired player to respond.",
-    live: "Refreshes about every 20 seconds while this page is open.",
-    offline: "The session will resume when the player reconnects.",
-    stale: "The player has not delivered a recent capture.",
-    unavailable: "The current player screen cannot be previewed.",
-    "capture-error": "Use Refresh to request another capture.",
-  }[state];
+  return t(stateDescriptionKeys[state]);
 }
 
 function formatBytes(bytes: number) {

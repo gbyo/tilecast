@@ -1,9 +1,29 @@
 import { useQuery } from "@tanstack/react-query";
 import { Check, LayoutTemplate, ListVideo, Tags } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { LayoutSummary, Playlist } from "../../api/types";
-import { Button, Dialog } from "../ui";
+import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
+import { Button } from "../ui/button";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemMedia,
+  ItemTitle,
+} from "../ui/item";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../ui/dialog";
+import { Skeleton } from "../ui/skeleton";
 import { DashboardSearch } from "../DashboardListToolbar";
 import { LayoutPreview, PlaylistPreview } from "../PresentationPreview";
 
@@ -29,6 +49,7 @@ export type PlaylistPickerProps = {
   selectedId?: string;
   onConfirm: (choice: PlaylistPickerChoice) => void;
   onClose: () => void;
+  onCloseComplete?: () => void;
 };
 
 /**
@@ -39,28 +60,57 @@ export function PlaylistPicker({
   open,
   title,
   description,
-  confirmLabel = "Add playlist",
+  confirmLabel,
   includeLayouts = false,
   allowedKinds,
   selectedId = "",
   onConfirm,
   onClose,
+  onCloseComplete,
 }: PlaylistPickerProps) {
+  const { t } = useTranslation(["content", "common"]);
   const kinds: readonly PlaylistPickerKind[] =
     allowedKinds ?? (includeLayouts ? ["playlist", "layout"] : ["playlist"]);
   const canChoosePlaylists = kinds.includes("playlist");
   const canChooseLayouts = kinds.includes("layout");
   const mixedKinds = canChoosePlaylists && canChooseLayouts;
-  const noun = mixedKinds
-    ? "presentations"
+  // One full-sentence key per kind: word order and agreement differ by language.
+  const searchCopy = mixedKinds
+    ? t("picker.playlist.searchPresentations")
     : canChooseLayouts
-      ? "layouts"
-      : "playlists";
+      ? t("picker.playlist.searchLayouts")
+      : t("picker.playlist.searchPlaylists");
+  const loadingCopy = mixedKinds
+    ? t("picker.playlist.loadingPresentations")
+    : canChooseLayouts
+      ? t("picker.playlist.loadingLayouts")
+      : t("picker.playlist.loadingPlaylists");
+  const loadErrorCopy = mixedKinds
+    ? t("picker.playlist.presentationsLoadError")
+    : canChooseLayouts
+      ? t("picker.playlist.layoutsLoadError")
+      : t("picker.playlist.playlistsLoadError");
+  const noMatchCopy = mixedKinds
+    ? t("picker.playlist.noPresentationsMatch")
+    : canChooseLayouts
+      ? t("picker.playlist.noLayoutsMatch")
+      : t("picker.playlist.noPlaylistsMatch");
+  const noneCopy = mixedKinds
+    ? t("picker.playlist.noPresentations")
+    : canChooseLayouts
+      ? t("picker.playlist.noLayouts")
+      : t("picker.playlist.noPlaylists");
   const defaultTitle = mixedKinds
-    ? "Choose presentation"
+    ? t("picker.playlist.choosePresentation")
     : canChooseLayouts
-      ? "Choose layout"
-      : "Choose playlist";
+      ? t("picker.playlist.chooseLayout")
+      : t("picker.playlist.choosePlaylist");
+  const resolvedConfirmLabel = confirmLabel ?? t("picker.playlist.addPlaylist");
+  const clearSearchCopy = mixedKinds
+    ? t("picker.playlist.clearSearchPresentations")
+    : canChooseLayouts
+      ? t("picker.playlist.clearSearchLayouts")
+      : t("picker.playlist.clearSearchPlaylists");
   const [search, setSearch] = useState("");
   const [chosen, setChosen] = useState(selectedId);
   const playlists = useQuery({
@@ -100,116 +150,142 @@ export function PlaylistPicker({
   return (
     <Dialog
       open={open}
-      title={title ?? defaultTitle}
-      onClose={onClose}
-      className="playlist-picker"
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onClose();
+      }}
+      onOpenChangeComplete={(nextOpen) => {
+        if (!nextOpen) onCloseComplete?.();
+      }}
     >
-      {description && (
-        <p className="playlist-picker__description">{description}</p>
-      )}
-      <DashboardSearch
-        autoFocus
-        value={search}
-        onValueChange={setSearch}
-        label={`Search ${noun}`}
-        placeholder={`Search ${noun}`}
-      />
-      <div className="playlist-picker__results">
-        {loading ? (
-          <p className="status-copy">Loading {noun}…</p>
-        ) : failed ? (
-          <div className="notice notice--error">
-            <strong>
-              {noun.charAt(0).toUpperCase() + noun.slice(1)} could not be
-              loaded.
-            </strong>
-            <button
-              className="button button--quiet"
-              onClick={() => {
-                if (canChoosePlaylists) void playlists.refetch();
-                if (canChooseLayouts) void layouts.refetch();
-              }}
-            >
-              Try again
-            </button>
-          </div>
-        ) : !choices.length ? (
-          <p className="status-copy">
-            {search
-              ? `No ${noun} match this search.`
-              : `No ${noun} yet. Create one first.`}
-          </p>
-        ) : (
-          choices.map((choice) => {
-            const id = idOf(choice);
-            const tagDriven =
-              choice.kind === "playlist" &&
-              choice.playlist.sourceType === "tag";
-            return (
-              <button
-                type="button"
-                key={`${choice.kind}-${id}`}
-                className={id === chosen ? "is-selected" : ""}
-                aria-pressed={id === chosen}
-                onClick={() => setChosen(id)}
-                onDoubleClick={() => onConfirm(choice)}
-              >
-                <span
-                  className="playlist-picker__preview"
-                  data-orientation={
-                    choice.kind === "layout"
-                      ? choice.layout.orientation
-                      : undefined
-                  }
-                  aria-hidden="true"
+      <DialogContent className="flex max-h-[min(90vh,45rem)] max-w-xl flex-col gap-3 overflow-hidden">
+        <DialogHeader>
+          <DialogTitle>{title ?? defaultTitle}</DialogTitle>
+          {description && <DialogDescription>{description}</DialogDescription>}
+        </DialogHeader>
+        <DashboardSearch
+          autoFocus
+          value={search}
+          onValueChange={setSearch}
+          label={searchCopy}
+          placeholder={searchCopy}
+          clearLabel={clearSearchCopy}
+        />
+        <div className="grid gap-2">
+          {loading ? (
+            <div className="space-y-2" aria-label={loadingCopy}>
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+            </div>
+          ) : failed ? (
+            <Alert variant="destructive">
+              <AlertTitle>{loadErrorCopy}</AlertTitle>
+              <AlertDescription className="flex items-center justify-between gap-3">
+                <span>{t("picker.playlist.retryRequest")}</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (canChoosePlaylists) void playlists.refetch();
+                    if (canChooseLayouts) void layouts.refetch();
+                  }}
                 >
-                  {choice.kind === "layout" ? (
-                    <LayoutPreview layout={choice.layout} />
-                  ) : (
-                    <PlaylistPreview playlist={choice.playlist} />
-                  )}
-                </span>
-                <span className="playlist-picker__icon" aria-hidden="true">
-                  {choice.kind === "layout" ? (
-                    <LayoutTemplate size={17} />
-                  ) : tagDriven ? (
-                    <Tags size={17} />
-                  ) : (
-                    <ListVideo size={17} />
-                  )}
-                </span>
-                <span className="playlist-picker__label">
-                  <strong>
-                    {choice.kind === "playlist"
-                      ? choice.playlist.name
-                      : choice.layout.name}
-                  </strong>
-                  <small>
-                    {choice.kind === "layout"
-                      ? `Layout · revision ${choice.layout.publishedRevision}`
-                      : `${choice.playlist.itemCount} item${
-                          choice.playlist.itemCount === 1 ? "" : "s"
-                        }${tagDriven ? " · tag-driven" : ""}`}
-                  </small>
-                </span>
-                {id === chosen && <Check size={17} aria-hidden="true" />}
-              </button>
-            );
-          })
-        )}
-      </div>
-      <footer className="playlist-picker__footer">
-        <Button variant="secondary" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button
-          variant="primary"
-          disabled={!selected}
-          onClick={() => selected && onConfirm(selected)}
-        >
-          {confirmLabel}
-        </Button>
-      </footer>
+                  {t("picker.errors.tryAgain")}
+                </Button>
+              </AlertDescription>
+            </Alert>
+          ) : !choices.length ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              {search ? noMatchCopy : noneCopy}
+            </p>
+          ) : (
+            <ItemGroup className="gap-2">
+              {choices.map((choice) => {
+                const id = idOf(choice);
+                const tagDriven =
+                  choice.kind === "playlist" &&
+                  choice.playlist.sourceType === "tag";
+                return (
+                  <Item
+                    key={`${choice.kind}-${id}`}
+                    variant={id === chosen ? "muted" : "outline"}
+                    size="sm"
+                    render={
+                      <button
+                        type="button"
+                        className="w-full text-left hover:bg-muted"
+                        aria-pressed={id === chosen}
+                      />
+                    }
+                    onClick={() => setChosen(id)}
+                    onDoubleClick={() => onConfirm(choice)}
+                  >
+                    <ItemMedia
+                      variant="image"
+                      className="h-12 w-20 rounded-lg bg-muted"
+                      data-orientation={
+                        choice.kind === "layout"
+                          ? choice.layout.orientation
+                          : undefined
+                      }
+                      aria-hidden="true"
+                    >
+                      {choice.kind === "layout" ? (
+                        <LayoutPreview layout={choice.layout} />
+                      ) : (
+                        <PlaylistPreview playlist={choice.playlist} />
+                      )}
+                    </ItemMedia>
+                    <ItemMedia
+                      variant="icon"
+                      className="text-muted-foreground"
+                      aria-hidden="true"
+                    >
+                      {choice.kind === "layout" ? (
+                        <LayoutTemplate size={17} />
+                      ) : tagDriven ? (
+                        <Tags size={17} />
+                      ) : (
+                        <ListVideo size={17} />
+                      )}
+                    </ItemMedia>
+                    <ItemContent>
+                      <ItemTitle>
+                        {choice.kind === "playlist"
+                          ? choice.playlist.name
+                          : choice.layout.name}
+                      </ItemTitle>
+                      <ItemDescription className="truncate">
+                        {choice.kind === "layout"
+                          ? `Layout · revision ${choice.layout.publishedRevision}`
+                          : `${choice.playlist.itemCount} item${
+                              choice.playlist.itemCount === 1 ? "" : "s"
+                            }${tagDriven ? " · tag-driven" : ""}`}
+                      </ItemDescription>
+                    </ItemContent>
+                    {id === chosen && (
+                      <ItemActions>
+                        <Check size={17} aria-label="Selected" />
+                      </ItemActions>
+                    )}
+                  </Item>
+                );
+              })}
+            </ItemGroup>
+          )}
+        </div>
+        <DialogFooter className="border-t border-border pt-3">
+          <Button variant="outline" onClick={onClose}>
+            {t("common:actions.cancel")}
+          </Button>
+          <Button
+            variant="default"
+            disabled={!selected}
+            onClick={() => selected && onConfirm(selected)}
+          >
+            {resolvedConfirmLabel}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
     </Dialog>
   );
 }

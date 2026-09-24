@@ -72,6 +72,10 @@ func setupForms(t *testing.T) formTestEnv {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Forms is an installable plugin; these tests exercise an installation that has added it.
+	if _, err = pool.Exec(ctx, `INSERT INTO plugin_installations(organization_id,plugin_id) SELECT id,'forms' FROM organization_settings WHERE singleton`); err != nil {
+		t.Fatal(err)
+	}
 	storage, err := media.NewLocalStorage(t.TempDir())
 	if err != nil {
 		t.Fatal(err)

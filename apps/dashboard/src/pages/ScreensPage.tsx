@@ -1,17 +1,3 @@
-import {
-  Button,
-  ContextMenu,
-  Dialog,
-  HoldButton,
-  Notice,
-  PageHeader,
-  Popover,
-  Select,
-  ToggleGroup,
-  ViewTabs,
-  useContextMenu,
-  type ContextMenuItem,
-} from "../components/ui";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -25,28 +11,40 @@ import {
   MoreHorizontal,
   Monitor,
   Pencil,
+  Play,
   RefreshCw,
   ShieldAlert,
   ShieldOff,
   Search,
   SlidersHorizontal,
-  TriangleAlert,
   Wifi,
   WifiOff,
   X,
+  Plus,
 } from "lucide-react";
 import {
+  useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
-  type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
 import { useForm } from "react-hook-form";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router";
+import {
+  Link,
+  Outlet,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router";
+import type { TFunction } from "i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { z } from "zod";
 import { api } from "../api/client";
+import { useFormatLocale } from "../i18n";
 import type {
   Location,
   PairingRequest,
@@ -58,20 +56,118 @@ import type {
 import { useAuth } from "../auth/AuthProvider";
 import { ScreenContentChain } from "../content/ScreenContentChain";
 import { AirPlayPresentDialog } from "../components/AirPlayPresentDialog";
+import { DashboardSearch } from "../components/DashboardListToolbar";
 import { ScreenPresentationNetworkPanel } from "../components/ScreenPresentationNetworkPanel";
 import { QuickPresentDialog } from "../components/QuickPresentDialog";
 import { FormField } from "../components/FormField";
 import { FireTvAccessibilityAdbPanel } from "../components/FireTvAccessibilityAdbPanel";
-import { ScreenManagementTabs } from "../components/ScreenManagementTabs";
 import { PlayerPolicyEditor } from "../settings/PlayerPolicyEditor";
 import { formatLocationAddress } from "../settings/LocationsPanel";
 import { isAndroidScreen } from "../playerPlatform";
 import { previewApi } from "../api/previews";
 import { previewAge } from "../components/livePreviewState";
+import { ScreenFleetTable } from "../components/ScreenFleetTable";
+import { ScreenActivityPanel } from "../components/ScreenActivityPanel";
+import { AspectRatio } from "../components/ui/aspect-ratio";
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "../components/ui/combobox";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { toast } from "../components/ui/toast";
+import { Badge } from "../components/ui/badge";
+import { Button, buttonVariants } from "../components/ui/button";
+import { Checkbox } from "../components/ui/checkbox";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "../components/ui/collapsible";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "../components/ui/dropdown-menu";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../components/ui/empty";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
+import { Textarea } from "../components/ui/textarea";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from "../components/ui/item";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "../components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
+import { Skeleton } from "../components/ui/skeleton";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../components/ui/tabs";
 
 const GRID_PREVIEW_LEASE_RENEWAL_MILLIS = 30_000;
 const GRID_PREVIEW_METADATA_REFRESH_MILLIS = 10_000;
 const GRID_PREVIEW_AGE_REFRESH_MILLIS = 10_000;
+
+export type ScreensT = TFunction<"screens", undefined>;
 
 export const canManageScreens = (user?: User) =>
   user?.role === "owner" || user?.role === "administrator";
@@ -90,34 +186,73 @@ export function normalizeScreenManageSection(
   requestedTab: string,
   requestedSection: string | null,
 ): ScreenManageSection {
-  if (requestedTab === "player-settings") return "settings";
+  if (requestedTab === "player-settings" || requestedTab === "settings")
+    return "settings";
   if (requestedTab === "reliability") return "health";
   if (requestedTab === "commands") return "maintenance";
+  if (requestedTab === "device" && !requestedSection) return "device";
   return screenManageSections.includes(requestedSection as ScreenManageSection)
     ? (requestedSection as ScreenManageSection)
     : "settings";
 }
 
 export type ScreenDetailTab =
-  "overview" | "snapshots" | "content" | "activity" | "manage";
+  "overview" | "content" | "activity" | "device" | "settings";
+type ScreenTabDestination = {
+  tab: ScreenDetailTab;
+  section?: ScreenManageSection;
+};
+type ScreenCommandAction =
+  | {
+      kind: "confirm";
+      title: string;
+      description: string;
+      confirmLabel: string;
+      destructive?: boolean;
+      commandType: string;
+      payload: Record<string, unknown>;
+    }
+  | {
+      kind: "input";
+      title: string;
+      description: string;
+      confirmLabel: string;
+      input: {
+        label: string;
+        type: "text" | "number";
+        min?: number;
+        max?: number;
+        placeholder?: string;
+      };
+      commandType: string;
+      createPayload: (value: string | number) => Record<string, unknown>;
+    };
 
 const screenDetailTabs: readonly ScreenDetailTab[] = [
   "overview",
-  "snapshots",
   "content",
   "activity",
-  "manage",
+  "device",
+  "settings",
 ];
 
-// Legacy tabs collapsed into Manage; each maps to a section via
-// normalizeScreenManageSection.
+// Legacy URLs remain valid while the resource view gets the new tab names.
 const legacyManageTabs = ["player-settings", "reliability", "commands"];
 
 export function normalizeScreenDetailTab(
   requestedTab: string | null,
+  requestedSection: string | null = null,
 ): ScreenDetailTab {
-  if (!requestedTab) return "overview";
-  if (legacyManageTabs.includes(requestedTab)) return "manage";
+  if (!requestedTab || requestedTab === "snapshots") return "overview";
+  if (requestedTab === "manage") {
+    return normalizeScreenManageSection(requestedTab, requestedSection) ===
+      "settings"
+      ? "settings"
+      : "device";
+  }
+  if (legacyManageTabs.includes(requestedTab)) {
+    return requestedTab === "player-settings" ? "settings" : "device";
+  }
   return screenDetailTabs.includes(requestedTab as ScreenDetailTab)
     ? (requestedTab as ScreenDetailTab)
     : "overview";
@@ -134,11 +269,12 @@ const formatBytes = (value: number) => {
 };
 export const formatReportedStatus = (
   value: unknown,
-  fallback = "Not reported",
+  t: ScreensT,
+  fallback?: string,
 ) =>
   typeof value === "string" && value.trim()
     ? value.replaceAll("_", " ")
-    : fallback;
+    : (fallback ?? t("shared.notReported"));
 const formatReportedCount = (value: unknown, fallback = 0) =>
   typeof value === "number" && Number.isFinite(value) ? value : fallback;
 /**
@@ -154,25 +290,28 @@ export const reportsAutostart = (status?: ReliabilityStatus) =>
  * separate on purpose: an enabled unit is a promise about the next boot, while
  * a cold-boot launch is evidence that the promise held.
  */
-export const autostartSummary = (status?: ReliabilityStatus): string => {
+export const autostartSummary = (
+  status: ReliabilityStatus | undefined,
+  t: ScreensT,
+): string => {
   const target = status?.autostartTarget ? ` · ${status.autostartTarget}` : "";
   switch (status?.autostartState) {
     case "installed":
       return status?.bootLaunchVerified
-        ? `Installed${target} · verified at boot`
-        : `Installed${target} · not yet seen at boot`;
+        ? t("detail.autostart.installedVerified", { target })
+        : t("detail.autostart.installedUnverified", { target });
     case "not_installed":
-      return "Not installed";
+      return t("detail.autostart.notInstalled");
     case "needs_attention":
-      return `Needs attention${status?.autostartError ? ` · ${status.autostartError}` : ""}`;
+      return `${t("detail.autostart.needsAttention")}${status?.autostartError ? ` · ${status.autostartError}` : ""}`;
     case "unsupported":
-      return `Unsupported${status?.autostartError ? ` · ${status.autostartError}` : ""}`;
+      return `${t("detail.autostart.unsupported")}${status?.autostartError ? ` · ${status.autostartError}` : ""}`;
     case "unknown":
       // The probe itself failed. Distinct from a device that reports nothing:
       // there is a device, it tried, and it carries the reason.
-      return `Could not determine${status?.autostartError ? ` · ${status.autostartError}` : ""}`;
+      return `${t("detail.autostart.unknown")}${status?.autostartError ? ` · ${status.autostartError}` : ""}`;
     default:
-      return "Not reported";
+      return t("shared.notReported");
   }
 };
 
@@ -181,41 +320,54 @@ export const autostartSummary = (status?: ReliabilityStatus): string => {
  * owns its own service; it cannot create the graphical session that service
  * renders into, so those gaps are named rather than implied.
  */
-export const autostartWarning = (status?: ReliabilityStatus) => {
+export const autostartWarning = (
+  status: ReliabilityStatus | undefined,
+  t: ScreensT,
+) => {
   if (!reportsAutostart(status)) return undefined;
   if (status?.autostartState === "not_installed")
-    return "Autostart is not installed; this screen will not return on its own after a reboot or a player update.";
+    return t("detail.autostart.warnNotInstalled");
   if (status?.autostartState === "needs_attention")
-    return "A service unit is present but systemd does not report it as enabled.";
+    return t("detail.autostart.warnNeedsAttention");
   if (status?.autostartState === "unknown")
-    return `Autostart state could not be determined on the device${status.autostartError ? `: ${status.autostartError}` : ""}. Treat this screen as not set up until it reports again.`;
+    return status.autostartError
+      ? t("detail.autostart.warnUnknownWithError", {
+          error: status.autostartError,
+        })
+      : t("detail.autostart.warnUnknown");
   if (
     status?.autostartState === "installed" &&
     status.autostartTarget === "default.target" &&
     status.autostartLingerEnabled === false
   )
-    return "Autostart is enabled against default.target without lingering; run `loginctl enable-linger` on the device as root so the service survives logout.";
+    return t("detail.autostart.warnNoLinger");
   return undefined;
 };
 
-export const reliabilityCapabilityWarning = (status?: ReliabilityStatus) => {
+export const reliabilityCapabilityWarning = (
+  status: ReliabilityStatus | undefined,
+  t: ScreensT,
+) => {
   if (
     status?.configuredMode === "managed_kiosk" &&
     status.effectiveMode !== "managed_kiosk"
   )
-    return "Managed Kiosk was requested but Android has not confirmed active lock-task capability.";
+    return t("detail.warnManagedKiosk");
   if (status?.accessibilityServiceState === "policy_enabled_service_disabled")
-    return "Accessibility Control is requested but must be enabled locally.";
+    return t("detail.warnAccessibility");
   if (status?.sleepCapability === "black_screen_only")
-    return "Device sleep is unavailable; the player will use black-screen fallback.";
+    return t("detail.warnSleepFallback");
   return undefined;
 };
 export const zeroTouchReadiness = (
-  status?: ReliabilityStatus,
-): "Ready" | "Partially ready" | "Needs setup" | "Unsupported" => {
-  if (!status || !status.commissioningState) return "Needs setup";
-  if (status.bootRecoveryResult === "unsupported") return "Unsupported";
-  if (status.commissioningState !== "complete") return "Needs setup";
+  status: ReliabilityStatus | undefined,
+  t: ScreensT,
+): string => {
+  if (!status || !status.commissioningState) return t("detail.readiness.setup");
+  if (status.bootRecoveryResult === "unsupported")
+    return t("detail.readiness.unsupported");
+  if (status.commissioningState !== "complete")
+    return t("detail.readiness.setup");
   if (
     status.accessibilityServiceState === "enabled" &&
     status.bootLaunchVerified &&
@@ -224,21 +376,23 @@ export const zeroTouchReadiness = (
     status.updateReadiness === "ready" &&
     !status.safeMode
   )
-    return "Ready";
-  return "Partially ready";
+    return t("detail.readiness.ready");
+  return t("detail.readiness.partial");
 };
-const codeSchema = z.object({
-  code: z.string().trim().min(6, "Enter the six-character code").max(9),
-});
-const approvalSchema = z.object({
-  name: z.string().trim().min(2, "Enter a screen name").max(120),
-  locationId: z.string().optional(),
-  roomName: z.string().max(120),
-  roomNumber: z.string().max(80),
-  description: z.string().max(1000),
-});
-type CodeForm = z.infer<typeof codeSchema>;
-type ApprovalForm = z.infer<typeof approvalSchema>;
+const makeCodeSchema = (t: ScreensT) =>
+  z.object({
+    code: z.string().trim().min(6, t("pair.codeRequired")).max(9),
+  });
+const makeApprovalSchema = (t: ScreensT) =>
+  z.object({
+    name: z.string().trim().min(2, t("approval.nameRequired")).max(120),
+    locationId: z.string().optional(),
+    roomName: z.string().max(120),
+    roomNumber: z.string().max(80),
+    description: z.string().max(1000),
+  });
+type CodeForm = z.infer<ReturnType<typeof makeCodeSchema>>;
+type ApprovalForm = z.infer<ReturnType<typeof makeApprovalSchema>>;
 export const pairingApprovalPayload = (
   request: PairingRequest,
   values: ApprovalForm,
@@ -259,16 +413,17 @@ type PairingDestination =
   "automatic" | "new_screen" | "credential_repair" | "replace_hardware";
 export const pairingApprovalLabel = (
   request: PairingRequest,
+  t: ScreensT,
   destination: PairingDestination = "automatic",
 ) =>
   destination === "replace_hardware"
-    ? "Replace hardware"
+    ? t("approval.actionReplace")
     : destination === "credential_repair" ||
         (destination === "automatic" &&
           request.previouslyPaired &&
           request.hasActiveCredential)
-      ? "Repair and replace credential"
-      : "Approve and pair";
+      ? t("approval.actionRepair")
+      : t("approval.actionApprove");
 
 function LocationPicker({
   locations,
@@ -279,34 +434,53 @@ function LocationPicker({
   value?: string;
   onChange: (value?: string) => void;
 }) {
+  const { t } = useTranslation("screens");
   const selected = locations.find((location) => location.id === value);
+  const items = [
+    { value: "__unassigned__", label: t("shared.unassigned") },
+    ...locations.map((location) => {
+      const address = formatLocationAddress(location);
+      return {
+        value: location.id,
+        label: address ? `${location.name} — ${address}` : location.name,
+      };
+    }),
+  ];
   return (
-    <label className="field">
-      <span className="field__label">Location (optional)</span>
+    <Field className="gap-2">
+      <FieldLabel htmlFor="screen-location" className="text-sm font-medium">
+        {t("picker.locationLabel")}
+      </FieldLabel>
       <Select
-        value={value ?? ""}
-        onChange={(event) => onChange(event.target.value || undefined)}
+        items={items}
+        value={value ?? "__unassigned__"}
+        onValueChange={(next) =>
+          onChange(next === "__unassigned__" || !next ? undefined : next)
+        }
       >
-        <option value="">Unassigned</option>
-        {locations.map((location) => (
-          <option key={location.id} value={location.id}>
-            {location.name}
-            {formatLocationAddress(location)
-              ? ` — ${formatLocationAddress(location)}`
-              : ""}
-          </option>
-        ))}
+        <SelectTrigger id="screen-location" className="w-full">
+          <SelectValue placeholder={t("shared.unassigned")} />
+        </SelectTrigger>
+        <SelectContent>
+          {items.map((item) => (
+            <SelectItem key={item.value} value={item.value}>
+              {item.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
       </Select>
       {selected && formatLocationAddress(selected) && (
-        <small>{formatLocationAddress(selected)}</small>
+        <small className="text-xs text-muted-foreground">
+          {formatLocationAddress(selected)}
+        </small>
       )}
       <Link
-        className="text-link location-picker__create"
+        className="w-fit text-xs underline underline-offset-4"
         to="/settings/locations"
       >
-        Create new location
+        {t("picker.createLocation")}
       </Link>
-    </label>
+    </Field>
   );
 }
 
@@ -321,17 +495,91 @@ export function resolveScreenDetail(
 
 const statusContent: Record<
   ScreenStatus,
-  { label: string; Icon: typeof Wifi }
+  {
+    labelKey:
+      | "status.online"
+      | "status.recent"
+      | "status.stale"
+      | "status.offline"
+      | "status.disabled"
+      | "status.revoked";
+    Icon: typeof Wifi;
+  }
 > = {
-  online: { label: "Online", Icon: Wifi },
-  recent: { label: "Recently online", Icon: Wifi },
-  stale: { label: "Stale", Icon: CircleAlert },
-  offline: { label: "Offline", Icon: WifiOff },
-  disabled: { label: "Disabled", Icon: ShieldOff },
-  revoked: { label: "Pairing revoked", Icon: ShieldOff },
+  online: { labelKey: "status.online", Icon: Wifi },
+  recent: { labelKey: "status.recent", Icon: Wifi },
+  stale: { labelKey: "status.stale", Icon: CircleAlert },
+  offline: { labelKey: "status.offline", Icon: WifiOff },
+  disabled: { labelKey: "status.disabled", Icon: ShieldOff },
+  revoked: { labelKey: "status.revoked", Icon: ShieldOff },
 };
 
+export function ScreensWorkspacePage() {
+  const { t } = useTranslation("screens");
+  const auth = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const manageable = canManageScreens(auth.status?.user);
+  const screens = useQuery({
+    queryKey: ["screens"],
+    queryFn: api.screens,
+    refetchInterval: 10_000,
+  });
+  const archive =
+    location.pathname === "/screens/archive" ||
+    location.pathname.startsWith("/screens/archive/");
+  const activeTab = archive ? "archive" : "fleet";
+
+  return (
+    <div className="w-full min-w-0 space-y-5">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {t("page.title")}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {archive
+              ? t("archive.body")
+              : screens.isLoading
+                ? t("page.loadingInventory")
+                : screenInventorySummary(screens.data?.items ?? [], t)}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {manageable && (
+            <Link
+              className={buttonVariants({ variant: "default", size: "sm" })}
+              to="/screens/pair"
+            >
+              <Plus aria-hidden="true" /> {t("page.pairScreen")}
+            </Link>
+          )}
+          {manageable && !archive && (
+            <TakeoverAction screens={screens.data?.items ?? []} />
+          )}
+        </div>
+      </header>
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) =>
+          void navigate(value === "archive" ? "/screens/archive" : "/screens")
+        }
+        className="min-w-0 gap-4"
+      >
+        <TabsList variant="line" aria-label="Screen views">
+          <TabsTrigger value="fleet">Fleet</TabsTrigger>
+          <TabsTrigger value="archive">Archive</TabsTrigger>
+        </TabsList>
+        <TabsContent value={activeTab} className="min-w-0 outline-none">
+          <Outlet />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
 export function ScreensPage() {
+  const { t } = useTranslation(["screens", "common"]);
   const auth = useAuth();
   const manageable = canManageScreens(auth.status?.user);
   const screens = useQuery({
@@ -350,18 +598,35 @@ export function ScreensPage() {
     queryFn: api.locations,
   });
   return (
-    <div className="screens-page">
-      <PageHeader
-        title="Screens"
-        description="Pair and monitor the players driving every screen in this installation."
-        actions={
-          manageable && <TakeoverAction screens={screens.data?.items ?? []} />
-        }
-      />
-      <ScreenManagementTabs current="screens" />
+    <div className="w-full min-w-0 space-y-5">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {t("page.title")}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {screens.isLoading
+              ? t("page.loadingInventory")
+              : screenInventorySummary(screens.data?.items ?? [], t)}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {manageable && (
+            <Link
+              className={buttonVariants({ variant: "default", size: "sm" })}
+              to="/screens/pair"
+            >
+              <Plus aria-hidden="true" /> {t("page.pairScreen")}
+            </Link>
+          )}
+          {manageable && <TakeoverAction screens={screens.data?.items ?? []} />}
+        </div>
+      </header>
       <ActiveTakeoverBanners canManage={manageable} />
       {screens.isError && (
-        <div className="notice notice--error">{screens.error.message}</div>
+        <Alert variant="destructive">
+          <AlertDescription>{screens.error.message}</AlertDescription>
+        </Alert>
       )}
       <PendingPairings
         requests={pending.data?.items ?? []}
@@ -394,64 +659,252 @@ const useTakeovers = () =>
    While a takeover is active the banner below becomes the loudest thing on the
    page, which is the only time the danger treatment is truthful. */
 function ActiveTakeoverBanners({ canManage }: { canManage: boolean }) {
+  const { t } = useTranslation(["screens", "common"]);
+  const formatLocale = useFormatLocale();
   const auth = useAuth();
   const queryClient = useQueryClient();
   const takeovers = useTakeovers();
+  const [canceling, setCanceling] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
   const cancel = useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
       api.cancelTakeover(id, reason, auth.status?.csrfToken ?? ""),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["takeovers"] }),
+    onSuccess: async () => {
+      setCanceling(null);
+      setCancelReason("");
+      toast.add({ title: "Takeover ended.", type: "success" });
+      await queryClient.invalidateQueries({ queryKey: ["takeovers"] });
+    },
   });
   const active = (takeovers.data?.items ?? []).filter(
     (item) => item.status === "active",
   );
   if (active.length === 0) return null;
   return (
-    <div className="takeover-banners">
-      {active.map((item) => (
-        <Notice
-          key={item.id}
-          variant="danger"
-          title={`Takeover active — ${item.name}`}
-          action={
-            canManage ? (
-              <button
-                className="button button--danger"
+    <>
+      <div className="space-y-2">
+        {active.map((item) => (
+          <Alert
+            key={item.id}
+            variant="destructive"
+            className="flex flex-wrap items-start gap-x-3 gap-y-2"
+          >
+            <ShieldAlert
+              className="mt-0.5 size-4 shrink-0"
+              aria-hidden="true"
+            />
+            <div className="min-w-0 flex-1 space-y-1">
+              <AlertTitle>
+                {t("takeover.activeBanner", { name: item.name })}
+              </AlertTitle>
+              <AlertDescription>
+                {t("takeover.bannerBody", {
+                  playlist: item.playlistName,
+                  expires: new Date(item.expiresAt).toLocaleString(
+                    formatLocale,
+                  ),
+                })}
+              </AlertDescription>
+              <ul className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-xs text-muted-foreground">
+                <li>
+                  {t("takeover.stats.playing", { count: item.activeCount })}
+                </li>
+                <li>
+                  {t("takeover.stats.preparing", {
+                    count: item.preparingCount,
+                  })}
+                </li>
+                <li>
+                  {t("takeover.stats.failed", { count: item.failedCount })}
+                </li>
+                <li>
+                  {t("takeover.stats.targeted", { count: item.affectedCount })}
+                </li>
+              </ul>
+            </div>
+            {canManage && (
+              <Button
+                variant="destructive"
+                size="sm"
                 type="button"
                 onClick={() => {
-                  if (
-                    !confirm(
-                      "Cancel this takeover and restore current scheduled or fallback playback?",
-                    )
-                  )
-                    return;
-                  const reason = prompt("Optional cancellation reason") ?? "";
-                  cancel.mutate({ id: item.id, reason });
+                  setCancelReason("");
+                  setCanceling({ id: item.id, name: item.name });
                 }}
               >
-                End takeover
-              </button>
-            ) : undefined
-          }
-        >
-          {item.playlistName} is overriding scheduled and fallback content until{" "}
-          {new Date(item.expiresAt).toLocaleString()}.
-          <ul className="takeover-banner__counts">
-            <li>{item.activeCount} playing</li>
-            <li>{item.preparingCount} preparing</li>
-            <li>{item.failedCount} failed</li>
-            <li>{item.affectedCount} targeted</li>
-          </ul>
-        </Notice>
-      ))}
+                {t("takeover.end")}
+              </Button>
+            )}
+          </Alert>
+        ))}
+      </div>
+      <Dialog
+        open={canceling !== null}
+        onOpenChange={(open) => {
+          if (!open) setCanceling(null);
+        }}
+      >
+        <DialogContent>
+          <form
+            className="space-y-5"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (canceling) {
+                cancel.mutate({
+                  id: canceling.id,
+                  reason: cancelReason.trim(),
+                });
+              }
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>
+                {t("takeover.endTitle", { name: canceling?.name ?? "" })}
+              </DialogTitle>
+              <DialogDescription>{t("takeover.endBody")}</DialogDescription>
+            </DialogHeader>
+            <Field className="gap-2">
+              <FieldLabel
+                htmlFor="takeover-cancel-reason"
+                className="text-sm font-medium"
+              >
+                {t("takeover.reasonLabel")}
+              </FieldLabel>
+              <Input
+                id="takeover-cancel-reason"
+                value={cancelReason}
+                maxLength={500}
+                onChange={(event) => setCancelReason(event.target.value)}
+              />
+            </Field>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() => setCanceling(null)}
+              >
+                {t("takeover.keepActive")}
+              </Button>
+              <Button
+                variant="destructive"
+                type="submit"
+                disabled={!canceling || cancel.isPending}
+              >
+                {cancel.isPending ? t("takeover.ending") : t("takeover.end")}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+function FleetHoldButton({
+  holdMs = 3000,
+  onHoldComplete,
+  children,
+  holdingLabel,
+  hint,
+  disabled,
+}: {
+  holdMs?: number;
+  onHoldComplete: () => void;
+  children: ReactNode;
+  holdingLabel?: ReactNode;
+  hint?: ReactNode;
+  disabled?: boolean;
+}) {
+  const [progress, setProgress] = useState(0);
+  const [holding, setHolding] = useState(false);
+  const frame = useRef<number | null>(null);
+  const hintId = useId();
+
+  const stop = useCallback(() => {
+    if (frame.current !== null) cancelAnimationFrame(frame.current);
+    frame.current = null;
+    setHolding(false);
+    setProgress(0);
+  }, []);
+  useEffect(() => stop, [stop]);
+
+  const start = useCallback(() => {
+    if (disabled || frame.current !== null) return;
+    const started = performance.now();
+    setHolding(true);
+    const tick = () => {
+      const ratio = Math.min(1, (performance.now() - started) / holdMs);
+      setProgress(ratio);
+      if (ratio < 1) {
+        frame.current = requestAnimationFrame(tick);
+        return;
+      }
+      frame.current = null;
+      setHolding(false);
+      setProgress(0);
+      onHoldComplete();
+    };
+    frame.current = requestAnimationFrame(tick);
+  }, [disabled, holdMs, onHoldComplete]);
+
+  return (
+    <div className="grid justify-items-start gap-1.5">
+      <Button
+        variant="destructive"
+        type="button"
+        disabled={disabled}
+        aria-describedby={hint ? hintId : undefined}
+        className="relative isolate overflow-hidden"
+        onPointerDown={(event) => {
+          if (event.button === 0) start();
+        }}
+        onPointerUp={stop}
+        onPointerCancel={stop}
+        onPointerLeave={stop}
+        onBlur={stop}
+        onKeyDown={(event) => {
+          if (event.key !== " " && event.key !== "Enter") return;
+          event.preventDefault();
+          start();
+        }}
+        onKeyUp={(event) => {
+          if (event.key === " " || event.key === "Enter") stop();
+        }}
+      >
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 left-0 -z-10 bg-destructive/20"
+          style={{ width: `${progress * 100}%` }}
+        />
+        {holding && holdingLabel ? holdingLabel : children}
+      </Button>
+      {hint && (
+        <span id={hintId} className="text-xs text-muted-foreground">
+          {hint}
+        </span>
+      )}
     </div>
   );
 }
 
+const takeoverExpiryOptions = [
+  { value: "15", labelKey: "takeover.expiry.minutes15" },
+  { value: "60", labelKey: "takeover.expiry.hour1" },
+  { value: "240", labelKey: "takeover.expiry.hours4" },
+  { value: "1440", labelKey: "takeover.expiry.hours24" },
+] as const;
+
 function TakeoverAction({ screens }: { screens: Screen[] }) {
+  const { t } = useTranslation(["screens", "common"]);
   const auth = useAuth();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [confirmationOpen, setConfirmationOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const [activationPassword, setActivationPassword] = useState("");
   const [name, setName] = useState("");
   const [playlistId, setPlaylistId] = useState("");
   const [screenIds, setScreenIds] = useState<string[]>([]);
@@ -491,7 +944,11 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
         auth.status?.csrfToken ?? "",
       ),
     onSuccess: async () => {
+      toast.add({ title: "Takeover started.", type: "success" });
       setOpen(false);
+      setPasswordOpen(false);
+      setConfirmationOpen(false);
+      setActivationPassword("");
       setName("");
       setPlaylistId("");
       setScreenIds([]);
@@ -511,200 +968,339 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
   const ready = Boolean(
     name && playlistId && (screenIds.length > 0 || groupIds.length > 0),
   );
-  const beginActivation = (confirmed: boolean) => {
-    const requiresPassword = Boolean(
-      runtimeSettings.data?.values["takeover.reauthentication_required"],
-    );
-    const password = requiresPassword
-      ? (prompt("Confirm your current password") ?? "")
-      : "";
-    if (requiresPassword && !password) return;
-    // A completed three-second hold already is the confirmation, so it does not
-    // also raise a dialog.
-    if (
-      confirmed ||
-      confirm(
-        "Activate the selected playlist for these targets? Existing overlapping takeovers will be replaced.",
-      )
-    )
-      activate.mutate(password);
+  const requiresPassword = Boolean(
+    runtimeSettings.data?.values["takeover.reauthentication_required"],
+  );
+  const continueActivation = () => {
+    if (requiresPassword) {
+      setActivationPassword("");
+      setPasswordOpen(true);
+    } else {
+      activate.mutate("");
+    }
+  };
+  const beginActivation = (heldForAllScreens: boolean) => {
+    // A completed three-second hold already confirms a fleet-wide takeover.
+    if (heldForAllScreens) continueActivation();
+    else setConfirmationOpen(true);
   };
   return (
     <>
-      <button
-        className="button button--danger-quiet takeover-trigger"
+      <Button
+        variant="outline"
         type="button"
         aria-haspopup="dialog"
         onClick={() => setOpen(true)}
       >
         <ShieldAlert size={16} aria-hidden="true" />
-        Takeover
+        {t("takeover.title")}
         {activeCount > 0 && (
-          <span className="takeover-trigger__count">{activeCount} active</span>
+          <Badge variant="secondary">
+            {t("takeover.activeBadge", { count: activeCount })}
+          </Badge>
         )}
-      </button>
-      <Dialog
-        open={open}
-        title="Takeover"
-        className="takeover-dialog"
-        onClose={() => setOpen(false)}
-      >
-        <p className="takeover-dialog__lede">
-          Temporarily override schedules and fallback content on the selected
-          screens. Existing overlapping takeovers are replaced.
-        </p>
-        <div className="takeover-form">
-          <label className="field">
-            <span className="field__label">Takeover name</span>
-            <input
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              maxLength={180}
-            />
-          </label>
-          <label className="field">
-            <span className="field__label">Playlist</span>
-            <Select
-              value={playlistId}
-              onChange={(event) => setPlaylistId(event.target.value)}
-            >
-              <option value="">Select playlist</option>
-              {playlists.data?.items?.map((playlist) => (
-                <option key={playlist.id} value={playlist.id}>
-                  {playlist.name}
-                </option>
-              ))}
-            </Select>
-          </label>
-          <label className="field">
-            <span className="field__label">Expires in</span>
-            <Select
-              value={minutes}
-              onChange={(event) => setMinutes(Number(event.target.value))}
-            >
-              <option value={15}>15 minutes</option>
-              <option value={60}>1 hour</option>
-              <option value={240}>4 hours</option>
-              <option value={1440}>24 hours</option>
-            </Select>
-          </label>
-          <fieldset className="takeover-form__targets">
-            <legend>Target screens</legend>
-            <div className="takeover-form__targets-actions">
-              <button
-                className="button button--quiet button--compact"
-                type="button"
-                aria-pressed={everyScreenSelected}
-                disabled={screens.length === 0}
-                onClick={() =>
-                  setScreenIds(
-                    everyScreenSelected ? [] : screens.map((item) => item.id),
-                  )
-                }
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[min(90vh,54rem)] max-w-3xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{t("takeover.title")}</DialogTitle>
+            <DialogDescription>{t("takeover.dialogBody")}</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <Field className="gap-2">
+              <FieldLabel
+                htmlFor="takeover-name"
+                className="text-sm font-medium"
               >
-                All screens
-              </button>
-              <span>
-                {screens.length} screen{screens.length === 1 ? "" : "s"} in the
-                fleet
-              </span>
-            </div>
-            <div>
-              {screens.map((item) => (
-                <label className="checkbox-control" key={item.id}>
-                  <input
-                    type="checkbox"
-                    checked={screenIds.includes(item.id)}
-                    onChange={(event) =>
-                      setScreenIds((ids) =>
-                        event.target.checked
-                          ? [...ids, item.id]
-                          : ids.filter((id) => id !== item.id),
-                      )
-                    }
+                {t("takeover.nameLabel")}
+              </FieldLabel>
+              <Input
+                id="takeover-name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                maxLength={180}
+              />
+            </Field>
+            <Field className="gap-2">
+              <FieldLabel
+                htmlFor="takeover-playlist"
+                className="text-sm font-medium"
+              >
+                {t("takeover.playlistLabel")}
+              </FieldLabel>
+              <Select
+                items={(playlists.data?.items ?? []).map((playlist) => ({
+                  value: playlist.id,
+                  label: playlist.name,
+                }))}
+                value={playlistId || null}
+                onValueChange={(value) => setPlaylistId(value ?? "")}
+              >
+                <SelectTrigger id="takeover-playlist" className="w-full">
+                  <SelectValue
+                    placeholder={t("takeover.playlistPlaceholder")}
                   />
-                  <span>
-                    {item.name}
-                    <small>{statusLabel(item.status)}</small>
-                  </span>
-                </label>
-              ))}
+                </SelectTrigger>
+                <SelectContent>
+                  {playlists.data?.items?.map((playlist) => (
+                    <SelectItem key={playlist.id} value={playlist.id}>
+                      {playlist.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field className="gap-2">
+              <FieldLabel
+                htmlFor="takeover-duration"
+                className="text-sm font-medium"
+              >
+                {t("takeover.expiresLabel")}
+              </FieldLabel>
+              <Select
+                items={takeoverExpiryOptions.map((option) => ({
+                  value: option.value,
+                  label: t(option.labelKey),
+                }))}
+                value={String(minutes)}
+                onValueChange={(value) => {
+                  if (value) setMinutes(Number(value));
+                }}
+              >
+                <SelectTrigger id="takeover-duration" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {takeoverExpiryOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {t(option.labelKey)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <fieldset className="grid gap-3 border-t border-border pt-4">
+              <legend className="text-sm font-semibold">
+                {t("takeover.targetScreens")}
+              </legend>
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  aria-pressed={everyScreenSelected}
+                  disabled={screens.length === 0}
+                  onClick={() =>
+                    setScreenIds(
+                      everyScreenSelected ? [] : screens.map((item) => item.id),
+                    )
+                  }
+                >
+                  {t("takeover.allScreens")}
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  {t("takeover.fleetCount", { count: screens.length })}
+                </span>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {screens.map((item) => (
+                  <label
+                    className="flex min-w-0 items-start gap-2 rounded-lg border border-border px-3 py-2 text-sm"
+                    key={item.id}
+                  >
+                    <Checkbox
+                      className="mt-0.5"
+                      checked={screenIds.includes(item.id)}
+                      onCheckedChange={(checked) =>
+                        setScreenIds((ids) =>
+                          checked
+                            ? [...ids, item.id]
+                            : ids.filter((id) => id !== item.id),
+                        )
+                      }
+                    />
+                    <span className="grid min-w-0 gap-0.5">
+                      {item.name}
+                      <small className="text-xs text-muted-foreground">
+                        {statusLabel(item.status, t)}
+                      </small>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <fieldset className="grid gap-3 border-t border-border pt-4">
+              <legend className="text-sm font-semibold">
+                {t("takeover.targetGroups")}
+              </legend>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {groups.data?.items?.map((group) => (
+                  <label
+                    className="flex min-w-0 items-start gap-2 rounded-lg border border-border px-3 py-2 text-sm"
+                    key={group.id}
+                  >
+                    <Checkbox
+                      className="mt-0.5"
+                      checked={groupIds.includes(group.id)}
+                      onCheckedChange={(checked) =>
+                        setGroupIds((ids) =>
+                          checked
+                            ? [...ids, group.id]
+                            : ids.filter((id) => id !== group.id),
+                        )
+                      }
+                    />
+                    <span className="grid min-w-0 gap-0.5">
+                      {group.name}
+                      <small className="text-xs text-muted-foreground">
+                        {t("takeover.groupMemberCount", {
+                          count: group.membershipCount,
+                        })}
+                      </small>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          </div>
+          {activate.error && !passwordOpen && (
+            <Alert variant="destructive">
+              <CircleAlert aria-hidden="true" />
+              <AlertTitle>{t("takeover.activateError")}</AlertTitle>
+              <AlertDescription>{activate.error.message}</AlertDescription>
+            </Alert>
+          )}
+          <DialogFooter className="border-t border-border pt-4 sm:justify-between">
+            <p className="text-sm text-muted-foreground sm:mr-auto">
+              {everyScreenSelected ? (
+                <strong>
+                  {t("takeover.summaryAll", { count: screens.length })}
+                </strong>
+              ) : (
+                t("takeover.summarySelected", { count: screenIds.length })
+              )}{" "}
+              {t("takeover.summaryGroups", { count: groupIds.length })}
+              {offlineSelected > 0
+                ? ` ${t("takeover.summaryOffline", { count: offlineSelected })}`
+                : ""}
+              .
+            </p>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() => setOpen(false)}
+              >
+                {t("common:actions.cancel")}
+              </Button>
+              {everyScreenSelected ? (
+                <FleetHoldButton
+                  holdMs={3000}
+                  disabled={!ready || activate.isPending}
+                  holdingLabel={t("takeover.keepHolding")}
+                  hint={t("takeover.holdHint")}
+                  onHoldComplete={() => beginActivation(true)}
+                >
+                  {activate.isPending
+                    ? t("takeover.activating")
+                    : t("takeover.holdToActivate")}
+                </FleetHoldButton>
+              ) : (
+                <Button
+                  variant="destructive"
+                  type="button"
+                  disabled={!ready || activate.isPending}
+                  onClick={() => beginActivation(false)}
+                >
+                  {activate.isPending
+                    ? t("takeover.activating")
+                    : t("takeover.activate")}
+                </Button>
+              )}
             </div>
-          </fieldset>
-          <fieldset className="takeover-form__targets">
-            <legend>Target Display Groups</legend>
-            <div>
-              {groups.data?.items?.map((group) => (
-                <label className="checkbox-control" key={group.id}>
-                  <input
-                    type="checkbox"
-                    checked={groupIds.includes(group.id)}
-                    onChange={(event) =>
-                      setGroupIds((ids) =>
-                        event.target.checked
-                          ? [...ids, group.id]
-                          : ids.filter((id) => id !== group.id),
-                      )
-                    }
-                  />
-                  <span>
-                    {group.name}
-                    <small>{group.membershipCount} screens</small>
-                  </span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
-        </div>
-        <footer className="takeover-dialog__footer">
-          <p>
-            {everyScreenSelected ? (
-              <strong>
-                Every screen in the fleet ({screens.length}) is selected
-              </strong>
-            ) : (
-              `${screenIds.length} screen${screenIds.length === 1 ? "" : "s"} selected`
-            )}{" "}
-            and {groupIds.length} Display Group
-            {groupIds.length === 1 ? "" : "s"} selected
-            {offlineSelected > 0
-              ? ` · ${offlineSelected} selected screen${offlineSelected === 1 ? " is" : "s are"} not online`
-              : ""}
-            .
-          </p>
-          <div className="takeover-dialog__actions">
-            <button
-              className="button button--quiet"
-              type="button"
-              onClick={() => setOpen(false)}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <AlertDialog open={confirmationOpen} onOpenChange={setConfirmationOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("takeover.confirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("takeover.confirmBody")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("takeover.reviewTargets")}</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                setConfirmationOpen(false);
+                continueActivation();
+              }}
             >
-              Cancel
-            </button>
-            {everyScreenSelected ? (
-              <HoldButton
-                className="button--danger"
-                holdMs={3000}
-                disabled={!ready || activate.isPending}
-                holdingLabel="Keep holding…"
-                hint="Hold for 3 seconds to take over every screen."
-                onHoldComplete={() => beginActivation(true)}
+              {t("takeover.activate")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <Dialog open={passwordOpen} onOpenChange={setPasswordOpen}>
+        <DialogContent>
+          <form
+            className="space-y-5"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!activationPassword) return;
+              activate.mutate(activationPassword);
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>{t("takeover.passwordTitle")}</DialogTitle>
+              <DialogDescription>
+                {t("takeover.passwordBody")}
+              </DialogDescription>
+            </DialogHeader>
+            <Field className="gap-2">
+              <FieldLabel
+                htmlFor="takeover-current-password"
+                className="text-sm font-medium"
+              >
+                {t("takeover.currentPassword")}
+              </FieldLabel>
+              <Input
+                id="takeover-current-password"
+                type="password"
+                autoComplete="current-password"
+                autoFocus
+                value={activationPassword}
+                onChange={(event) => setActivationPassword(event.target.value)}
+              />
+            </Field>
+            {activate.error && (
+              <Alert variant="destructive">
+                <CircleAlert aria-hidden="true" />
+                <AlertTitle>{t("takeover.activateError")}</AlertTitle>
+                <AlertDescription>{activate.error.message}</AlertDescription>
+              </Alert>
+            )}
+            <DialogFooter>
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() => setPasswordOpen(false)}
+              >
+                {t("common:actions.cancel")}
+              </Button>
+              <Button
+                type="submit"
+                disabled={!activationPassword || activate.isPending}
               >
                 {activate.isPending
-                  ? "Activating…"
-                  : "Hold to activate takeover"}
-              </HoldButton>
-            ) : (
-              <button
-                className="button button--danger"
-                type="button"
-                disabled={!ready || activate.isPending}
-                onClick={() => beginActivation(false)}
-              >
-                {activate.isPending ? "Activating…" : "Activate takeover"}
-              </button>
-            )}
-          </div>
-        </footer>
+                  ? t("takeover.activating")
+                  : t("takeover.confirmAction")}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
       </Dialog>
     </>
   );
@@ -727,8 +1323,8 @@ export function ScreenListContent({
   csrfToken?: string;
   onRefresh?: () => Promise<unknown>;
 }) {
-  const navigate = useNavigate();
-  const menu = useContextMenu<Screen>();
+  const { t } = useTranslation(["screens", "common"]);
+  const formatLocale = useFormatLocale();
   const [search, setSearch] = useStoredState<string>(
     "tilecast.screens.search",
     "",
@@ -845,8 +1441,8 @@ export function ScreenListContent({
     update,
   ]);
   const visibleGroups = useMemo(
-    () => buildScreenGroups(filtered, groupBy, sort),
-    [filtered, groupBy, sort],
+    () => buildScreenGroups(filtered, groupBy, sort, t, formatLocale),
+    [filtered, formatLocale, groupBy, sort, t],
   );
   // Only the filters put away inside "More filters" are chipped. Search, status,
   // location, platform, and now playing each show their own value in the toolbar
@@ -855,20 +1451,23 @@ export function ScreenListContent({
     [];
   if (syncGroup)
     chippedFilters.push({
-      facet: "Display Group",
-      value: syncGroupFilterLabel(syncGroup, screens),
+      facet: t("list.groupFilter"),
+      value: syncGroupFilterLabel(syncGroup, screens, t),
       remove: () => setSyncGroup(""),
     });
   if (orientation)
     chippedFilters.push({
-      facet: "Orientation",
-      value: orientation === "portrait" ? "Portrait" : "Landscape",
+      facet: t("list.orientationFilter"),
+      value:
+        orientation === "portrait"
+          ? t("list.orientationOptions.portrait")
+          : t("list.orientationOptions.landscape"),
       remove: () => setOrientation(""),
     });
   if (update)
     chippedFilters.push({
-      facet: "Software update",
-      value: updateLabel(update),
+      facet: t("list.updateFilter"),
+      value: updateLabel(update, t),
       remove: () => setUpdate(""),
     });
   const advancedFilterCount = chippedFilters.length;
@@ -904,11 +1503,28 @@ export function ScreenListContent({
     );
   };
   const restartSelected = async () => {
-    await Promise.all(
-      [...selected].map((id) =>
-        api.createScreenCommand(id, "restart_player_process", {}, csrfToken),
-      ),
-    );
+    const ids = [...selected];
+    try {
+      await toast.promise(
+        Promise.all(
+          ids.map((id) =>
+            api.createScreenCommand(
+              id,
+              "restart_player_process",
+              {},
+              csrfToken,
+            ),
+          ),
+        ),
+        {
+          loading: `Requesting restart for ${ids.length} screens…`,
+          success: `Restart requested for ${ids.length} screens.`,
+          error: "The restart request could not be sent.",
+        },
+      );
+    } catch {
+      return;
+    }
     setSelected(new Set());
   };
   const changeSelectedLocation = async () => {
@@ -933,364 +1549,396 @@ export function ScreenListContent({
     setSelected(new Set());
     await onRefresh?.();
   };
-  const actionsFor = (screen: Screen): ContextMenuItem[] => [
-    {
-      label: "Preview",
-      icon: <Monitor size={15} />,
-      onSelect: () => void navigate(`/screens/${screen.id}`),
-    },
-    {
-      label: "Open details",
-      onSelect: () => void navigate(`/screens/${screen.id}`),
-    },
-    ...(canManage
-      ? [
-          {
-            label: "Restart player",
-            onSelect: () =>
-              void api.createScreenCommand(
-                screen.id,
-                "restart_player_process",
-                {},
-                csrfToken,
-              ),
-          },
-          {
-            label: "Edit",
-            icon: <Pencil size={15} />,
-            onSelect: () => navigate(`/screens/${screen.id}?edit=details`),
-          },
-          {
-            label: "Assign content",
-            onSelect: () => navigate(`/screens/${screen.id}?tab=content`),
-          },
-          {
-            label: "Show now",
-            onSelect: () => navigate(`/screens/${screen.id}?present=1`),
-          },
-          {
-            label: screen.syncGroupId
-              ? "Open Display Group"
-              : "Add to Display Group",
-            onSelect: () =>
-              navigate(
-                screen.syncGroupId
-                  ? `/groups/${screen.syncGroupId}`
-                  : "/groups",
-              ),
-          },
-        ]
-      : []),
-  ];
-  if (loading) return <div className="table-loading">Loading screens…</div>;
+  if (loading)
+    return (
+      <div className="space-y-2" aria-label={t("list.loading")}>
+        {Array.from({ length: 5 }, (_, index) => (
+          <Skeleton key={index} className="h-14 w-full" />
+        ))}
+      </div>
+    );
   if (screens.length === 0)
     return (
-      <section className="screen-empty">
-        <span className="empty-illustration">
-          <Monitor size={29} />
-        </span>
-        <h3>No screens paired</h3>
-        <p>
-          Install Tilecast Player on a TV device, connect it to this server,
-          then enter the pairing code shown on the TV.
-        </p>
-        {canManage ? (
-          <Link className="button button--primary" to="/screens/pair">
-            Pair your first screen
-          </Link>
-        ) : (
-          <p className="permission-note">
-            An Owner or Administrator can approve new screens.
-          </p>
-        )}
-      </section>
+      <Empty className="min-h-56 border-y border-dashed px-5 py-8">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <Monitor aria-hidden="true" />
+          </EmptyMedia>
+          <EmptyTitle role="heading" aria-level={2}>
+            {t("list.emptyTitle")}
+          </EmptyTitle>
+          <EmptyDescription>{t("list.emptyBody")}</EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          {canManage ? (
+            <Link
+              className={buttonVariants({ variant: "default", size: "sm" })}
+              to="/screens/pair"
+            >
+              {t("page.pairScreen")}
+            </Link>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {t("list.emptyManageNote")}
+            </p>
+          )}
+        </EmptyContent>
+      </Empty>
     );
   return (
-    <section className="screen-workspace" aria-label="Paired screens">
+    <section className="min-w-0 space-y-4" aria-label={t("list.sectionLabel")}>
       <ScreenSummary screens={screens} status={status} onStatus={setStatus} />
-      {/* One controls block, three deliberate bands: filters on the left, presentation
-          utilities right-aligned, then the active-filter chips underneath. Filtering and
-          presentation used to be interleaved, which is why the row order matters here. */}
-      <div className="screen-controls">
+      <div className="space-y-3">
         <div
-          className="screen-toolbar"
+          className="flex flex-wrap items-center gap-2"
           role="group"
-          aria-label="Filter screens"
+          aria-label={t("list.filterGroup")}
         >
-          <label className="screen-search">
-            <Search size={16} aria-hidden="true" />
-            <span className="visually-hidden">Filter screens</span>
-            <input
-              type="search"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Name, room, location, or content"
-            />
-          </label>
-          <FilterSelect label="Status" value={status} onChange={setStatus}>
-            <option value="">All statuses</option>
-            <option value="online">Online</option>
-            <option value="offline">Offline</option>
-            <option value="attention">Needs attention</option>
-            <option value="updating">Updating</option>
-            <option value="syncing">Syncing</option>
-          </FilterSelect>
-          <FilterSelect
-            label="Location"
-            value={location}
-            onChange={setLocation}
-          >
-            <option value="">All locations</option>
-            {locationItems.map((item) => (
-              <option value={item.id} key={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </FilterSelect>
-          <FilterSelect
-            label="Platform"
-            value={platform}
-            onChange={setPlatform}
-          >
-            <option value="">All platforms</option>
-            {[...new Set(screens.map((item) => item.platform))]
-              .sort()
-              .map((item) => (
-                <option value={item} key={item}>
-                  {platformLabel(item)}
-                </option>
-              ))}
-          </FilterSelect>
-          <FilterSelect
-            label="Now playing"
-            value={playing}
-            onChange={setPlaying}
-          >
-            <option value="">Any content</option>
-            <option value="presentation">Presentation</option>
-            <option value="playlist">Playlist</option>
-            <option value="nothing">Nothing assigned</option>
-          </FilterSelect>
-          <Popover
-            label="More screen filters"
-            className="screen-more-filters"
-            width="16rem"
-            align="end"
-            trigger={(props) => (
-              <button
-                type="button"
-                className="signal-popover__filter-trigger"
-                {...props}
-              >
-                <SlidersHorizontal size={15} aria-hidden="true" />
-                More filters
-                {advancedFilterCount > 0 && (
-                  <span className="signal-popover__count">
-                    {advancedFilterCount}
-                  </span>
-                )}
-              </button>
-            )}
-          >
-            <FilterSelect
-              label="Display Group"
-              value={syncGroup}
-              onChange={setSyncGroup}
-              block
-            >
-              <option value="">All screens</option>
-              <option value="any">In any Display Group</option>
-              <option value="none">Not in a Display Group</option>
-              {[
-                ...new Map(
-                  screens
-                    .filter((item) => item.syncGroupId)
-                    .map((item) => [item.syncGroupId, item.syncGroupName]),
-                ).entries(),
-              ].map(([id, name]) => (
-                <option value={id} key={id}>
-                  {name}
-                </option>
-              ))}
-            </FilterSelect>
-            <FilterSelect
-              label="Orientation"
-              value={orientation}
-              onChange={setOrientation}
-              block
-            >
-              <option value="">Any orientation</option>
-              <option value="landscape">Landscape</option>
-              <option value="portrait">Portrait</option>
-            </FilterSelect>
-            <FilterSelect
-              label="Software update"
-              value={update}
-              onChange={setUpdate}
-              block
-            >
-              <option value="">Any update status</option>
-              <option value="current">Current</option>
-              <option value="downloading">Downloading</option>
-              <option value="attention">Needs attention</option>
-            </FilterSelect>
-          </Popover>
-        </div>
-        {anyFilterActive && (
-          <div className="screen-filter-chips">
-            <span className="screen-filter-chips__label">
-              {filtered.length} of {screens.length} screens
-            </span>
-            {chippedFilters.map((filter) => (
-              <button
-                type="button"
-                className="filter-chip"
-                key={filter.facet}
-                aria-label={`Remove filter ${filter.facet}: ${filter.value}`}
-                onClick={filter.remove}
-              >
-                <strong>{filter.facet}:</strong>
-                <span>{filter.value}</span>
-                <X size={13} aria-hidden="true" />
-              </button>
-            ))}
-            <button
-              type="button"
-              className="screen-filter-clear"
-              onClick={clearFilters}
-            >
-              Clear all
-            </button>
-          </div>
-        )}
-        <div
-          className="screen-view-controls"
-          role="group"
-          aria-label="Presentation"
-        >
-          <FilterSelect label="Group by" value={groupBy} onChange={setGroupBy}>
-            <option value="location">Group by location</option>
-            <option value="status">Group by status</option>
-            <option value="sync">Group by Display Group</option>
-            <option value="none">No grouping</option>
-          </FilterSelect>
-          <FilterSelect label="Sort" value={sort} onChange={setSort}>
-            <option value="name-asc">Screen name · A–Z</option>
-            <option value="name-desc">Screen name · Z–A</option>
-            <option value="location-asc">Location · A–Z</option>
-            <option value="status-asc">Status</option>
-            <option value="contact-desc">Last contact · newest</option>
-            <option value="contact-asc">Last contact · oldest</option>
-            <option value="added-desc">Date added · newest</option>
-            <option value="platform-asc">Platform</option>
-          </FilterSelect>
-          <ToggleGroup
-            label="Screen view"
-            value={view}
-            onValueChange={setView}
-            items={[
-              {
-                value: "table",
-                label: (
-                  <>
-                    <List size={16} aria-hidden="true" /> Table
-                  </>
-                ),
-              },
-              {
-                value: "grid",
-                label: (
-                  <>
-                    <Grid2X2 size={16} aria-hidden="true" /> Previews
-                  </>
-                ),
-              },
+          <DashboardSearch
+            value={search}
+            onValueChange={setSearch}
+            label={t("list.searchLabel")}
+            placeholder={t("list.searchPlaceholder")}
+          />
+          <FleetFilterSelect
+            label={t("list.statusFilter")}
+            value={status}
+            onChange={setStatus}
+            options={[
+              { value: "", label: t("list.statusOptions.all") },
+              { value: "online", label: t("status.online") },
+              { value: "offline", label: t("status.offline") },
+              { value: "attention", label: t("status.attention") },
+              { value: "updating", label: t("status.updating") },
+              { value: "syncing", label: t("status.syncing") },
             ]}
           />
+          <FleetFilterSelect
+            label={t("list.locationFilter")}
+            value={location}
+            onChange={setLocation}
+            options={[
+              { value: "", label: t("list.allLocations") },
+              ...locationItems.map((item) => ({
+                value: item.id,
+                label: item.name,
+              })),
+            ]}
+          />
+          <FleetFilterSelect
+            label={t("list.platformFilter")}
+            value={platform}
+            onChange={setPlatform}
+            options={[
+              { value: "", label: t("list.allPlatforms") },
+              ...[...new Set(screens.map((item) => item.platform))]
+                .sort()
+                .map((item) => ({
+                  value: item,
+                  label: platformLabel(item, t),
+                })),
+            ]}
+          />
+          <FleetFilterSelect
+            label={t("list.playingFilter")}
+            value={playing}
+            onChange={setPlaying}
+            options={[
+              { value: "", label: t("list.playingOptions.any") },
+              {
+                value: "presentation",
+                label: t("list.playingOptions.presentation"),
+              },
+              { value: "playlist", label: t("list.playingOptions.playlist") },
+              { value: "nothing", label: t("shared.nothingAssigned") },
+            ]}
+          />
+          <Popover>
+            <PopoverTrigger
+              render={<Button variant="outline" />}
+              aria-label={
+                advancedFilterCount > 0
+                  ? t("list.moreFiltersActive", {
+                      count: advancedFilterCount,
+                    })
+                  : t("list.moreFiltersLabel")
+              }
+            >
+              <SlidersHorizontal aria-hidden="true" /> {t("list.moreFilters")}
+              {advancedFilterCount > 0 && (
+                <Badge variant="secondary">{advancedFilterCount}</Badge>
+              )}
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-72 gap-3">
+              <h3 className="text-sm font-medium">{t("list.moreFilters")}</h3>
+              <FleetFilterSelect
+                label={t("list.groupFilter")}
+                value={syncGroup}
+                onChange={setSyncGroup}
+                className="w-full"
+                options={[
+                  { value: "", label: t("list.syncOptions.all") },
+                  { value: "any", label: t("list.syncOptions.any") },
+                  { value: "none", label: t("list.syncOptions.none") },
+                  ...[
+                    ...new Map(
+                      screens
+                        .filter((item) => item.syncGroupId)
+                        .map(
+                          (item) =>
+                            [
+                              item.syncGroupId ?? "",
+                              item.syncGroupName ??
+                                t("list.syncOptions.fallback"),
+                            ] as const,
+                        ),
+                    ).entries(),
+                  ].map(([id, name]) => ({ value: id, label: name })),
+                ]}
+              />
+              <FleetFilterSelect
+                label={t("list.orientationFilter")}
+                value={orientation}
+                onChange={setOrientation}
+                className="w-full"
+                options={[
+                  { value: "", label: t("list.orientationOptions.any") },
+                  {
+                    value: "landscape",
+                    label: t("list.orientationOptions.landscape"),
+                  },
+                  {
+                    value: "portrait",
+                    label: t("list.orientationOptions.portrait"),
+                  },
+                ]}
+              />
+              <FleetFilterSelect
+                label={t("list.updateFilter")}
+                value={update}
+                onChange={setUpdate}
+                className="w-full"
+                options={[
+                  { value: "", label: t("list.updateOptions.any") },
+                  { value: "current", label: t("list.updateOptions.current") },
+                  {
+                    value: "downloading",
+                    label: t("list.updateOptions.downloading"),
+                  },
+                  { value: "attention", label: t("status.attention") },
+                ]}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {anyFilterActive ? (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="mr-1 text-xs text-muted-foreground">
+                {t("list.resultCount", {
+                  filtered: filtered.length,
+                  total: screens.length,
+                })}
+              </span>
+              {chippedFilters.map((filter) => (
+                <Badge
+                  key={filter.facet}
+                  variant="secondary"
+                  className="gap-1.5"
+                >
+                  <span>
+                    {filter.facet}: {filter.value}
+                  </span>
+                  <Button
+                    type="button"
+                    aria-label={t("list.removeFilter", {
+                      facet: filter.facet,
+                      value: filter.value,
+                    })}
+                    onClick={filter.remove}
+                    variant="ghost"
+                    size="icon-xs"
+                    className="rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <X className="size-3" aria-hidden="true" />
+                  </Button>
+                </Badge>
+              ))}
+              <Button variant="ghost" size="xs" onClick={clearFilters}>
+                {t("list.clearFilters")}
+              </Button>
+            </div>
+          ) : (
+            <span />
+          )}
+
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <FleetFilterSelect
+              label={t("list.groupBy")}
+              value={groupBy}
+              onChange={setGroupBy}
+              options={[
+                { value: "location", label: t("list.groupOptions.location") },
+                { value: "status", label: t("list.groupOptions.status") },
+                { value: "sync", label: t("list.groupOptions.sync") },
+                { value: "none", label: t("list.groupOptions.none") },
+              ]}
+            />
+            <FleetFilterSelect
+              label={t("list.sortLabel")}
+              className="w-52 max-sm:flex-1"
+              value={sort}
+              onChange={setSort}
+              options={[
+                { value: "name-asc", label: t("list.sortOptions.nameAsc") },
+                { value: "name-desc", label: t("list.sortOptions.nameDesc") },
+                {
+                  value: "location-asc",
+                  label: t("list.sortOptions.locationAsc"),
+                },
+                { value: "status-asc", label: t("list.sortOptions.status") },
+                {
+                  value: "contact-desc",
+                  label: t("list.sortOptions.contactDesc"),
+                },
+                {
+                  value: "contact-asc",
+                  label: t("list.sortOptions.contactAsc"),
+                },
+                { value: "added-desc", label: t("list.sortOptions.addedDesc") },
+                {
+                  value: "platform-asc",
+                  label: t("list.sortOptions.platform"),
+                },
+              ]}
+            />
+            <ToggleGroup
+              value={[view]}
+              multiple={false}
+              onValueChange={(values) => {
+                const selectedView = values[0];
+                if (selectedView === "table" || selectedView === "grid") {
+                  setView(selectedView);
+                }
+              }}
+              aria-label={t("list.viewLabel")}
+              variant="outline"
+              spacing={0}
+            >
+              <ToggleGroupItem value="table" aria-label={t("list.tableView")}>
+                <List aria-hidden="true" />
+              </ToggleGroupItem>
+              <ToggleGroupItem value="grid" aria-label={t("list.gridView")}>
+                <Grid2X2 aria-hidden="true" />
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
         </div>
       </div>
       {view === "grid" && (
-        <p className="screen-results-hint">
-          Previews show the latest snapshot reported by each player and refresh
-          about every 30 seconds.
-        </p>
+        <p className="text-xs text-muted-foreground">{t("list.gridHint")}</p>
       )}
       {selected.size > 0 && canManage && (
-        <div className="screen-bulk-bar">
-          <strong>{selected.size} selected</strong>
-          <button type="button" onClick={() => void restartSelected()}>
-            Restart
-          </button>
-          <FilterSelect
-            label="Move selected screens to location"
+        <div className="flex flex-wrap items-center gap-2 border-l-2 border-primary bg-muted/50 px-3 py-2">
+          <strong className="mr-2 text-sm">
+            {t("list.selectedCount", { count: selected.size })}
+          </strong>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void restartSelected()}
+          >
+            <RefreshCw aria-hidden="true" /> {t("list.restart")}
+          </Button>
+          <FleetFilterSelect
+            label={t("list.moveToLocation")}
             value={bulkLocation}
             onChange={setBulkLocation}
+            options={[
+              { value: "", label: t("shared.unassigned") },
+              ...locationItems.map((item) => ({
+                value: item.id,
+                label: item.name,
+              })),
+            ]}
+          />
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => void changeSelectedLocation()}
           >
-            <option value="">Unassigned</option>
-            {locationItems.map((item) => (
-              <option value={item.id} key={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </FilterSelect>
-          <button type="button" onClick={() => void changeSelectedLocation()}>
-            Change location
-          </button>
-          <button type="button" onClick={() => setSelected(new Set())}>
-            Clear selection
-          </button>
+            {t("list.moveAction")}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSelected(new Set())}
+          >
+            {t("list.clearSelection")}
+          </Button>
         </div>
       )}
       {locationsError && (
-        <div className="notice notice--error">
-          Location data failed to load. Screen names remain available.
-        </div>
+        <Alert variant="destructive">
+          <CircleAlert aria-hidden="true" />
+          <AlertTitle>{t("list.locationsError")}</AlertTitle>
+          <AlertDescription>{t("list.locationsErrorBody")}</AlertDescription>
+        </Alert>
       )}
       {filtered.length === 0 ? (
-        <div className="screen-empty screen-empty--compact">
-          <Search size={24} />
-          <h3>No screens match the current filters</h3>
-          <p>Remove one or more filters to see screens again.</p>
-          <button
-            className="button button--quiet"
-            type="button"
-            onClick={clearFilters}
-          >
-            Clear filters
-          </button>
-        </div>
+        <Empty className="min-h-48 border-y border-dashed px-4 py-7">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Search aria-hidden="true" />
+            </EmptyMedia>
+            <EmptyTitle>{t("list.noMatchTitle")}</EmptyTitle>
+            <EmptyDescription>{t("list.noMatchBody")}</EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button variant="outline" size="sm" onClick={clearFilters}>
+              {t("list.clearFilters")}
+            </Button>
+          </EmptyContent>
+        </Empty>
       ) : visibleGroups.every((group) => collapsed.has(group.key)) ? (
-        <div className="screen-empty screen-empty--compact">
-          <h3>All groups are collapsed</h3>
-          <button
-            className="button button--quiet"
-            type="button"
-            onClick={() => {
-              setCollapsed(new Set());
-              storageSet("session", "tilecast.screens.collapsed", "[]");
-            }}
-          >
-            Expand all groups
-          </button>
-        </div>
+        <Empty className="min-h-40 border-y border-dashed py-6">
+          <EmptyHeader>
+            <EmptyTitle>{t("list.allCollapsed")}</EmptyTitle>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setCollapsed(new Set());
+                storageSet("session", "tilecast.screens.collapsed", "[]");
+              }}
+            >
+              {t("list.expandAll")}
+            </Button>
+          </EmptyContent>
+        </Empty>
       ) : (
-        <div className={`screen-results screen-results--${view}`}>
+        <div className="space-y-4">
           {visibleGroups.map((group) => {
             const isCollapsed = collapsed.has(group.key);
             const groupSelected = group.screens.every((screen) =>
               selected.has(screen.id),
             );
             return (
-              <section className="screen-location-group" key={group.key}>
+              <section className="min-w-0 space-y-2" key={group.key}>
                 {groupBy !== "none" && (
-                  <header className="screen-group-header">
-                    {/* The disclosure comes first so the chevron reads as "open this
-                        group" rather than as a menu or a sort control on the title. */}
-                    <button
-                      className="screen-group-header__disclosure"
-                      type="button"
+                  <header className="flex flex-wrap items-center gap-2 border-b border-border py-2">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
                       aria-expanded={!isCollapsed}
-                      aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${group.label}`}
+                      aria-label={
+                        isCollapsed
+                          ? t("list.expandGroup", { label: group.label })
+                          : t("list.collapseGroup", { label: group.label })
+                      }
                       onClick={() => toggleCollapsed(group.key)}
                     >
                       {isCollapsed ? (
@@ -1298,73 +1946,55 @@ export function ScreenListContent({
                       ) : (
                         <ChevronDown size={16} aria-hidden="true" />
                       )}
-                    </button>
+                    </Button>
                     {canManage && (
-                      <input
-                        type="checkbox"
-                        aria-label={`Select all screens in ${group.label}`}
+                      <Checkbox
+                        aria-label={t("list.selectGroup", {
+                          label: group.label,
+                        })}
                         checked={groupSelected}
-                        onChange={(event) => {
+                        onCheckedChange={(checked) => {
                           const next = new Set(selected);
                           for (const screen of group.screens) {
-                            if (event.target.checked) next.add(screen.id);
+                            if (checked === true) next.add(screen.id);
                             else next.delete(screen.id);
                           }
                           setSelected(next);
                         }}
                       />
                     )}
-                    <span className="screen-group-header__title">
-                      <strong>{group.label}</strong>
-                      <span className="screen-group-header__count">
-                        {group.screens.length}
-                        <span className="visually-hidden">
-                          {" "}
-                          screen{group.screens.length === 1 ? "" : "s"}
+                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+                      <strong className="truncate text-sm">
+                        {group.label}
+                      </strong>
+                      <Badge variant="secondary">{group.screens.length}</Badge>
+                      {group.description && (
+                        <span className="text-xs text-muted-foreground">
+                          {group.description}
                         </span>
-                      </span>
-                      {group.description && <small>{group.description}</small>}
-                    </span>
+                      )}
+                    </div>
                     <GroupHealth screens={group.screens} />
                   </header>
                 )}
                 {!isCollapsed && view === "table" && (
-                  <div className="screen-table">
-                    {/* "Actions" and the selection column carry visually hidden
-                        labels: their text used to be wider than the columns that
-                        hold them, which clipped the heading at desktop width. */}
-                    <div className="screen-table__header">
-                      <span>
-                        <span className="visually-hidden">Select</span>
-                      </span>
-                      <span>Screen</span>
-                      <span>Now playing</span>
-                      <span>Status</span>
-                      <span>
-                        <span className="visually-hidden">Actions</span>
-                      </span>
-                    </div>
-                    {group.screens.map((screen) => (
-                      <ScreenTableRow
-                        key={screen.id}
-                        screen={screen}
-                        selected={selected.has(screen.id)}
-                        canManage={canManage}
-                        showLocation={groupBy !== "location"}
-                        onSelect={(checked) => {
-                          const next = new Set(selected);
-                          if (checked) next.add(screen.id);
-                          else next.delete(screen.id);
-                          setSelected(next);
-                        }}
-                        onOpen={() => void navigate(`/screens/${screen.id}`)}
-                        onMenu={(event) => menu.open(event, screen)}
-                      />
-                    ))}
+                  <div className="min-w-0">
+                    <ScreenFleetTable
+                      screens={group.screens}
+                      canManage={canManage}
+                      selectedIds={selected}
+                      csrfToken={csrfToken}
+                      onSelectionChange={(id, checked) => {
+                        const next = new Set(selected);
+                        if (checked) next.add(id);
+                        else next.delete(id);
+                        setSelected(next);
+                      }}
+                    />
                   </div>
                 )}
                 {!isCollapsed && view === "grid" && (
-                  <div className="screen-grid">
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(17.5rem,1fr))] gap-4 pt-3">
                     {group.screens.map((screen) => (
                       <ScreenGridCard
                         key={screen.id}
@@ -1379,8 +2009,6 @@ export function ScreenListContent({
                           else next.delete(screen.id);
                           setSelected(next);
                         }}
-                        onOpen={() => void navigate(`/screens/${screen.id}`)}
-                        onMenu={(event) => menu.open(event, screen)}
                       />
                     ))}
                   </div>
@@ -1389,15 +2017,6 @@ export function ScreenListContent({
             );
           })}
         </div>
-      )}
-      {menu.anchor && (
-        <ContextMenu
-          x={menu.anchor.x}
-          y={menu.anchor.y}
-          label={`Actions for ${menu.anchor.target.name}`}
-          items={actionsFor(menu.anchor.target)}
-          onClose={menu.close}
-        />
       )}
     </section>
   );
@@ -1434,27 +2053,48 @@ function storageSet(kind: "local" | "session", key: string, value: string) {
   }
 }
 
-function FilterSelect({
+const noFleetFilter = "__tilecast_all__";
+
+function FleetFilterSelect({
   label,
   value,
   onChange,
-  block,
-  children,
+  options,
+  className,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
-  block?: boolean;
-  children: ReactNode;
+  options: readonly { value: string; label: string }[];
+  className?: string;
 }) {
+  const selectedValue = value || noFleetFilter;
+  const items = options.map((option) => ({
+    value: option.value || noFleetFilter,
+    label: option.label,
+  }));
+
   return (
     <Select
-      className={`screen-filter-select${block ? " screen-filter-select--block" : ""}`}
-      aria-label={label}
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
+      items={items}
+      value={selectedValue}
+      onValueChange={(next) =>
+        onChange(!next || next === noFleetFilter ? "" : next)
+      }
     >
-      {children}
+      <SelectTrigger
+        aria-label={label}
+        className={className ?? "w-40 max-sm:flex-1"}
+      >
+        <SelectValue placeholder={label} />
+      </SelectTrigger>
+      <SelectContent>
+        {items.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
     </Select>
   );
 }
@@ -1468,104 +2108,115 @@ function ScreenSummary({
   status: string;
   onStatus: (value: string) => void;
 }) {
+  const { t } = useTranslation("screens");
   const online = screens.filter((item) => item.status === "online").length;
   const attention = screens.filter(needsAttention).length;
   const locations = new Set(
     screens.map((item) => item.locationId).filter(Boolean),
   ).size;
-  // .summary-bar is the shared segmented metric readout. In a tile the count reads
-  // as a measure rather than the sentence "0 need attention" ever did.
   return (
     <div
-      className="summary-bar screen-summary"
+      className="flex flex-wrap items-center gap-x-2 gap-y-1 border-y border-border py-2"
       role="group"
-      aria-label="Fleet summary"
+      aria-label={t("list.summaryGroup")}
     >
-      <div className="summary-bar__item">
-        <strong>{screens.length}</strong> <span>Screens</span>
-      </div>
-      <button
-        className="summary-bar__item"
-        type="button"
+      <span className="mr-2 text-sm text-muted-foreground">
+        {t("list.summaryLine", {
+          screens: t("list.screenCount", { count: screens.length }),
+          locations: t("list.locationCount", { count: locations }),
+        })}
+      </span>
+      <Button
+        variant={status === "online" ? "secondary" : "ghost"}
+        size="sm"
         aria-pressed={status === "online"}
         onClick={() => onStatus(status === "online" ? "" : "online")}
       >
-        <strong>{online}</strong> <span>Online</span>
-      </button>
-      <button
-        className={`summary-bar__item${attention > 0 ? " summary-bar__item--urgent" : ""}`}
-        type="button"
+        <strong className="tabular-nums">{online}</strong> {t("status.online")}
+      </Button>
+      <Button
+        variant={status === "attention" ? "secondary" : "ghost"}
+        size="sm"
         aria-pressed={status === "attention"}
         onClick={() => onStatus(status === "attention" ? "" : "attention")}
       >
-        <strong>{attention}</strong> <span>Needs attention</span>
-      </button>
-      <div className="summary-bar__item">
-        <strong>{locations}</strong>{" "}
-        <span>Location{locations === 1 ? "" : "s"}</span>
-      </div>
+        <strong className="tabular-nums">{attention}</strong>{" "}
+        {t("status.attention")}
+      </Button>
     </div>
   );
 }
 
 function GroupHealth({ screens }: { screens: Screen[] }) {
+  const { t } = useTranslation("screens");
   const online = screens.filter((item) => item.status === "online").length;
   const attention = screens.filter(needsAttention).length;
   const syncGroups = new Set(
     screens.map((item) => item.syncGroupName).filter(Boolean),
   );
   return (
-    <span className="screen-group-header__health">
-      <span
-        className={`screen-group-health screen-group-health--${online === screens.length ? "healthy" : "partial"}`}
-      >
-        {online} of {screens.length} online
-      </span>
+    <span className="flex flex-wrap items-center justify-end gap-1.5">
+      <Badge variant={online === screens.length ? "outline" : "secondary"}>
+        {t("list.healthFraction", { online, total: screens.length })}
+      </Badge>
       {attention > 0 && (
-        <span className="screen-group-health screen-group-health--attention">
-          <CircleAlert size={13} aria-hidden="true" />
-          {attention} {attention === 1 ? "needs" : "need"} attention
-        </span>
+        <Badge variant="destructive">
+          <CircleAlert aria-hidden="true" />
+          {t("list.healthAttention", { count: attention })}
+        </Badge>
       )}
       {syncGroups.size === 1 && (
-        <span className="screen-group-health">
-          <Link2 size={13} aria-hidden="true" />
+        <Badge variant="outline">
+          <Link2 aria-hidden="true" />
           {[...syncGroups][0]}
-        </span>
+        </Badge>
       )}
     </span>
   );
 }
 
-function syncGroupFilterLabel(value: string, screens: Screen[]) {
-  if (value === "any") return "In any Display Group";
-  if (value === "none") return "Not in a Display Group";
+function syncGroupFilterLabel(value: string, screens: Screen[], t: ScreensT) {
+  if (value === "any") return t("list.syncOptions.any");
+  if (value === "none") return t("list.syncOptions.none");
   return (
     screens.find((item) => item.syncGroupId === value)?.syncGroupName ??
-    "Selected"
+    t("list.syncOptions.selected")
   );
 }
 
-function updateLabel(value: string) {
-  if (value === "current") return "Current";
-  if (value === "attention") return "Needs attention";
+function screenInventorySummary(screens: Screen[], t: ScreensT) {
+  const locationCount = new Set(
+    screens
+      .map((screen) => screen.locationId || screen.location)
+      .filter(Boolean),
+  ).size;
+  return t("page.inventorySummary", {
+    count: screens.length,
+    locationPart: t("page.locationPart", { count: locationCount }),
+  });
+}
+
+function updateLabel(value: string, t: ScreensT) {
+  if (value === "current") return t("list.updateOptions.current");
+  if (value === "attention") return t("status.attention");
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-function platformLabel(value: string) {
+export function platformLabel(value: string, t: ScreensT) {
   const normalized = value.toLowerCase();
-  if (normalized === "linux") return "Linux";
-  if (normalized.includes("fire")) return "Fire TV";
-  if (normalized.includes("google")) return "Google TV";
-  if (normalized.includes("android")) return "Android TV";
-  return value || "Unknown platform";
+  if (normalized === "linux") return t("platform.linux");
+  if (normalized.includes("fire")) return t("platform.fireTv");
+  if (normalized.includes("google")) return t("platform.googleTv");
+  if (normalized.includes("android")) return t("platform.androidTv");
+  return value || t("platform.unknown");
 }
 
-function statusLabel(value: string) {
-  if (value === "attention") return "Needs attention";
-  if (value === "updating") return "Updating";
-  if (value === "syncing") return "Syncing";
-  return statusContent[value as ScreenStatus]?.label ?? value;
+function statusLabel(value: string, t: ScreensT) {
+  if (value === "attention") return t("status.attention");
+  if (value === "updating") return t("status.updating");
+  if (value === "syncing") return t("status.syncing");
+  const entry = statusContent[value as ScreenStatus];
+  return entry ? t(entry.labelKey) : value;
 }
 
 function needsAttention(screen: Screen) {
@@ -1575,12 +2226,39 @@ function needsAttention(screen: Screen) {
   );
 }
 
-function roomLabel(screen: Screen) {
+function roomLabel(screen: Screen, t: ScreensT) {
   if (screen.roomName && screen.roomNumber)
-    return `${screen.roomName} · Room ${screen.roomNumber}`;
+    return t("room.combined", {
+      name: screen.roomName,
+      number: screen.roomNumber,
+    });
   if (screen.roomName) return screen.roomName;
-  if (screen.roomNumber) return `Room ${screen.roomNumber}`;
+  if (screen.roomNumber) return t("room.number", { number: screen.roomNumber });
   return "";
+}
+
+function selectionSummary(
+  assignment:
+    | {
+        selectionSource?: string;
+        currentScheduleId?: string | null;
+        relevantSchedules?: { id: string; name: string }[];
+      }
+    | undefined,
+  t: ScreensT,
+) {
+  if (assignment?.selectionSource === "takeover") return t("takeover.title");
+  if (assignment?.selectionSource === "schedule") {
+    if (!assignment.currentScheduleId) return t("detail.selectionScheduled");
+    const name =
+      assignment.relevantSchedules?.find(
+        (schedule) => schedule.id === assignment.currentScheduleId,
+      )?.name ?? t("detail.selectionScheduleFallback");
+    return t("detail.selectionScheduledNamed", { name });
+  }
+  if (assignment?.selectionSource === "direct_fallback")
+    return t("detail.selectionDirect");
+  return t("detail.selectionNone");
 }
 
 type ScreenGroupView = {
@@ -1594,6 +2272,8 @@ function buildScreenGroups(
   screens: Screen[],
   groupBy: string,
   sort: string,
+  t: ScreensT,
+  locale: string,
 ): ScreenGroupView[] {
   const sorted = [...screens].sort((left, right) => {
     const descending = sort.endsWith("-desc") ? -1 : 1;
@@ -1616,7 +2296,7 @@ function buildScreenGroups(
         : field === "status"
           ? left.status
           : field === "platform"
-            ? platformLabel(left.platform)
+            ? platformLabel(left.platform, t)
             : left.name;
     const b =
       field === "location"
@@ -1624,12 +2304,12 @@ function buildScreenGroups(
         : field === "status"
           ? right.status
           : field === "platform"
-            ? platformLabel(right.platform)
+            ? platformLabel(right.platform, t)
             : right.name;
-    return a.localeCompare(b, undefined, { sensitivity: "base" }) * descending;
+    return a.localeCompare(b, locale, { sensitivity: "base" }) * descending;
   });
   if (groupBy === "none")
-    return [{ key: "all", label: "All screens", screens: sorted }];
+    return [{ key: "all", label: t("list.allLabel"), screens: sorted }];
   const map = new Map<string, ScreenGroupView>();
   for (const screen of sorted) {
     const key =
@@ -1640,10 +2320,10 @@ function buildScreenGroups(
           : `location:${screen.locationId ?? "unassigned"}`;
     const label =
       groupBy === "status"
-        ? statusContent[screen.status].label
+        ? statusLabel(screen.status, t)
         : groupBy === "sync"
-          ? (screen.syncGroupName ?? "Not in a Display Group")
-          : screen.location || "Unassigned";
+          ? (screen.syncGroupName ?? t("list.syncOptions.none"))
+          : screen.location || t("shared.unassigned");
     const description =
       groupBy === "location"
         ? formatLocationAddress(screen.locationDetails)
@@ -1653,113 +2333,7 @@ function buildScreenGroups(
     else map.set(key, { key, label, description, screens: [screen] });
   }
   return [...map.values()].sort((a, b) =>
-    a.label.localeCompare(b.label, undefined, { sensitivity: "base" }),
-  );
-}
-
-function screenMetadata(screen: Screen, showLocation: boolean) {
-  return [
-    showLocation ? screen.location : "",
-    roomLabel(screen),
-    platformLabel(screen.platform),
-    `${screen.screenWidth}×${screen.screenHeight}`,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-}
-
-function ScreenTableRow({
-  screen,
-  selected,
-  canManage,
-  showLocation,
-  onSelect,
-  onOpen,
-  onMenu,
-}: {
-  screen: Screen;
-  selected: boolean;
-  canManage: boolean;
-  showLocation: boolean;
-  onSelect: (checked: boolean) => void;
-  onOpen: () => void;
-  onMenu: (event: ReactMouseEvent<HTMLElement>) => void;
-}) {
-  return (
-    <article
-      className={`screen-row${needsAttention(screen) ? " screen-row--attention" : ""}`}
-      onClick={onOpen}
-      onContextMenu={onMenu}
-    >
-      <span onClick={(event) => event.stopPropagation()}>
-        {canManage && (
-          <input
-            type="checkbox"
-            aria-label={`Select ${screen.name}`}
-            checked={selected}
-            onChange={(event) => onSelect(event.target.checked)}
-          />
-        )}
-      </span>
-      {/* Only the name is a link. The metadata line used to sit inside the anchor,
-          so location, platform, and resolution all rendered underlined as if each
-          were separately clickable. */}
-      <span className="screen-identity">
-        <span className="screen-icon" aria-hidden="true">
-          <Monitor size={16} />
-        </span>
-        <span className="screen-identity__copy">
-          <Link
-            className="screen-name"
-            to={`/screens/${screen.id}`}
-            onClick={(event) => event.stopPropagation()}
-          >
-            {screen.name}
-          </Link>
-          <small>{screenMetadata(screen, showLocation)}</small>
-        </span>
-        {screen.syncGroupName && (
-          <span className="screen-sync-chip">
-            <Link2 size={12} aria-hidden="true" />
-            {screen.syncGroupName}
-          </span>
-        )}
-      </span>
-      <span className="screen-row__playing">
-        <strong>{screen.nowPlayingName || "Nothing assigned"}</strong>
-        <small>
-          {screen.nowPlayingName
-            ? screen.nowPlayingType === "playlist"
-              ? "Playlist"
-              : "Presentation"
-            : "No fallback content"}
-        </small>
-      </span>
-      {/* Status and last contact are one column: apart, each left a wide empty
-          cell and the reader had to join them up anyway. */}
-      <span className="screen-row__status">
-        <StatusLabel status={screen.status} />
-        <small>{formatContact(screen.lastContactAt)}</small>
-        {screen.updateError && (
-          <span className="screen-row__flag">
-            <TriangleAlert size={12} aria-hidden="true" />
-            Update failed
-          </span>
-        )}
-      </span>
-      <span
-        className="screen-row__actions"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <button
-          type="button"
-          aria-label={`Actions for ${screen.name}`}
-          onClick={(event) => onMenu(event)}
-        >
-          <MoreHorizontal size={17} />
-        </button>
-      </span>
-    </article>
+    a.label.localeCompare(b.label, locale, { sensitivity: "base" }),
   );
 }
 
@@ -1770,8 +2344,6 @@ export function ScreenGridCard({
   canManage,
   showLocation,
   onSelect,
-  onOpen,
-  onMenu,
 }: {
   screen: Screen;
   csrfToken: string;
@@ -1779,9 +2351,10 @@ export function ScreenGridCard({
   canManage: boolean;
   showLocation: boolean;
   onSelect: (checked: boolean) => void;
-  onOpen: () => void;
-  onMenu: (event: ReactMouseEvent<HTMLElement>) => void;
 }) {
+  const { t } = useTranslation(["screens", "common"]);
+  const formatLocale = useFormatLocale();
+  const detailHref = `/screens/${screen.id}`;
   const ref = useRef<HTMLElement>(null);
   const [visible, setVisible] = useState(false);
   const [now, setNow] = useState(Date.now);
@@ -1833,7 +2406,7 @@ export function ScreenGridCard({
       ? previewApi.imageUrl(screen.id, preview.data.updatedAt)
       : undefined;
   const age = preview.data?.capturedAt
-    ? previewAge(preview.data.capturedAt, now)
+    ? previewAge(preview.data.capturedAt, now, t)
     : null;
   useEffect(() => {
     if (!visible || !preview.data?.capturedAt) return;
@@ -1847,93 +2420,160 @@ export function ScreenGridCard({
   return (
     <article
       ref={ref}
-      className={`screen-card${needsAttention(screen) ? " screen-card--attention" : ""}`}
-      role="link"
-      tabIndex={0}
-      onClick={onOpen}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onOpen();
-        }
-      }}
-      onContextMenu={onMenu}
+      className={`group min-w-0 overflow-hidden rounded-xl border bg-card transition-colors hover:border-foreground/20 ${needsAttention(screen) ? "border-amber-500/60 bg-amber-500/5" : "border-border"}`}
     >
-      <div
-        className={`screen-card__preview${portrait ? " screen-card__preview--portrait" : ""}`}
-        style={{
-          aspectRatio: `${screen.screenWidth || 16} / ${screen.screenHeight || 9}`,
-        }}
+      <Link
+        to={detailHref}
+        aria-label={t("grid.openScreen", { name: screen.name })}
+        className="block outline-none focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:ring-inset"
       >
-        {preview.isLoading && visible ? (
-          <span
-            className="screen-preview-skeleton"
-            aria-label="Loading preview"
-          />
-        ) : image ? (
-          <>
-            <img src={image} alt={`Latest preview from ${screen.name}`} />
-            {age && (
-              <span
-                className={`screen-card__preview-age screen-card__preview-age--${age.tone}`}
-                aria-label={`Snapshot captured ${age.label}`}
-                title={`Captured ${new Date(
-                  preview.data?.capturedAt ?? "",
-                ).toLocaleString()}`}
-              >
-                {age.label}
-              </span>
-            )}
-          </>
-        ) : (
-          <span className="screen-preview-empty">
-            <Monitor size={24} />
-            {screen.status === "offline"
-              ? "Screen offline"
-              : "Preview unavailable"}
-          </span>
-        )}
-      </div>
-      <div className="screen-card__body">
-        <header>
+        <AspectRatio
+          ratio={(screen.screenWidth || 16) / (screen.screenHeight || 9)}
+          className={`grid max-h-52 w-full place-items-center overflow-hidden bg-slate-950 ${portrait ? "mx-auto my-3 w-[min(45%,8rem)] rounded-xl" : ""}`}
+        >
+          {preview.isLoading && visible ? (
+            <Skeleton
+              className="absolute inset-0 min-h-32"
+              aria-label={t("grid.loadingPreview")}
+            />
+          ) : image ? (
+            <>
+              <img
+                className="h-full w-full object-contain"
+                src={image}
+                alt={t("grid.previewAlt", { name: screen.name })}
+              />
+              {age && (
+                <Badge
+                  variant="secondary"
+                  className="pointer-events-none absolute right-2 bottom-2 border-white/10 bg-black/60 text-white"
+                  aria-label={t("grid.snapshotCaptured", { age: age.label })}
+                  title={t("grid.snapshotTitle", {
+                    date: new Date(
+                      preview.data?.capturedAt ?? "",
+                    ).toLocaleString(formatLocale),
+                  })}
+                >
+                  {age.label}
+                </Badge>
+              )}
+            </>
+          ) : (
+            <span className="grid min-h-32 place-items-center gap-1 text-center text-xs text-slate-300">
+              <Monitor className="size-6" aria-hidden="true" />
+              {screen.status === "offline"
+                ? t("grid.offline")
+                : t("grid.unavailable")}
+            </span>
+          )}
+        </AspectRatio>
+      </Link>
+      <div className="grid gap-3 p-3">
+        <header className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2">
           {canManage && (
-            <input
-              type="checkbox"
-              aria-label={`Select ${screen.name}`}
+            <Checkbox
+              aria-label={t("grid.selectScreen", { name: screen.name })}
               checked={selected}
-              onClick={(event) => event.stopPropagation()}
-              onChange={(event) => onSelect(event.target.checked)}
+              onCheckedChange={(checked) => onSelect(checked === true)}
             />
           )}
-          <span>
-            <strong>{screen.name}</strong>
-            <small>
-              {[showLocation ? screen.location : "", roomLabel(screen)]
+          <span className="grid min-w-0 gap-0.5">
+            <Link
+              to={detailHref}
+              className="truncate text-sm font-medium outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {screen.name}
+            </Link>
+            <small className="truncate text-xs text-muted-foreground">
+              {[showLocation ? screen.location : "", roomLabel(screen, t)]
                 .filter(Boolean)
-                .join(" · ") || "Unassigned"}
+                .join(" · ") || t("shared.unassigned")}
             </small>
           </span>
-          <button
-            type="button"
-            aria-label={`Actions for ${screen.name}`}
-            onClick={(event) => onMenu(event)}
-          >
-            <MoreHorizontal size={17} />
-          </button>
+          <div className="shrink-0">
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={<Button variant="ghost" size="icon-sm" />}
+                aria-label={t("grid.rowActions", { name: screen.name })}
+              >
+                <MoreHorizontal aria-hidden="true" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  render={<Link to={`/screens/${screen.id}`} />}
+                >
+                  <Monitor aria-hidden="true" /> {t("grid.openItem")}
+                </DropdownMenuItem>
+                {canManage && (
+                  <>
+                    <DropdownMenuItem
+                      onClick={() =>
+                        void api.createScreenCommand(
+                          screen.id,
+                          "restart_player_process",
+                          {},
+                          csrfToken,
+                        )
+                      }
+                    >
+                      <RefreshCw aria-hidden="true" /> {t("grid.restartPlayer")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      render={
+                        <Link to={`/screens/${screen.id}?edit=details`} />
+                      }
+                    >
+                      <Pencil aria-hidden="true" /> {t("grid.editDetails")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      render={<Link to={`/screens/${screen.id}?tab=content`} />}
+                    >
+                      {t("grid.assignContent")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      render={<Link to={`/screens/${screen.id}?present=1`} />}
+                    >
+                      <Play aria-hidden="true" /> {t("grid.showNow")}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      render={
+                        <Link
+                          to={
+                            screen.syncGroupId
+                              ? `/groups/${screen.syncGroupId}`
+                              : "/groups"
+                          }
+                        />
+                      }
+                    >
+                      {screen.syncGroupId
+                        ? t("grid.openGroup")
+                        : t("grid.addToGroup")}
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </header>
-        <div className="screen-card__facts">
+        <div className="flex flex-wrap items-center gap-2">
           <StatusLabel status={screen.status} />
-          <span>{formatContact(screen.lastContactAt)}</span>
+          <span className="text-xs text-muted-foreground">
+            {formatContact(screen.lastContactAt, t, formatLocale)}
+          </span>
         </div>
-        <dl className="screen-card__meta">
-          <dt>Now playing</dt>
-          <dd>{screen.nowPlayingName || "Nothing assigned"}</dd>
+        <dl className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-2 text-xs">
+          <dt className="text-muted-foreground">{t("grid.nowPlaying")}</dt>
+          <dd className="truncate font-medium">
+            {screen.nowPlayingName || t("shared.nothingAssigned")}
+          </dd>
         </dl>
         {screen.syncGroupName && (
-          <span className="screen-card__sync">
-            <Link2 size={12} aria-hidden="true" />
-            {screen.syncGroupName}
-          </span>
+          <Badge variant="outline" className="max-w-full justify-start gap-1.5">
+            <Link2 aria-hidden="true" />
+            <span className="truncate">{screen.syncGroupName}</span>
+          </Badge>
         )}
       </div>
     </article>
@@ -1947,61 +2587,73 @@ function PendingPairings({
   requests: PairingRequest[];
   canManage: boolean;
 }) {
+  const { t } = useTranslation("screens");
+  const formatLocale = useFormatLocale();
   if (requests.length === 0) return null;
   return (
-    <section className="pending-panel">
-      <header>
-        <span className="pending-panel__icon" aria-hidden="true">
-          <RefreshCw size={16} />
-        </span>
-        <div>
-          <h3>Waiting for approval</h3>
-          <p>
-            {requests.length} player{requests.length === 1 ? "" : "s"} requested
-            pairing.
-          </p>
-        </div>
-      </header>
-      {requests.map((request) => (
-        <div className="pending-row" key={request.id}>
-          <span>
-            <strong>
-              {request.metadata.manufacturer} {request.metadata.model}
-            </strong>
-            <small>
-              {platformLabel(request.metadata.platform)} ·{" "}
-              {request.metadata.screenWidth}×{request.metadata.screenHeight}
-            </small>
-          </span>
-          <span className="pending-row__expiry">
-            Expires{" "}
-            {new Date(request.expiresAt).toLocaleTimeString([], {
-              hour: "numeric",
-              minute: "2-digit",
-            })}
-          </span>
-          {canManage && (
-            <Link
-              className="button button--quiet"
-              to={`/screens/pair/request/${request.id}`}
-            >
-              Review
-            </Link>
-          )}
-        </div>
-      ))}
+    <section className="space-y-2" aria-label={t("pending.section")}>
+      <Alert>
+        <RefreshCw aria-hidden="true" />
+        <AlertTitle className="flex items-center gap-2">
+          {t("pending.title")}{" "}
+          <Badge variant="secondary">{requests.length}</Badge>
+        </AlertTitle>
+        <AlertDescription>
+          {t("pending.body", { count: requests.length })}
+        </AlertDescription>
+      </Alert>
+      <ItemGroup className="gap-1.5">
+        {requests.map((request) => (
+          <Item
+            key={request.id}
+            size="xs"
+            variant="outline"
+            render={<div role="listitem" />}
+          >
+            <ItemContent className="min-w-0">
+              <ItemTitle>
+                {request.metadata.manufacturer} {request.metadata.model}
+              </ItemTitle>
+              <ItemDescription>
+                {platformLabel(request.metadata.platform, t)} ·{" "}
+                {request.metadata.screenWidth}×{request.metadata.screenHeight} ·{" "}
+                {t("pending.expires", {
+                  time: new Date(request.expiresAt).toLocaleTimeString(
+                    formatLocale,
+                    {
+                      hour: "numeric",
+                      minute: "2-digit",
+                    },
+                  ),
+                })}
+              </ItemDescription>
+            </ItemContent>
+            {canManage && (
+              <ItemActions>
+                <Link
+                  className={buttonVariants({ variant: "outline", size: "sm" })}
+                  to={`/screens/pair/request/${request.id}`}
+                >
+                  {t("pending.review")}
+                </Link>
+              </ItemActions>
+            )}
+          </Item>
+        ))}
+      </ItemGroup>
     </section>
   );
 }
 
 export function PairScreenPage() {
   const { code, requestId } = useParams();
+  const { t } = useTranslation(["screens", "common"]);
   const auth = useAuth();
   const navigate = useNavigate();
   const [request, setRequest] = useState<PairingRequest>();
   const [error, setError] = useState<string>();
   const form = useForm<CodeForm>({
-    resolver: zodResolver(codeSchema),
+    resolver: zodResolver(useMemo(() => makeCodeSchema(t), [t])),
     defaultValues: { code: code ?? "" },
   });
   const lookup = async (value: CodeForm) => {
@@ -2010,9 +2662,7 @@ export function PairScreenPage() {
       setRequest(await api.resolvePairing(value.code));
     } catch (reason) {
       setError(
-        reason instanceof Error
-          ? reason.message
-          : "Pairing code could not be resolved.",
+        reason instanceof Error ? reason.message : t("pair.resolveError"),
       );
     }
   };
@@ -2030,17 +2680,20 @@ export function PairScreenPage() {
   }, [requestId, pending.data]);
   if (!canManageScreens(auth.status?.user))
     return (
-      <section className="empty-state">
-        <span className="empty-state__index">Restricted</span>
-        <h2>Screen approval requires administrator access.</h2>
-        <p>
-          Editors and Viewers can monitor screens but cannot approve or reject
-          pairing requests.
-        </p>
-        <Link className="text-link" to="/screens">
-          Return to screens
-        </Link>
-      </section>
+      <Empty>
+        <EmptyHeader>
+          <EmptyTitle>{t("pair.gateTitle")}</EmptyTitle>
+          <EmptyDescription>{t("pair.gateBody")}</EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Link
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+            to="/screens"
+          >
+            {t("pair.backToScreens")}
+          </Link>
+        </EmptyContent>
+      </Empty>
     );
   if (request)
     return (
@@ -2054,43 +2707,39 @@ export function PairScreenPage() {
   return (
     <section className="pair-card">
       <header>
-        <span className="empty-illustration">
-          <Link2 size={24} />
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground">
+          <Link2 className="size-5" aria-hidden="true" />
         </span>
         <div>
-          <h2>Pair a screen</h2>
-          <p>Enter the six-character code displayed by Tilecast Player.</p>
+          <h2>{t("pair.title")}</h2>
+          <p>{t("pair.body")}</p>
         </div>
       </header>
       {error && (
-        <div className="notice notice--error" role="alert">
-          {error}
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
       <form onSubmit={(event) => void form.handleSubmit(lookup)(event)}>
         <FormField
           id="pairingCode"
-          label="Pairing code"
+          label={t("pair.codeLabel")}
           autoComplete="off"
           autoFocus
           className="pair-code-input"
+          // i18n-ignore: example pairing-code format, not prose
           placeholder="ABC234"
           error={form.formState.errors.code?.message}
           {...form.register("code")}
         />
-        <button className="button button--primary" type="submit">
-          Find player
-        </button>
-        <Link className="button button--quiet" to="/screens">
-          Cancel
+        <Button type="submit">{t("pair.findPlayer")}</Button>
+        <Link className={buttonVariants({ variant: "ghost" })} to="/screens">
+          {t("common:actions.cancel")}
         </Link>
       </form>
       <div className="pair-help">
-        <strong>On the TV</strong>
-        <p>
-          Open Tilecast Player, connect to this server, and leave the pairing
-          code visible while you approve it.
-        </p>
+        <strong>{t("pair.onTvTitle")}</strong>
+        <p>{t("pair.onTvBody")}</p>
       </div>
     </section>
   );
@@ -2103,6 +2752,9 @@ function ApprovalPanel({
   request: PairingRequest;
   onDone: (screenId?: string) => void;
 }) {
+  const { t } = useTranslation("screens");
+  const { t: commonT } = useTranslation("common");
+  const formatLocale = useFormatLocale();
   const auth = useAuth();
   const queryClient = useQueryClient();
   const defaultDestination: PairingDestination =
@@ -2112,8 +2764,14 @@ function ApprovalPanel({
   const [destination, setDestination] =
     useState<PairingDestination>(defaultDestination);
   const [replacementScreenId, setReplacementScreenId] = useState("");
+  const [approvalError, setApprovalError] = useState("");
+  const [approvalConfirmation, setApprovalConfirmation] = useState<{
+    values: ApprovalForm;
+    title: string;
+    description: string;
+  } | null>(null);
   const form = useForm<ApprovalForm>({
-    resolver: zodResolver(approvalSchema),
+    resolver: zodResolver(useMemo(() => makeApprovalSchema(t), [t])),
     defaultValues: {
       name:
         request.existingScreenName ??
@@ -2135,30 +2793,13 @@ function ApprovalPanel({
   });
   const approve = useMutation({
     mutationFn: (values: ApprovalForm) => {
-      const repair = destination === "credential_repair";
       if (destination === "replace_hardware" && !replacementScreenId)
-        throw new Error(
-          "Choose the existing screen whose hardware is being replaced.",
-        );
-      if (
-        repair &&
-        !window.confirm(
-          `Repair pairing for “${request.existingScreenName}” and replace its credential after this player enrolls?`,
-        )
-      )
-        throw new Error("Pairing repair was cancelled.");
+        throw new Error(t("approval.chooseScreenError"));
       if (destination === "replace_hardware") {
         const target = screens.data?.items.find(
           (screen) => screen.id === replacementScreenId,
         );
-        if (!target)
-          throw new Error("The replacement screen could not be found.");
-        if (
-          !window.confirm(
-            `Replace the hardware for “${target.name}”? Its name, group membership, assignments, schedules, policies, and history will stay on the same logical screen.`,
-          )
-        )
-          throw new Error("Hardware replacement was cancelled.");
+        if (!target) throw new Error(t("approval.screenNotFound"));
       }
       return api.approvePairing(
         request.id,
@@ -2172,6 +2813,7 @@ function ApprovalPanel({
       );
     },
     onSuccess: async (screen) => {
+      toast.add({ title: "Screen pairing approved.", type: "success" });
       await queryClient.invalidateQueries({ queryKey: ["screens"] });
       await queryClient.invalidateQueries({
         queryKey: ["screens", "pairing", "pending"],
@@ -2186,163 +2828,232 @@ function ApprovalPanel({
         "Rejected by administrator",
         auth.status?.csrfToken ?? "",
       ),
-    onSuccess: () => onDone(),
+    onSuccess: () => {
+      toast.add({ title: "Pairing request rejected.", type: "success" });
+      onDone();
+    },
   });
+  const requestApproval = (values: ApprovalForm) => {
+    setApprovalError("");
+    if (destination === "credential_repair") {
+      setApprovalConfirmation({
+        values,
+        title: t("approval.repairTitle", {
+          name: request.existingScreenName ?? "",
+        }),
+        description: t("approval.repairBody"),
+      });
+      return;
+    }
+    if (destination === "replace_hardware") {
+      const target = screens.data?.items.find(
+        (screen) => screen.id === replacementScreenId,
+      );
+      if (!target) {
+        setApprovalError(t("approval.chooseScreenError"));
+        return;
+      }
+      setApprovalConfirmation({
+        values,
+        title: t("approval.replaceTitle", { name: target.name }),
+        description: t("approval.replaceBody"),
+      });
+      return;
+    }
+    approve.mutate(values);
+  };
+  const eligibleScreens = (screens.data?.items ?? []).filter(
+    (screen) => screen.id !== request.existingScreenId,
+  );
+  const selectedReplacementScreen = eligibleScreens.find(
+    (screen) => screen.id === replacementScreenId,
+  );
   const metadata = request.metadata;
   return (
     <section className="approval-card">
       <header>
         <div>
-          <p className="step-label">Pairing request</p>
-          <h2>Review this player</h2>
-          <p>
-            Confirm the device details before granting it an individual Tilecast
-            credential.
-          </p>
+          <p className="step-label">{t("approval.step")}</p>
+          <h2>{t("approval.title")}</h2>
+          <p>{t("approval.body")}</p>
         </div>
         <span className="expiry-label">
-          Expires{" "}
-          {new Date(request.expiresAt).toLocaleTimeString([], {
-            hour: "numeric",
-            minute: "2-digit",
+          {t("approval.expires", {
+            time: new Date(request.expiresAt).toLocaleTimeString(formatLocale, {
+              hour: "numeric",
+              minute: "2-digit",
+            }),
           })}
         </span>
       </header>
       <dl className="device-facts">
         <div>
-          <dt>Device</dt>
+          <dt>{t("approval.device")}</dt>
           <dd>
             {metadata.manufacturer} {metadata.model}
           </dd>
         </div>
         <div>
-          <dt>Platform</dt>
+          <dt>{t("approval.platform")}</dt>
           <dd>{metadata.platform}</dd>
         </div>
         <div>
-          <dt>Android</dt>
+          <dt>{t("approval.android")}</dt>
           <dd>{metadata.androidVersion}</dd>
         </div>
         <div>
-          <dt>Player</dt>
+          <dt>{t("approval.player")}</dt>
           <dd>{metadata.playerVersion}</dd>
         </div>
         <div>
-          <dt>Resolution</dt>
+          <dt>{t("approval.resolution")}</dt>
           <dd>
             {metadata.screenWidth} × {metadata.screenHeight}
           </dd>
         </div>
         <div>
-          <dt>Locale / timezone</dt>
+          <dt>{t("approval.locale")}</dt>
           <dd>
             {metadata.locale} · {metadata.timezone}
           </dd>
         </div>
         {metadata.approximateAddress && (
           <div>
-            <dt>Network address</dt>
+            <dt>{t("approval.network")}</dt>
             <dd>{metadata.approximateAddress}</dd>
           </div>
         )}
       </dl>
-      <fieldset className="pairing-destination">
-        <legend>Pairing destination</legend>
-        <label className="radio-control">
-          <input
-            type="radio"
-            name="pairingDestination"
-            value="new_screen"
-            checked={destination === "new_screen"}
-            onChange={() => setDestination("new_screen")}
-          />
-          <span>
-            <strong>Create new screen</strong>
-            <small>Create a new logical screen from this player.</small>
-          </span>
-        </label>
-        {request.previouslyPaired && request.hasActiveCredential && (
-          <label className="radio-control">
-            <input
-              type="radio"
-              name="pairingDestination"
-              value="credential_repair"
-              checked={destination === "credential_repair"}
-              onChange={() => setDestination("credential_repair")}
+      <FieldSet className="grid gap-3 rounded-xl border border-border p-4">
+        <FieldLegend variant="label" className="mb-0">
+          {t("approval.destination")}
+        </FieldLegend>
+        <RadioGroup
+          aria-label={t("approval.destination")}
+          value={destination}
+          onValueChange={(value) => setDestination(value as PairingDestination)}
+          className="grid gap-2"
+        >
+          <Field orientation="horizontal" className="items-start">
+            <RadioGroupItem id="pairing-destination-new" value="new_screen" />
+            <FieldContent>
+              <FieldLabel
+                htmlFor="pairing-destination-new"
+                className="font-normal"
+              >
+                {t("approval.newScreen")}
+              </FieldLabel>
+              <FieldDescription>{t("approval.newScreenHint")}</FieldDescription>
+            </FieldContent>
+          </Field>
+          {request.previouslyPaired && request.hasActiveCredential && (
+            <Field orientation="horizontal" className="items-start">
+              <RadioGroupItem
+                id="pairing-destination-repair"
+                value="credential_repair"
+              />
+              <FieldContent>
+                <FieldLabel
+                  htmlFor="pairing-destination-repair"
+                  className="font-normal"
+                >
+                  {t("approval.repair")}
+                </FieldLabel>
+                <FieldDescription>
+                  {t("approval.repairHint", {
+                    name: request.existingScreenName ?? "",
+                  })}
+                </FieldDescription>
+              </FieldContent>
+            </Field>
+          )}
+          <Field orientation="horizontal" className="items-start">
+            <RadioGroupItem
+              id="pairing-destination-replace"
+              value="replace_hardware"
             />
-            <span>
-              <strong>Repair existing credential</strong>
-              <small>
-                Keep this player installation on “{request.existingScreenName}”.
-              </small>
-            </span>
-          </label>
-        )}
-        <label className="radio-control">
-          <input
-            type="radio"
-            name="pairingDestination"
-            value="replace_hardware"
-            checked={destination === "replace_hardware"}
-            onChange={() => setDestination("replace_hardware")}
-          />
-          <span>
-            <strong>Replace hardware for an existing screen</strong>
-            <small>
-              Keep the logical screen, Display Group, content, schedules,
-              policies, and history.
-            </small>
-          </span>
-        </label>
+            <FieldContent>
+              <FieldLabel
+                htmlFor="pairing-destination-replace"
+                className="font-normal"
+              >
+                {t("approval.replace")}
+              </FieldLabel>
+              <FieldDescription>{t("approval.replaceHint")}</FieldDescription>
+            </FieldContent>
+          </Field>
+        </RadioGroup>
         {destination === "replace_hardware" && (
-          <label className="field pairing-destination__picker">
-            <span className="field__label">Existing screen</span>
-            <Select
-              value={replacementScreenId}
-              onChange={(event) => setReplacementScreenId(event.target.value)}
+          <Field>
+            <FieldLabel htmlFor="pairing-existing-screen">
+              {t("approval.existingScreen")}
+            </FieldLabel>
+            <Combobox
+              items={eligibleScreens}
+              value={selectedReplacementScreen ?? null}
+              itemToStringLabel={(screen: Screen) =>
+                screen.location
+                  ? screen.name + " — " + screen.location
+                  : screen.name
+              }
+              onValueChange={(value) => setReplacementScreenId(value?.id ?? "")}
             >
-              <option value="">Choose a screen</option>
-              {(screens.data?.items ?? [])
-                .filter((screen) => screen.id !== request.existingScreenId)
-                .map((screen) => (
-                  <option key={screen.id} value={screen.id}>
-                    {screen.name}
-                    {screen.location ? ` — ${screen.location}` : ""}
-                  </option>
-                ))}
-            </Select>
-            <small>
-              The old credential is retired only after this player successfully
-              enrolls.
-            </small>
-          </label>
+              <ComboboxInput
+                id="pairing-existing-screen"
+                aria-label={t("approval.existingScreen")}
+                placeholder={t("approval.searchScreens")}
+                showClear
+                className="w-full"
+              />
+              <ComboboxContent>
+                <ComboboxEmpty>
+                  {screens.isLoading
+                    ? commonT("status.loading")
+                    : screens.isError
+                      ? t("approval.screensLoadError")
+                      : t("approval.noMatchingScreens")}
+                </ComboboxEmpty>
+                <ComboboxList>
+                  {(screen: Screen) => (
+                    <ComboboxItem key={screen.id} value={screen}>
+                      {screen.name}
+                      {screen.location ? ` — ${screen.location}` : ""}
+                    </ComboboxItem>
+                  )}
+                </ComboboxList>
+              </ComboboxContent>
+            </Combobox>
+            <FieldDescription>{t("approval.selectHint")}</FieldDescription>
+          </Field>
         )}
-      </fieldset>
+      </FieldSet>
       {request.previouslyPaired && (
-        <div className="notice notice--warning" role="status">
-          <strong>
-            This device was previously paired as “{request.existingScreenName}.”
-          </strong>
-          <p>
+        <Alert role="status">
+          <AlertTitle>
+            {t("approval.pairedBefore", {
+              name: request.existingScreenName ?? "",
+            })}
+          </AlertTitle>
+          <AlertDescription>
             {destination === "replace_hardware"
-              ? "Choose the logical screen above; its identity and configuration are preserved."
-              : "Repairing the pairing will preserve this screen and its content assignments. The previous device credential will be revoked only after this player completes enrollment."}
-          </p>
-        </div>
+              ? t("approval.pairedReplaceBody")
+              : t("approval.pairedRepairBody")}
+          </AlertDescription>
+        </Alert>
       )}
-      {(approve.error || reject.error) && (
-        <div className="notice notice--error">
-          {(approve.error ?? reject.error)?.message}
-        </div>
+      {(approvalError || approve.error || reject.error) && (
+        <Alert variant="destructive">
+          <AlertDescription>
+            {approvalError || (approve.error ?? reject.error)?.message}
+          </AlertDescription>
+        </Alert>
       )}
       <form
-        onSubmit={(event) =>
-          void form.handleSubmit((values) => approve.mutateAsync(values))(event)
-        }
+        onSubmit={(event) => void form.handleSubmit(requestApproval)(event)}
       >
         <FormField
           id="screenName"
-          label="Screen name"
+          label={t("approval.nameLabel")}
           error={form.formState.errors.name?.message}
           {...form.register("name")}
         />
@@ -2356,41 +3067,76 @@ function ApprovalPanel({
         <div className="screen-room-fields">
           <FormField
             id="screenRoomName"
-            label="Room name (optional)"
-            placeholder="Library"
+            label={t("approval.roomName")}
+            placeholder={t("approval.roomNamePlaceholder")}
             {...form.register("roomName")}
           />
           <FormField
             id="screenRoomNumber"
-            label="Room number (optional)"
-            placeholder="204"
+            label={t("approval.roomNumber")}
+            placeholder={t("approval.roomNumberPlaceholder")}
             {...form.register("roomNumber")}
           />
         </div>
-        <label className="field" htmlFor="screenDescription">
-          <span className="field__label">Description (optional)</span>
-          <textarea id="screenDescription" {...form.register("description")} />
-        </label>
-        <div className="form-actions">
-          <button
+        <Field>
+          <FieldLabel htmlFor="screenDescription">
+            {t("approval.description")}
+          </FieldLabel>
+          <Textarea id="screenDescription" {...form.register("description")} />
+        </Field>
+        <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+          <Button
             type="button"
-            className="button button--danger-quiet"
+            variant="ghost"
+            className="text-destructive hover:text-destructive"
             onClick={() => reject.mutate()}
             disabled={reject.isPending || approve.isPending}
           >
-            Reject
-          </button>
-          <button
+            {t("approval.reject")}
+          </Button>
+          <Button
             type="submit"
-            className="button button--primary"
             disabled={approve.isPending || reject.isPending}
           >
             {approve.isPending
-              ? "Approving…"
-              : pairingApprovalLabel(request, destination)}
-          </button>
+              ? t("approval.approving")
+              : pairingApprovalLabel(request, t, destination)}
+          </Button>
         </div>
       </form>
+      <AlertDialog
+        open={approvalConfirmation !== null}
+        onOpenChange={(open) => {
+          if (!open) setApprovalConfirmation(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {approvalConfirmation?.title ?? t("approval.confirmFallback")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {approvalConfirmation?.description ??
+                t("approval.confirmFallbackBody")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={approve.isPending}>
+              {t("approval.goBack")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!approvalConfirmation || approve.isPending}
+              onClick={() => {
+                if (!approvalConfirmation) return;
+                approve.mutate(approvalConfirmation.values);
+                setApprovalConfirmation(null);
+              }}
+            >
+              {t("approval.confirmPairing")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }
@@ -2398,16 +3144,24 @@ function ApprovalPanel({
 export function ScreenDetailPage() {
   const { id = "" } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { t } = useTranslation(["screens", "common"]);
+  const formatLocale = useFormatLocale();
   const auth = useAuth();
   const queryClient = useQueryClient();
   const [confirmRevoke, setConfirmRevoke] = useState(false);
   const [editingDetails, setEditingDetails] = useState(false);
   const [policyDirty, setPolicyDirty] = useState(false);
+  const [pendingDestination, setPendingDestination] =
+    useState<ScreenTabDestination | null>(null);
   const [selectedPresentation, setSelectedPresentation] = useState("");
   const [airplayOpen, setAirplayOpen] = useState(false);
   const [quickPresentOpen, setQuickPresentOpen] = useState(
     () => searchParams.get("present") === "1",
   );
+  const [screenCommandAction, setScreenCommandAction] =
+    useState<ScreenCommandAction | null>(null);
+  const [screenCommandInput, setScreenCommandInput] = useState("");
+  const [screenCommandError, setScreenCommandError] = useState("");
   useEffect(() => {
     if (searchParams.get("edit") === "details") setEditingDetails(true);
   }, [searchParams]);
@@ -2422,7 +3176,7 @@ export function ScreenDetailPage() {
     refetchInterval: 10_000,
   });
   const detailsForm = useForm<ApprovalForm>({
-    resolver: zodResolver(approvalSchema),
+    resolver: zodResolver(useMemo(() => makeApprovalSchema(t), [t])),
     defaultValues: {
       name: "",
       locationId: undefined,
@@ -2449,6 +3203,7 @@ export function ScreenDetailPage() {
     mutationFn: (values: ApprovalForm) =>
       api.updateScreen(id, values, auth.status?.csrfToken ?? ""),
     onSuccess: async (updated) => {
+      toast.add({ title: "Screen details saved.", type: "success" });
       queryClient.setQueryData(["screens", id], updated);
       setEditingDetails(false);
       await queryClient.invalidateQueries({ queryKey: ["screens"] });
@@ -2496,6 +3251,7 @@ export function ScreenDetailPage() {
       return api.unassignPlaylist(id, auth.status?.csrfToken ?? "");
     },
     onSuccess: async () => {
+      toast.add({ title: "Presentation assignment updated.", type: "success" });
       await queryClient.invalidateQueries({
         queryKey: ["screens", id, "playlist-assignment"],
       });
@@ -2504,7 +3260,11 @@ export function ScreenDetailPage() {
   const stateMutation = useMutation({
     mutationFn: (enabled: boolean) =>
       api.setScreenEnabled(id, enabled, auth.status?.csrfToken ?? ""),
-    onSuccess: async () => {
+    onSuccess: async (_result, enabled) => {
+      toast.add({
+        title: enabled ? "Screen enabled." : "Screen disabled.",
+        type: "success",
+      });
       await queryClient.invalidateQueries({ queryKey: ["screens"] });
     },
   });
@@ -2516,6 +3276,7 @@ export function ScreenDetailPage() {
         auth.status?.csrfToken ?? "",
       ),
     onSuccess: async () => {
+      toast.add({ title: "Player credential revoked.", type: "success" });
       setConfirmRevoke(false);
       await queryClient.invalidateQueries({ queryKey: ["screens"] });
     },
@@ -2548,7 +3309,11 @@ export function ScreenDetailPage() {
       payload: Record<string, unknown>;
     }) =>
       api.createScreenCommand(id, type, payload, auth.status?.csrfToken ?? ""),
-    onSuccess: () => {
+    onSuccess: (_result, action) => {
+      toast.add({
+        title: `Player command queued: ${action.type.replaceAll("_", " ")}.`,
+        type: "success",
+      });
       void queryClient.invalidateQueries({
         queryKey: ["screens", id, "commands"],
       });
@@ -2557,100 +3322,172 @@ export function ScreenDetailPage() {
       });
     },
   });
+  const requestScreenCommand = (action: ScreenCommandAction) => {
+    setScreenCommandInput("");
+    setScreenCommandError("");
+    setScreenCommandAction(action);
+  };
+  const confirmScreenCommand = () => {
+    if (!screenCommandAction) return;
+    let payload: Record<string, unknown>;
+    if (screenCommandAction.kind === "input") {
+      const value = screenCommandInput.trim();
+      if (!value) {
+        setScreenCommandError(t("detail.commandInputRequired"));
+        return;
+      }
+      if (screenCommandAction.input.type === "number") {
+        const numberValue = Number(value);
+        if (
+          !Number.isInteger(numberValue) ||
+          (screenCommandAction.input.min != null &&
+            numberValue < screenCommandAction.input.min) ||
+          (screenCommandAction.input.max != null &&
+            numberValue > screenCommandAction.input.max)
+        ) {
+          setScreenCommandError(
+            t("detail.commandRangeError", {
+              min: screenCommandAction.input.min ?? "−∞",
+              max: screenCommandAction.input.max ?? "∞",
+            }),
+          );
+          return;
+        }
+        payload = screenCommandAction.createPayload(numberValue);
+      } else {
+        payload = screenCommandAction.createPayload(value);
+      }
+    } else {
+      payload = screenCommandAction.payload;
+    }
+    command.mutate({ type: screenCommandAction.commandType, payload });
+    setScreenCommandAction(null);
+  };
   const listedScreen = screens.data?.items?.find((screen) => screen.id === id);
   const screen = resolveScreenDetail(query.data, listedScreen);
   if (query.isLoading && !screen)
-    return <div className="table-loading">Loading screen…</div>;
+    return (
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-56" />
+        <p className="text-sm text-muted-foreground">{t("detail.loading")}</p>
+      </div>
+    );
   if (!screen)
     return (
-      <div className="notice notice--error">Screen could not be loaded.</div>
+      <Alert variant="destructive">
+        <AlertDescription>{t("detail.loadError")}</AlertDescription>
+      </Alert>
     );
   const displayCapabilities =
     reliability.data?.displayControlCapabilities ?? {};
   const hasDisplayControl = Object.keys(displayCapabilities).length > 0;
   const requestedTab = searchParams.get("tab") ?? "overview";
-  const tab = normalizeScreenDetailTab(requestedTab);
+  const requestedSection = searchParams.get("section");
+  const tab = normalizeScreenDetailTab(requestedTab, requestedSection);
   const manageSection = normalizeScreenManageSection(
     requestedTab,
-    searchParams.get("section"),
+    requestedSection,
   );
-  const selectTab = (nextTab: string) => {
-    if (policyDirty && tab === "manage") {
-      if (!confirm("Leave Manage without saving your changes?")) return;
-      setPolicyDirty(false);
-    }
+  const commitDestination = (destination: ScreenTabDestination) => {
     const next = new URLSearchParams(searchParams);
-    if (nextTab === "overview") next.delete("tab");
-    else next.set("tab", nextTab);
-    if (nextTab !== "manage") next.delete("section");
-    setSearchParams(next);
-  };
-  const selectManageSection = (nextSection: ScreenManageSection) => {
+    if (destination.tab === "overview") next.delete("tab");
+    else next.set("tab", destination.tab);
+    next.delete("section");
     if (
-      policyDirty &&
-      manageSection === "settings" &&
-      nextSection !== "settings"
+      destination.tab === "device" &&
+      destination.section &&
+      destination.section !== "device"
     ) {
-      if (!confirm("Leave Settings without saving your changes?")) return;
-      setPolicyDirty(false);
+      next.set("section", destination.section);
     }
-    const next = new URLSearchParams(searchParams);
-    next.set("tab", "manage");
-    if (nextSection === "settings") next.delete("section");
-    else next.set("section", nextSection);
     setSearchParams(next);
+    setPendingDestination(null);
+    setPolicyDirty(false);
+  };
+  const selectTab = (nextTab: string) => {
+    if (!screenDetailTabs.includes(nextTab as ScreenDetailTab)) return;
+    const destination: ScreenTabDestination = {
+      tab: nextTab as ScreenDetailTab,
+    };
+    if (destination.tab === tab) return;
+    if (policyDirty && tab === "settings" && destination.tab !== "settings") {
+      setPendingDestination(destination);
+      return;
+    }
+    commitDestination(destination);
   };
   return (
-    <div
-      className={`screen-detail${tab === "manage" ? " screen-detail--manage" : ""}`}
-    >
-      <PageHeader
-        className="screen-detail__page-header"
-        title={
-          <span className="screen-detail__title">
-            <span>{screen.name}</span>
+    <div className="w-full min-w-0 space-y-5">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl font-semibold tracking-tight">
+              {screen.name}
+            </h1>
             <StatusLabel status={screen.status} />
-          </span>
-        }
-        description={
-          [screen.location, roomLabel(screen)].filter(Boolean).join(" · ") ||
-          "No location set"
-        }
-        actions={
-          <>
-            {canManageScreens(auth.status?.user) && (
-              <button
-                type="button"
-                className="button button--secondary"
-                onClick={() => setEditingDetails((editing) => !editing)}
-              >
-                <Pencil size={15} aria-hidden="true" />
-                {editingDetails ? "Close editor" : "Edit details"}
-              </button>
-            )}
-            {canManageScreens(auth.status?.user) &&
-              screen.platform.toLowerCase() === "linux" && (
-                <button
-                  type="button"
-                  className="button button--primary"
-                  onClick={() => setAirplayOpen(true)}
-                >
-                  <Airplay size={15} aria-hidden="true" />
-                  AirPlay
-                </button>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {[
+              platformLabel(screen.platform, t),
+              [screen.deviceManufacturer, screen.deviceModel]
+                .filter(Boolean)
+                .join(" "),
+              screen.playerVersion
+                ? t("detail.playerVersion", {
+                    version: screen.playerVersion,
+                  })
+                : t("detail.playerVersionMissing"),
+              [screen.location, roomLabel(screen, t)]
+                .filter(Boolean)
+                .join(" · ") || t("detail.noLocation"),
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {canManageScreens(auth.status?.user) && (
+            <Button size="sm" onClick={() => setQuickPresentOpen(true)}>
+              <Play aria-hidden="true" /> {t("detail.present")}
+            </Button>
+          )}
+          {canManageScreens(auth.status?.user) && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                command.mutate({ type: "restart_player_process", payload: {} })
+              }
+            >
+              <RefreshCw aria-hidden="true" /> {t("list.restart")}
+            </Button>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={<Button variant="outline" size="icon-sm" />}
+              aria-label={t("detail.moreActions")}
+            >
+              <MoreHorizontal aria-hidden="true" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {canManageScreens(auth.status?.user) && (
+                <DropdownMenuItem onClick={() => setEditingDetails(true)}>
+                  <Pencil aria-hidden="true" /> {t("grid.editDetails")}
+                </DropdownMenuItem>
               )}
-            {canManageScreens(auth.status?.user) && (
-              <button
-                type="button"
-                className="button button--secondary"
-                onClick={() => setQuickPresentOpen(true)}
-              >
-                Show now
-              </button>
-            )}
-          </>
-        }
-      />
+              {canManageScreens(auth.status?.user) &&
+                screen.platform.toLowerCase() === "linux" && (
+                  <DropdownMenuItem onClick={() => setAirplayOpen(true)}>
+                    <Airplay aria-hidden="true" /> {t("detail.airplay")}
+                  </DropdownMenuItem>
+                )}
+              <DropdownMenuItem onClick={() => selectTab("content")}>
+                <Monitor aria-hidden="true" /> {t("detail.viewContent")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </header>
       <AirPlayPresentDialog
         open={airplayOpen}
         targetType="screen"
@@ -2672,35 +3509,48 @@ export function ScreenDetailPage() {
         csrfToken={auth.status?.csrfToken ?? ""}
         onClose={() => setQuickPresentOpen(false)}
       />
-      {editingDetails && (
-        <section
-          className="screen-details-editor"
-          aria-labelledby="screen-details-editor-title"
-        >
-          <header>
-            <div>
-              <h3 id="screen-details-editor-title">Player details</h3>
-            </div>
-          </header>
-          {updateDetails.error && (
-            <div className="notice notice--error" role="alert">
-              {updateDetails.error.message}
-            </div>
-          )}
+      <Dialog open={editingDetails} onOpenChange={setEditingDetails}>
+        <DialogContent className="max-w-2xl">
           <form
+            className="space-y-5"
             onSubmit={(event) =>
               void detailsForm.handleSubmit((values) =>
                 updateDetails.mutateAsync(values),
               )(event)
             }
           >
-            <FormField
-              id="editScreenName"
-              label="Screen name"
-              autoFocus
-              error={detailsForm.formState.errors.name?.message}
-              {...detailsForm.register("name")}
-            />
+            <DialogHeader>
+              <DialogTitle>{t("detail.editTitle")}</DialogTitle>
+              <DialogDescription>{t("detail.editBody")}</DialogDescription>
+            </DialogHeader>
+            {updateDetails.error && (
+              <Alert variant="destructive">
+                <CircleAlert aria-hidden="true" />
+                <AlertTitle>{t("detail.saveError")}</AlertTitle>
+                <AlertDescription>
+                  {updateDetails.error.message}
+                </AlertDescription>
+              </Alert>
+            )}
+            <Field className="gap-2">
+              <FieldLabel
+                htmlFor="editScreenName"
+                className="text-sm font-medium"
+              >
+                {t("approval.nameLabel")}
+              </FieldLabel>
+              <Input
+                id="editScreenName"
+                autoFocus
+                aria-invalid={Boolean(detailsForm.formState.errors.name)}
+                {...detailsForm.register("name")}
+              />
+              {detailsForm.formState.errors.name?.message && (
+                <FieldError>
+                  {detailsForm.formState.errors.name.message}
+                </FieldError>
+              )}
+            </Field>
             <LocationPicker
               locations={locations.data?.items ?? []}
               value={detailsForm.watch("locationId")}
@@ -2710,1410 +3560,1953 @@ export function ScreenDetailPage() {
                 })
               }
             />
-            <div className="screen-room-fields">
-              <FormField
-                id="editScreenRoomName"
-                label="Room name (optional)"
-                {...detailsForm.register("roomName")}
-              />
-              <FormField
-                id="editScreenRoomNumber"
-                label="Room number (optional)"
-                {...detailsForm.register("roomNumber")}
-              />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field className="gap-2">
+                <FieldLabel
+                  htmlFor="editScreenRoomName"
+                  className="text-sm font-medium"
+                >
+                  {t("approval.roomName")}
+                </FieldLabel>
+                <Input
+                  id="editScreenRoomName"
+                  {...detailsForm.register("roomName")}
+                />
+              </Field>
+              <Field className="gap-2">
+                <FieldLabel
+                  htmlFor="editScreenRoomNumber"
+                  className="text-sm font-medium"
+                >
+                  {t("approval.roomNumber")}
+                </FieldLabel>
+                <Input
+                  id="editScreenRoomNumber"
+                  {...detailsForm.register("roomNumber")}
+                />
+              </Field>
             </div>
-            <label
-              className="field screen-details-editor__description"
-              htmlFor="editScreenDescription"
-            >
-              <span className="field__label">Description (optional)</span>
-              <textarea
+            <Field className="gap-2">
+              <FieldLabel
+                htmlFor="editScreenDescription"
+                className="text-sm font-medium"
+              >
+                {t("approval.description")}
+              </FieldLabel>
+              <Textarea
                 id="editScreenDescription"
                 {...detailsForm.register("description")}
               />
               {detailsForm.formState.errors.description?.message && (
-                <span className="field__error">
+                <FieldError>
                   {detailsForm.formState.errors.description.message}
-                </span>
+                </FieldError>
               )}
-            </label>
-            <div className="screen-details-editor__actions">
-              <button
+            </Field>
+            <DialogFooter>
+              <Button
+                variant="outline"
                 type="button"
-                className="button button--secondary"
                 onClick={() => setEditingDetails(false)}
               >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="button button--primary"
-                disabled={updateDetails.isPending}
-              >
-                {updateDetails.isPending ? "Saving…" : "Save details"}
-              </button>
-            </div>
+                {t("common:actions.cancel")}
+              </Button>
+              <Button type="submit" disabled={updateDetails.isPending}>
+                {updateDetails.isPending
+                  ? t("common:actions.saving")
+                  : t("detail.saveDetails")}
+              </Button>
+            </DialogFooter>
           </form>
-        </section>
-      )}
-      <ViewTabs
-        className="screen-detail-tabs"
-        label="Screen details"
+        </DialogContent>
+      </Dialog>
+      <Tabs
         value={tab}
         onValueChange={selectTab}
-        items={[
-          { value: "overview", label: "Overview" },
-          { value: "snapshots", label: "Snapshots" },
-          { value: "content", label: "Content" },
-          { value: "activity", label: "Activity" },
-          {
-            value: "manage",
-            label: "Manage",
-            marker: policyDirty ? "Unsaved" : undefined,
-          },
-        ]}
-      />
-
-      {tab === "overview" && (
-        <section
-          className="screen-overview"
-          aria-labelledby="screen-overview-title"
+        className="w-full min-w-0 gap-4"
+      >
+        <TabsList
+          aria-label={t("detail.tabsLabel")}
+          variant="line"
+          className="min-h-10 w-full justify-start gap-4 overflow-x-auto rounded-none border-b border-border p-0"
         >
-          <header>
-            <h3 id="screen-overview-title">Screen overview</h3>
-            <p>Current player state and the settings that affect it.</p>
-          </header>
-          {reliability.data?.externalPresentationState &&
-            reliability.data.externalPresentationState !== "none" && (
-              <div className="notice notice--info">
-                <strong>AIRPLAY ACTIVE</strong> · This screen is showing an
-                external presentation
-                {reliability.data.airplayConnected
-                  ? " and is receiving mirrored video."
-                  : "; it is waiting for a sender."}{" "}
-                Preview capture is disabled while AirPlay is active.
-              </div>
+          <TabsTrigger value="overview" className="flex-none px-2">
+            {t("detail.tabOverview")}
+          </TabsTrigger>
+          <TabsTrigger value="content" className="flex-none px-2">
+            {t("detail.tabContent")}
+          </TabsTrigger>
+          <TabsTrigger value="activity" className="flex-none px-2">
+            {t("detail.tabActivity")}
+          </TabsTrigger>
+          <TabsTrigger value="device" className="flex-none px-2">
+            {t("detail.tabDevice")}
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="flex-none px-2">
+            {t("detail.tabSettings")}{" "}
+            {policyDirty && (
+              <Badge variant="secondary">{t("detail.unsavedBadge")}</Badge>
             )}
-          <dl className="screen-overview__grid">
-            <div>
-              <dt>Online status</dt>
-              <dd>
-                <StatusLabel status={screen.status} />
-              </dd>
-            </div>
-            <div>
-              <dt>Current content</dt>
-              <dd>
-                {assignment.data?.playbackState ??
-                  assignment.data?.playlistName ??
-                  "No content"}
-              </dd>
-            </div>
-            <div>
-              <dt>Synchronization</dt>
-              <dd>
-                {assignment.data?.synchronizationStatus?.replaceAll("_", " ") ??
-                  "Not reported"}
-              </dd>
-            </div>
-            <div>
-              <dt>Player version</dt>
-              <dd>{screen.playerVersion || "Not reported"}</dd>
-            </div>
-            <div>
-              <dt>Reliability mode</dt>
-              <dd>
-                {reliability.data?.effectiveMode?.replaceAll("_", " ") ??
-                  "Not reported"}
-              </dd>
-            </div>
-            <div>
-              <dt>Active hours</dt>
-              <dd>
-                {reliability.data?.activeHoursState?.replaceAll("_", " ") ??
-                  "Not reported"}
-              </dd>
-            </div>
-            <div>
-              <dt>Player-setting overrides</dt>
-              <dd>
-                <Link to={`?tab=manage`}>
-                  {Object.keys(screenPolicy.data?.values ?? {}).length}{" "}
-                  configured · Manage screen
-                </Link>
-              </dd>
-            </div>
-          </dl>
-          <div className="screen-overview__links">
-            <button type="button" onClick={() => selectTab("content")}>
-              View content
-            </button>
-            <button type="button" onClick={() => selectTab("manage")}>
-              Manage screen
-            </button>
-          </div>
-          <section
-            className="screen-hardware-history"
-            aria-labelledby="screen-hardware-history-title"
+          </TabsTrigger>
+        </TabsList>
+
+        {tab === "overview" && (
+          <TabsContent
+            value="overview"
+            className="min-w-0 space-y-4 outline-none"
           >
-            <header>
-              <h3 id="screen-hardware-history-title">Hardware history</h3>
-              <p>The logical screen stays stable when hardware is replaced.</p>
-            </header>
-            {playerHistory.data?.items.length ? (
-              <div className="screen-hardware-history__list">
-                {playerHistory.data.items.map((hardware) => (
-                  <article
-                    key={hardware.id}
-                    className={
-                      hardware.retiredAt
-                        ? "screen-hardware-history__item screen-hardware-history__item--retired"
-                        : "screen-hardware-history__item"
-                    }
-                  >
-                    <div className="screen-hardware-history__identity">
-                      <strong>
-                        {hardware.manufacturer} {hardware.model}
-                      </strong>
-                      <span className="screen-hardware-history__specs">
-                        {hardware.platform} · {hardware.playerVersion} ·{" "}
-                        {hardware.screenWidth}×{hardware.screenHeight}
-                      </span>
-                    </div>
-                    <div className="screen-hardware-history__lifecycle">
-                      <span className="screen-hardware-history__state">
-                        <span aria-hidden="true" />
-                        {hardware.retiredAt
-                          ? `Retired ${new Date(hardware.retiredAt).toLocaleDateString()}`
-                          : "Current hardware"}
-                      </span>
-                      <small className="screen-hardware-history__meta">
-                        <span>
-                          Paired{" "}
-                          {new Date(hardware.pairedAt).toLocaleDateString()}
-                        </span>
-                        {hardware.retirementReason ? (
-                          <>
-                            <span aria-hidden="true">·</span>
-                            <span>{hardware.retirementReason}</span>
-                          </>
-                        ) : null}
-                      </small>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            ) : playerHistory.isLoading ? (
-              <p className="table-loading">Loading hardware history…</p>
-            ) : (
-              <p className="empty-state__message">
-                No hardware history recorded.
-              </p>
-            )}
-          </section>
-        </section>
-      )}
-
-      {tab === "content" && (
-        <section className="detail-card assignment-card">
-          <h3>Playback and scheduling</h3>
-          {assignment.data?.groups?.[0] && (
-            <div className="notice notice--info">
-              This player belongs to the{" "}
-              <Link to={`/groups/${assignment.data.groups[0].id}`}>
-                {assignment.data.groups[0].name}
-              </Link>{" "}
-              Display Group. Content and schedules apply to every member.
-            </div>
-          )}
-          {canManageScreens(auth.status?.user) ? (
-            <div className="assignment-controls">
-              <Select
-                aria-label="Assigned presentation"
-                value={selectedPresentation}
-                onChange={(event) =>
-                  setSelectedPresentation(event.target.value)
-                }
-              >
-                <option value="">No presentation assigned</option>
-                <optgroup label="Playlists">
-                  {playlists.data?.items?.map((playlist) => (
-                    <option key={playlist.id} value={`playlist:${playlist.id}`}>
-                      {playlist.name}
-                    </option>
-                  ))}
-                </optgroup>
-                <optgroup label="Published Layouts">
-                  {layouts.data?.items
-                    .filter((layout) => layout.publishedRevision)
-                    .map((layout) => (
-                      <option key={layout.id} value={`layout:${layout.id}`}>
-                        {layout.name}
-                      </option>
-                    ))}
-                </optgroup>
-              </Select>
-              <button
-                className="button button--primary"
-                disabled={
-                  assign.isPending ||
-                  selectedPresentation ===
-                    (assignment.data?.layoutId
-                      ? `layout:${assignment.data.layoutId}`
-                      : assignment.data?.playlistId
-                        ? `playlist:${assignment.data.playlistId}`
-                        : "")
-                }
-                onClick={() => assign.mutate()}
-              >
-                {assignment.data?.groups?.[0]
-                  ? "Apply to Display Group"
-                  : "Apply assignment"}
-              </button>
-            </div>
-          ) : (
-            <p>{assignment.data?.playlistName ?? "No playlist assigned"}</p>
-          )}
-          <ScreenContentChain assignment={assignment.data} />
-          <dl className="detail-list">
-            <div>
-              <dt>Direct fallback</dt>
-              <dd>
-                {assignment.data?.layoutName ??
-                  assignment.data?.playlistName ??
-                  "No fallback assigned"}
-              </dd>
-            </div>
-            <div>
-              <dt>Current selection</dt>
-              <dd>
-                {assignment.data?.selectionSource === "takeover"
-                  ? "Takeover"
-                  : assignment.data?.selectionSource === "schedule"
-                    ? `Scheduled${assignment.data.currentScheduleId ? ` · ${(assignment.data.relevantSchedules ?? []).find((s) => s.id === assignment.data?.currentScheduleId)?.name ?? "schedule"}` : ""}`
-                    : assignment.data?.selectionSource === "direct_fallback"
-                      ? "Direct fallback"
-                      : "No content"}
-              </dd>
-            </div>
-            <div>
-              <dt>Next scheduled change</dt>
-              <dd>
-                {assignment.data?.nextTransitionAt
-                  ? new Date(assignment.data.nextTransitionAt).toLocaleString()
-                  : "None reported"}
-              </dd>
-            </div>
-            <div>
-              <dt>Server manifest</dt>
-              <dd>Version {assignment.data?.manifestVersion ?? 1}</dd>
-            </div>
-            <div>
-              <dt>Player configuration</dt>
-              <dd>
-                {assignment.data?.activeConfigRevision != null
-                  ? `Revision ${assignment.data.activeConfigRevision}`
-                  : "Not reported"}
-              </dd>
-            </div>
-            <div>
-              <dt>Player manifest</dt>
-              <dd>
-                {assignment.data?.playerActiveManifestVersion != null
-                  ? `Version ${assignment.data.playerActiveManifestVersion}`
-                  : "Not reported"}
-              </dd>
-            </div>
-            <div>
-              <dt>Synchronization</dt>
-              <dd>
-                {assignment.data?.synchronizationStatus?.replaceAll("_", " ") ??
-                  "Not reported"}
-              </dd>
-            </div>
-            <div>
-              <dt>Display Group</dt>
-              <dd>
-                {(assignment.data?.groups ?? [])
-                  .map((g) => g.name)
-                  .join(", ") || "Not grouped"}
-              </dd>
-            </div>
-            <div>
-              <dt>Relevant schedules</dt>
-              <dd>
-                {(assignment.data?.relevantSchedules ?? [])
-                  .map((s) => `${s.name} (${s.priority})`)
-                  .join(", ") || "No schedules"}
-              </dd>
-            </div>
-            <div>
-              <dt>Device clock difference</dt>
-              <dd>
-                {assignment.data?.deviceClockOffsetSeconds != null
-                  ? `${Math.abs(assignment.data.deviceClockOffsetSeconds)} seconds`
-                  : "Not reported"}
-              </dd>
-            </div>
-            <div>
-              <dt>Downloads</dt>
-              <dd>
-                {assignment.data?.downloadQueueCount != null
-                  ? `${assignment.data.downloadQueueCount} queued · ${assignment.data.downloadedBytes ?? 0} of ${assignment.data.requiredBytes ?? 0} bytes`
-                  : "Not reported"}
-              </dd>
-            </div>
-            <div>
-              <dt>Website playback</dt>
-              <dd>
-                {assignment.data?.websiteState
-                  ? `${assignment.data.websiteState?.replaceAll("_", " ") ?? "Not reported"}${assignment.data.websiteCurrentHost ? ` · ${assignment.data.websiteCurrentHost}` : ""}`
-                  : "Not active"}
-              </dd>
-            </div>
-            <div>
-              <dt>Blocked website navigation</dt>
-              <dd>
-                {assignment.data?.websiteBlockedNavigationCount ??
-                  "Not reported"}
-              </dd>
-            </div>
-            <div>
-              <dt>Playback</dt>
-              <dd>{assignment.data?.playbackState ?? "Not reported"}</dd>
-            </div>
-            <div>
-              <dt>Takeover</dt>
-              <dd>
-                {assignment.data?.activeTakeoverId
-                  ? `${assignment.data.takeoverState ?? "pending"} · ${assignment.data.takeoverPreparationProgress ?? 0}% prepared`
-                  : "No active takeover"}
-              </dd>
-            </div>
-            <div>
-              <dt>Cache</dt>
-              <dd>
-                {assignment.data?.cacheUsedBytes != null
-                  ? `${assignment.data.cacheUsedBytes} of ${assignment.data.cacheLimitBytes ?? 0} bytes`
-                  : "Not reported"}
-              </dd>
-            </div>
-          </dl>
-          {assignment.data?.lastSynchronizationError && (
-            <div className="notice notice--error">
-              Synchronization: {assignment.data.lastSynchronizationError}
-            </div>
-          )}
-          {assignment.data?.lastPlaybackError && (
-            <div className="notice notice--error">
-              Playback: {assignment.data.lastPlaybackError}
-            </div>
-          )}
-          {assignment.data?.configurationError && (
-            <div className="notice notice--error">
-              Configuration: {assignment.data.configurationError}
-            </div>
-          )}
-          {Math.abs(assignment.data?.deviceClockOffsetSeconds ?? 0) >
-            (assignment.data?.clockSkewWarningSeconds ?? 300) && (
-            <div className="notice notice--warning">
-              The player clock differs from server time by more than five
-              minutes. Offline schedule changes may occur at the wrong time.
-            </div>
-          )}
-          {assignment.data?.scheduleEvaluationError && (
-            <div className="notice notice--error">
-              Schedule evaluation: {assignment.data.scheduleEvaluationError}
-            </div>
-          )}
-          {assignment.data?.websiteFailureCategory &&
-            ["failed", "timed_out", "blocked", "showing_fallback"].includes(
-              assignment.data.websiteState ?? "",
-            ) && (
-              <div className="notice notice--error">
-                Website:{" "}
-                {assignment.data.websiteFailureCategory?.replaceAll("_", " ") ??
-                  "Unknown website failure"}
-              </div>
-            )}
-        </section>
-      )}
-
-      {tab === "manage" && (
-        <section
-          className="screen-manage__navigation"
-          aria-labelledby="screen-manage-title"
-        >
-          <div className="screen-manage__navigation-copy">
-            <div>
-              <h2 id="screen-manage-title">Manage screen</h2>
-              <p>Choose an area to configure, inspect, or maintain.</p>
-            </div>
-            <StatusLabel status={screen.status} />
-          </div>
-          <ViewTabs
-            className="screen-manage-tabs"
-            label="Manage screen sections"
-            value={manageSection}
-            onValueChange={selectManageSection}
-            items={[
-              { value: "settings", label: "Settings" },
-              { value: "health", label: "Health" },
-              { value: "maintenance", label: "Maintenance" },
-              { value: "device", label: "Device & access" },
-            ]}
-          />
-        </section>
-      )}
-
-      {tab === "manage" && manageSection === "settings" && (
-        <PlayerPolicyEditor
-          target="screen"
-          id={id}
-          onDirtyChange={setPolicyDirty}
-        />
-      )}
-
-      {tab === "manage" && manageSection === "health" && (
-        <section className="operations" aria-labelledby="reliability-heading">
-          <h3 id="reliability-heading">Health &amp; recovery</h3>
-          <p>
-            Configured behavior is reported separately from capabilities
-            confirmed by this device. Platform-specific controls appear only
-            when the player reports support.
-          </p>
-          <div className="readiness-panel">
-            <div className="readiness-panel__heading">
-              <div>
-                <h4>Zero-Touch Readiness</h4>
-                <p>
-                  Commissioning and current device capabilities required for
-                  unattended recovery.
+            <section
+              className="space-y-4"
+              aria-labelledby="screen-overview-title"
+            >
+              <header>
+                <h2
+                  id="screen-overview-title"
+                  className="text-base font-semibold"
+                >
+                  {t("detail.tabOverview")}
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {t("detail.overviewBody")}
                 </p>
+              </header>
+              {reliability.data?.externalPresentationState &&
+                reliability.data.externalPresentationState !== "none" && (
+                  <Alert>
+                    <Airplay aria-hidden="true" />
+                    <AlertTitle>{t("detail.externalTitle")}</AlertTitle>
+                    <AlertDescription>
+                      {reliability.data.airplayConnected
+                        ? t("detail.externalMirroring")
+                        : t("detail.externalWaiting")}{" "}
+                      {t("detail.externalNote")}
+                    </AlertDescription>
+                  </Alert>
+                )}
+              <dl className="grid gap-x-6 gap-y-4 border-y border-border py-4 sm:grid-cols-2 xl:grid-cols-4">
+                <OverviewFact
+                  label={t("detail.factConnection")}
+                  value={<StatusLabel status={screen.status} />}
+                />
+                <OverviewFact
+                  label={t("grid.nowPlaying")}
+                  value={
+                    assignment.data?.layoutName ??
+                    assignment.data?.playlistName ??
+                    t("detail.factNoContent")
+                  }
+                />
+                <OverviewFact
+                  label={t("detail.factLocation")}
+                  value={
+                    [screen.location, roomLabel(screen, t)]
+                      .filter(Boolean)
+                      .join(" · ") || t("shared.notSet")
+                  }
+                />
+                <OverviewFact
+                  label={t("detail.factLastContact")}
+                  value={formatContact(screen.lastContactAt, t, formatLocale)}
+                />
+                <OverviewFact
+                  label={t("detail.factPlayerUpdate")}
+                  value={
+                    screen.updateError
+                      ? t("shared.updateFailed")
+                      : (screen.updateState?.replaceAll("_", " ") ??
+                        t("detail.noDeployment"))
+                  }
+                />
+                <OverviewFact
+                  label={t("detail.factReliability")}
+                  value={
+                    reliability.data?.effectiveMode?.replaceAll("_", " ") ??
+                    t("shared.notReported")
+                  }
+                />
+                <OverviewFact
+                  label={t("detail.factNextChange")}
+                  value={
+                    assignment.data?.nextTransitionAt
+                      ? new Date(
+                          assignment.data.nextTransitionAt,
+                        ).toLocaleString(formatLocale)
+                      : t("detail.noneScheduled")
+                  }
+                />
+                <OverviewFact
+                  label={t("detail.factPlayerSettings")}
+                  value={
+                    <Link
+                      to="?tab=settings"
+                      className="underline underline-offset-4"
+                    >
+                      {t("detail.policyOverrides", {
+                        count: Object.keys(screenPolicy.data?.values ?? {})
+                          .length,
+                      })}
+                    </Link>
+                  }
+                />
+              </dl>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => selectTab("content")}
+                >
+                  {t("detail.viewContent")}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => selectTab("activity")}
+                >
+                  {t("detail.viewActivity")}
+                </Button>
               </div>
-              <span className="status-badge">
-                {zeroTouchReadiness(reliability.data)}
-              </span>
-            </div>
-            <dl className="detail-list">
-              <div>
-                <dt>Commissioning</dt>
-                <dd>
-                  {formatReportedStatus(
-                    reliability.data?.commissioningState,
-                    "Not started",
-                  )}
-                  {typeof reliability.data?.commissioningStep === "string" &&
-                  reliability.data.commissioningStep.trim()
-                    ? ` · ${formatReportedStatus(reliability.data.commissioningStep, "")}`
-                    : ""}
-                </dd>
-              </div>
-              <div>
-                <dt>Accessibility return</dt>
-                <dd>
-                  {formatReportedStatus(
-                    reliability.data?.accessibilityServiceState,
-                  )}
-                </dd>
-              </div>
-              <div>
-                <dt>Launch after boot</dt>
-                <dd>
-                  {reliability.data?.bootLaunchVerified
-                    ? "Verified"
-                    : reportsAutostart(reliability.data)
-                      ? // Linux has no boot-attempt counter; the autostart row
-                        // below carries the detail.
-                        "Not yet verified"
-                      : `${formatReportedCount(reliability.data?.bootAttemptCount)} attempts · not verified`}
-                </dd>
-              </div>
-              {reportsAutostart(reliability.data) && (
-                <div>
-                  <dt>Autostart (systemd)</dt>
-                  <dd>{autostartSummary(reliability.data)}</dd>
-                </div>
-              )}
-              <div>
-                <dt>Cached fallback</dt>
-                <dd>
-                  {reliability.data?.cachedFallbackAvailable
-                    ? "Available"
-                    : "Not confirmed"}
-                </dd>
-              </div>
-              {isAndroidScreen(screen.platform) && (
-                <div>
-                  <dt>Install permission</dt>
-                  <dd>
-                    {formatReportedStatus(screen.installPermissionStatus)}
-                  </dd>
-                </div>
-              )}
-              <div>
-                <dt>Free storage</dt>
-                <dd>
-                  {screen.availableStorageBytes == null
-                    ? "Not reported"
-                    : formatBytes(screen.availableStorageBytes)}
-                </dd>
-              </div>
-              <div>
-                <dt>Last healthy playback</dt>
-                <dd>
-                  {reliability.data?.lastHealthyPlaybackAt
-                    ? new Date(
-                        reliability.data.lastHealthyPlaybackAt,
-                      ).toLocaleString()
-                    : "Not reported"}
-                </dd>
-              </div>
-              <div>
-                <dt>Update readiness</dt>
-                <dd>
-                  {formatReportedStatus(reliability.data?.updateReadiness)}
-                </dd>
-              </div>
-              {screen.platform.toLowerCase() === "linux" && (
-                <>
-                  <div>
-                    <dt>Display Control</dt>
-                    <dd>
-                      {reliability.data?.displayControlProvider
-                        ? `${reliability.data.displayControlProvider} · ${Object.keys(reliability.data.displayControlCapabilities ?? {}).length} capabilities`
-                        : "Not reported"}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Display state</dt>
-                    <dd>
-                      {formatReportedStatus(
-                        reliability.data?.displayPowerState,
-                      )}
-                      {reliability.data?.displayControlLastCommandResult ===
-                        "display_command_sent" &&
-                      reliability.data?.displayPowerStateConfirmed === false
-                        ? " · command sent, not confirmed"
-                        : ""}
-                      {reliability.data?.displayControlPolicyState ===
-                      "powered_off_by_policy"
-                        ? " · powered off by policy"
-                        : ""}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Last display command</dt>
-                    <dd>
-                      {reliability.data?.displayControlLastCommandState
-                        ? `${formatReportedStatus(reliability.data.displayControlLastCommandState)}${reliability.data.displayControlLastCommandResult ? ` · ${reliability.data.displayControlLastCommandResult}` : ""}`
-                        : "Not reported"}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>AirPlay Present</dt>
-                    <dd>
-                      {reliability.data?.airplaySupported
-                        ? `Ready · ${reliability.data.airplayMaxProfile ?? "profile pending"}`
-                        : "Not ready"}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>AirPlay decoder</dt>
-                    <dd>
-                      {reliability.data?.airplayDecoder ?? "Not reported"}
-                      {reliability.data?.airplayHardwareDecode
-                        ? " · hardware"
-                        : " · software-limited"}
-                    </dd>
-                  </div>
-                </>
-              )}
-            </dl>
-          </div>
-          {screen.platform.toLowerCase() === "linux" && (
-            <ScreenPresentationNetworkPanel
-              screen={screen}
-              canManage={canManageScreens(auth.status?.user)}
-              csrfToken={auth.status?.csrfToken ?? ""}
-            />
-          )}
-          <dl className="detail-list">
-            <div>
-              <dt>Reliability mode</dt>
-              <dd>
-                {formatReportedStatus(reliability.data?.configuredMode)}{" "}
-                configured ·{" "}
-                {formatReportedStatus(reliability.data?.effectiveMode)}{" "}
-                effective
-              </dd>
-            </div>
-            <div>
-              <dt>Foreground</dt>
-              <dd>{formatReportedStatus(reliability.data?.foregroundState)}</dd>
-            </div>
-            <div>
-              <dt>Boot recovery</dt>
-              <dd>
-                {formatReportedStatus(reliability.data?.bootRecoveryResult)}
-              </dd>
-            </div>
-            <div>
-              <dt>Immersive / keep awake</dt>
-              <dd>
-                {reliability.data?.immersiveModeActive
-                  ? "Immersive"
-                  : "Not immersive"}{" "}
-                ·{" "}
-                {reliability.data?.keepScreenOn
-                  ? "Kept awake"
-                  : "Wake lock released"}
-              </dd>
-            </div>
-            {isAndroidScreen(screen.platform) && (
-              <>
-                <div>
-                  <dt>Managed Kiosk</dt>
-                  <dd>
-                    {formatReportedStatus(
-                      reliability.data?.managedKioskCapability,
-                    )}{" "}
-                    · lock task{" "}
-                    {formatReportedStatus(
-                      reliability.data?.lockTaskState,
-                      "unknown",
-                    )}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Accessibility Control</dt>
-                  <dd>
-                    {formatReportedStatus(
-                      reliability.data?.accessibilityServiceState,
-                    )}
-                  </dd>
-                </div>
-              </>
-            )}
-            <div>
-              <dt>Active hours</dt>
-              <dd>
-                {formatReportedStatus(reliability.data?.activeHoursState)}
-              </dd>
-            </div>
-            <div>
-              <dt>Sleep support</dt>
-              <dd>{formatReportedStatus(reliability.data?.sleepCapability)}</dd>
-            </div>
-            <div>
-              <dt>Recovery</dt>
-              <dd>
-                Level {formatReportedCount(reliability.data?.recoveryLevel)} ·{" "}
-                {formatReportedCount(reliability.data?.recoveryCount)} recent ·
-                safe mode {reliability.data?.safeMode ? "active" : "inactive"}
-              </dd>
-            </div>
-            <div>
-              <dt>Maintenance session</dt>
-              <dd>
-                {reliability.data?.maintenanceSessionExpiresAt
-                  ? `Until ${new Date(reliability.data.maintenanceSessionExpiresAt).toLocaleString()}`
-                  : "Inactive"}
-              </dd>
-            </div>
-          </dl>
-          {reliabilityCapabilityWarning(reliability.data) && (
-            <div className="notice notice--warning">
-              {reliabilityCapabilityWarning(reliability.data)}
-            </div>
-          )}
-          {autostartWarning(reliability.data) && (
-            <div className="notice notice--warning">
-              {autostartWarning(reliability.data)}
-            </div>
-          )}
-          {canManageScreens(auth.status?.user) && (
-            <>
               <section
-                className="reliability-controls"
-                aria-labelledby="reliability-controls-title"
+                className="space-y-2"
+                aria-labelledby="screen-hardware-history-title"
               >
-                <header className="reliability-section-heading">
-                  <div>
-                    <h4 id="reliability-controls-title">Player controls</h4>
-                    <p>
-                      Run a focused recovery action without leaving this screen.
-                    </p>
-                  </div>
-                  {command.isPending && (
-                    <span className="status-badge">Sending…</span>
-                  )}
+                <header>
+                  <h3
+                    id="screen-hardware-history-title"
+                    className="text-sm font-semibold"
+                  >
+                    {t("detail.hwTitle")}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {t("detail.hwBody")}
+                  </p>
                 </header>
-                <div className="reliability-control-groups">
-                  {isAndroidScreen(screen.platform) && (
-                    <div className="reliability-control-group">
-                      <div>
-                        <h5>Power Assist</h5>
-                        <p>Test Android sleep and wake behavior.</p>
-                      </div>
-                      <div className="reliability-button-grid">
-                        <button
-                          className="button button--secondary"
-                          disabled={command.isPending}
-                          onClick={() =>
-                            command.mutate({
-                              type: "power_assist_sleep",
-                              payload: {},
-                            })
-                          }
-                        >
-                          Test sleep
-                        </button>
-                        <button
-                          className="button button--secondary"
-                          disabled={command.isPending}
-                          onClick={() =>
-                            command.mutate({
-                              type: "power_assist_wake",
-                              payload: {},
-                            })
-                          }
-                        >
-                          Test wake
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  <div className="reliability-control-group">
-                    <div>
-                      <h5>Recovery</h5>
-                      <p>
-                        Retry recovery or leave safe mode after resolving a
-                        fault.
-                      </p>
-                    </div>
-                    <div className="reliability-button-grid">
-                      <button
-                        className="button button--secondary"
-                        disabled={command.isPending}
-                        onClick={() =>
-                          command.mutate({
-                            type: "retry_player_recovery",
-                            payload: {},
-                          })
-                        }
+                {playerHistory.data?.items.length ? (
+                  <ItemGroup className="gap-0 divide-y divide-border">
+                    {playerHistory.data.items.map((hardware) => (
+                      <Item
+                        key={hardware.id}
+                        size="xs"
+                        render={<div role="listitem" />}
+                        className="rounded-none px-0"
                       >
-                        Retry recovery
-                      </button>
-                      <button
-                        className="button button--secondary"
-                        disabled={
-                          command.isPending || !reliability.data?.safeMode
-                        }
-                        onClick={() =>
-                          command.mutate({
-                            type: "exit_safe_mode",
-                            payload: {},
-                          })
-                        }
-                      >
-                        Exit safe mode
-                      </button>
-                    </div>
-                  </div>
-                  {reportsAutostart(reliability.data) && (
-                    <div className="reliability-control-group">
-                      <div>
-                        <h5>Linux autostart</h5>
-                        <p>
-                          Installs the player's own systemd user service so it
-                          starts with the graphical session and restarts after
-                          any exit. Setting up is safe while the player is
-                          running: Tilecast captures this AppImage's display,
-                          data directory, and server address, writes and enables
-                          the service, and does not start a duplicate process.
-                          The current manual process keeps running until the
-                          next controlled restart, session restart, or reboot,
-                          when systemd takes ownership. A service file you wrote
-                          yourself is never overwritten. A graphical session
-                          that begins at boot (auto-login or a kiosk compositor)
-                          remains operating-system setup.
-                        </p>
-                      </div>
-                      <div className="reliability-button-grid">
-                        <button
-                          className="button button--secondary"
-                          disabled={command.isPending}
-                          onClick={() =>
-                            command.mutate({
-                              type: "install_autostart",
-                              payload: {},
-                            })
-                          }
-                        >
-                          Set up autostart
-                        </button>
-                        <button
-                          className="button button--secondary"
-                          disabled={command.isPending}
-                          onClick={() => {
-                            if (
-                              confirm(
-                                "Remove the autostart service? This screen will keep playing now, but will not return on its own after a reboot or a player update.",
-                              )
-                            )
-                              command.mutate({
-                                type: "remove_autostart",
-                                payload: {},
-                              });
-                          }}
-                        >
-                          Remove autostart
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  {screen.platform.toLowerCase() === "linux" && (
-                    <div className="reliability-control-group reliability-control-group--wide">
-                      <div>
-                        <h5>Display Control</h5>
-                        <p>
-                          Player connectivity and display power are separate
-                          states. Controls appear only for capabilities reported
-                          by this player; provider commands have a bounded
-                          timeout and may report sent without a confirmed panel
-                          state.
-                        </p>
-                      </div>
-                      <div className="reliability-button-grid reliability-button-grid--wide">
-                        {displayCapabilities.power && (
-                          <>
-                            <button
-                              className="button button--secondary"
-                              disabled={command.isPending}
-                              onClick={() =>
-                                command.mutate({
-                                  type: "display_power_on",
-                                  payload: {},
+                        <ItemContent className="min-w-0">
+                          <ItemTitle>
+                            {hardware.manufacturer} {hardware.model}
+                          </ItemTitle>
+                          <ItemDescription>
+                            {hardware.platform} · {hardware.playerVersion} ·{" "}
+                            {hardware.screenWidth}×{hardware.screenHeight} ·{" "}
+                            {t("detail.hwPaired", {
+                              date: new Date(
+                                hardware.pairedAt,
+                              ).toLocaleDateString(formatLocale),
+                            })}
+                            {hardware.retiredAt
+                              ? t("detail.hwRetired", {
+                                  date: new Date(
+                                    hardware.retiredAt,
+                                  ).toLocaleDateString(formatLocale),
                                 })
-                              }
-                            >
-                              Power on display
-                            </button>
-                            <button
-                              className="button button--secondary"
-                              disabled={command.isPending}
-                              onClick={() =>
-                                command.mutate({
-                                  type: "display_power_off",
-                                  payload: {},
-                                })
-                              }
-                            >
-                              Power off display
-                            </button>
-                          </>
-                        )}
-                        {displayCapabilities.input && (
-                          <button
-                            className="button button--secondary"
-                            disabled={command.isPending}
-                            onClick={() => {
-                              const input = window.prompt(
-                                "CEC physical address (for example 1.0.0.0)",
-                              );
-                              if (input?.trim())
-                                command.mutate({
-                                  type: "display_set_input",
-                                  payload: { input: input.trim() },
-                                });
-                            }}
-                          >
-                            Set display input
-                          </button>
-                        )}
-                        {displayCapabilities.volume && (
-                          <button
-                            className="button button--secondary"
-                            disabled={command.isPending}
-                            onClick={() => {
-                              const value = window.prompt(
-                                "Display volume, from 0 to 100",
-                              );
-                              const volume =
-                                value == null ? NaN : Number(value);
-                              if (
-                                Number.isInteger(volume) &&
-                                volume >= 0 &&
-                                volume <= 100
-                              )
-                                command.mutate({
-                                  type: "display_set_volume",
-                                  payload: { volume },
-                                });
-                            }}
-                          >
-                            Set display volume
-                          </button>
-                        )}
-                        {displayCapabilities.mute && (
-                          <>
-                            <button
-                              className="button button--secondary"
-                              disabled={command.isPending}
-                              onClick={() =>
-                                command.mutate({
-                                  type: "display_mute",
-                                  payload: {},
-                                })
-                              }
-                            >
-                              Mute display
-                            </button>
-                            <button
-                              className="button button--secondary"
-                              disabled={command.isPending}
-                              onClick={() =>
-                                command.mutate({
-                                  type: "display_unmute",
-                                  payload: {},
-                                })
-                              }
-                            >
-                              Unmute display
-                            </button>
-                          </>
-                        )}
-                        {displayCapabilities.brightness && (
-                          <button
-                            className="button button--secondary"
-                            disabled={command.isPending}
-                            onClick={() => {
-                              const value = window.prompt(
-                                "Display brightness, from 0 to 100",
-                              );
-                              const brightness =
-                                value == null ? NaN : Number(value);
-                              if (
-                                Number.isInteger(brightness) &&
-                                brightness >= 0 &&
-                                brightness <= 100
-                              )
-                                command.mutate({
-                                  type: "display_set_brightness",
-                                  payload: { brightness },
-                                });
-                            }}
-                          >
-                            Set display brightness
-                          </button>
-                        )}
-                        <button
-                          className="button button--secondary"
-                          disabled={command.isPending}
-                          onClick={() =>
-                            command.mutate({
-                              type: "display_probe",
-                              payload: {},
-                            })
-                          }
-                        >
-                          Probe display capabilities
-                        </button>
-                        {!hasDisplayControl && (
-                          <span className="field__hint">
-                            No HDMI-CEC or DDC/CI capability is currently
-                            reported.
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  {screen.platform.toLowerCase() === "linux" && (
-                    <div className="reliability-control-group">
-                      <div>
-                        <h5>AirPlay diagnostics</h5>
-                        <p>
-                          Probe UxPlay, GStreamer, VA-API, audio, and local
-                          Avahi support without advertising a receiver.
-                        </p>
-                      </div>
-                      <div className="reliability-button-grid">
-                        <button
-                          className="button button--secondary"
-                          disabled={command.isPending}
-                          onClick={() =>
-                            command.mutate({
-                              type: "test_airplay_support",
-                              payload: {},
-                            })
-                          }
-                        >
-                          Test AirPlay support
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  <div className="reliability-control-group reliability-control-group--wide">
-                    <div>
-                      <h5>Playback and player</h5>
-                      <p>
-                        Use the least disruptive action that matches the
-                        problem.
-                      </p>
-                    </div>
-                    <div className="reliability-button-grid reliability-button-grid--wide">
-                      {(
-                        [
-                          ["retry_current_item", "Retry item"],
-                          ["skip_current_item", "Skip item"],
-                          ["recreate_renderer", "Recreate renderer"],
-                          ["recreate_playback_session", "Recreate session"],
-                          ["restart_activity", "Restart activity"],
-                          ["restart_player_process", "Restart player"],
-                          ["resynchronize_player", "Resynchronize"],
-                          ["run_player_self_test", "Run self-test"],
-                        ] as const
-                      ).map(([type, label]) => (
-                        <button
-                          key={type}
-                          className="button button--secondary"
-                          disabled={command.isPending}
-                          onClick={() => command.mutate({ type, payload: {} })}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+                              : t("detail.hwCurrent")}
+                            {hardware.retirementReason
+                              ? ` · ${hardware.retirementReason}`
+                              : ""}
+                          </ItemDescription>
+                        </ItemContent>
+                      </Item>
+                    ))}
+                  </ItemGroup>
+                ) : playerHistory.isLoading ? (
+                  <Skeleton className="h-12 w-full" />
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    {t("detail.hwEmpty")}
+                  </p>
+                )}
               </section>
-            </>
-          )}
-          <FireTvAccessibilityAdbPanel screenId={id} />
-        </section>
-      )}
+            </section>
+          </TabsContent>
+        )}
 
-      {tab === "manage" &&
-        manageSection === "maintenance" &&
-        canManageScreens(auth.status?.user) && (
-          <section className="operations">
-            <h3>Maintenance</h3>
-            <p>
-              Commands remain pending during brief disconnections and expire
-              automatically.
-            </p>
-            <div className="heading-actions">
-              <button
-                className="button button--secondary"
-                onClick={() =>
-                  command.mutate({ type: "sync_now", payload: {} })
-                }
-              >
-                Sync now
-              </button>
-              <button
-                className="button button--secondary"
-                onClick={() =>
-                  command.mutate({ type: "reload_playback", payload: {} })
-                }
-              >
-                Reload playback
-              </button>
-              <button
-                className="button button--secondary"
-                onClick={() =>
-                  command.mutate({
-                    type: "identify_screen",
-                    payload: { durationSeconds: 30 },
-                  })
-                }
-              >
-                Identify screen
-              </button>
-              <button
-                className="button button--danger-quiet"
-                onClick={() => {
-                  if (
-                    confirm(
-                      "Clear media not protected by active or pending playback?",
-                    )
-                  )
-                    command.mutate({ type: "clear_media_cache", payload: {} });
-                }}
-              >
-                Clear media cache
-              </button>
-              <button
-                className="button button--danger-quiet"
-                onClick={() => {
-                  if (
-                    confirm(
-                      "Clear cookies, cache, DOM storage, and WebView state?",
-                    )
-                  )
-                    command.mutate({ type: "clear_website_data", payload: {} });
-                }}
-              >
-                Clear website data
-              </button>
-              <button
-                className="button button--danger-quiet"
-                onClick={() => {
-                  const disabling = !assignment.data?.playbackDisabled;
-                  if (
-                    !disabling ||
-                    confirm(
-                      "Disable ordinary playback while keeping this player paired and connected?",
-                    )
-                  )
-                    command.mutate({
-                      type: disabling ? "disable_playback" : "enable_playback",
-                      payload: {},
-                    });
-                }}
-              >
-                {assignment.data?.playbackDisabled
-                  ? "Enable playback"
-                  : "Disable playback"}
-              </button>
-            </div>
-            {command.isSuccess && (
-              <p>Command queued; this does not mean it has completed.</p>
-            )}
-            <div className="command-history">
-              {commands.data?.items?.map((c) => (
-                <div key={c.id}>
-                  <strong>
-                    {c.type?.replaceAll("_", " ") ?? "Unknown command"}
-                  </strong>
-                  <span>
-                    {c.state} · {new Date(c.createdAt).toLocaleString()}
-                  </span>
-                  <small>
-                    {c.resultCode?.replaceAll("_", " ") ?? "No result yet"}
-                  </small>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-      {tab === "manage" &&
-        manageSection === "maintenance" &&
-        !canManageScreens(auth.status?.user) && (
-          <section className="operations">
-            <h3>Recent operations</h3>
-            {commands.isLoading ? (
-              <div className="table-loading">Loading operations…</div>
-            ) : (commands.data?.items?.length ?? 0) === 0 ? (
-              <p>
-                No maintenance commands have been sent to this screen. An Owner
-                or Administrator can send them.
-              </p>
-            ) : (
-              <div className="command-history">
-                {commands.data?.items?.map((c) => (
-                  <div key={c.id}>
-                    <strong>
-                      {c.type?.replaceAll("_", " ") ?? "Unknown command"}
-                    </strong>
-                    <span>
-                      {c.state} · {new Date(c.createdAt).toLocaleString()}
-                    </span>
-                    <small>
-                      {c.resultCode?.replaceAll("_", " ") ?? "No result yet"}
-                    </small>
+        {tab === "content" && (
+          <TabsContent value="content" className="min-w-0 outline-none">
+            <section
+              className="min-w-0 space-y-5 rounded-xl border border-border p-4 sm:p-5"
+              aria-labelledby="screen-playback-title"
+            >
+              <header>
+                <h2
+                  id="screen-playback-title"
+                  className="text-base font-semibold"
+                >
+                  {t("detail.playbackTitle")}
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {t("detail.playbackBody")}
+                </p>
+              </header>
+              {assignment.data?.groups?.[0] && (
+                <Alert>
+                  <Monitor aria-hidden="true" />
+                  <AlertTitle>{t("detail.managedTitle")}</AlertTitle>
+                  <AlertDescription>
+                    <Trans
+                      i18nKey="detail.managedBody"
+                      ns="screens"
+                      values={{ name: assignment.data.groups[0].name }}
+                      components={{
+                        groupLink: (
+                          <Link
+                            to={`/groups/${assignment.data.groups[0].id}`}
+                          />
+                        ),
+                      }}
+                    />
+                  </AlertDescription>
+                </Alert>
+              )}
+              {canManageScreens(auth.status?.user) ? (
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                  <div className="min-w-0 flex-1">
+                    <Select
+                      items={[
+                        {
+                          value: "__none__",
+                          label: t("detail.noPresentation"),
+                        },
+                        ...(playlists.data?.items ?? []).map((playlist) => ({
+                          value: `playlist:${playlist.id}`,
+                          label: playlist.name,
+                        })),
+                        ...(layouts.data?.items ?? []).map((layout) => ({
+                          value: `layout:${layout.id}`,
+                          label: layout.name,
+                        })),
+                      ]}
+                      value={selectedPresentation || "__none__"}
+                      onValueChange={(value) =>
+                        setSelectedPresentation(
+                          value === "__none__" ? "" : (value ?? ""),
+                        )
+                      }
+                    >
+                      <SelectTrigger
+                        aria-label={t("detail.assignedLabel")}
+                        className="w-full"
+                      >
+                        <SelectValue placeholder={t("detail.noPresentation")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">
+                          {t("detail.noPresentation")}
+                        </SelectItem>
+                        <SelectGroup>
+                          <SelectLabel>
+                            {t("detail.playlistsGroup")}
+                          </SelectLabel>
+                          {playlists.data?.items?.map((playlist) => (
+                            <SelectItem
+                              key={playlist.id}
+                              value={`playlist:${playlist.id}`}
+                            >
+                              {playlist.name}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                        <SelectGroup>
+                          <SelectLabel>{t("detail.layoutsGroup")}</SelectLabel>
+                          {layouts.data?.items
+                            .filter((layout) => layout.publishedRevision)
+                            .map((layout) => (
+                              <SelectItem
+                                key={layout.id}
+                                value={`layout:${layout.id}`}
+                              >
+                                {layout.name}
+                              </SelectItem>
+                            ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
                   </div>
-                ))}
-              </div>
-            )}
-          </section>
+                  <Button
+                    disabled={
+                      assign.isPending ||
+                      selectedPresentation ===
+                        (assignment.data?.layoutId
+                          ? `layout:${assignment.data.layoutId}`
+                          : assignment.data?.playlistId
+                            ? `playlist:${assignment.data.playlistId}`
+                            : "")
+                    }
+                    onClick={() => assign.mutate()}
+                  >
+                    {assign.isPending
+                      ? t("groups.detail.applying")
+                      : assignment.data?.groups?.[0]
+                        ? t("groups.detail.apply")
+                        : t("detail.applyAssignment")}
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {assignment.data?.layoutName ??
+                    assignment.data?.playlistName ??
+                    t("detail.noPresentation")}
+                </p>
+              )}
+              <ScreenContentChain assignment={assignment.data} />
+              <dl className="grid gap-x-6 gap-y-4 border-y border-border py-4 sm:grid-cols-2 xl:grid-cols-3">
+                <OverviewFact
+                  label={t("detail.directFallback")}
+                  value={
+                    assignment.data?.layoutName ??
+                    assignment.data?.playlistName ??
+                    t("detail.noFallbackAssigned")
+                  }
+                />
+                <OverviewFact
+                  label={t("detail.currentSelection")}
+                  value={selectionSummary(assignment.data, t)}
+                />
+                <OverviewFact
+                  label={t("detail.nextScheduledChange")}
+                  value={
+                    assignment.data?.nextTransitionAt
+                      ? new Date(
+                          assignment.data.nextTransitionAt,
+                        ).toLocaleString(formatLocale)
+                      : t("shared.noneReported")
+                  }
+                />
+                <OverviewFact
+                  label={t("list.groupFilter")}
+                  value={
+                    (assignment.data?.groups ?? [])
+                      .map((group) => group.name)
+                      .join(", ") || t("detail.notGrouped")
+                  }
+                />
+                <OverviewFact
+                  label={t("detail.relevantSchedules")}
+                  value={
+                    (assignment.data?.relevantSchedules ?? [])
+                      .map(
+                        (schedule) => `${schedule.name} (${schedule.priority})`,
+                      )
+                      .join(", ") || t("detail.noSchedules")
+                  }
+                />
+              </dl>
+              <Collapsible className="border-t border-border pt-3">
+                <CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-between gap-2 text-left text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  {t("detail.diagnostics")}
+                  <ChevronDown size={16} aria-hidden="true" />
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-3">
+                    <OverviewFact
+                      label={t("detail.factServerManifest")}
+                      value={t("detail.manifestVersion", {
+                        version: assignment.data?.manifestVersion ?? 1,
+                      })}
+                    />
+                    <OverviewFact
+                      label={t("detail.factPlayerConfig")}
+                      value={
+                        assignment.data?.activeConfigRevision != null
+                          ? t("detail.configRevision", {
+                              revision: assignment.data.activeConfigRevision,
+                            })
+                          : t("shared.notReported")
+                      }
+                    />
+                    <OverviewFact
+                      label={t("detail.factPlayerManifest")}
+                      value={
+                        assignment.data?.playerActiveManifestVersion != null
+                          ? t("detail.manifestVersion", {
+                              version:
+                                assignment.data.playerActiveManifestVersion,
+                            })
+                          : t("shared.notReported")
+                      }
+                    />
+                    <OverviewFact
+                      label={t("detail.factSynchronization")}
+                      value={
+                        assignment.data?.synchronizationStatus?.replaceAll(
+                          "_",
+                          " ",
+                        ) ?? t("shared.notReported")
+                      }
+                    />
+                    <OverviewFact
+                      label={t("detail.factClockDifference")}
+                      value={
+                        assignment.data?.deviceClockOffsetSeconds != null
+                          ? t("detail.clockOffset", {
+                              count: Math.abs(
+                                assignment.data.deviceClockOffsetSeconds,
+                              ),
+                            })
+                          : t("shared.notReported")
+                      }
+                    />
+                    <OverviewFact
+                      label={t("detail.factDownloads")}
+                      value={
+                        assignment.data?.downloadQueueCount != null
+                          ? t("detail.downloads", {
+                              queued: assignment.data.downloadQueueCount,
+                              downloaded: assignment.data.downloadedBytes ?? 0,
+                              required: assignment.data.requiredBytes ?? 0,
+                            })
+                          : t("shared.notReported")
+                      }
+                    />
+                    <OverviewFact
+                      label={t("detail.factWebsite")}
+                      value={
+                        assignment.data?.websiteState
+                          ? `${assignment.data.websiteState?.replaceAll("_", " ") ?? t("shared.notReported")}${assignment.data.websiteCurrentHost ? ` · ${assignment.data.websiteCurrentHost}` : ""}`
+                          : t("detail.websiteInactive")
+                      }
+                    />
+                    <OverviewFact
+                      label={t("detail.factBlockedNavigation")}
+                      value={
+                        assignment.data?.websiteBlockedNavigationCount ??
+                        t("shared.notReported")
+                      }
+                    />
+                    <OverviewFact
+                      label={t("detail.factPlayback")}
+                      value={
+                        assignment.data?.playbackState ??
+                        t("shared.notReported")
+                      }
+                    />
+                    <OverviewFact
+                      label={t("takeover.title")}
+                      value={
+                        assignment.data?.activeTakeoverId
+                          ? t("detail.takeoverProgress", {
+                              state: assignment.data.takeoverState ?? "pending",
+                              progress:
+                                assignment.data.takeoverPreparationProgress ??
+                                0,
+                            })
+                          : t("detail.noTakeover")
+                      }
+                    />
+                    <OverviewFact
+                      label={t("detail.factCache")}
+                      value={
+                        assignment.data?.cacheUsedBytes != null
+                          ? t("detail.cacheUsage", {
+                              used: assignment.data.cacheUsedBytes,
+                              limit: assignment.data.cacheLimitBytes ?? 0,
+                            })
+                          : t("shared.notReported")
+                      }
+                    />
+                  </dl>
+                </CollapsibleContent>
+              </Collapsible>
+              {assignment.error && (
+                <Alert variant="destructive">
+                  <CircleAlert aria-hidden="true" />
+                  <AlertTitle>{t("detail.assignLoadError")}</AlertTitle>
+                  <AlertDescription>
+                    {assignment.error.message}
+                  </AlertDescription>
+                </Alert>
+              )}
+              {(
+                [
+                  ["sync", assignment.data?.lastSynchronizationError],
+                  ["playback", assignment.data?.lastPlaybackError],
+                  ["config", assignment.data?.configurationError],
+                ] as const
+              ).map(
+                ([kind, message]) =>
+                  message && (
+                    <Alert key={kind} variant="destructive">
+                      <CircleAlert aria-hidden="true" />
+                      <AlertTitle>
+                        {t("detail.categorizedError", {
+                          kind: t(`detail.errorKind.${kind}`),
+                        })}
+                      </AlertTitle>
+                      <AlertDescription>{message}</AlertDescription>
+                    </Alert>
+                  ),
+              )}
+              {Math.abs(assignment.data?.deviceClockOffsetSeconds ?? 0) >
+                (assignment.data?.clockSkewWarningSeconds ?? 300) && (
+                <Alert>
+                  <CircleAlert aria-hidden="true" />
+                  <AlertTitle>{t("detail.clockTitle")}</AlertTitle>
+                  <AlertDescription>{t("detail.clockBody")}</AlertDescription>
+                </Alert>
+              )}
+              {assignment.data?.scheduleEvaluationError && (
+                <Alert variant="destructive">
+                  <CircleAlert aria-hidden="true" />
+                  <AlertTitle>{t("detail.scheduleEvalTitle")}</AlertTitle>
+                  <AlertDescription>
+                    {assignment.data.scheduleEvaluationError}
+                  </AlertDescription>
+                </Alert>
+              )}
+              {assignment.data?.websiteFailureCategory &&
+                ["failed", "timed_out", "blocked", "showing_fallback"].includes(
+                  assignment.data.websiteState ?? "",
+                ) && (
+                  <Alert variant="destructive">
+                    <CircleAlert aria-hidden="true" />
+                    <AlertTitle>{t("detail.websiteTitle")}</AlertTitle>
+                    <AlertDescription>
+                      {assignment.data.websiteFailureCategory?.replaceAll(
+                        "_",
+                        " ",
+                      ) ?? t("detail.websiteUnknown")}
+                    </AlertDescription>
+                  </Alert>
+                )}
+            </section>
+          </TabsContent>
         )}
-      {tab === "manage" && manageSection === "device" && (
-        <>
-          <section className="detail-grid">
-            <div className="detail-card">
-              <h3>Device</h3>
-              <dl className="detail-list">
-                <div>
-                  <dt>Hardware</dt>
-                  <dd>
-                    {screen.deviceManufacturer} {screen.deviceModel}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Platform</dt>
-                  <dd>
-                    {screen.platform === "linux"
-                      ? "Linux"
-                      : `${formatReportedStatus(screen.platform)} ${
-                          screen.androidVersion ?? ""
-                        }`.trim()}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Player version</dt>
-                  <dd>
-                    {screen.playerVersion}
-                    {screen.playerVersionCode
-                      ? ` (code ${screen.playerVersionCode})`
-                      : ""}
-                  </dd>
-                </div>
-                {isAndroidScreen(screen.platform) && (
-                  <>
-                    <div>
-                      <dt>Android SDK</dt>
-                      <dd>{screen.androidSdk ?? "Not reported"}</dd>
+
+        {tab === "activity" && (
+          <TabsContent value="activity" className="min-w-0 outline-none">
+            <ScreenActivityPanel screenId={id} />
+          </TabsContent>
+        )}
+
+        {tab === "device" && (
+          <TabsContent
+            value="device"
+            className="min-w-0 space-y-4 outline-none"
+          >
+            <section className="space-y-3" aria-labelledby="device-heading">
+              <header>
+                <h2 id="device-heading" className="text-base font-semibold">
+                  {t("detail.tabDevice")}
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {t("detail.deviceBody")}
+                </p>
+              </header>
+              <nav
+                aria-label={t("detail.deviceNav")}
+                className="flex flex-wrap gap-1 border-b border-border"
+              >
+                {(
+                  [
+                    ["device", t("detail.sectionDevice")],
+                    ["health", t("detail.sectionHealth")],
+                    ["maintenance", t("detail.sectionMaintenance")],
+                  ] as const
+                ).map(([section, label]) => (
+                  <Link
+                    key={section}
+                    to={
+                      section === "device"
+                        ? "?tab=device"
+                        : `?tab=device&section=${section}`
+                    }
+                    aria-current={
+                      manageSection === section ? "page" : undefined
+                    }
+                    className={`border-b-2 px-2 py-2 text-sm ${manageSection === section ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+                  >
+                    {label}
+                  </Link>
+                ))}
+              </nav>
+            </section>
+
+            {manageSection === "health" && (
+              <section
+                className="space-y-3"
+                aria-labelledby="reliability-heading"
+              >
+                <h3 id="reliability-heading" className="text-sm font-semibold">
+                  {t("detail.healthTitle")}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {t("detail.healthBody")}
+                </p>
+                <section className="min-w-0 space-y-3 rounded-xl border border-border border-l-4 border-l-primary bg-muted/20">
+                  <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border p-4">
+                    <div className="min-w-0 space-y-1">
+                      <h4 className="text-sm font-semibold">
+                        {t("detail.zeroTouch")}
+                      </h4>
+                      <p className="text-sm text-muted-foreground">
+                        {t("detail.zeroTouchBody")}
+                      </p>
                     </div>
+                    <Badge variant="outline">
+                      {zeroTouchReadiness(reliability.data, t)}
+                    </Badge>
+                  </div>
+                  <dl className="grid gap-3 px-4 pb-4 sm:grid-cols-2 [&_dd]:mt-1 [&_dd]:break-words [&_dd]:text-sm [&_dt]:text-xs [&_dt]:text-muted-foreground">
                     <div>
-                      <dt>Installer source</dt>
-                      <dd>{screen.installerSource ?? "Not reported"}</dd>
-                    </div>
-                    <div>
-                      <dt>Install permission</dt>
+                      <dt>{t("detail.factCommissioning")}</dt>
                       <dd>
-                        {screen.installPermissionStatus?.replaceAll("_", " ") ??
-                          "Unknown"}
+                        {formatReportedStatus(
+                          reliability.data?.commissioningState,
+                          t,
+                          t("detail.notStarted"),
+                        )}
+                        {typeof reliability.data?.commissioningStep ===
+                          "string" && reliability.data.commissioningStep.trim()
+                          ? ` · ${formatReportedStatus(reliability.data.commissioningStep, t, "")}`
+                          : ""}
                       </dd>
                     </div>
+                    <div>
+                      <dt>{t("detail.factAccessibilityReturn")}</dt>
+                      <dd>
+                        {formatReportedStatus(
+                          reliability.data?.accessibilityServiceState,
+                          t,
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>{t("detail.factLaunchAfterBoot")}</dt>
+                      <dd>
+                        {reliability.data?.bootLaunchVerified
+                          ? t("detail.bootVerified")
+                          : reportsAutostart(reliability.data)
+                            ? // Linux has no boot-attempt counter; the autostart row
+                              // below carries the detail.
+                              t("detail.bootUnverified")
+                            : t("detail.bootAttempts", {
+                                count: formatReportedCount(
+                                  reliability.data?.bootAttemptCount,
+                                ),
+                              })}
+                      </dd>
+                    </div>
+                    {reportsAutostart(reliability.data) && (
+                      <div>
+                        <dt>{t("detail.factAutostart")}</dt>
+                        <dd>{autostartSummary(reliability.data, t)}</dd>
+                      </div>
+                    )}
+                    <div>
+                      <dt>{t("detail.factCachedFallback")}</dt>
+                      <dd>
+                        {reliability.data?.cachedFallbackAvailable
+                          ? t("detail.available")
+                          : t("detail.notConfirmed")}
+                      </dd>
+                    </div>
+                    {isAndroidScreen(screen.platform) && (
+                      <div>
+                        <dt>{t("detail.factInstallPermission")}</dt>
+                        <dd>
+                          {formatReportedStatus(
+                            screen.installPermissionStatus,
+                            t,
+                          )}
+                        </dd>
+                      </div>
+                    )}
+                    <div>
+                      <dt>{t("detail.factFreeStorage")}</dt>
+                      <dd>
+                        {screen.availableStorageBytes == null
+                          ? t("shared.notReported")
+                          : formatBytes(screen.availableStorageBytes)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>{t("detail.factLastHealthy")}</dt>
+                      <dd>
+                        {reliability.data?.lastHealthyPlaybackAt
+                          ? new Date(
+                              reliability.data.lastHealthyPlaybackAt,
+                            ).toLocaleString(formatLocale)
+                          : t("shared.notReported")}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>{t("detail.factUpdateReadiness")}</dt>
+                      <dd>
+                        {formatReportedStatus(
+                          reliability.data?.updateReadiness,
+                          t,
+                        )}
+                      </dd>
+                    </div>
+                    {screen.platform.toLowerCase() === "linux" && (
+                      <>
+                        <div>
+                          <dt>{t("detail.factDisplayControl")}</dt>
+                          <dd>
+                            {reliability.data?.displayControlProvider
+                              ? t("detail.providerCapabilities", {
+                                  provider:
+                                    reliability.data.displayControlProvider,
+                                  count: Object.keys(
+                                    reliability.data
+                                      .displayControlCapabilities ?? {},
+                                  ).length,
+                                })
+                              : t("shared.notReported")}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>{t("detail.factDisplayState")}</dt>
+                          <dd>
+                            {formatReportedStatus(
+                              reliability.data?.displayPowerState,
+                              t,
+                            )}
+                            {reliability.data
+                              ?.displayControlLastCommandResult ===
+                              "display_command_sent" &&
+                            reliability.data?.displayPowerStateConfirmed ===
+                              false
+                              ? t("detail.displayNotConfirmed")
+                              : ""}
+                            {reliability.data?.displayControlPolicyState ===
+                            "powered_off_by_policy"
+                              ? t("detail.displayPolicyOff")
+                              : ""}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>{t("detail.factLastDisplayCommand")}</dt>
+                          <dd>
+                            {reliability.data?.displayControlLastCommandState
+                              ? `${formatReportedStatus(reliability.data.displayControlLastCommandState, t)}${reliability.data.displayControlLastCommandResult ? ` · ${reliability.data.displayControlLastCommandResult}` : ""}`
+                              : t("shared.notReported")}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>{t("detail.factAirplayPresent")}</dt>
+                          <dd>
+                            {reliability.data?.airplaySupported
+                              ? t("detail.airplayReady", {
+                                  profile:
+                                    reliability.data.airplayMaxProfile ??
+                                    t("detail.profilePending"),
+                                })
+                              : t("detail.airplayNotReady")}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>{t("detail.factAirplayDecoder")}</dt>
+                          <dd>
+                            {reliability.data?.airplayDecoder ??
+                              t("shared.notReported")}
+                            {reliability.data?.airplayHardwareDecode
+                              ? t("detail.decoderHardware")
+                              : t("detail.decoderSoftware")}
+                          </dd>
+                        </div>
+                      </>
+                    )}
+                  </dl>
+                </section>
+                {screen.platform.toLowerCase() === "linux" && (
+                  <ScreenPresentationNetworkPanel
+                    screen={screen}
+                    canManage={canManageScreens(auth.status?.user)}
+                    csrfToken={auth.status?.csrfToken ?? ""}
+                  />
+                )}
+                <dl className="grid gap-3 rounded-xl border border-border p-4 sm:grid-cols-2 [&_dd]:mt-1 [&_dd]:break-words [&_dd]:text-sm [&_dt]:text-xs [&_dt]:text-muted-foreground">
+                  <div>
+                    <dt>{t("detail.factReliabilityMode")}</dt>
+                    <dd>
+                      {t("detail.reliabilityModeValue", {
+                        configured: formatReportedStatus(
+                          reliability.data?.configuredMode,
+                          t,
+                        ),
+                        effective: formatReportedStatus(
+                          reliability.data?.effectiveMode,
+                          t,
+                        ),
+                      })}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>{t("detail.factForeground")}</dt>
+                    <dd>
+                      {formatReportedStatus(
+                        reliability.data?.foregroundState,
+                        t,
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>{t("detail.factBootRecovery")}</dt>
+                    <dd>
+                      {formatReportedStatus(
+                        reliability.data?.bootRecoveryResult,
+                        t,
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>{t("detail.factImmersive")}</dt>
+                    <dd>
+                      {reliability.data?.immersiveModeActive
+                        ? t("detail.immersive")
+                        : t("detail.notImmersive")}{" "}
+                      ·{" "}
+                      {reliability.data?.keepScreenOn
+                        ? t("detail.keptAwake")
+                        : t("detail.wakeReleased")}
+                    </dd>
+                  </div>
+                  {isAndroidScreen(screen.platform) && (
+                    <>
+                      <div>
+                        <dt>{t("detail.factManagedKiosk")}</dt>
+                        <dd>
+                          {t("detail.lockTaskValue", {
+                            mode: formatReportedStatus(
+                              reliability.data?.managedKioskCapability,
+                              t,
+                            ),
+                            state: formatReportedStatus(
+                              reliability.data?.lockTaskState,
+                              t,
+                              t("detail.lockStateUnknown"),
+                            ),
+                          })}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>{t("detail.factAccessibilityControl")}</dt>
+                        <dd>
+                          {formatReportedStatus(
+                            reliability.data?.accessibilityServiceState,
+                            t,
+                          )}
+                        </dd>
+                      </div>
+                    </>
+                  )}
+                  <div>
+                    <dt>{t("detail.factActiveHours")}</dt>
+                    <dd>
+                      {formatReportedStatus(
+                        reliability.data?.activeHoursState,
+                        t,
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>{t("detail.factSleepSupport")}</dt>
+                    <dd>
+                      {formatReportedStatus(
+                        reliability.data?.sleepCapability,
+                        t,
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>{t("detail.factRecovery")}</dt>
+                    <dd>
+                      {t("detail.recoveryValue", {
+                        level: formatReportedCount(
+                          reliability.data?.recoveryLevel,
+                        ),
+                        count: formatReportedCount(
+                          reliability.data?.recoveryCount,
+                        ),
+                        state: reliability.data?.safeMode
+                          ? t("detail.safeActive")
+                          : t("detail.safeInactive"),
+                      })}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>{t("detail.factMaintenance")}</dt>
+                    <dd>
+                      {reliability.data?.maintenanceSessionExpiresAt
+                        ? t("detail.maintenanceUntil", {
+                            date: new Date(
+                              reliability.data.maintenanceSessionExpiresAt,
+                            ).toLocaleString(formatLocale),
+                          })
+                        : t("detail.maintenanceInactive")}
+                    </dd>
+                  </div>
+                </dl>
+                {reliabilityCapabilityWarning(reliability.data, t) && (
+                  <Alert>
+                    <AlertDescription>
+                      {reliabilityCapabilityWarning(reliability.data, t)}
+                    </AlertDescription>
+                  </Alert>
+                )}
+                {autostartWarning(reliability.data, t) && (
+                  <Alert>
+                    <AlertDescription>
+                      {autostartWarning(reliability.data, t)}
+                    </AlertDescription>
+                  </Alert>
+                )}
+                {canManageScreens(auth.status?.user) && (
+                  <>
+                    <section
+                      className="overflow-hidden rounded-xl border border-border"
+                      aria-labelledby="reliability-controls-title"
+                    >
+                      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-muted/40 px-4 py-3">
+                        <div className="space-y-0.5">
+                          <h4
+                            id="reliability-controls-title"
+                            className="text-sm font-medium"
+                          >
+                            {t("detail.controlsTitle")}
+                          </h4>
+                          <p className="text-sm text-muted-foreground">
+                            {t("detail.controlsBody")}
+                          </p>
+                        </div>
+                        {command.isPending && (
+                          <Badge>{t("detail.sending")}</Badge>
+                        )}
+                      </header>
+                      <div className="grid gap-3 p-4 md:grid-cols-2">
+                        {isAndroidScreen(screen.platform) && (
+                          <div className="space-y-3 rounded-xl border border-border p-4">
+                            <div className="space-y-0.5">
+                              <h5 className="text-sm font-medium">
+                                {t("detail.powerTitle")}
+                              </h5>
+                              <p className="text-sm text-muted-foreground">
+                                {t("detail.powerBody")}
+                              </p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1 [&_button]:h-auto [&_button]:min-h-10 [&_button]:whitespace-normal [&_button]:py-2 [&_button]:text-center">
+                              <Button
+                                variant="outline"
+                                disabled={command.isPending}
+                                onClick={() =>
+                                  command.mutate({
+                                    type: "power_assist_sleep",
+                                    payload: {},
+                                  })
+                                }
+                              >
+                                {t("detail.testSleep")}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                disabled={command.isPending}
+                                onClick={() =>
+                                  command.mutate({
+                                    type: "power_assist_wake",
+                                    payload: {},
+                                  })
+                                }
+                              >
+                                {t("detail.testWake")}
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                        <div className="space-y-3 rounded-xl border border-border p-4">
+                          <div className="space-y-0.5">
+                            <h5 className="text-sm font-medium">
+                              {t("detail.recoveryTitle")}
+                            </h5>
+                            <p className="text-sm text-muted-foreground">
+                              {t("detail.recoveryBody")}
+                            </p>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1 [&_button]:h-auto [&_button]:min-h-10 [&_button]:whitespace-normal [&_button]:py-2 [&_button]:text-center">
+                            <Button
+                              variant="outline"
+                              disabled={command.isPending}
+                              onClick={() =>
+                                command.mutate({
+                                  type: "retry_player_recovery",
+                                  payload: {},
+                                })
+                              }
+                            >
+                              {t("detail.retryRecovery")}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              disabled={
+                                command.isPending || !reliability.data?.safeMode
+                              }
+                              onClick={() =>
+                                command.mutate({
+                                  type: "exit_safe_mode",
+                                  payload: {},
+                                })
+                              }
+                            >
+                              {t("detail.exitSafe")}
+                            </Button>
+                          </div>
+                        </div>
+                        {reportsAutostart(reliability.data) && (
+                          <div className="space-y-3 rounded-xl border border-border p-4">
+                            <div className="space-y-0.5">
+                              <h5 className="text-sm font-medium">
+                                {t("detail.autostartTitle")}
+                              </h5>
+                              <p className="text-sm text-muted-foreground">
+                                {t("detail.autostartBody")}
+                              </p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1 [&_button]:h-auto [&_button]:min-h-10 [&_button]:whitespace-normal [&_button]:py-2 [&_button]:text-center">
+                              <Button
+                                variant="outline"
+                                disabled={command.isPending}
+                                onClick={() =>
+                                  command.mutate({
+                                    type: "install_autostart",
+                                    payload: {},
+                                  })
+                                }
+                              >
+                                {t("detail.setupAutostart")}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                disabled={command.isPending}
+                                onClick={() =>
+                                  requestScreenCommand({
+                                    kind: "confirm",
+                                    title: t("detail.removeAutostartTitle"),
+                                    description: t(
+                                      "detail.removeAutostartBody",
+                                    ),
+                                    confirmLabel: t(
+                                      "detail.removeAutostartAction",
+                                    ),
+                                    destructive: true,
+                                    commandType: "remove_autostart",
+                                    payload: {},
+                                  })
+                                }
+                              >
+                                {t("detail.removeAutostart")}
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                        {screen.platform.toLowerCase() === "linux" && (
+                          <div className="space-y-3 rounded-xl border border-border p-4 md:col-span-2">
+                            <div className="space-y-0.5">
+                              <h5 className="text-sm font-medium">
+                                {t("detail.displayTitle")}
+                              </h5>
+                              <p className="text-sm text-muted-foreground">
+                                {t("detail.displayBody")}
+                              </p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1 lg:grid-cols-4 [&_button]:h-auto [&_button]:min-h-10 [&_button]:whitespace-normal [&_button]:py-2 [&_button]:text-center">
+                              {displayCapabilities.power && (
+                                <>
+                                  <Button
+                                    variant="outline"
+                                    disabled={command.isPending}
+                                    onClick={() =>
+                                      command.mutate({
+                                        type: "display_power_on",
+                                        payload: {},
+                                      })
+                                    }
+                                  >
+                                    {t("detail.powerOn")}
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    disabled={command.isPending}
+                                    onClick={() =>
+                                      command.mutate({
+                                        type: "display_power_off",
+                                        payload: {},
+                                      })
+                                    }
+                                  >
+                                    {t("detail.powerOff")}
+                                  </Button>
+                                </>
+                              )}
+                              {displayCapabilities.input && (
+                                <Button
+                                  variant="outline"
+                                  disabled={command.isPending}
+                                  onClick={() =>
+                                    requestScreenCommand({
+                                      kind: "input",
+                                      title: t("detail.inputTitle"),
+                                      description: t("detail.inputBody"),
+                                      confirmLabel: t("detail.inputConfirm"),
+                                      input: {
+                                        label: t("detail.inputLabel"),
+                                        type: "text",
+                                        // i18n-ignore: example CEC address format, not prose
+                                        placeholder: "1.0.0.0",
+                                      },
+                                      commandType: "display_set_input",
+                                      createPayload: (input) => ({ input }),
+                                    })
+                                  }
+                                >
+                                  {t("detail.inputTitle")}
+                                </Button>
+                              )}
+                              {displayCapabilities.volume && (
+                                <Button
+                                  variant="outline"
+                                  disabled={command.isPending}
+                                  onClick={() =>
+                                    requestScreenCommand({
+                                      kind: "input",
+                                      title: t("detail.volumeTitle"),
+                                      description: t("detail.volumeBody"),
+                                      confirmLabel: t("detail.volumeConfirm"),
+                                      input: {
+                                        label: t("detail.volumeLabel"),
+                                        type: "number",
+                                        min: 0,
+                                        max: 100,
+                                      },
+                                      commandType: "display_set_volume",
+                                      createPayload: (volume) => ({ volume }),
+                                    })
+                                  }
+                                >
+                                  {t("detail.volumeTitle")}
+                                </Button>
+                              )}
+                              {displayCapabilities.mute && (
+                                <>
+                                  <Button
+                                    variant="outline"
+                                    disabled={command.isPending}
+                                    onClick={() =>
+                                      command.mutate({
+                                        type: "display_mute",
+                                        payload: {},
+                                      })
+                                    }
+                                  >
+                                    {t("detail.mute")}
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    disabled={command.isPending}
+                                    onClick={() =>
+                                      command.mutate({
+                                        type: "display_unmute",
+                                        payload: {},
+                                      })
+                                    }
+                                  >
+                                    {t("detail.unmute")}
+                                  </Button>
+                                </>
+                              )}
+                              {displayCapabilities.brightness && (
+                                <Button
+                                  variant="outline"
+                                  disabled={command.isPending}
+                                  onClick={() =>
+                                    requestScreenCommand({
+                                      kind: "input",
+                                      title: t("detail.brightnessTitle"),
+                                      description: t("detail.brightnessBody"),
+                                      confirmLabel: t(
+                                        "detail.brightnessConfirm",
+                                      ),
+                                      input: {
+                                        label: t("detail.brightnessLabel"),
+                                        type: "number",
+                                        min: 0,
+                                        max: 100,
+                                      },
+                                      commandType: "display_set_brightness",
+                                      createPayload: (brightness) => ({
+                                        brightness,
+                                      }),
+                                    })
+                                  }
+                                >
+                                  {t("detail.brightnessTitle")}
+                                </Button>
+                              )}
+                              <Button
+                                variant="outline"
+                                disabled={command.isPending}
+                                onClick={() =>
+                                  command.mutate({
+                                    type: "display_probe",
+                                    payload: {},
+                                  })
+                                }
+                              >
+                                {t("detail.probe")}
+                              </Button>
+                              {!hasDisplayControl && (
+                                <span className="text-sm text-muted-foreground">
+                                  {t("detail.noCapability")}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        {screen.platform.toLowerCase() === "linux" && (
+                          <div className="space-y-3 rounded-xl border border-border p-4">
+                            <div className="space-y-0.5">
+                              <h5 className="text-sm font-medium">
+                                {t("detail.airplayDiagTitle")}
+                              </h5>
+                              <p className="text-sm text-muted-foreground">
+                                {t("detail.airplayDiagBody")}
+                              </p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1 [&_button]:h-auto [&_button]:min-h-10 [&_button]:whitespace-normal [&_button]:py-2 [&_button]:text-center">
+                              <Button
+                                variant="outline"
+                                disabled={command.isPending}
+                                onClick={() =>
+                                  command.mutate({
+                                    type: "test_airplay_support",
+                                    payload: {},
+                                  })
+                                }
+                              >
+                                {t("detail.testAirplay")}
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                        <div className="space-y-3 rounded-xl border border-border p-4 md:col-span-2">
+                          <div className="space-y-0.5">
+                            <h5 className="text-sm font-medium">
+                              {t("detail.playbackActionsTitle")}
+                            </h5>
+                            <p className="text-sm text-muted-foreground">
+                              {t("detail.playbackActionsBody")}
+                            </p>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1 lg:grid-cols-4 [&_button]:h-auto [&_button]:min-h-10 [&_button]:whitespace-normal [&_button]:py-2 [&_button]:text-center">
+                            {(
+                              [
+                                ["retry_current_item", "detail.cmdRetry"],
+                                ["skip_current_item", "detail.cmdSkip"],
+                                ["recreate_renderer", "detail.cmdRenderer"],
+                                [
+                                  "recreate_playback_session",
+                                  "detail.cmdSession",
+                                ],
+                                ["restart_activity", "detail.cmdActivity"],
+                                ["restart_player_process", "detail.cmdRestart"],
+                                ["resynchronize_player", "detail.cmdResync"],
+                                ["run_player_self_test", "detail.cmdSelfTest"],
+                              ] as const
+                            ).map(([type, labelKey]) => (
+                              <Button
+                                variant="outline"
+                                key={type}
+                                disabled={command.isPending}
+                                onClick={() =>
+                                  command.mutate({ type, payload: {} })
+                                }
+                              >
+                                {t(labelKey)}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </section>
                   </>
                 )}
-                <div>
-                  <dt>Player update</dt>
-                  <dd>
-                    {screen.updateState?.replaceAll("_", " ") ??
-                      "No active deployment"}
-                    {screen.updateExpectedBytes
-                      ? ` · ${Math.round(((screen.updateDownloadedBytes ?? 0) / screen.updateExpectedBytes) * 100)}%`
-                      : ""}
-                    {screen.updateError ? ` · ${screen.updateError}` : ""}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Resolution</dt>
-                  <dd>
-                    {screen.screenWidth} × {screen.screenHeight}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Locale</dt>
-                  <dd>{screen.locale}</dd>
-                </div>
-                <div>
-                  <dt>Timezone</dt>
-                  <dd>{screen.timezone}</dd>
-                </div>
-              </dl>
-            </div>
-            <div className="detail-card">
-              <h3>Connection</h3>
-              <dl className="detail-list">
-                <div>
-                  <dt>Last contact</dt>
-                  <dd>{formatContact(screen.lastContactAt)}</dd>
-                </div>
-                <div>
-                  <dt>Network address</dt>
-                  <dd>{screen.lastKnownIp || "Not reported"}</dd>
-                </div>
-                <div>
-                  <dt>Credential</dt>
-                  <dd>{screen.hasActiveCredential ? "Active" : "Revoked"}</dd>
-                </div>
-              </dl>
-            </div>
-          </section>
-          {canManageScreens(auth.status?.user) && (
-            <section className="danger-zone">
-              <h3>Player access</h3>
-              <div>
-                <span>
-                  <strong>
-                    {screen.enabled ? "Disable screen" : "Enable screen"}
-                  </strong>
-                  <small>
-                    {screen.enabled
-                      ? "Temporarily blocks operation while retaining the pairing."
-                      : "Allow the paired player to reconnect."}
-                  </small>
-                </span>
-                <button
-                  className="button button--quiet"
-                  onClick={() => stateMutation.mutate(!screen.enabled)}
-                >
-                  {screen.enabled ? "Disable" : "Enable"}
-                </button>
-              </div>
-              <div>
-                <span>
-                  <strong>Revoke pairing</strong>
-                  <small>
-                    Permanently invalidates the device credential. The player
-                    must pair again.
-                  </small>
-                </span>
-                <button
-                  className="button button--danger"
-                  onClick={() => setConfirmRevoke(true)}
-                  disabled={!screen.hasActiveCredential}
-                >
-                  Revoke pairing
-                </button>
-              </div>
-            </section>
-          )}
-        </>
-      )}
+                <FireTvAccessibilityAdbPanel screenId={id} />
+              </section>
+            )}
+
+            {manageSection === "maintenance" &&
+              canManageScreens(auth.status?.user) && (
+                <section className="space-y-3">
+                  <h3 className="text-sm font-semibold">
+                    {t("detail.sectionMaintenance")}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {t("detail.maintBody")}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() =>
+                        command.mutate({ type: "sync_now", payload: {} })
+                      }
+                    >
+                      {t("detail.syncNow")}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() =>
+                        command.mutate({ type: "reload_playback", payload: {} })
+                      }
+                    >
+                      {t("detail.reload")}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() =>
+                        command.mutate({
+                          type: "identify_screen",
+                          payload: { durationSeconds: 30 },
+                        })
+                      }
+                    >
+                      {t("detail.identify")}
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={() =>
+                        requestScreenCommand({
+                          kind: "confirm",
+                          title: t("detail.clearCacheTitle"),
+                          description: t("detail.clearCacheBody"),
+                          confirmLabel: t("detail.clearCacheAction"),
+                          destructive: true,
+                          commandType: "clear_media_cache",
+                          payload: {},
+                        })
+                      }
+                    >
+                      {t("detail.clearCacheAction")}
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={() =>
+                        requestScreenCommand({
+                          kind: "confirm",
+                          title: t("detail.clearSiteTitle"),
+                          description: t("detail.clearSiteBody"),
+                          confirmLabel: t("detail.clearSiteAction"),
+                          destructive: true,
+                          commandType: "clear_website_data",
+                          payload: {},
+                        })
+                      }
+                    >
+                      {t("detail.clearSiteAction")}
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={() => {
+                        const disabling = !assignment.data?.playbackDisabled;
+                        if (!disabling) {
+                          command.mutate({
+                            type: "enable_playback",
+                            payload: {},
+                          });
+                        } else {
+                          requestScreenCommand({
+                            kind: "confirm",
+                            title: t("detail.disableTitle"),
+                            description: t("detail.disableBody"),
+                            confirmLabel: t("detail.disableAction"),
+                            destructive: true,
+                            commandType: "disable_playback",
+                            payload: {},
+                          });
+                        }
+                      }}
+                    >
+                      {assignment.data?.playbackDisabled
+                        ? t("detail.enablePlayback")
+                        : t("detail.disableAction")}
+                    </Button>
+                  </div>
+                  {command.isSuccess && (
+                    <p className="text-sm text-muted-foreground">
+                      {t("detail.commandQueued")}
+                    </p>
+                  )}
+                  <div className="grid gap-2">
+                    {commands.data?.items?.map((c) => (
+                      <div
+                        key={c.id}
+                        className="space-y-0.5 rounded-lg border border-border px-3 py-2"
+                      >
+                        <p className="text-sm font-medium">
+                          {c.type?.replaceAll("_", " ") ??
+                            t("detail.unknownCommand")}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {c.state} ·{" "}
+                          {new Date(c.createdAt).toLocaleString(formatLocale)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {c.resultCode?.replaceAll("_", " ") ??
+                            t("detail.noResult")}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+            {manageSection === "maintenance" &&
+              !canManageScreens(auth.status?.user) && (
+                <section className="space-y-3">
+                  <h3 className="text-sm font-semibold">
+                    {t("detail.recentOps")}
+                  </h3>
+                  {commands.isLoading ? (
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-56" />
+                      <p className="text-sm text-muted-foreground">
+                        {t("detail.loadingOps")}
+                      </p>
+                    </div>
+                  ) : (commands.data?.items?.length ?? 0) === 0 ? (
+                    <p>{t("detail.noOps")}</p>
+                  ) : (
+                    <div className="grid gap-2">
+                      {commands.data?.items?.map((c) => (
+                        <div
+                          key={c.id}
+                          className="space-y-0.5 rounded-lg border border-border px-3 py-2"
+                        >
+                          <p className="text-sm font-medium">
+                            {c.type?.replaceAll("_", " ") ??
+                              t("detail.unknownCommand")}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {c.state} ·{" "}
+                            {new Date(c.createdAt).toLocaleString(formatLocale)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {c.resultCode?.replaceAll("_", " ") ??
+                              t("detail.noResult")}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              )}
+            {manageSection === "device" && (
+              <>
+                <section className="grid gap-x-8 gap-y-6 border-y border-border py-4 md:grid-cols-2">
+                  <section
+                    className="space-y-3"
+                    aria-labelledby="device-facts-title"
+                  >
+                    <h3
+                      id="device-facts-title"
+                      className="text-sm font-semibold"
+                    >
+                      {t("detail.sectionDevice")}
+                    </h3>
+                    <dl className="grid gap-x-5 gap-y-4 sm:grid-cols-2">
+                      <OverviewFact
+                        label={t("detail.factHardware")}
+                        value={
+                          `${screen.deviceManufacturer ?? ""} ${screen.deviceModel ?? ""}`.trim() ||
+                          t("shared.notReported")
+                        }
+                      />
+                      <OverviewFact
+                        label={t("detail.factPlatform")}
+                        value={
+                          screen.platform === "linux"
+                            ? t("platform.linux")
+                            : `${formatReportedStatus(screen.platform, t)} ${screen.androidVersion ?? ""}`.trim()
+                        }
+                      />
+                      <OverviewFact
+                        label={t("detail.factPlayerVersion")}
+                        value={
+                          screen.playerVersionCode
+                            ? t("detail.versionWithCode", {
+                                version:
+                                  screen.playerVersion ??
+                                  t("shared.notReported"),
+                                code: screen.playerVersionCode,
+                              })
+                            : (screen.playerVersion ?? t("shared.notReported"))
+                        }
+                      />
+                      {isAndroidScreen(screen.platform) && (
+                        <>
+                          <OverviewFact
+                            label={t("detail.factAndroidSdk")}
+                            value={screen.androidSdk ?? t("shared.notReported")}
+                          />
+                          <OverviewFact
+                            label={t("detail.factInstallerSource")}
+                            value={
+                              screen.installerSource ?? t("shared.notReported")
+                            }
+                          />
+                          <OverviewFact
+                            label={t("detail.factInstallPermission")}
+                            value={
+                              screen.installPermissionStatus?.replaceAll(
+                                "_",
+                                " ",
+                              ) ?? t("shared.unknown")
+                            }
+                          />
+                        </>
+                      )}
+                      <OverviewFact
+                        label={t("detail.factPlayerUpdate")}
+                        value={`${screen.updateState?.replaceAll("_", " ") ?? t("detail.noDeployment")}${screen.updateExpectedBytes ? ` · ${Math.round(((screen.updateDownloadedBytes ?? 0) / screen.updateExpectedBytes) * 100)}%` : ""}${screen.updateError ? ` · ${screen.updateError}` : ""}`}
+                      />
+                      <OverviewFact
+                        label={t("detail.factResolution")}
+                        value={t("detail.resolutionValue", {
+                          width: screen.screenWidth ?? t("shared.notReported"),
+                          height:
+                            screen.screenHeight ?? t("shared.notReported"),
+                        })}
+                      />
+                      <OverviewFact
+                        label={t("detail.factLocale")}
+                        value={screen.locale || t("shared.notReported")}
+                      />
+                      <OverviewFact
+                        label={t("detail.factTimezone")}
+                        value={screen.timezone || t("shared.notReported")}
+                      />
+                    </dl>
+                  </section>
+                  <section
+                    className="space-y-3"
+                    aria-labelledby="connection-facts-title"
+                  >
+                    <h3
+                      id="connection-facts-title"
+                      className="text-sm font-semibold"
+                    >
+                      {t("detail.factConnectionTitle")}
+                    </h3>
+                    <dl className="grid gap-x-5 gap-y-4 sm:grid-cols-2">
+                      <OverviewFact
+                        label={t("detail.factStatus")}
+                        value={<StatusLabel status={screen.status} />}
+                      />
+                      <OverviewFact
+                        label={t("detail.factLastContact")}
+                        value={formatContact(
+                          screen.lastContactAt,
+                          t,
+                          formatLocale,
+                        )}
+                      />
+                      <OverviewFact
+                        label={t("detail.factNetworkAddress")}
+                        value={screen.lastKnownIp || t("shared.notReported")}
+                      />
+                      <OverviewFact
+                        label={t("detail.factCredential")}
+                        value={
+                          screen.hasActiveCredential
+                            ? t("detail.credentialActive")
+                            : t("detail.credentialRevoked")
+                        }
+                      />
+                    </dl>
+                  </section>
+                </section>
+                {canManageScreens(auth.status?.user) && (
+                  <section
+                    className="space-y-4 border-t border-border pt-4"
+                    aria-labelledby="player-access-title"
+                  >
+                    <header>
+                      <h3
+                        id="player-access-title"
+                        className="text-sm font-semibold"
+                      >
+                        {t("detail.accessTitle")}
+                      </h3>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {t("detail.accessBody")}
+                      </p>
+                    </header>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium">
+                          {screen.enabled
+                            ? t("detail.enabledTitle")
+                            : t("detail.disabledTitle")}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {screen.enabled
+                            ? t("detail.enabledBody")
+                            : t("detail.disabledBody")}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        onClick={() => stateMutation.mutate(!screen.enabled)}
+                        disabled={stateMutation.isPending}
+                      >
+                        {stateMutation.isPending
+                          ? t("common:actions.saving")
+                          : screen.enabled
+                            ? t("detail.disableButton")
+                            : t("detail.enableButton")}
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+                      <div>
+                        <p className="text-sm font-medium">
+                          {t("detail.revokeTitle")}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {t("detail.revokeBody")}
+                        </p>
+                      </div>
+                      <Button
+                        variant="destructive"
+                        onClick={() => setConfirmRevoke(true)}
+                        disabled={!screen.hasActiveCredential}
+                      >
+                        {t("detail.revokeAction")}
+                      </Button>
+                    </div>
+                  </section>
+                )}
+              </>
+            )}
+          </TabsContent>
+        )}
+
+        {tab === "settings" && (
+          <TabsContent value="settings" className="min-w-0 outline-none">
+            <PlayerPolicyEditor
+              target="screen"
+              id={id}
+              onDirtyChange={setPolicyDirty}
+            />
+          </TabsContent>
+        )}
+      </Tabs>
       <Dialog
-        open={confirmRevoke}
-        title={`Revoke pairing for ${screen.name}?`}
-        onClose={() => setConfirmRevoke(false)}
+        open={pendingDestination !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDestination(null);
+        }}
       >
-        <p>
-          The player will disconnect immediately and cannot reconnect without a
-          new pairing approval.
-        </p>
-        <div className="form-actions">
-          <Button variant="quiet" onClick={() => setConfirmRevoke(false)}>
-            Cancel
-          </Button>
-          <Button
-            variant="danger"
-            loading={revoke.isPending}
-            onClick={() => revoke.mutate()}
-          >
-            Revoke pairing
-          </Button>
-        </div>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("detail.discardTitle")}</DialogTitle>
+            <DialogDescription>{t("detail.discardBody")}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setPendingDestination(null)}
+            >
+              {t("detail.keepEditing")}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (pendingDestination) commitDestination(pendingDestination);
+              }}
+            >
+              {t("detail.discardAction")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <AlertDialog open={confirmRevoke} onOpenChange={setConfirmRevoke}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("detail.revokeConfirmTitle", { name: screen.name })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("detail.revokeConfirmBody")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={revoke.isPending}>
+              {t("common:actions.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={revoke.isPending}
+              onClick={() => revoke.mutate()}
+            >
+              {t("detail.revokeAction")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog
+        open={screenCommandAction?.kind === "confirm"}
+        onOpenChange={(open) => {
+          if (!open && screenCommandAction?.kind === "confirm") {
+            setScreenCommandAction(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {screenCommandAction?.kind === "confirm"
+                ? screenCommandAction.title
+                : t("detail.confirmFallback")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {screenCommandAction?.kind === "confirm"
+                ? screenCommandAction.description
+                : t("detail.reviewFallback")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={command.isPending}>
+              {t("common:actions.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant={
+                screenCommandAction?.kind === "confirm" &&
+                screenCommandAction.destructive
+                  ? "destructive"
+                  : "default"
+              }
+              disabled={command.isPending}
+              onClick={confirmScreenCommand}
+            >
+              {screenCommandAction?.kind === "confirm"
+                ? screenCommandAction.confirmLabel
+                : t("detail.continueAction")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <Dialog
+        open={screenCommandAction?.kind === "input"}
+        onOpenChange={(open) => {
+          if (!open && screenCommandAction?.kind === "input") {
+            setScreenCommandAction(null);
+            setScreenCommandError("");
+          }
+        }}
+      >
+        <DialogContent>
+          {screenCommandAction?.kind === "input" && (
+            <form
+              className="space-y-5"
+              onSubmit={(event) => {
+                event.preventDefault();
+                confirmScreenCommand();
+              }}
+            >
+              <DialogHeader>
+                <DialogTitle>{screenCommandAction.title}</DialogTitle>
+                <DialogDescription>
+                  {screenCommandAction.description}
+                </DialogDescription>
+              </DialogHeader>
+              <Field className="gap-2">
+                <FieldLabel
+                  htmlFor="screen-command-input"
+                  className="text-sm font-medium"
+                >
+                  {screenCommandAction.input.label}
+                </FieldLabel>
+                <Input
+                  id="screen-command-input"
+                  autoFocus
+                  aria-label={screenCommandAction.input.label}
+                  type={screenCommandAction.input.type}
+                  min={screenCommandAction.input.min}
+                  max={screenCommandAction.input.max}
+                  placeholder={screenCommandAction.input.placeholder}
+                  value={screenCommandInput}
+                  onChange={(event) => {
+                    setScreenCommandInput(event.target.value);
+                    setScreenCommandError("");
+                  }}
+                />
+              </Field>
+              {screenCommandError && (
+                <p className="text-sm text-destructive" role="alert">
+                  {screenCommandError}
+                </p>
+              )}
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  type="button"
+                  onClick={() => setScreenCommandAction(null)}
+                >
+                  {t("common:actions.cancel")}
+                </Button>
+                <Button type="submit" disabled={command.isPending}>
+                  {screenCommandAction.confirmLabel}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
       </Dialog>
     </div>
   );
 }
 
 export function StatusLabel({ status }: { status: ScreenStatus }) {
-  const { label, Icon } = statusContent[status] ?? {
-    label: "Unknown",
-    Icon: CircleAlert,
-  };
-  // Every ScreenStatus has a matching tone group on the shared .status-chip, so no
-  // page-local status styling is needed.
-  const statusClass = statusContent[status] ? status : "unknown";
+  const { t } = useTranslation("screens");
+  const entry = statusContent[status];
+  const Icon = entry?.Icon ?? CircleAlert;
+  const variant =
+    status === "offline" || status === "stale"
+      ? "destructive"
+      : status === "recent"
+        ? "secondary"
+        : "outline";
   return (
-    <span className={`status-chip status-chip--${statusClass}`}>
-      <Icon size={13} aria-hidden="true" />
-      {label}
-    </span>
+    <Badge variant={variant} className="gap-1.5">
+      <Icon aria-hidden="true" />
+      {entry ? t(entry.labelKey) : t("status.unknown")}
+    </Badge>
   );
 }
-function formatContact(value?: string) {
-  if (!value) return "Never";
+
+function OverviewFact({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="min-w-0 space-y-1">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="break-words text-sm font-medium">{value}</dd>
+    </div>
+  );
+}
+
+function formatContact(value: string | undefined, t: ScreensT, locale: string) {
+  if (!value) return t("contact.never");
   const seconds = Math.max(
     0,
     Math.round((Date.now() - new Date(value).getTime()) / 1000),
   );
-  if (seconds < 60) return "Just now";
-  if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)} hr ago`;
-  return new Date(value).toLocaleDateString();
+  if (seconds < 60) return t("contact.justNow");
+  if (seconds < 3600)
+    return t("contact.minutesAgo", { count: Math.floor(seconds / 60) });
+  if (seconds < 86400)
+    return t("contact.hoursAgo", { count: Math.floor(seconds / 3600) });
+  return new Date(value).toLocaleDateString(locale);
 }

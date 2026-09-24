@@ -1,14 +1,71 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
+import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
+import {
+  ArrowLeft,
+  CloudSun,
+  Plus,
+  Siren,
+  TriangleAlert,
+  X,
+} from "lucide-react";
 import { useForm } from "react-hook-form";
 import { Link } from "react-router";
 import { z } from "zod";
 import { api, ApiError } from "../api/client";
+import { useFormatLocale } from "../i18n";
 import type { NWSAlertRule, NWSAlertRuleInput, Playlist } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import { Notice, PageHeader } from "../components/ui";
+import { useConfirm } from "../components/ConfirmDialog";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
+import { Button, buttonVariants } from "../components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import { Checkbox } from "../components/ui/checkbox";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../components/ui/empty";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSeparator,
+  FieldSet,
+} from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemMedia,
+  ItemTitle,
+} from "../components/ui/item";
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "../components/ui/native-select";
+import { Spinner } from "../components/ui/spinner";
+import { Switch } from "../components/ui/switch";
+import { PluginActionsMenu } from "../plugins/PluginActionsMenu";
 
 const emptyRule: NWSAlertRuleInput = {
   name: "",
@@ -27,39 +84,45 @@ const emptyRule: NWSAlertRuleInput = {
   groupIds: [],
 };
 
-const ruleSchema = z
-  .object({
-    name: z.string().trim().min(1, "Enter a rule name.").max(180),
-    enabled: z.boolean(),
-    eventNames: z.array(z.string()),
-    minimumSeverity: z.enum(["Minor", "Moderate", "Severe", "Extreme"]),
-    minimumUrgency: z.enum(["Unknown", "Future", "Expected", "Immediate"]),
-    responseMode: z.enum(["takeover", "ticker"]),
-    presentationMode: z.enum(["builtin", "playlist"]),
-    playlistId: z.string().optional(),
-    tickerDisplayMode: z.enum(["overlay", "push"]),
-    tickerHeightPx: z.number().min(40).max(320),
-    tickerSpeed: z.enum(["slow", "medium", "fast"]),
-    maximumDurationMinutes: z.number(),
-    screenIds: z.array(z.string()),
-    groupIds: z.array(z.string()),
-  })
-  .superRefine((value, context) => {
-    if (value.presentationMode === "playlist" && !value.playlistId) {
-      context.addIssue({
-        code: "custom",
-        path: ["playlistId"],
-        message: "Select a pre-made emergency playlist.",
-      });
-    }
-    if (value.screenIds.length + value.groupIds.length === 0) {
-      context.addIssue({
-        code: "custom",
-        path: ["screenIds"],
-        message: "Select at least one screen or group.",
-      });
-    }
-  });
+function makeRuleSchema(t: TFunction<"alerts">) {
+  return z
+    .object({
+      name: z
+        .string()
+        .trim()
+        .min(1, t("emergency.rules.validation.nameRequired"))
+        .max(180),
+      enabled: z.boolean(),
+      eventNames: z.array(z.string()),
+      minimumSeverity: z.enum(["Minor", "Moderate", "Severe", "Extreme"]),
+      minimumUrgency: z.enum(["Unknown", "Future", "Expected", "Immediate"]),
+      responseMode: z.enum(["takeover", "ticker"]),
+      presentationMode: z.enum(["builtin", "playlist"]),
+      playlistId: z.string().optional(),
+      tickerDisplayMode: z.enum(["overlay", "push"]),
+      tickerHeightPx: z.number().min(40).max(320),
+      tickerSpeed: z.enum(["slow", "medium", "fast"]),
+      maximumDurationMinutes: z.number(),
+      screenIds: z.array(z.string()),
+      groupIds: z.array(z.string()),
+    })
+    .superRefine((value, context) => {
+      if (value.presentationMode === "playlist" && !value.playlistId) {
+        context.addIssue({
+          code: "custom",
+          path: ["playlistId"],
+          message: t("emergency.rules.validation.playlistRequired"),
+        });
+      }
+      if (value.screenIds.length + value.groupIds.length === 0) {
+        context.addIssue({
+          code: "custom",
+          path: ["screenIds"],
+          message: t("emergency.rules.validation.targetsRequired"),
+        });
+      }
+    });
+}
 
 const nwsAreas = [
   ["AL", "Alabama"],
@@ -129,8 +192,29 @@ const nwsAreas = [
  * same way a Countdown Bar is. Settings keeps the manual-takeover and command
  * policy that applies whether or not this plugin is used at all.
  */
+const severityOptions = ["Minor", "Moderate", "Severe", "Extreme"] as const;
+const urgencyOptions = ["Unknown", "Future", "Expected", "Immediate"] as const;
+
+const severityKeys = {
+  Minor: "emergency.rules.severity.minor",
+  Moderate: "emergency.rules.severity.moderate",
+  Severe: "emergency.rules.severity.severe",
+  Extreme: "emergency.rules.severity.extreme",
+} as const;
+
+const urgencyKeys = {
+  Unknown: "emergency.rules.urgency.unknown",
+  Future: "emergency.rules.urgency.future",
+  Expected: "emergency.rules.urgency.expected",
+  Immediate: "emergency.rules.urgency.immediate",
+} as const;
+
 export function EmergencyAlertsPage() {
+  const { t } = useTranslation(["alerts", "common"]);
+  const locale = useFormatLocale();
   const auth = useAuth();
+  const { confirm, dialog: confirmDialog } = useConfirm();
+  const ruleSchema = useMemo(() => makeRuleSchema(t), [t]);
   const editable = ["owner", "administrator"].includes(
     auth.status?.user?.role ?? "",
   );
@@ -232,588 +316,826 @@ export function EmergencyAlertsPage() {
   });
   const monitor = settings.data?.monitor;
   return (
-    <main className="page plugins-page">
-      <PageHeader
-        eyebrow={
-          <Link className="back-link" to="/plugins">
-            <ArrowLeft size={15} /> Plugins
-          </Link>
-        }
-        title="Emergency Alerts"
-        description="Watch official NWS weather alerts and take matching screens over automatically, then restore normal playback when the alert clears."
-      />
-      {!editable && (
-        <Notice>
-          Owner or Administrator access is required to make changes.
-        </Notice>
-      )}
-      <div className="settings-sections takeover-settings">
-        <section className="settings-subsection">
-          <header>
-            <h3>Prepare automatic emergency content</h3>
-            <p>
-              Tilecast can generate a fullscreen alert directly from live NWS
-              data. A custom playlist remains optional for organizations with
-              their own response content. This plugin configures automatic
-              responses; a manual Takeover is the separate “show this now”
-              action on Screens, and its defaults live in Settings.
-            </p>
-          </header>
-          <div className="takeover-settings__actions">
-            <Link className="button button--quiet" to="/playlists">
-              Optional: manage custom playlists
+    <>
+      {confirmDialog}
+      <main className="grid gap-4">
+        <header className="flex flex-wrap items-start justify-between gap-3">
+          <div className="grid min-w-0 gap-1">
+            <Link
+              className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
+              to="/plugins"
+            >
+              <ArrowLeft size={15} aria-hidden="true" />{" "}
+              {t("emergency.backToPlugins")}
             </Link>
-            <Link className="button button--quiet" to="/screens">
-              Start a Takeover now
+            <h1 className="text-2xl font-semibold tracking-tight">
+              {t("emergency.title")}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {t("emergency.description")}
+            </p>
+          </div>
+          <PluginActionsMenu pluginId="emergency_alerts" />
+        </header>
+        {!editable && (
+          <Alert>
+            <AlertDescription>{t("emergency.readOnlyNotice")}</AlertDescription>
+          </Alert>
+        )}
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              <h2>{t("emergency.prepare.title")}</h2>
+            </CardTitle>
+            <CardDescription>
+              {t("emergency.prepare.description")}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            <Link
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+              to="/playlists"
+            >
+              {t("emergency.prepare.managePlaylists")}
             </Link>
             <Link
-              className="button button--quiet"
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+              to="/screens"
+            >
+              {t("emergency.prepare.takeoverNow")}
+            </Link>
+            <Link
+              className={buttonVariants({ variant: "outline", size: "sm" })}
               to="/settings/operations/takeover"
             >
-              Takeover and command defaults
+              {t("emergency.prepare.takeoverDefaults")}
             </Link>
-          </div>
-        </section>
+          </CardContent>
+        </Card>
 
-        <section className="settings-subsection">
-          <header>
-            <h3>Automated weather alerts</h3>
-            <p>
-              Monitor official active alerts for US states, territories,
-              counties, and forecast zones. Matching rules display live alert
-              details or an optional custom playlist, then restore normal
-              playback when the alert clears.
-            </p>
-          </header>
-          <div className="notice notice--info">
-            <strong>
-              Alert delivery is best-effort, not a life-safety system.
-            </strong>
-            <p>
-              Keep local emergency procedures and Wireless Emergency Alerts in
-              place. Studio shows poll health so upstream or network failures
-              are visible.
-            </p>
-          </div>
-          <div className="setting-row">
-            <div className="setting-copy">
-              <label htmlFor="nws-enabled">Automated NWS monitoring</label>
-              <p>Disabled by default. A configured rule is required to act.</p>
-            </div>
-            <div className="setting-control">
-              <input
-                id="nws-enabled"
-                type="checkbox"
-                checked={enabled}
-                disabled={!editable}
-                onChange={(event) => setEnabled(event.target.checked)}
-              />
-            </div>
-          </div>
-          <div className="setting-row setting-row--location-picker">
-            <div className="setting-copy">
-              <label htmlFor="nws-state">Alert coverage</label>
-              <p>
-                Choose a state or territory by name, then monitor the whole
-                state or add specific counties and NWS forecast zones.
-              </p>
-            </div>
-            <div className="setting-control nws-location-picker">
-              <label>
-                State or territory
-                <select
-                  id="nws-state"
-                  value={selectedArea}
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              <h2>{t("emergency.monitor.title")}</h2>
+            </CardTitle>
+            <CardDescription>
+              {t("emergency.monitor.description")}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-5">
+            <Alert>
+              <TriangleAlert aria-hidden="true" />
+              <AlertTitle>{t("emergency.monitor.safetyTitle")}</AlertTitle>
+              <AlertDescription>
+                {t("emergency.monitor.safetyBody")}
+              </AlertDescription>
+            </Alert>
+            <FieldGroup>
+              <Field orientation="horizontal">
+                <Switch
+                  id="nws-enabled"
+                  checked={enabled}
                   disabled={!editable}
-                  onChange={(event) => {
-                    setSelectedArea(event.target.value);
-                    setSelectedZone("");
-                  }}
-                >
-                  <option value="">Select a state</option>
-                  {nwsAreas.map(([code, name]) => (
-                    <option key={code} value={code}>
-                      {name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button
-                type="button"
-                className="button button--quiet"
-                disabled={
-                  !editable || !selectedArea || areas.includes(selectedArea)
-                }
-                onClick={() => setAreas(addUnique(areas, selectedArea))}
-              >
-                Monitor entire state
-              </button>
-              <label>
-                County or forecast zone
-                <select
-                  value={selectedZone}
-                  disabled={!editable || !selectedArea || zoneOptions.isLoading}
-                  onChange={(event) => setSelectedZone(event.target.value)}
-                >
-                  <option value="">
-                    {zoneOptions.isLoading
-                      ? "Loading locations…"
-                      : "Select a location"}
-                  </option>
-                  {zoneOptions.data?.items.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name} (
-                      {item.type === "county" ? "County" : "Forecast zone"})
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button
-                type="button"
-                className="button button--quiet"
-                disabled={
-                  !editable || !selectedZone || zones.includes(selectedZone)
-                }
-                onClick={() => {
-                  setZones(addUnique(zones, selectedZone));
-                  setSelectedZone("");
-                }}
-              >
-                Add location
-              </button>
-              {zoneOptions.isError && (
-                <small className="form-error" role="alert">
-                  Counties and forecast zones could not be loaded from NWS.
-                </small>
-              )}
-              <div className="nws-location-picker__selected">
-                {areas.map((area) => (
-                  <span key={area}>
-                    Entire {areaName(area)}
-                    <button
-                      type="button"
-                      aria-label={`Remove entire ${areaName(area)}`}
+                  onCheckedChange={(next) => setEnabled(next)}
+                />
+                <FieldContent>
+                  <FieldLabel htmlFor="nws-enabled">
+                    {t("emergency.monitor.enabledLabel")}
+                  </FieldLabel>
+                  <FieldDescription>
+                    {t("emergency.monitor.enabledHint")}
+                  </FieldDescription>
+                </FieldContent>
+              </Field>
+              <FieldSeparator />
+              <FieldSet>
+                <FieldLegend>
+                  {t("emergency.monitor.coverageLegend")}
+                </FieldLegend>
+                <FieldDescription>
+                  {t("emergency.monitor.coverageHint")}
+                </FieldDescription>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field>
+                    <FieldLabel htmlFor="nws-state">
+                      {t("emergency.monitor.stateLabel")}
+                    </FieldLabel>
+                    <NativeSelect
+                      id="nws-state"
+                      className="w-full"
+                      value={selectedArea}
                       disabled={!editable}
-                      onClick={() =>
-                        setAreas(areas.filter((item) => item !== area))
-                      }
+                      onChange={(event) => {
+                        setSelectedArea(event.target.value);
+                        setSelectedZone("");
+                      }}
                     >
-                      ×
-                    </button>
-                  </span>
-                ))}
-                {zones.map((zone) => (
-                  <span key={zone}>
-                    {zoneLabel(zone, zoneOptions.data?.items ?? [])}
-                    <button
+                      <NativeSelectOption value="">
+                        {t("emergency.monitor.statePlaceholder")}
+                      </NativeSelectOption>
+                      {nwsAreas.map(([code, name]) => (
+                        <NativeSelectOption key={code} value={code}>
+                          {name}
+                        </NativeSelectOption>
+                      ))}
+                    </NativeSelect>
+                    <Button
                       type="button"
-                      aria-label={`Remove ${zone}`}
-                      disabled={!editable}
-                      onClick={() =>
-                        setZones(zones.filter((item) => item !== zone))
+                      variant="outline"
+                      size="sm"
+                      className="w-fit"
+                      disabled={
+                        !editable ||
+                        !selectedArea ||
+                        areas.includes(selectedArea)
                       }
+                      onClick={() => setAreas(addUnique(areas, selectedArea))}
                     >
-                      ×
-                    </button>
-                  </span>
+                      <Plus data-icon="inline-start" aria-hidden="true" />
+                      {t("emergency.monitor.monitorState")}
+                    </Button>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="nws-zone">
+                      {t("emergency.monitor.zoneLabel")}
+                    </FieldLabel>
+                    <NativeSelect
+                      id="nws-zone"
+                      className="w-full"
+                      value={selectedZone}
+                      disabled={
+                        !editable || !selectedArea || zoneOptions.isLoading
+                      }
+                      onChange={(event) => setSelectedZone(event.target.value)}
+                    >
+                      <NativeSelectOption value="">
+                        {zoneOptions.isLoading
+                          ? t("emergency.monitor.loadingLocations")
+                          : t("emergency.monitor.locationPlaceholder")}
+                      </NativeSelectOption>
+                      {zoneOptions.data?.items.map((item) => (
+                        <NativeSelectOption key={item.id} value={item.id}>
+                          {t("emergency.monitor.zoneWithType", {
+                            name: item.name,
+                            type:
+                              item.type === "county"
+                                ? t("emergency.monitor.county")
+                                : t("emergency.monitor.forecastZone"),
+                          })}
+                        </NativeSelectOption>
+                      ))}
+                    </NativeSelect>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-fit"
+                      disabled={
+                        !editable ||
+                        !selectedZone ||
+                        zones.includes(selectedZone)
+                      }
+                      onClick={() => {
+                        setZones(addUnique(zones, selectedZone));
+                        setSelectedZone("");
+                      }}
+                    >
+                      <Plus data-icon="inline-start" aria-hidden="true" />
+                      {t("emergency.monitor.addLocation")}
+                    </Button>
+                    {zoneOptions.isError && (
+                      <FieldError>
+                        {t("emergency.monitor.zonesError")}
+                      </FieldError>
+                    )}
+                  </Field>
+                </div>
+                <div
+                  className="flex flex-wrap items-center gap-1.5"
+                  aria-label={t("emergency.monitor.monitoredLocations")}
+                >
+                  {areas.map((area) => (
+                    <Badge key={area} variant="secondary" className="pr-0.5">
+                      {t("emergency.monitor.entireState", {
+                        name: areaName(area),
+                      })}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        className="size-4 rounded-full"
+                        aria-label={t("emergency.monitor.removeState", {
+                          name: areaName(area),
+                        })}
+                        disabled={!editable}
+                        onClick={() =>
+                          setAreas(areas.filter((item) => item !== area))
+                        }
+                      >
+                        <X aria-hidden="true" />
+                      </Button>
+                    </Badge>
+                  ))}
+                  {zones.map((zone) => (
+                    <Badge key={zone} variant="secondary" className="pr-0.5">
+                      {zoneLabel(zone, zoneOptions.data?.items ?? [], t)}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        className="size-4 rounded-full"
+                        aria-label={t("emergency.monitor.removeZone", {
+                          name: zone,
+                        })}
+                        disabled={!editable}
+                        onClick={() =>
+                          setZones(zones.filter((item) => item !== zone))
+                        }
+                      >
+                        <X aria-hidden="true" />
+                      </Button>
+                    </Badge>
+                  ))}
+                  {areas.length + zones.length === 0 && (
+                    <span className="text-sm text-muted-foreground">
+                      {t("emergency.monitor.noLocations")}
+                    </span>
+                  )}
+                </div>
+              </FieldSet>
+              <FieldSeparator />
+              <Field>
+                <FieldLabel htmlFor="nws-interval">
+                  {t("emergency.monitor.pollLabel")}
+                </FieldLabel>
+                <NativeSelect
+                  id="nws-interval"
+                  value={pollInterval}
+                  disabled={!editable}
+                  onChange={(event) =>
+                    setPollInterval(Number(event.target.value))
+                  }
+                >
+                  <NativeSelectOption value={60}>
+                    {t("emergency.monitor.intervals.oneMinute")}
+                  </NativeSelectOption>
+                  <NativeSelectOption value={120}>
+                    {t("emergency.monitor.intervals.twoMinutes")}
+                  </NativeSelectOption>
+                  <NativeSelectOption value={300}>
+                    {t("emergency.monitor.intervals.fiveMinutes")}
+                  </NativeSelectOption>
+                  <NativeSelectOption value={900}>
+                    {t("emergency.monitor.intervals.fifteenMinutes")}
+                  </NativeSelectOption>
+                </NativeSelect>
+                <FieldDescription>
+                  {t("emergency.monitor.pollHint")}
+                </FieldDescription>
+              </Field>
+            </FieldGroup>
+            {errorText(saveMonitor.error ?? poll.error) && (
+              <Alert variant="destructive">
+                <AlertDescription>
+                  {errorText(saveMonitor.error ?? poll.error)}
+                </AlertDescription>
+              </Alert>
+            )}
+            {monitor && (
+              <dl className="grid grid-cols-2 gap-3 rounded-xl bg-muted/50 p-4 text-sm sm:grid-cols-4">
+                {[
+                  {
+                    term: t("emergency.monitor.lastSuccess"),
+                    value: dateText(
+                      monitor.lastSuccessAt,
+                      locale,
+                      t("emergency.monitor.never"),
+                    ),
+                  },
+                  {
+                    term: t("emergency.monitor.lastAttempt"),
+                    value: dateText(
+                      monitor.lastPolledAt,
+                      locale,
+                      t("emergency.monitor.never"),
+                    ),
+                  },
+                  {
+                    term: t("emergency.monitor.matchedRules"),
+                    value: String(monitor.lastMatchedCount),
+                  },
+                  {
+                    term: t("emergency.monitor.health"),
+                    value:
+                      monitor.lastErrorCode || t("emergency.monitor.healthy"),
+                  },
+                ].map(({ term, value }) => (
+                  <div key={term} className="grid gap-0.5">
+                    <dt className="text-xs text-muted-foreground">{term}</dt>
+                    <dd className="font-medium">{value}</dd>
+                  </div>
                 ))}
-                {areas.length + zones.length === 0 && (
-                  <small>No locations selected.</small>
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="setting-row">
-            <div className="setting-copy">
-              <label htmlFor="nws-interval">Poll interval</label>
-              <p>
-                A one- to two-minute interval is recommended for most sites.
-              </p>
-            </div>
-            <div className="setting-control">
-              <select
-                id="nws-interval"
-                value={pollInterval}
-                disabled={!editable}
-                onChange={(event) =>
-                  setPollInterval(Number(event.target.value))
-                }
-              >
-                <option value={60}>1 minute</option>
-                <option value={120}>2 minutes</option>
-                <option value={300}>5 minutes</option>
-                <option value={900}>15 minutes</option>
-              </select>
-            </div>
-          </div>
-          <div className="takeover-settings__actions">
-            <button
+              </dl>
+            )}
+          </CardContent>
+          <CardFooter className="flex-wrap gap-2">
+            <Button
               type="button"
-              className="button button--primary"
               disabled={!editable || saveMonitor.isPending}
               onClick={() => saveMonitor.mutate()}
             >
-              {saveMonitor.isPending ? "Saving…" : "Save NWS monitor"}
-            </button>
-            <button
+              {saveMonitor.isPending && (
+                <Spinner data-icon="inline-start" aria-hidden="true" />
+              )}
+              {t("emergency.monitor.saveMonitor")}
+            </Button>
+            <Button
               type="button"
-              className="button button--quiet"
+              variant="outline"
               disabled={!editable || poll.isPending}
               onClick={() => poll.mutate()}
             >
-              {poll.isPending ? "Checking…" : "Check now"}
-            </button>
-          </div>
-          {errorText(saveMonitor.error ?? poll.error) && (
-            <p className="form-error" role="alert">
-              {errorText(saveMonitor.error ?? poll.error)}
-            </p>
-          )}
-          {monitor && (
-            <dl className="takeover-settings__health">
-              <div>
-                <dt>Last success</dt>
-                <dd>{dateText(monitor.lastSuccessAt)}</dd>
-              </div>
-              <div>
-                <dt>Last attempt</dt>
-                <dd>{dateText(monitor.lastPolledAt)}</dd>
-              </div>
-              <div>
-                <dt>Matched rules</dt>
-                <dd>{monitor.lastMatchedCount}</dd>
-              </div>
-              <div>
-                <dt>Health</dt>
-                <dd>{monitor.lastErrorCode || "Healthy"}</dd>
-              </div>
-            </dl>
-          )}
-        </section>
+              {poll.isPending
+                ? t("emergency.monitor.checking")
+                : t("emergency.monitor.checkNow")}
+            </Button>
+          </CardFooter>
+        </Card>
 
-        <section className="settings-subsection">
-          <header>
-            <h3>Weather event rules</h3>
-            <p>
-              Event names match NWS wording exactly. Leave the field empty to
-              match every event at or above the selected severity and urgency.
-              Tilecast's live fullscreen alert is the default; a ticker bar is
-              the alternative for alerts that should inform without interrupting
-              what is playing.
-            </p>
-          </header>
-          <div className="takeover-rule-list">
-            {(settings.data?.rules ?? []).map((item) => (
-              <article key={item.id}>
-                <div>
-                  <strong>{item.name}</strong>
-                  <p>
-                    {item.eventNames.join(", ") || "All event types"} ·{" "}
-                    {item.minimumSeverity}+ · {emergencyDisplayLabel(item)}
-                  </p>
-                </div>
-                <div>
-                  <span>{item.enabled ? "Enabled" : "Disabled"}</span>
-                  {editable && (
-                    <>
-                      <button
-                        className="button button--quiet"
-                        type="button"
-                        onClick={() => {
-                          setEditing(item.id);
-                          const input = toInput(item);
-                          reset(input);
-                          setEventNamesText(input.eventNames.join(", "));
-                        }}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        className="button button--quiet"
-                        type="button"
-                        onClick={() => {
-                          if (confirm(`Delete “${item.name}”?`))
-                            removeRule.mutate(item.id);
-                        }}
-                      >
-                        Delete
-                      </button>
-                    </>
-                  )}
-                </div>
-              </article>
-            ))}
-          </div>
-          {editable && (
-            <form
-              className="takeover-rule-editor"
-              onSubmit={(event) => void submitRule(event)}
-            >
-              <h4>{editing ? "Edit rule" : "Add rule"}</h4>
-              <label>
-                Rule name
-                <input maxLength={180} {...register("name")} />
-              </label>
-              {ruleErrors.name && (
-                <p className="form-error" role="alert">
-                  {ruleErrors.name.message}
-                </p>
-              )}
-              <label>
-                NWS event names
-                <input
-                  value={eventNamesText}
-                  placeholder="Tornado Warning, Flash Flood Warning"
-                  onChange={(event) => setEventNamesText(event.target.value)}
-                />
-              </label>
-              <div className="takeover-rule-editor__columns">
-                <label>
-                  Minimum severity
-                  <select {...register("minimumSeverity")}>
-                    {["Minor", "Moderate", "Severe", "Extreme"].map((value) => (
-                      <option key={value}>{value}</option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Minimum urgency
-                  <select {...register("minimumUrgency")}>
-                    {["Unknown", "Future", "Expected", "Immediate"].map(
-                      (value) => (
-                        <option key={value}>{value}</option>
-                      ),
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              <h2>{t("emergency.rules.title")}</h2>
+            </CardTitle>
+            <CardDescription>
+              {t("emergency.rules.description")}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-5">
+            {(settings.data?.rules.length ?? 0) > 0 && (
+              <ItemGroup className="gap-2">
+                {(settings.data?.rules ?? []).map((item) => (
+                  <Item key={item.id} variant="outline" size="sm">
+                    <ItemContent>
+                      <ItemTitle>
+                        {item.name}
+                        <Badge variant={item.enabled ? "default" : "secondary"}>
+                          {item.enabled
+                            ? t("emergency.rules.enabledBadge")
+                            : t("emergency.rules.disabledBadge")}
+                        </Badge>
+                      </ItemTitle>
+                      <ItemDescription>
+                        {item.eventNames.join(", ") ||
+                          t("emergency.rules.allEventTypes")}{" "}
+                        · {item.minimumSeverity}+ ·{" "}
+                        {emergencyDisplayLabel(item, t)}
+                      </ItemDescription>
+                    </ItemContent>
+                    {editable && (
+                      <ItemActions>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setEditing(item.id);
+                            const input = toInput(item);
+                            reset(input);
+                            setEventNamesText(input.eventNames.join(", "));
+                          }}
+                        >
+                          {t("common:actions.edit")}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => {
+                            void confirm({
+                              title: t("emergency.rules.deleteTitle", {
+                                name: item.name,
+                              }),
+                              action: t("common:actions.delete"),
+                              destructive: true,
+                            }).then((ok) => {
+                              if (ok) removeRule.mutate(item.id);
+                            });
+                          }}
+                        >
+                          {t("common:actions.delete")}
+                        </Button>
+                      </ItemActions>
                     )}
-                  </select>
-                </label>
-                <label>
-                  Emergency display
-                  <select
-                    value={displayChoice(rule)}
-                    onChange={(event) => {
-                      const choice = event.target.value;
-                      const update = {
+                  </Item>
+                ))}
+              </ItemGroup>
+            )}
+            {editable && (
+              <form
+                className="grid gap-5 rounded-xl border border-border p-4"
+                onSubmit={(event) => void submitRule(event)}
+              >
+                <h3 className="text-base font-medium">
+                  {editing
+                    ? t("emergency.rules.formTitleEdit")
+                    : t("emergency.rules.formTitleAdd")}
+                </h3>
+                <FieldGroup>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field data-invalid={Boolean(ruleErrors.name)}>
+                      <FieldLabel htmlFor="nws-rule-name">
+                        {t("emergency.rules.nameLabel")}
+                      </FieldLabel>
+                      <Input
+                        id="nws-rule-name"
+                        maxLength={180}
+                        aria-invalid={Boolean(ruleErrors.name)}
+                        {...register("name")}
+                      />
+                      <FieldError errors={[ruleErrors.name]} />
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="nws-rule-events">
+                        {t("emergency.rules.eventsLabel")}
+                      </FieldLabel>
+                      <Input
+                        id="nws-rule-events"
+                        value={eventNamesText}
+                        // i18n-ignore: NWS event names are English by definition
+                        placeholder="Tornado Warning, Flash Flood Warning"
+                        onChange={(event) =>
+                          setEventNamesText(event.target.value)
+                        }
+                      />
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="nws-rule-severity">
+                        {t("emergency.rules.severityLabel")}
+                      </FieldLabel>
+                      <NativeSelect
+                        id="nws-rule-severity"
+                        className="w-full"
+                        {...register("minimumSeverity")}
+                      >
+                        {severityOptions.map((value) => (
+                          <NativeSelectOption key={value} value={value}>
+                            {t(severityKeys[value])}
+                          </NativeSelectOption>
+                        ))}
+                      </NativeSelect>
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="nws-rule-urgency">
+                        {t("emergency.rules.urgencyLabel")}
+                      </FieldLabel>
+                      <NativeSelect
+                        id="nws-rule-urgency"
+                        className="w-full"
+                        {...register("minimumUrgency")}
+                      >
+                        {urgencyOptions.map((value) => (
+                          <NativeSelectOption key={value} value={value}>
+                            {t(urgencyKeys[value])}
+                          </NativeSelectOption>
+                        ))}
+                      </NativeSelect>
+                    </Field>
+                  </div>
+                  <Field>
+                    <FieldLabel htmlFor="nws-rule-display">
+                      {t("emergency.rules.displayLabel")}
+                    </FieldLabel>
+                    <NativeSelect
+                      id="nws-rule-display"
+                      className="w-full"
+                      value={displayChoice(rule)}
+                      onChange={(event) => {
+                        const choice = event.target.value;
+                        const update = {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        } as const;
+                        setValue(
+                          "responseMode",
+                          choice === "ticker" ? "ticker" : "takeover",
+                          update,
+                        );
+                        setValue(
+                          "presentationMode",
+                          choice === "playlist" ? "playlist" : "builtin",
+                          update,
+                        );
+                        setValue("playlistId", undefined, update);
+                      }}
+                    >
+                      <NativeSelectOption value="builtin">
+                        {t("emergency.rules.displayOptions.builtin")}
+                      </NativeSelectOption>
+                      <NativeSelectOption value="ticker">
+                        {t("emergency.rules.displayOptions.ticker")}
+                      </NativeSelectOption>
+                      <NativeSelectOption value="playlist">
+                        {t("emergency.rules.displayOptions.playlist")}
+                      </NativeSelectOption>
+                    </NativeSelect>
+                    <FieldDescription>
+                      {t("emergency.rules.displayHint")}
+                    </FieldDescription>
+                  </Field>
+                  {rule.responseMode === "ticker" && (
+                    <div className="grid gap-4 sm:grid-cols-3">
+                      <Field>
+                        <FieldLabel htmlFor="nws-ticker-placement">
+                          {t("emergency.rules.tickerPlacement")}
+                        </FieldLabel>
+                        <NativeSelect
+                          id="nws-ticker-placement"
+                          className="w-full"
+                          {...register("tickerDisplayMode")}
+                        >
+                          <NativeSelectOption value="push">
+                            {t("emergency.rules.placementOptions.push")}
+                          </NativeSelectOption>
+                          <NativeSelectOption value="overlay">
+                            {t("emergency.rules.placementOptions.overlay")}
+                          </NativeSelectOption>
+                        </NativeSelect>
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="nws-ticker-height">
+                          {t("emergency.rules.tickerHeight")}
+                        </FieldLabel>
+                        <NativeSelect
+                          id="nws-ticker-height"
+                          className="w-full"
+                          {...register("tickerHeightPx", {
+                            valueAsNumber: true,
+                          })}
+                        >
+                          <NativeSelectOption value={64}>
+                            {t("emergency.rules.heightOptions.compact")}
+                          </NativeSelectOption>
+                          <NativeSelectOption value={96}>
+                            {t("emergency.rules.heightOptions.standard")}
+                          </NativeSelectOption>
+                          <NativeSelectOption value={140}>
+                            {t("emergency.rules.heightOptions.large")}
+                          </NativeSelectOption>
+                          <NativeSelectOption value={200}>
+                            {t("emergency.rules.heightOptions.extraLarge")}
+                          </NativeSelectOption>
+                        </NativeSelect>
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="nws-ticker-speed">
+                          {t("emergency.rules.tickerSpeed")}
+                        </FieldLabel>
+                        <NativeSelect
+                          id="nws-ticker-speed"
+                          className="w-full"
+                          {...register("tickerSpeed")}
+                        >
+                          <NativeSelectOption value="slow">
+                            {t("emergency.rules.speedOptions.slow")}
+                          </NativeSelectOption>
+                          <NativeSelectOption value="medium">
+                            {t("emergency.rules.speedOptions.medium")}
+                          </NativeSelectOption>
+                          <NativeSelectOption value="fast">
+                            {t("emergency.rules.speedOptions.fast")}
+                          </NativeSelectOption>
+                        </NativeSelect>
+                      </Field>
+                    </div>
+                  )}
+                  {rule.presentationMode === "playlist" && (
+                    <Field data-invalid={Boolean(ruleErrors.playlistId)}>
+                      <FieldLabel htmlFor="nws-rule-playlist">
+                        {t("emergency.rules.playlistLabel")}
+                      </FieldLabel>
+                      <NativeSelect
+                        id="nws-rule-playlist"
+                        className="w-full"
+                        aria-invalid={Boolean(ruleErrors.playlistId)}
+                        {...register("playlistId")}
+                      >
+                        <NativeSelectOption value="">
+                          {t("emergency.rules.playlistPlaceholder")}
+                        </NativeSelectOption>
+                        {playlists.data?.items.map((item) => (
+                          <NativeSelectOption
+                            key={item.id}
+                            value={item.id}
+                            disabled={item.itemCount === 0}
+                          >
+                            {emergencyPlaylistLabel(item, t)}
+                          </NativeSelectOption>
+                        ))}
+                      </NativeSelect>
+                      <FieldDescription>
+                        {t("emergency.rules.playlistHint")}{" "}
+                        <Link to="/playlists">
+                          {t("emergency.rules.playlistHintLink")}
+                        </Link>
+                      </FieldDescription>
+                      <FieldError errors={[ruleErrors.playlistId]} />
+                    </Field>
+                  )}
+                  <Field>
+                    <FieldLabel htmlFor="nws-rule-duration">
+                      {t("emergency.rules.durationLabel")}
+                    </FieldLabel>
+                    <NativeSelect
+                      id="nws-rule-duration"
+                      {...register("maximumDurationMinutes", {
+                        valueAsNumber: true,
+                      })}
+                    >
+                      <NativeSelectOption value={60}>
+                        {t("emergency.rules.durationOptions.oneHour")}
+                      </NativeSelectOption>
+                      <NativeSelectOption value={360}>
+                        {t("emergency.rules.durationOptions.sixHours")}
+                      </NativeSelectOption>
+                      <NativeSelectOption value={720}>
+                        {t("emergency.rules.durationOptions.twelveHours")}
+                      </NativeSelectOption>
+                      <NativeSelectOption value={1440}>
+                        {t("emergency.rules.durationOptions.day")}
+                      </NativeSelectOption>
+                    </NativeSelect>
+                  </Field>
+                  <FieldSeparator />
+                  <TargetChecklist
+                    legend={t("emergency.rules.targetScreens")}
+                    items={screens.data?.items ?? []}
+                    selected={rule.screenIds}
+                    onToggle={(id) =>
+                      setValue("screenIds", toggle(rule.screenIds, id), {
                         shouldDirty: true,
                         shouldValidate: true,
-                      } as const;
-                      setValue(
-                        "responseMode",
-                        choice === "ticker" ? "ticker" : "takeover",
-                        update,
-                      );
-                      setValue(
-                        "presentationMode",
-                        choice === "playlist" ? "playlist" : "builtin",
-                        update,
-                      );
-                      setValue("playlistId", undefined, update);
-                    }}
-                  >
-                    <option value="builtin">
-                      Tilecast live NWS alert — fullscreen
-                    </option>
-                    <option value="ticker">
-                      Tilecast live NWS alert — ticker bar
-                    </option>
-                    <option value="playlist">
-                      Use a custom playlist — fullscreen
-                    </option>
-                  </select>
-                  <small>
-                    The built-in display automatically shows the exact NWS
-                    event, headline, severity, affected area, instructions,
-                    sender, and expiration. A ticker bar shows the same alert
-                    text along the bottom and leaves whatever is playing on
-                    screen.
-                  </small>
-                </label>
-                {rule.responseMode === "ticker" && (
-                  <>
-                    <label>
-                      Ticker placement
-                      <select {...register("tickerDisplayMode")}>
-                        <option value="push">
-                          Push content up — nothing is covered
-                        </option>
-                        <option value="overlay">
-                          Overlay — the bar covers the bottom edge
-                        </option>
-                      </select>
-                    </label>
-                    <label>
-                      Ticker height
-                      <select
-                        {...register("tickerHeightPx", {
-                          valueAsNumber: true,
-                        })}
-                      >
-                        <option value={64}>Compact — 64px</option>
-                        <option value={96}>Standard — 96px</option>
-                        <option value={140}>Large — 140px</option>
-                        <option value={200}>Extra large — 200px</option>
-                      </select>
-                    </label>
-                    <label>
-                      Ticker speed
-                      <select {...register("tickerSpeed")}>
-                        <option value="slow">Slow</option>
-                        <option value="medium">Medium</option>
-                        <option value="fast">Fast</option>
-                      </select>
-                    </label>
-                  </>
+                      })
+                    }
+                    error={ruleErrors.screenIds?.message}
+                    emptyLabel={t("emergency.rules.targetsEmpty")}
+                  />
+                  <TargetChecklist
+                    legend={t("emergency.rules.targetGroups")}
+                    items={groups.data?.items ?? []}
+                    selected={rule.groupIds}
+                    onToggle={(id) =>
+                      setValue("groupIds", toggle(rule.groupIds, id), {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      })
+                    }
+                    emptyLabel={t("emergency.rules.targetsEmpty")}
+                  />
+                  <FieldSeparator />
+                  <Field orientation="horizontal">
+                    <Switch
+                      id="nws-rule-enabled"
+                      checked={rule.enabled}
+                      onCheckedChange={(next) =>
+                        setValue("enabled", next, { shouldDirty: true })
+                      }
+                    />
+                    <FieldLabel htmlFor="nws-rule-enabled">
+                      {t("emergency.rules.enableRule")}
+                    </FieldLabel>
+                  </Field>
+                </FieldGroup>
+                {errorText(saveRule.error) && (
+                  <Alert variant="destructive">
+                    <AlertDescription>
+                      {errorText(saveRule.error)}
+                    </AlertDescription>
+                  </Alert>
                 )}
-                {rule.presentationMode === "playlist" && (
-                  <label>
-                    Custom emergency playlist
-                    <select {...register("playlistId")}>
-                      <option value="">Select a playlist</option>
-                      {playlists.data?.items.map((item) => (
-                        <option
-                          key={item.id}
-                          value={item.id}
-                          disabled={item.itemCount === 0}
-                        >
-                          {emergencyPlaylistLabel(item)}
-                        </option>
-                      ))}
-                    </select>
-                    <small>
-                      Only non-empty playlists can be activated.{" "}
-                      <Link to="/playlists">Create or edit playlists</Link>
-                    </small>
-                    {ruleErrors.playlistId && (
-                      <span className="form-error" role="alert">
-                        {ruleErrors.playlistId.message}
-                      </span>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="submit" disabled={saveRule.isPending}>
+                    {saveRule.isPending && (
+                      <Spinner data-icon="inline-start" aria-hidden="true" />
                     )}
-                  </label>
-                )}
-                <label>
-                  Maximum duration
-                  <select
-                    {...register("maximumDurationMinutes", {
-                      valueAsNumber: true,
-                    })}
-                  >
-                    <option value={60}>1 hour</option>
-                    <option value={360}>6 hours</option>
-                    <option value={720}>12 hours</option>
-                    <option value={1440}>24 hours</option>
-                  </select>
-                </label>
-              </div>
-              <fieldset>
-                <legend>Target screens</legend>
-                <div className="takeover-rule-editor__targets">
-                  {screens.data?.items.map((item) => (
-                    <label key={item.id}>
-                      <input
-                        type="checkbox"
-                        checked={rule.screenIds.includes(item.id)}
-                        onChange={() =>
-                          setValue(
-                            "screenIds",
-                            toggle(rule.screenIds, item.id),
-                            {
-                              shouldDirty: true,
-                              shouldValidate: true,
-                            },
-                          )
-                        }
-                      />
-                      {item.name}
-                    </label>
-                  ))}
+                    {editing
+                      ? t("emergency.rules.saveRule")
+                      : t("emergency.rules.addRuleButton")}
+                  </Button>
+                  {editing && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setEditing(undefined);
+                        reset(emptyRule);
+                        setEventNamesText(emptyRule.eventNames.join(", "));
+                      }}
+                    >
+                      {t("common:actions.cancel")}
+                    </Button>
+                  )}
                 </div>
-              </fieldset>
-              {ruleErrors.screenIds && (
-                <p className="form-error" role="alert">
-                  {ruleErrors.screenIds.message}
-                </p>
-              )}
-              <fieldset>
-                <legend>Target groups</legend>
-                <div className="takeover-rule-editor__targets">
-                  {groups.data?.items.map((item) => (
-                    <label key={item.id}>
-                      <input
-                        type="checkbox"
-                        checked={rule.groupIds.includes(item.id)}
-                        onChange={() =>
-                          setValue("groupIds", toggle(rule.groupIds, item.id), {
-                            shouldDirty: true,
-                            shouldValidate: true,
-                          })
-                        }
-                      />
-                      {item.name}
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-              <label className="checkbox-control">
-                <input type="checkbox" {...register("enabled")} />
-                Enable this rule
-              </label>
-              <div className="takeover-settings__actions">
-                <button
-                  className="button button--primary"
-                  type="submit"
-                  disabled={saveRule.isPending}
-                >
-                  {saveRule.isPending
-                    ? "Saving…"
-                    : editing
-                      ? "Save rule"
-                      : "Add rule"}
-                </button>
-                {editing && (
-                  <button
-                    className="button button--quiet"
-                    type="button"
-                    onClick={() => {
-                      setEditing(undefined);
-                      reset(emptyRule);
-                      setEventNamesText(emptyRule.eventNames.join(", "));
-                    }}
-                  >
-                    Cancel
-                  </button>
-                )}
-              </div>
-              {errorText(saveRule.error) && (
-                <p className="form-error" role="alert">
-                  {errorText(saveRule.error)}
-                </p>
-              )}
-            </form>
-          )}
-        </section>
+              </form>
+            )}
+          </CardContent>
+        </Card>
 
-        <section className="settings-subsection">
-          <header>
-            <h3>Active weather emergencies</h3>
-            <p>Alerts currently matched to a rule and displaying content.</p>
-          </header>
-          {(settings.data?.activeAlerts.length ?? 0) === 0 ? (
-            <p className="empty-state">No NWS alerts are currently active.</p>
-          ) : (
-            <div className="takeover-rule-list">
-              {settings.data?.activeAlerts.map((item) => (
-                <article key={`${item.alertId}:${item.ruleId}`}>
-                  <div>
-                    <strong>{item.event}</strong>
-                    <p>{item.headline || item.areaDescription}</p>
-                  </div>
-                  <span>{item.severity}</span>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
-      </div>
-    </main>
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              <h2>{t("emergency.active.title")}</h2>
+            </CardTitle>
+            <CardDescription>
+              {t("emergency.active.description")}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {(settings.data?.activeAlerts.length ?? 0) === 0 ? (
+              <Empty className="py-6">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <CloudSun aria-hidden="true" />
+                  </EmptyMedia>
+                  <EmptyTitle>{t("emergency.active.emptyTitle")}</EmptyTitle>
+                  <EmptyDescription>
+                    {t("emergency.active.emptyBody")}
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            ) : (
+              <ItemGroup className="gap-2">
+                {settings.data?.activeAlerts.map((item) => (
+                  <Item
+                    key={`${item.alertId}:${item.ruleId}`}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <ItemMedia variant="icon">
+                      <Siren aria-hidden="true" />
+                    </ItemMedia>
+                    <ItemContent>
+                      <ItemTitle>{item.event}</ItemTitle>
+                      <ItemDescription>
+                        {item.headline || item.areaDescription}
+                      </ItemDescription>
+                    </ItemContent>
+                    <ItemActions>
+                      <Badge variant="destructive">{item.severity}</Badge>
+                    </ItemActions>
+                  </Item>
+                ))}
+              </ItemGroup>
+            )}
+          </CardContent>
+        </Card>
+      </main>
+    </>
+  );
+}
+
+/** A labelled checkbox list for one kind of alert target. */
+function TargetChecklist({
+  legend,
+  items,
+  selected,
+  onToggle,
+  error,
+  emptyLabel,
+}: {
+  legend: string;
+  items: Array<{ id: string; name: string }>;
+  selected: string[];
+  onToggle: (id: string) => void;
+  error?: string;
+  emptyLabel: string;
+}) {
+  return (
+    <FieldSet data-invalid={Boolean(error)}>
+      <FieldLegend variant="label">{legend}</FieldLegend>
+      {items.length === 0 ? (
+        <FieldDescription>{emptyLabel}</FieldDescription>
+      ) : (
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {items.map((item) => (
+            <Field key={item.id} orientation="horizontal">
+              <Checkbox
+                id={`nws-target-${item.id}`}
+                checked={selected.includes(item.id)}
+                onCheckedChange={() => onToggle(item.id)}
+              />
+              <FieldLabel
+                htmlFor={`nws-target-${item.id}`}
+                className="font-normal"
+              >
+                {item.name}
+              </FieldLabel>
+            </Field>
+          ))}
+        </div>
+      )}
+      {error && <FieldError>{error}</FieldError>}
+    </FieldSet>
   );
 }
 
@@ -824,10 +1146,17 @@ const areaName = (code: string) =>
 const zoneLabel = (
   id: string,
   items: Array<{ id: string; name: string; type: string }>,
+  t: TFunction<"alerts">,
 ) => {
   const zone = items.find((item) => item.id === id);
   return zone
-    ? `${zone.name} (${zone.type === "county" ? "County" : "Forecast zone"})`
+    ? t("emergency.monitor.zoneWithType", {
+        name: zone.name,
+        type:
+          zone.type === "county"
+            ? t("emergency.monitor.county")
+            : t("emergency.monitor.forecastZone"),
+      })
     : id;
 };
 const labels = (value: string) =>
@@ -839,8 +1168,8 @@ const toggle = (items: string[], value: string) =>
   items.includes(value)
     ? items.filter((item) => item !== value)
     : [...items, value];
-const dateText = (value?: string) =>
-  value ? new Date(value).toLocaleString() : "Never";
+const dateText = (value: string | undefined, locale: string, never: string) =>
+  value ? new Date(value).toLocaleString(locale) : never;
 const errorText = (error: unknown) =>
   error instanceof ApiError
     ? error.message
@@ -849,10 +1178,14 @@ const errorText = (error: unknown) =>
       : "";
 export const emergencyPlaylistLabel = (
   playlist: Pick<Playlist, "name" | "itemCount">,
+  t: TFunction<"alerts">,
 ) =>
   playlist.itemCount === 0
-    ? `${playlist.name} — empty, add content first`
-    : `${playlist.name} — ${playlist.itemCount} item${playlist.itemCount === 1 ? "" : "s"}`;
+    ? t("emergency.playlist.empty", { name: playlist.name })
+    : t("emergency.playlist.count", {
+        name: playlist.name,
+        count: playlist.itemCount,
+      });
 /**
  * One select covers both of the rule's display decisions, because to an operator
  * they are one decision: what an alert does to the screen. `responseMode` and
@@ -868,10 +1201,13 @@ export const emergencyDisplayLabel = (
     NWSAlertRule,
     "responseMode" | "presentationMode" | "playlistName"
   >,
+  t: TFunction<"alerts">,
 ) => {
-  if (rule.responseMode === "ticker") return "Tilecast live NWS ticker bar";
-  if (rule.presentationMode === "builtin") return "Tilecast live NWS alert";
-  return rule.playlistName || "No playlist";
+  if (rule.responseMode === "ticker")
+    return t("emergency.displaySummary.ticker");
+  if (rule.presentationMode === "builtin")
+    return t("emergency.displaySummary.builtin");
+  return rule.playlistName || t("emergency.displaySummary.noPlaylist");
 };
 
 const toInput = (rule: NWSAlertRule): NWSAlertRuleInput => ({

@@ -8,12 +8,21 @@ import {
   VolumeX,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { useTranslation } from "react-i18next";
 import { Navigate, useLocation, useParams } from "react-router";
 import { api } from "../api/client";
 import type { PlaylistItem } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { DeclarativePresentationPreview } from "../content/SourceEditors";
+import { Button } from "../components/ui/button";
 
 export function nextPlaylistPreviewItem(
   index: number,
@@ -37,6 +46,38 @@ function mediaStyle(item: PlaylistItem) {
   };
 }
 
+// Positions the media over the stage. The transition suffix classes stay in
+// styles.css beside their keyframes; everything else on this page is Tailwind.
+const MEDIA_BASE = "absolute inset-0 block h-full w-full";
+
+function PreviewControl({
+  label,
+  onClick,
+  disabled,
+  className = "",
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      className={`cursor-pointer rounded-lg border border-[#445668] bg-transparent p-0 text-[#f5f7fa] hover:bg-[#202c38] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6f94eb] disabled:cursor-default disabled:text-[#667582] disabled:hover:bg-transparent ${className}`}
+    >
+      {children}
+    </Button>
+  );
+}
+
 function PreviewMedia({
   item,
   active,
@@ -58,6 +99,7 @@ function PreviewMedia({
   onDone: () => void;
   onError: () => void;
 }) {
+  const { t } = useTranslation("playlists");
   const videoRef = useRef<HTMLVideoElement>(null);
   const widgetItem = item.assetType === "widget";
   const widgetQuery = useQuery({
@@ -162,7 +204,7 @@ function PreviewMedia({
   if (widgetItem) {
     return (
       <div
-        className={`${className} playlist-preview-page__widget declarative-widget-preview`}
+        className={`${className} grid place-items-stretch overflow-hidden declarative-widget-preview`}
       >
         {presentationQuery.data ? (
           <DeclarativePresentationPreview
@@ -174,7 +216,7 @@ function PreviewMedia({
             onWebReady={onReady}
           />
         ) : (
-          <span>Preparing Widget…</span>
+          <span>{t("preview.preparingWidget")}</span>
         )}
       </div>
     );
@@ -197,6 +239,7 @@ function PreviewMedia({
 }
 
 export function PlaylistPreviewPage() {
+  const { t } = useTranslation("playlists");
   const { id = "" } = useParams();
   const location = useLocation();
   const auth = useAuth();
@@ -276,11 +319,11 @@ export function PlaylistPreviewPage() {
   useEffect(() => {
     if (!query.data) return;
     const previous = document.title;
-    document.title = `${query.data.name} preview · Tilecast`;
+    document.title = t("preview.documentTitle", { name: query.data.name });
     return () => {
       document.title = previous;
     };
-  }, [query.data]);
+  }, [query.data, t]);
   useEffect(() => {
     if (!current || paused || current.assetType === "video") return;
     const timer = window.setTimeout(
@@ -303,7 +346,11 @@ export function PlaylistPreviewPage() {
   }, [move]);
 
   if (auth.isLoading)
-    return <main className="playlist-preview-page">Loading preview…</main>;
+    return (
+      <main className="fixed inset-0 z-[1000] grid min-h-screen min-w-[320px] grid-rows-[auto_minmax(0,1fr)_auto] bg-[#05070a] text-[#f5f7fa]">
+        {t("preview.loading")}
+      </main>
+    );
   if (!auth.status?.authenticated) {
     const returnTo = `${location.pathname}${location.search}${location.hash}`;
     return (
@@ -318,53 +365,59 @@ export function PlaylistPreviewPage() {
     );
   }
   if (query.isLoading)
-    return <main className="playlist-preview-page">Loading preview…</main>;
+    return (
+      <main className="fixed inset-0 z-[1000] grid min-h-screen min-w-[320px] grid-rows-[auto_minmax(0,1fr)_auto] bg-[#05070a] text-[#f5f7fa]">
+        {t("preview.loading")}
+      </main>
+    );
   if (query.isError || !query.data)
     return (
-      <main className="playlist-preview-page playlist-preview-page--message">
-        <strong>Playlist preview unavailable</strong>
-        <span>
+      <main className="fixed inset-0 z-[1000] grid min-h-screen min-w-[320px] grid-rows-[auto_minmax(0,1fr)_auto] place-content-center gap-2 bg-[#05070a] text-center text-[#f5f7fa]">
+        <strong>{t("preview.unavailableTitle")}</strong>
+        <span className="text-[#aab8c5]">
           {query.error instanceof Error
             ? query.error.message
-            : "The playlist could not be loaded."}
+            : t("preview.loadError")}
         </span>
       </main>
     );
 
   return (
-    <main className="playlist-preview-page">
-      <header className="playlist-preview-page__header">
-        <div>
-          <strong>{query.data.name}</strong>
-          <span aria-live="polite">
+    <main className="fixed inset-0 z-[1000] grid min-h-screen min-w-[320px] grid-rows-[auto_minmax(0,1fr)_auto] bg-[#05070a] text-[#f5f7fa]">
+      <header className="relative z-[2] flex items-center justify-between gap-2.5 border-b border-[#283440] bg-[#0e141be8] px-4 py-3">
+        <div className="grid min-w-0 gap-0.5">
+          <strong className="truncate">{query.data.name}</strong>
+          <span aria-live="polite" className="truncate text-[#aab8c5]">
             {current
-              ? `${index + 1} of ${items.length} · ${current.assetName}`
-              : "No ready items"}
+              ? t("preview.position", {
+                  index: index + 1,
+                  total: items.length,
+                  name: current.assetName,
+                })
+              : t("preview.noItems")}
           </span>
         </div>
-        <button
-          type="button"
-          className="playlist-preview-page__control"
+        <PreviewControl
+          label={t("preview.close")}
           onClick={() => window.close()}
-          aria-label="Close preview"
         >
           <X size={20} aria-hidden="true" />
-        </button>
+        </PreviewControl>
       </header>
 
       <section
-        className="playlist-preview-page__stage"
-        aria-label="Playlist preview"
+        className="relative grid min-h-0 place-items-center overflow-hidden bg-black"
+        aria-label={t("preview.regionLabel")}
       >
         {!current ? (
-          <div className="playlist-preview-page__empty">
-            <strong>No ready items</strong>
-            <span>Add ready content to preview this playlist.</span>
+          <div className="grid gap-1.5 p-6 text-center">
+            <strong>{t("preview.noItems")}</strong>
+            <span className="text-[#aab8c5]">{t("preview.emptyHint")}</span>
           </div>
         ) : failed ? (
-          <div className="playlist-preview-page__empty">
+          <div className="grid gap-1.5 p-6 text-center">
             <strong>{current.assetName}</strong>
-            <span>This item could not be previewed in Studio.</span>
+            <span className="text-[#aab8c5]">{t("preview.itemError")}</span>
           </div>
         ) : (
           <>
@@ -375,7 +428,7 @@ export function PlaylistPreviewPage() {
               paused={paused}
               muted={muted}
               csrfToken={auth.status.csrfToken ?? ""}
-              className={`playlist-preview-page__media ${crossfade ? "playlist-preview-page__media--incoming" : `playlist-preview-page__media--${current.transition}`}`}
+              className={`${MEDIA_BASE} ${crossfade ? "playlist-preview-page__media--incoming" : `playlist-preview-page__media--${current.transition}`}`}
               onReady={() =>
                 setCrossfade((value) =>
                   value?.incomingId === current.id
@@ -399,7 +452,7 @@ export function PlaylistPreviewPage() {
                 paused={paused}
                 muted
                 csrfToken={auth.status.csrfToken ?? ""}
-                className={`playlist-preview-page__media playlist-preview-page__media--outgoing${crossfade.ready ? " playlist-preview-page__media--outgoing-active" : ""}`}
+                className={`${MEDIA_BASE} playlist-preview-page__media--outgoing${crossfade.ready ? " playlist-preview-page__media--outgoing-active" : ""}`}
                 onReady={() => undefined}
                 onDone={() => undefined}
                 onError={() => undefined}
@@ -409,51 +462,44 @@ export function PlaylistPreviewPage() {
         )}
       </section>
 
-      <footer className="playlist-preview-page__footer">
-        <button
-          type="button"
-          className="playlist-preview-page__control"
+      <footer className="relative z-[2] flex items-center justify-center gap-2.5 border-t border-[#283440] bg-[#0e141be8] px-4 py-3">
+        <PreviewControl
+          label={t("preview.previous")}
           onClick={() => move(-1)}
           disabled={!current}
-          aria-label="Previous item"
         >
           <SkipBack size={20} aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          className="playlist-preview-page__control"
+        </PreviewControl>
+        <PreviewControl
+          label={paused ? t("preview.resume") : t("preview.pause")}
           onClick={() => setPaused((value) => !value)}
           disabled={!current}
-          aria-label={paused ? "Resume preview" : "Pause preview"}
         >
           {paused ? (
             <Play size={22} aria-hidden="true" />
           ) : (
             <Pause size={22} aria-hidden="true" />
           )}
-        </button>
-        <button
-          type="button"
-          className="playlist-preview-page__control"
+        </PreviewControl>
+        <PreviewControl
+          label={t("preview.next")}
           onClick={() => move(1)}
           disabled={!current}
-          aria-label="Next item"
         >
           <SkipForward size={20} aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          className="playlist-preview-page__control playlist-preview-page__control--mute"
+        </PreviewControl>
+        <PreviewControl
+          label={muted ? t("preview.unmute") : t("preview.mute")}
           onClick={() => setMuted((value) => !value)}
           disabled={!current}
-          aria-label={muted ? "Unmute preview" : "Mute preview"}
+          className="ml-4"
         >
           {muted ? (
             <VolumeX size={20} aria-hidden="true" />
           ) : (
             <Volume2 size={20} aria-hidden="true" />
           )}
-        </button>
+        </PreviewControl>
       </footer>
     </main>
   );

@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/tilecast/tilecast/apps/server/internal/regional"
 )
 
 const SchemaVersion = 1
@@ -70,8 +72,8 @@ var definitions = []Definition{
 	{Key: "organization.name", Category: "general", Type: "string", Default: "Tilecast", Scope: ScopeOrganization, Title: "Organization name", Description: "Name shown throughout Tilecast Studio"},
 	{Key: "organization.short_name", Category: "general", Type: "string", Default: "", Scope: ScopeOrganization, Title: "Short name", Description: "Compact organization name", Documentation: "docs/settings.md"},
 	{Key: "organization.timezone", Category: "general", Type: "timezone", Default: "UTC", Scope: ScopeOrganization, Title: "Default timezone"},
-	{Key: "organization.locale", Category: "general", Type: "enum", Default: "en-US", Allowed: []string{"en-US", "en-GB", "fr-FR", "de-DE", "es-ES"}, Scope: ScopeOrganization, Title: "Locale"},
-	{Key: "organization.first_day_of_week", Category: "general", Type: "enum", Default: "sunday", Allowed: []string{"sunday", "monday"}, Scope: ScopeOrganization, Title: "First day of week"},
+	{Key: "organization.locale", Category: "general", Type: "locale", Default: "en-US", Scope: ScopeOrganization, Title: "Regional locale", Description: "BCP-47 language and region used to format organization signage and organization-level dates."},
+	{Key: "organization.first_day_of_week", Category: "general", Type: "enum", Default: "sunday", Allowed: []string{"locale", "sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"}, Scope: ScopeOrganization, Title: "First day of week"},
 	{Key: "organization.date_format", Category: "general", Type: "enum", Default: "locale", Allowed: []string{"locale", "yyyy-MM-dd", "MM/dd/yyyy", "dd/MM/yyyy"}, Scope: ScopeOrganization, Title: "Date format"},
 	{Key: "organization.time_format", Category: "general", Type: "enum", Default: "locale", Allowed: []string{"locale", "12-hour", "24-hour"}, Scope: ScopeOrganization, Title: "Time format"},
 	{Key: "organization.support_name", Category: "general", Type: "string", Default: "", Scope: ScopeOrganization, Title: "Support contact"},
@@ -180,6 +182,9 @@ var definitions = []Definition{
 	{Key: "retention.takeover_history_days", Category: "retention", Type: "int", Default: 365.0, Min: number(1), Max: number(3650), Scope: ScopeOrganization, Title: "Takeover history retention"},
 	{Key: "retention.max_diagnostic_events_per_screen", Category: "retention", Type: "int", Default: 1000.0, Min: number(10), Max: number(100000), Scope: ScopeOrganization, Title: "Diagnostic event limit"},
 	{Key: "preference.appearance", Category: "interface", Type: "enum", Default: "system", Allowed: []string{"system", "light", "dark"}, Scope: ScopePreference, Title: "Appearance", Immediate: true},
+	// "system" follows the browser. Studio falls back to English for any
+	// language it does not ship, so this list grows only with a locale.
+	{Key: "preference.language", Category: "interface", Type: "enum", Default: "system", Allowed: []string{"system", "en", "es", "ru"}, Scope: ScopePreference, Title: "Language", Immediate: true},
 	{Key: "preference.density", Category: "interface", Type: "enum", Default: "comfortable", Allowed: []string{"comfortable", "compact"}, Scope: ScopePreference, Title: "Interface density", Immediate: true},
 	{Key: "preference.reduced_motion", Category: "interface", Type: "bool", Default: false, Scope: ScopePreference, Title: "Reduced motion", Immediate: true},
 	{Key: "preference.time_format", Category: "interface", Type: "enum", Default: "organization", Allowed: []string{"organization", "12-hour", "24-hour"}, Scope: ScopePreference, Title: "Time format"},
@@ -261,7 +266,7 @@ func validateValue(d Definition, value any) (any, error) {
 		if _, ok := value.(bool); !ok {
 			return nil, errors.New("must be boolean")
 		}
-	case "string", "email", "color", "timezone", "uuid_or_empty", "enum", "local_time":
+	case "string", "email", "color", "timezone", "uuid_or_empty", "enum", "locale", "local_time":
 		s, ok := value.(string)
 		if !ok || len(s) > 2000 {
 			return nil, errors.New("must be a bounded string")
@@ -276,12 +281,22 @@ func validateValue(d Definition, value any) (any, error) {
 			return nil, errors.New("must be a six-digit hex color")
 		}
 		if d.Type == "timezone" {
-			if s != "UTC" && !strings.Contains(s, "/") {
+			if s == "Local" || isLegacyTimezoneAbbreviation(s) {
 				return nil, errors.New("must be a canonical IANA timezone")
 			}
 			if _, err := time.LoadLocation(s); err != nil {
 				return nil, errors.New("must be a canonical IANA timezone")
 			}
+		}
+		if d.Type == "locale" {
+			if len(s) > 255 {
+				return nil, errors.New("must be a BCP-47 language tag")
+			}
+			canonical, err := regional.CanonicalLocale(s)
+			if err != nil {
+				return nil, errors.New("must be a valid BCP-47 language tag")
+			}
+			return canonical, nil
 		}
 		if d.Type == "enum" && !contains(d.Allowed, s) {
 			return nil, errors.New("is not allowed")
@@ -336,6 +351,15 @@ func validateValue(d Definition, value any) (any, error) {
 		return n, nil
 	}
 	return value, nil
+}
+
+func isLegacyTimezoneAbbreviation(value string) bool {
+	switch value {
+	case "EST", "EDT", "CST", "CDT", "MST", "MDT", "PST", "PDT":
+		return true
+	default:
+		return false
+	}
 }
 func contains(values []string, value string) bool {
 	for _, candidate := range values {

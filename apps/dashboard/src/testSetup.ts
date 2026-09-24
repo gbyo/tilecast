@@ -9,5 +9,23 @@
 // Raising the ceiling does not hide real failures. A test whose condition never becomes true still
 // fails; it simply waits longer before saying so.
 import { configure } from "@testing-library/dom";
+import { initI18n } from "./i18n";
 
 configure({ asyncUtilTimeout: 5000 });
+
+if (typeof window !== "undefined" && !window.matchMedia) {
+  window.matchMedia = (query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    dispatchEvent: () => true,
+  });
+}
+
+// Components render English text through i18next, so tests keep asserting on
+// the English copy they always have.
+await initI18n("en");

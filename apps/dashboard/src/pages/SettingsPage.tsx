@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
+import { Trans, useTranslation } from "react-i18next";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Spinner } from "../components/ui/spinner";
 import { api, ApiError } from "../api/client";
 import type { SettingDefinition } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
@@ -12,15 +15,18 @@ import { BrandingAssets } from "../settings/BrandingAssets";
 import { normalizeSettingValues } from "../settings/settingValues";
 import {
   sectionFromPath,
+  settingsNavigation,
   type SettingsSectionId,
 } from "../settings/settingsNavigation";
 import { useNavigationWarning } from "../settings/useNavigationWarning";
+import { useConfirm } from "../components/ConfirmDialog";
 import {
   ImportExportPanel,
   PlayerUpdatesPanel,
   SystemPanel,
 } from "../settings/SettingsOperations";
 import { UsersPage } from "./UsersPage";
+import { DependencyGraphPage } from "./DependencyGraphPage";
 import { BackupPanel } from "../settings/BackupPanel";
 import { NotificationsPanel } from "../settings/NotificationsPanel";
 import { IntegrationTokensPanel } from "../settings/IntegrationTokensPanel";
@@ -35,6 +41,7 @@ export {
 } from "../settings/SettingsOperations";
 
 export function SettingsPage() {
+  const { t } = useTranslation(["settings", "common"]);
   const auth = useAuth();
   const location = useLocation();
   const active = sectionFromPath(location.pathname);
@@ -75,11 +82,13 @@ export function SettingsPage() {
   const currentBaseline = baseline;
   const currentDirty = dirty.has(active);
   const organizationDirtyHere = organizationDirty.has(active);
-  useNavigationWarning(
+  const navigationWarning = useNavigationWarning(
     dirty.size > 0,
     "/settings",
-    "Leave Settings with unsaved changes?",
+    t("page.leaveWarning"),
   );
+  const navigate = useNavigate();
+  const { confirm, dialog: confirmDialog } = useConfirm();
   const saveOrganization = useMutation({
     mutationFn: (values: Record<string, unknown>) =>
       api.updateSettings(revision, values, auth.status?.csrfToken ?? ""),
@@ -110,7 +119,7 @@ export function SettingsPage() {
         setBaseline(data.values);
         setDraft(next);
         setRevision(data.revision);
-        setSaved("Settings saved.");
+        setSaved(t("page.saved"));
       },
     });
   };
@@ -125,44 +134,56 @@ export function SettingsPage() {
     void settings.refetch();
   };
   if (settings.isLoading)
-    return <div className="table-loading">Loading settings…</div>;
+    return (
+      <p className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Spinner aria-hidden="true" /> {t("page.loading")}
+      </p>
+    );
   return (
-    <SettingsShell
-      active={active}
-      dirty={dirty}
-      onNavigate={(next) => {
-        setSaved(undefined);
-        return (
-          next === active ||
-          !currentDirty ||
-          confirm(
-            "This section has unsaved changes. Keep them and open another Settings section?",
-          )
-        );
-      }}
-    >
-      <Destination
+    <>
+      {navigationWarning}
+      {confirmDialog}
+      <SettingsShell
         active={active}
-        manageable={manageable}
-        owner={owner}
-        definitions={currentDefinitions}
-        values={currentValues}
-        onChange={(key, value) => {
+        dirty={dirty}
+        onNavigate={(next) => {
           setSaved(undefined);
-          setDraft({ ...draft, [key]: value });
+          if (next === active || !currentDirty) return true;
+          const path = settingsNavigation
+            .flatMap((group) => group.items)
+            .find((item) => item.id === next)?.path;
+          void confirm({
+            title: t("page.leaveSectionTitle"),
+            action: t("page.leaveSectionAction"),
+          }).then((ok) => {
+            if (ok && path) void navigate(`/settings/${path}`);
+          });
+          return false;
         }}
-        onRetentionDirtyChange={setRetentionDirty}
-      />
-      <SettingsActionBar
-        dirty={organizationDirtyHere}
-        saving={saveOrganization.isPending}
-        success={saved}
-        error={errorMessage(saveOrganization.error)}
-        onCancel={cancel}
-        onSave={save}
-        onReload={isConflict(saveOrganization.error) ? reload : undefined}
-      />
-    </SettingsShell>
+      >
+        <Destination
+          active={active}
+          manageable={manageable}
+          owner={owner}
+          definitions={currentDefinitions}
+          values={currentValues}
+          onChange={(key, value) => {
+            setSaved(undefined);
+            setDraft({ ...draft, [key]: value });
+          }}
+          onRetentionDirtyChange={setRetentionDirty}
+        />
+        <SettingsActionBar
+          dirty={organizationDirtyHere}
+          saving={saveOrganization.isPending}
+          success={saved}
+          error={errorMessage(saveOrganization.error, t)}
+          onCancel={cancel}
+          onSave={save}
+          onReload={isConflict(saveOrganization.error) ? reload : undefined}
+        />
+      </SettingsShell>
+    </>
   );
 }
 
@@ -183,7 +204,9 @@ function Destination({
   onChange: (key: string, value: unknown) => void;
   onRetentionDirtyChange: (dirty: boolean) => void;
 }) {
+  const { t } = useTranslation(["settings", "common"]);
   if (active === "users") return <UsersPage />;
+  if (active === "dependency-graph") return <DependencyGraphPage />;
   if (active === "locations") return <LocationsPanel canManage={manageable} />;
   if (active === "system") return <SystemPanel canManage={manageable} />;
   if (active === "backups")
@@ -238,13 +261,14 @@ function Destination({
           editable={manageable}
           onChange={onChange}
         />
-        <div className="settings-sections">
-          <section className="settings-subsection">
-            <header>
-              <h3>The review queue</h3>
-              <p>
-                Content waiting for review is listed under Content review in the
-                main navigation.
+        <div className="grid">
+          <section className="border-b border-border py-6 pr-0 pb-2 pl-0 last:border-b-0">
+            <header className="mb-2">
+              <h3 className="text-sm font-semibold">
+                {t("page.reviewQueue.title")}
+              </h3>
+              <p className="mt-1.5 max-w-[760px] text-sm text-muted-foreground">
+                {t("page.reviewQueue.description")}
               </p>
             </header>
           </section>
@@ -263,15 +287,18 @@ function Destination({
   // What is left here is the policy for a Takeover a person starts by hand.
   if (active === "takeover")
     before = (
-      <div className="notice notice--info">
-        <strong>Automatic weather alerts moved to Plugins.</strong>
-        <p>
-          NWS monitoring, alert rules, and active emergencies are configured in
-          the <Link to="/plugins/emergency-alerts">Emergency Alerts</Link>{" "}
-          plugin. The defaults below apply to a Takeover started by hand and to
-          player commands.
-        </p>
-      </div>
+      <Alert>
+        <AlertTitle>{t("page.takeoverAlert.title")}</AlertTitle>
+        <AlertDescription>
+          <Trans
+            i18nKey="page.takeoverAlert.description"
+            ns="settings"
+            components={{
+              alertsLink: <Link to="/plugins/emergency-alerts" />,
+            }}
+          />
+        </AlertDescription>
+      </Alert>
     );
   if (active === "branding")
     before = (
@@ -286,14 +313,12 @@ function Destination({
     );
   if (active === "accessibility")
     before = (
-      <div className="notice notice--info">
-        <strong>Local setup is required on every player.</strong>
-        <p>
-          Accessibility Control Assist must be enabled manually in Android
-          Accessibility Settings. Enabling policy here does not grant Android
-          permission.
-        </p>
-      </div>
+      <Alert>
+        <AlertTitle>{t("page.accessibilityAlert.title")}</AlertTitle>
+        <AlertDescription>
+          {t("page.accessibilityAlert.description")}
+        </AlertDescription>
+      </Alert>
     );
   if (active === "security") before = <MFAPolicyNotice values={values} />;
   if (
@@ -302,10 +327,11 @@ function Destination({
     values["power.active_hours_start"] === values["power.active_hours_end"]
   )
     before = (
-      <div className="notice notice--warning" role="alert">
-        Start and end times are identical. Choose a distinct range; an earlier
-        end time is treated as overnight.
-      </div>
+      <Alert>
+        <AlertDescription role="alert">
+          {t("page.powerAlert.description")}
+        </AlertDescription>
+      </Alert>
     );
   const visibleDefinitions =
     active === "branding"
@@ -337,67 +363,68 @@ function Destination({
  * discovered afterwards.
  */
 function MFAPolicyNotice({ values }: { values: Record<string, unknown> }) {
+  const { t } = useTranslation(["settings", "common"]);
   const auth = useAuth();
   const value = values["security.mfa_required_scope"];
   const scope = typeof value === "string" ? value : "none";
   return (
     <>
       {scope !== "none" && (
-        <div className="notice notice--info">
-          <strong>
+        <Alert>
+          <AlertTitle>
             {scope === "all"
-              ? "Every account must enroll a second factor."
-              : "Owners and Administrators must enroll a second factor."}
-          </strong>
-          <p>
-            Nobody is signed out. An account in scope that has not enrolled is
-            asked to set up an authenticator app or a passkey at its next
-            sign-in, and cannot use the rest of Studio until it does. An Owner
-            or Administrator can clear a locked-out account’s factors from
-            Settings → Users.
-          </p>
-        </div>
+              ? t("page.mfa.allRequired")
+              : t("page.mfa.adminsRequired")}
+          </AlertTitle>
+          <AlertDescription>{t("page.mfa.consequence")}</AlertDescription>
+        </Alert>
       )}
       {auth.status?.passkeysAvailable === false && (
-        <div className="notice notice--info">
-          <strong>Passkeys are unavailable on this installation.</strong>
-          <p>
-            {auth.status.passkeysUnavailableReason} Authenticator apps and
-            recovery codes work regardless.
-          </p>
-        </div>
+        <Alert>
+          <AlertTitle>{t("page.mfa.passkeysUnavailable")}</AlertTitle>
+          <AlertDescription>
+            {t("page.mfa.passkeysFallback", {
+              reason: auth.status.passkeysUnavailableReason,
+            })}
+          </AlertDescription>
+        </Alert>
       )}
     </>
   );
 }
 
 function BrandingPreview({ values }: { values: Record<string, unknown> }) {
+  const { t } = useTranslation(["settings", "common"]);
   return (
-    <div className="branding-workspace">
+    <div className="grid grid-cols-[minmax(280px,1fr)_minmax(200px,0.6fr)] items-end gap-6 px-0 pt-6 pb-1 max-[850px]:grid-cols-1">
       <div>
-        <h3>Player preview</h3>
+        <h3 className="m-0 mb-2 text-sm font-semibold">
+          {t("page.preview.title")}
+        </h3>
         <div
-          className="branding-preview"
+          className="m-0 grid min-h-[170px] place-content-center gap-2 border border-border p-6 text-center"
           style={{
             background: signalColors.playerBackground,
             color: signalColors.playerText,
           }}
         >
           <strong>
-            {text(values["branding.no_content_title"], "No content assigned")}
+            {text(
+              values["branding.no_content_title"],
+              t("page.preview.noContentTitle"),
+            )}
           </strong>
           <span>
             {text(
               values["branding.no_content_message"],
-              "This screen is ready for content.",
+              t("page.preview.noContentMessage"),
             )}
           </span>
           <small>{text(values["branding.footer_text"], "Tilecast")}</small>
         </div>
       </div>
-      <p>
-        Takeover keeps Tilecast’s fixed high-contrast treatment regardless of
-        custom branding.
+      <p className="m-0 text-[13px] text-muted-foreground">
+        {t("page.preview.takeoverNote")}
       </p>
     </div>
   );
@@ -476,9 +503,10 @@ function isConflict(error: Error | null | undefined) {
     error instanceof ApiError && error.code === "settings_revision_conflict"
   );
 }
-function errorMessage(error: Error | null | undefined) {
+function errorMessage(
+  error: Error | null | undefined,
+  t: (key: "page.conflict") => string,
+) {
   if (!error) return undefined;
-  return isConflict(error)
-    ? "These settings changed elsewhere. Reload the latest settings before saving."
-    : error.message;
+  return isConflict(error) ? t("page.conflict") : error.message;
 }

@@ -80,7 +80,6 @@ describe("permanent user deletion", () => {
           ),
         );
       });
-    vi.spyOn(globalThis, "confirm").mockReturnValue(true);
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
@@ -91,11 +90,18 @@ describe("permanent user deletion", () => {
     );
 
     const name = await screen.findByText("Former Editor");
-    const row = name.closest("article");
+    const row = name.closest<HTMLElement>('[data-slot="item"]');
     expect(row).not.toBeNull();
+    expect(
+      row!.querySelector('[data-slot="avatar-fallback"]'),
+    ).toHaveTextContent("FE");
     await userEvent.click(within(row!).getByRole("button", { name: "Edit" }));
     await userEvent.click(
       screen.getByRole("button", { name: "Delete permanently" }),
+    );
+    const dialog = await screen.findByRole("alertdialog");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Delete permanently" }),
     );
 
     await waitFor(() => {

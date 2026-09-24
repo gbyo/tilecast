@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useBlocker } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
+import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 import { AlertCircle } from "lucide-react";
 import type {
   FormAvailableTransition,
@@ -11,7 +13,10 @@ import type {
   FormSchema,
 } from "../api/types";
 import { api, ApiError } from "../api/client";
-import { Button, Notice } from "../components/ui";
+import { apiErrorMessage } from "../i18n";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Button } from "../components/ui/button";
+import { Spinner } from "../components/ui/spinner";
 import {
   FormRenderer,
   fieldControlId,
@@ -50,6 +55,8 @@ export function SubmissionEditor({
   csrf: string;
   onCompleted: (recordId: string) => void;
 }) {
+  const { t } = useTranslation("forms");
+  const { t: tErrors } = useTranslation("errors");
   const queryClient = useQueryClient();
 
   // Editing uses the record's immutable revision; a new submission uses the current published one.
@@ -129,7 +136,7 @@ export function SubmissionEditor({
   // when the server lists a submit transition for the record's current state.
   const canSubmit =
     recordId === null ? canSubmitCapability : Boolean(submitTransition);
-  const submitLabel = submitTransition?.label ?? "Submit";
+  const submitLabel = submitTransition?.label ?? t("editor.submitFallback");
 
   const editable = canEdit;
 
@@ -252,7 +259,7 @@ export function SubmissionEditor({
           pendingUrl: objectUrl,
           pendingName: file.name,
           uploading: false,
-          error: conflictAwareMessage(error),
+          error: conflictAwareMessage(error, tErrors),
         },
       }));
     }
@@ -276,7 +283,7 @@ export function SubmissionEditor({
           ...current,
           [fieldKey]: {
             ...current[fieldKey],
-            error: conflictAwareMessage(error),
+            error: conflictAwareMessage(error, tErrors),
           },
         }));
       }
@@ -349,7 +356,7 @@ export function SubmissionEditor({
     setErrors((current) => {
       if (!current[key]) return current;
       const next = { ...current };
-      const message = fieldError(field, value, true, satisfied);
+      const message = fieldError(field, value, true, satisfied, t);
       if (message) next[key] = message;
       else delete next[key];
       return next;
@@ -374,13 +381,14 @@ export function SubmissionEditor({
       values,
       false,
       satisfiedImages(),
+      t,
     );
     if (!reportValidation(validation)) return;
     setBusy("draft");
     try {
       await persist();
     } catch (error) {
-      setFormError(conflictAwareMessage(error));
+      setFormError(conflictAwareMessage(error, tErrors));
     } finally {
       setBusy("");
     }
@@ -393,6 +401,7 @@ export function SubmissionEditor({
       values,
       true,
       satisfiedImages(),
+      t,
     );
     if (!reportValidation(validation)) return;
     setBusy("submit");
@@ -402,7 +411,7 @@ export function SubmissionEditor({
         (candidate) => candidate.requiredCapability === "submit",
       );
       if (!transition) {
-        setFormError("This form cannot be submitted from its current state.");
+        setFormError(t("editor.cannotSubmit"));
         return;
       }
       await api.transitionFormRecord(
@@ -417,44 +426,46 @@ export function SubmissionEditor({
       onCompleted(detail.id);
     } catch (error) {
       // The draft (and any uploads) are saved server-side; keep the editor so the user can retry.
-      setFormError(conflictAwareMessage(error));
+      setFormError(conflictAwareMessage(error, tErrors));
     } finally {
       setBusy("");
     }
   }
 
   return (
-    <div className="submission-editor">
+    <div className="grid gap-4">
       {blocker.state === "blocked" && (
-        <Notice
-          variant="warning"
-          title="Leave without saving?"
-          action={
-            <div className="form-builder__confirm-actions">
-              <Button variant="quiet" onClick={() => blocker.reset?.()}>
-                Stay on page
-              </Button>
-              <Button variant="primary" onClick={() => blocker.proceed?.()}>
-                Leave without saving
-              </Button>
-            </div>
-          }
-        >
-          You have unsaved changes to this submission. Leaving now will discard
-          them.
-        </Notice>
+        <Alert>
+          <AlertTitle>{t("editor.leaveTitle")}</AlertTitle>
+          <AlertDescription>{t("editor.leaveBody")}</AlertDescription>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="ghost" onClick={() => blocker.reset?.()}>
+              {t("editor.stay")}
+            </Button>
+            <Button variant="default" onClick={() => blocker.proceed?.()}>
+              {t("editor.leave")}
+            </Button>
+          </div>
+        </Alert>
       )}
 
       {feedback && editable && (
-        <Notice variant="warning" title="Changes requested">
-          <strong>{feedback.actorName ?? "Reviewer"}:</strong> {feedback.note}
-        </Notice>
+        <Alert>
+          <AlertTitle>{t("editor.changesRequested")}</AlertTitle>
+          <AlertDescription>
+            <strong>
+              {feedback.actorName ?? t("editor.anonymousReviewer")}:
+            </strong>{" "}
+            {feedback.note}
+          </AlertDescription>
+        </Alert>
       )}
 
       {formError && (
-        <Notice variant="danger" title="Could not save">
-          {formError}
-        </Notice>
+        <Alert variant="destructive">
+          <AlertTitle>{t("editor.saveFailed")}</AlertTitle>
+          <AlertDescription>{formError}</AlertDescription>
+        </Alert>
       )}
 
       <ErrorSummary schema={schema} errors={errors} onSelect={focusField} />
@@ -462,7 +473,7 @@ export function SubmissionEditor({
       {/* A real form element so Enter in a text field submits, and noValidate so our own validation
           (which produces the summary above) is the only thing that ever blocks a submit. */}
       <form
-        className="submission-editor__form"
+        className="grid gap-4"
         noValidate
         onSubmit={(event) => {
           event.preventDefault();
@@ -487,44 +498,55 @@ export function SubmissionEditor({
         />
 
         {editable ? (
-          <div className="submission-editor__actions">
+          <div className="flex flex-wrap gap-2">
             <Button
               type="button"
               variant="secondary"
-              loading={busy === "draft"}
               disabled={busy !== ""}
+              aria-busy={busy === "draft" || undefined}
               onClick={() => void saveDraft()}
             >
-              Save draft
+              {busy === "draft" && <Spinner aria-hidden="true" />}
+              {t("editor.saveDraft")}
             </Button>
             {canSubmit && (
               <Button
                 type="submit"
-                variant="primary"
-                loading={busy === "submit"}
+                variant="default"
                 disabled={busy !== ""}
+                aria-busy={busy === "submit" || undefined}
               >
+                {busy === "submit" && <Spinner aria-hidden="true" />}
                 {submitLabel}
               </Button>
             )}
           </div>
         ) : (
-          <Notice
-            variant="info"
-            title={`This submission is ${stateLabel(form.workflow, state)}`}
-          >
-            It can no longer be edited. A reviewer will follow up if changes are
-            needed.
-          </Notice>
+          <Alert>
+            <AlertTitle>
+              {t("editor.completedTitle", {
+                state: stateLabel(form.workflow, state),
+              })}
+            </AlertTitle>
+            <AlertDescription>{t("editor.completedBody")}</AlertDescription>
+          </Alert>
         )}
       </form>
 
       {comments.length > 0 && (
-        <section className="submission-editor__comments" aria-label="Comments">
-          <h3>Comments</h3>
-          <ul>
+        <section
+          className="grid gap-3 rounded-xl border border-border p-4"
+          aria-label={t("editor.commentsSection")}
+        >
+          <h3 className="text-base font-semibold">
+            {t("editor.commentsSection")}
+          </h3>
+          <ul className="grid gap-2">
             {comments.map((comment) => (
-              <li key={comment.id}>
+              <li
+                key={comment.id}
+                className="grid gap-1 rounded-xl border border-border p-3 text-sm"
+              >
                 <strong>{comment.authorName}</strong>
                 <p>{comment.body}</p>
               </li>
@@ -548,35 +570,33 @@ function ErrorSummary({
   errors: Record<string, string>;
   onSelect: (fieldKey: string) => void;
 }) {
+  const { t } = useTranslation("forms");
   const invalid = schema.fields.filter((field) => errors[field.key]);
   if (invalid.length === 0) return null;
   return (
-    <div
-      className="notice notice--danger submission-editor__errors"
-      role="alert"
-    >
+    <Alert variant="destructive">
       <AlertCircle size={18} aria-hidden="true" />
-      <div>
-        <strong>
-          {invalid.length === 1
-            ? "Fix 1 field before continuing"
-            : `Fix ${invalid.length} fields before continuing`}
-        </strong>
-        <ul>
+      <AlertTitle>
+        {t("editor.fixFields", { count: invalid.length })}
+      </AlertTitle>
+      <AlertDescription>
+        <ul className="grid gap-1">
           {invalid.map((field) => (
             <li key={field.key}>
-              <button
+              <Button
                 type="button"
-                className="text-link"
+                variant="link"
+                size="sm"
+                className="h-auto justify-start p-0 text-left whitespace-normal"
                 onClick={() => onSelect(field.key)}
               >
                 {errors[field.key]}
-              </button>
+              </Button>
             </li>
           ))}
         </ul>
-      </div>
-    </div>
+      </AlertDescription>
+    </Alert>
   );
 }
 
@@ -611,13 +631,15 @@ function imagesFromDetail(
   return result;
 }
 
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : "Something went wrong.";
+function messageOf(error: unknown, t: TFunction<"errors">): string {
+  return error instanceof Error
+    ? apiErrorMessage(error)
+    : t("fallback.somethingWentWrong");
 }
 
-function conflictAwareMessage(error: unknown): string {
+function conflictAwareMessage(error: unknown, t: TFunction<"errors">): string {
   if (error instanceof ApiError && error.status === 409) {
     return "This submission changed elsewhere. Reload to see the latest version, then try again.";
   }
-  return messageOf(error);
+  return messageOf(error, t);
 }

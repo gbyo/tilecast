@@ -239,8 +239,8 @@ describe("Responses tab and record review", () => {
     const user = userEvent.setup();
     renderReview("/data-sources/f1?tab=responses");
 
-    // The record row appears and the state filter defaults to "Needs review".
-    const row = await screen.findByRole("button", { name: /Hello/ });
+    // The record row links to the review and the state filter defaults to "Needs review".
+    const row = await screen.findByRole("link", { name: "Review Hello" });
     await user.click(row);
 
     await waitFor(() => expect(getRecord).toHaveBeenCalledWith("f1", "rec1"));
@@ -284,7 +284,14 @@ describe("Responses tab and record review", () => {
     await user.click(
       await screen.findByRole("button", { name: "Request changes" }),
     );
-    expect(await screen.findByText(/note is required/i)).toBeInTheDocument();
+    // The decision dialog states the requirement and keeps confirm disabled
+    // until a note is entered.
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent(/note is required/i);
+    const confirm = screen
+      .getAllByRole("button", { name: "Request changes" })
+      .find((button) => dialog.contains(button));
+    expect(confirm).toBeDisabled();
     expect(transition).not.toHaveBeenCalled();
   });
 
@@ -305,10 +312,17 @@ describe("Responses tab and record review", () => {
     const user = userEvent.setup();
     renderReview("/data-sources/f1?tab=responses&record=rec1");
 
-    // Type a note that must survive the conflict recovery.
+    // Type a note in the decision dialog that must survive conflict recovery.
+    await user.click(
+      await screen.findByRole("button", { name: "Request changes" }),
+    );
+    const dialog = await screen.findByRole("dialog");
     const note = await screen.findByLabelText("Note");
     await user.type(note, "Looks good to me");
-    await user.click(screen.getByRole("button", { name: "Approve" }));
+    const confirm = screen
+      .getAllByRole("button", { name: "Request changes" })
+      .find((button) => dialog.contains(button));
+    await user.click(confirm!);
 
     expect(
       await screen.findByText(/changed since you opened it/i),
@@ -360,7 +374,7 @@ describe("Central approvals inbox", () => {
       </QueryClientProvider>,
     );
 
-    await user.click(await screen.findByRole("button", { name: /Field trip/ }));
+    await user.click(await screen.findByRole("link", { name: "Field trip" }));
     expect(await screen.findByText("Review route")).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/data-sources/f1");
     expect(router.state.location.search).toContain("record=rec1");

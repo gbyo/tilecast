@@ -1,62 +1,94 @@
 import {
-  Button,
-  EmptyState,
-  Field,
-  PageHeader,
-  Panel,
-  SectionHeader,
-  Select,
-  StatusBadge,
-} from "../components/ui";
-import {
   useMutation,
   useQueries,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
+import { LayoutGrid } from "lucide-react";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
+import { Button, buttonVariants } from "../components/ui/button";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../components/ui/empty";
+import { useConfirm } from "../components/ConfirmDialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
+import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { Skeleton } from "../components/ui/skeleton";
 import { useEffect, useState } from "react";
+import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../api/client";
 import type { ScreenGroup } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { useFormatLocale } from "../i18n";
+
+type ScreensT = TFunction<"screens", undefined>;
 import { PlayerPolicyEditor } from "../settings/PlayerPolicyEditor";
 import { AirPlayPresentDialog } from "../components/AirPlayPresentDialog";
 import { QuickPresentDialog } from "../components/QuickPresentDialog";
 import { SpanWallEditor } from "../components/SpanWallEditor";
 import { DisplayControlGroupActions } from "../components/DisplayControlGroupActions";
-import { ScreenManagementTabs } from "../components/ScreenManagementTabs";
+import { toast } from "../components/ui/toast";
 
 const canManage = (role?: string) =>
   role === "owner" || role === "administrator";
 
 function groupFallbackName(
   group: Pick<ScreenGroup, "layoutName" | "playlistName">,
+  t: ScreensT,
 ) {
-  return group.layoutName ?? group.playlistName ?? "No fallback content";
+  return group.layoutName ?? group.playlistName ?? t("groups.noFallback");
 }
 
 function groupFallbackType(
   group: Pick<ScreenGroup, "layoutName" | "playlistName">,
+  t: ScreensT,
 ) {
-  if (group.layoutName) return "Layout";
-  if (group.playlistName) return "Playlist";
-  return "Unassigned";
+  if (group.layoutName) return t("groups.fallbackType.layout");
+  if (group.playlistName) return t("groups.fallbackType.playlist");
+  return t("groups.fallbackType.none");
 }
 
-function groupMemberSummary(group: ScreenGroup) {
+function groupMemberSummary(group: ScreenGroup, t: ScreensT) {
   const screens = group.screens ?? [];
-  if (group.membershipCount === 0) return "No screens assigned";
+  if (group.membershipCount === 0) return t("groups.memberSummary.none");
   if (screens.length === 0)
-    return `${group.membershipCount} screen${group.membershipCount === 1 ? "" : "s"} assigned`;
+    return t("groups.memberSummary.assigned", {
+      count: group.membershipCount,
+    });
   const visible = screens.slice(0, 3).map((screen) => screen.name);
   const remaining = Math.max(0, group.membershipCount - visible.length);
-  return `${visible.join(", ")}${remaining ? ` +${remaining} more` : ""}`;
+  if (!remaining) return visible.join(", ");
+  return t("groups.memberSummary.overflow", {
+    names: visible.join(", "),
+    count: remaining,
+  });
 }
 
-function formatGroupDate(value: string) {
+function formatGroupDate(value: string, t: ScreensT, locale: string) {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Unknown";
-  return date.toLocaleDateString(undefined, {
+  if (Number.isNaN(date.getTime())) return t("groups.unknownDate");
+  return date.toLocaleDateString(locale, {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -67,92 +99,130 @@ export function GroupsPage() {
   const auth = useAuth(),
     csrf = auth.status?.csrfToken ?? "",
     client = useQueryClient();
+  const { t } = useTranslation("screens");
+  const formatLocale = useFormatLocale();
   const manageable = canManage(auth.status?.user?.role);
   const q = useQuery({
     queryKey: ["screen-groups"],
     queryFn: () => api.screenGroups(),
   });
+  const [createOpen, setCreateOpen] = useState(false);
   const create = useMutation({
-    mutationFn: (name: string) =>
-      api.createScreenGroup({ name, description: "" }, csrf),
-    onSuccess: () => client.invalidateQueries({ queryKey: ["screen-groups"] }),
+    mutationFn: (value: { name: string; description: string }) =>
+      api.createScreenGroup(value, csrf),
+    onSuccess: () => {
+      toast.add({ title: "Display Group created.", type: "success" });
+      return client.invalidateQueries({ queryKey: ["screen-groups"] });
+    },
   });
-  const createGroup = () => {
-    const name = prompt("Group name");
-    if (name) create.mutate(name);
-  };
 
   return (
-    <section className="sync-groups-page">
-      <PageHeader
-        title="Display Groups"
-        description="Keep a set of screens on the same content, schedule, and playback position. Mirror groups preserve synchronized playback."
-        actions={
-          manageable ? (
-            <Button variant="primary" onClick={createGroup}>
-              Create Display Group
-            </Button>
-          ) : undefined
-        }
-      />
-      <ScreenManagementTabs current="groups" className="sync-groups-tabs" />
-      {q.isError && (
-        <div className="notice notice--error" role="alert">
-          Display Groups could not be loaded. Try refreshing the page.
+    <section className="grid gap-4">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {t("groups.title")}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t("groups.subtitle")}
+          </p>
         </div>
+        {manageable && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" onClick={() => setCreateOpen(true)}>
+              {t("groups.create")}
+            </Button>
+          </div>
+        )}
+      </header>
+      {q.isError && (
+        <Alert variant="destructive">
+          <AlertDescription>{t("groups.loadError")}</AlertDescription>
+        </Alert>
       )}
       {q.isLoading && (
-        <div className="table-loading">Loading Display Groups…</div>
+        <div className="grid gap-2" aria-label={t("groups.loading")}>
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full" />
+        </div>
       )}
-      <div className="sync-group-grid">
+      <div className="grid gap-3 sm:grid-cols-2">
         {q.data?.items?.map((group) => (
           <Link
-            className="sync-group-card"
+            className="grid gap-3 rounded-xl border border-border p-4 hover:bg-muted"
             to={`/groups/${group.id}`}
             key={group.id}
           >
-            <header className="sync-group-card__header">
-              <span className="sync-group-card__title">
-                <strong>{group.name}</strong>
-                <small>{group.description || "No description"}</small>
+            <span className="flex items-start justify-between gap-2">
+              <span className="grid min-w-0 gap-0.5">
+                <strong className="truncate text-sm">{group.name}</strong>
+                <small className="truncate text-xs text-muted-foreground">
+                  {group.description || t("groups.noDescription")}
+                </small>
               </span>
-              <StatusBadge
-                label={`${group.membershipCount} screen${group.membershipCount === 1 ? "" : "s"}`}
-                tone={group.membershipCount > 0 ? "info" : "neutral"}
-              />
-            </header>
-            <dl className="sync-group-card__details">
-              <div>
-                <dt>Fallback</dt>
-                <dd>
-                  <span>{groupFallbackType(group)}</span>
-                  <strong>{groupFallbackName(group)}</strong>
+              <Badge
+                variant={group.membershipCount > 0 ? "default" : "secondary"}
+              >
+                {t("groups.count", { count: group.membershipCount })}
+              </Badge>
+            </span>
+            <dl className="grid gap-2 text-sm">
+              <div className="flex flex-wrap gap-x-2">
+                <dt className="text-muted-foreground">
+                  {t("groups.fallbackLabel")}
+                </dt>
+                <dd className="flex flex-wrap gap-x-2">
+                  <span>{groupFallbackType(group, t)}</span>
+                  <strong>{groupFallbackName(group, t)}</strong>
                 </dd>
               </div>
-              <div>
-                <dt>Updated</dt>
-                <dd>{formatGroupDate(group.updatedAt)}</dd>
+              <div className="flex flex-wrap gap-x-2">
+                <dt className="text-muted-foreground">
+                  {t("groups.updatedLabel")}
+                </dt>
+                <dd>{formatGroupDate(group.updatedAt, t, formatLocale)}</dd>
               </div>
             </dl>
-            <p className="sync-group-card__members">
-              {groupMemberSummary(group)}
-            </p>
-            <span className="sync-group-card__open">View group</span>
+            <span className="text-sm text-muted-foreground">
+              {groupMemberSummary(group, t)}
+            </span>
+            <span className="text-sm font-medium">{t("groups.viewGroup")}</span>
           </Link>
         ))}
       </div>
       {q.data?.items?.length === 0 && (
-        <EmptyState
-          className="sync-groups-empty"
-          title="No Display Groups yet"
-          message="Create a Display Group for screens that should always share content, schedules, and playback position."
-          action={
-            manageable ? (
-              <Button variant="primary" onClick={createGroup}>
-                Create Display Group
-              </Button>
-            ) : undefined
-          }
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <LayoutGrid size={24} aria-hidden="true" />
+            </EmptyMedia>
+            <EmptyTitle>{t("groups.emptyTitle")}</EmptyTitle>
+            <EmptyDescription>
+              {t("groups.emptyDescription")}
+              {manageable && (
+                <Button
+                  type="button"
+                  onClick={() => setCreateOpen(true)}
+                  className="mt-3"
+                >
+                  {t("groups.create")}
+                </Button>
+              )}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      )}
+      {createOpen && (
+        <GroupDialog
+          title={t("groups.create")}
+          action={t("groups.detail.dialogCreateAction")}
+          initial={{ name: "", description: "" }}
+          pending={create.isPending}
+          onClose={() => setCreateOpen(false)}
+          onSave={(value) => {
+            create.mutate(value);
+            setCreateOpen(false);
+          }}
         />
       )}
     </section>
@@ -165,11 +235,15 @@ export function GroupDetailPage() {
     auth = useAuth(),
     csrf = auth.status?.csrfToken ?? "",
     client = useQueryClient();
+  const { t } = useTranslation(["screens", "common"]);
+  const formatLocale = useFormatLocale();
   const manageable = canManage(auth.status?.user?.role);
   const [screenSearch, setScreenSearch] = useState("");
   const [selectedPresentation, setSelectedPresentation] = useState("");
   const [airplayOpen, setAirplayOpen] = useState(false);
   const [quickPresentOpen, setQuickPresentOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const { confirm, dialog: confirmDialog } = useConfirm();
   const group = useQuery({
       queryKey: ["screen-groups", id],
       queryFn: () => api.screenGroup(id),
@@ -207,12 +281,21 @@ export function GroupDetailPage() {
   const add = useMutation({
       mutationFn: (screenId: string) =>
         api.addScreenToGroup(id, screenId, csrf),
-      onSuccess: refresh,
+      onSuccess: () => {
+        toast.add({ title: "Screen added to Display Group.", type: "success" });
+        return refresh();
+      },
     }),
     remove = useMutation({
       mutationFn: (screenId: string) =>
         api.removeScreenFromGroup(id, screenId, csrf),
-      onSuccess: refresh,
+      onSuccess: () => {
+        toast.add({
+          title: "Screen removed from Display Group.",
+          type: "success",
+        });
+        return refresh();
+      },
     }),
     update = useMutation({
       mutationFn: (value: {
@@ -221,11 +304,17 @@ export function GroupDetailPage() {
         presentationGatewayScreenId?: string;
         clearPresentationGateway?: boolean;
       }) => api.updateScreenGroup(id, value, csrf),
-      onSuccess: refresh,
+      onSuccess: () => {
+        toast.add({ title: "Display Group updated.", type: "success" });
+        return refresh();
+      },
     }),
     deleteGroup = useMutation({
       mutationFn: () => api.deleteScreenGroup(id, csrf),
-      onSuccess: () => navigate("/groups"),
+      onSuccess: () => {
+        toast.add({ title: "Display Group deleted.", type: "success" });
+        void navigate("/groups");
+      },
     }),
     assignContent = useMutation({
       mutationFn: (value: string) => {
@@ -236,7 +325,13 @@ export function GroupDetailPage() {
           return api.assignSyncGroupPlaylist(id, presentationId, csrf);
         return api.unassignSyncGroupPlaylist(id, csrf);
       },
-      onSuccess: refresh,
+      onSuccess: () => {
+        toast.add({
+          title: "Display Group assignment updated.",
+          type: "success",
+        });
+        return refresh();
+      },
     });
   useEffect(() => {
     setSelectedPresentation(
@@ -247,8 +342,30 @@ export function GroupDetailPage() {
           : "",
     );
   }, [group.data?.layoutId, group.data?.playlistId]);
-  if (!group.data) return <div className="table-loading">Loading group…</div>;
+  if (!group.data)
+    return (
+      <div className="grid gap-2" aria-label={t("groups.detail.loading")}>
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-48 w-full" />
+      </div>
+    );
   const groupData = group.data;
+  const fallbackOptionLabel = (value: string) => {
+    const [type, id] = value.split(":");
+    if (type === "playlist") {
+      const found = playlists.data?.items?.find((item) => item.id === id);
+      return found
+        ? t("groups.detail.optionPlaylist", { name: found.name })
+        : value;
+    }
+    if (type === "layout") {
+      const found = layouts.data?.items?.find((item) => item.id === id);
+      return found
+        ? t("groups.detail.optionLayout", { name: found.name })
+        : value;
+    }
+    return value;
+  };
   const assignedElsewhere = new Set(
     (groups.data?.items ?? [])
       .filter((candidate) => candidate.id !== id)
@@ -275,57 +392,73 @@ export function GroupDetailPage() {
       : "";
 
   return (
-    <section className="sync-group-detail">
-      <PageHeader
-        title={groupData.name}
-        description={
-          groupData.description ||
-          "Screens in this group share fallback content, schedules, and playback position."
-        }
-        actions={
-          manageable ? (
-            <>
-              <Button
-                variant="quiet"
-                onClick={() => {
-                  const name = prompt("Group name", groupData.name);
-                  if (name)
-                    update.mutate({
-                      name,
-                      description:
-                        prompt("Description", groupData.description) ??
-                        groupData.description,
-                    });
+    <section className="grid gap-4">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {groupData.name}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {groupData.description || t("groups.detail.descriptionFallback")}
+          </p>
+        </div>
+        {manageable && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setEditOpen(true)}
+            >
+              {t("groups.detail.edit")}
+            </Button>
+            {editOpen && (
+              <GroupDialog
+                title={t("groups.detail.edit")}
+                action={t("common:actions.saveChanges")}
+                initial={{
+                  name: groupData.name,
+                  description: groupData.description,
                 }}
-              >
-                Edit Display Group
-              </Button>
-              <Button variant="primary" onClick={() => setAirplayOpen(true)}>
-                Present · AirPlay
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => setQuickPresentOpen(true)}
-              >
-                Show now
-              </Button>
-              <Button
-                variant="danger"
-                onClick={() => {
-                  if (
-                    confirm(
-                      `Delete ${groupData.name}? Screens will not be deleted.`,
-                    )
-                  )
-                    deleteGroup.mutate();
+                pending={update.isPending}
+                onClose={() => setEditOpen(false)}
+                onSave={(value) => {
+                  update.mutate(value);
+                  setEditOpen(false);
                 }}
-              >
-                Delete Display Group
-              </Button>
-            </>
-          ) : undefined
-        }
-      />
+              />
+            )}
+            <Button type="button" onClick={() => setAirplayOpen(true)}>
+              {t("groups.detail.present")}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setQuickPresentOpen(true)}
+            >
+              {t("groups.detail.showNow")}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                void confirm({
+                  title: t("groups.detail.deleteTitle", {
+                    name: groupData.name,
+                  }),
+                  body: t("groups.detail.deleteBody"),
+                  action: t("common:actions.delete"),
+                  destructive: true,
+                }).then((ok) => {
+                  if (ok) deleteGroup.mutate();
+                });
+              }}
+            >
+              {t("groups.detail.delete")}
+            </Button>
+            {confirmDialog}
+          </div>
+        )}
+      </header>
       <AirPlayPresentDialog
         open={airplayOpen}
         targetType="group"
@@ -341,7 +474,7 @@ export function GroupDetailPage() {
             ? groupData.screens.find(
                 (screen) => screen.id === groupData.presentationGatewayScreenId,
               )?.name
-            : "Automatic gateway"
+            : t("groups.detail.audioAutomatic")
         }
         onClose={() => setAirplayOpen(false)}
       />
@@ -353,31 +486,42 @@ export function GroupDetailPage() {
         csrfToken={csrf}
         onClose={() => setQuickPresentOpen(false)}
       />
-      <ScreenManagementTabs current="groups" className="sync-groups-tabs" />
 
-      <Panel className="sync-group-overview">
-        <dl>
-          <div>
-            <dt>Screens</dt>
+      <section className="grid gap-3 rounded-xl border border-border p-4">
+        <dl className="grid gap-2 text-sm sm:grid-cols-2">
+          <div className="flex flex-wrap gap-x-2">
+            <dt className="text-muted-foreground">
+              {t("groups.detail.screensLabel")}
+            </dt>
             <dd>{groupData.membershipCount}</dd>
           </div>
-          <div>
-            <dt>Mode</dt>
-            <dd>{groupData.displayMode === "span" ? "Span" : "Mirror"}</dd>
-          </div>
-          <div>
-            <dt>Fallback content</dt>
+          <div className="flex flex-wrap gap-x-2">
+            <dt className="text-muted-foreground">
+              {t("groups.detail.modeLabel")}
+            </dt>
             <dd>
-              <span>{groupFallbackType(groupData)}</span>
-              <strong>{groupFallbackName(groupData)}</strong>
+              {groupData.displayMode === "span"
+                ? t("groups.detail.modeSpan")
+                : t("groups.detail.modeMirror")}
             </dd>
           </div>
-          <div>
-            <dt>Last updated</dt>
-            <dd>{formatGroupDate(groupData.updatedAt)}</dd>
+          <div className="flex flex-wrap gap-x-2">
+            <dt className="text-muted-foreground">
+              {t("groups.detail.fallbackLabel")}
+            </dt>
+            <dd className="flex flex-wrap gap-x-2">
+              <span>{groupFallbackType(groupData, t)}</span>
+              <strong>{groupFallbackName(groupData, t)}</strong>
+            </dd>
+          </div>
+          <div className="flex flex-wrap gap-x-2">
+            <dt className="text-muted-foreground">
+              {t("groups.detail.updatedLabel")}
+            </dt>
+            <dd>{formatGroupDate(groupData.updatedAt, t, formatLocale)}</dd>
           </div>
         </dl>
-      </Panel>
+      </section>
 
       <SpanWallEditor
         group={groupData}
@@ -393,16 +537,30 @@ export function GroupDetailPage() {
       />
 
       {manageable && groupData.screens.length > 0 && (
-        <Panel className="sync-group-panel">
-          <SectionHeader
-            title="AirPlay gateway"
-            description="The preferred gateway is stable across sessions. Automatic selection uses online Linux capability, hardware decode, wired link, then screen name."
-          />
-          <Field label="Preferred presentation gateway">
+        <section className="grid gap-3 rounded-xl border border-border p-4">
+          <header className="grid gap-1">
+            <h3 className="text-base font-semibold">
+              {t("groups.detail.gatewayTitle")}
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              {t("groups.detail.gatewayDescription")}
+            </p>
+          </header>
+          <Field>
+            <FieldLabel htmlFor="group-gateway">
+              {t("groups.detail.gatewayLabel")}
+            </FieldLabel>
             <Select
-              value={groupData.presentationGatewayScreenId ?? ""}
-              onChange={(event) => {
-                if (!event.target.value) {
+              items={[
+                { value: "automatic", label: "Automatic" },
+                ...groupData.screens.map((screen) => ({
+                  value: screen.id,
+                  label: screen.name,
+                })),
+              ]}
+              value={groupData.presentationGatewayScreenId || "automatic"}
+              onValueChange={(next) => {
+                if (!next || next === "automatic") {
                   update.mutate({
                     name: groupData.name,
                     description: groupData.description,
@@ -413,139 +571,234 @@ export function GroupDetailPage() {
                 update.mutate({
                   name: groupData.name,
                   description: groupData.description,
-                  presentationGatewayScreenId: event.target.value,
+                  presentationGatewayScreenId: next,
                 });
               }}
               disabled={update.isPending}
             >
-              <option value="">Automatic</option>
-              {groupData.screens.map((screen) => (
-                <option key={screen.id} value={screen.id}>
-                  {screen.name}
-                </option>
-              ))}
+              <SelectTrigger
+                id="group-gateway"
+                aria-label={t("groups.detail.gatewayLabel")}
+              >
+                <SelectValue>
+                  {groupData.presentationGatewayScreenId
+                    ? (groupData.screens.find(
+                        (screen) =>
+                          screen.id === groupData.presentationGatewayScreenId,
+                      )?.name ?? groupData.presentationGatewayScreenId)
+                    : t("groups.detail.gatewayAutomatic")}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="automatic">
+                  {t("groups.detail.gatewayAutomatic")}
+                </SelectItem>
+                {groupData.screens.map((screen) => (
+                  <SelectItem key={screen.id} value={screen.id}>
+                    {screen.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
           </Field>
-        </Panel>
+        </section>
       )}
 
-      <Panel className="sync-group-panel">
-        <SectionHeader
-          title="Synchronized content"
-          description="Every screen in this group uses this fallback content whenever no higher-priority schedule or takeover is active."
-        />
+      <section className="grid gap-3 rounded-xl border border-border p-4">
+        <header className="grid gap-1">
+          <h3 className="text-base font-semibold">
+            {t("groups.detail.syncTitle")}
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            {t("groups.detail.syncDescription")}
+          </p>
+        </header>
         {manageable ? (
-          <div className="sync-group-content-controls">
-            <Select
-              aria-label="Display Group fallback content"
-              value={selectedPresentation}
-              onChange={(event) => setSelectedPresentation(event.target.value)}
-            >
-              <option value="">No fallback presentation</option>
-              <optgroup label="Playlists">
-                {playlists.data?.items?.map((playlist) => (
-                  <option key={playlist.id} value={`playlist:${playlist.id}`}>
-                    {playlist.name}
-                  </option>
-                ))}
-              </optgroup>
-              <optgroup label="Published layouts">
-                {layouts.data?.items
-                  .filter((layout) => layout.publishedRevision)
-                  .map((layout) => (
-                    <option key={layout.id} value={`layout:${layout.id}`}>
-                      {layout.name}
-                    </option>
+          <div className="flex flex-wrap items-end gap-2">
+            <Field className="min-w-52 flex-1">
+              <FieldLabel htmlFor="group-fallback">
+                {t("groups.detail.fallbackFieldLabel")}
+              </FieldLabel>
+              <Select
+                items={[
+                  { value: "none", label: "No fallback presentation" },
+                  ...(playlists.data?.items ?? []).map((playlist) => ({
+                    value: `playlist:${playlist.id}`,
+                    label: `Playlist · ${playlist.name}`,
+                  })),
+                  ...(layouts.data?.items ?? [])
+                    .filter((layout) => layout.publishedRevision)
+                    .map((layout) => ({
+                      value: `layout:${layout.id}`,
+                      label: `Layout · ${layout.name}`,
+                    })),
+                ]}
+                value={selectedPresentation || "none"}
+                onValueChange={(next) =>
+                  setSelectedPresentation(!next || next === "none" ? "" : next)
+                }
+              >
+                <SelectTrigger
+                  id="group-fallback"
+                  aria-label={t("groups.detail.fallbackFieldLabel")}
+                >
+                  <SelectValue>
+                    {selectedPresentation
+                      ? fallbackOptionLabel(selectedPresentation)
+                      : t("groups.detail.noFallbackOption")}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">
+                    {t("groups.detail.noFallbackOption")}
+                  </SelectItem>
+                  {playlists.data?.items?.map((playlist) => (
+                    <SelectItem
+                      key={playlist.id}
+                      value={`playlist:${playlist.id}`}
+                    >
+                      {t("groups.detail.optionPlaylist", {
+                        name: playlist.name,
+                      })}
+                    </SelectItem>
                   ))}
-              </optgroup>
-            </Select>
+                  {layouts.data?.items
+                    .filter((layout) => layout.publishedRevision)
+                    .map((layout) => (
+                      <SelectItem key={layout.id} value={`layout:${layout.id}`}>
+                        {t("groups.detail.optionLayout", {
+                          name: layout.name,
+                        })}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </Field>
             <Button
-              variant="primary"
-              loading={assignContent.isPending}
-              disabled={selectedPresentation === savedPresentation}
+              type="button"
+              disabled={
+                assignContent.isPending ||
+                selectedPresentation === savedPresentation
+              }
               onClick={() => assignContent.mutate(selectedPresentation)}
             >
-              Apply to Display Group
+              {assignContent.isPending
+                ? t("groups.detail.applying")
+                : t("groups.detail.apply")}
             </Button>
           </div>
         ) : (
-          <div className="sync-group-current-content">
-            <span>{groupFallbackType(groupData)}</span>
-            <strong>{groupFallbackName(groupData)}</strong>
-          </div>
+          <p className="flex flex-wrap gap-x-2 text-sm">
+            <span className="text-muted-foreground">
+              {groupFallbackType(groupData, t)}
+            </span>
+            <strong>{groupFallbackName(groupData, t)}</strong>
+          </p>
         )}
-      </Panel>
+      </section>
 
-      <Panel className="sync-group-panel sync-group-screens-panel">
-        <SectionHeader
-          title="Screens"
-          description={`${groupData.membershipCount} screen${groupData.membershipCount === 1 ? "" : "s"} currently share this group's playback state.`}
-        />
+      <section className="grid gap-3 rounded-xl border border-border p-4">
+        <header className="grid gap-1">
+          <h3 className="text-base font-semibold">
+            {t("groups.detail.screensLabel")}
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            {t("groups.detail.membersSummary", {
+              count: groupData.membershipCount,
+            })}
+          </p>
+        </header>
         {manageable && (
-          <div className="sync-group-add-controls">
-            <Field
-              label="Search available screens"
-              description="Screens already assigned to another Display Group are excluded."
-            >
-              <input
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor="group-screen-search">
+                {t("groups.detail.searchLabel")}
+              </FieldLabel>
+              <Input
+                id="group-screen-search"
                 type="search"
-                placeholder="Name or location"
+                placeholder={t("groups.detail.searchPlaceholder")}
                 value={screenSearch}
                 onChange={(event) => setScreenSearch(event.target.value)}
               />
+              <FieldDescription>
+                {t("groups.detail.searchHint")}
+              </FieldDescription>
             </Field>
-            <Field label="Add screen">
+            <Field>
+              <FieldLabel htmlFor="group-add-screen">
+                {t("groups.detail.addLabel")}
+              </FieldLabel>
               <Select
+                items={available.map((screen) => ({
+                  value: screen.id,
+                  label: `${screen.name}${screen.location ? ` — ${screen.location}` : ""}`,
+                }))}
                 value=""
                 disabled={available.length === 0 || add.isPending}
-                onChange={(event) => {
-                  if (event.target.value) add.mutate(event.target.value);
+                onValueChange={(next) => {
+                  if (next) add.mutate(next);
                 }}
               >
-                <option value="">
-                  {available.length
-                    ? "Choose a screen…"
-                    : "No matching screens"}
-                </option>
-                {available.map((screen) => (
-                  <option value={screen.id} key={screen.id}>
-                    {screen.name}
-                    {screen.location ? ` — ${screen.location}` : ""}
-                  </option>
-                ))}
+                <SelectTrigger
+                  id="group-add-screen"
+                  aria-label={t("groups.detail.addLabel")}
+                >
+                  <SelectValue>
+                    {available.length
+                      ? t("groups.detail.chooseOption")
+                      : t("groups.detail.noOptions")}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {available.map((screen) => (
+                    <SelectItem value={screen.id} key={screen.id}>
+                      {screen.name}
+                      {screen.location ? ` — ${screen.location}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </Field>
           </div>
         )}
-        <div className="sync-group-members">
+        <div className="grid gap-2">
           {(groupData.screens ?? []).map((screen) => (
-            <div className="sync-group-member" key={screen.id}>
-              <span>
-                <strong>{screen.name}</strong>
-                <small>{screen.location || "No location assigned"}</small>
+            <div
+              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border p-3"
+              key={screen.id}
+            >
+              <span className="grid min-w-0 gap-0.5">
+                <strong className="truncate text-sm">{screen.name}</strong>
+                <small className="truncate text-xs text-muted-foreground">
+                  {screen.location || t("groups.detail.noLocation")}
+                </small>
               </span>
               {manageable && (
                 <Button
-                  variant="quiet"
-                  compact
+                  type="button"
+                  variant="ghost"
+                  size="sm"
                   disabled={remove.isPending}
                   onClick={() => remove.mutate(screen.id)}
                 >
-                  Remove
+                  {t("groups.detail.removeOption")}
                 </Button>
               )}
             </div>
           ))}
           {groupData.screens.length === 0 && (
-            <div className="sync-group-members__empty">
-              <strong>No screens in this group</strong>
-              <span>
-                Add an available screen above to begin synchronized playback.
-              </span>
-            </div>
+            <Empty>
+              <EmptyHeader>
+                <EmptyTitle>{t("groups.detail.emptyTitle")}</EmptyTitle>
+                <EmptyDescription>
+                  {t("groups.detail.emptyDescription")}
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           )}
         </div>
-      </Panel>
+      </section>
 
       <PlayerPolicyEditor target="group" id={id} />
     </section>
@@ -554,62 +807,85 @@ export function GroupDetailPage() {
 
 export function SchedulesPage() {
   const auth = useAuth();
+  const { t } = useTranslation("schedules");
+  const formatLocale = useFormatLocale();
   const q = useQuery({
     queryKey: ["schedules"],
     queryFn: () => api.schedules(),
   });
+  const enabledCount = (q.data?.items ?? []).filter(
+    (schedule) => schedule.enabled,
+  ).length;
   return (
-    <section>
-      <PageHeader
-        title="Schedules"
-        description="Higher priority wins. Screens in a Display Group always share the same schedule and fallback content."
-        actions={
-          canManage(auth.status?.user?.role) ? (
-            <Link className="button button--primary" to="/schedules/new">
-              Create schedule
+    <section className="grid gap-4">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {t("page.title")}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t("page.subtitle")}
+          </p>
+        </div>
+        {canManage(auth.status?.user?.role) && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Link to="/schedules/new" className={buttonVariants()}>
+              {t("page.create")}
             </Link>
-          ) : undefined
-        }
-      />
-      <div className="schedule-today">
-        <h3>Schedule timeline</h3>
-        <p>
-          {(q.data?.items ?? []).filter((schedule) => schedule.enabled).length}{" "}
-          enabled · times evaluate in each schedule’s IANA timezone · overnight
-          windows continue into the next day
+          </div>
+        )}
+      </header>
+      <section className="grid gap-1 rounded-xl border border-border p-4">
+        <h2 className="text-base font-semibold">{t("page.timelineTitle")}</h2>
+        <p className="text-sm text-muted-foreground">
+          {t("page.timelineSummary", { count: enabledCount })}
         </p>
-      </div>
-      <div className="schedule-list">
+      </section>
+      {q.isLoading && (
+        <div className="grid gap-2" aria-label={t("page.loading")}>
+          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-20 w-full" />
+        </div>
+      )}
+      {q.isError && (
+        <Alert variant="destructive">
+          <AlertDescription>{t("page.loadError")}</AlertDescription>
+        </Alert>
+      )}
+      <div className="grid gap-2">
         {q.data?.items?.map((schedule) => (
           <Link
-            className={`schedule-card ${schedule.enabled ? "" : "schedule-card--disabled"}`}
+            className={`flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-xl border border-border p-3 hover:bg-muted ${schedule.enabled ? "" : "opacity-60"}`}
             to={`/schedules/${schedule.id}`}
             key={schedule.id}
           >
-            <span>
-              <strong>{schedule.name}</strong>
-              <small>{schedule.enabled ? "Enabled" : "Disabled"}</small>
+            <span className="grid min-w-0 gap-0.5">
+              <strong className="truncate text-sm">{schedule.name}</strong>
+              <small className="truncate text-xs text-muted-foreground">
+                {schedule.enabled ? t("page.enabled") : t("page.disabled")}
+              </small>
             </span>
-            <span>{schedule.playlistName}</span>
-            <span>
+            <span className="text-sm">{schedule.playlistName}</span>
+            <span className="text-sm text-muted-foreground">
               {schedule.targets.map((target) => target.name).join(", ")}
             </span>
-            <span>
+            <span className="text-sm text-muted-foreground">
               {schedule.type === "weekly"
                 ? `${schedule.dailyStart}–${schedule.dailyEnd} · ${schedule.timezone}`
-                : `${new Date(schedule.oneTimeStart!).toLocaleString()}–${new Date(schedule.oneTimeEnd!).toLocaleString()}`}
+                : `${new Date(schedule.oneTimeStart!).toLocaleString(formatLocale)}–${new Date(schedule.oneTimeEnd!).toLocaleString(formatLocale)}`}
             </span>
-            <b>Priority {schedule.priority}</b>
+            <Badge variant="secondary">
+              {t("page.priorityBadge", { priority: schedule.priority })}
+            </Badge>
           </Link>
         ))}
         {q.data?.items?.length === 0 && (
-          <div className="screen-empty">
-            <h3>No schedules yet</h3>
-            <p>
-              Direct screen assignments will continue to play until a schedule
-              is created.
-            </p>
-          </div>
+          <Empty>
+            <EmptyHeader>
+              <EmptyTitle>{t("page.emptyTitle")}</EmptyTitle>
+              <EmptyDescription>{t("page.emptyDescription")}</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         )}
       </div>
     </section>
@@ -617,3 +893,80 @@ export function SchedulesPage() {
 }
 
 export { ScheduleEditorPage } from "../schedules/ScheduleBuilder";
+
+function GroupDialog({
+  title,
+  action,
+  initial,
+  pending,
+  onClose,
+  onSave,
+}: {
+  title: string;
+  action: string;
+  initial: { name: string; description: string };
+  pending: boolean;
+  onClose: () => void;
+  onSave: (value: { name: string; description: string }) => void;
+}) {
+  const { t } = useTranslation(["screens", "common"]);
+  const [name, setName] = useState(initial.name);
+  const [description, setDescription] = useState(initial.description);
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (name.trim()) onSave({ name: name.trim(), description });
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>{title}</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <Field>
+              <FieldLabel htmlFor="group-name">
+                {t("groups.detail.dialogNameLabel")}
+              </FieldLabel>
+              <Input
+                id="group-name"
+                value={name}
+                autoFocus
+                maxLength={120}
+                onChange={(event) => setName(event.target.value)}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="group-description">
+                {t("groups.detail.dialogDescriptionLabel")}
+              </FieldLabel>
+              <Input
+                id="group-description"
+                value={description}
+                maxLength={500}
+                onChange={(event) => setDescription(event.target.value)}
+              />
+              <FieldDescription>
+                {t("groups.detail.dialogDescriptionHint")}
+              </FieldDescription>
+            </Field>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" type="button" onClick={onClose}>
+              {t("common:actions.cancel")}
+            </Button>
+            <Button type="submit" disabled={!name.trim() || pending}>
+              {pending ? t("common:actions.saving") : action}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}

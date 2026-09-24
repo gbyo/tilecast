@@ -1,9 +1,23 @@
 import { useQuery } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 import { Link } from "react-router";
-import { AlertTriangle, Clock3, MonitorCheck } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { translateKnown } from "../i18n";
+import { AlertTriangle } from "lucide-react";
 import { buildActivityLink } from "../pages/activityLinks";
 import { ScreenTimeline } from "./ScreenTimeline";
-import "./ScreenActivityPanel.css";
+import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from "./ui/item";
+import { Skeleton } from "./ui/skeleton";
 
 type ScreenActivity = {
   screenId: string;
@@ -50,139 +64,141 @@ async function loadScreenActivity(id: string): Promise<ScreenActivity> {
   };
   if (!response.ok || !body.data)
     throw new Error(
-      body.error?.message ?? "Screen Activity could not be loaded.",
+      body.error?.message ??
+        translateKnown(
+          "activity:screenActivity.loadFailed",
+          "Screen Activity could not be loaded.",
+        ),
     );
   return body.data;
 }
 
-/**
- * The Activity panel body only. The screen-detail page owns the Activity tab
- * itself through the shared ViewTabs component, so this renders no tab control
- * and never reaches outside its own subtree.
- */
+/** The screen-detail page owns the Activity tab; this renders its contents. */
 export function ScreenActivityPanel({ screenId }: { screenId: string }) {
+  const { t } = useTranslation("activity");
+  const notReported = t("screenActivity.notReported");
   const query = useQuery({
     queryKey: ["activity", "screen", screenId],
     queryFn: () => loadScreenActivity(screenId),
     refetchInterval: 20_000,
   });
-
   const data = query.data;
+
   return (
     <section
-      className="screen-activity-panel"
+      className="min-w-0 space-y-5"
       aria-labelledby="screen-activity-title"
     >
-      <header>
+      <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 id="screen-activity-title">Activity</h3>
-          <p>Recent Player-confirmed playback and technical screen events.</p>
+          <h2 id="screen-activity-title" className="text-base font-semibold">
+            {t("screenActivity.title")}
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t("screenActivity.subtitle")}
+          </p>
         </div>
-        <Link
-          className="button button--secondary"
-          to={buildActivityLink("proof", { screen: screenId })}
+        <Button
+          variant="outline"
+          size="sm"
+          render={
+            <Link to={buildActivityLink("proof", { screen: screenId })} />
+          }
         >
-          Open filtered Activity
-        </Link>
+          {t("screenActivity.openFiltered")}
+        </Button>
       </header>
+
       {query.isLoading && (
-        <div className="table-loading">Loading screen Activity…</div>
+        <div className="space-y-2" aria-label={t("screenActivity.loading")}>
+          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-36 w-full" />
+        </div>
       )}
       {query.error && (
-        <div className="notice notice--error">{query.error.message}</div>
+        <Alert variant="destructive">
+          <AlertTriangle aria-hidden="true" />
+          <AlertTitle>{t("screenActivity.loadErrorTitle")}</AlertTitle>
+          <AlertDescription>{query.error.message}</AlertDescription>
+        </Alert>
       )}
       {data && (
         <>
-          <div className="screen-activity-cards">
-            <article>
-              <MonitorCheck size={18} />
-              <span>Current presentation</span>
-              <strong>
-                {data.currentPresentation?.presentationName ||
-                  data.currentPresentation?.presentationId ||
-                  "Not reported"}
-              </strong>
-            </article>
-            <article>
-              <Clock3 size={18} />
-              <span>Last healthy playback</span>
-              <strong>{formatDate(data.lastHealthyPlayback)}</strong>
-            </article>
-            <article>
-              <MonitorCheck size={18} />
-              <span>Last manifest activation</span>
-              <strong>
-                {formatDate(data.lastSuccessfulManifestActivation)}
-              </strong>
-            </article>
-            <article>
-              <AlertTriangle size={18} />
-              <span>Playback gaps</span>
-              <strong>{data.playbackGaps}</strong>
-            </article>
-          </div>
+          <dl className="grid gap-x-6 gap-y-4 border-y border-border py-4 sm:grid-cols-2 xl:grid-cols-4">
+            <ActivityFact
+              label={t("screenActivity.facts.presentation")}
+              value={
+                data.currentPresentation?.presentationName ||
+                data.currentPresentation?.presentationId ||
+                notReported
+              }
+            />
+            <ActivityFact
+              label={t("screenActivity.facts.lastPlayback")}
+              value={formatDate(data.lastHealthyPlayback, notReported)}
+            />
+            <ActivityFact
+              label={t("screenActivity.facts.lastActivation")}
+              value={formatDate(
+                data.lastSuccessfulManifestActivation,
+                notReported,
+              )}
+            />
+            <ActivityFact
+              label={t("screenActivity.facts.gaps")}
+              value={data.playbackGaps}
+            />
+          </dl>
+
           {data.currentIssue && (
-            <div className="notice notice--warning screen-activity-issue">
-              <strong>{humanize(data.currentIssue.kind)}</strong>
-              <p>{data.currentIssue.description}</p>
-            </div>
+            <Alert
+              variant={
+                data.currentIssue.severity === "critical"
+                  ? "destructive"
+                  : "default"
+              }
+            >
+              <AlertTriangle aria-hidden="true" />
+              <AlertTitle>{humanize(data.currentIssue.kind)}</AlertTitle>
+              <AlertDescription>
+                {data.currentIssue.description}
+                <span className="mt-1 block text-xs text-muted-foreground">
+                  {t("screenActivity.reportedAt", {
+                    when: formatDate(data.currentIssue.occurredAt, notReported),
+                  })}
+                </span>
+              </AlertDescription>
+            </Alert>
           )}
+
           <ScreenTimeline screenId={screenId} />
-          <div className="screen-activity-columns">
-            <section>
-              <header>
-                <h4>Recent proof of play</h4>
-              </header>
-              {data.recentProofOfPlay.length ? (
-                data.recentProofOfPlay.map((item) => (
-                  <div className="screen-activity-row" key={item.id}>
-                    <span>
-                      <strong>
-                        {item.contentName ||
-                          item.contentId ||
-                          item.presentationName ||
-                          item.presentationId ||
-                          "Presentation"}
-                      </strong>
-                      <small>{formatDate(item.startedAt)}</small>
-                    </span>
-                    <span
-                      className={`activity-badge activity-badge--${item.result}`}
-                    >
-                      {humanize(item.result)}
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <p className="screen-activity-empty">
-                  No proof of play has been reported.
-                </p>
-              )}
-            </section>
-            <section>
-              <header>
-                <h4>Recent technical events</h4>
-              </header>
-              {data.recentEvents.length ? (
-                data.recentEvents.map((item) => (
-                  <div className="screen-activity-row" key={item.id}>
-                    <span>
-                      <strong>{humanize(item.eventType)}</strong>
-                      <small>{formatDate(item.timestamp)}</small>
-                    </span>
-                    <span
-                      className={`activity-badge activity-badge--${item.severity}`}
-                    >
-                      {humanize(item.severity)}
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <p className="screen-activity-empty">
-                  No technical events have been reported.
-                </p>
-              )}
-            </section>
+
+          <div className="grid min-w-0 gap-6 xl:grid-cols-2">
+            <ActivityList
+              title={t("screenActivity.lists.proofTitle")}
+              empty={t("screenActivity.lists.proofEmpty")}
+              items={data.recentProofOfPlay.map((item) => ({
+                id: item.id,
+                label:
+                  item.contentName ||
+                  item.contentId ||
+                  item.presentationName ||
+                  item.presentationId ||
+                  t("shared.unnamedPresentation"),
+                detail: formatDate(item.startedAt, notReported),
+                status: item.result,
+              }))}
+            />
+            <ActivityList
+              title={t("screenActivity.lists.eventsTitle")}
+              empty={t("screenActivity.lists.eventsEmpty")}
+              items={data.recentEvents.map((item) => ({
+                id: item.id,
+                label: humanize(item.eventType),
+                detail: `${formatDate(item.timestamp, notReported)} · ${item.description}`,
+                status: item.severity,
+              }))}
+            />
           </div>
         </>
       )}
@@ -190,7 +206,66 @@ export function ScreenActivityPanel({ screenId }: { screenId: string }) {
   );
 }
 
-function formatDate(value?: string) {
+function ActivityFact({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="min-w-0 space-y-1">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="break-words text-sm font-medium">{value}</dd>
+    </div>
+  );
+}
+
+function ActivityList({
+  title,
+  empty,
+  items,
+}: {
+  title: string;
+  empty: string;
+  items: { id: string; label: string; detail: string; status: string }[];
+}) {
+  return (
+    <section className="min-w-0 space-y-2" aria-label={title}>
+      <h3 className="text-sm font-semibold">{title}</h3>
+      {items.length ? (
+        <ItemGroup className="gap-0 divide-y divide-border border-y border-border">
+          {items.map((item) => (
+            <Item
+              key={item.id}
+              size="xs"
+              render={<div role="listitem" />}
+              className="rounded-none px-0"
+            >
+              <ItemContent className="min-w-0">
+                <ItemTitle>{item.label}</ItemTitle>
+                <ItemDescription className="line-clamp-2">
+                  {item.detail}
+                </ItemDescription>
+              </ItemContent>
+              <ItemActions>
+                <Badge
+                  variant={
+                    item.status === "failed" || item.status === "critical"
+                      ? "destructive"
+                      : "secondary"
+                  }
+                >
+                  {humanize(item.status)}
+                </Badge>
+              </ItemActions>
+            </Item>
+          ))}
+        </ItemGroup>
+      ) : (
+        <p className="border-y border-border py-3 text-sm text-muted-foreground">
+          {empty}
+        </p>
+      )}
+    </section>
+  );
+}
+
+function formatDate(value: string | undefined, notReported: string) {
   return value
     ? new Date(value).toLocaleString([], {
         month: "short",
@@ -198,8 +273,9 @@ function formatDate(value?: string) {
         hour: "numeric",
         minute: "2-digit",
       })
-    : "Not reported";
+    : notReported;
 }
+
 function humanize(value: string) {
   return value
     .replaceAll("_", " ")

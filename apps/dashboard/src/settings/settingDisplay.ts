@@ -1,4 +1,5 @@
 import type { SettingDefinition } from "../api/types";
+import { translateKnown } from "../i18n";
 import type { SettingsSectionId } from "./settingsNavigation";
 
 export const enumLabels: Record<string, string> = {
@@ -37,7 +38,7 @@ export const enumLabels: Record<string, string> = {
   organization: "Organization default",
   sunday: "Sunday",
   monday: "Monday",
-  locale: "Use locale",
+  // i18n-ignore: translateKnown fallback; the scan flags the key name
   placeholder: "Tilecast placeholder",
   skip: "Skip item",
   interval: "Reload on an interval",
@@ -63,13 +64,80 @@ export const descriptions: Record<string, string> = {
     "Standard reliability and recovery apply to Android and Linux. Managed Kiosk is Android-only and requires device-owner support.",
 };
 
+// Group headings hold translation keys, never rendered text. They are
+// resolved with t() where they render (SettingsSection) so the headings
+// follow language changes.
+export type SettingsGroupTitleKey =
+  | "groups.additional.title"
+  | "groups.playback.defaults.title"
+  | "groups.playback.storage.title"
+  | "groups.playback.sync.title"
+  | "groups.playback.identity.title"
+  | "groups.reliability.mode.title"
+  | "groups.reliability.startup.title"
+  | "groups.reliability.watchdog.title"
+  | "groups.reliability.androidKiosk.title"
+  | "groups.reliability.linuxKiosk.title"
+  | "groups.power.hours.title"
+  | "groups.power.behavior.title"
+  | "groups.power.outside.title"
+  | "groups.accessibility.return.title"
+  | "groups.accessibility.safety.title"
+  | "groups.accessibility.allowed.title"
+  | "groups.accessibility.diagnostics.title"
+  | "groups.branding.fallback.title"
+  | "groups.general.identity.title"
+  | "groups.general.regional.title"
+  | "groups.general.support.title"
+  | "groups.media.uploads.title"
+  | "groups.media.future.title"
+  | "groups.media.delivery.title"
+  | "groups.websites.capabilities.title"
+  | "groups.websites.loading.title"
+  | "groups.websites.failure.title"
+  | "groups.websites.overrides.title"
+  | "groups.scheduling.defaults.title"
+  | "groups.takeover.takeover.title"
+  | "groups.takeover.commands.title"
+  | "groups.retention.security.title"
+  | "groups.retention.cleanup.title"
+  | "groups.retention.limits.title"
+  | "groups.backups.schedule.title"
+  | "groups.backups.retention.title"
+  | "groups.notifications.delivery.title"
+  | "groups.notifications.timing.title"
+  | "groups.notifications.history.title"
+  | "groups.preferences.notifications.title"
+  | "groups.preferences.appearance.title"
+  | "groups.preferences.dates.title"
+  | "groups.preferences.views.title"
+  | "groups.security.mfa.title"
+  | "groups.snapshots.capture.title"
+  | "groups.content-review.approval.title";
+
+export type SettingsGroupDescriptionKey =
+  | "groups.reliability.androidKiosk.description"
+  | "groups.reliability.linuxKiosk.description"
+  | "groups.power.outside.description"
+  | "groups.backups.retention.description"
+  | "groups.notifications.delivery.description"
+  | "groups.notifications.timing.description"
+  | "groups.preferences.notifications.description"
+  | "groups.snapshots.capture.description"
+  | "groups.content-review.approval.description";
+
 export const subsectionOrder: Record<
   SettingsSectionId,
-  { title: string; description?: string; keys?: string[]; prefix?: string[] }[]
+  {
+    titleKey: SettingsGroupTitleKey;
+    descriptionKey?: SettingsGroupDescriptionKey;
+    keys?: string[];
+    prefix?: string[];
+  }[]
 > = {
   playback: [
     {
-      title: "Playback defaults",
+      titleKey: "groups.playback.defaults.title",
       keys: [
         "player.playback.default_fit_mode",
         "player.playback.default_volume",
@@ -80,23 +148,26 @@ export const subsectionOrder: Record<
       ],
     },
     {
-      title: "Storage and delivery",
+      titleKey: "groups.playback.storage.title",
       prefix: ["player.cache.", "player.download."],
     },
-    { title: "Synchronization", prefix: ["player.sync."] },
+    { titleKey: "groups.playback.sync.title", prefix: ["player.sync."] },
     {
-      title: "Identification and diagnostics",
+      titleKey: "groups.playback.identity.title",
       prefix: ["player.identify."],
     },
   ],
   reliability: [
-    { title: "Reliability mode", keys: ["reliability.mode"] },
     {
-      title: "Startup and presentation",
+      titleKey: "groups.reliability.mode.title",
+      keys: ["reliability.mode"],
+    },
+    {
+      titleKey: "groups.reliability.startup.title",
       keys: ["reliability.launch_after_boot", "reliability.immersive_mode"],
     },
     {
-      title: "Watchdog and recovery",
+      titleKey: "groups.reliability.watchdog.title",
       prefix: [
         "reliability.foreground_",
         "reliability.playback_",
@@ -107,21 +178,19 @@ export const subsectionOrder: Record<
       ],
     },
     {
-      title: "Android Managed Kiosk",
-      description:
-        "Android-only controls that take effect when the device confirms compatible device-owner capability.",
+      titleKey: "groups.reliability.androidKiosk.title",
+      descriptionKey: "groups.reliability.androidKiosk.description",
       prefix: ["managed_kiosk."],
     },
     {
-      title: "Linux kiosk",
-      description:
-        "Linux window and desktop-session behavior. Starting at boot and restarting after process exit come from the player's systemd service, which is set up per screen from the screen's Reliability tab rather than here.",
+      titleKey: "groups.reliability.linuxKiosk.title",
+      descriptionKey: "groups.reliability.linuxKiosk.description",
       prefix: ["linux_kiosk."],
     },
   ],
   power: [
     {
-      title: "Active hours",
+      titleKey: "groups.power.hours.title",
       keys: [
         "power.active_hours_enabled",
         "power.active_hours_timezone",
@@ -131,7 +200,7 @@ export const subsectionOrder: Record<
       ],
     },
     {
-      title: "Active-hour behavior",
+      titleKey: "groups.power.behavior.title",
       keys: [
         "power.startup_grace_seconds",
         "power.shutdown_prepare_seconds",
@@ -140,9 +209,8 @@ export const subsectionOrder: Record<
       ],
     },
     {
-      title: "Outside active hours",
-      description:
-        "Choose the fallback shown when the player is outside active hours and Android or the television remains awake.",
+      titleKey: "groups.power.outside.title",
+      descriptionKey: "groups.power.outside.description",
       keys: [
         "power.outside_active_hours_display",
         "power.outside_active_hours_text",
@@ -151,7 +219,7 @@ export const subsectionOrder: Record<
   ],
   accessibility: [
     {
-      title: "Automatic return",
+      titleKey: "groups.accessibility.return.title",
       keys: [
         "accessibility.control_assist_enabled",
         "accessibility.return_delay_seconds",
@@ -160,21 +228,24 @@ export const subsectionOrder: Record<
       ],
     },
     {
-      title: "Safety pauses",
+      titleKey: "groups.accessibility.safety.title",
       keys: [
         "accessibility.pause_during_updates",
         "accessibility.pause_during_admin_session",
       ],
     },
     {
-      title: "Allowed maintenance applications",
+      titleKey: "groups.accessibility.allowed.title",
       keys: ["accessibility.allowed_packages"],
     },
-    { title: "Diagnostics", keys: ["accessibility.report_foreground_package"] },
+    {
+      titleKey: "groups.accessibility.diagnostics.title",
+      keys: ["accessibility.report_foreground_package"],
+    },
   ],
   branding: [
     {
-      title: "Player fallback screen",
+      titleKey: "groups.branding.fallback.title",
       prefix: [
         "branding.no_content_",
         "branding.disabled_",
@@ -184,11 +255,11 @@ export const subsectionOrder: Record<
   ],
   general: [
     {
-      title: "Organization identity",
+      titleKey: "groups.general.identity.title",
       prefix: ["organization.name", "organization.short"],
     },
     {
-      title: "Regional formats",
+      titleKey: "groups.general.regional.title",
       prefix: [
         "organization.timezone",
         "organization.locale",
@@ -197,11 +268,14 @@ export const subsectionOrder: Record<
         "organization.time_format",
       ],
     },
-    { title: "Support details", prefix: ["organization.support"] },
+    {
+      titleKey: "groups.general.support.title",
+      prefix: ["organization.support"],
+    },
   ],
   media: [
     {
-      title: "Uploads and retention",
+      titleKey: "groups.media.uploads.title",
       prefix: [
         "media.upload",
         "media.keep",
@@ -210,17 +284,17 @@ export const subsectionOrder: Record<
       ],
     },
     {
-      title: "Future video processing",
+      titleKey: "groups.media.future.title",
       prefix: ["media.video.max", "media.processing"],
     },
     {
-      title: "Delivery defaults",
+      titleKey: "groups.media.delivery.title",
       prefix: ["media.video.default", "media.image.default"],
     },
   ],
   websites: [
     {
-      title: "Page capabilities",
+      titleKey: "groups.websites.capabilities.title",
       prefix: [
         "website.default_javascript",
         "website.default_dom",
@@ -229,7 +303,7 @@ export const subsectionOrder: Record<
       ],
     },
     {
-      title: "Loading and reloads",
+      titleKey: "groups.websites.loading.title",
       prefix: [
         "website.default_timeout",
         "website.default_reload",
@@ -238,27 +312,41 @@ export const subsectionOrder: Record<
       ],
     },
     {
-      title: "Failure behavior",
+      titleKey: "groups.websites.failure.title",
       prefix: [
         "website.default_failure",
         "website.default_fallback",
         "website.clear_data",
       ],
     },
-    { title: "Player overrides", prefix: ["player.website."] },
+    {
+      titleKey: "groups.websites.overrides.title",
+      prefix: ["player.website."],
+    },
   ],
-  scheduling: [{ title: "Schedule defaults", prefix: ["scheduling."] }],
+  scheduling: [
+    {
+      titleKey: "groups.scheduling.defaults.title",
+      prefix: ["scheduling."],
+    },
+  ],
   takeover: [
-    { title: "Takeover defaults", prefix: ["takeover."] },
-    { title: "Player command defaults", prefix: ["commands."] },
+    {
+      titleKey: "groups.takeover.takeover.title",
+      prefix: ["takeover."],
+    },
+    {
+      titleKey: "groups.takeover.commands.title",
+      prefix: ["commands."],
+    },
   ],
   retention: [
     {
-      title: "Security and operational history",
+      titleKey: "groups.retention.security.title",
       prefix: ["retention.audit", "retention.command", "retention.takeover"],
     },
     {
-      title: "Cleanup periods",
+      titleKey: "groups.retention.cleanup.title",
       prefix: [
         "retention.player",
         "retention.expired",
@@ -266,25 +354,26 @@ export const subsectionOrder: Record<
         "retention.deleted",
       ],
     },
-    { title: "Diagnostic limits", prefix: ["retention.max"] },
+    {
+      titleKey: "groups.retention.limits.title",
+      prefix: ["retention.max"],
+    },
   ],
   backups: [
     {
-      title: "Automatic backup schedule",
+      titleKey: "groups.backups.schedule.title",
       prefix: ["backups.schedule_"],
     },
     {
-      title: "Scheduled backup retention",
-      description:
-        "Retention applies to scheduled backups. Manually created backups remain until an Owner deletes them.",
+      titleKey: "groups.backups.retention.title",
+      descriptionKey: "groups.backups.retention.description",
       prefix: ["backups.retention_"],
     },
   ],
   notifications: [
     {
-      title: "Delivery",
-      description:
-        "Email needs an SMTP relay configured on the server. Webhooks work without one.",
+      titleKey: "groups.notifications.delivery.title",
+      descriptionKey: "groups.notifications.delivery.description",
       keys: [
         "notifications.enabled",
         "notifications.from_address",
@@ -293,9 +382,8 @@ export const subsectionOrder: Record<
       ],
     },
     {
-      title: "Timing",
-      description:
-        "A critical condition is always sent immediately, whatever these say.",
+      titleKey: "groups.notifications.timing.title",
+      descriptionKey: "groups.notifications.timing.description",
       keys: [
         "notifications.timezone",
         "notifications.digest_time",
@@ -304,17 +392,19 @@ export const subsectionOrder: Record<
         "notifications.quiet_hours_end",
       ],
     },
-    { title: "History", keys: ["notifications.retention_days"] },
+    {
+      titleKey: "groups.notifications.history.title",
+      keys: ["notifications.retention_days"],
+    },
   ],
   preferences: [
     {
-      title: "Notifications",
-      description:
-        "What Tilecast tells you about when you are not looking at Studio.",
+      titleKey: "groups.preferences.notifications.title",
+      descriptionKey: "groups.preferences.notifications.description",
       prefix: ["preference.notifications."],
     },
     {
-      title: "Appearance",
+      titleKey: "groups.preferences.appearance.title",
       prefix: [
         "preference.appearance",
         "preference.density",
@@ -322,11 +412,11 @@ export const subsectionOrder: Record<
       ],
     },
     {
-      title: "Dates and tables",
+      titleKey: "groups.preferences.dates.title",
       prefix: ["preference.time", "preference.table"],
     },
     {
-      title: "Default views",
+      titleKey: "groups.preferences.views.title",
       prefix: [
         "preference.content",
         "preference.screens",
@@ -338,24 +428,22 @@ export const subsectionOrder: Record<
   users: [],
   security: [
     {
-      title: "Multi-factor authentication",
+      titleKey: "groups.security.mfa.title",
       keys: ["security.mfa_required_scope"],
     },
   ],
   locations: [],
   snapshots: [
     {
-      title: "Capture",
-      description:
-        "Snapshots are held in the database and are included in every backup. The caps below are what keep that bounded.",
+      titleKey: "groups.snapshots.capture.title",
+      descriptionKey: "groups.snapshots.capture.description",
       prefix: ["snapshots."],
     },
   ],
   "content-review": [
     {
-      title: "Approval",
-      description:
-        "There is no submit step. Content is waiting for review whenever its current revision has no decision, so editing approved content sends it back automatically.",
+      titleKey: "groups.content-review.approval.title",
+      descriptionKey: "groups.content-review.approval.description",
       prefix: ["content.approval_"],
     },
   ],
@@ -364,6 +452,7 @@ export const subsectionOrder: Record<
   "presentation-networks": [],
   system: [],
   "import-export": [],
+  "dependency-graph": [],
 };
 
 const hiddenSettingKeys = new Set(["power.black_screen_fallback"]);
@@ -392,20 +481,48 @@ export function groupsFor(
     (definition) => !used.has(definition.key),
   );
   if (remaining.length)
-    groups.push({ title: "Additional settings", definitions: remaining });
+    groups.push({
+      titleKey: "groups.additional.title",
+      definitions: remaining,
+    });
   return groups;
 }
 
-export function descriptionFor(definition: SettingDefinition) {
-  return (
-    definition.description ||
-    descriptions[definition.key] ||
-    `Configure ${definition.title.toLowerCase()} for Tilecast.`
+/**
+ * Server setting titles stay English in the API and are translated here at
+ * display time. A new server value without a key renders the server English.
+ */
+export function titleFor(definition: SettingDefinition) {
+  return translateKnown(
+    `settings:definitions.${definition.key}.title`,
+    definition.title,
   );
 }
+
+export function descriptionFor(definition: SettingDefinition) {
+  const key = `settings:definitions.${definition.key}.description`;
+  if (definition.description)
+    return translateKnown(key, definition.description);
+  const override = descriptions[definition.key];
+  if (override) return translateKnown(key, override);
+  return translateKnown(
+    key,
+    `Configure ${titleFor(definition).toLowerCase()} for Tilecast.`,
+    {
+      title: titleFor(definition).toLowerCase(),
+    },
+  );
+}
+
+/**
+ * Known enum option labels. Unknown values render capitalized, as before.
+ */
 export function enumLabel(value: string) {
-  return (
+  return translateKnown(
+    `settings:enumValues.${value}`,
     enumLabels[value] ??
-    value.replaceAll("_", " ").replace(/^./, (letter) => letter.toUpperCase())
+      value
+        .replaceAll("_", " ")
+        .replace(/^./, (letter) => letter.toUpperCase()),
   );
 }

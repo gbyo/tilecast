@@ -223,14 +223,14 @@ afterEach(() => {
 
 describe("Activity navigation", () => {
   it("offers Incidents between Proof of Play and Screen Events", async () => {
-    renderTab("/activity");
+    renderTab("/activity?tab=incidents");
 
-    const tabs = await screen.findByRole("navigation", {
+    const tabs = await screen.findByRole("tablist", {
       name: "Activity reports",
     });
     const labels = within(tabs)
-      .getAllByRole("button")
-      .map((button) => button.textContent);
+      .getAllByRole("tab")
+      .map((tab) => tab.textContent);
     expect(labels).toEqual([
       "Overview",
       "Proof of Play",
@@ -243,14 +243,14 @@ describe("Activity navigation", () => {
 
   it("keeps Screen Events privileged while Incidents stays available", async () => {
     role = "viewer";
-    renderTab("/activity");
+    renderTab("/activity?tab=incidents");
 
-    const tabs = await screen.findByRole("navigation", {
+    const tabs = await screen.findByRole("tablist", {
       name: "Activity reports",
     });
     const labels = within(tabs)
-      .getAllByRole("button")
-      .map((button) => button.textContent);
+      .getAllByRole("tab")
+      .map((tab) => tab.textContent);
     // The raw diagnostic stream stays restricted; the grouped view does not.
     expect(labels).toContain("Incidents");
     expect(labels).not.toContain("Screen Events");
@@ -263,7 +263,7 @@ describe("Incidents tab filters", () => {
     renderTab();
 
     await user.click(await screen.findByRole("combobox", { name: "Severity" }));
-    await user.click(screen.getByRole("option", { name: "Critical" }));
+    await user.click(await screen.findByRole("option", { name: "Critical" }));
 
     await waitFor(() =>
       expect(screen.getByRole("status").textContent).toContain(

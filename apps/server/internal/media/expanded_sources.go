@@ -468,7 +468,7 @@ func weatherConditionLabel(code string) string {
 func manualPlayerData(c ManualSourceConfig) TypedRecordData {
 	fields := make([]DataSourceField, 0, len(c.Columns))
 	for _, column := range c.Columns {
-		fields = append(fields, DataSourceField{Key: column.Key, Label: column.Label, Type: column.Type})
+		fields = append(fields, DataSourceField{Key: column.Key, Label: column.Label, Type: column.Type, Currency: column.Currency})
 	}
 	records := make([]TypedRecord, 0, len(c.Rows))
 	for _, row := range c.Rows {

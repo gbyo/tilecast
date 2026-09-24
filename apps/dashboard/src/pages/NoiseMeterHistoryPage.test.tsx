@@ -10,10 +10,12 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
+import userEvent from "@testing-library/user-event";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   NoiseMeterHistoryPage,
+  buildNoiseChartData,
   formatDuration,
   formatShare,
   splitSeries,
@@ -144,10 +146,11 @@ let screensPayload: { items: unknown[]; total: number } = {
 };
 let summaryPayload: unknown = summary;
 
-/** Signal Select hides its native control, so pick the way a person does. */
-function chooseOption(selectLabel: string | RegExp, optionLabel: string) {
-  fireEvent.click(screen.getByLabelText(selectLabel));
-  fireEvent.click(screen.getByRole("option", { name: optionLabel }));
+/** Base UI Select hides its native control, so pick the way a person does. */
+async function chooseOption(selectLabel: string | RegExp, optionLabel: string) {
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("combobox", { name: selectLabel }));
+  await user.click(await screen.findByRole("option", { name: optionLabel }));
 }
 
 function renderPage() {
@@ -227,6 +230,37 @@ describe("noise history formatting", () => {
     ] as never;
     expect(splitSeries(points, 60_000)).toHaveLength(2);
   });
+
+  it("inserts a gap sample so the chart does not bridge unmonitored time", () => {
+    const points = [
+      series.points[0]!,
+      series.points[1]!,
+      { ...series.points[1]!, at: "2026-08-10T14:01:00Z" },
+    ];
+
+    expect(buildNoiseChartData(points, 60_000)).toEqual([
+      {
+        at: Date.parse("2026-08-10T13:00:00Z"),
+        averageLevel: 40,
+        peakLevel: 55,
+      },
+      {
+        at: Date.parse("2026-08-10T13:01:00Z"),
+        averageLevel: 85,
+        peakLevel: 96,
+      },
+      {
+        at: Date.parse("2026-08-10T13:31:00Z"),
+        averageLevel: null,
+        peakLevel: null,
+      },
+      {
+        at: Date.parse("2026-08-10T14:01:00Z"),
+        averageLevel: 85,
+        peakLevel: 96,
+      },
+    ]);
+  });
 });
 
 describe("Noise Meter history", () => {
@@ -255,14 +289,16 @@ describe("Noise Meter history", () => {
 
   it("draws the timeline against the configured thresholds", async () => {
     renderPage();
-    const chart = await screen.findByRole("img", {
-      name: /Noise Level over time/,
-    });
-    expect(chart).toHaveAccessibleName(
-      "Noise Level over time. Warning level 60, too loud level 80.",
-    );
-    expect(chart.querySelectorAll("path.noise-chart__average").length).toBe(1);
-    expect(chart.querySelectorAll("path.noise-chart__peak").length).toBe(1);
+    expect(
+      await screen.findByRole("group", { name: "Noise level history chart" }),
+    ).toBeVisible();
+    expect(
+      screen.getByText(
+        /warning threshold is 60; the too-loud threshold is 80/i,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Average")).toBeVisible();
+    expect(screen.getByText("Peak")).toBeVisible();
   });
 
   it("requeries when the range changes and offers the daily comparison", async () => {
@@ -304,7 +340,7 @@ describe("Noise Meter history", () => {
       await screen.findByText(/Combining 2 screens/, { exact: false }),
     ).toBeVisible();
     requested = [];
-    chooseOption(/^Screen/, "Gym");
+    await chooseOption(/^Screen/, "Gym");
     await waitFor(() =>
       expect(requested.some((path) => path.includes("screenId=screen-2"))).toBe(
         true,
@@ -324,7 +360,7 @@ describe("Noise Meter history", () => {
       "href",
       expect.stringContaining("granularity=raw"),
     );
-    chooseOption("Export", "Daily summaries");
+    await chooseOption("Export", "Daily summaries");
     expect(screen.getByRole("link", { name: /Export CSV/ })).toHaveAttribute(
       "href",
       expect.stringContaining("granularity=daily"),

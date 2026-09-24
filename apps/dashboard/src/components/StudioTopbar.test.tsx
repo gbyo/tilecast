@@ -7,6 +7,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, useLocation } from "react-router";
@@ -14,7 +15,9 @@ import { studioRoutes } from "../App";
 import { api } from "../api/client";
 import type { Screen } from "../api/types";
 import { StudioRoutesProvider } from "../navigation/studioRoutes";
+import { SidebarProvider } from "./ui/sidebar";
 import { buildCommandResults, fuzzyScore, StudioTopbar } from "./StudioTopbar";
+import { i18n } from "../i18n";
 
 afterEach(() => {
   cleanup();
@@ -93,25 +96,125 @@ function renderTopbar(
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[path]}>
-        <StudioRoutesProvider routes={studioRoutes}>
-          <StudioTopbar
-            user={{
-              id: "user-1",
-              name: "Owner",
-              username: "owner",
-              role: "owner",
-              active: true,
-              createdAt: "2026-07-18T00:00:00Z",
-            }}
-          />
-          <LocationValue />
-        </StudioRoutesProvider>
+        <SidebarProvider>
+          <StudioRoutesProvider routes={studioRoutes}>
+            <StudioTopbar
+              user={{
+                id: "user-1",
+                name: "Owner",
+                username: "owner",
+                role: "owner",
+                active: true,
+                createdAt: "2026-07-18T00:00:00Z",
+              }}
+            />
+            <LocationValue />
+          </StudioRoutesProvider>
+        </SidebarProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   );
 }
 
 describe("StudioTopbar", () => {
+  function breadcrumbTrail() {
+    const nav = screen.getByRole("navigation", { name: "breadcrumb" });
+    return within(nav)
+      .getAllByRole("listitem")
+      .map((item) => ({
+        label: item.textContent,
+        href: item.querySelector("a")?.getAttribute("href") ?? null,
+        current: item.querySelector('[aria-current="page"]') !== null,
+      }));
+  }
+
+  it.each([
+    ["/", "Overview"],
+    ["/screens", "Screens"],
+    ["/groups", "Display Groups"],
+    ["/assets", "Media"],
+    ["/widgets", "Widgets"],
+    ["/data-sources", "Data Sources"],
+    ["/playlists", "Playlists"],
+    ["/layouts", "Layouts"],
+    ["/campaigns", "Campaigns"],
+    ["/schedules", "Schedules"],
+    ["/plugins", "Plugins"],
+    ["/activity", "Activity"],
+    ["/approvals", "Approvals"],
+    ["/account", "My Account"],
+  ])(
+    "shows the single current-page breadcrumb on top-level route %s",
+    (path, label) => {
+      renderTopbar(path);
+
+      expect(breadcrumbTrail()).toEqual([{ label, href: null, current: true }]);
+    },
+  );
+
+  it("links the ancestor on a two-level route", () => {
+    renderTopbar("/settings/general");
+
+    expect(breadcrumbTrail()).toEqual([
+      { label: "Settings", href: "/settings", current: false },
+      { label: "General", href: null, current: true },
+    ]);
+  });
+
+  it("names the entity as the current page on a detail route", async () => {
+    vi.spyOn(api, "layout").mockResolvedValue({
+      id: "layout-1",
+      name: "Lobby welcome",
+    } as Awaited<ReturnType<typeof api.layout>>);
+    renderTopbar("/layouts/layout-1");
+
+    await screen.findByText("Lobby welcome", {
+      selector: '[aria-current="page"]',
+    });
+    expect(breadcrumbTrail()).toEqual([
+      { label: "Layouts", href: "/layouts", current: false },
+      { label: "Lobby welcome", href: null, current: true },
+    ]);
+  });
+
+  it("keeps the plugin ancestor on a plugin instance route", async () => {
+    vi.spyOn(api, "countdownBar").mockResolvedValue({
+      id: "bar-1",
+      name: "Graduation countdown",
+    } as Awaited<ReturnType<typeof api.countdownBar>>);
+    renderTopbar("/plugins/countdown-bar/bar-1");
+
+    await screen.findByText("Graduation countdown", {
+      selector: '[aria-current="page"]',
+    });
+    expect(breadcrumbTrail()).toEqual([
+      { label: "Plugins", href: "/plugins", current: false },
+      {
+        label: "Countdown Bar",
+        href: "/plugins/countdown-bar",
+        current: false,
+      },
+      { label: "Graduation countdown", href: null, current: true },
+    ]);
+  });
+
+  it("names a campaign on its detail route", async () => {
+    vi.spyOn(api, "campaign").mockResolvedValue({
+      id: "campaign-1",
+      name: "Spring open house",
+    } as Awaited<ReturnType<typeof api.campaign>>);
+    renderTopbar("/campaigns/campaign-1");
+
+    await screen.findByText("Spring open house", {
+      selector: '[aria-current="page"]',
+    });
+    expect(breadcrumbTrail()[0]).toEqual({
+      label: "Campaigns",
+      href: "/campaigns",
+      current: false,
+    });
+  });
+
   it("builds a detail breadcrumb from the route hierarchy and entity data", async () => {
     renderTopbar("/screens/screen-1");
 
@@ -169,7 +272,7 @@ describe("StudioTopbar", () => {
     renderTopbar();
     await waitFor(() => expect(api.screens).toHaveBeenCalled());
 
-    fireEvent.click(screen.getByRole("button", { name: "Search Tilecast" }));
+    fireEvent.click(screen.getByRole("button", { name: /Search Tilecast/ }));
 
     expect(
       await screen.findByText("Quick actions", {
@@ -188,7 +291,7 @@ describe("StudioTopbar", () => {
     renderTopbar();
     await waitFor(() => expect(api.screens).toHaveBeenCalled());
 
-    fireEvent.click(screen.getByRole("button", { name: "Search Tilecast" }));
+    fireEvent.click(screen.getByRole("button", { name: /Search Tilecast/ }));
     const searchInput = await screen.findByRole("combobox", {
       name: "Search Tilecast",
     });
@@ -205,23 +308,17 @@ describe("StudioTopbar", () => {
     expect(screen.getByRole("dialog", { name: "Upload media" })).toBeTruthy();
   });
 
-  it("shows active alerts and keeps global actions in the utility region", async () => {
+  it("shows active alerts in the utility header", async () => {
     renderTopbar();
 
-    expect(
-      await screen.findByText("1", { selector: ".topbar__notification-badge" }),
-    ).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Pair screen" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Create/ })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Notifications" }));
-    expect(
-      await screen.findByRole("dialog", { name: "Notifications" }),
-    ).toBeTruthy();
-    expect(
-      (await screen.findByRole("link", { name: /Amazon AFTKRT/ })).getAttribute(
-        "href",
-      ),
-    ).toBe("/screens/screen-1");
+    const notifications = await screen.findByRole("button", {
+      name: /Notifications/,
+    });
+    expect(notifications).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Pair screen" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Create/ })).toBeNull();
+    fireEvent.click(notifications);
+    expect(screen.getByRole("heading", { name: "Notifications" })).toBeTruthy();
   });
 
   it("groups notifications by priority and surfaces new alert sources", async () => {
@@ -251,69 +348,50 @@ describe("StudioTopbar", () => {
     });
 
     // A failed deployment is critical, so the badge escalates to the critical style.
-    const badge = await screen.findByText("4", {
-      selector: ".topbar__notification-badge",
-    });
-    expect(badge.className).toContain("topbar__notification-badge--critical");
-
-    fireEvent.click(screen.getByRole("button", { name: "Notifications" }));
+    fireEvent.click(screen.getByRole("button", { name: /Notifications/ }));
 
     expect(
       (
         await screen.findByRole("link", { name: /Winter rollout/ })
       ).getAttribute("href"),
     ).toBe("/settings/player/updates");
-    expect(screen.getByText("Critical")).toBeTruthy();
-    expect(screen.getByText("Needs attention")).toBeTruthy();
-    expect(screen.getByText("Info")).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Critical" })).toBeTruthy();
+    expect(
+      screen.getByRole("region", { name: "Needs attention" }),
+    ).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Info" })).toBeTruthy();
     expect(
       screen
         .getByRole("link", { name: /Screens awaiting approval/ })
         .getAttribute("href"),
     ).toBe("/screens/pair");
-    // The three priority labels above name their own list, which an ARIA menu
-    // could not have carried.
-    expect(screen.getByRole("list", { name: /Critical/ })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Notifications" })).toBeTruthy();
   });
 
-  it("offers creation actions for the full content workflow", () => {
+  it("offers creation actions in command search", async () => {
     renderTopbar();
 
-    fireEvent.click(screen.getByRole("button", { name: /Create/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Search Tilecast/ }));
 
-    expect(screen.getByRole("menuitem", { name: "Upload media" })).toBeTruthy();
-    expect(
-      screen
-        .getByRole("menuitem", { name: "Create widget" })
-        .getAttribute("href"),
-    ).toBe("/widgets/new");
-    expect(
-      screen
-        .getByRole("menuitem", { name: "Create data source" })
-        .getAttribute("href"),
-    ).toBe("/data-sources/new");
-    expect(
-      screen
-        .getByRole("menuitem", { name: "Create playlist" })
-        .getAttribute("href"),
-    ).toBe("/playlists?create=1");
-    expect(
-      screen
-        .getByRole("menuitem", { name: "Create layout" })
-        .getAttribute("href"),
-    ).toBe("/layouts?create=1");
-    expect(
-      screen
-        .getByRole("menuitem", { name: "Create schedule" })
-        .getAttribute("href"),
-    ).toBe("/schedules/new");
+    for (const action of [
+      "Upload media",
+      "Create playlist",
+      "Create layout",
+      "Create schedule",
+    ]) {
+      expect(
+        await screen.findByRole("option", { name: new RegExp(action) }),
+      ).toBeTruthy();
+    }
   });
 
-  it("opens the existing upload workflow from Create", () => {
+  it("opens the existing upload workflow from command search", async () => {
     renderTopbar();
 
-    fireEvent.click(screen.getByRole("button", { name: /Create/ }));
-    fireEvent.click(screen.getByRole("menuitem", { name: "Upload media" }));
+    fireEvent.click(screen.getByRole("button", { name: /Search Tilecast/ }));
+    fireEvent.click(
+      await screen.findByRole("option", { name: /Upload media/ }),
+    );
 
     expect(screen.getByRole("dialog", { name: "Upload media" })).toBeTruthy();
   });
@@ -323,8 +401,16 @@ describe("command search", () => {
   it("fuzzy matches screens and route destinations", () => {
     expect(fuzzyScore("scrns", "Screens")).toBeGreaterThan(0);
     expect(fuzzyScore("xyz", "Screens")).toBe(-1);
-    expect(
-      buildCommandResults(studioRoutes, [lobbyScreen], "aftkrt")[0]?.to,
-    ).toBe("/screens/screen-1");
+    const result = buildCommandResults(
+      studioRoutes,
+      [lobbyScreen],
+      "aftkrt",
+      undefined,
+      undefined,
+      i18n.getFixedT("en", "navigation"),
+    )[0];
+
+    expect(result?.to).toBe("/screens/screen-1");
+    expect(result?.description).toBe("Offline · Lobby");
   });
 });

@@ -113,10 +113,9 @@ describe("content library", () => {
     expect(screen.getByText("1920 × 1080")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Edit Welcome" }));
     expect(select).toHaveBeenCalledWith(asset);
+    expect(screen.queryByRole("list")).toBeNull();
     rerender(<AssetCollection items={[asset]} view="list" onSelect={select} />);
-    expect(
-      document.querySelector(".asset-collection--list"),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("list")).toBeInTheDocument();
   });
 
   it("renders a saved Widget snapshot instead of a live approximation", () => {
@@ -140,20 +139,19 @@ describe("content library", () => {
       },
     };
     render(<AssetCollection items={[widget]} view="grid" onSelect={vi.fn()} />);
-    expect(document.querySelector(".asset-preview img")).toHaveAttribute(
-      "src",
-      "/api/v1/assets/widget-1/thumbnail",
-    );
-    expect(document.querySelector(".asset-widget-preview")).toBeNull();
+    const preview = screen
+      .getByRole("button", { name: "Edit Lobby clock" })
+      .querySelector("img");
+    expect(preview).toHaveAttribute("src", "/api/v1/assets/widget-1/thumbnail");
   });
 
   it("renders asset thumbnails as non-draggable", () => {
     const image: Asset = { ...asset, thumbnailUrl: "/thumb.png" };
     render(<AssetCollection items={[image]} view="grid" onSelect={vi.fn()} />);
-    expect(document.querySelector(".asset-preview img")).toHaveAttribute(
-      "draggable",
-      "false",
-    );
+    const preview = screen
+      .getByRole("button", { name: "Edit Welcome" })
+      .querySelector("img");
+    expect(preview).toHaveAttribute("draggable", "false");
   });
 
   it("shows an honest unavailable state instead of a fake Widget preview", () => {
@@ -169,9 +167,11 @@ describe("content library", () => {
       },
     };
     render(<AssetCollection items={[widget]} view="grid" onSelect={vi.fn()} />);
-    fireEvent.error(document.querySelector(".asset-preview img")!);
+    const preview = screen
+      .getByRole("button", { name: "Edit Welcome" })
+      .querySelector("img");
+    fireEvent.error(preview!);
     expect(screen.getByText("Preview unavailable")).toBeInTheDocument();
-    expect(document.querySelector(".asset-widget-preview")).toBeNull();
   });
 
   it("uses honest processing labels", () => {

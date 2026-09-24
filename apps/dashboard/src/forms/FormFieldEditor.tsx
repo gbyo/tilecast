@@ -1,13 +1,23 @@
+import { useTranslation } from "react-i18next";
 import type { FormField, FormFieldControl } from "../api/types";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Button } from "../components/ui/button";
+import { Checkbox } from "../components/ui/checkbox";
 import {
-  Button,
-  Checkbox,
   Field,
-  Input,
-  Notice,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import {
   Select,
-  Textarea,
-} from "../components/ui";
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { Textarea } from "../components/ui/textarea";
 import { validateKey } from "./formKeys";
 import {
   CONTROLS,
@@ -35,9 +45,10 @@ export function FormFieldEditor({
   readOnly: boolean;
   onChange: (next: FormField) => void;
 }) {
+  const { t } = useTranslation("forms");
   const meta = controlMeta(field.control);
   const disabled = readOnly;
-  const keyError = validateKey(field.key, allKeys, field.key);
+  const keyError = validateKey(field.key, allKeys, field.key, t);
 
   const update = (patch: Partial<FormField>) =>
     onChange({ ...field, ...patch });
@@ -55,8 +66,14 @@ export function FormFieldEditor({
       delete next.options;
     } else if (!next.options || next.options.length === 0) {
       next.options = [
-        { value: "option_1", label: "Option 1" },
-        { value: "option_2", label: "Option 2" },
+        {
+          value: "option_1",
+          label: t("fieldEditor.newOptionLabel", { index: 1 }),
+        },
+        {
+          value: "option_2",
+          label: t("fieldEditor.newOptionLabel", { index: 2 }),
+        },
       ];
     }
     if (!nextMeta.numericBounds) {
@@ -71,18 +88,25 @@ export function FormFieldEditor({
   };
 
   return (
-    <div className="form-builder__inspector-body">
+    <div className="grid gap-3">
       {(lock.keyLocked || lock.controlLocked) && (
-        <Notice variant="info" title="Published field">
-          This field is part of the published form, so its key
-          {lock.controlLocked ? " and output type" : ""} are locked to keep
-          Widgets and saved views working. You can still edit its label, help
-          text, validation, and order.
-        </Notice>
+        <Alert>
+          <AlertTitle>{t("fieldEditor.publishedTitle")}</AlertTitle>
+          <AlertDescription>
+            {lock.controlLocked
+              ? t("fieldEditor.publishedWithType")
+              : t("fieldEditor.publishedBase")}
+          </AlertDescription>
+        </Alert>
       )}
 
-      <Field label="Label" required>
+      <Field>
+        <FieldLabel htmlFor="form-field-label">
+          {t("fieldEditor.label")}
+        </FieldLabel>
         <Input
+          id="form-field-label"
+          required
           value={field.label}
           disabled={disabled}
           onChange={(event) => update({ label: event.target.value })}
@@ -90,58 +114,91 @@ export function FormFieldEditor({
       </Field>
 
       {!meta.presentation && (
-        <Field
-          label="Field key"
-          description="Stable identifier used by Widgets and views."
-          error={keyError ?? undefined}
-        >
+        <Field>
+          <FieldLabel htmlFor="form-field-key">
+            {t("fieldEditor.key")}
+          </FieldLabel>
           <Input
+            id="form-field-key"
             value={field.key}
             disabled={disabled || lock.keyLocked}
             onChange={(event) => update({ key: event.target.value })}
           />
+          <FieldDescription>{t("fieldEditor.keyHint")}</FieldDescription>
+          {keyError && <FieldError>{keyError}</FieldError>}
         </Field>
       )}
 
-      <Field label="Field type">
+      <Field>
+        <FieldLabel htmlFor="form-field-type">
+          {t("fieldEditor.type")}
+        </FieldLabel>
         <Select
+          items={controlOptions.map((control) => ({
+            value: control,
+            label: t(controlMeta(control).labelKey),
+          }))}
           value={field.control}
           disabled={
             disabled || (lock.controlLocked && controlOptions.length <= 1)
           }
-          onChange={(event) =>
-            changeControl(event.target.value as FormFieldControl)
-          }
+          onValueChange={(value) => {
+            if (value) changeControl(value);
+          }}
         >
-          {controlOptions.map((control) => (
-            <option key={control} value={control}>
-              {controlMeta(control).label}
-            </option>
-          ))}
+          <SelectTrigger
+            id="form-field-type"
+            aria-label={t("fieldEditor.type")}
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {controlOptions.map((control) => (
+              <SelectItem key={control} value={control}>
+                {t(controlMeta(control).labelKey)}
+              </SelectItem>
+            ))}
+          </SelectContent>
         </Select>
       </Field>
 
-      <Field label="Help text" description="Shown under the field.">
+      <Field>
+        <FieldLabel htmlFor="form-field-help">
+          {t("fieldEditor.help")}
+        </FieldLabel>
         <Textarea
+          id="form-field-help"
           rows={2}
           value={field.description ?? ""}
           disabled={disabled}
           onChange={(event) => update({ description: event.target.value })}
         />
+        <FieldDescription>{t("fieldEditor.helpHint")}</FieldDescription>
       </Field>
 
       {!meta.presentation && (
-        <Checkbox
-          label="Required"
-          checked={Boolean(field.required)}
-          disabled={disabled}
-          onChange={(event) => update({ required: event.target.checked })}
-        />
+        <Field orientation="horizontal" className="items-center">
+          <Checkbox
+            id="form-field-required"
+            checked={Boolean(field.required)}
+            disabled={disabled}
+            onCheckedChange={(checked) =>
+              update({ required: checked === true })
+            }
+          />
+          <FieldLabel htmlFor="form-field-required" className="font-normal">
+            {t("fieldEditor.required")}
+          </FieldLabel>
+        </Field>
       )}
 
       {!meta.presentation && field.control !== "image" && (
-        <Field label="Default value">
+        <Field>
+          <FieldLabel htmlFor="form-field-default">
+            {t("fieldEditor.defaultValue")}
+          </FieldLabel>
           <Input
+            id="form-field-default"
             value={field.default ?? ""}
             disabled={disabled}
             onChange={(event) => update({ default: event.target.value })}
@@ -154,9 +211,13 @@ export function FormFieldEditor({
       )}
 
       {meta.numericBounds && (
-        <div className="form-builder__bounds">
-          <Field label="Minimum">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field>
+            <FieldLabel htmlFor="form-field-minimum">
+              {t("fieldEditor.minimum")}
+            </FieldLabel>
             <Input
+              id="form-field-minimum"
               type="number"
               value={field.minimum ?? ""}
               disabled={disabled}
@@ -170,8 +231,12 @@ export function FormFieldEditor({
               }
             />
           </Field>
-          <Field label="Maximum">
+          <Field>
+            <FieldLabel htmlFor="form-field-maximum">
+              {t("fieldEditor.maximum")}
+            </FieldLabel>
             <Input
+              id="form-field-maximum"
               type="number"
               value={field.maximum ?? ""}
               disabled={disabled}
@@ -189,9 +254,13 @@ export function FormFieldEditor({
       )}
 
       {meta.lengthBounds && (
-        <div className="form-builder__bounds">
-          <Field label="Minimum length">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field>
+            <FieldLabel htmlFor="form-field-min-length">
+              {t("fieldEditor.minLength")}
+            </FieldLabel>
             <Input
+              id="form-field-min-length"
               type="number"
               value={field.minLength ?? ""}
               disabled={disabled}
@@ -205,8 +274,12 @@ export function FormFieldEditor({
               }
             />
           </Field>
-          <Field label="Maximum length">
+          <Field>
+            <FieldLabel htmlFor="form-field-max-length">
+              {t("fieldEditor.maxLength")}
+            </FieldLabel>
             <Input
+              id="form-field-max-length"
               type="number"
               value={field.maxLength ?? ""}
               disabled={disabled}
@@ -235,15 +308,18 @@ function OptionsEditor({
   disabled: boolean;
   onChange: (patch: Partial<FormField>) => void;
 }) {
+  const { t } = useTranslation("forms");
   const options = field.options ?? [];
   const setOptions = (next: typeof options) => onChange({ options: next });
   return (
-    <fieldset className="form-builder__options">
-      <legend>Options</legend>
+    <fieldset className="grid gap-2 rounded-xl border border-border p-3">
+      <legend className="text-sm font-medium">
+        {t("fieldEditor.options")}
+      </legend>
       {options.map((option, index) => (
-        <div key={index} className="form-builder__option-row">
+        <div key={index} className="flex items-center gap-2">
           <Input
-            aria-label={`Option ${index + 1} label`}
+            aria-label={t("fieldEditor.optionLabel", { n: index + 1 })}
             value={option.label}
             disabled={disabled}
             onChange={(event) => {
@@ -253,7 +329,7 @@ function OptionsEditor({
             }}
           />
           <Input
-            aria-label={`Option ${index + 1} value`}
+            aria-label={t("fieldEditor.optionValue", { n: index + 1 })}
             value={option.value}
             disabled={disabled}
             onChange={(event) => {
@@ -263,18 +339,18 @@ function OptionsEditor({
             }}
           />
           <Button
-            variant="quiet"
-            compact
+            variant="ghost"
+            size="sm"
             disabled={disabled || options.length <= 1}
             onClick={() => setOptions(options.filter((_, i) => i !== index))}
           >
-            Remove
+            {t("fieldEditor.remove")}
           </Button>
         </div>
       ))}
       <Button
         variant="secondary"
-        compact
+        size="sm"
         disabled={disabled}
         onClick={() => {
           // Derive a value that is unique against current options; options.length is not stable
@@ -286,11 +362,14 @@ function OptionsEditor({
           }
           setOptions([
             ...options,
-            { value: `option_${index}`, label: `Option ${index}` },
+            {
+              value: `option_${index}`,
+              label: t("fieldEditor.newOptionLabel", { index }),
+            },
           ]);
         }}
       >
-        Add option
+        {t("fieldEditor.addOption")}
       </Button>
     </fieldset>
   );

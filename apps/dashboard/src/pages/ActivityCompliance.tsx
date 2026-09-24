@@ -1,10 +1,34 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { MetricTile, Select, type ResolvedTimeRange } from "../components/ui";
+import { useTranslation } from "react-i18next";
+import { translateKnown } from "../i18n";
+import { MetricTile } from "../components/MetricTile";
+import type { ResolvedTimeRange } from "../components/TimeRangePicker";
+import { Field, FieldLabel } from "../components/ui/field";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "../components/ui/empty";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../components/ui/table";
 import {
   activityParams,
   activityRequest,
-  EmptyState,
   ErrorNotice,
   formatDuration,
   humanize,
@@ -45,20 +69,24 @@ type ComplianceReport = {
   dimension: string;
 };
 
+// Dimension structures hold translation keys, never rendered text. Labels are
+// resolved with t() at render so the panel follows language changes.
 const dimensions = [
-  { value: "screen", label: "Screen" },
-  { value: "location", label: "Location" },
-  { value: "group", label: "Group" },
-  { value: "presentation", label: "Presentation" },
-  { value: "schedule", label: "Schedule" },
-  { value: "date", label: "Date" },
-  { value: "reason", label: "Failure reason" },
-];
+  { value: "screen", labelKey: "compliance.dimensions.screen" },
+  { value: "location", labelKey: "compliance.dimensions.location" },
+  { value: "group", labelKey: "compliance.dimensions.group" },
+  { value: "presentation", labelKey: "compliance.dimensions.presentation" },
+  { value: "schedule", labelKey: "compliance.dimensions.schedule" },
+  { value: "date", labelKey: "compliance.dimensions.date" },
+  { value: "reason", labelKey: "compliance.dimensions.reason" },
+] as const;
 
 function formatPercent(value: number | null) {
   // Null means nothing measurable was expected. Showing 0% would say every
   // expected play was missed, when in fact none was expected.
-  return value == null ? "No data" : `${value.toFixed(1)}%`;
+  return value == null
+    ? translateKnown("activity:shared.noData", "No data")
+    : `${value.toFixed(1)}%`;
 }
 
 const emptyReport: ComplianceReport = {
@@ -93,6 +121,7 @@ function formatMinutes(milliseconds: number) {
  * that went missing.
  */
 export function CompliancePanel({ range }: { range: ResolvedTimeRange }) {
+  const { t } = useTranslation("activity");
   const [dimension, setDimension] = useState("screen");
   const params = activityParams(range, { dimension });
   const query = useQuery({
@@ -112,118 +141,184 @@ export function CompliancePanel({ range }: { range: ResolvedTimeRange }) {
   };
   const breakdown = data.breakdown;
 
+  const dimensionOptions = dimensions.map((item) => ({
+    value: item.value,
+    label: t(item.labelKey),
+  }));
+
   return (
     <section
-      className="activity-panel activity-compliance"
-      aria-label="Playback compliance"
+      className="grid gap-3 rounded-xl border border-border p-4"
+      aria-label={t("compliance.label")}
     >
-      <header>
-        <div>
-          <h3>Expected versus actual playback</h3>
-          <p>
-            Measured over {range.label} against what was expected at the time,
-            not against the current configuration. Takeover and intentionally
-            stopped time is excluded from the percentage and shown separately.
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="grid min-w-0 flex-1 gap-1">
+          <h3 className="text-base font-semibold">{t("compliance.title")}</h3>
+          <p className="text-sm text-muted-foreground">
+            {t("compliance.description", { range: range.label })}
           </p>
         </div>
-        <label className="activity-group-by">
-          <span>Break down by</span>
+        <Field className="gap-1">
+          <FieldLabel htmlFor="playback-compliance-dimension">
+            {t("compliance.breakdownBy")}
+          </FieldLabel>
           <Select
+            items={dimensionOptions}
             value={dimension}
-            onChange={(event) => setDimension(event.target.value)}
+            onValueChange={(next) => {
+              if (next) setDimension(next);
+            }}
           >
-            {dimensions.map((item) => (
-              <option key={item.value} value={item.value}>
-                {item.label}
-              </option>
-            ))}
+            <SelectTrigger
+              id="playback-compliance-dimension"
+              size="sm"
+              className="w-40"
+              aria-label={t("compliance.breakdownBy")}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {dimensionOptions.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
           </Select>
-        </label>
+        </Field>
       </header>
 
-      <div className="activity-compliance__tiles">
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         <MetricTile
-          label="Playback compliance"
+          label={t("compliance.tiles.compliance")}
           value={formatPercent(data.compliancePercent)}
-          hint="Confirmed over measurable expected time"
+          hint={t("compliance.tiles.complianceHint")}
         />
         <MetricTile
-          label="Expected screen-minutes"
+          label={t("compliance.tiles.expected")}
           value={formatMinutes(data.measurableExpectedMs)}
-          hint={`${data.windows.toLocaleString()} windows`}
+          hint={t("compliance.tiles.windows", {
+            count: data.windows,
+            display: data.windows.toLocaleString(),
+          })}
         />
         <MetricTile
-          label="Confirmed screen-minutes"
+          label={t("compliance.tiles.confirmed")}
           value={formatMinutes(data.confirmedMs)}
-          hint="Player-confirmed root playback"
+          hint={t("compliance.tiles.confirmedHint")}
         />
         <MetricTile
-          label="Missed screen-minutes"
+          label={t("compliance.tiles.missed")}
           value={formatMinutes(data.missedMs)}
-          hint="Expected but not confirmed"
+          hint={t("compliance.tiles.missedHint")}
         />
         <MetricTile
-          label="Late starts"
+          label={t("compliance.tiles.lateStarts")}
           value={data.lateStarts}
-          hint={`${data.earlyEndings.toLocaleString()} ended early`}
+          hint={t("compliance.tiles.endedEarly", {
+            count: data.earlyEndings,
+            display: data.earlyEndings.toLocaleString(),
+          })}
         />
         <MetricTile
-          label="Never started"
+          label={t("compliance.tiles.neverStarted")}
           value={data.neverStarted}
-          hint={`${data.offlineMisses.toLocaleString()} while offline`}
+          hint={t("compliance.tiles.whileOffline", {
+            count: data.offlineMisses,
+            display: data.offlineMisses.toLocaleString(),
+          })}
         />
       </div>
 
-      <div className="activity-compliance__excluded">
-        <h4>Excluded from the percentage</h4>
-        <ul>
-          <li>
-            <span>Takeover overrode normal playback</span>
-            <span>{formatMinutes(data.takeoverOverriddenMs)}</span>
+      <div className="grid gap-1.5">
+        <h4 className="text-sm font-semibold">
+          {t("compliance.excludedTitle")}
+        </h4>
+        <ul className="grid gap-1 text-sm">
+          <li className="flex items-center justify-between gap-2">
+            <span>{t("compliance.takeoverExcluded")}</span>
+            <span className="tabular-nums">
+              {formatMinutes(data.takeoverOverriddenMs)}
+            </span>
           </li>
-          <li>
-            <span>Playback intentionally stopped</span>
-            <span>{formatMinutes(data.cancelledMs)}</span>
+          <li className="flex items-center justify-between gap-2">
+            <span>{t("compliance.cancelledExcluded")}</span>
+            <span className="tabular-nums">
+              {formatMinutes(data.cancelledMs)}
+            </span>
           </li>
-          <li>
-            <span>Too short to measure</span>
-            <span>{formatMinutes(data.notMeasurableMs)}</span>
+          <li className="flex items-center justify-between gap-2">
+            <span>{t("compliance.notMeasurable")}</span>
+            <span className="tabular-nums">
+              {formatMinutes(data.notMeasurableMs)}
+            </span>
           </li>
         </ul>
       </div>
 
       {breakdown.length === 0 ? (
-        <EmptyState message="No expected playback was recorded in this range." />
+        <Empty className="min-h-40 p-6">
+          <EmptyHeader>
+            <EmptyTitle>{t("compliance.emptyTitle")}</EmptyTitle>
+            <EmptyDescription>{t("compliance.empty")}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
-        <div className="activity-compliance__table">
-          <div className="activity-compliance__row activity-compliance__row--head">
-            <span>{humanize(data.dimension)}</span>
-            <span>Compliance</span>
-            <span>Expected</span>
-            <span>Confirmed</span>
-            <span>Missed</span>
-            <span>Main reason</span>
-          </div>
-          {breakdown.map((item) => (
-            <div
-              key={item.key || item.label}
-              className="activity-compliance__row"
-            >
-              {/* Labels come from the server already readable — a screen or
-                  location name must not be re-cased into "Lobby North". */}
-              <span>{item.label}</span>
-              <span>{formatPercent(item.compliancePercent)}</span>
-              <span>{formatDuration(item.measurableExpectedMs)}</span>
-              <span>{formatDuration(item.confirmedMs)}</span>
-              <span>{formatDuration(item.missedMs)}</span>
-              <span>
-                {/* Named only when time actually went missing. */}
-                {item.missedMs > 0 && item.topFailureReason
-                  ? humanize(item.topFailureReason)
-                  : "—"}
-              </span>
-            </div>
-          ))}
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <Table className="w-full min-w-[42rem] text-sm">
+            <TableHeader>
+              <TableRow className="border-b border-border text-left text-xs text-muted-foreground">
+                <TableHead className="px-3 py-2 font-medium">
+                  {humanize(data.dimension)}
+                </TableHead>
+                <TableHead className="px-3 py-2 text-right font-medium">
+                  {t("compliance.table.compliance")}
+                </TableHead>
+                <TableHead className="px-3 py-2 text-right font-medium">
+                  {t("compliance.table.expected")}
+                </TableHead>
+                <TableHead className="px-3 py-2 text-right font-medium">
+                  {t("compliance.table.confirmed")}
+                </TableHead>
+                <TableHead className="px-3 py-2 text-right font-medium">
+                  {t("compliance.table.missed")}
+                </TableHead>
+                <TableHead className="px-3 py-2 text-right font-medium">
+                  {t("compliance.table.mainReason")}
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {breakdown.map((item) => (
+                <TableRow
+                  key={item.key || item.label}
+                  className="border-b border-border last:border-0"
+                >
+                  {/* Labels come from the server already readable — a screen or
+                      location name must not be re-cased into "Lobby North". */}
+                  <TableCell className="px-3 py-2">{item.label}</TableCell>
+                  <TableCell className="px-3 py-2 text-right tabular-nums">
+                    {formatPercent(item.compliancePercent)}
+                  </TableCell>
+                  <TableCell className="px-3 py-2 text-right tabular-nums">
+                    {formatDuration(item.measurableExpectedMs)}
+                  </TableCell>
+                  <TableCell className="px-3 py-2 text-right tabular-nums">
+                    {formatDuration(item.confirmedMs)}
+                  </TableCell>
+                  <TableCell className="px-3 py-2 text-right tabular-nums">
+                    {formatDuration(item.missedMs)}
+                  </TableCell>
+                  <TableCell className="px-3 py-2 text-right">
+                    {/* Named only when time actually went missing. */}
+                    {item.missedMs > 0 && item.topFailureReason
+                      ? humanize(item.topFailureReason)
+                      : "—"}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       )}
     </section>

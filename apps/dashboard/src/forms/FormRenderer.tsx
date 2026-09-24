@@ -1,6 +1,44 @@
 import { useId } from "react";
+import { Image as ImageIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { FormField, FormSchema } from "../api/types";
+import { Button } from "../components/ui/button";
+import { DateInput, DateTimeInput } from "../components/date-picker";
+import { Checkbox } from "../components/ui/checkbox";
+import {
+  Attachment,
+  AttachmentAction,
+  AttachmentActions,
+  AttachmentContent,
+  AttachmentDescription,
+  AttachmentMedia,
+  AttachmentTitle,
+} from "../components/ui/attachment";
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLegend,
+  FieldLabel,
+  FieldSet,
+  FieldTitle,
+} from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { Textarea } from "../components/ui/textarea";
 import { isPresentationControl } from "./formSchema";
+
+// A single-select with this many options or fewer renders as a radio group so
+// every choice stays visible; longer lists collapse into a dropdown Select.
+// The stored value is a single option string either way.
+const RADIO_OPTION_LIMIT = 3;
 
 // FormValues maps a field key to its current value. Multi-select uses string[]; others use string
 // or boolean. The renderer is deliberately the single place that interprets controls so builder
@@ -59,6 +97,7 @@ export function FormRenderer({
   imageHandlers,
   idPrefix,
 }: FormRendererProps) {
+  const { t } = useTranslation("forms");
   const generated = useId();
   const scope = idPrefix ?? generated;
   return (
@@ -87,7 +126,7 @@ export function FormRenderer({
           />
         ))}
         {schema.fields.length === 0 && (
-          <p className="form-renderer__empty">This form has no fields yet.</p>
+          <p className="form-renderer__empty">{t("renderer.empty")}</p>
         )}
       </div>
     </div>
@@ -144,9 +183,9 @@ function FieldRow({
   }
 
   const hint = hintId ? (
-    <span id={hintId} className="form-renderer__hint">
+    <FieldDescription id={hintId} className="form-renderer__hint">
       {field.description}
-    </span>
+    </FieldDescription>
   ) : null;
 
   const support = (
@@ -159,34 +198,38 @@ function FieldRow({
         />
       )}
       {errorId && (
-        <span id={errorId} className="form-renderer__error">
+        <FieldError id={errorId} className="form-renderer__error">
           {error}
-        </span>
+        </FieldError>
       )}
     </>
   );
 
   // A checkbox reads as "label, checkbox" only when the box sits next to its own text, so boolean
   // fields use an inline label instead of the stacked label-above-control layout.
+  // Boolean is a Checkbox, not a Switch: it is a form input with label
+  // semantics (consent-style on/off answers), while Switch is reserved for
+  // settings that take effect immediately, like the editor inspectors.
   if (field.control === "boolean") {
     return (
       <div className="form-renderer__field form-renderer__field--inline">
-        <label className="checkbox-control" htmlFor={controlId}>
-          <input
+        <Field orientation="horizontal">
+          <Checkbox
             id={controlId}
-            type="checkbox"
             aria-describedby={describedBy}
             aria-invalid={error ? true : undefined}
             aria-required={field.required ? true : undefined}
             disabled={disabled}
             checked={value === true || value === "true"}
-            onChange={(event) => onChange?.(field.key, event.target.checked)}
+            onCheckedChange={(checked) =>
+              onChange?.(field.key, checked === true)
+            }
           />
-          <span className="form-renderer__label">
+          <FieldLabel htmlFor={controlId}>
             {field.label}
             <RequiredMark required={field.required} />
-          </span>
-        </label>
+          </FieldLabel>
+        </Field>
         {hint}
         {support}
       </div>
@@ -198,32 +241,33 @@ function FieldRow({
   // announces when focus enters any option.
   if (field.control === "multi_select") {
     return (
-      <fieldset
+      <FieldSet
         id={controlId}
         tabIndex={-1}
-        className="form-renderer__field form-renderer__group"
+        className="form-renderer__field form-renderer__group gap-3"
         aria-describedby={describedBy}
         aria-invalid={error ? true : undefined}
         aria-required={field.required ? true : undefined}
       >
-        <legend className="form-renderer__label">
+        <FieldLegend variant="label" className="mb-0 form-renderer__label">
           {field.label}
           <RequiredMark required={field.required} />
-        </legend>
+        </FieldLegend>
         {hint}
         <div className="form-renderer__multi">
           {(field.options ?? []).map((option) => {
             const selected =
               Array.isArray(value) && value.includes(option.value);
+            const optionId = `${controlId}-${option.value}`;
             return (
-              <label key={option.value} className="checkbox-control">
-                <input
-                  type="checkbox"
+              <Field key={option.value} orientation="horizontal">
+                <Checkbox
+                  id={optionId}
                   disabled={disabled}
                   checked={selected}
-                  onChange={(event) => {
+                  onCheckedChange={(checked) => {
                     const current = Array.isArray(value) ? [...value] : [];
-                    if (event.target.checked) {
+                    if (checked === true) {
                       current.push(option.value);
                     } else {
                       const index = current.indexOf(option.value);
@@ -232,24 +276,76 @@ function FieldRow({
                     onChange?.(field.key, current);
                   }}
                 />
-                <span>{option.label}</span>
-              </label>
+                <FieldLabel htmlFor={optionId} className="font-normal">
+                  {option.label}
+                </FieldLabel>
+              </Field>
             );
           })}
         </div>
         {support}
-      </fieldset>
+      </FieldSet>
+    );
+  }
+
+  // A short option list renders as radios (no single control id to point a
+  // label at), so the group carries its own accessible name and the visible
+  // title is presentation. Longer lists use the dropdown Select below, which
+  // the row label points at normally.
+  const options = field.control === "select" ? (field.options ?? []) : [];
+  if (field.control === "select" && options.length <= RADIO_OPTION_LIMIT) {
+    return (
+      <Field className="form-renderer__field">
+        <FieldTitle>
+          <span className="form-renderer__label">
+            {field.label}
+            <RequiredMark required={field.required} />
+          </span>
+        </FieldTitle>
+        {hint}
+        <RadioGroup
+          aria-label={field.label}
+          aria-describedby={describedBy}
+          aria-invalid={error ? true : undefined}
+          aria-required={field.required ? true : undefined}
+          required={field.required}
+          disabled={disabled}
+          value={typeof value === "string" ? value : ""}
+          onValueChange={(next) => {
+            if (typeof next === "string" && next) onChange?.(field.key, next);
+          }}
+        >
+          <div className="form-renderer__multi">
+            {options.map((option) => {
+              const radioId = `${controlId}-${option.value}`;
+              return (
+                <Field key={option.value} orientation="horizontal">
+                  <RadioGroupItem
+                    value={option.value}
+                    id={radioId}
+                    disabled={disabled}
+                  />
+                  <FieldLabel htmlFor={radioId} className="font-normal">
+                    {option.label}
+                  </FieldLabel>
+                </Field>
+              );
+            })}
+          </div>
+        </RadioGroup>
+        {support}
+      </Field>
     );
   }
 
   return (
-    <div className="form-renderer__field">
-      <label htmlFor={controlId}>
+    <Field className="form-renderer__field">
+      <FieldLabel htmlFor={controlId}>
         <span className="form-renderer__label">
           {field.label}
           <RequiredMark required={field.required} />
         </span>
-      </label>
+      </FieldLabel>
       {hint}
       <FieldControl
         field={field}
@@ -262,7 +358,7 @@ function FieldRow({
         imageHandlers={imageHandlers}
       />
       {support}
-    </div>
+    </Field>
   );
 }
 
@@ -283,6 +379,7 @@ function CharacterCount({
   value: string;
   maxLength: number;
 }) {
+  const { t } = useTranslation("forms");
   // Count code points, matching the length check in validateSubmission.
   const used = [...value].length;
   const remaining = maxLength - used;
@@ -292,8 +389,8 @@ function CharacterCount({
       className={`form-renderer__counter${remaining <= 0 ? " is-full" : ""}`}
     >
       {remaining <= 0
-        ? `Character limit reached (${maxLength})`
-        : `${remaining} of ${maxLength} characters left`}
+        ? t("renderer.charLimitReached", { max: maxLength })
+        : t("renderer.charsLeft", { remaining, max: maxLength })}
     </span>
   );
 }
@@ -317,6 +414,7 @@ function FieldControl({
   onChange?: (key: string, next: string | string[] | boolean) => void;
   imageHandlers?: ImageHandlers;
 }) {
+  const { t } = useTranslation("forms");
   const disabled = readOnly || !onChange;
   const emit = (next: string | string[] | boolean) =>
     onChange?.(field.key, next);
@@ -327,7 +425,6 @@ function FieldControl({
     id,
     "aria-describedby": describedBy,
     "aria-invalid": invalid ? (true as const) : undefined,
-    className: "input",
     required,
     disabled,
   };
@@ -335,7 +432,7 @@ function FieldControl({
   switch (field.control) {
     case "long_text":
       return (
-        <textarea
+        <Textarea
           {...common}
           rows={3}
           value={stringValue}
@@ -345,18 +442,30 @@ function FieldControl({
       );
     case "select":
       return (
-        <select
-          {...common}
+        <Select
+          items={field.options ?? []}
           value={stringValue}
-          onChange={(event) => emit(event.target.value)}
+          onValueChange={(next) => {
+            if (typeof next === "string") emit(next);
+          }}
+          required={required}
+          disabled={disabled}
         >
-          <option value="">Select…</option>
-          {(field.options ?? []).map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger
+            id={id}
+            aria-describedby={describedBy}
+            aria-invalid={invalid ? true : undefined}
+          >
+            <SelectValue placeholder={t("renderer.selectPlaceholder")} />
+          </SelectTrigger>
+          <SelectContent>
+            {(field.options ?? []).map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       );
     case "image":
       if (imageHandlers) {
@@ -376,7 +485,7 @@ function FieldControl({
       }
       return (
         <div className="form-renderer__image">
-          <input
+          <Input
             id={id}
             type="file"
             accept="image/*"
@@ -384,14 +493,14 @@ function FieldControl({
             disabled
           />
           <span className="form-renderer__image-note">
-            Image uploads are available when submitting.
+            {t("renderer.imageNoteSubmit")}
           </span>
         </div>
       );
     case "number":
     case "integer":
       return (
-        <input
+        <Input
           {...common}
           type="number"
           inputMode={field.control === "integer" ? "numeric" : "decimal"}
@@ -403,26 +512,19 @@ function FieldControl({
         />
       );
     case "date":
-      return (
-        <input
-          {...common}
-          type="date"
-          value={stringValue}
-          onChange={(event) => emit(event.target.value)}
-        />
-      );
+      return <DateInput {...common} value={stringValue} onChange={emit} />;
     case "datetime":
       return (
-        <input
+        <DateTimeInput
           {...common}
-          type="datetime-local"
+          aria-label={field.label}
           value={stringValue}
-          onChange={(event) => emit(event.target.value)}
+          onChange={emit}
         />
       );
     case "url":
       return (
-        <input
+        <Input
           {...common}
           type="url"
           inputMode="url"
@@ -433,7 +535,7 @@ function FieldControl({
       );
     default:
       return (
-        <input
+        <Input
           {...common}
           type="text"
           maxLength={field.maxLength || undefined}
@@ -468,64 +570,90 @@ function ImageField({
   onSelect: (fieldKey: string, file: File) => void;
   onRemove: (fieldKey: string) => void;
 }) {
+  const { t } = useTranslation("forms");
   const previewUrl = state?.pendingUrl ?? state?.contentUrl;
   const hasImage = Boolean(previewUrl);
+  const attachmentState = state?.error
+    ? "error"
+    : state?.uploading
+      ? "uploading"
+      : state?.pendingName
+        ? "processing"
+        : hasImage
+          ? "done"
+          : "idle";
   return (
-    <div className="form-renderer__image">
-      {hasImage && (
-        <img
-          className="form-renderer__image-preview"
-          src={previewUrl}
-          alt={`${label} attachment`}
-        />
-      )}
-      {state?.pendingName && !state.uploading && (
-        <span className="form-renderer__image-note">
-          {state.pendingName} — uploads when you save.
-        </span>
-      )}
-      {state?.uploading && (
-        <span className="form-renderer__image-note">Uploading…</span>
-      )}
+    <div className="form-renderer__image grid justify-items-start gap-2">
+      <Attachment state={attachmentState} className="w-full">
+        <AttachmentMedia variant={hasImage ? "image" : "icon"}>
+          {previewUrl ? (
+            <img src={previewUrl} alt="" />
+          ) : (
+            <ImageIcon aria-hidden="true" />
+          )}
+        </AttachmentMedia>
+        <AttachmentContent>
+          <AttachmentTitle>{state?.pendingName ?? label}</AttachmentTitle>
+          <AttachmentDescription>
+            {state?.error
+              ? t("renderer.imageAttention")
+              : state?.uploading
+                ? t("renderer.uploading")
+                : state?.pendingName
+                  ? t("renderer.pendingUpload")
+                  : hasImage
+                    ? t("renderer.imageAttached")
+                    : t("renderer.noImage")}
+          </AttachmentDescription>
+        </AttachmentContent>
+        {!disabled && (
+          <AttachmentActions>
+            {hasImage && (
+              <AttachmentAction
+                type="button"
+                size="sm"
+                disabled={state?.uploading}
+                onClick={() => onRemove(fieldKey)}
+              >
+                {t("renderer.removeImage")}
+              </AttachmentAction>
+            )}
+            <Button
+              variant="secondary"
+              size="sm"
+              render={<label />}
+              disabled={state?.uploading}
+            >
+              {hasImage
+                ? t("renderer.replaceImage")
+                : t("renderer.chooseImage")}
+              <input
+                id={id}
+                type="file"
+                accept="image/*"
+                aria-describedby={describedBy}
+                aria-invalid={invalid ? true : undefined}
+                aria-label={
+                  hasImage
+                    ? t("renderer.replaceLabel", { label })
+                    : t("renderer.chooseLabel", { label })
+                }
+                className="visually-hidden"
+                disabled={state?.uploading}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) onSelect(fieldKey, file);
+                  event.target.value = "";
+                }}
+              />
+            </Button>
+          </AttachmentActions>
+        )}
+      </Attachment>
       {state?.error && (
         <span className="form-renderer__error" role="alert">
           {state.error}
         </span>
-      )}
-      {!disabled && (
-        <div className="form-renderer__image-actions">
-          <label className="button button--secondary button--compact">
-            {hasImage ? "Replace image" : "Choose image"}
-            <input
-              id={id}
-              type="file"
-              accept="image/*"
-              aria-describedby={describedBy}
-              aria-invalid={invalid ? true : undefined}
-              aria-label={hasImage ? `Replace ${label}` : `Choose ${label}`}
-              className="visually-hidden"
-              disabled={state?.uploading}
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) onSelect(fieldKey, file);
-                event.target.value = "";
-              }}
-            />
-          </label>
-          {hasImage && (
-            <button
-              type="button"
-              className="button button--quiet button--compact"
-              disabled={state?.uploading}
-              onClick={() => onRemove(fieldKey)}
-            >
-              Remove
-            </button>
-          )}
-        </div>
-      )}
-      {!hasImage && disabled && (
-        <span className="form-renderer__image-note">No image provided.</span>
       )}
     </div>
   );

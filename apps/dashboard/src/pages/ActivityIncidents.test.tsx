@@ -16,7 +16,7 @@ import {
   NeedsAttentionPanel,
 } from "./ActivityIncidents";
 import type { Incident } from "./ActivityIncidentShared";
-import type { ResolvedTimeRange } from "../components/ui";
+import type { ResolvedTimeRange } from "../components/TimeRangePicker";
 
 const authStatus = {
   authenticated: true,

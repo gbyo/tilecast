@@ -13,6 +13,7 @@ import {
   Globe,
   Image,
   KeyRound,
+  Network,
   LifeBuoy,
   MapPin,
   Palette,
@@ -49,105 +50,82 @@ export type SettingsSectionId =
   | "system"
   | "import-export"
   | "security"
-  | "preferences";
+  | "preferences"
+  | "dependency-graph";
+export type SettingsNavigationGroupId =
+  "organization" | "content" | "players" | "operations" | "tools";
 export type SettingsNavigationItem = {
   id: SettingsSectionId;
+  /**
+   * English route metadata for App.tsx breadcrumbs and command-palette
+   * search, which live outside the settings namespace. On-screen labels use
+   * labelKey so Settings follows language changes.
+   */
   label: string;
+  labelKey: `nav.items.${SettingsSectionId}`;
   path: string;
 };
 export type SettingsNavigationGroup = {
   label: string;
+  labelKey: `nav.groups.${SettingsNavigationGroupId}`;
   items: SettingsNavigationItem[];
 };
+// Labels stay function arguments (never rendered text in this file) so the
+// display keys below are the only translation source.
+function item(
+  id: SettingsSectionId,
+  label: string,
+  path: string,
+): SettingsNavigationItem {
+  return { id, label, labelKey: `nav.items.${id}`, path };
+}
+function group(
+  id: SettingsNavigationGroupId,
+  label: string,
+  items: SettingsNavigationItem[],
+): SettingsNavigationGroup {
+  return { label, labelKey: `nav.groups.${id}`, items };
+}
 export const settingsNavigation: SettingsNavigationGroup[] = [
-  {
-    label: "Organization",
-    items: [
-      { id: "general", label: "General", path: "general" },
-      { id: "branding", label: "Branding", path: "branding" },
-      { id: "users", label: "Users", path: "users" },
-      { id: "security", label: "Sign-in security", path: "security" },
-      { id: "locations", label: "Locations", path: "locations" },
-    ],
-  },
-  {
-    label: "Content and playback",
-    items: [
-      { id: "playback", label: "Playback", path: "player/playback" },
-      { id: "media", label: "Media", path: "content/media" },
-      { id: "websites", label: "Websites", path: "content/websites" },
-      { id: "scheduling", label: "Scheduling", path: "content/scheduling" },
-      {
-        id: "content-review",
-        label: "Content review",
-        path: "content-review",
-      },
-    ],
-  },
-  {
-    label: "Player management",
-    items: [
-      {
-        id: "reliability",
-        label: "Reliability and kiosk",
-        path: "player/reliability",
-      },
-      { id: "power", label: "Active hours and power", path: "player/power" },
-      {
-        id: "accessibility",
-        label: "Accessibility control",
-        path: "player/accessibility",
-      },
-      { id: "player-updates", label: "Player updates", path: "player/updates" },
-      {
-        id: "presentation-networks",
-        label: "Presentation Networks",
-        path: "player/presentation-networks",
-      },
-    ],
-  },
-  {
-    label: "Operations",
-    items: [
-      {
-        id: "takeover",
-        label: "Takeovers and commands",
-        path: "operations/takeover",
-      },
-      {
-        id: "retention",
-        label: "Data retention",
-        path: "operations/retention",
-      },
-      {
-        id: "backups",
-        label: "Backup and restore",
-        path: "operations/backups",
-      },
-      {
-        id: "notifications",
-        label: "Notifications",
-        path: "operations/notifications",
-      },
-      {
-        id: "snapshots",
-        label: "Snapshot history",
-        path: "snapshots",
-      },
-      { id: "system", label: "System", path: "system" },
-      {
-        id: "integrations",
-        label: "Integration tokens",
-        path: "integrations",
-      },
-      {
-        id: "import-export",
-        label: "Import and export",
-        path: "import-export",
-      },
-    ],
-  },
-] as const;
+  group("organization", "Organization", [
+    item("general", "General", "general"),
+    item("branding", "Branding", "branding"),
+    item("users", "Users", "users"),
+    item("security", "Sign-in security", "security"),
+    item("locations", "Locations", "locations"),
+  ]),
+  group("content", "Content and playback", [
+    item("playback", "Playback", "player/playback"),
+    item("media", "Media", "content/media"),
+    item("websites", "Websites", "content/websites"),
+    item("scheduling", "Scheduling", "content/scheduling"),
+    item("content-review", "Content review", "content-review"),
+  ]),
+  group("players", "Player management", [
+    item("reliability", "Reliability and kiosk", "player/reliability"),
+    item("power", "Active hours and power", "player/power"),
+    item("accessibility", "Accessibility control", "player/accessibility"),
+    item("player-updates", "Player updates", "player/updates"),
+    item(
+      "presentation-networks",
+      "Presentation Networks",
+      "player/presentation-networks",
+    ),
+  ]),
+  group("operations", "Operations", [
+    item("takeover", "Takeovers and commands", "operations/takeover"),
+    item("retention", "Data retention", "operations/retention"),
+    item("backups", "Backup and restore", "operations/backups"),
+    item("notifications", "Notifications", "operations/notifications"),
+    item("snapshots", "Snapshot history", "snapshots"),
+    item("system", "System", "system"),
+    item("integrations", "Integration tokens", "integrations"),
+    item("import-export", "Import and export", "import-export"),
+  ]),
+  group("tools", "System tools", [
+    item("dependency-graph", "Dependency Graph", "dependency-graph"),
+  ]),
+];
 export const settingsItems = settingsNavigation.flatMap((group) => group.items);
 export function sectionFromPath(pathname: string): SettingsSectionId {
   const suffix = pathname.replace(/^\/settings\/?/, "").replace(/\/$/, "");
@@ -155,141 +133,135 @@ export function sectionFromPath(pathname: string): SettingsSectionId {
 }
 export const sectionDetails: Record<
   SettingsSectionId,
-  { title: string; description: string; icon: LucideIcon }
+  {
+    titleKey: `nav.sections.${SettingsSectionId}.title`;
+    descriptionKey: `nav.sections.${SettingsSectionId}.description`;
+    icon: LucideIcon;
+  }
 > = {
   general: {
     icon: Building2,
-    title: "General",
-    description:
-      "Organization identity, regional formats, and support details.",
+    titleKey: "nav.sections.general.title",
+    descriptionKey: "nav.sections.general.description",
   },
   branding: {
     icon: Palette,
-    title: "Branding",
-    description:
-      "Organization identity and the fallback appearance shown by players.",
+    titleKey: "nav.sections.branding.title",
+    descriptionKey: "nav.sections.branding.description",
   },
   users: {
     icon: Users,
-    title: "Users",
-    description:
-      "Give each person an individual sign-in and assign only the permissions they need. Appearance and density preferences remain separate for every account.",
+    titleKey: "nav.sections.users.title",
+    descriptionKey: "nav.sections.users.description",
   },
   security: {
     icon: ShieldCheck,
-    title: "Sign-in security",
-    description:
-      "Decide who must use a second factor to sign in. Each person manages their own authenticator, passkeys, and recovery codes from My Account → Sign-in security.",
+    titleKey: "nav.sections.security.title",
+    descriptionKey: "nav.sections.security.description",
   },
   locations: {
     icon: MapPin,
-    title: "Locations",
-    description:
-      "Reusable buildings and campuses assigned to multiple screens, while room details stay on each player.",
+    titleKey: "nav.sections.locations.title",
+    descriptionKey: "nav.sections.locations.description",
   },
   playback: {
     icon: Play,
-    title: "Playback",
-    description:
-      "Default playback, storage, delivery, synchronization, and diagnostics.",
+    titleKey: "nav.sections.playback.title",
+    descriptionKey: "nav.sections.playback.description",
   },
   media: {
     icon: Image,
-    title: "Media",
-    description:
-      "Upload limits, delivery defaults, and future media-processing behavior.",
+    titleKey: "nav.sections.media.title",
+    descriptionKey: "nav.sections.media.description",
   },
   websites: {
     icon: Globe,
-    title: "Websites",
-    description:
-      "Safe defaults for website playback, reloads, cookies, and failures.",
+    titleKey: "nav.sections.websites.title",
+    descriptionKey: "nav.sections.websites.description",
   },
   scheduling: {
     icon: CalendarClock,
-    title: "Scheduling",
-    description: "Schedule preparation, timing, and clock-warning defaults.",
+    titleKey: "nav.sections.scheduling.title",
+    descriptionKey: "nav.sections.scheduling.description",
   },
   reliability: {
     icon: LifeBuoy,
-    title: "Reliability and kiosk",
-    description:
-      "Shared recovery with platform-specific Android and Linux kiosk controls.",
+    titleKey: "nav.sections.reliability.title",
+    descriptionKey: "nav.sections.reliability.description",
   },
   power: {
     icon: Power,
-    title: "Active hours and power",
-    description:
-      "Player operating hours and best-effort Android sleep and wake behavior.",
+    titleKey: "nav.sections.power.title",
+    descriptionKey: "nav.sections.power.description",
   },
   accessibility: {
     icon: Accessibility,
-    title: "Accessibility control",
-    description:
-      "Optional foreground-return assistance with explicit safety pauses.",
+    titleKey: "nav.sections.accessibility.title",
+    descriptionKey: "nav.sections.accessibility.description",
   },
   "player-updates": {
     icon: DownloadCloud,
-    title: "Player updates",
-    description: "Verified Tilecast Player releases and update deployments.",
+    titleKey: "nav.sections.player-updates.title",
+    descriptionKey: "nav.sections.player-updates.description",
   },
   "presentation-networks": {
     icon: Wifi,
-    title: "Presentation Networks",
-    description:
-      "Temporarily connect supported Linux players to Wi-Fi for AirPlay and other local presentation features while keeping Ethernet as their primary Tilecast connection.",
+    titleKey: "nav.sections.presentation-networks.title",
+    descriptionKey: "nav.sections.presentation-networks.description",
   },
   takeover: {
     icon: Siren,
-    title: "Takeovers and commands",
-    description:
-      "Defaults for a Takeover started by hand and for player commands. Automatic weather alerts are the Emergency Alerts plugin.",
+    titleKey: "nav.sections.takeover.title",
+    descriptionKey: "nav.sections.takeover.description",
   },
   retention: {
     icon: Archive,
-    title: "Data retention",
-    description: "Bounded history and cleanup periods for operational records.",
+    titleKey: "nav.sections.retention.title",
+    descriptionKey: "nav.sections.retention.description",
   },
   backups: {
     icon: DatabaseBackup,
-    title: "Backup and restore",
-    description:
-      "Create, verify, download, schedule, and restore full installation backups.",
+    titleKey: "nav.sections.backups.title",
+    descriptionKey: "nav.sections.backups.description",
   },
   notifications: {
     icon: BellRing,
-    title: "Notifications",
-    description: "Send alerts by email or webhook.",
+    titleKey: "nav.sections.notifications.title",
+    descriptionKey: "nav.sections.notifications.description",
   },
   system: {
     icon: Wrench,
-    title: "System",
-    description: "Safe diagnostics and deliberate maintenance actions.",
+    titleKey: "nav.sections.system.title",
+    descriptionKey: "nav.sections.system.description",
   },
   "content-review": {
     icon: ClipboardCheck,
-    title: "Content review",
-    description:
-      "Require approval before a playlist or Layout can be assigned to a screen. A Contributor authors content but cannot publish or assign it.",
+    titleKey: "nav.sections.content-review.title",
+    descriptionKey: "nav.sections.content-review.description",
   },
   snapshots: {
     icon: Camera,
-    title: "Snapshot history",
-    description: "Periodic Player screenshots with configurable retention.",
+    titleKey: "nav.sections.snapshots.title",
+    descriptionKey: "nav.sections.snapshots.description",
   },
   integrations: {
     icon: KeyRound,
-    title: "Integration tokens",
-    description: "Scoped tokens for Manual Tables and fleet health.",
+    titleKey: "nav.sections.integrations.title",
+    descriptionKey: "nav.sections.integrations.description",
   },
   "import-export": {
     icon: ArrowLeftRight,
-    title: "Import and export",
-    description: "Portable, non-secret Tilecast configuration.",
+    titleKey: "nav.sections.import-export.title",
+    descriptionKey: "nav.sections.import-export.description",
+  },
+  "dependency-graph": {
+    icon: Network,
+    titleKey: "nav.sections.dependency-graph.title",
+    descriptionKey: "nav.sections.dependency-graph.description",
   },
   preferences: {
     icon: SlidersHorizontal,
-    title: "Preferences",
-    description: "Appearance and workflow preferences for your Studio account.",
+    titleKey: "nav.sections.preferences.title",
+    descriptionKey: "nav.sections.preferences.description",
   },
 };

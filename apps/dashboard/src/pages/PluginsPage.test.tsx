@@ -8,19 +8,15 @@ import {
   render,
   screen,
   waitFor,
-  within,
 } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  BrandBugEditorPage,
-  BrandBugsPage,
-  CountdownBarEditorPage,
-  NoiseMeterEditorPage,
-  NoiseMetersPage,
-  PluginsPage,
-} from "./PluginsPage";
+import { catalogPlugin } from "../plugins/catalogFixtures";
+import { CountdownBarEditorPage } from "./CountdownBarsPage";
+import { BrandBugEditorPage, BrandBugsPage } from "./BrandBugsPage";
+import { NoiseMeterEditorPage, NoiseMetersPage } from "./NoiseMetersPage";
 
 vi.mock("../auth/AuthProvider", () => ({
   useAuth: () => ({
@@ -57,10 +53,11 @@ function renderRoute(element: ReactNode, path = "/plugins") {
   );
 }
 
-/** Signal Select hides its native control, so pick the way a person does. */
-function chooseOption(selectLabel: string, optionLabel: string) {
-  fireEvent.click(screen.getByLabelText(selectLabel));
-  fireEvent.click(screen.getByRole("option", { name: optionLabel }));
+/** Base UI Select hides its native control, so pick the way a person does. */
+async function chooseOption(selectLabel: string, optionLabel: string) {
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("combobox", { name: selectLabel }));
+  await user.click(await screen.findByRole("option", { name: optionLabel }));
 }
 
 /** Same, for a select whose options arrive with a query rather than statically. */
@@ -68,8 +65,23 @@ async function chooseLoadedOption(
   selectLabel: string | RegExp,
   optionLabel: string,
 ) {
-  fireEvent.click(screen.getByLabelText(selectLabel));
-  fireEvent.click(await screen.findByRole("option", { name: optionLabel }));
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("combobox", { name: selectLabel }));
+  await user.click(await screen.findByRole("option", { name: optionLabel }));
+}
+
+async function chooseDate(label: string | RegExp, day: RegExp) {
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: label }));
+  await user.click(await screen.findByRole("button", { name: day }));
+}
+
+function currentMonthDay(day: 1 | 10) {
+  const month = new Date().toLocaleString("en-US", { month: "long" });
+  const year = new Date().getFullYear();
+  return new RegExp(
+    month + " " + (day === 1 ? "1st" : "10th") + ", " + year + "$",
+  );
 }
 
 function pressedDays() {
@@ -220,47 +232,19 @@ beforeEach(() => {
         );
       }
       if (path.endsWith("/plugins")) {
+        // Every plugin these editors belong to is installed.
         return Promise.resolve(
           new Response(
             JSON.stringify({
               data: {
                 items: [
-                  {
-                    id: "countdown_bar",
-                    name: "Countdown Bar",
-                    description: "A timed bar.",
-                    enabled: true,
-                    instanceCount: 3,
-                  },
-                  {
-                    id: "emergency_alerts",
-                    name: "Emergency Alerts",
-                    description: "Watch official NWS weather alerts.",
-                    enabled: false,
-                    instanceCount: 1,
-                  },
-                  {
-                    id: "forms",
-                    name: "Forms",
-                    description: "Collect submissions.",
-                    enabled: true,
-                    instanceCount: 2,
-                  },
-                  {
-                    id: "brand_bug",
-                    name: "Brand Bug / Watermark",
-                    description: "A corner mark.",
-                    enabled: false,
-                    instanceCount: 1,
-                  },
-                  {
-                    id: "noise_meter",
-                    name: "Noise Meter",
-                    description: "Watch room noise on Linux players.",
-                    enabled: true,
-                    instanceCount: 2,
-                  },
-                ],
+                  "countdown_bar",
+                  "emergency_alerts",
+                  "forms",
+                  "brand_bug",
+                  "noise_meter",
+                ].map((id) => catalogPlugin({ id })),
+                unsupportedInstallations: [],
               },
             }),
           ),
@@ -282,62 +266,12 @@ afterEach(() => {
 });
 
 describe("Plugins", () => {
-  it("shows a card per installed plugin, each linking to its own surface", async () => {
-    renderRoute(<PluginsPage />);
-    expect(
-      await screen.findByRole("heading", { name: "Countdown Bar" }),
-    ).toBeVisible();
-    expect(
-      screen.getByRole("heading", { name: "Brand Bug / Watermark" }),
-    ).toBeVisible();
-    expect(screen.getByText("3 configured instances")).toBeVisible();
-    expect(
-      screen.getAllByRole("link", { name: "Manage plugin" })[0],
-    ).toHaveAttribute("href", "/plugins/countdown-bar");
-  });
-
-  it("lists Emergency Alerts as a plugin of its own", async () => {
-    renderRoute(<PluginsPage />);
-    const card = (
-      await screen.findByRole("heading", { name: "Emergency Alerts" })
-    ).closest("article")!;
-    // Its rules are its instances, and monitoring being off is what makes the
-    // plugin disabled — both are stated rather than left to be inferred.
-    expect(within(card).getByText("1 configured alert rule")).toBeVisible();
-    expect(within(card).getByText("Disabled")).toBeVisible();
-    expect(
-      within(card).getByRole("link", { name: "Manage plugin" }),
-    ).toHaveAttribute("href", "/plugins/emergency-alerts");
-  });
-
-  it("lists Forms as a plugin rather than a Data Source", async () => {
-    renderRoute(<PluginsPage />);
-    const card = (
-      await screen.findByRole("heading", { name: "Forms" })
-    ).closest("article")!;
-    expect(within(card).getByText("2 configured forms")).toBeVisible();
-    expect(
-      within(card).getByRole("link", { name: "Manage plugin" }),
-    ).toHaveAttribute("href", "/plugins/forms");
-  });
-
-  it("lists Brand Bug with its own instance noun and surface", async () => {
-    renderRoute(<PluginsPage />);
-    const card = (
-      await screen.findByRole("heading", { name: "Brand Bug / Watermark" })
-    ).closest("article")!;
-    expect(within(card).getByText("1 configured mark")).toBeVisible();
-    expect(
-      within(card).getByRole("link", { name: "Manage plugin" }),
-    ).toHaveAttribute("href", "/plugins/brand-bug");
-  });
-
   it("requires a target when a scoped instance is submitted", async () => {
     renderRoute(<CountdownBarEditorPage />, "/plugins/countdown-bar/new");
     await waitFor(() =>
       expect(screen.getByLabelText("Target type")).toBeEnabled(),
     );
-    chooseOption("Target type", "Individual screens");
+    await chooseOption("Target type", "Individual screens");
     fireEvent.change(screen.getByLabelText("Name"), {
       target: { value: "Lunch" },
     });
@@ -384,9 +318,9 @@ describe("Plugins", () => {
     fireEvent.change(screen.getByLabelText("Name"), {
       target: { value: "Lunch" },
     });
-    fireEvent.click(screen.getByLabelText("Enabled"));
-    chooseOption("Target type", "Individual screens");
-    fireEvent.click(await screen.findByLabelText("Cafeteria"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Enabled" }));
+    await chooseOption("Target type", "Individual screens");
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Cafeteria" }));
     fireEvent.click(screen.getByRole("button", { name: "Create instance" }));
     await waitFor(() => expect(submitted).toHaveLength(1));
     expect(submitted[0]?.enabled).toBe(false);
@@ -396,13 +330,13 @@ describe("Plugins", () => {
   it("counts the chosen targets and explains an empty scope", async () => {
     renderRoute(<CountdownBarEditorPage />, "/plugins/countdown-bar/new");
     await waitFor(() => expect(screen.getByLabelText("Name")).toBeEnabled());
-    chooseOption("Target type", "Individual screens");
+    await chooseOption("Target type", "Individual screens");
     expect(await screen.findByText("0 of 1 selected")).toBeVisible();
-    fireEvent.click(await screen.findByLabelText("Cafeteria"));
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Cafeteria" }));
     expect(screen.getByText("1 of 1 selected")).toBeVisible();
     // No Display Groups exist in this fixture, so the list must say so rather than
     // render an empty box.
-    chooseOption("Target type", "Display Groups");
+    await chooseOption("Target type", "Display Groups");
     expect(
       await screen.findByText("No Display Groups exist yet."),
     ).toBeVisible();
@@ -415,7 +349,7 @@ describe("Plugins", () => {
     fireEvent.change(screen.getByLabelText("Name"), {
       target: { value: "Lunch" },
     });
-    chooseOption("Background countdown", "Drain right to left");
+    await chooseOption("Background countdown", "Drain right to left");
     fireEvent.click(screen.getByRole("button", { name: "Create instance" }));
     await waitFor(() => expect(submitted).toHaveLength(1));
     expect(submitted[0]?.progressFill).toBe("drain");
@@ -428,7 +362,9 @@ describe("Plugins", () => {
       target: { value: "Lunch" },
     });
     fireEvent.click(
-      screen.getByLabelText("Show confetti when the countdown reaches zero"),
+      screen.getByRole("checkbox", {
+        name: "Show confetti when the countdown reaches zero",
+      }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Create instance" }));
     await waitFor(() => expect(submitted).toHaveLength(1));
@@ -442,7 +378,11 @@ describe("Plugins", () => {
     fireEvent.change(screen.getByLabelText("Name"), {
       target: { value: "Lunch" },
     });
-    fireEvent.click(screen.getByLabelText("Enable countdown urgency stages"));
+    fireEvent.click(
+      screen.getByRole("checkbox", {
+        name: "Enable countdown urgency stages",
+      }),
+    );
     fireEvent.change(screen.getByLabelText(/Starting soon/), {
       target: { value: "8" },
     });
@@ -468,7 +408,11 @@ describe("Plugins", () => {
     fireEvent.change(screen.getByLabelText("Name"), {
       target: { value: "Lunch" },
     });
-    fireEvent.click(screen.getByLabelText("Enable countdown urgency stages"));
+    fireEvent.click(
+      screen.getByRole("checkbox", {
+        name: "Enable countdown urgency stages",
+      }),
+    );
     fireEvent.change(screen.getByLabelText("Appear this many minutes before"), {
       target: { value: "30" },
     });
@@ -510,7 +454,7 @@ describe("Plugins", () => {
   it("keeps the schedule and mode selections across an unrelated edit", async () => {
     renderRoute(<CountdownBarEditorPage />, "/plugins/countdown-bar/new");
     await waitFor(() => expect(screen.getByLabelText("Name")).toBeEnabled());
-    chooseOption("Mode", "Push and shrink current content");
+    await chooseOption("Mode", "Push and shrink current content");
     fireEvent.change(screen.getByLabelText("Name"), {
       target: { value: "Lunch" },
     });
@@ -558,9 +502,10 @@ describe("Brand Bug", () => {
       target: { value: "Sponsor logo" },
     });
     await chooseLoadedOption(/^Logo image/, "District logo");
-    chooseOption("Corner", "Bottom left");
-    fireEvent.change(screen.getByLabelText(/^Show from/), {
-      target: { value: "2026-09-01T08:00" },
+    await chooseOption("Corner", "Bottom left");
+    await chooseDate(/^Show from/, currentMonthDay(1));
+    fireEvent.change(screen.getByLabelText("Start time"), {
+      target: { value: "08:00" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Create instance" }));
     await waitFor(() => expect(submitted).toHaveLength(1));
@@ -585,11 +530,13 @@ describe("Brand Bug", () => {
     fireEvent.change(screen.getByPlaceholderText("Presented by Example"), {
       target: { value: "Vote Tuesday" },
     });
-    fireEvent.change(screen.getByLabelText(/^Show from/), {
-      target: { value: "2026-09-10T08:00" },
+    await chooseDate(/^Show from/, currentMonthDay(10));
+    fireEvent.change(screen.getByLabelText("Start time"), {
+      target: { value: "08:00" },
     });
-    fireEvent.change(screen.getByLabelText(/^Show until/), {
-      target: { value: "2026-09-01T08:00" },
+    await chooseDate(/^Show until/, currentMonthDay(1));
+    fireEvent.change(screen.getByLabelText("End time"), {
+      target: { value: "08:00" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Create instance" }));
     expect(
@@ -622,17 +569,6 @@ describe("Brand Bug", () => {
 });
 
 describe("Noise Meter", () => {
-  it("lists the plugin with its own instance noun and surface", async () => {
-    renderRoute(<PluginsPage />);
-    const card = (
-      await screen.findByRole("heading", { name: "Noise Meter" })
-    ).closest("article")!;
-    expect(within(card).getByText("2 configured meters")).toBeVisible();
-    expect(
-      within(card).getByRole("link", { name: "Manage plugin" }),
-    ).toHaveAttribute("href", "/plugins/noise-meter");
-  });
-
   it("says where the plugin runs and what leaves the player", async () => {
     renderRoute(<NoiseMetersPage />, "/plugins/noise-meter");
     // Operators have to be able to see that this is Linux-only and that no
@@ -700,9 +636,13 @@ describe("Noise Meter", () => {
         "Saves only relative noise-level measurements. Microphone audio is never recorded or uploaded.",
       ),
     ).toBeVisible();
-    expect(screen.getByLabelText("Save noise history")).toBeChecked();
     expect(
-      screen.getByLabelText("Collect only during active hours"),
+      screen.getByRole("checkbox", { name: "Save noise history" }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole("checkbox", {
+        name: "Collect only during active hours",
+      }),
     ).toBeChecked();
   }, 10_000);
 
@@ -711,7 +651,9 @@ describe("Noise Meter", () => {
     await waitFor(() => expect(screen.getByLabelText("Name")).toBeEnabled());
     expect(screen.queryByLabelText("From")).not.toBeInTheDocument();
     fireEvent.click(
-      screen.getByLabelText("Only show during a set time window"),
+      screen.getByRole("checkbox", {
+        name: "Only show during a set time window",
+      }),
     );
     expect(await screen.findByLabelText("From")).toBeVisible();
     expect(screen.getByLabelText(/^Until/)).toHaveValue("15:30");
@@ -721,7 +663,9 @@ describe("Noise Meter", () => {
     renderRoute(<NoiseMeterEditorPage />, "/plugins/noise-meter/new");
     await waitFor(() => expect(screen.getByLabelText("Name")).toBeEnabled());
     fireEvent.click(
-      screen.getByLabelText("Only show during a set time window"),
+      screen.getByRole("checkbox", {
+        name: "Only show during a set time window",
+      }),
     );
     fireEvent.change(await screen.findByLabelText("From"), {
       target: { value: "09:15" },
@@ -744,7 +688,9 @@ describe("Noise Meter", () => {
     renderRoute(<NoiseMeterEditorPage />, "/plugins/noise-meter/new");
     await waitFor(() => expect(screen.getByLabelText("Name")).toBeEnabled());
     fireEvent.click(
-      screen.getByLabelText("Only show during a set time window"),
+      screen.getByRole("checkbox", {
+        name: "Only show during a set time window",
+      }),
     );
     // Every day switched off: the bar would never appear again.
     for (const day of ["Mon", "Tue", "Wed", "Thu", "Fri"]) {

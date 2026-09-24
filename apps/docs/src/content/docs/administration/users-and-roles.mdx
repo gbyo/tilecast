@@ -1,0 +1,42 @@
+---
+title: Manage users and roles
+description: Create local Studio accounts, choose their role, and limit which screens they can operate.
+---
+
+Each person who uses Tilecast Studio should have an individual account. An **Owner** or **Administrator** can manage accounts from **Settings** > **Users**.
+
+import { Steps } from "@astrojs/starlight/components";
+
+## Add an account
+
+<Steps>
+
+1. Open **Settings** > **Users**.
+2. Enter the person's **Name**, **Username**, and a **Temporary password**. The password must contain at least 12 characters.
+3. Choose a **Role**, then select **Add user**.
+
+</Steps>
+
+The person signs in with that username and password. Tilecast's Studio accounts are local to the installation.
+
+## Choose a role
+
+| Role              | What the role can do                                                                                                                                                                  |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Owner**         | Manage the entire installation, including backups and integration tokens.                                                                                                             |
+| **Administrator** | Manage the installation except for Owner-only system operations. Administrators can create and edit Editor, Contributor, and Viewer accounts, but can't grant Owner or Administrator. |
+| **Editor**        | Create and publish content, and manage screens and playback.                                                                                                                          |
+| **Contributor**   | Create and edit content, but can't publish a Layout, delete anything, or put content on a screen.                                                                                     |
+| **Viewer**        | Read-only access.                                                                                                                                                                     |
+
+## Limit screen access
+
+In the user's editor, use **Screen scope** to select **Locations** and/or **Display Groups**. With no scope selected, the account can operate every screen. A selected scope limits which screens the account can see and operate, but the account still sees the whole content library. Owner access always covers the entire fleet.
+
+## Suspend or remove an account
+
+Clear **Account active** to suspend the account. You can turn it back on later. **Delete permanently** removes the login, preferences, and security credentials and cannot be undone.
+
+If someone loses access to their authenticator, passkeys, and recovery codes, an Owner or Administrator can select **Reset** in an account they can manage under **Two-step verification**. Only an Owner can reset an Owner or Administrator account. Resetting signs the person out everywhere and clears all enrolled factors; they must enroll again.
+
+For organization sign-in requirements, see [Protect Studio accounts](../sign-in-security/).

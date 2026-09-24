@@ -1,13 +1,34 @@
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ClipboardList, Plus } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { api, ApiError } from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
-import { EmptyState, Notice, PageHeader } from "../components/ui";
 import { canManageContent } from "./ContentPage";
-import "./PluginsPage.css";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
+import { buttonVariants } from "../components/ui/button";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from "../components/ui/item";
+import { Skeleton } from "../components/ui/skeleton";
+import { PluginActionsMenu } from "../plugins/PluginActionsMenu";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../components/ui/empty";
 
 export function FormsPluginPage() {
+  const { t } = useTranslation("forms");
   const auth = useAuth();
   const canCreate = canManageContent(auth.status?.user);
   const forms = useQuery({
@@ -17,73 +38,103 @@ export function FormsPluginPage() {
   });
 
   return (
-    <main className="page plugins-page">
-      <PageHeader
-        eyebrow={
-          <Link className="back-link" to="/plugins">
-            <ArrowLeft size={15} /> Plugins
+    <main className="mx-auto grid w-full max-w-6xl gap-4 px-4 py-6 sm:px-6">
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div className="grid gap-1">
+          <Link
+            to="/plugins"
+            className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft size={15} aria-hidden="true" /> {t("plugin.breadcrumb")}
           </Link>
-        }
-        title="Forms"
-        description="Build forms, manage responses, and make approved records available to signage."
-        actions={
-          canCreate ? (
-            <Link className="button button--primary" to="/plugins/forms/new">
-              <Plus size={16} aria-hidden="true" /> Create form
+          <h1 className="text-xl font-semibold tracking-tight">
+            {t("plugin.title")}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {t("plugin.subtitle")}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {canCreate && (
+            <Link
+              className={buttonVariants({ variant: "default" })}
+              to="/plugins/forms/new"
+            >
+              <Plus data-icon="inline-start" aria-hidden="true" />{" "}
+              {t("plugin.create")}
             </Link>
-          ) : undefined
-        }
-      />
+          )}
+          <PluginActionsMenu pluginId="forms" />
+        </div>
+      </header>
       {forms.isError && (
-        <Notice variant="danger" title="Could not load forms">
-          {forms.error instanceof ApiError
-            ? forms.error.message
-            : "Forms could not be loaded."}
-        </Notice>
+        <Alert variant="destructive">
+          <AlertTitle>{t("plugin.loadError")}</AlertTitle>
+          <AlertDescription>
+            {forms.error instanceof ApiError
+              ? forms.error.message
+              : t("plugin.loadFallback")}
+          </AlertDescription>
+        </Alert>
       )}
       {forms.isLoading ? (
-        <div className="table-loading">Loading forms…</div>
-      ) : forms.data?.length === 0 ? (
-        <EmptyState
-          icon={<ClipboardList size={24} aria-hidden="true" />}
-          title="No forms yet"
-          message={
-            canCreate
-              ? "Create a form to start collecting submissions."
-              : "You do not have access to any forms."
-          }
-          action={
-            canCreate ? (
-              <Link className="button button--primary" to="/plugins/forms/new">
-                Create form
-              </Link>
-            ) : undefined
-          }
-        />
-      ) : (
-        <div className="plugin-instance-list">
-          {forms.data?.map((form) => (
-            <article className="plugin-instance" key={form.id}>
-              <div>
-                <div className="plugin-instance__heading">
-                  <h2>{form.name}</h2>
-                </div>
-                <p>{form.description || "No description"}</p>
-                <span className="plugin-card__instances">
-                  {form.publishedRevisionNumber
-                    ? `Published revision ${form.publishedRevisionNumber}`
-                    : "Draft"}
-                </span>
-              </div>
-              <Link
-                className="button button--secondary"
-                to={`/plugins/forms/${form.id}`}
-              >
-                Manage form
-              </Link>
-            </article>
+        <ItemGroup className="gap-2" aria-busy="true">
+          {[0, 1].map((key) => (
+            <Skeleton key={key} className="h-20 rounded-xl" />
           ))}
-        </div>
+        </ItemGroup>
+      ) : forms.data?.length === 0 ? (
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <ClipboardList size={24} aria-hidden="true" />
+            </EmptyMedia>
+            <EmptyTitle>{t("plugin.empty")}</EmptyTitle>
+            <EmptyDescription>
+              {canCreate ? t("plugin.emptyCreate") : t("plugin.emptyDenied")}
+            </EmptyDescription>
+          </EmptyHeader>
+          {canCreate && (
+            <EmptyContent>
+              <Link
+                className={buttonVariants({ variant: "default" })}
+                to="/plugins/forms/new"
+              >
+                {t("plugin.create")}
+              </Link>
+            </EmptyContent>
+          )}
+        </Empty>
+      ) : (
+        <ItemGroup className="gap-2">
+          {forms.data?.map((form) => (
+            <Item variant="outline" key={form.id}>
+              <ItemContent>
+                <ItemTitle>
+                  <h2 className="truncate text-sm font-medium">{form.name}</h2>
+                  <Badge variant="secondary">
+                    {form.publishedRevisionNumber
+                      ? t("plugin.publishedRevision", {
+                          number: form.publishedRevisionNumber,
+                        })
+                      : t("plugin.draft")}
+                  </Badge>
+                </ItemTitle>
+                <ItemDescription>
+                  {form.description || t("plugin.noDescription")}
+                </ItemDescription>
+              </ItemContent>
+              <ItemActions>
+                <Link
+                  className={buttonVariants({ variant: "outline", size: "sm" })}
+                  to={`/plugins/forms/${form.id}`}
+                >
+                  {t("plugin.manage")}
+                </Link>
+              </ItemActions>
+            </Item>
+          ))}
+        </ItemGroup>
       )}
     </main>
   );

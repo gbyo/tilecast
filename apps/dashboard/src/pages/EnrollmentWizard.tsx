@@ -1,6 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { TFunction } from "i18next";
 import { Check } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { api, ApiError } from "../api/client";
 import type { SecurityStatus } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
@@ -13,9 +20,11 @@ import {
 import { Brand } from "../components/Brand";
 import { FormField } from "../components/FormField";
 import { SecurityQr } from "../components/SecurityQr";
-import { Button } from "../components/ui";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Button } from "../components/ui/button";
+import { Spinner } from "../components/ui/spinner";
+import { toast } from "../components/ui/toast";
 import { securityKey } from "./SecurityPage";
-import "./EnrollmentWizard.css";
 
 /**
  * The guided first sign-in. A session that owes the organization a factor
@@ -25,18 +34,22 @@ import "./EnrollmentWizard.css";
  */
 export function EnrollmentWizard({ onFinish }: { onFinish: () => void }) {
   const security = useQuery({ queryKey: securityKey, queryFn: api.security });
+  const { t } = useTranslation(["auth", "common"]);
   if (security.isLoading)
     return (
       <Frame>
-        <p className="table-loading">Preparing your account…</p>
+        <p className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Spinner aria-label={t("status.loading")} />
+          {t("enrollment.preparing")}
+        </p>
       </Frame>
     );
   if (!security.data)
     return (
       <Frame>
-        <div className="notice notice--error" role="alert">
-          Sign-in security could not be loaded. Reload the page to try again.
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>{t("enrollment.loadError")}</AlertDescription>
+        </Alert>
       </Frame>
     );
   return <Wizard status={security.data} onFinish={onFinish} />;
@@ -46,11 +59,12 @@ type Step = "authenticator" | "recovery" | "passkey";
 type Screen = "welcome" | Step | "done";
 
 const stepOrder: readonly Step[] = ["authenticator", "recovery", "passkey"];
-const stepLabels: Record<Step, string> = {
-  authenticator: "Authenticator app",
-  recovery: "Recovery codes",
-  passkey: "Passkey",
-};
+// Step names are stored as locale keys and translated at render.
+const stepLabelKeys = {
+  authenticator: "enrollment.steps.authenticator",
+  recovery: "enrollment.steps.recovery",
+  passkey: "enrollment.steps.passkey",
+} as const;
 
 function Wizard({
   status,
@@ -60,6 +74,7 @@ function Wizard({
   onFinish: () => void;
 }) {
   const { status: auth, logout } = useAuth();
+  const { t } = useTranslation(["auth", "common"]);
   const [screen, setScreen] = useState<Screen>("welcome");
   const [done, setDone] = useState<readonly Step[]>([]);
   // The plan is fixed when the wizard opens. Recomputing it as factors are
@@ -115,9 +130,9 @@ function Wizard({
         <DoneScreen firstName={firstName} status={status} onFinish={onFinish} />
       )}
       {screen !== "done" && (
-        <footer className="enrollment__footer">
-          <Button variant="quiet" onClick={() => void logout()}>
-            Sign out instead
+        <footer className="border-t border-border pt-2">
+          <Button variant="ghost" onClick={() => void logout()}>
+            {t("enrollment.signOut")}
           </Button>
         </footer>
       )}
@@ -127,14 +142,69 @@ function Wizard({
 
 function Frame({ children }: { children: ReactNode }) {
   return (
-    <main className="enrollment">
-      <section className="enrollment__card">
-        <div className="enrollment__logo">
+    <main className="flex min-h-svh items-start justify-center bg-background px-[clamp(1rem,5vw,3rem)] py-[clamp(1rem,5vw,3.5rem)]">
+      <section className="grid w-full max-w-[34rem] content-start gap-[1.35rem] rounded-[var(--tc-radius-overlay)] border border-border bg-card p-[clamp(1.5rem,4vw,2.25rem)]">
+        <div className="flex justify-center [&_.brand__studio-logo]:h-auto [&_.brand__studio-logo]:w-[min(10.5rem,60%)]">
           <Brand compact />
         </div>
         {children}
       </section>
     </main>
+  );
+}
+
+function Eyebrow({ children }: { children: ReactNode }) {
+  return (
+    <p className="m-0 text-[0.74rem] font-semibold tracking-[0.07em] text-muted-foreground uppercase">
+      {children}
+    </p>
+  );
+}
+
+function IntroHeader({
+  eyebrow,
+  title,
+  lede,
+  step = false,
+}: {
+  eyebrow?: ReactNode;
+  title: ReactNode;
+  lede: ReactNode;
+  step?: boolean;
+}) {
+  return (
+    <header className="grid gap-2">
+      {eyebrow ? <Eyebrow>{eyebrow}</Eyebrow> : null}
+      <h1
+        className={`m-0 leading-[1.2] font-semibold ${step ? "text-xl" : "text-[1.55rem]"}`}
+      >
+        {title}
+      </h1>
+      <p className="m-0 text-[0.92rem] leading-[1.5] text-muted-foreground">
+        {lede}
+      </p>
+    </header>
+  );
+}
+
+function Actions({ children }: { children: ReactNode }) {
+  return <div className="flex flex-wrap items-center gap-2">{children}</div>;
+}
+
+function LoadingButton({
+  loading,
+  children,
+  ...props
+}: ComponentProps<typeof Button> & { loading?: boolean }) {
+  return (
+    <Button
+      disabled={loading ?? props.disabled}
+      aria-busy={loading || undefined}
+      {...props}
+    >
+      {loading ? <Spinner /> : null}
+      {children}
+    </Button>
   );
 }
 
@@ -147,42 +217,55 @@ function WelcomeScreen({
   plan: readonly Step[];
   onStart: () => void;
 }) {
-  const blurbs: Record<Step, string> = {
-    authenticator: "Six-digit codes from an app on your phone.",
-    recovery: "Printable codes that get you back in if you lose the app.",
-    passkey:
-      "Optional. Your fingerprint, face, or screen lock instead of a code.",
-  };
+  const { t } = useTranslation(["auth", "common"]);
+  const blurbKeys = {
+    authenticator: "enrollment.welcome.blurbs.authenticator",
+    recovery: "enrollment.welcome.blurbs.recovery",
+    passkey: "enrollment.welcome.blurbs.passkey",
+  } as const;
   return (
     <>
-      <header className="enrollment__intro">
-        <p className="enrollment__eyebrow">Welcome to Tilecast Studio</p>
-        <h1>{firstName ? `Hello, ${firstName}.` : "Hello."}</h1>
-        <p className="enrollment__lede">
-          This organization asks for a second step when you sign in. Setting it
-          up takes about two minutes, and you only do it once.
-        </p>
-      </header>
+      <IntroHeader
+        eyebrow={t("enrollment.welcome.eyebrow")}
+        title={
+          firstName
+            ? t("enrollment.welcome.titleNamed", { name: firstName })
+            : t("enrollment.welcome.titleAnonymous")
+        }
+        lede={t("enrollment.welcome.description")}
+      />
       {plan.length > 0 && (
-        <ol className="enrollment__plan">
+        <ol className="m-0 grid list-none gap-2 p-0">
           {plan.map((step, index) => (
-            <li key={step}>
-              <span className="enrollment__plan-number" aria-hidden="true">
+            <li
+              key={step}
+              className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3 rounded-[var(--tc-radius-control)] border border-border px-3 py-2.5"
+            >
+              <span
+                className="grid size-[1.45rem] place-items-center rounded-full bg-muted text-[0.8rem] font-semibold text-muted-foreground"
+                aria-hidden="true"
+              >
                 {index + 1}
               </span>
-              <span>
-                <strong>{stepLabels[step]}</strong>
-                <small>{blurbs[step]}</small>
+              <span className="grid gap-0.5">
+                <strong className="text-sm font-semibold">
+                  {t(stepLabelKeys[step])}
+                </strong>
+                <small className="text-[0.82rem] text-muted-foreground">
+                  {t(blurbKeys[step])}
+                </small>
               </span>
             </li>
           ))}
         </ol>
       )}
-      <div className="enrollment__actions">
-        <Button variant="primary" onClick={onStart}>
-          {plan.length > 0 ? "Get started" : "Continue"}
+      <Actions>
+        <Button onClick={onStart}>
+          {plan.length > 0
+            ? t("enrollment.welcome.start")
+            : t("enrollment.welcome.continue")}
         </Button>
-      </div>
+      </Actions>
     </>
   );
 }
@@ -196,13 +279,17 @@ function Progress({
   current: Step;
   done: readonly Step[];
 }) {
+  const { t } = useTranslation(["auth", "common"]);
   const position = plan.indexOf(current) + 1;
   return (
-    <nav className="enrollment__progress" aria-label="Setup progress">
-      <p className="enrollment__eyebrow">
-        Step {position} of {plan.length}
-      </p>
-      <ol>
+    <nav className="grid gap-2" aria-label={t("enrollment.progress.label")}>
+      <Eyebrow>
+        {t("enrollment.progress.position", {
+          position,
+          total: plan.length,
+        })}
+      </Eyebrow>
+      <ol className="m-0 flex list-none flex-wrap gap-1.5 p-0">
         {plan.map((step) => (
           <li
             key={step}
@@ -214,9 +301,10 @@ function Progress({
                   ? "current"
                   : "todo"
             }
+            className="flex items-center gap-1.5 rounded-[var(--tc-radius-control)] border border-transparent bg-muted px-2 py-1 text-[0.78rem] text-muted-foreground data-[state=current]:border-[var(--tc-border-strong,var(--border))] data-[state=current]:font-semibold data-[state=current]:text-foreground"
           >
             {done.includes(step) && <Check size={13} aria-hidden="true" />}
-            {stepLabels[step]}
+            {t(stepLabelKeys[step])}
           </li>
         ))}
       </ol>
@@ -226,6 +314,7 @@ function Progress({
 
 function AuthenticatorStep({ onDone }: { onDone: () => void }) {
   const { status: auth } = useAuth();
+  const { t } = useTranslation(["auth", "common"]);
   const csrfToken = auth?.csrfToken ?? "";
   const refresh = useSecurityRefresh();
   const [code, setCode] = useState("");
@@ -252,23 +341,30 @@ function AuthenticatorStep({ onDone }: { onDone: () => void }) {
 
   return (
     <>
-      <header className="enrollment__step-header">
-        <h1>Add your authenticator app</h1>
-        <p>
-          Scan this code with an app such as Aegis, Google Authenticator, or
-          1Password, then type the six-digit code it shows.
-        </p>
-      </header>
-      {errorNotice(begin.error ?? confirm.error)}
+      <IntroHeader
+        step
+        title={t("enrollment.authenticator.title")}
+        lede={t("enrollment.authenticator.description")}
+      />
+      {errorNotice(begin.error ?? confirm.error, t)}
       {begin.data && (
-        <div className="enrollment__scan">
+        <div className="grid gap-4 sm:grid-cols-[auto_minmax(0,1fr)] max-sm:justify-items-center">
           <SecurityQr uri={begin.data.provisioningUri} />
-          <div className="enrollment__scan-copy">
-            <p className="enrollment__secret">
-              Cannot scan? Enter this key by hand:
-              <code>{begin.data.secret}</code>
+          <div className="grid content-start gap-3 max-sm:justify-self-stretch">
+            <p className="m-0 grid gap-1 text-[0.84rem] text-muted-foreground">
+              <Trans
+                i18nKey="enrollment.authenticator.manualKey"
+                ns="auth"
+                values={{ secret: begin.data.secret }}
+                components={{
+                  secretCode: (
+                    <code className="rounded-[var(--tc-radius-control)] bg-muted px-2 py-1.5 font-mono text-[0.9rem] tracking-[0.08em] break-all" />
+                  ),
+                }}
+              />
             </p>
             <form
+              className="grid gap-3"
               onSubmit={(event) => {
                 event.preventDefault();
                 confirm.mutate();
@@ -276,25 +372,26 @@ function AuthenticatorStep({ onDone }: { onDone: () => void }) {
             >
               <FormField
                 id="enroll-totp-code"
-                label="Six-digit code"
+                label={t("enrollment.authenticator.codeLabel")}
                 inputMode="numeric"
                 autoComplete="one-time-code"
                 autoFocus
                 value={code}
                 onChange={(event) => setCode(event.target.value)}
               />
-              <Button
-                variant="primary"
-                type="submit"
-                loading={confirm.isPending}
-              >
-                Confirm and continue
-              </Button>
+              <LoadingButton type="submit" loading={confirm.isPending}>
+                {t("enrollment.authenticator.submit")}
+              </LoadingButton>
             </form>
           </div>
         </div>
       )}
-      {begin.isPending && <p className="table-loading">Creating a secret…</p>}
+      {begin.isPending && (
+        <p className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Spinner aria-label={t("status.loading")} />
+          {t("enrollment.authenticator.creatingSecret")}
+        </p>
+      )}
     </>
   );
 }
@@ -307,6 +404,7 @@ function RecoveryStep({
   onSkip: () => void;
 }) {
   const { status: auth } = useAuth();
+  const { t } = useTranslation(["auth", "common"]);
   const csrfToken = auth?.csrfToken ?? "";
   const refresh = useSecurityRefresh();
   const [password, setPassword] = useState("");
@@ -324,18 +422,15 @@ function RecoveryStep({
 
   return (
     <>
-      <header className="enrollment__step-header">
-        <h1>Save your recovery codes</h1>
-        <p>
-          These are how you get back in if you lose your phone. Tilecast has no
-          email reset, so keep them somewhere you can reach without this
-          account.
-        </p>
-      </header>
-      {errorNotice(generate.error)}
+      <IntroHeader
+        step
+        title={t("enrollment.recovery.title")}
+        lede={t("enrollment.recovery.description")}
+      />
+      {errorNotice(generate.error, t)}
       {!codes ? (
         <form
-          className="enrollment__confirm"
+          className="grid gap-3"
           onSubmit={(event) => {
             event.preventDefault();
             generate.mutate();
@@ -343,56 +438,67 @@ function RecoveryStep({
         >
           <FormField
             id="enroll-recovery-password"
-            label="Confirm your password"
-            hint="Tilecast asks again before it issues codes."
+            label={t("enrollment.recovery.passwordLabel")}
+            hint={t("enrollment.recovery.passwordHint")}
             type="password"
             autoComplete="current-password"
             autoFocus
             value={password}
             onChange={(event) => setPassword(event.target.value)}
           />
-          <div className="enrollment__actions">
-            <Button
-              variant="primary"
-              type="submit"
-              loading={generate.isPending}
-            >
-              Generate codes
+          <Actions>
+            <LoadingButton type="submit" loading={generate.isPending}>
+              {t("enrollment.recovery.submit")}
+            </LoadingButton>
+            <Button variant="ghost" type="button" onClick={onSkip}>
+              {t("enrollment.recovery.skip")}
             </Button>
-            <Button variant="quiet" type="button" onClick={onSkip}>
-              Skip for now
-            </Button>
-          </div>
+          </Actions>
         </form>
       ) : (
-        <div className="enrollment__codes">
-          <div className="notice notice--warning">
-            <strong>These codes are shown once.</strong>
-            <p>
-              Tilecast stores only their hashes and cannot show them again. Each
-              code works one time.
-            </p>
-          </div>
-          <ul>
+        <div className="grid gap-3">
+          <Alert>
+            <AlertTitle>{t("enrollment.recovery.shownOnceTitle")}</AlertTitle>
+            <AlertDescription>
+              {t("enrollment.recovery.shownOnceDescription")}
+            </AlertDescription>
+          </Alert>
+          <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-1.5 p-0">
             {codes.map((code) => (
               <li key={code}>
-                <code>{code}</code>
+                <code className="block rounded-[var(--tc-radius-control)] border border-border bg-muted px-2 py-1.5 text-center font-mono text-[0.92rem] tracking-[0.06em]">
+                  {code}
+                </code>
               </li>
             ))}
           </ul>
-          <div className="enrollment__actions">
+          <Actions>
             <Button
+              variant="secondary"
               onClick={() => {
-                void navigator.clipboard?.writeText(codes.join("\n"));
-                setCopied(true);
+                void navigator.clipboard
+                  ?.writeText(codes.join("\n"))
+                  .then(() => {
+                    setCopied(true);
+                    toast.add({
+                      title: "Recovery codes copied.",
+                      type: "success",
+                    });
+                  })
+                  .catch(() =>
+                    toast.add({
+                      title: "Recovery codes could not be copied.",
+                      type: "error",
+                    }),
+                  );
               }}
             >
-              {copied ? "Copied" : "Copy all"}
+              {copied
+                ? t("enrollment.recovery.copied")
+                : t("enrollment.recovery.copyAll")}
             </Button>
-            <Button variant="primary" onClick={onDone}>
-              I have saved them
-            </Button>
-          </div>
+            <Button onClick={onDone}>{t("enrollment.recovery.saved")}</Button>
+          </Actions>
         </div>
       )}
     </>
@@ -407,6 +513,7 @@ function PasskeyStep({
   onSkip: () => void;
 }) {
   const { status: auth } = useAuth();
+  const { t } = useTranslation(["auth", "common"]);
   const csrfToken = auth?.csrfToken ?? "";
   const refresh = useSecurityRefresh();
 
@@ -418,7 +525,7 @@ function PasskeyStep({
       const credential = (await navigator.credentials.create({
         publicKey: toCreationOptions(ceremony.options),
       })) as PublicKeyCredential | null;
-      if (!credential) throw new Error("No passkey was created.");
+      if (!credential) throw new Error(t("errors.noPasskeyCreated"));
       return api.registerPasskey(
         ceremony.challengeToken,
         serializeRegistration(credential),
@@ -433,29 +540,26 @@ function PasskeyStep({
 
   return (
     <>
-      <header className="enrollment__step-header">
-        <h1>Add a passkey</h1>
-        <p>
-          A passkey signs you in with your fingerprint, face, or screen lock,
-          with no code to type. It counts as your second step on its own. You
-          can add one later from My Account instead.
-        </p>
-      </header>
+      <IntroHeader
+        step
+        title={t("enrollment.passkey.title")}
+        lede={t("enrollment.passkey.description")}
+      />
       {errorNotice(
         isPasskeyCancellation(register.error) ? null : register.error,
+        t,
       )}
-      <div className="enrollment__actions">
-        <Button
-          variant="primary"
+      <Actions>
+        <LoadingButton
           loading={register.isPending}
           onClick={() => register.mutate()}
         >
-          Add a passkey
+          {t("enrollment.passkey.submit")}
+        </LoadingButton>
+        <Button variant="ghost" onClick={onSkip}>
+          {t("enrollment.passkey.skip")}
         </Button>
-        <Button variant="quiet" onClick={onSkip}>
-          Not now
-        </Button>
-      </div>
+      </Actions>
     </>
   );
 }
@@ -470,38 +574,43 @@ function DoneScreen({
   onFinish: () => void;
 }) {
   const client = useQueryClient();
+  const { t } = useTranslation(["auth", "common"]);
   const summary = [
-    status.totpEnrolled ? "Authenticator app added" : null,
+    status.totpEnrolled ? t("enrollment.done.authenticatorAdded") : null,
     status.recoveryCodesRemaining > 0
-      ? `${status.recoveryCodesRemaining} recovery codes issued`
+      ? t("enrollment.done.recoveryCodesIssued", {
+          count: status.recoveryCodesRemaining,
+        })
       : null,
     status.passkeys.length > 0
-      ? `Passkey added — ${status.passkeys[0]?.name}`
+      ? t("enrollment.done.passkeyAdded", {
+          name: status.passkeys[0]?.name,
+        })
       : null,
   ].filter((line): line is string => Boolean(line));
   return (
     <>
-      <header className="enrollment__intro">
-        <p className="enrollment__eyebrow">Sign-in security</p>
-        <h1>{firstName ? `You're set, ${firstName}.` : "You're set."}</h1>
-        <p className="enrollment__lede">
-          Next time you sign in, Tilecast asks for your second step after your
-          password. You can change any of this from My Account.
-        </p>
-      </header>
+      <IntroHeader
+        eyebrow={t("enrollment.done.eyebrow")}
+        title={
+          firstName
+            ? t("enrollment.done.titleNamed", { name: firstName })
+            : t("enrollment.done.titleAnonymous")
+        }
+        lede={t("enrollment.done.description")}
+      />
       {summary.length > 0 && (
-        <ul className="enrollment__summary">
+        <ul className="m-0 grid list-none gap-1.5 p-0">
           {summary.map((line) => (
-            <li key={line}>
+            <li key={line} className="flex items-center gap-2 text-sm">
               <Check size={15} aria-hidden="true" />
               {line}
             </li>
           ))}
         </ul>
       )}
-      <div className="enrollment__actions">
+      <Actions>
         <Button
-          variant="primary"
           onClick={() => {
             // The gate lives on the session, so the dashboard only lets the
             // user through once the auth status has caught up.
@@ -509,9 +618,9 @@ function DoneScreen({
             onFinish();
           }}
         >
-          Enter Tilecast Studio
+          {t("enrollment.done.enter")}
         </Button>
-      </div>
+      </Actions>
     </>
   );
 }
@@ -529,15 +638,14 @@ function useSecurityRefresh() {
   };
 }
 
-function errorNotice(error: Error | null | undefined) {
+function errorNotice(error: Error | null | undefined, t: TFunction<"auth">) {
   if (!error) return null;
+  // Server failures render untouched; only the client-side fallback is ours.
   const message =
-    error instanceof ApiError
-      ? error.message
-      : "Tilecast could not complete the request.";
+    error instanceof ApiError ? error.message : t("errors.requestFailed");
   return (
-    <div className="notice notice--error" role="alert">
-      {message}
-    </div>
+    <Alert variant="destructive">
+      <AlertDescription>{message}</AlertDescription>
+    </Alert>
   );
 }

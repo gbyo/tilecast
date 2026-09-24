@@ -1,5 +1,12 @@
 import { Search, X } from "lucide-react";
 import type { ReactNode } from "react";
+import { cn } from "cn";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "./ui/input-group";
 
 export function DashboardListToolbar({
   children,
@@ -9,7 +16,9 @@ export function DashboardListToolbar({
   className?: string;
 }) {
   return (
-    <div className={`dashboard-list-toolbar ${className}`.trim()}>
+    <div
+      className={cn("mb-4 flex w-full flex-wrap items-center gap-2", className)}
+    >
       {children}
     </div>
   );
@@ -20,35 +29,44 @@ export function DashboardSearch({
   onValueChange,
   label,
   placeholder,
+  clearLabel,
   autoFocus = false,
+  className,
 }: {
   value: string;
   onValueChange: (value: string) => void;
   label: string;
   placeholder: string;
+  /** Localized clear-button name; falls back to Clear <label> when omitted. */
+  clearLabel?: string;
   autoFocus?: boolean;
+  className?: string;
 }) {
   return (
-    <label className="dashboard-search">
-      <Search size={16} aria-hidden="true" />
-      <span className="visually-hidden">{label}</span>
-      <input
+    <InputGroup className={cn("w-full max-w-105 flex-1 basis-70", className)}>
+      <InputGroupAddon>
+        <Search aria-hidden="true" />
+      </InputGroupAddon>
+      <InputGroupInput
         type="search"
+        className="[&::-webkit-search-cancel-button]:hidden"
         autoFocus={autoFocus}
         value={value}
         onChange={(event) => onValueChange(event.target.value)}
         placeholder={placeholder}
+        aria-label={label}
       />
       {value && (
-        <button
-          type="button"
-          className="dashboard-search__clear"
-          aria-label={`Clear ${label.toLowerCase()}`}
-          onClick={() => onValueChange("")}
-        >
-          <X size={14} aria-hidden="true" />
-        </button>
+        <InputGroupAddon align="inline-end">
+          <InputGroupButton
+            size="icon-xs"
+            aria-label={clearLabel ?? `Clear ${label.toLowerCase()}`}
+            onClick={() => onValueChange("")}
+          >
+            <X aria-hidden="true" />
+          </InputGroupButton>
+        </InputGroupAddon>
       )}
-    </label>
+    </InputGroup>
   );
 }

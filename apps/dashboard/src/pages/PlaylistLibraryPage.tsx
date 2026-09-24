@@ -1,26 +1,54 @@
+import { useQuery } from "@tanstack/react-query";
 import {
-  Button,
-  Dialog,
-  EmptyState,
-  Field,
-  PageHeader,
-  Select,
-  ViewToggle,
-} from "../components/ui";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { ChevronRight, ListVideo, Plus, Tags } from "lucide-react";
+  ChevronRight,
+  LayoutGrid,
+  List,
+  ListVideo,
+  Plus,
+  Tags,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { api } from "../api/client";
 import type { Playlist, PlaylistPreviewItem } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { useFormatLocale } from "../i18n";
+import type { PlaylistsT } from "../components/playlist-editor/playlistEditorModel";
 import {
   DashboardListToolbar,
   DashboardSearch,
 } from "../components/DashboardListToolbar";
 import { PlaylistPreview } from "../components/PresentationPreview";
-import { WorkspaceTabs, presentationTabs } from "../navigation/WorkspaceTabs";
-import "./PlaylistLibraryPage.css";
+import { Button } from "../components/ui/button";
+import { Badge } from "../components/ui/badge";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../components/ui/empty";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemMedia,
+  ItemTitle,
+} from "../components/ui/item";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { Skeleton } from "../components/ui/skeleton";
+import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
+import { PlaylistCreateDialog } from "../components/playlist-editor/PlaylistCreateDialog";
 
 export type { PlaylistPreviewItem } from "../api/types";
 
@@ -41,11 +69,39 @@ export type PlaylistLibraryItem = Pick<
 export type PlaylistLibraryFilter = "all" | "standard" | "tag" | "empty";
 export type PlaylistLibrarySort = "updated" | "name" | "items" | "created";
 
+const playlistFilterOptions: {
+  value: PlaylistLibraryFilter;
+  labelKey:
+    | "library.filters.all"
+    | "library.filters.standard"
+    | "library.filters.tag"
+    | "library.filters.empty";
+}[] = [
+  { value: "all", labelKey: "library.filters.all" },
+  { value: "standard", labelKey: "library.filters.standard" },
+  { value: "tag", labelKey: "library.filters.tag" },
+  { value: "empty", labelKey: "library.filters.empty" },
+];
+
+const playlistSortOptions: {
+  value: PlaylistLibrarySort;
+  labelKey:
+    | "library.sorts.updated"
+    | "library.sorts.name"
+    | "library.sorts.items"
+    | "library.sorts.created";
+}[] = [
+  { value: "updated", labelKey: "library.sorts.updated" },
+  { value: "name", labelKey: "library.sorts.name" },
+  { value: "items", labelKey: "library.sorts.items" },
+  { value: "created", labelKey: "library.sorts.created" },
+];
+
 const playlistViewStorageKey = "tilecast.playlist-library.view";
-const playlistNameCollator = new Intl.Collator(undefined, {
-  numeric: true,
-  sensitivity: "base",
-});
+
+function playlistNameCollator(locale: string) {
+  return new Intl.Collator(locale, { numeric: true, sensitivity: "base" });
+}
 
 function storedPlaylistView(): "grid" | "list" {
   if (typeof window === "undefined") return "grid";
@@ -63,7 +119,9 @@ export function filterAndSortPlaylists(
   search: string,
   filter: PlaylistLibraryFilter,
   sort: PlaylistLibrarySort,
+  locale = "en",
 ): PlaylistLibraryItem[] {
+  const collator = playlistNameCollator(locale);
   const normalizedSearch = search.trim().toLocaleLowerCase();
   const filtered = playlists.filter((playlist) => {
     if (filter === "standard" && playlist.sourceType === "tag") return false;
@@ -81,46 +139,47 @@ export function filterAndSortPlaylists(
   });
 
   return [...filtered].sort((left, right) => {
-    if (sort === "name")
-      return playlistNameCollator.compare(left.name, right.name);
+    if (sort === "name") return collator.compare(left.name, right.name);
     if (sort === "items") {
       return (
         right.itemCount - left.itemCount ||
-        playlistNameCollator.compare(left.name, right.name)
+        collator.compare(left.name, right.name)
       );
     }
     if (sort === "created") {
       return (
         Date.parse(right.createdAt) - Date.parse(left.createdAt) ||
-        playlistNameCollator.compare(left.name, right.name)
+        collator.compare(left.name, right.name)
       );
     }
     return (
       Date.parse(right.updatedAt) - Date.parse(left.updatedAt) ||
-      playlistNameCollator.compare(left.name, right.name)
+      collator.compare(left.name, right.name)
     );
   });
 }
 
 export function formatPlaylistUpdatedAt(
   value: string,
+  t: PlaylistsT,
   now = Date.now(),
+  locale = "en",
 ): string {
   const timestamp = Date.parse(value);
-  if (!Number.isFinite(timestamp)) return "Update time unavailable";
+  if (!Number.isFinite(timestamp)) return t("library.updated.unavailable");
   const elapsed = Math.max(0, now - timestamp);
-  if (elapsed < 60_000) return "Updated just now";
+  if (elapsed < 60_000) return t("library.updated.justNow");
   if (elapsed < 3_600_000) {
     const minutes = Math.max(1, Math.floor(elapsed / 60_000));
-    return `Updated ${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+    return t("library.updated.minutesAgo", { count: minutes });
   }
   if (elapsed < 86_400_000) {
     const hours = Math.max(1, Math.floor(elapsed / 3_600_000));
-    return `Updated ${hours} hour${hours === 1 ? "" : "s"} ago`;
+    return t("library.updated.hoursAgo", { count: hours });
   }
   if (elapsed < 604_800_000) {
     const days = Math.max(1, Math.floor(elapsed / 86_400_000));
-    return `Updated ${days} day${days === 1 ? "" : "s"} ago`;
+    return t("library.updated.daysAgo", { count: days });
   }
   const options: Intl.DateTimeFormatOptions = {
     month: "short",
@@ -129,19 +188,21 @@ export function formatPlaylistUpdatedAt(
   if (new Date(timestamp).getFullYear() !== new Date(now).getFullYear()) {
     options.year = "numeric";
   }
-  return `Updated ${new Intl.DateTimeFormat(undefined, options).format(timestamp)}`;
+  return t("library.updated.onDate", {
+    date: new Intl.DateTimeFormat(locale, options).format(timestamp),
+  });
 }
 
-function playlistStatus(playlist: PlaylistLibraryItem): string {
-  if (playlist.itemCount === 0) return "Empty";
-  return playlist.sourceType === "tag" ? "Tag-driven" : "Standard";
-}
-
-function itemCountLabel(count: number): string {
-  return `${count} item${count === 1 ? "" : "s"}`;
+function playlistStatus(playlist: PlaylistLibraryItem, t: PlaylistsT): string {
+  if (playlist.itemCount === 0) return t("library.status.empty");
+  return playlist.sourceType === "tag"
+    ? t("library.status.tag")
+    : t("library.status.standard");
 }
 
 export function PlaylistLibraryPage() {
+  const { t } = useTranslation("playlists");
+  const formatLocale = useFormatLocale();
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
   const canManage = auth.status?.user?.role !== "viewer";
@@ -152,16 +213,9 @@ export function PlaylistLibraryPage() {
   const [sort, setSort] = useState<PlaylistLibrarySort>("updated");
   const [view, setView] = useState<"grid" | "list">(storedPlaylistView);
   const [creating, setCreating] = useState(false);
-  const [name, setName] = useState("");
-  const [sourceType, setSourceType] = useState<"static" | "tag">("static");
   const query = useQuery({
     queryKey: ["playlists", "library"],
     queryFn: () => api.playlists(""),
-  });
-  const create = useMutation({
-    mutationFn: () =>
-      api.createPlaylist({ name, description: "", sourceType }, csrf),
-    onSuccess: (playlist) => void navigate(`/playlists/${playlist.id}`),
   });
 
   useEffect(() => {
@@ -181,8 +235,9 @@ export function PlaylistLibraryPage() {
     [query.data?.items],
   );
   const visiblePlaylists = useMemo(
-    () => filterAndSortPlaylists(allPlaylists, search, filter, sort),
-    [allPlaylists, filter, search, sort],
+    () =>
+      filterAndSortPlaylists(allPlaylists, search, filter, sort, formatLocale),
+    [allPlaylists, filter, formatLocale, search, sort],
   );
 
   const closeCreate = () => {
@@ -199,141 +254,268 @@ export function PlaylistLibraryPage() {
   };
 
   return (
-    <section className="playlist-library-page">
-      <WorkspaceTabs label="Presentations" tabs={presentationTabs} />
-      <PageHeader
-        title="Playlists"
-        description="Find, preview, and organize fullscreen playback for your screens."
-        actions={
-          canManage ? (
-            <Button variant="primary" onClick={() => setCreating(true)}>
+    <section className="grid gap-4">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {t("library.title")}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t("library.subtitle")}
+          </p>
+        </div>
+        {canManage && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" onClick={() => setCreating(true)}>
               <Plus size={16} aria-hidden="true" />
-              Create playlist
+              {t("library.create")}
             </Button>
-          ) : undefined
-        }
-      />
-      <DashboardListToolbar className="playlist-library-toolbar">
+          </div>
+        )}
+      </header>
+      <DashboardListToolbar>
         <DashboardSearch
           value={search}
           onValueChange={setSearch}
-          label="Search playlists"
-          placeholder="Search names, descriptions, or previewed content"
+          label={t("library.searchLabel")}
+          placeholder={t("library.searchPlaceholder")}
         />
         <Select
-          className="dashboard-list-toolbar__filter"
-          aria-label="Filter playlists"
+          items={playlistFilterOptions.map((option) => ({
+            value: option.value,
+            label: t(option.labelKey),
+          }))}
           value={filter}
-          onChange={(event) =>
-            setFilter(event.target.value as PlaylistLibraryFilter)
-          }
+          onValueChange={(next) => setFilter(next as PlaylistLibraryFilter)}
         >
-          <option value="all">All playlists</option>
-          <option value="standard">Standard playlists</option>
-          <option value="tag">Tag-driven playlists</option>
-          <option value="empty">Empty playlists</option>
+          <SelectTrigger
+            aria-label={t("library.filterLabel")}
+            className="w-48 max-sm:flex-1"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {playlistFilterOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {t(option.labelKey)}
+              </SelectItem>
+            ))}
+          </SelectContent>
         </Select>
         <Select
-          className="dashboard-list-toolbar__filter"
-          aria-label="Sort playlists"
+          items={playlistSortOptions.map((option) => ({
+            value: option.value,
+            label: t(option.labelKey),
+          }))}
           value={sort}
-          onChange={(event) =>
-            setSort(event.target.value as PlaylistLibrarySort)
-          }
+          onValueChange={(next) => setSort(next as PlaylistLibrarySort)}
         >
-          <option value="updated">Recently updated</option>
-          <option value="name">Name</option>
-          <option value="items">Most items</option>
-          <option value="created">Recently created</option>
+          <SelectTrigger
+            aria-label={t("library.sortLabel")}
+            className="w-44 max-sm:flex-1"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {playlistSortOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {t(option.labelKey)}
+              </SelectItem>
+            ))}
+          </SelectContent>
         </Select>
-        <ViewToggle
-          value={view}
-          onValueChange={setView}
-          label="Playlist view"
-        />
+        <ToggleGroup
+          aria-label={t("library.viewLabel")}
+          variant="outline"
+          spacing={0}
+          value={[view]}
+          onValueChange={(values) => {
+            const next = values[0];
+            if (next === "grid" || next === "list") setView(next);
+          }}
+        >
+          <ToggleGroupItem value="grid" aria-label={t("library.gridView")}>
+            <LayoutGrid size={16} aria-hidden="true" />
+          </ToggleGroupItem>
+          <ToggleGroupItem value="list" aria-label={t("library.listView")}>
+            <List size={16} aria-hidden="true" />
+          </ToggleGroupItem>
+        </ToggleGroup>
       </DashboardListToolbar>
 
       {!query.isLoading && allPlaylists.length > 0 && (
-        <div className="playlist-library-summary" aria-live="polite">
-          Showing {visiblePlaylists.length} of {allPlaylists.length} playlists
+        <div className="text-sm text-muted-foreground" aria-live="polite">
+          {t("library.showing", {
+            shown: visiblePlaylists.length,
+            total: allPlaylists.length,
+          })}
         </div>
       )}
 
       {query.isLoading ? (
-        <div className="table-loading">Loading playlists…</div>
+        <div className="grid gap-2">
+          <Skeleton className="h-12" />
+          <Skeleton className="h-12" />
+        </div>
       ) : allPlaylists.length === 0 ? (
-        <EmptyState
-          className="content-empty"
-          icon={<ListVideo size={24} aria-hidden="true" />}
-          title="No playlists yet"
-          message={
-            canManage
-              ? "Create a playlist, then add ready images, videos, Widgets, or Layouts."
-              : "An Owner, Administrator, or Editor can create playlists."
-          }
-          action={
-            canManage ? (
-              <Button variant="primary" onClick={() => setCreating(true)}>
-                Create playlist
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <ListVideo size={24} aria-hidden="true" />
+            </EmptyMedia>
+            <EmptyTitle>{t("library.emptyTitle")}</EmptyTitle>
+            <EmptyDescription>
+              {canManage
+                ? t("library.emptyDescriptionManage")
+                : t("library.emptyDescriptionReadonly")}
+            </EmptyDescription>
+          </EmptyHeader>
+          {canManage && (
+            <EmptyContent>
+              <Button type="button" onClick={() => setCreating(true)}>
+                {t("library.create")}
               </Button>
-            ) : undefined
-          }
-        />
+            </EmptyContent>
+          )}
+        </Empty>
       ) : visiblePlaylists.length === 0 ? (
-        <EmptyState
-          className="content-empty"
-          icon={<ListVideo size={24} aria-hidden="true" />}
-          title="No matching playlists"
-          message="Try a different search or clear the playlist filter."
-          action={
-            <Button variant="secondary" onClick={clearLibraryFilters}>
-              Clear filters
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <ListVideo size={24} aria-hidden="true" />
+            </EmptyMedia>
+            <EmptyTitle>{t("library.noMatchTitle")}</EmptyTitle>
+            <EmptyDescription>
+              {t("library.noMatchDescription")}
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={clearLibraryFilters}
+            >
+              {t("library.clearFilters")}
             </Button>
-          }
-        />
+          </EmptyContent>
+        </Empty>
+      ) : view === "list" ? (
+        <ItemGroup className="gap-2">
+          {visiblePlaylists.map((playlist) => (
+            <Item
+              key={playlist.id}
+              variant="outline"
+              render={
+                <Link
+                  to={`/playlists/${playlist.id}`}
+                  title={`Open ${playlist.name}`}
+                />
+              }
+            >
+              <ItemMedia
+                variant="image"
+                className="size-16 rounded-md bg-muted sm:size-20"
+              >
+                <div className="size-full" aria-hidden="true">
+                  <PlaylistPreview playlist={playlist} />
+                </div>
+              </ItemMedia>
+              <ItemContent className="min-w-0">
+                <ItemTitle>
+                  {playlist.sourceType === "tag" && (
+                    <Tags size={15} aria-hidden="true" className="shrink-0" />
+                  )}
+                  {playlist.name}
+                </ItemTitle>
+                <ItemDescription>
+                  {playlist.description || "No description"}
+                </ItemDescription>
+                <ItemDescription className="flex flex-wrap items-center gap-x-2">
+                  <span>{t("count.items", { count: playlist.itemCount })}</span>
+                  <span>
+                    {t("library.revision", { revision: playlist.revision })}
+                  </span>
+                  <span>
+                    {formatPlaylistUpdatedAt(
+                      playlist.updatedAt,
+                      t,
+                      Date.now(),
+                      formatLocale,
+                    )}
+                  </span>
+                </ItemDescription>
+              </ItemContent>
+              <ItemActions>
+                <Badge variant="outline">{playlistStatus(playlist, t)}</Badge>
+                <ChevronRight
+                  size={17}
+                  aria-hidden="true"
+                  className="text-muted-foreground"
+                />
+              </ItemActions>
+            </Item>
+          ))}
+        </ItemGroup>
       ) : (
-        <div className={`playlist-library playlist-library--${view}`}>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {visiblePlaylists.map((playlist) => (
             <article
-              className="playlist-library-card"
-              data-empty={playlist.itemCount === 0 || undefined}
               key={playlist.id}
+              className="min-w-0 overflow-hidden rounded-xl border border-border"
             >
               <Link
                 to={`/playlists/${playlist.id}`}
-                title={`Open ${playlist.name}`}
+                title={t("library.openPlaylist", { name: playlist.name })}
+                className="grid gap-3 p-3 hover:bg-muted"
               >
-                <div className="playlist-library-card__preview">
+                <div className="relative">
                   <PlaylistPreview playlist={playlist} />
-                  <span className="playlist-library-card__status">
-                    {playlistStatus(playlist)}
+                  <span className="absolute top-2 left-2 rounded-full bg-background/90 px-2 py-0.5 text-xs font-medium">
+                    {playlistStatus(playlist, t)}
                   </span>
                 </div>
-                <div className="playlist-library-card__body">
-                  <div className="playlist-library-card__heading">
-                    <span className="playlist-library-card__title">
+                <div className="grid gap-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex min-w-0 items-center gap-1.5">
                       {playlist.sourceType === "tag" && (
                         <Tags
-                          className="playlist-library-card__tag"
                           size={15}
                           role="img"
-                          aria-label="Tag-driven playlist"
+                          aria-label={t("library.tagDrivenBadge")}
+                          className="shrink-0"
                         />
                       )}
-                      <strong>{playlist.name}</strong>
+                      <strong className="truncate text-sm">
+                        {playlist.name}
+                      </strong>
                     </span>
-                    <ChevronRight size={17} aria-hidden="true" />
+                    <ChevronRight
+                      size={17}
+                      aria-hidden="true"
+                      className="shrink-0 text-muted-foreground"
+                    />
                   </div>
                   {playlist.description && (
-                    <p className="playlist-library-card__description">
+                    <p className="truncate text-xs text-muted-foreground">
                       {playlist.description}
                     </p>
                   )}
-                  <div className="playlist-library-card__metadata">
-                    <span>{itemCountLabel(playlist.itemCount)}</span>
-                    <span>Revision {playlist.revision}</span>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span>
+                      {t("count.items", { count: playlist.itemCount })}
+                    </span>
+                    <span>
+                      {t("library.revision", { revision: playlist.revision })}
+                    </span>
                   </div>
-                  <small>{formatPlaylistUpdatedAt(playlist.updatedAt)}</small>
+                  <small className="text-xs text-muted-foreground">
+                    {formatPlaylistUpdatedAt(
+                      playlist.updatedAt,
+                      t,
+                      Date.now(),
+                      formatLocale,
+                    )}
+                  </small>
                 </div>
               </Link>
             </article>
@@ -341,50 +523,12 @@ export function PlaylistLibraryPage() {
         </div>
       )}
 
-      <Dialog open={creating} title="Create playlist" onClose={closeCreate}>
-        <Field label="Name">
-          <input
-            autoFocus
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-          />
-        </Field>
-        <fieldset className="playlist-type-chooser">
-          <legend>Playlist type</legend>
-          <button
-            type="button"
-            aria-pressed={sourceType === "static"}
-            onClick={() => setSourceType("static")}
-          >
-            <strong>Standard playlist</strong>
-            <span>Manually arrange media and Layouts in a timeline.</span>
-          </button>
-          <button
-            type="button"
-            aria-pressed={sourceType === "tag"}
-            onClick={() => setSourceType("tag")}
-          >
-            <strong>Tag-driven playlist</strong>
-            <span>Automatically include ready media that matches tags.</span>
-          </button>
-        </fieldset>
-        {create.error && (
-          <div className="notice notice--error">{create.error.message}</div>
-        )}
-        <div className="form-actions">
-          <Button variant="quiet" onClick={closeCreate}>
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            disabled={!name.trim()}
-            loading={create.isPending}
-            onClick={() => create.mutate()}
-          >
-            Create playlist
-          </Button>
-        </div>
-      </Dialog>
+      <PlaylistCreateDialog
+        open={creating}
+        csrf={csrf}
+        onClose={closeCreate}
+        onCreated={(id) => void navigate(`/playlists/${id}`)}
+      />
     </section>
   );
 }

@@ -1,10 +1,13 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
+import { i18n } from "../i18n";
 import {
   filterAndSortPlaylists,
   formatPlaylistUpdatedAt,
   type PlaylistLibraryItem,
 } from "./PlaylistLibraryPage";
+
+const t = i18n.getFixedT("en", "playlists");
 
 const playlist = (
   values: Partial<PlaylistLibraryItem> &
@@ -103,13 +106,13 @@ describe("playlist library", () => {
 
   it("formats useful relative update times", () => {
     const now = Date.parse("2026-07-26T16:00:00Z");
-    expect(formatPlaylistUpdatedAt("2026-07-26T15:59:30Z", now)).toBe(
+    expect(formatPlaylistUpdatedAt("2026-07-26T15:59:30Z", t, now)).toBe(
       "Updated just now",
     );
-    expect(formatPlaylistUpdatedAt("2026-07-26T14:00:00Z", now)).toBe(
+    expect(formatPlaylistUpdatedAt("2026-07-26T14:00:00Z", t, now)).toBe(
       "Updated 2 hours ago",
     );
-    expect(formatPlaylistUpdatedAt("not-a-date", now)).toBe(
+    expect(formatPlaylistUpdatedAt("not-a-date", t, now)).toBe(
       "Update time unavailable",
     );
   });

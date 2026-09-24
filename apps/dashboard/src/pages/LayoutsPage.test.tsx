@@ -1,12 +1,19 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
 import type { LayoutSummary } from "../api/types";
+import { i18n } from "../i18n";
 import {
   filterAndSortLayouts,
   formatLayoutUpdatedAt,
@@ -14,6 +21,8 @@ import {
   layoutPublicationState,
   LayoutsPage,
 } from "./LayoutsPage";
+
+const t = i18n.getFixedT("en", "layouts");
 
 vi.mock("../auth/AuthProvider", () => ({
   useAuth: () => ({
@@ -57,6 +66,7 @@ const layout = (
 const savedLayout = layout({
   id: "layout-1",
   name: "Lobby",
+  // i18n-ignore: fixture user content, not UI text
   description: "Welcome board",
   draftRevision: 2,
   publishedRevision: 1,
@@ -107,20 +117,58 @@ function renderPage() {
 describe("layout library page", () => {
   it("shows the saved layout render instead of rebuilding a live preview", async () => {
     const { container } = renderPage();
-    await screen.findByRole("button", { name: "Edit Lobby" });
+    await screen.findByRole("link", { name: "Edit Lobby" });
     expect(
       container.querySelector(".layout-library-thumbnail"),
     ).toHaveAttribute("src", savedLayout.previewImageUrl);
+  });
+
+  it("labels each toolbar filter with its option label, not its value", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByRole("link", { name: "Edit Lobby" });
+
+    const orientation = screen.getByRole("combobox", {
+      name: "Filter layouts by orientation",
+    });
+    expect(orientation).toHaveTextContent("All orientations");
+    expect(
+      screen.getByRole("combobox", {
+        name: "Filter layouts by publication status",
+      }),
+    ).toHaveTextContent("All statuses");
+    expect(
+      screen.getByRole("combobox", { name: "Sort layouts" }),
+    ).toHaveTextContent("Recently updated");
+
+    await user.click(orientation);
+    await user.click(await screen.findByRole("option", { name: "Portrait" }));
+
+    expect(orientation).toHaveTextContent("Portrait");
+    expect(orientation).not.toHaveTextContent("portrait");
+    expect(
+      screen.queryByRole("link", { name: "Edit Lobby" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("uses the shared search field for the layout library", async () => {
+    renderPage();
+    const search = await screen.findByRole("searchbox", {
+      name: "Search layouts",
+    });
+    expect(search.closest('[data-slot="input-group"]')).not.toBeNull();
   });
 
   it("renames a layout from its card menu", async () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(
-      await screen.findByRole("button", { name: "Actions for Lobby" }),
+    // Base UI menus open on the contextmenu event in this suite; the card
+    // offers the same actions through right-click and the actions button.
+    fireEvent.contextMenu(
+      await screen.findByRole("link", { name: "Edit Lobby" }),
     );
-    await user.click(screen.getByRole("menuitem", { name: "Rename" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Rename" }));
     const renameDialog = await screen.findByRole("dialog", {
       name: "Rename layout",
     });
@@ -133,6 +181,7 @@ describe("layout library page", () => {
 
     expect(api.updateLayout).toHaveBeenCalledWith(
       "layout-1",
+      // i18n-ignore: assertion on user content passed to the API
       { name: "Main Lobby", description: "Welcome board" },
       "csrf-token",
     );
@@ -146,6 +195,7 @@ describe("layout library helpers", () => {
       layout({
         id: "lunch",
         name: "Daily information",
+        // i18n-ignore: fixture user content, not UI text
         description: "Cafeteria lunch and library notices",
       }),
       layout({
@@ -161,13 +211,21 @@ describe("layout library helpers", () => {
     ];
 
     expect(
-      filterAndSortLayouts(items, "library", "all", "all", "name"),
+      filterAndSortLayouts(items, "library", "all", "all", "name", t, "en"),
     ).toEqual([items[1]]);
     expect(
-      filterAndSortLayouts(items, "1080x1920", "all", "all", "name"),
+      filterAndSortLayouts(items, "1080x1920", "all", "all", "name", t, "en"),
     ).toEqual([items[2]]);
     expect(
-      filterAndSortLayouts(items, "unpublished changes", "all", "all", "name"),
+      filterAndSortLayouts(
+        items,
+        "unpublished changes",
+        "all",
+        "all",
+        "name",
+        t,
+        "en",
+      ),
     ).toEqual([items[2]]);
   });
 
@@ -192,15 +250,15 @@ describe("layout library helpers", () => {
       }),
     ];
 
-    expect(filterAndSortLayouts(items, "", "portrait", "all", "name")).toEqual([
-      items[2],
-    ]);
-    expect(filterAndSortLayouts(items, "", "all", "published", "name")).toEqual(
-      [items[1]],
-    );
-    expect(filterAndSortLayouts(items, "", "all", "draft", "name")).toEqual([
-      items[0],
-    ]);
+    expect(
+      filterAndSortLayouts(items, "", "portrait", "all", "name", t, "en"),
+    ).toEqual([items[2]]);
+    expect(
+      filterAndSortLayouts(items, "", "all", "published", "name", t, "en"),
+    ).toEqual([items[1]]);
+    expect(
+      filterAndSortLayouts(items, "", "all", "draft", "name", t, "en"),
+    ).toEqual([items[0]]);
   });
 
   it("sorts by updates and publication date with name fallbacks", () => {
@@ -225,12 +283,12 @@ describe("layout library helpers", () => {
     ];
 
     expect(
-      filterAndSortLayouts(items, "", "all", "all", "updated").map(
+      filterAndSortLayouts(items, "", "all", "all", "updated", t, "en").map(
         (item) => item.id,
       ),
     ).toEqual(["beta", "alpha", "charlie"]);
     expect(
-      filterAndSortLayouts(items, "", "all", "all", "published").map(
+      filterAndSortLayouts(items, "", "all", "all", "published", t, "en").map(
         (item) => item.id,
       ),
     ).toEqual(["beta", "alpha", "charlie"]);
@@ -256,23 +314,23 @@ describe("layout library helpers", () => {
     expect(layoutPublicationState(draft)).toBe("draft");
     expect(layoutPublicationState(changes)).toBe("changes");
     expect(layoutPublicationState(published)).toBe("published");
-    expect(layoutPublicationLabel(changes)).toBe("Unpublished changes");
-    expect(layoutPublicationLabel(published)).toBe("Published r2");
+    expect(layoutPublicationLabel(changes, t)).toBe("Unpublished changes");
+    expect(layoutPublicationLabel(published, t)).toBe("Published r2");
 
     const now = Date.parse("2026-07-26T16:00:00Z");
-    expect(formatLayoutUpdatedAt("2026-07-26T15:59:30Z", now)).toBe(
+    expect(formatLayoutUpdatedAt("2026-07-26T15:59:30Z", t, "en", now)).toBe(
       "Updated just now",
     );
-    expect(formatLayoutUpdatedAt("2026-07-26T14:00:00Z", now)).toBe(
+    expect(formatLayoutUpdatedAt("2026-07-26T14:00:00Z", t, "en", now)).toBe(
       "Updated 2 hours ago",
     );
-    expect(formatLayoutUpdatedAt("2026-07-23T16:00:00Z", now)).toBe(
+    expect(formatLayoutUpdatedAt("2026-07-23T16:00:00Z", t, "en", now)).toBe(
       "Updated 3 days ago",
     );
-    expect(formatLayoutUpdatedAt("2025-12-01T16:00:00Z", now)).toContain(
-      "2025",
-    );
-    expect(formatLayoutUpdatedAt("not-a-date", now)).toBe(
+    expect(
+      formatLayoutUpdatedAt("2025-12-01T16:00:00Z", t, "en", now),
+    ).toContain("2025");
+    expect(formatLayoutUpdatedAt("not-a-date", t, "en", now)).toBe(
       "Update time unavailable",
     );
   });

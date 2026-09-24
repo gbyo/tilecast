@@ -1,8 +1,23 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { History } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
+import { useFormatLocale } from "../i18n";
+import { Alert, AlertDescription } from "./ui/alert";
+import { Button } from "./ui/button";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "./ui/empty";
+import { Skeleton } from "./ui/skeleton";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from "./ui/item";
+import { toast } from "./ui/toast";
 
 const initialRevisionCount = 5;
 const revisionPageSize = 10;
@@ -19,6 +34,8 @@ export function PlaylistRevisionsPanel({
   /** Render inside the shared history Drawer without repeating its title. */
   embedded?: boolean;
 }) {
+  const { t } = useTranslation("playlists");
+  const formatLocale = useFormatLocale();
   const auth = useAuth();
   const client = useQueryClient();
   const csrf = auth.status?.csrfToken ?? "";
@@ -35,11 +52,18 @@ export function PlaylistRevisionsPanel({
     mutationFn: (revision: number) =>
       api.restorePlaylistRevision(playlistId, revision, csrf),
     onSuccess: (data) => {
+      toast.add({ title: t("history.restoredToast"), type: "success" });
       setResult(
-        `Restored revision ${data.restoredFrom} as revision ${data.newRevision}.` +
-          (data.skippedItems > 0
-            ? ` ${data.skippedItems} item${data.skippedItems === 1 ? "" : "s"} could not be restored because the content was deleted.`
-            : ""),
+        data.skippedItems > 0
+          ? t("history.restoredWithSkipped", {
+              from: data.restoredFrom,
+              to: data.newRevision,
+              count: data.skippedItems,
+            })
+          : t("history.restored", {
+              from: data.restoredFrom,
+              to: data.newRevision,
+            }),
       );
       void client.invalidateQueries({ queryKey: ["playlist-revisions"] });
       // The editor caches under ["playlists", id]; invalidating ["playlist"]
@@ -49,12 +73,22 @@ export function PlaylistRevisionsPanel({
   });
 
   if (revisions.isLoading)
-    return <div className="table-loading">Loading history…</div>;
+    return (
+      <div
+        className="grid gap-2"
+        aria-busy="true"
+        aria-label={t("history.loadingLabel")}
+      >
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-12" />
+        <Skeleton className="h-12" />
+      </div>
+    );
   if (revisions.error)
     return (
-      <div className="notice notice--error" role="alert">
-        {revisions.error.message}
-      </div>
+      <Alert variant="destructive">
+        <AlertDescription>{revisions.error.message}</AlertDescription>
+      </Alert>
     );
 
   const revisionItems = revisions.data?.items ?? [];
@@ -63,101 +97,123 @@ export function PlaylistRevisionsPanel({
 
   return (
     <section
-      className={`settings-subsection${embedded ? " playlist-history-panel" : ""}`}
-      aria-label={embedded ? "Playlist revision history" : undefined}
+      className="grid gap-4"
+      aria-label={embedded ? t("history.panelLabel") : undefined}
     >
       {embedded ? (
-        <p className="playlist-history-panel__intro">
-          The last {revisions.data?.kept} revisions are kept. Restoring makes a
-          new revision, so it can be undone the same way.
+        <p className="text-sm text-muted-foreground">
+          {t("history.intro", { kept: revisions.data?.kept ?? 0 })}
         </p>
       ) : (
-        <header>
-          <h3>History</h3>
-          <p>
-            The last {revisions.data?.kept} revisions are kept. Restoring makes
-            a new revision, so it can be undone the same way.
+        <header className="grid gap-1">
+          <h3 className="text-sm font-medium">{t("history.title")}</h3>
+          <p className="text-sm text-muted-foreground">
+            {t("history.intro", { kept: revisions.data?.kept ?? 0 })}
           </p>
         </header>
       )}
 
       {result && (
-        <div className="notice" role="status">
-          {result}
-        </div>
+        <Alert role="status">
+          <AlertDescription>{result}</AlertDescription>
+        </Alert>
       )}
       {restore.error && (
-        <div className="notice notice--error" role="alert">
-          {restore.error.message}
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>{restore.error.message}</AlertDescription>
+        </Alert>
       )}
 
-      <div className="backup-job-list">
-        {visibleRevisions.map((revision) => (
-          <div key={revision.revision}>
-            <span>
-              <strong>
-                Revision {revision.revision}
-                {revision.isCurrent ? " (current)" : ""}
-              </strong>
-              <small>
-                {new Date(revision.createdAt).toLocaleString()} ·{" "}
-                {revision.itemCount} item
-                {revision.itemCount === 1 ? "" : "s"}
-                {revision.authorName ? ` · ${revision.authorName}` : ""}
-                {revision.missingReferences > 0
-                  ? ` · ${revision.missingReferences} deleted since`
-                  : ""}
-              </small>
-            </span>
-            <span className="backup-job-status">
-              {canRestore && revision.restorable ? (
-                <button
-                  className="button button--quiet button--compact"
-                  disabled={restore.isPending}
-                  onClick={() => {
-                    setResult(undefined);
-                    restore.mutate(revision.revision);
-                  }}
-                >
-                  <History size={14} /> Restore
-                </button>
-              ) : revision.isCurrent ? (
-                "Current"
-              ) : (
-                "Nothing left to restore"
-              )}
-            </span>
-          </div>
-        ))}
-      </div>
+      {revisionItems.length === 0 ? (
+        <Empty className="border-0 py-6">
+          <EmptyHeader>
+            <EmptyTitle>{t("history.noRevisions")}</EmptyTitle>
+            <EmptyDescription>{t("history.noRevisionsHint")}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : (
+        <ItemGroup className="gap-0 divide-y divide-border border-y border-border">
+          {visibleRevisions.map((revision) => (
+            <Item
+              key={revision.revision}
+              size="sm"
+              className="rounded-none px-0"
+            >
+              <ItemContent>
+                <ItemTitle>
+                  {revision.isCurrent
+                    ? t("history.revisionCurrent", {
+                        revision: revision.revision,
+                      })
+                    : t("history.revision", { revision: revision.revision })}
+                </ItemTitle>
+                <ItemDescription>
+                  {t("history.revisionMeta", {
+                    date: new Date(revision.createdAt).toLocaleString(
+                      formatLocale,
+                    ),
+                    items: t("count.items", { count: revision.itemCount }),
+                  })}
+                  {revision.authorName ? ` · ${revision.authorName}` : ""}
+                  {revision.missingReferences > 0
+                    ? ` · ${t("history.deletedSince", {
+                        count: revision.missingReferences,
+                      })}`
+                    : ""}
+                </ItemDescription>
+              </ItemContent>
+              <ItemActions>
+                {canRestore && revision.restorable ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={restore.isPending}
+                    onClick={() => {
+                      setResult(undefined);
+                      restore.mutate(revision.revision);
+                    }}
+                  >
+                    <History aria-hidden="true" /> {t("history.restore")}
+                  </Button>
+                ) : revision.isCurrent ? (
+                  t("history.currentBadge")
+                ) : (
+                  t("history.nothingToRestore")
+                )}
+              </ItemActions>
+            </Item>
+          ))}
+        </ItemGroup>
+      )}
 
       {(hiddenRevisionCount > 0 ||
         visibleRevisionCount > initialRevisionCount) && (
-        <div className="form-actions">
+        <div className="flex flex-wrap items-center gap-2">
           {hiddenRevisionCount > 0 && (
-            <button
+            <Button
               type="button"
-              className="button button--quiet button--compact"
+              variant="ghost"
+              size="sm"
               onClick={() =>
                 setVisibleRevisionCount((current) =>
                   Math.min(current + revisionPageSize, revisionItems.length),
                 )
               }
             >
-              Show {Math.min(revisionPageSize, hiddenRevisionCount)} older
-              revision
-              {Math.min(revisionPageSize, hiddenRevisionCount) === 1 ? "" : "s"}
-            </button>
+              {t("history.showOlder", {
+                count: Math.min(revisionPageSize, hiddenRevisionCount),
+              })}
+            </Button>
           )}
           {visibleRevisionCount > initialRevisionCount && (
-            <button
+            <Button
               type="button"
-              className="button button--quiet button--compact"
+              variant="ghost"
+              size="sm"
               onClick={() => setVisibleRevisionCount(initialRevisionCount)}
             >
-              Show recent only
-            </button>
+              {t("history.showRecent")}
+            </Button>
           )}
         </div>
       )}

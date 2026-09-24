@@ -1,0 +1,43 @@
+---
+title: Present with AirPlay
+description: Start a temporary AirPlay session on supported Linux Players.
+---
+
+AirPlay Present turns one or more supported Linux Players into temporary AirPlay receivers. Android Players do not support AirPlay Present.
+
+import { Steps } from "@astrojs/starlight/components";
+
+## Before you start
+
+- Sign in as an **Owner** or **Administrator**.
+- Make sure each target Linux Player is online, enabled, and reports AirPlay-ready capabilities in Studio.
+- For a Display Group session, every member must be ready. Tilecast selects one member as the AirPlay gateway; the group can contain up to 64 displays.
+- The Linux host needs the AirPlay receiver, GStreamer, an H.264 decoder, and local Bonjour/mDNS support. The [Linux installation guide](../../players/install-linux/) describes optional AirPlay setup.
+
+The AirPlay sender must be able to discover and reach the gateway on the local network. If it cannot reach the Player over Ethernet, assign a [Presentation Network](../../administration/presentation-networks/) to an eligible Linux gateway.
+
+## Start a session
+
+For one display, open **Screens** > **Fleet**, select the screen, and open **More screen actions** > **AirPlay**. For a Display Group, open the group and select **Present · AirPlay**.
+
+<Steps>
+
+1. Review the capability and network status. Resolve any missing requirements before continuing.
+2. Choose a duration: 15, 30, or 60 minutes, or **Until stopped (24-hour safety deadline)**.
+3. Choose the video transport and audio display.
+4. Select **Enable AirPlay**.
+5. Open Screen Mirroring or AirPlay on an iPhone, iPad, or Mac.
+6. Choose the receiver shown in Studio. Enter the displayed PIN if the sender asks for one.
+
+</Steps>
+
+Studio shows how many group displays are ready and receiving. For one to four displays, **Auto** uses unicast. It uses multicast only when Tilecast has validated it for the group.
+
+Select **Stop AirPlay** to end the session early. The session also ends at its expiry. Tilecast then recalculates the signage presentation that applies; see [what plays first](../#what-plays-first).
+
+If a session does not start, check the Player's AirPlay diagnostics, the receiver capability report, Wi-Fi assignment, and whether multicast or Bonjour discovery can cross the sender's network. Tilecast does not bridge VLANs or bypass client isolation.
+
+## Next steps
+
+- Set up a [Presentation Network](../../administration/presentation-networks/) if the sender cannot reach the Linux gateway over Ethernet.
+- Check [screen status](../screen-status/) or the [Linux installation guide](../../players/install-linux/) when a Player is not ready.

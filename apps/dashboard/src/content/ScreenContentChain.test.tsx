@@ -6,6 +6,7 @@
 import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
@@ -56,6 +57,7 @@ function chain(assignment: {
 
 describe("ScreenContentChain playlist leg", () => {
   it("resolves the Data Sources a playlist reaches, with their status", async () => {
+    const user = userEvent.setup();
     vi.spyOn(api, "listDataSources").mockResolvedValue({
       items: [
         source("src-1", "Lunch rows"),
@@ -69,6 +71,7 @@ describe("ScreenContentChain playlist leg", () => {
     vi.spyOn(api, "playlist").mockResolvedValue({
       id: "playlist-1",
       name: "Cafeteria loop",
+      revision: 7,
       itemCount: 1,
       items: [
         {
@@ -83,6 +86,12 @@ describe("ScreenContentChain playlist leg", () => {
 
     chain({ playlistId: "playlist-1", playlistName: "Cafeteria loop" });
 
+    const playlistLink = await screen.findByRole("link", {
+      name: /Cafeteria loop/,
+    });
+    expect(playlistLink).toHaveAttribute("href", "/playlists/playlist-1");
+    await user.hover(playlistLink);
+    expect(await screen.findByText(/revision 7/)).toBeInTheDocument();
     expect(
       await screen.findByRole("link", { name: /Lunch rows/ }),
     ).toHaveAttribute("href", "/data-sources/src-1");
@@ -112,11 +121,12 @@ describe("ScreenContentChain playlist leg", () => {
     chain({ playlistId: "playlist-1", playlistName: "Images only" });
 
     expect(
-      await screen.findByText("Nothing in this playlist reads a Data Source."),
+      await screen.findByText(/Nothing in this playlist reads a data source/i),
     ).toBeTruthy();
   });
 
   it("still resolves a Layout assignment through its stored dependencies", async () => {
+    const user = userEvent.setup();
     vi.spyOn(api, "listDataSources").mockResolvedValue({
       items: [source("src-1", "Lunch rows"), source("src-9", "Other")],
       total: 2,
@@ -126,6 +136,8 @@ describe("ScreenContentChain playlist leg", () => {
     vi.spyOn(api, "layout").mockResolvedValue({
       id: "layout-1",
       name: "Cafeteria Layout",
+      canvasWidth: 1920,
+      canvasHeight: 1080,
       dependencies: [
         { type: "data_source", id: "src-1" },
         { type: "widget", id: "widget-1" },
@@ -134,14 +146,26 @@ describe("ScreenContentChain playlist leg", () => {
 
     chain({ layoutId: "layout-1", layoutName: "Cafeteria Layout" });
 
+    const layoutLink = await screen.findByRole("link", {
+      name: /Cafeteria Layout/,
+    });
+    expect(layoutLink).toHaveAttribute("href", "/layouts/layout-1");
+    await user.hover(layoutLink);
+    expect(
+      await screen.findByText("1920 × 1080 px · 1 data source"),
+    ).toBeInTheDocument();
     expect(
       await screen.findByRole("link", { name: /Lunch rows/ }),
     ).toHaveAttribute("href", "/data-sources/src-1");
     expect(screen.queryByText("Other")).toBeNull();
   });
 
-  it("renders nothing when the screen has no assignment", () => {
-    const { container } = chain({});
-    expect(container).toBeEmptyDOMElement();
+  it("explains the absence of a direct assignment", () => {
+    chain({});
+    expect(
+      screen.getByText(/No content is assigned directly to this screen/),
+    ).toHaveTextContent(
+      "Schedules and Display Group assignments can still select content for playback.",
+    );
   });
 });

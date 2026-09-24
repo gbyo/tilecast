@@ -1,9 +1,22 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
+import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { ScreenGroup, SpanPanel, SpanStatus } from "../api/types";
-import { Button, Field, Panel, SectionHeader } from "./ui";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import "./SpanWallEditor.css";
+
+type LayoutsT = TFunction<"layouts", undefined>;
+import { Alert, AlertDescription } from "./ui/alert";
+import { Button } from "./ui/button";
+import { Field, FieldLabel } from "./ui/field";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "./ui/input-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 
 type Props = {
   group: ScreenGroup;
@@ -43,7 +56,30 @@ function preset(
   });
 }
 
+const rotationOptions = [0, 90, 180, 270].map((value) => ({
+  value: String(value),
+  label: `${value}°`,
+}));
+
+function preparationStatusLabel(
+  status: string | undefined,
+  t: LayoutsT,
+): string {
+  switch (status) {
+    case "queued":
+      return t("spanWall.preparationQueued");
+    case "processing":
+      return t("spanWall.preparationProcessing");
+    case "ready":
+      return t("spanWall.preparationReady");
+    case "failed":
+      return t("spanWall.preparationFailed");
+    default:
+      return t("spanWall.preparationIdle");
+  }
+}
 export function SpanWallEditor({ group, manageable, csrfToken }: Props) {
+  const { t } = useTranslation(["layouts", "common"]);
   const client = useQueryClient();
   const status = useQuery({
     queryKey: ["screen-groups", group.id, "span"],
@@ -97,66 +133,93 @@ export function SpanWallEditor({ group, manageable, csrfToken }: Props) {
 
   if (group.displayMode !== "span") {
     return (
-      <Panel className="sync-group-panel span-wall-panel">
-        <SectionHeader
-          title="Wall mode"
-          description="Mirror keeps the existing synchronized group behavior. Switch to Span when the screens form one logical canvas."
-        />
+      <section className="grid gap-3 rounded-xl border border-border p-4">
+        <header className="grid gap-1">
+          <h3 className="text-base font-semibold">{t("spanWall.modeTitle")}</h3>
+          <p className="text-sm text-muted-foreground">
+            {t("spanWall.modeDescription")}
+          </p>
+        </header>
         {manageable && (
-          <Button
-            variant="secondary"
-            loading={update.isPending}
-            disabled={group.screens.length === 0}
-            onClick={() => {
-              setCanvas({ width: 3840, height: 1080 });
-              setPanels(preset(group.screens, 3840, 1080, 2));
-              update.mutate({
-                displayMode: "span",
-                canvas: { width: 3840, height: 1080 },
-                panels: preset(group.screens, 3840, 1080, 2),
-              });
-            }}
-          >
-            Switch to Span
-          </Button>
+          <div>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={group.screens.length === 0 || update.isPending}
+              onClick={() => {
+                setCanvas({ width: 3840, height: 1080 });
+                setPanels(preset(group.screens, 3840, 1080, 2));
+                update.mutate({
+                  displayMode: "span",
+                  canvas: { width: 3840, height: 1080 },
+                  panels: preset(group.screens, 3840, 1080, 2),
+                });
+              }}
+            >
+              {update.isPending
+                ? t("spanWall.switchBusy")
+                : t("spanWall.switchAction")}
+            </Button>
+          </div>
         )}
-      </Panel>
+      </section>
     );
   }
 
   return (
-    <Panel className="sync-group-panel span-wall-panel">
-      <SectionHeader
-        title="Span wall editor"
-        description="Arrange each panel on one logical canvas. Video is prepared into normal-resolution H.264 panel files on the server before playback."
-      />
-      <div className="span-wall-toolbar">
-        <Field label="Canvas width">
-          <input
-            type="number"
-            min={320}
-            max={16384}
-            value={canvas.width}
-            onChange={(event) => {
-              setDirty(true);
-              setCanvas({ ...canvas, width: Number(event.target.value) });
-            }}
-          />
+    <section className="grid gap-4 rounded-xl border border-border p-4">
+      <header className="grid gap-1">
+        <h3 className="text-base font-semibold">{t("spanWall.title")}</h3>
+        <p className="text-sm text-muted-foreground">
+          {t("spanWall.description")}
+        </p>
+      </header>
+      <div className="flex flex-wrap items-end gap-3">
+        <Field className="min-w-32">
+          <FieldLabel htmlFor="span-canvas-width">
+            {t("spanWall.canvasWidth")}
+          </FieldLabel>
+          <InputGroup>
+            <InputGroupInput
+              id="span-canvas-width"
+              type="number"
+              min={320}
+              max={16384}
+              value={canvas.width}
+              onChange={(event) => {
+                setDirty(true);
+                setCanvas({ ...canvas, width: Number(event.target.value) });
+              }}
+            />
+            <InputGroupAddon align="inline-end">px</InputGroupAddon>
+          </InputGroup>
         </Field>
-        <Field label="Canvas height">
-          <input
-            type="number"
-            min={320}
-            max={16384}
-            value={canvas.height}
-            onChange={(event) => {
-              setDirty(true);
-              setCanvas({ ...canvas, height: Number(event.target.value) });
-            }}
-          />
+        <Field className="min-w-32">
+          <FieldLabel htmlFor="span-canvas-height">
+            {t("spanWall.canvasHeight")}
+          </FieldLabel>
+          <InputGroup>
+            <InputGroupInput
+              id="span-canvas-height"
+              type="number"
+              min={320}
+              max={16384}
+              value={canvas.height}
+              onChange={(event) => {
+                setDirty(true);
+                setCanvas({ ...canvas, height: Number(event.target.value) });
+              }}
+            />
+            <InputGroupAddon align="inline-end">px</InputGroupAddon>
+          </InputGroup>
         </Field>
-        <div className="span-wall-presets" aria-label="Wall presets">
-          <span>Presets</span>
+        <div
+          className="flex items-center gap-2"
+          aria-label={t("spanWall.presetsLabel")}
+        >
+          <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+            {t("spanWall.presetsTitle")}
+          </span>
           {[
             { label: "2 × 1", columns: 2 },
             { label: "1 × 2", columns: 1 },
@@ -164,8 +227,9 @@ export function SpanWallEditor({ group, manageable, csrfToken }: Props) {
           ].map((item, index) => (
             <Button
               key={item.label}
-              variant="quiet"
-              compact
+              type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => {
                 const nextCanvas =
                   index === 1
@@ -190,44 +254,45 @@ export function SpanWallEditor({ group, manageable, csrfToken }: Props) {
           ))}
         </div>
         {manageable && (
-          <div className="span-wall-actions">
+          <div className="flex items-center gap-2">
             <Button
-              variant="primary"
-              loading={update.isPending}
-              disabled={!dirty}
+              type="button"
+              disabled={!dirty || update.isPending}
               onClick={() =>
                 update.mutate({ displayMode: "span", canvas, panels })
               }
             >
-              Save wall
+              {update.isPending
+                ? t("common:actions.saving")
+                : t("spanWall.saveAction")}
             </Button>
             <Button
-              variant="quiet"
+              type="button"
+              variant="ghost"
               disabled={update.isPending}
               onClick={() => update.mutate({ displayMode: "mirror" })}
             >
-              Return to Mirror
+              {t("spanWall.returnAction")}
             </Button>
           </div>
         )}
       </div>
       {update.isError && (
-        <div className="notice notice--error">
-          The wall geometry could not be saved. Check that panels do not overlap
-          and fit inside the canvas.
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>{t("spanWall.saveFailed")}</AlertDescription>
+        </Alert>
       )}
-      <div className="span-wall-layout">
+      <div className="grid gap-4 lg:grid-cols-2">
         <div
-          className="span-wall-preview"
+          className="relative min-h-48 overflow-hidden rounded-xl border border-border bg-black"
           style={{
             aspectRatio: `${Math.max(canvas.width, 1)} / ${Math.max(canvas.height, 1)}`,
           }}
-          aria-label="Span wall preview"
+          aria-label={t("spanWall.previewLabel")}
         >
           {panels.map((panel) => (
             <div
-              className="span-wall-preview__panel"
+              className="absolute flex flex-col items-center justify-center gap-1 overflow-hidden border border-sky-300 bg-sky-900 text-slate-50"
               key={panel.screenId}
               style={{
                 left: `${(panel.x / canvas.width) * 100}%`,
@@ -237,55 +302,79 @@ export function SpanWallEditor({ group, manageable, csrfToken }: Props) {
                 transform: `rotate(${panel.rotation}deg)`,
               }}
             >
-              <strong>{screenNames.get(panel.screenId) ?? "Screen"}</strong>
-              <small>
+              <strong className="text-sm">
+                {screenNames.get(panel.screenId) ?? t("spanWall.unknownScreen")}
+              </strong>
+              <small className="text-xs text-sky-200">
                 {panel.width} × {panel.height}
               </small>
             </div>
           ))}
         </div>
-        <div className="span-wall-panels">
+        <div className="grid max-h-[30rem] gap-3 overflow-auto">
           {panels.map((panel) => (
-            <fieldset key={panel.screenId} className="span-wall-panel-fields">
-              <legend>
+            <fieldset
+              key={panel.screenId}
+              className="grid gap-2 rounded-xl border border-border p-3"
+            >
+              <legend className="px-1 text-sm font-semibold">
                 {screenNames.get(panel.screenId) ?? panel.screenId}
               </legend>
-              <div className="span-wall-panel-fields__grid">
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
                 {(["x", "y", "width", "height"] as const).map((key) => (
-                  <Field key={key} label={key.toUpperCase()}>
-                    <input
-                      type="number"
-                      min={0}
-                      value={panel[key]}
-                      disabled={!manageable}
-                      onChange={(event) =>
-                        setPanel(
-                          panel.screenId,
-                          key,
-                          Number(event.target.value),
-                        )
-                      }
-                    />
+                  <Field key={key}>
+                    <FieldLabel htmlFor={`span-${panel.screenId}-${key}`}>
+                      {key.toUpperCase()}
+                    </FieldLabel>
+                    <InputGroup>
+                      <InputGroupInput
+                        id={`span-${panel.screenId}-${key}`}
+                        type="number"
+                        min={0}
+                        value={panel[key]}
+                        disabled={!manageable}
+                        onChange={(event) =>
+                          setPanel(
+                            panel.screenId,
+                            key,
+                            Number(event.target.value),
+                          )
+                        }
+                      />
+                      <InputGroupAddon align="inline-end">px</InputGroupAddon>
+                    </InputGroup>
                   </Field>
                 ))}
-                <Field label="Rotation">
-                  <select
-                    value={panel.rotation}
+                <Field>
+                  <FieldLabel htmlFor={`span-${panel.screenId}-rotation`}>
+                    {t("spanWall.rotationLabel")}
+                  </FieldLabel>
+                  <Select
+                    items={rotationOptions}
+                    value={String(panel.rotation)}
                     disabled={!manageable}
-                    onChange={(event) =>
+                    onValueChange={(next) =>
                       setPanel(
                         panel.screenId,
                         "rotation",
-                        Number(event.target.value),
+                        Number(next ?? panel.rotation),
                       )
                     }
                   >
-                    {[0, 90, 180, 270].map((value) => (
-                      <option key={value} value={value}>
-                        {value}°
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger
+                      id={`span-${panel.screenId}-rotation`}
+                      aria-label={t("spanWall.rotationLabel")}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {rotationOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </Field>
               </div>
             </fieldset>
@@ -293,20 +382,24 @@ export function SpanWallEditor({ group, manageable, csrfToken }: Props) {
         </div>
       </div>
       {status.isError && (
-        <div className="notice notice--error">
-          Span preparation status is unavailable.
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>{t("spanWall.statusFailed")}</AlertDescription>
+        </Alert>
       )}
       {panels.length > 0 && (
-        <div className="span-wall-preparations" aria-live="polite">
-          <strong>Panel preparation</strong>
+        <div
+          className="flex flex-wrap gap-x-3 gap-y-1 border-t border-border pt-3 text-sm"
+          aria-live="polite"
+        >
+          <strong className="basis-full">
+            {t("spanWall.preparationTitle")}
+          </strong>
           {panels.map((panel) => {
             const item = preparationByScreen.get(panel.screenId);
-            const label = item?.status ?? "idle";
             return (
               <span key={panel.screenId}>
                 {screenNames.get(panel.screenId) ?? panel.screenId}:{" "}
-                <b>{label}</b>
+                <b>{preparationStatusLabel(item?.status, t)}</b>
                 {item?.progress != null
                   ? ` ${Math.round(item.progress * 100)}%`
                   : ""}
@@ -315,6 +408,6 @@ export function SpanWallEditor({ group, manageable, csrfToken }: Props) {
           })}
         </div>
       )}
-    </Panel>
+    </section>
   );
 }

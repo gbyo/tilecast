@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useBlocker } from "react-router";
+import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import type {
   FormCapability,
   FormDataSource,
@@ -8,25 +10,52 @@ import type {
   FormWorkflowTransition,
 } from "../api/types";
 import { api } from "../api/client";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
+import { Checkbox } from "../components/ui/checkbox";
+import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
 import {
-  Button,
-  Checkbox,
-  Field,
-  Input,
-  Notice,
   Select,
-  StatusBadge,
-  TableContainer,
-} from "../components/ui";
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../components/ui/table";
+import { Spinner } from "../components/ui/spinner";
+import { toast } from "../components/ui/toast";
+import { formToneBadgeProps } from "./formBadge";
 import { slugifyKey } from "./formKeys";
+import type { FormsT } from "./formSchema";
 
-const CAPABILITY_OPTIONS: { value: FormCapability; label: string }[] = [
-  { value: "submit", label: "Submit" },
-  { value: "review", label: "Review" },
-  { value: "approve", label: "Approve" },
-  { value: "manage", label: "Manage" },
-  { value: "view_all", label: "View all" },
-  { value: "view_own", label: "View own" },
+type CapabilityOptionLabelKey =
+  | "workflow.capabilities.submit.label"
+  | "workflow.capabilities.review.label"
+  | "workflow.capabilities.approve.label"
+  | "workflow.capabilities.manage.label"
+  | "workflow.capabilities.viewAll.label"
+  | "workflow.capabilities.viewOwn.label";
+
+const CAPABILITY_OPTIONS: {
+  value: FormCapability;
+  labelKey: CapabilityOptionLabelKey;
+}[] = [
+  { value: "submit", labelKey: "workflow.capabilities.submit.label" },
+  { value: "review", labelKey: "workflow.capabilities.review.label" },
+  { value: "approve", labelKey: "workflow.capabilities.approve.label" },
+  { value: "manage", labelKey: "workflow.capabilities.manage.label" },
+  { value: "view_all", labelKey: "workflow.capabilities.viewAll.label" },
+  { value: "view_own", labelKey: "workflow.capabilities.viewOwn.label" },
 ];
 
 const KEY_PATTERN = /^[a-z][a-z0-9_]{0,39}$/;
@@ -41,6 +70,7 @@ export function WorkflowEditor({
   form: FormDataSource;
   csrf: string;
 }) {
+  const { t } = useTranslation("forms");
   const queryClient = useQueryClient();
   const original = useRef(form.workflow);
   const [states, setStates] = useState<FormWorkflowState[]>(() =>
@@ -77,8 +107,8 @@ export function WorkflowEditor({
   }, []);
 
   const errors = useMemo(
-    () => validateWorkflow(states, transitions),
-    [states, transitions],
+    () => validateWorkflow(states, transitions, t),
+    [states, transitions, t],
   );
   const warnings = useMemo(
     () =>
@@ -87,9 +117,11 @@ export function WorkflowEditor({
         original.current.transitions,
         states,
         transitions,
+        t,
       ),
-    [states, transitions],
+    [states, transitions, t],
   );
+  const initialStateIndex = states.findIndex((state) => state.initial);
 
   const save = useMutation({
     mutationFn: () =>
@@ -105,6 +137,7 @@ export function WorkflowEditor({
         csrf,
       ),
     onSuccess: (updated) => {
+      toast.add({ title: "Form workflow saved.", type: "success" });
       queryClient.setQueryData(["form-data-source", form.id], updated);
       void queryClient.invalidateQueries({
         queryKey: ["form-records", form.id],
@@ -125,9 +158,7 @@ export function WorkflowEditor({
     },
     onError: (err) => {
       setConfirming(false);
-      setError(
-        err instanceof Error ? err.message : "Could not save the workflow.",
-      );
+      setError(err instanceof Error ? err.message : t("workflow.saveFallback"));
     },
   });
 
@@ -153,7 +184,7 @@ export function WorkflowEditor({
       ...prev,
       {
         key: "",
-        label: "New state",
+        label: t("workflow.newStateLabel"),
         position: prev.length,
         eligibleForOutput: false,
         initial: false,
@@ -180,7 +211,7 @@ export function WorkflowEditor({
       {
         from: states[0]?.key ?? "",
         to: states[0]?.key ?? "",
-        label: "New transition",
+        label: t("workflow.newTransitionLabel"),
         requiredCapability: "submit",
         position: prev.length,
       },
@@ -189,287 +220,414 @@ export function WorkflowEditor({
     setTransitions((prev) => prev.filter((_, i) => i !== index));
 
   return (
-    <div className="form-workflow">
+    <div className="grid gap-4">
       {blocker.state === "blocked" && (
-        <Notice
-          variant="warning"
-          title="Leave without saving?"
-          action={
-            <div className="form-builder__confirm-actions">
-              <Button variant="quiet" onClick={() => blocker.reset?.()}>
-                Stay
-              </Button>
-              <Button variant="primary" onClick={() => blocker.proceed?.()}>
-                Leave
-              </Button>
-            </div>
-          }
-        >
-          The workflow has unsaved changes.
-        </Notice>
+        <Alert>
+          <AlertTitle>{t("workflow.leaveTitle")}</AlertTitle>
+          <AlertDescription>{t("workflow.leaveBody")}</AlertDescription>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="ghost" onClick={() => blocker.reset?.()}>
+              {t("workflow.stay")}
+            </Button>
+            <Button variant="default" onClick={() => blocker.proceed?.()}>
+              {t("workflow.leave")}
+            </Button>
+          </div>
+        </Alert>
       )}
       {error && (
-        <Notice variant="danger" title="Workflow not saved">
-          {error}
-        </Notice>
+        <Alert variant="destructive">
+          <AlertTitle>{t("workflow.notSaved")}</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
       {errors.length > 0 && (
-        <Notice variant="danger" title="Fix these before saving">
-          <ul>
-            {errors.map((message) => (
-              <li key={message}>{message}</li>
-            ))}
-          </ul>
-        </Notice>
+        <Alert variant="destructive">
+          <AlertTitle>{t("workflow.fixBefore")}</AlertTitle>
+          <AlertDescription>
+            <ul className="grid gap-1">
+              {errors.map((message) => (
+                <li key={message}>{message}</li>
+              ))}
+            </ul>
+          </AlertDescription>
+        </Alert>
       )}
 
-      <section className="form-workflow__states" aria-label="States">
-        <div className="form-workflow__section-head">
-          <h3>States</h3>
-          <Button variant="secondary" compact onClick={addState}>
-            Add state
+      <section className="grid gap-3" aria-label={t("workflow.statesSection")}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-base font-semibold">
+            {t("workflow.statesTitle")}
+          </h3>
+          <Button variant="secondary" size="sm" onClick={addState}>
+            {t("workflow.addState")}
           </Button>
         </div>
-        {states.map((state, index) => {
-          const locked = state.removable === false;
-          return (
-            <div key={index} className="form-workflow__state-card">
-              <div className="form-workflow__state-main">
-                <Field label="Label">
-                  <Input
-                    value={state.label}
-                    onChange={(e) =>
-                      updateState(index, { label: e.target.value })
-                    }
-                  />
-                </Field>
-                <Field
-                  label="Key"
-                  description={locked ? "In use — locked" : "Lowercase, stable"}
-                >
-                  <Input
-                    value={state.key}
-                    disabled={locked}
-                    onChange={(e) =>
-                      updateState(index, {
-                        key: slugifyStateKey(e.target.value),
-                      })
-                    }
-                  />
-                </Field>
-                <span className="form-workflow__count">
-                  <StatusBadge
-                    label={`${state.recordCount ?? 0} records`}
-                    tone="neutral"
-                  />
-                </span>
-              </div>
-              <div className="form-workflow__state-flags">
-                <label className="checkbox-control">
-                  <input
-                    type="radio"
-                    name="initial-state"
-                    checked={state.initial}
-                    onChange={() => setInitial(index)}
-                  />
-                  <span>Initial</span>
-                </label>
-                <Checkbox
-                  label="Output-eligible"
-                  checked={state.eligibleForOutput}
-                  onChange={(e) =>
-                    updateState(index, { eligibleForOutput: e.target.checked })
-                  }
-                />
-                <Checkbox
-                  label="Terminal"
-                  checked={state.terminal}
-                  onChange={(e) =>
-                    updateState(index, { terminal: e.target.checked })
-                  }
-                />
-                <div className="form-workflow__state-actions">
-                  <button
-                    type="button"
-                    aria-label={`Move ${state.label} up`}
-                    disabled={index === 0}
-                    onClick={() => moveState(index, -1)}
-                  >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`Move ${state.label} down`}
-                    disabled={index === states.length - 1}
-                    onClick={() => moveState(index, 1)}
-                  >
-                    ↓
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`Delete ${state.label}`}
-                    disabled={locked}
-                    title={locked ? "Referenced by records" : "Delete state"}
-                    onClick={() => removeState(index)}
-                  >
-                    ✕
-                  </button>
+        <RadioGroup
+          aria-label={t("workflow.initialOption")}
+          value={initialStateIndex >= 0 ? String(initialStateIndex) : ""}
+          onValueChange={(value) => {
+            const index = Number(value);
+            if (
+              Number.isInteger(index) &&
+              index >= 0 &&
+              index < states.length
+            ) {
+              setInitial(index);
+            }
+          }}
+          className="grid gap-3"
+        >
+          {states.map((state, index) => {
+            const locked = state.removable === false;
+            return (
+              <div
+                key={index}
+                className="grid gap-3 rounded-xl border border-border p-4"
+              >
+                <div className="grid gap-3 sm:grid-cols-3 sm:items-end">
+                  <Field>
+                    <FieldLabel htmlFor={`workflow-state-label-${index}`}>
+                      {t("workflow.stateLabel")}
+                    </FieldLabel>
+                    <Input
+                      id={`workflow-state-label-${index}`}
+                      value={state.label}
+                      onChange={(e) =>
+                        updateState(index, { label: e.target.value })
+                      }
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor={`workflow-state-key-${index}`}>
+                      {t("workflow.stateKey")}
+                    </FieldLabel>
+                    <Input
+                      id={`workflow-state-key-${index}`}
+                      value={state.key}
+                      disabled={locked}
+                      onChange={(e) =>
+                        updateState(index, {
+                          key: slugifyStateKey(e.target.value),
+                        })
+                      }
+                    />
+                    <FieldDescription>
+                      {locked
+                        ? t("workflow.lockedHint")
+                        : t("workflow.keyHint")}
+                    </FieldDescription>
+                  </Field>
+                  <span className="sm:pb-1">
+                    <Badge {...formToneBadgeProps("neutral")}>
+                      {t("workflow.stateRecords", {
+                        count: state.recordCount ?? 0,
+                      })}
+                    </Badge>
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Field orientation="horizontal" className="items-center">
+                    <RadioGroupItem
+                      id={`workflow-state-initial-${index}`}
+                      value={String(index)}
+                    />
+                    <FieldLabel
+                      htmlFor={`workflow-state-initial-${index}`}
+                      className="font-normal"
+                    >
+                      {t("workflow.initialOption")}
+                    </FieldLabel>
+                  </Field>
+                  <Field orientation="horizontal" className="items-center">
+                    <Checkbox
+                      id={`workflow-state-output-${index}`}
+                      checked={state.eligibleForOutput}
+                      onCheckedChange={(checked) =>
+                        updateState(index, {
+                          eligibleForOutput: checked === true,
+                        })
+                      }
+                    />
+                    <FieldLabel
+                      htmlFor={`workflow-state-output-${index}`}
+                      className="font-normal"
+                    >
+                      {t("workflow.eligibleOption")}
+                    </FieldLabel>
+                  </Field>
+                  <Field orientation="horizontal" className="items-center">
+                    <Checkbox
+                      id={`workflow-state-terminal-${index}`}
+                      checked={state.terminal}
+                      onCheckedChange={(checked) =>
+                        updateState(index, { terminal: checked === true })
+                      }
+                    />
+                    <FieldLabel
+                      htmlFor={`workflow-state-terminal-${index}`}
+                      className="font-normal"
+                    >
+                      {t("workflow.terminalOption")}
+                    </FieldLabel>
+                  </Field>
+                  <div className="flex gap-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon-xs"
+                      className="size-7 p-0 text-sm"
+                      aria-label={t("workflow.moveUp", {
+                        label: state.label,
+                      })}
+                      disabled={index === 0}
+                      onClick={() => moveState(index, -1)}
+                    >
+                      <ArrowUp size={14} aria-hidden="true" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon-xs"
+                      className="size-7 p-0 text-sm"
+                      aria-label={t("workflow.moveDown", {
+                        label: state.label,
+                      })}
+                      disabled={index === states.length - 1}
+                      onClick={() => moveState(index, 1)}
+                    >
+                      <ArrowDown size={14} aria-hidden="true" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon-xs"
+                      className="size-7 p-0 text-sm"
+                      aria-label={t("workflow.deleteState", {
+                        label: state.label,
+                      })}
+                      disabled={locked}
+                      title={
+                        locked
+                          ? t("workflow.deleteLockedTitle")
+                          : t("workflow.deleteTitle")
+                      }
+                      onClick={() => removeState(index)}
+                    >
+                      <Trash2 size={14} aria-hidden="true" />
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </RadioGroup>
       </section>
 
-      <section className="form-workflow__transitions" aria-label="Transitions">
-        <div className="form-workflow__section-head">
-          <h3>Transitions</h3>
+      <section
+        className="grid gap-3"
+        aria-label={t("workflow.transitionsSection")}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-base font-semibold">
+            {t("workflow.transitionsTitle")}
+          </h3>
           <Button
             variant="secondary"
-            compact
+            size="sm"
             onClick={addTransition}
             disabled={states.length === 0}
           >
-            Add transition
+            {t("workflow.addTransition")}
           </Button>
         </div>
-        <TableContainer>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th scope="col">From</th>
-                <th scope="col">To</th>
-                <th scope="col">Label</th>
-                <th scope="col">Required capability</th>
-                <th scope="col" aria-label="Actions" />
-              </tr>
-            </thead>
-            <tbody>
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <Table className="w-full text-sm">
+            <TableHeader>
+              <TableRow className="border-b border-border text-left text-xs text-muted-foreground">
+                <TableHead scope="col" className="px-3 py-2 font-medium">
+                  {t("workflow.colFrom")}
+                </TableHead>
+                <TableHead scope="col" className="px-3 py-2 font-medium">
+                  {t("workflow.colTo")}
+                </TableHead>
+                <TableHead scope="col" className="px-3 py-2 font-medium">
+                  {t("workflow.colLabel")}
+                </TableHead>
+                <TableHead scope="col" className="px-3 py-2 font-medium">
+                  {t("workflow.colCapability")}
+                </TableHead>
+                <TableHead scope="col" className="px-3 py-2 font-medium">
+                  <span className="sr-only">{t("access.table.actions")}</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {transitions.map((transition, index) => (
-                <tr key={index}>
-                  <td>
+                <TableRow
+                  key={index}
+                  className="border-b border-border last:border-0"
+                >
+                  <TableCell className="px-3 py-2">
                     <Select
-                      aria-label="From state"
+                      items={states.map((state) => ({
+                        value: state.key,
+                        label: state.label || state.key,
+                      }))}
                       value={transition.from}
-                      onChange={(e) =>
-                        updateTransition(index, { from: e.target.value })
+                      onValueChange={(value) =>
+                        updateTransition(index, { from: value ?? "" })
                       }
                     >
-                      {states.map((s) => (
-                        <option key={s.key} value={s.key}>
-                          {s.label || s.key}
-                        </option>
-                      ))}
+                      <SelectTrigger aria-label={t("workflow.fromStateLabel")}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {states.map((s) => (
+                          <SelectItem key={s.key} value={s.key}>
+                            {s.label || s.key}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
                     </Select>
-                  </td>
-                  <td>
+                  </TableCell>
+                  <TableCell className="px-3 py-2">
                     <Select
-                      aria-label="To state"
+                      items={states.map((state) => ({
+                        value: state.key,
+                        label: state.label || state.key,
+                      }))}
                       value={transition.to}
-                      onChange={(e) =>
-                        updateTransition(index, { to: e.target.value })
+                      onValueChange={(value) =>
+                        updateTransition(index, { to: value ?? "" })
                       }
                     >
-                      {states.map((s) => (
-                        <option key={s.key} value={s.key}>
-                          {s.label || s.key}
-                        </option>
-                      ))}
+                      <SelectTrigger aria-label={t("workflow.toStateLabel")}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {states.map((s) => (
+                          <SelectItem key={s.key} value={s.key}>
+                            {s.label || s.key}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
                     </Select>
-                  </td>
-                  <td>
+                  </TableCell>
+                  <TableCell className="px-3 py-2">
                     <Input
-                      aria-label="Transition label"
                       value={transition.label}
                       onChange={(e) =>
                         updateTransition(index, { label: e.target.value })
                       }
                     />
-                  </td>
-                  <td>
+                  </TableCell>
+                  <TableCell className="px-3 py-2">
                     <Select
-                      aria-label="Required capability"
+                      items={CAPABILITY_OPTIONS.map((option) => ({
+                        value: option.value,
+                        label: t(option.labelKey),
+                      }))}
                       value={transition.requiredCapability}
-                      onChange={(e) =>
+                      onValueChange={(value) =>
                         updateTransition(index, {
-                          requiredCapability: e.target.value as FormCapability,
+                          requiredCapability: value ?? "submit",
                         })
                       }
                     >
-                      {CAPABILITY_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
+                      <SelectTrigger aria-label={t("workflow.capabilityLabel")}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CAPABILITY_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {t(option.labelKey)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
                     </Select>
-                  </td>
-                  <td className="form-workflow__row-actions">
-                    <button
-                      type="button"
-                      aria-label="Move transition up"
-                      disabled={index === 0}
-                      onClick={() => moveTransition(index, -1)}
-                    >
-                      ↑
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="Move transition down"
-                      disabled={index === transitions.length - 1}
-                      onClick={() => moveTransition(index, 1)}
-                    >
-                      ↓
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="Delete transition"
-                      onClick={() => removeTransition(index)}
-                    >
-                      ✕
-                    </button>
-                  </td>
-                </tr>
+                  </TableCell>
+                  <TableCell className="px-3 py-2">
+                    <div className="flex gap-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon-xs"
+                        className="size-7 p-0 text-sm"
+                        aria-label={t("workflow.moveTransitionUp")}
+                        disabled={index === 0}
+                        onClick={() => moveTransition(index, -1)}
+                      >
+                        <ArrowUp size={14} aria-hidden="true" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon-xs"
+                        className="size-7 p-0 text-sm"
+                        aria-label={t("workflow.moveTransitionDown")}
+                        disabled={index === transitions.length - 1}
+                        onClick={() => moveTransition(index, 1)}
+                      >
+                        <ArrowDown size={14} aria-hidden="true" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon-xs"
+                        className="size-7 p-0 text-sm"
+                        aria-label={t("workflow.removeTransition", {
+                          label: transition.label || String(index + 1),
+                        })}
+                        onClick={() => removeTransition(index)}
+                      >
+                        <Trash2 size={14} aria-hidden="true" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
-        </TableContainer>
+            </TableBody>
+          </Table>
+        </div>
       </section>
 
       {confirming && warnings.length > 0 && (
-        <Notice
-          variant="warning"
-          title="This change affects output or submission paths"
-          action={
-            <div className="form-builder__confirm-actions">
-              <Button variant="quiet" onClick={() => setConfirming(false)}>
-                Review again
-              </Button>
-              <Button
-                variant="primary"
-                loading={save.isPending}
-                onClick={() => save.mutate()}
-              >
-                Save anyway
-              </Button>
-            </div>
-          }
-        >
-          <ul>
-            {warnings.map((message) => (
-              <li key={message}>{message}</li>
-            ))}
-          </ul>
-        </Notice>
+        <Alert>
+          <AlertTitle>{t("workflow.impactTitle")}</AlertTitle>
+          <AlertDescription>
+            <ul className="grid gap-1">
+              {warnings.map((message) => (
+                <li key={message}>{message}</li>
+              ))}
+            </ul>
+          </AlertDescription>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="ghost" onClick={() => setConfirming(false)}>
+              {t("workflow.reviewAgain")}
+            </Button>
+            <Button
+              variant="default"
+              disabled={save.isPending}
+              aria-busy={save.isPending || undefined}
+              onClick={() => save.mutate()}
+            >
+              {save.isPending && <Spinner aria-hidden="true" />}
+              {t("workflow.saveAnyway")}
+            </Button>
+          </div>
+        </Alert>
       )}
 
-      <div className="form-workflow__actions">
+      <div className="flex flex-wrap gap-2">
         <Button
-          variant="primary"
-          loading={save.isPending}
+          variant="default"
           disabled={save.isPending || errors.length > 0 || !dirty}
+          aria-busy={save.isPending || undefined}
           onClick={attemptSave}
         >
-          Save workflow
+          {save.isPending && <Spinner aria-hidden="true" />}
+          {t("workflow.saveWorkflow")}
         </Button>
       </div>
     </div>
@@ -493,37 +651,46 @@ function slugifyStateKey(value: string): string {
 function validateWorkflow(
   states: FormWorkflowState[],
   transitions: FormWorkflowTransition[],
+  t: FormsT,
 ): string[] {
   const errors: string[] = [];
-  if (states.length === 0) errors.push("Add at least one state.");
+  if (states.length === 0) errors.push(t("workflow.validation.noStates"));
   const keys = new Set<string>();
   let initialCount = 0;
   let eligibleCount = 0;
   for (const state of states) {
     if (!KEY_PATTERN.test(state.key)) {
       errors.push(
-        `State key "${state.key || "(empty)"}" is invalid (lowercase letters, digits, underscores).`,
+        t("workflow.validation.invalidStateKey", {
+          key: state.key || t("workflow.validation.emptyKey"),
+        }),
       );
     }
-    if (keys.has(state.key)) errors.push(`Duplicate state key "${state.key}".`);
+    if (keys.has(state.key))
+      errors.push(
+        t("workflow.validation.duplicateStateKey", { key: state.key }),
+      );
     keys.add(state.key);
-    if (state.label.trim() === "") errors.push("Every state needs a label.");
+    if (state.label.trim() === "")
+      errors.push(t("workflow.validation.stateNeedsLabel"));
     if (state.initial) initialCount += 1;
     if (state.eligibleForOutput) eligibleCount += 1;
   }
   if (initialCount !== 1)
-    errors.push("Exactly one state must be the initial state.");
-  if (eligibleCount === 0)
-    errors.push("At least one state must be output-eligible.");
+    errors.push(t("workflow.validation.exactlyOneInitial"));
+  if (eligibleCount === 0) errors.push(t("workflow.validation.needEligible"));
   const seen = new Set<string>();
   for (const transition of transitions) {
     if (!keys.has(transition.from) || !keys.has(transition.to)) {
-      errors.push("Every transition must reference existing states.");
+      errors.push(t("workflow.validation.badReference"));
     }
-    const pair = `${transition.from} ${transition.to}`;
+    const pair = `${transition.from} ${transition.to}`;
     if (seen.has(pair))
       errors.push(
-        `Duplicate transition ${transition.from} → ${transition.to}.`,
+        t("workflow.validation.duplicateTransition", {
+          from: transition.from,
+          to: transition.to,
+        }),
       );
     seen.add(pair);
   }
@@ -537,6 +704,7 @@ function impactWarnings(
   originalTransitions: FormWorkflowTransition[],
   states: FormWorkflowState[],
   transitions: FormWorkflowTransition[],
+  t: FormsT,
 ): string[] {
   const warnings: string[] = [];
   const originalEligible = new Set(
@@ -547,32 +715,29 @@ function impactWarnings(
   );
   for (const key of originalEligible) {
     if (!nextEligible.has(key))
-      warnings.push(
-        `State "${key}" is no longer output-eligible; its records will leave signage.`,
-      );
+      warnings.push(t("workflow.warnings.lostEligible", { key }));
   }
   for (const key of nextEligible) {
     if (!originalEligible.has(key))
-      warnings.push(
-        `State "${key}" is now output-eligible; its records may appear on signage.`,
-      );
+      warnings.push(t("workflow.warnings.gainedEligible", { key }));
   }
-  const submitKey = (t: FormWorkflowTransition) => `${t.from}→${t.to}`;
+  const submitKey = (transition: FormWorkflowTransition) =>
+    `${transition.from}→${transition.to}`;
   const originalSubmit = new Set(
     originalTransitions
-      .filter((t) => t.requiredCapability === "submit")
+      .filter((transition) => transition.requiredCapability === "submit")
       .map(submitKey),
   );
   const nextSubmit = new Set(
-    transitions.filter((t) => t.requiredCapability === "submit").map(submitKey),
+    transitions
+      .filter((transition) => transition.requiredCapability === "submit")
+      .map(submitKey),
   );
   if (
     originalSubmit.size !== nextSubmit.size ||
     [...nextSubmit].some((k) => !originalSubmit.has(k))
   ) {
-    warnings.push(
-      "Submission paths changed; this affects how submitters move records.",
-    );
+    warnings.push(t("workflow.warnings.submissionPaths"));
   }
   return warnings;
 }

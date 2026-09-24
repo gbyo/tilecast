@@ -6,7 +6,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
 import type { StructuredInspection } from "../api/types";
-import { StructuredDataSourceEditor } from "./DataSourceEditors";
+import { StructuredDataSourceEditor } from "./data-sources/structured";
 
 afterEach(() => {
   cleanup();
@@ -140,11 +140,37 @@ describe("StructuredDataSourceEditor", () => {
     await screen.findByText(/2 items read from this feed/, undefined, {
       timeout: 3000,
     });
-    expect(screen.getByRole("checkbox", { name: "Title" })).toBeTruthy();
+    // The notice renders from the inspection response; the field checkboxes arrive
+    // one effect tick later when the editor applies the detected availability.
+    expect(
+      await screen.findByRole("checkbox", { name: "Title" }, { timeout: 3000 }),
+    ).toBeTruthy();
     // Author and description are on by default for a feed, but this feed carries neither,
     // so they are dropped rather than offered as dead controls.
     expect(screen.queryByRole("checkbox", { name: "Author" })).toBeNull();
     expect(screen.queryByRole("checkbox", { name: "Description" })).toBeNull();
+  });
+
+  it("offers explicit day-first dates and explains safe automatic parsing", async () => {
+    vi.spyOn(api, "inspectDataSource").mockResolvedValue(csvInspection);
+    editor("csv");
+
+    await userEvent.click(screen.getByText("Select records by local date"));
+    await userEvent.click(
+      screen.getByRole("combobox", { name: "Date format" }),
+    );
+
+    expect(
+      await screen.findByRole("option", {
+        name: "DD/MM/YYYY",
+      }),
+    ).toBeVisible();
+    expect(screen.getByRole("option", { name: "D/M/YYYY" })).toBeVisible();
+    expect(
+      screen.getByRole("option", {
+        name: "Auto (ambiguous slash dates stay as text)",
+      }),
+    ).toBeVisible();
   });
 
   // A schedule carries a start and an end, and the display slots hold one date between
@@ -200,7 +226,7 @@ describe("StructuredDataSourceEditor", () => {
 
     // The author remains the authority: a detected type can be corrected.
     await userEvent.click(startType);
-    await userEvent.click(screen.getByRole("option", { name: "Text" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Text" }));
     expect(startType).toHaveTextContent("Text");
     // Every timestamp is mapped, so there is nothing left to offer.
     expect(

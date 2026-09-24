@@ -1,10 +1,41 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { MapPin, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { MapPin, Pencil, Plus, Trash2 } from "lucide-react";
 import { api, ApiError } from "../api/client";
 import type { Location, LocationInput } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import { Button, Dialog } from "../components/ui";
+import { useConfirm } from "../components/ConfirmDialog";
+import { DashboardSearch } from "../components/DashboardListToolbar";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Button } from "../components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../components/ui/empty";
+import { Field, FieldLabel } from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemMedia,
+  ItemTitle,
+} from "../components/ui/item";
+import { Spinner } from "../components/ui/spinner";
+import { toast } from "../components/ui/toast";
 
 const emptyLocation: LocationInput = {
   name: "",
@@ -30,8 +61,10 @@ export function formatLocationAddress(location?: Partial<Location>) {
 }
 
 export function LocationsPanel({ canManage }: { canManage: boolean }) {
+  const { t } = useTranslation(["settings", "common"]);
   const auth = useAuth();
   const client = useQueryClient();
+  const { confirm, dialog: confirmDialog } = useConfirm();
   const query = useQuery({ queryKey: ["locations"], queryFn: api.locations });
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<Location | "new">();
@@ -55,8 +88,11 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
             auth.status?.csrfToken ?? "",
           ),
     onSuccess: async () => {
+      toast.add({
+        title: t("locations.saved"),
+        type: "success",
+      });
       setEditing(undefined);
-      setNotice("Location saved.");
       await client.invalidateQueries({ queryKey: ["locations"] });
       await client.invalidateQueries({ queryKey: ["screens"] });
     },
@@ -65,16 +101,16 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
     mutationFn: (location: Location) =>
       api.deleteLocation(location.id, auth.status?.csrfToken ?? ""),
     onSuccess: async () => {
-      setNotice("Location deleted.");
+      toast.add({ title: t("locations.deleted"), type: "success" });
       await client.invalidateQueries({ queryKey: ["locations"] });
     },
     onError: (error) =>
       setNotice(
         error instanceof ApiError && error.status === 409
-          ? "This location still has screens assigned. Reassign or unassign them before deleting it."
+          ? t("locations.deleteConflict")
           : error instanceof Error
             ? error.message
-            : "The location could not be deleted.",
+            : t("locations.deleteFailed"),
       ),
   });
   const open = (location: Location | "new") => {
@@ -97,215 +133,289 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
     );
   };
   return (
-    <section className="locations-settings">
-      <div className="locations-settings__toolbar">
-        <label className="location-search">
-          <Search size={16} />
-          <span className="visually-hidden">Search locations</span>
-          <input
-            type="search"
+    <>
+      {confirmDialog}
+      <section className="grid gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <DashboardSearch
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search by name or address"
+            onValueChange={setSearch}
+            label={t("locations.searchLabel")}
+            placeholder={t("locations.searchPlaceholder")}
           />
-        </label>
-        {canManage && (
-          <Button variant="primary" onClick={() => open("new")}>
-            <Plus size={16} /> Add location
-          </Button>
-        )}
-      </div>
-      {notice && <div className="notice notice--info">{notice}</div>}
-      {query.isError && (
-        <div className="notice notice--error" role="alert">
-          Location data failed to load. {query.error.message}
-        </div>
-      )}
-      {query.isLoading ? (
-        <div className="table-loading">Loading locations…</div>
-      ) : (
-        <div className="location-list">
-          {matches.map((location) => (
-            <article className="location-list__row" key={location.id}>
-              <span className="location-list__icon">
-                <MapPin size={17} />
-              </span>
-              <span>
-                <strong>{location.name}</strong>
-                <small>
-                  {formatLocationAddress(location) || "No address set"}
-                </small>
-              </span>
-              <span className="location-list__count">
-                {location.screenCount} screen
-                {location.screenCount === 1 ? "" : "s"}
-              </span>
-              {canManage && (
-                <span className="location-list__actions">
-                  <button
-                    type="button"
-                    aria-label={`Edit ${location.name}`}
-                    onClick={() => open(location)}
-                  >
-                    <Pencil size={16} />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`Delete ${location.name}`}
-                    disabled={remove.isPending}
-                    onClick={() => {
-                      if (
-                        confirm(
-                          location.screenCount
-                            ? `${location.name} still has screens assigned and cannot be deleted.`
-                            : `Delete ${location.name}?`,
-                        ) &&
-                        location.screenCount === 0
-                      )
-                        remove.mutate(location);
-                    }}
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </span>
-              )}
-            </article>
-          ))}
-          {!matches.length && (
-            <div className="screen-empty screen-empty--compact">
-              <MapPin size={24} />
-              <h3>{search ? "No locations match" : "No locations yet"}</h3>
-              <p>
-                {search
-                  ? "Try a different name or address."
-                  : "Add a building or campus to assign it to screens."}
-              </p>
-            </div>
+          {canManage && (
+            <Button variant="default" onClick={() => open("new")}>
+              <Plus size={16} aria-hidden="true" /> {t("locations.add")}
+            </Button>
           )}
         </div>
-      )}
-      <Dialog
-        open={Boolean(editing)}
-        title={editing === "new" ? "Add location" : "Edit location"}
-        onClose={() => setEditing(undefined)}
-      >
-        <form
-          className="location-form"
-          onSubmit={(event) => {
-            event.preventDefault();
-            save.mutate();
+        {notice && (
+          <Alert role="status">
+            <AlertDescription>{notice}</AlertDescription>
+          </Alert>
+        )}
+        {query.isError && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              {t("locations.loadError")} {query.error.message}
+            </AlertDescription>
+          </Alert>
+        )}
+        {query.isLoading ? (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Spinner aria-hidden="true" />
+            {t("locations.loading")}
+          </p>
+        ) : (
+          <ItemGroup className="gap-2">
+            {matches.map((location) => (
+              <Item key={location.id} variant="outline">
+                <ItemMedia
+                  variant="icon"
+                  className="size-8 rounded-lg bg-muted"
+                >
+                  <MapPin size={17} aria-hidden="true" />
+                </ItemMedia>
+                <ItemContent>
+                  <ItemTitle>{location.name}</ItemTitle>
+                  <ItemDescription>
+                    {formatLocationAddress(location) ||
+                      t("locations.noAddress")}
+                  </ItemDescription>
+                </ItemContent>
+                <ItemActions className="flex-wrap">
+                  <span className="text-sm text-muted-foreground tabular-nums">
+                    {t("locations.screens", { count: location.screenCount })}
+                  </span>
+                  {canManage && (
+                    <>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={t("locations.editLocation", {
+                          name: location.name,
+                        })}
+                        onClick={() => open(location)}
+                      >
+                        <Pencil size={16} aria-hidden="true" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={t("locations.deleteLocation", {
+                          name: location.name,
+                        })}
+                        disabled={remove.isPending}
+                        onClick={() => {
+                          if (location.screenCount > 0) {
+                            void confirm({
+                              title: t("locations.blockedTitle", {
+                                name: location.name,
+                              }),
+                              action: t("locations.confirmOk"),
+                            });
+                            return;
+                          }
+                          void confirm({
+                            title: t("locations.deleteTitle", {
+                              name: location.name,
+                            }),
+                            action: t("common:actions.delete"),
+                            destructive: true,
+                          }).then((ok) => {
+                            if (ok) remove.mutate(location);
+                          });
+                        }}
+                      >
+                        <Trash2 size={16} aria-hidden="true" />
+                      </Button>
+                    </>
+                  )}
+                </ItemActions>
+              </Item>
+            ))}
+            {!matches.length && (
+              <Empty>
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <MapPin size={24} aria-hidden="true" />
+                  </EmptyMedia>
+                  <EmptyTitle>
+                    {search ? t("locations.emptySearch") : t("locations.empty")}
+                  </EmptyTitle>
+                  <EmptyDescription>
+                    {search
+                      ? t("locations.emptySearchHint")
+                      : t("locations.emptyHint")}
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            )}
+          </ItemGroup>
+        )}
+        <Dialog
+          open={Boolean(editing)}
+          onOpenChange={(open) => {
+            if (!open) setEditing(undefined);
           }}
         >
-          <LocationField
-            label="Location name"
-            required
-            value={form.name}
-            onChange={(name) => setForm({ ...form, name })}
-          />
-          <LocationField
-            label="Address line 1"
-            value={form.addressLine1}
-            onChange={(addressLine1) => setForm({ ...form, addressLine1 })}
-          />
-          <LocationField
-            label="Address line 2"
-            value={form.addressLine2}
-            onChange={(addressLine2) => setForm({ ...form, addressLine2 })}
-          />
-          <div className="location-form__row">
-            <LocationField
-              label="City"
-              value={form.city}
-              onChange={(city) => setForm({ ...form, city })}
-            />
-            <LocationField
-              label="State"
-              value={form.state}
-              onChange={(state) => setForm({ ...form, state })}
-            />
-            <LocationField
-              label="ZIP / postal code"
-              value={form.postalCode}
-              onChange={(postalCode) => setForm({ ...form, postalCode })}
-            />
-          </div>
-          <LocationField
-            label="Country"
-            value={form.country}
-            onChange={(country) => setForm({ ...form, country })}
-          />
-          <div className="location-form__row">
-            <LocationField
-              label="Latitude"
-              type="number"
-              value={form.latitude ?? ""}
-              onChange={(value) =>
-                setForm({
-                  ...form,
-                  latitude: value === "" ? undefined : Number(value),
-                })
-              }
-            />
-            <LocationField
-              label="Longitude"
-              type="number"
-              value={form.longitude ?? ""}
-              onChange={(value) =>
-                setForm({
-                  ...form,
-                  longitude: value === "" ? undefined : Number(value),
-                })
-              }
-            />
-          </div>
-          {save.error && (
-            <div className="notice notice--error">{save.error.message}</div>
-          )}
-          <footer className="dialog-actions">
-            <Button
-              variant="quiet"
-              type="button"
-              onClick={() => setEditing(undefined)}
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>
+                {editing === "new"
+                  ? t("locations.addTitle")
+                  : t("locations.editTitle")}
+              </DialogTitle>
+            </DialogHeader>
+            <form
+              className="grid gap-4"
+              onSubmit={(event) => {
+                event.preventDefault();
+                save.mutate();
+              }}
             >
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              type="submit"
-              disabled={!form.name.trim() || save.isPending}
-            >
-              {save.isPending ? "Saving…" : "Save location"}
-            </Button>
-          </footer>
-        </form>
-      </Dialog>
-    </section>
+              <LocationField
+                id="location-name"
+                labelKey="locations.fields.name"
+                required
+                value={form.name}
+                onChange={(name) => setForm({ ...form, name })}
+              />
+              <LocationField
+                id="location-address-1"
+                labelKey="locations.fields.address1"
+                value={form.addressLine1}
+                onChange={(addressLine1) => setForm({ ...form, addressLine1 })}
+              />
+              <LocationField
+                id="location-address-2"
+                labelKey="locations.fields.address2"
+                value={form.addressLine2}
+                onChange={(addressLine2) => setForm({ ...form, addressLine2 })}
+              />
+              <div className="grid gap-4 sm:grid-cols-3">
+                <LocationField
+                  id="location-city"
+                  labelKey="locations.fields.city"
+                  value={form.city}
+                  onChange={(city) => setForm({ ...form, city })}
+                />
+                <LocationField
+                  id="location-state"
+                  labelKey="locations.fields.state"
+                  value={form.state}
+                  onChange={(state) => setForm({ ...form, state })}
+                />
+                <LocationField
+                  id="location-postal-code"
+                  labelKey="locations.fields.postal"
+                  value={form.postalCode}
+                  onChange={(postalCode) => setForm({ ...form, postalCode })}
+                />
+              </div>
+              <LocationField
+                id="location-country"
+                labelKey="locations.fields.country"
+                value={form.country}
+                onChange={(country) => setForm({ ...form, country })}
+              />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <LocationField
+                  id="location-latitude"
+                  labelKey="locations.fields.latitude"
+                  type="number"
+                  value={form.latitude ?? ""}
+                  onChange={(value) =>
+                    setForm({
+                      ...form,
+                      latitude: value === "" ? undefined : Number(value),
+                    })
+                  }
+                />
+                <LocationField
+                  id="location-longitude"
+                  labelKey="locations.fields.longitude"
+                  type="number"
+                  value={form.longitude ?? ""}
+                  onChange={(value) =>
+                    setForm({
+                      ...form,
+                      longitude: value === "" ? undefined : Number(value),
+                    })
+                  }
+                />
+              </div>
+              {save.error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{save.error.message}</AlertDescription>
+                </Alert>
+              )}
+              <DialogFooter>
+                <Button
+                  variant="ghost"
+                  type="button"
+                  onClick={() => setEditing(undefined)}
+                >
+                  {t("common:actions.cancel")}
+                </Button>
+                <Button
+                  variant="default"
+                  type="submit"
+                  disabled={!form.name.trim() || save.isPending}
+                >
+                  {save.isPending
+                    ? t("common:actions.saving")
+                    : t("locations.save")}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </section>
+    </>
   );
 }
 
+type LocationFieldLabelKey =
+  | "locations.fields.name"
+  | "locations.fields.address1"
+  | "locations.fields.address2"
+  | "locations.fields.city"
+  | "locations.fields.state"
+  | "locations.fields.postal"
+  | "locations.fields.country"
+  | "locations.fields.latitude"
+  | "locations.fields.longitude";
+
 function LocationField({
-  label,
+  id,
+  labelKey,
   value,
   onChange,
   required,
   type = "text",
 }: {
-  label: string;
+  id: string;
+  labelKey: LocationFieldLabelKey;
   value: string | number;
   onChange: (value: string) => void;
   required?: boolean;
   type?: "text" | "number";
 }) {
+  const { t } = useTranslation(["settings", "common"]);
   return (
-    <label className="field">
-      <span>{label}</span>
-      <input
+    <Field>
+      <FieldLabel htmlFor={id}>{t(labelKey)}</FieldLabel>
+      <Input
+        id={id}
         type={type}
         step={type === "number" ? "any" : undefined}
         required={required}
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
-    </label>
+    </Field>
   );
 }

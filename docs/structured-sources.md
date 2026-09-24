@@ -20,6 +20,10 @@ Detection uses the same fetch policy, parser, and delimiter detection as a refre
 
 All providers support bounded item counts, keyword filtering, source/title/date sorting, list/agenda/card/ticker presentation, refresh and staleness limits, an empty state, preview, typed diagnostics, and last-known-good playback. CSV and mapped data also support up to eight equality or contains filters and twelve optional value fields, each declaring a type — text, number, date, datetime, or URL — that Widget field pickers filter on. A datetime value is stored as an RFC 3339 instant when it can be read; a value that cannot be parsed passes through as text rather than failing the refresh.
 
+Date-aware selection accepts ISO dates, RFC 3339 and supported date-time values, named-month dates, the saved `us_date` (`MM/DD/YYYY`) and `us_short` (`M/D/YYYY`) formats, and explicit `day_first_date` (`DD/MM/YYYY`) and `day_first_short` (`D/M/YYYY`) formats. The existing IDs remain valid for saved Sources. Automatic parsing recognizes ISO, RFC 3339, named-month values, and slash dates only when one numeric component is greater than 12. It leaves ambiguous values such as `03/04/2026` as text; select an explicit month-first or day-first format to parse those. This avoids guessing from the Server, browser, or Player device locale. Studio labels and the Server parser use the same format IDs.
+
+`current_week` uses `organization.first_day_of_week`, including its locale-derived CLDR choice, in Server previews and Player selection. An upgrade migration stores Monday only when an existing installation had no explicit weekday, preserving the prior Player's current-week boundary. Stored administrator choices remain unchanged; new installations use the Sunday registry default.
+
 Manual Table supports up to twelve typed columns and two hundred rows. Supported types are text, number, integer, percent, currency, boolean, date, datetime, and URL. Manual data is immediately ready after saving and does not run through the background refresh worker.
 
 ## Release-defined structured Sources

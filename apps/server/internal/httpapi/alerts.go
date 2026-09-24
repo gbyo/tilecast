@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/tilecast/tilecast/apps/server/internal/alerts"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
+	"github.com/tilecast/tilecast/apps/server/internal/plugins"
 )
 
 func (s *server) alertZones(w http.ResponseWriter, r *http.Request) {
@@ -60,7 +61,10 @@ func (s *server) updateAlertMonitor(w http.ResponseWriter, r *http.Request) {
 	}
 	user := r.Context().Value(sessionContextKey).(auth.Session).User
 	monitor, err := s.alerts.UpdateMonitor(r.Context(), input.Enabled, input.Areas, input.Zones, input.PollIntervalSeconds, user.ID)
-	if errors.Is(err, alerts.ErrValidation) {
+	if errors.Is(err, plugins.ErrPluginNotInstalled) {
+		s.writePluginError(w, r, err)
+		return
+	} else if errors.Is(err, alerts.ErrValidation) {
 		writeError(w, http.StatusUnprocessableEntity, "alert_monitor_invalid", err.Error())
 		return
 	} else if err != nil {
@@ -71,7 +75,10 @@ func (s *server) updateAlertMonitor(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) pollAlerts(w http.ResponseWriter, r *http.Request) {
-	if err := s.alerts.Poll(r.Context()); err != nil {
+	if err := s.alerts.Poll(r.Context()); errors.Is(err, plugins.ErrPluginNotInstalled) {
+		s.writePluginError(w, r, err)
+		return
+	} else if err != nil {
 		writeError(w, http.StatusBadGateway, "nws_poll_failed", "Tilecast could not retrieve active NWS alerts.")
 		return
 	}
@@ -98,7 +105,10 @@ func (s *server) saveAlertRule(w http.ResponseWriter, r *http.Request, id uuid.U
 	}
 	user := r.Context().Value(sessionContextKey).(auth.Session).User
 	rule, err := s.alerts.SaveRule(r.Context(), id, input, user.ID)
-	if errors.Is(err, alerts.ErrValidation) {
+	if errors.Is(err, plugins.ErrPluginNotInstalled) {
+		s.writePluginError(w, r, err)
+		return
+	} else if errors.Is(err, alerts.ErrValidation) {
 		writeError(w, http.StatusUnprocessableEntity, "alert_rule_invalid", err.Error())
 		return
 	} else if errors.Is(err, pgx.ErrNoRows) {

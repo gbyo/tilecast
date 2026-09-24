@@ -1,28 +1,52 @@
-// ScreenContentChain walks the dependency graph downward from a screen: what is assigned, what
-// content it contains, and which Data Sources feed it. This is the direction that answers "why does
-// this screen look stale?" — the source status is shown next to the source, so a failed refresh is
-// visible from the screen rather than only from the Data Source page.
-//
-// Both assignment kinds resolve completely. A Layout's stored dependencies already name every
-// Data Source it reaches, including sources reached through a text binding with no Widget. A
-// playlist reports the sources reached through its items — read server-side, so closing this leg
-// costs one query rather than a detail request per playlist item.
+// ScreenContentChain walks the dependency graph downward from a screen so the operator can see
+// which assigned presentation, widgets, and data sources contribute to its current content.
 import { useQuery } from "@tanstack/react-query";
+import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
+import type { ReactNode } from "react";
+import { AlertTriangle, Database, Layers3, ListVideo } from "lucide-react";
 import { api } from "../api/client";
 import type { PlaylistAssignment } from "../api/types";
-import { StatusDot } from "../components/ui";
+import { apiErrorMessage } from "../i18n";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
+import { AspectRatio } from "../components/ui/aspect-ratio";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from "../components/ui/item";
+import { Skeleton } from "../components/ui/skeleton";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "../components/ui/hover-card";
 
-function statusTone(status: string) {
-  if (status === "ready") return "success" as const;
-  if (status === "error") return "danger" as const;
-  return "info" as const;
-}
+type WidgetsT = TFunction<["content", "common"], undefined>;
 
-function statusText(status: string, recordCount: number) {
-  if (status === "error") return "Last refresh failed";
-  if (status !== "ready") return status.replaceAll("_", " ");
-  return `${recordCount} record${recordCount === 1 ? "" : "s"}`;
+function sourceStatus(status: string, recordCount: number, t: WidgetsT) {
+  if (status === "error") {
+    return {
+      label: t("widgets.chain.sourceFailed"),
+      variant: "destructive" as const,
+    };
+  }
+  if (status !== "ready") {
+    // Server data-source status values render as-is; only "error" and "ready" above are Studio states.
+    return {
+      label: status.replaceAll("_", " "), // i18n-ignore: server status value
+      variant: "outline" as const,
+    };
+  }
+  return {
+    label: t("widgets.chain.records", { count: recordCount }),
+    variant: "secondary" as const,
+  };
 }
 
 export function ScreenContentChain({
@@ -30,6 +54,7 @@ export function ScreenContentChain({
 }: {
   assignment?: PlaylistAssignment;
 }) {
+  const { t } = useTranslation(["content", "common"]);
   const layoutId = assignment?.layoutId;
   const playlistId = assignment?.playlistId;
   const layout = useQuery({
@@ -42,8 +67,6 @@ export function ScreenContentChain({
     queryFn: () => api.playlist(playlistId!),
     enabled: Boolean(playlistId),
   });
-  // One list read resolves every source's name and status for either assignment kind; the Layout
-  // and the playlist both report only dependency IDs.
   const sources = useQuery({
     queryKey: ["screen-chain-data-sources"],
     queryFn: () =>
@@ -53,7 +76,13 @@ export function ScreenContentChain({
     enabled: Boolean(layoutId || playlistId),
   });
 
-  if (!layoutId && !playlistId) return null;
+  if (!layoutId && !playlistId) {
+    return (
+      <p className="border-y border-border py-4 text-sm text-muted-foreground">
+        {t("widgets.chain.unassigned")}
+      </p>
+    );
+  }
 
   const resolve = (ids: string[]) =>
     (sources.data?.items ?? []).filter((source) => ids.includes(source.id));
@@ -66,97 +95,232 @@ export function ScreenContentChain({
   const widgetItems = (playlist.data?.items ?? []).filter(
     (item) => item.assetType === "widget",
   );
+  const layoutDataSourceCount =
+    layout.data?.dependencies.filter(
+      (dependency) => dependency.type === "data_source",
+    ).length ?? 0;
 
   return (
-    <section className="screen-chain">
-      <h4>Content and data on this screen</h4>
+    <section className="min-w-0 space-y-3" aria-labelledby="screen-chain-title">
+      <header>
+        <h3 id="screen-chain-title" className="text-sm font-semibold">
+          {t("widgets.chain.title")}
+        </h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {t("widgets.chain.subtitle")}
+        </p>
+      </header>
+
       {layoutId && (
-        <>
-          <ul className="screen-chain__list">
-            <li>
-              <Link to={`/layouts/${layoutId}`}>
-                <span>{assignment?.layoutName ?? "Assigned Layout"}</span>
-                <small>Layout</small>
-              </Link>
-            </li>
-          </ul>
+        <ItemGroup className="gap-0 divide-y divide-border border-y border-border">
+          <Item size="xs" className="rounded-none px-0">
+            <ItemContent>
+              <ItemTitle>
+                <ResourcePreviewLink
+                  to={`/layouts/${layoutId}`}
+                  title={
+                    assignment?.layoutName ?? t("widgets.chain.assignedLayout")
+                  }
+                  metadata={
+                    layout.data
+                      ? `${layout.data.canvasWidth} × ${layout.data.canvasHeight} px · ${t("widgets.chain.layoutDataSources", { count: layoutDataSourceCount })}`
+                      : t("widgets.chain.layoutPreview")
+                  }
+                  imageUrl={layout.data?.previewImageUrl}
+                  fallback={<Layers3 aria-hidden="true" />}
+                />
+              </ItemTitle>
+              <ItemDescription>
+                {t("widgets.chain.publishedLayout")}
+              </ItemDescription>
+            </ItemContent>
+          </Item>
           {layout.isLoading ? (
-            <p className="screen-chain__note">Resolving Layout data…</p>
+            <Skeleton className="my-2 h-10 w-full" />
+          ) : layout.error ? (
+            <DependencyError
+              title={t("widgets.chain.layoutDepsError")}
+              message={apiErrorMessage(layout.error)}
+            />
           ) : layoutSources.length === 0 ? (
-            <p className="screen-chain__note">
-              This Layout reads no Data Sources.
+            <p className="py-3 text-sm text-muted-foreground">
+              {t("widgets.chain.layoutNoSources")}
             </p>
           ) : (
-            <ul className="screen-chain__list">
-              {layoutSources.map((source) => (
-                <li key={source.id}>
-                  <Link to={`/data-sources/${source.id}`}>
-                    <span>{source.name}</span>
-                    <StatusDot
-                      tone={statusTone(source.status)}
-                      label={statusText(
-                        source.status,
-                        source.cachedRecordCount,
-                      )}
-                    />
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            layoutSources.map((source) => (
+              <SourceItem key={source.id} source={source} t={t} />
+            ))
           )}
-        </>
+        </ItemGroup>
       )}
+
       {playlistId && (
-        <>
-          <ul className="screen-chain__list">
-            <li>
-              <Link to={`/playlists/${playlistId}`}>
-                <span>{assignment?.playlistName ?? "Assigned playlist"}</span>
-                <small>
-                  {playlist.data?.itemCount ?? 0} item
-                  {playlist.data?.itemCount === 1 ? "" : "s"}
-                </small>
-              </Link>
-            </li>
-          </ul>
-          {widgetItems.length > 0 && (
-            <ul className="screen-chain__list">
-              {widgetItems.map((item) => (
-                <li key={item.id}>
-                  <Link to={`/widgets/${item.assetId}`}>
-                    <span>{item.assetName}</span>
-                    <small>Widget</small>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
+        <ItemGroup className="gap-0 divide-y divide-border border-y border-border">
+          <Item size="xs" className="rounded-none px-0">
+            <ItemContent>
+              <ItemTitle>
+                <ResourcePreviewLink
+                  to={`/playlists/${playlistId}`}
+                  title={
+                    assignment?.playlistName ??
+                    t("widgets.chain.assignedPlaylist")
+                  }
+                  metadata={`${t("widgets.chain.playlistItemCount", { count: playlist.data?.itemCount ?? 0 })}${playlist.data?.revision ? ` · ${t("widgets.chain.playlistRevision", { revision: playlist.data.revision })}` : ""}`}
+                  imageUrl={playlist.data?.items[0]?.thumbnailUrl}
+                  fallback={<ListVideo aria-hidden="true" />}
+                />
+              </ItemTitle>
+              <ItemDescription>
+                {t("widgets.chain.playlistItemCount", {
+                  count: playlist.data?.itemCount ?? 0,
+                })}
+              </ItemDescription>
+            </ItemContent>
+          </Item>
           {playlist.isLoading ? (
-            <p className="screen-chain__note">Resolving playlist data…</p>
-          ) : playlistSources.length === 0 ? (
-            <p className="screen-chain__note">
-              Nothing in this playlist reads a Data Source.
-            </p>
+            <Skeleton className="my-2 h-10 w-full" />
+          ) : playlist.error ? (
+            <DependencyError
+              title={t("widgets.chain.playlistDepsError")}
+              message={apiErrorMessage(playlist.error)}
+            />
           ) : (
-            <ul className="screen-chain__list">
-              {playlistSources.map((source) => (
-                <li key={source.id}>
-                  <Link to={`/data-sources/${source.id}`}>
-                    <span>{source.name}</span>
-                    <StatusDot
-                      tone={statusTone(source.status)}
-                      label={statusText(
-                        source.status,
-                        source.cachedRecordCount,
-                      )}
-                    />
-                  </Link>
-                </li>
+            <>
+              {widgetItems.map((item) => (
+                <Item
+                  key={item.id}
+                  size="xs"
+                  render={<Link to={`/widgets/${item.assetId}`} />}
+                  className="rounded-none px-0"
+                >
+                  <ItemContent>
+                    <ItemTitle>{item.assetName}</ItemTitle>
+                    <ItemDescription>
+                      {t("widgets.chain.widgetKind")}
+                    </ItemDescription>
+                  </ItemContent>
+                </Item>
               ))}
-            </ul>
+              {playlistSources.map((source) => (
+                <SourceItem key={source.id} source={source} t={t} />
+              ))}
+              {!widgetItems.length && !playlistSources.length && (
+                <p className="py-3 text-sm text-muted-foreground">
+                  {t("widgets.chain.playlistNoSources")}
+                </p>
+              )}
+            </>
           )}
-        </>
+        </ItemGroup>
+      )}
+
+      {sources.error && (
+        <Alert variant="destructive">
+          <AlertTriangle aria-hidden="true" />
+          <AlertTitle>{t("widgets.chain.sourcesError")}</AlertTitle>
+          <AlertDescription>{apiErrorMessage(sources.error)}</AlertDescription>
+        </Alert>
       )}
     </section>
+  );
+}
+
+function ResourcePreviewLink({
+  to,
+  title,
+  metadata,
+  imageUrl,
+  fallback,
+}: {
+  to: string;
+  title: string;
+  metadata: string;
+  imageUrl?: string;
+  fallback: ReactNode;
+}) {
+  return (
+    <HoverCard>
+      <HoverCardTrigger
+        render={
+          <Link
+            className="inline-flex min-w-0 items-center gap-2 text-inherit hover:underline"
+            to={to}
+          />
+        }
+      >
+        {fallback}
+        {title}
+      </HoverCardTrigger>
+      <HoverCardContent side="right" align="start" className="grid w-72 gap-3">
+        {imageUrl ? (
+          <AspectRatio
+            ratio={16 / 9}
+            className="overflow-hidden rounded-md bg-muted"
+          >
+            <img className="size-full object-cover" src={imageUrl} alt="" />
+          </AspectRatio>
+        ) : (
+          <div className="grid aspect-video place-items-center rounded-md bg-muted text-muted-foreground">
+            {fallback}
+          </div>
+        )}
+        <div className="grid gap-1">
+          <p className="font-medium">{title}</p>
+          <p className="text-xs text-muted-foreground">{metadata}</p>
+        </div>
+      </HoverCardContent>
+    </HoverCard>
+  );
+}
+
+function SourceItem({
+  source,
+  t,
+}: {
+  source: {
+    id: string;
+    name: string;
+    status: string;
+    cachedRecordCount: number;
+  };
+  t: WidgetsT;
+}) {
+  const status = sourceStatus(source.status, source.cachedRecordCount, t);
+  return (
+    <Item
+      size="xs"
+      render={<Link to={`/data-sources/${source.id}`} />}
+      className="rounded-none px-0"
+    >
+      <ItemContent>
+        <ItemTitle>
+          <Database
+            className="size-4 text-muted-foreground"
+            aria-hidden="true"
+          />
+          {source.name}
+        </ItemTitle>
+        <ItemDescription>{t("widgets.chain.sourceKind")}</ItemDescription>
+      </ItemContent>
+      <ItemActions>
+        <Badge variant={status.variant}>{status.label}</Badge>
+      </ItemActions>
+    </Item>
+  );
+}
+
+function DependencyError({
+  title,
+  message,
+}: {
+  title: string;
+  message: string;
+}) {
+  return (
+    <Alert variant="destructive" className="my-2">
+      <AlertTriangle aria-hidden="true" />
+      <AlertTitle>{title}</AlertTitle>
+      <AlertDescription>{message}</AlertDescription>
+    </Alert>
   );
 }

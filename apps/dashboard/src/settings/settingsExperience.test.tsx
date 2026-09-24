@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SettingDefinition } from "../api/types";
 import { SettingControl } from "./SettingControl";
@@ -16,6 +17,7 @@ const definition = (
   key: "test.setting",
   category: "playback",
   type: "string",
+  // i18n-ignore: generic test fixture title, not product copy
   title: "Test setting",
   default: "",
   scope: "organization",
@@ -33,8 +35,13 @@ describe("settings presentation", () => {
       "Content and playback",
       "Player management",
       "Operations",
+      "System tools",
     ]);
     expect(sectionFromPath("/settings/player/reliability")).toBe("reliability");
+    // Dependency Graph is a system tool, not an installable plugin.
+    expect(sectionFromPath("/settings/dependency-graph")).toBe(
+      "dependency-graph",
+    );
     expect(sectionFromPath("/settings")).toBe("general");
     // Automatic weather alerts are the Emergency Alerts plugin; what is left
     // in Settings is the policy for a Takeover someone starts by hand.
@@ -49,7 +56,11 @@ describe("settings presentation", () => {
     const change = vi.fn();
     render(
       <SettingControl
-        definition={definition({ type: "bool", title: "Launch after boot" })}
+        definition={definition({
+          type: "bool",
+          // i18n-ignore: test fixture label
+          title: "Launch after boot",
+        })}
         value={false}
         onChange={change}
       />,
@@ -60,13 +71,15 @@ describe("settings presentation", () => {
     expect(change).toHaveBeenCalledWith(true);
   });
 
-  it("keeps enum storage values while showing human labels", () => {
+  it("keeps enum storage values while showing human labels", async () => {
     expect(enumLabel("managed_kiosk")).toBe("Managed Kiosk");
     const change = vi.fn();
+    const user = userEvent.setup();
     render(
       <SettingControl
         definition={definition({
           type: "enum",
+          // i18n-ignore: test fixture label
           title: "Cookie policy",
           allowed: ["first_party", "first_and_third_party"],
         })}
@@ -76,9 +89,9 @@ describe("settings presentation", () => {
     );
     const control = screen.getByRole("combobox", { name: "Cookie policy" });
     expect(control).toHaveTextContent("First-party cookies");
-    fireEvent.click(control);
-    fireEvent.click(
-      screen.getByRole("option", {
+    await user.click(control);
+    await user.click(
+      await screen.findByRole("option", {
         name: "First- and third-party cookies",
       }),
     );
@@ -89,7 +102,11 @@ describe("settings presentation", () => {
     const change = vi.fn();
     render(
       <SettingControl
-        definition={definition({ type: "weekday_list", title: "Active days" })}
+        definition={definition({
+          type: "weekday_list",
+          // i18n-ignore: test fixture label
+          title: "Active days",
+        })}
         value={[1, 2, 3, 4, 5]}
         onChange={change}
       />,
@@ -106,7 +123,8 @@ describe("settings presentation", () => {
         definition={definition({
           key: "player.cache.max_bytes",
           type: "int64",
-          title: "Maximum cache size",
+          // i18n-ignore: test fixture label
+          title: "Maximum cache bytes",
           min: 1024 ** 2,
           max: 1024 ** 4,
         })}
@@ -115,10 +133,10 @@ describe("settings presentation", () => {
       />,
     );
     expect(
-      screen.getByRole("spinbutton", { name: "Maximum cache size" }),
+      screen.getByRole("spinbutton", { name: "Maximum cache bytes" }),
     ).toHaveValue(8);
     fireEvent.change(
-      screen.getByRole("spinbutton", { name: "Maximum cache size" }),
+      screen.getByRole("spinbutton", { name: "Maximum cache bytes" }),
       { target: { value: "12" } },
     );
     expect(change).toHaveBeenCalledWith(12 * 1024 ** 3);
@@ -131,6 +149,7 @@ describe("settings presentation", () => {
         definition={definition({
           key: "player.sync.manifest_seconds",
           type: "int",
+          // i18n-ignore: test fixture label
           title: "Manifest reconciliation interval",
           min: 60,
           max: 86400,
@@ -158,13 +177,14 @@ describe("settings presentation", () => {
     expect(change).toHaveBeenCalledWith(600);
   });
 
-  it("normalizes minute-precision local times and uses canonical timezone options", () => {
+  it("normalizes minute-precision local times and uses canonical timezone options", async () => {
     const timeChange = vi.fn();
     render(
       <SettingControl
         definition={definition({
           key: "power.active_hours_end",
           type: "local_time",
+          // i18n-ignore: test fixture label
           title: "End time",
         })}
         value="16:00:00"
@@ -184,6 +204,7 @@ describe("settings presentation", () => {
         definition={definition({
           key: "organization.timezone",
           type: "timezone",
+          // i18n-ignore: test fixture label
           title: "Default timezone",
         })}
         value="EST"
@@ -193,16 +214,23 @@ describe("settings presentation", () => {
     const timezone = screen.getByRole("combobox", {
       name: "Default timezone",
     });
-    expect(timezone).toHaveTextContent("Eastern Time");
-    expect(document.querySelector(".signal-select__native")).toHaveValue(
-      "America/New_York",
-    );
+    expect(timezone).toHaveValue("New York (America/New_York)");
 
-    fireEvent.click(timezone);
-    const timezoneListbox = screen.getByRole("listbox");
-    fireEvent.scroll(timezoneListbox);
-    expect(screen.getByRole("listbox")).toBeInTheDocument();
-    fireEvent.scroll(window);
+    const user = userEvent.setup();
+    await user.click(timezone);
+    expect(await screen.findByRole("listbox")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("option", {
+        name: "Auckland (Pacific/Auckland)",
+      }),
+    ).toBeInTheDocument();
+    await user.type(timezone, "Los Angeles");
+    await user.click(
+      await screen.findByRole("option", {
+        name: "Los Angeles (America/Los_Angeles)",
+      }),
+    );
+    expect(timezoneChange).toHaveBeenCalledWith("America/Los_Angeles");
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
 
     expect(
@@ -249,16 +277,18 @@ describe("settings presentation", () => {
       definition({
         key: "player.cache.max_bytes",
         type: "int64",
-        title: "Maximum cache size",
+        // i18n-ignore: test fixture label
+        title: "Maximum cache bytes",
       }),
     ]);
-    expect(groups.at(0)?.title).toBe("Storage and delivery");
+    expect(groups.at(0)?.titleKey).toBe("groups.playback.storage.title");
 
     const reliabilityGroups = groupsFor("reliability", [
       definition({
         key: "managed_kiosk.lock_task_enabled",
         category: "reliability",
         type: "bool",
+        // i18n-ignore: test fixture label
         title: "Lock task",
         scope: "policy",
       }),
@@ -266,13 +296,14 @@ describe("settings presentation", () => {
         key: "linux_kiosk.fullscreen_enabled",
         category: "reliability",
         type: "bool",
+        // i18n-ignore: test fixture label
         title: "Kiosk fullscreen",
         scope: "policy",
       }),
     ]);
-    expect(reliabilityGroups.map((group) => group.title)).toEqual([
-      "Android Managed Kiosk",
-      "Linux kiosk",
+    expect(reliabilityGroups.map((group) => group.titleKey)).toEqual([
+      "groups.reliability.androidKiosk.title",
+      "groups.reliability.linuxKiosk.title",
     ]);
   });
 });

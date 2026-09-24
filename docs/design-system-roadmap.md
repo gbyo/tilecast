@@ -1,14 +1,15 @@
-# Tilecast Signal pattern roadmap
+# Tilecast Studio pattern roadmap
 
-This roadmap identifies repeated Tilecast Studio UI patterns that should become
-shared Signal primitives. It is planning material, not an inventory of
-available components. The authoritative implemented and normative guidance
-remains the [Tilecast Signal design system](design-system.md).
+This roadmap is a historical planning snapshot for repeated Tilecast Studio UI
+patterns. Several statuses, examples, and proposed component contracts predate
+the move to shadcn Base UI Base Vega and are no longer a current implementation
+inventory. Use the [current Studio and Player design system](design-system.md)
+and the code under `apps/dashboard/src/components/ui` for current guidance.
 
-The roadmap standardizes proven Tilecast needs before expanding toward a
-general-purpose component library. A pattern listed here must not be imported,
-referenced as implemented, or presented as a completed product capability until
-its status becomes **Implemented**.
+The roadmap records the intent and rationale of the earlier component work. Do
+not treat its historical **Implemented** status or behavior descriptions as a
+current registry contract without checking the current code and official Base
+Vega documentation.
 
 ## Status model
 
@@ -129,13 +130,13 @@ behavior.
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Status / priority          | **Candidate / P1**                                                                                                                                                                                                            |
 | Problem                    | Media selection and player-release upload implement separate drag/drop surfaces, file validation, queues, progress, retry, and failure presentation.                                                                          |
-| Current examples           | Content upload queue, content-picker upload dialog, picker drop zone, and player-release drop zone.                                                                                                                           |
+| Current examples           | Content upload queue, `MediaUploadPanel` (the Content Picker Upload tab and the Upload media dialog, on `Attachment`), and the player-release drop zone.                                                                      |
 | Shared responsibility      | Accessible file selection and drag/drop presentation plus queue rows for local validation, transfer progress, completion, retry, cancellation, and failure. Upload transport and accepted-file policy remain feature-owned.   |
 | Variants                   | Single-file and multi-file drop zone. compact and detailed queue row. Folder upload is excluded.                                                                                                                              |
 | States                     | Idle, drag acceptable, drag rejected, validating, queued, uploading, processing handoff, complete, failed, canceled, and retrying.                                                                                            |
 | Keyboard and screen reader | The drop zone includes a normal file input and activation control. drag/drop is optional enhancement. queue changes use restrained live announcements. progress exposes name and value. retry and remove are labeled buttons. |
 | Responsive behavior        | Instructions and browse action stack cleanly. queue metadata wraps without displacing progress or actions. long filenames truncate visually while remaining available to assistive technology.                                |
-| Migration targets          | Content picker and main content upload first. release APK upload only after its signing and authorization differences are preserved.                                                                                          |
+| Migration targets          | The Content Picker and global upload now share `MediaUploadPanel`. Main content upload next. release APK upload only after its signing and authorization differences are preserved.                                           |
 | Dependencies               | Notice/status primitives, progress representation, dialog or sheet host, feature-specific validation contracts.                                                                                                               |
 | Completion criteria        | Pointer, keyboard, and file-input paths are equivalent. rejected files explain why. mixed-success queues remain operable. cancellation and retry are tested. no upload secrets or local paths leak into messages.             |
 
@@ -177,7 +178,7 @@ behavior.
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Status / priority          | **Candidate / P1**                                                                                                                                                                                |
 | Problem                    | Several workflows build custom modal backdrops despite an implemented `Dialog`, producing inconsistent focus containment, Escape handling, labels, and layering.                                  |
-| Current examples           | Playlist creation and Layout selection plus screen revocation now use `Dialog`. content picker, upload dialog, layout preview/details, and definition editors still require consolidation.        |
+| Current examples           | Playlist creation, Layout selection, screen revocation, and the Content Picker (one `Dialog` with Library and Upload tabs) use `Dialog`. layout preview/details and definition editors remain.    |
 | Shared responsibility      | Define when existing `Dialog` is sufficient, which missing composition features it needs, and which experiences should instead use a drawer, sheet, or full page.                                 |
 | Variants                   | Small confirmation, form dialog, large bounded task, and nested child task only if a non-layered alternative cannot work.                                                                         |
 | States                     | Opening, ready, submitting, validation error, server error, dirty close attempt, and closing.                                                                                                     |
@@ -195,7 +196,7 @@ behavior.
 | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Status / priority          | **Candidate / P2**                                                                                                                                                                                              |
 | Problem                    | Playlist ordering combines drag handles, playback settings, per-item actions, duration context, and empty states in one page-specific timeline. Future ordered content may repeat the interaction.              |
-| Current examples           | Playlist timeline and timeline items.                                                                                                                                                                           |
+| Current examples           | Playlist timeline: `Item` rows with one action model rendered by the row DropdownMenu and ContextMenu.                                                                                                          |
 | Shared responsibility      | Ordered-item structure, selection, drag presentation, keyboard reordering, position announcements, and stable per-item action placement. Domain-specific playback controls remain in the item body.             |
 | Variants                   | Compact ordered list and detailed timeline. Freeform canvas ordering is excluded.                                                                                                                               |
 | States                     | Empty, ready, selected, dragging, keyboard-moving, disabled/read-only, saving order, save failure, and item validation warning.                                                                                 |

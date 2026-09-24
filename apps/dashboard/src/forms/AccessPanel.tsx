@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import type {
   FormAccessEntry,
   FormCapability,
@@ -7,47 +8,82 @@ import type {
   FormDirectoryUser,
 } from "../api/types";
 import { api } from "../api/client";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
 import {
-  Button,
-  Checkbox,
-  EmptyState,
-  Field,
-  Input,
-  Notice,
-  Spinner,
-  StatusBadge,
-  TableContainer,
-} from "../components/ui";
+  Item,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from "../components/ui/item";
+import { Checkbox } from "../components/ui/checkbox";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "../components/ui/empty";
+import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import { Spinner } from "../components/ui/spinner";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../components/ui/table";
+import { toast } from "../components/ui/toast";
 import { expandCapabilities } from "./capabilities";
+import { formToneBadgeProps } from "./formBadge";
+import type { FormsT } from "./formSchema";
 
 // Grantable capabilities in lattice order (broadest first), each with a plain-language implication.
+// Display text lives in the forms locale; render sites translate labelKey/impliesKey.
+type CapabilityLabelKey =
+  | "access.capabilities.manage.label"
+  | "access.capabilities.approve.label"
+  | "access.capabilities.review.label"
+  | "access.capabilities.viewAll.label"
+  | "access.capabilities.viewOwn.label"
+  | "access.capabilities.submit.label";
+
+type CapabilityImpliesKey =
+  | "access.capabilities.manage.implies"
+  | "access.capabilities.approve.implies"
+  | "access.capabilities.review.implies"
+  | "access.capabilities.viewAll.implies";
+
 const CAPABILITIES: {
   value: FormCapability;
-  label: string;
-  implies: string;
+  labelKey: CapabilityLabelKey;
+  impliesKey?: CapabilityImpliesKey;
 }[] = [
   {
     value: "manage",
-    label: "Manage",
-    implies: "Full control — includes every ability below.",
+    labelKey: "access.capabilities.manage.label",
+    impliesKey: "access.capabilities.manage.implies",
   },
   {
     value: "approve",
-    label: "Approve",
-    implies: "Approve or reject — includes Review and View all.",
+    labelKey: "access.capabilities.approve.label",
+    impliesKey: "access.capabilities.approve.implies",
   },
   {
     value: "review",
-    label: "Review",
-    implies: "Request changes — includes View all.",
+    labelKey: "access.capabilities.review.label",
+    impliesKey: "access.capabilities.review.implies",
   },
   {
     value: "view_all",
-    label: "View all responses",
-    implies: "Includes View own.",
+    labelKey: "access.capabilities.viewAll.label",
+    impliesKey: "access.capabilities.viewAll.implies",
   },
-  { value: "view_own", label: "View own responses", implies: "" },
-  { value: "submit", label: "Submit responses", implies: "" },
+  { value: "view_own", labelKey: "access.capabilities.viewOwn.label" },
+  { value: "submit", labelKey: "access.capabilities.submit.label" },
 ];
 
 // AccessPanel manages per-user access: one row per user with effective access, plus a searchable
@@ -61,6 +97,7 @@ export function AccessPanel({
   form: FormDataSource;
   csrf: string;
 }) {
+  const { t } = useTranslation(["forms", "common"]);
   const queryClient = useQueryClient();
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -79,6 +116,7 @@ export function AccessPanel({
       caps: FormCapability[];
     }) => api.replaceFormGrants(form.id, userId, caps, csrf),
     onSuccess: (entries) => {
+      toast.add({ title: "Form access updated.", type: "success" });
       queryClient.setQueryData(["form-access", form.id], entries);
       void queryClient.invalidateQueries({
         queryKey: ["form-data-source", form.id],
@@ -87,41 +125,53 @@ export function AccessPanel({
       setError("");
     },
     onError: (err) =>
-      setError(err instanceof Error ? err.message : "Could not update access."),
+      setError(err instanceof Error ? err.message : t("access.updateError")),
   });
 
-  if (access.isLoading) return <Spinner label="Loading access…" />;
+  if (access.isLoading) return <Spinner aria-label={t("access.loading")} />;
   if (access.isError || !access.data) {
     return (
-      <Notice variant="danger" title="Could not load access">
-        {access.error instanceof Error
-          ? access.error.message
-          : "Please try again."}
-      </Notice>
+      <Alert variant="destructive">
+        <AlertTitle>{t("access.loadError")}</AlertTitle>
+        <AlertDescription>
+          {access.error instanceof Error
+            ? access.error.message
+            : t("access.loadRetry")}
+        </AlertDescription>
+      </Alert>
     );
   }
   const entries = access.data;
   const grantedUserIds = new Set(entries.map((entry) => entry.userId));
 
   return (
-    <div className="form-access">
+    <div className="grid gap-4">
       {error && (
-        <Notice variant="danger" title="Access change failed">
-          {error}
-        </Notice>
+        <Alert variant="destructive">
+          <AlertTitle>{t("access.changeFailed")}</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
-      <TableContainer>
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th scope="col">User</th>
-              <th scope="col">Global role</th>
-              <th scope="col">Access</th>
-              <th scope="col" aria-label="Actions" />
-            </tr>
-          </thead>
-          <tbody>
+      <div className="overflow-x-auto rounded-xl border border-border">
+        <Table className="w-full text-sm">
+          <TableHeader>
+            <TableRow className="border-b border-border text-left text-xs text-muted-foreground">
+              <TableHead scope="col" className="px-3 py-2 font-medium">
+                {t("access.table.user")}
+              </TableHead>
+              <TableHead scope="col" className="px-3 py-2 font-medium">
+                {t("access.table.globalRole")}
+              </TableHead>
+              <TableHead scope="col" className="px-3 py-2 font-medium">
+                {t("access.table.access")}
+              </TableHead>
+              <TableHead scope="col" className="px-3 py-2 font-medium">
+                <span className="sr-only">{t("access.table.actions")}</span>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {entries.map((entry) => (
               <AccessRow
                 key={entry.userId}
@@ -138,9 +188,9 @@ export function AccessPanel({
                 }
               />
             ))}
-          </tbody>
-        </table>
-      </TableContainer>
+          </TableBody>
+        </Table>
+      </div>
 
       <GrantAccess
         formId={form.id}
@@ -167,54 +217,60 @@ function AccessRow({
   onCancel: () => void;
   onSave: (caps: FormCapability[]) => void;
 }) {
+  const { t } = useTranslation("forms");
   const implicitManager = entry.isCreator || entry.isGlobalOwner;
   return (
     <>
-      <tr>
-        <td>
-          <strong>{entry.name || entry.username}</strong>
-          <div className="form-access__username">@{entry.username}</div>
-        </td>
-        <td>{entry.role}</td>
-        <td>
+      <TableRow className="border-b border-border last:border-0">
+        <TableCell className="px-3 py-2">
+          <div className="grid gap-0.5">
+            <strong>{entry.name || entry.username}</strong>
+            <div className="text-xs text-muted-foreground">
+              @{entry.username}
+            </div>
+          </div>
+        </TableCell>
+        <TableCell className="px-3 py-2">{entry.role}</TableCell>
+        <TableCell className="px-3 py-2">
           {implicitManager ? (
-            <StatusBadge
-              label={entry.isCreator ? "Manager (creator)" : "Manager (Owner)"}
-              tone="info"
-            />
+            <Badge {...formToneBadgeProps("info")}>
+              {entry.isCreator
+                ? t("access.managerCreator")
+                : t("access.managerOwner")}
+            </Badge>
           ) : (
-            <span className="form-access__caps">
+            <span className="flex flex-wrap gap-1">
               {entry.capabilities.map((cap) => (
-                <StatusBadge
-                  key={cap}
-                  label={capabilityLabel(cap)}
-                  tone="neutral"
-                />
+                <Badge key={cap} {...formToneBadgeProps("neutral")}>
+                  {capabilityLabel(cap, t)}
+                </Badge>
               ))}
             </span>
           )}
-        </td>
-        <td className="form-access__actions">
+        </TableCell>
+        <TableCell className="px-3 py-2 text-right">
           {implicitManager ? (
-            <span className="form-access__locked">Always a manager</span>
+            <span className="text-sm text-muted-foreground">
+              {t("access.alwaysManager")}
+            </span>
           ) : editing ? null : (
-            <Button variant="quiet" compact onClick={onEdit}>
-              Edit access
+            <Button variant="ghost" size="sm" onClick={onEdit}>
+              {t("access.editAccess")}
             </Button>
           )}
-        </td>
-      </tr>
+        </TableCell>
+      </TableRow>
       {editing && !implicitManager && (
-        <tr>
-          <td colSpan={4}>
+        <TableRow className="border-b border-border last:border-0">
+          <TableCell colSpan={4} className="px-3 py-2">
             <CapabilityEditor
               initial={entry.capabilities}
               saving={saving}
               onCancel={onCancel}
               onSave={onSave}
             />
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       )}
     </>
   );
@@ -231,6 +287,7 @@ function GrantAccess({
   saving: boolean;
   onGrant: (userId: string, caps: FormCapability[]) => void;
 }) {
+  const { t } = useTranslation("forms");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<FormDirectoryUser | null>(null);
   const directory = useQuery({
@@ -240,22 +297,30 @@ function GrantAccess({
   });
 
   return (
-    <section className="form-access__grant" aria-label="Grant access">
-      <h3>Grant access</h3>
-      <Field label="Find a user" description="Search by name or username.">
+    <section
+      className="grid gap-3 rounded-xl border border-border p-4"
+      aria-label={t("access.grant.title")}
+    >
+      <h3 className="text-base font-semibold">{t("access.grant.title")}</h3>
+      <Field>
+        <FieldLabel htmlFor="form-access-search">
+          {t("access.grant.findUser")}
+        </FieldLabel>
         <Input
+          id="form-access-search"
           value={search}
-          placeholder="Search users"
+          placeholder={t("access.grant.searchPlaceholder")}
           onChange={(event) => {
             setSearch(event.target.value);
             setSelected(null);
           }}
         />
+        <FieldDescription>{t("access.grant.searchHint")}</FieldDescription>
       </Field>
       {selected ? (
-        <div className="form-access__grant-selected">
-          <p>
-            Granting access to{" "}
+        <div className="grid gap-2 rounded-xl border border-border p-3">
+          <p className="text-sm">
+            {t("access.grant.grantingTo")}{" "}
             <strong>{selected.name || selected.username}</strong> (@
             {selected.username})
           </p>
@@ -272,29 +337,44 @@ function GrantAccess({
         </div>
       ) : search.trim().length > 0 ? (
         directory.isLoading ? (
-          <Spinner label="Searching…" />
+          <Spinner aria-label={t("access.grant.searching")} />
         ) : (directory.data ?? []).filter(
             (user) => !excludeUserIds.has(user.id),
           ).length === 0 ? (
-          <EmptyState
-            title="No matching users"
-            message="Try a different search."
-          />
+          <Empty>
+            <EmptyHeader>
+              <EmptyTitle>{t("access.grant.noMatch")}</EmptyTitle>
+              <EmptyDescription>
+                {t("access.grant.noMatchHint")}
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
-          <ul className="form-access__directory">
+          <ItemGroup className="gap-1">
             {(directory.data ?? [])
               .filter((user) => !excludeUserIds.has(user.id))
               .map((user) => (
-                <li key={user.id}>
-                  <button type="button" onClick={() => setSelected(user)}>
-                    <strong>{user.name || user.username}</strong>
-                    <span>
+                <Item
+                  key={user.id}
+                  variant="outline"
+                  size="sm"
+                  render={
+                    <button
+                      type="button"
+                      className="w-full text-left hover:bg-muted"
+                    />
+                  }
+                  onClick={() => setSelected(user)}
+                >
+                  <ItemContent>
+                    <ItemTitle>{user.name || user.username}</ItemTitle>
+                    <ItemDescription>
                       @{user.username} · {user.role}
-                    </span>
-                  </button>
-                </li>
+                    </ItemDescription>
+                  </ItemContent>
+                </Item>
               ))}
-          </ul>
+          </ItemGroup>
         )
       ) : null}
     </section>
@@ -314,6 +394,7 @@ function CapabilityEditor({
   onCancel: () => void;
   onSave: (caps: FormCapability[]) => void;
 }) {
+  const { t } = useTranslation(["forms", "common"]);
   const [checked, setChecked] = useState<Set<FormCapability>>(
     () => new Set(initial),
   );
@@ -333,43 +414,52 @@ function CapabilityEditor({
   };
 
   return (
-    <div className="form-access__editor">
-      <ul className="form-access__cap-list">
+    <div className="grid gap-3">
+      <ul className="grid gap-2">
         {CAPABILITIES.map((cap) => {
           const isImplied = implied.has(cap.value);
           const isChecked = checked.has(cap.value) || isImplied;
           return (
-            <li key={cap.value}>
-              <Checkbox
-                label={cap.label}
-                checked={isChecked}
-                disabled={isImplied || saving}
-                onChange={() => toggle(cap.value)}
-              />
-              <span className="form-access__cap-implies">
-                {isImplied ? "Included by a broader capability." : cap.implies}
+            <li key={cap.value} className="grid gap-0.5">
+              {/* Base UI names the span from the wrapping label. */}
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={isChecked}
+                  disabled={isImplied || saving}
+                  onCheckedChange={() => toggle(cap.value)}
+                />
+                <span>{t(cap.labelKey)}</span>
+              </label>
+              <span className="pl-6 text-xs text-muted-foreground">
+                {isImplied
+                  ? t("access.includedByBroader")
+                  : cap.impliesKey
+                    ? t(cap.impliesKey)
+                    : null}
               </span>
             </li>
           );
         })}
       </ul>
-      <div className="form-access__editor-actions">
-        <Button variant="quiet" onClick={onCancel} disabled={saving}>
-          Cancel
+      <div className="flex flex-wrap gap-2">
+        <Button variant="ghost" onClick={onCancel} disabled={saving}>
+          {t("common:actions.cancel")}
         </Button>
         <Button
-          variant="primary"
-          loading={saving}
+          variant="default"
           disabled={saving}
+          aria-busy={saving || undefined}
           onClick={() => onSave([...checked])}
         >
-          Save access
+          {saving && <Spinner aria-hidden="true" />}
+          {t("access.saveAccess")}
         </Button>
       </div>
     </div>
   );
 }
 
-function capabilityLabel(cap: FormCapability): string {
-  return CAPABILITIES.find((entry) => entry.value === cap)?.label ?? cap;
+function capabilityLabel(cap: FormCapability, t: FormsT): string {
+  const found = CAPABILITIES.find((entry) => entry.value === cap);
+  return found ? t(found.labelKey) : cap;
 }

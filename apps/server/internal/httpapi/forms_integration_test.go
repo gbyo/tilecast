@@ -58,6 +58,10 @@ func TestUpdateFormMetadataEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Forms is an installable plugin; these tests exercise an installation that has added it.
+	if _, err = pool.Exec(ctx, `INSERT INTO plugin_installations(organization_id,plugin_id) SELECT id,'forms' FROM organization_settings WHERE singleton`); err != nil {
+		t.Fatal(err)
+	}
 	formsSvc := forms.NewService(pool, media.NewService(pool, nil, media.Config{}))
 	form, err := formsSvc.CreateForm(ctx, owner.User.ID, forms.FormInput{
 		Name: "Original", Description: "d",
@@ -183,6 +187,10 @@ func TestFormUserDirectoryAuthorization(t *testing.T) {
 	}
 	owner, err := auth.NewService(pool, time.Hour).Setup(ctx, auth.SetupInput{OrganizationName: "District", OwnerName: "Owner", Username: "owner", Password: "correct horse battery staple"})
 	if err != nil {
+		t.Fatal(err)
+	}
+	// Forms is an installable plugin; these tests exercise an installation that has added it.
+	if _, err = pool.Exec(ctx, `INSERT INTO plugin_installations(organization_id,plugin_id) SELECT id,'forms' FROM organization_settings WHERE singleton`); err != nil {
 		t.Fatal(err)
 	}
 	formsSvc := forms.NewService(pool, media.NewService(pool, nil, media.Config{}))

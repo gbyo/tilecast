@@ -3,6 +3,7 @@
 node_modules/
 dist/
 coverage/
+.astro/
 *.log
 .idea/
 .vscode/

@@ -56,7 +56,6 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
-import java.text.NumberFormat
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -64,8 +63,6 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.booleanOrNull
@@ -90,6 +87,8 @@ data class PresentationContext(
     val record: DocumentRecord? = null,
     val repeatIndex: Int = 0,
     val now: Instant = Instant.now(),
+    val regionalFormatting: org.tilecast.player.network.RegionalFormatting? = null,
+    val repeatCurrencies: Map<String, String> = emptyMap(),
     /** The surface's author textScale as a multiplier, applied to role typography. */
     val textScale: Float = 1f,
 )
@@ -122,6 +121,7 @@ fun DeclarativeWidgetItem(item:ManifestItem,widget: ManifestWidget, session: Pla
         session.content.localFiles,
         session.content.manifest.assets.associateBy { it.variantId },
         now = now,
+        regionalFormatting = session.playbackDefaults?.regionalFormat,
     )
     val shouldSkip = allowAutoSkip && presentationSignalsEmpty(native.root, context)
     if (shouldSkip) {
@@ -197,7 +197,11 @@ private fun PresentationNodeView(node: PresentationNode, context: PresentationCo
                 return
             }
             val records = repeated.repeat?.let {
-                temporalRecords(context.datasets[it.dataset], context.now, it.selector, it.startField, it.endField)
+                temporalRecords(
+                    context.datasets[it.dataset], context.now, it.selector, it.startField,
+                    it.endField, context.regionalFormatting.firstDay(),
+                    context.regionalFormatting.formatZone(),
+                )
                     .drop(it.offset).take(it.limit)
             }.orEmpty()
             val template = repeated.children.firstOrNull()
@@ -207,7 +211,8 @@ private fun PresentationNodeView(node: PresentationNode, context: PresentationCo
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 if (records.isEmpty()) item { Text(repeated.string("emptyState", "No information available"), color = Color.White) }
-                items(records.size, key = { records[it].id }) { index -> template?.let { PresentationNodeView(it, context.copy(record = records[index], repeatIndex = index + 1)) } }
+                val currencies = context.datasets[repeated.repeat?.dataset]?.fields.orEmpty().mapNotNull { field -> field.currency.takeIf(String::isNotBlank)?.let { field.key to it } }.toMap()
+                items(records.size, key = { records[it].id }) { index -> template?.let { PresentationNodeView(it, context.copy(record = records[index], repeatIndex = index + 1, repeatCurrencies = currencies)) } }
             }
         }
         "spacer" -> Spacer(Modifier.height(node.int("height", 8).dp))
@@ -220,12 +225,15 @@ private fun PresentationNodeView(node: PresentationNode, context: PresentationCo
                 repeat.selector,
                 repeat.startField,
                 repeat.endField,
+                context.regionalFormatting.firstDay(),
+                context.regionalFormatting.formatZone(),
             ).drop(repeat.offset).take(repeat.limit)
             if (records.isEmpty()) {
                 Text(node.string("emptyState", "No information available"), color = Color.White)
             }
             records.forEachIndexed { index, record ->
-                node.children.forEach { PresentationNodeView(it, context.copy(record = record, repeatIndex = index + 1)) }
+                val currencies = context.datasets[repeat.dataset]?.fields.orEmpty().mapNotNull { field -> field.currency.takeIf(String::isNotBlank)?.let { field.key to it } }.toMap()
+                node.children.forEach { PresentationNodeView(it, context.copy(record = record, repeatIndex = index + 1, repeatCurrencies = currencies)) }
             }
         }
         "text", "badge" -> {
@@ -292,14 +300,26 @@ private fun QRNode(value: String) {
 
 private fun resolve(binding: PresentationBinding?, context: PresentationContext): String {
     binding ?: return ""
+    var currencyCode: String? = null
+    var inferredFormat = ""
     val raw = when (binding.source) {
         "literal" -> binding.value
-        "repeat" -> context.record?.values?.get(binding.path)?.display().orEmpty()
+        "repeat" -> {
+            currencyCode = context.repeatCurrencies[binding.path]
+            context.record?.values?.get(binding.path)?.display().orEmpty()
+        }
         "repeat_index" -> context.repeatIndex.toString()
         "dataset" -> {
             val dataset = context.datasets[binding.dataset] ?: context.datasets.values.firstOrNull()
-            val records = temporalRecords(dataset, context.now, binding.selector, binding.startField, binding.endField)
+            val records = temporalRecords(
+                dataset, context.now, binding.selector, binding.startField,
+                binding.endField, context.regionalFormatting.firstDay(),
+                context.regionalFormatting.formatZone(),
+            )
             if (binding.path.isNotBlank()) {
+                val field = dataset?.fields?.firstOrNull { it.key == binding.path }
+                currencyCode = field?.currency
+                inferredFormat = field?.type.orEmpty()
                 val objectValue = dataset?.value?.objectValue?.get(binding.path)?.display()
                 objectValue ?: records.firstOrNull()?.values?.get(binding.path)?.display().orEmpty()
             } else {
@@ -309,25 +329,26 @@ private fun resolve(binding: PresentationBinding?, context: PresentationContext)
             }.joinToString(binding.separator)
             }
         }
-        "environment" -> formatEnvironment(binding, context.now)
+        "environment" -> formatEnvironment(binding, context.now, context.regionalFormatting)
         else -> ""
     }
-    return binding.prefix + formatValue(raw.ifBlank { binding.fallback }, binding.format, binding.precision, context.now) + binding.suffix
+    val format = binding.format.ifBlank { inferredFormat.ifBlank { "text" } }
+    return binding.prefix + formatValue(raw.ifBlank { binding.fallback }, format, binding.precision, context.now, context.regionalFormatting, currencyCode) + binding.suffix
 }
 
-private fun formatEnvironment(binding: PresentationBinding, now: Instant): String {
+private fun formatEnvironment(binding: PresentationBinding, now: Instant, regional: org.tilecast.player.network.RegionalFormatting?): String {
     val parts = binding.format.split(':')
     return when (parts.firstOrNull()) {
         "time" -> {
-            val twelve = parts.getOrNull(1) != "24"
+            val explicit = parts.getOrNull(1)?.takeIf { it == "12" || it == "24" }
             val seconds = parts.getOrNull(2) == "true"
-            val zone = runCatching { ZoneId.of(parts.getOrNull(3) ?: "UTC") }.getOrDefault(ZoneId.of("UTC"))
-            now.atZone(zone).format(DateTimeFormatter.ofPattern(if (twelve) if (seconds) "h:mm:ss a" else "h:mm a" else if (seconds) "HH:mm:ss" else "HH:mm"))
+            val zone = runCatching { ZoneId.of(parts.getOrNull(3) ?: regional?.timezone ?: "UTC") }.getOrDefault(regional.formatZone())
+            regional.formatTime(now.atZone(zone), explicit, seconds)
         }
         "date" -> {
-            val style = when (parts.getOrNull(1)) { "short" -> FormatStyle.SHORT; "medium" -> FormatStyle.MEDIUM; "long" -> FormatStyle.LONG; else -> FormatStyle.FULL }
-            val zone = runCatching { ZoneId.of(parts.getOrNull(2) ?: "UTC") }.getOrDefault(ZoneId.of("UTC"))
-            now.atZone(zone).format(DateTimeFormatter.ofLocalizedDate(style))
+            val style = when (parts.getOrNull(1)) { "short" -> java.time.format.FormatStyle.SHORT; "medium" -> java.time.format.FormatStyle.MEDIUM; "long" -> java.time.format.FormatStyle.LONG; "full" -> java.time.format.FormatStyle.FULL; else -> null }
+            val zone = runCatching { ZoneId.of(parts.getOrNull(2) ?: regional?.timezone ?: "UTC") }.getOrDefault(regional.formatZone())
+            regional.formatDate(now.atZone(zone).toLocalDate(), style)
         }
         "countdown" -> {
             if (parts.getOrNull(1) == "v2") {
@@ -355,29 +376,16 @@ private fun formatEnvironment(binding: PresentationBinding, now: Instant): Strin
     }
 }
 
-internal fun formatValue(value: String, format: String, precision: Int?, now: Instant = Instant.now()): String {
-    if (format == "relative-countdown") {
-        val target = parseRecordInstant(value) ?: return value
-        // Shared with the Countdown Bar so one vocabulary covers both surfaces.
-        return compactCountdown(Duration.between(now, target).toMillis())
-    }
-    if (format == "time") {
-        val instant = parseRecordInstant(value) ?: return value
-        return instant.atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
-    }
-    val number = value.toDoubleOrNull() ?: return value
-    val formatter = when (format) {
-        "integer" -> NumberFormat.getIntegerInstance()
-        "percent" -> NumberFormat.getPercentInstance()
-        "currency" -> NumberFormat.getCurrencyInstance()
-        "number" -> NumberFormat.getNumberInstance()
-        else -> return value
-    }
-    precision?.let { formatter.minimumFractionDigits = it; formatter.maximumFractionDigits = it }
-    return formatter.format(if (format == "percent") number / 100 else number)
-}
+internal fun formatValue(
+    value: String,
+    format: String,
+    precision: Int?,
+    now: Instant = Instant.now(),
+    regional: org.tilecast.player.network.RegionalFormatting? = null,
+    currencyCode: String? = null,
+): String = regional.formatValue(value, format, precision, currencyCode, now)
 
-private fun selectedRecords(dataset: DocumentDataset?, now: Instant): List<DocumentRecord> {
+private fun selectedRecords(dataset: DocumentDataset?, now: Instant, firstDayOfWeek: java.time.DayOfWeek = java.time.DayOfWeek.MONDAY): List<DocumentRecord> {
     dataset ?: return emptyList()
     val selection = dataset.dateSelection ?: return dataset.records
     val zone = runCatching { ZoneId.of(selection.timezone) }.getOrDefault(ZoneId.of("UTC"))
@@ -392,7 +400,7 @@ private fun selectedRecords(dataset: DocumentDataset?, now: Instant): List<Docum
         when (selection.mode) {
             "next_available" -> !date.isBefore(target)
             "current_week" -> {
-                val start = today.minusDays((today.dayOfWeek.value - 1).toLong())
+                val start = today.with(java.time.temporal.TemporalAdjusters.previousOrSame(firstDayOfWeek))
                 !date.isBefore(start) && !date.isAfter(start.plusDays(6))
             }
             "custom_range" -> runCatching { !date.isBefore(LocalDate.parse(selection.customStartDate)) && !date.isAfter(LocalDate.parse(selection.customEndDate)) }.getOrDefault(false)
@@ -406,10 +414,10 @@ private fun selectedRecords(dataset: DocumentDataset?, now: Instant): List<Docum
     return matches.map { it.second }
 }
 
-private fun parseRecordInstant(value: String): Instant? = runCatching {
+private fun parseRecordInstant(value: String, timezone: ZoneId): Instant? = runCatching {
     Instant.parse(value)
 }.recoverCatching {
-    LocalDateTime.parse(value).atZone(ZoneId.systemDefault()).toInstant()
+    LocalDateTime.parse(value).atZone(timezone).toInstant()
 }.getOrNull()
 
 internal fun temporalRecords(
@@ -418,12 +426,16 @@ internal fun temporalRecords(
     selector: String,
     startField: String,
     endField: String,
+    firstDayOfWeek: java.time.DayOfWeek = java.time.DayOfWeek.MONDAY,
+    timezone: ZoneId = ZoneId.of("UTC"),
 ): List<DocumentRecord> {
-    val records = selectedRecords(dataset, now)
+    val records = selectedRecords(dataset, now, firstDayOfWeek)
     if (selector.isBlank() || selector == "all") return records
     if (startField.isBlank()) return emptyList()
     val timed = records.mapNotNull { record ->
-        parseRecordInstant(record.values[startField]?.display().orEmpty())?.let { Triple(it, record, parseRecordInstant(record.values[endField]?.display().orEmpty())) }
+        parseRecordInstant(record.values[startField]?.display().orEmpty(), timezone)?.let {
+            Triple(it, record, parseRecordInstant(record.values[endField]?.display().orEmpty(), timezone))
+        }
     }.sortedBy { it.first }
     val current = timed.filter { (start, _, end) ->
         !start.isAfter(now) && end?.isAfter(now) == true
@@ -525,7 +537,7 @@ private fun ChartNode(node: PresentationNode, context: PresentationContext) {
     val palette = listOf(Color(0xFF4DB6FF), Color(0xFFFFB547), Color(0xFF57D38C), Color(0xFFE879F9))
     val series = binding.fields.mapIndexed { index, field ->
         val values = if (dataset.kind == "time_series") dataset.points.mapNotNull { it.values[field]?.display()?.toFloatOrNull() }
-        else selectedRecords(dataset, context.now).mapNotNull { it.values[field]?.display()?.toFloatOrNull() }
+        else selectedRecords(dataset, context.now, context.regionalFormatting.firstDay()).mapNotNull { it.values[field]?.display()?.toFloatOrNull() }
         ChartSeriesValues(labels.getOrNull(index).orEmpty().ifBlank { field }, parseOptionalColor(colors.getOrNull(index)) ?: palette[index % palette.size], values)
     }.filter { it.values.isNotEmpty() }
     if (series.isEmpty()) {

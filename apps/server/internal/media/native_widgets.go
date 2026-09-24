@@ -20,16 +20,15 @@ func (clockWidgetProvider) Normalize(_ context.Context, raw json.RawMessage) (an
 	if err := decodeConfig(raw, &c); err != nil {
 		return nil, err
 	}
-	if c.Timezone == "" {
-		c.Timezone = "UTC"
-	}
-	if _, err := time.LoadLocation(c.Timezone); err != nil {
-		return nil, errors.New("clock timezone is invalid")
+	if c.Timezone != "" {
+		if _, err := time.LoadLocation(c.Timezone); err != nil {
+			return nil, errors.New("clock timezone is invalid")
+		}
 	}
 	if c.Format == "" {
-		c.Format = "12"
+		c.Format = "locale"
 	}
-	if c.Format != "12" && c.Format != "24" {
+	if c.Format != "locale" && c.Format != "12" && c.Format != "24" {
 		return nil, errors.New("clock format is invalid")
 	}
 	if err := normalizeWidgetColors(&c.ForegroundColor, &c.BackgroundColor); err != nil {
@@ -48,16 +47,15 @@ func (dateWidgetProvider) Normalize(_ context.Context, raw json.RawMessage) (any
 	if err := decodeConfig(raw, &c); err != nil {
 		return nil, err
 	}
-	if c.Timezone == "" {
-		c.Timezone = "UTC"
-	}
-	if _, err := time.LoadLocation(c.Timezone); err != nil {
-		return nil, errors.New("date timezone is invalid")
+	if c.Timezone != "" {
+		if _, err := time.LoadLocation(c.Timezone); err != nil {
+			return nil, errors.New("date timezone is invalid")
+		}
 	}
 	if c.Format == "" {
-		c.Format = "full"
+		c.Format = "locale"
 	}
-	if c.Format != "full" && c.Format != "long" && c.Format != "medium" && c.Format != "short" {
+	if c.Format != "locale" && c.Format != "full" && c.Format != "long" && c.Format != "medium" && c.Format != "short" {
 		return nil, errors.New("date format is invalid")
 	}
 	if err := normalizeWidgetColors(&c.ForegroundColor, &c.BackgroundColor); err != nil {
@@ -627,15 +625,17 @@ func (worldClockWidgetProvider) Normalize(_ context.Context, raw json.RawMessage
 		if zone.Label == "" || seen[zone.Label] {
 			return nil, errors.New("world clock labels must be unique")
 		}
-		if _, err := time.LoadLocation(zone.Timezone); err != nil {
-			return nil, errors.New("world clock timezone is invalid")
+		if zone.Timezone != "" {
+			if _, err := time.LoadLocation(zone.Timezone); err != nil {
+				return nil, errors.New("world clock timezone is invalid")
+			}
 		}
 		seen[zone.Label] = true
 	}
 	if c.Format == "" {
-		c.Format = "12"
+		c.Format = "locale"
 	}
-	if c.Format != "12" && c.Format != "24" {
+	if c.Format != "locale" && c.Format != "12" && c.Format != "24" {
 		return nil, errors.New("world clock format is invalid")
 	}
 	if c.Columns == 0 {

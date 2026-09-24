@@ -1,8 +1,73 @@
-import { Save, Tag } from "lucide-react";
-import { Button, Drawer, Field, Select } from "../ui";
+import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import type { ContentTag } from "../../api/types";
+import { Alert, AlertDescription } from "../ui/alert";
+import { Button } from "../ui/button";
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "../ui/field";
+import { Input } from "../ui/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+  InputGroupText,
+} from "../ui/input-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from "../ui/drawer";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "../ui/sheet";
+import { Spinner } from "../ui/spinner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { Textarea } from "../ui/textarea";
+import { Toggle } from "../ui/toggle";
+
+export type PlaylistDetailsTab = "general" | "source" | "usage";
+
+const sourceTypeOptions: {
+  value: "static" | "tag";
+  labelKey: "details.sourceOptions.manual" | "details.sourceOptions.fromTags";
+}[] = [
+  { value: "static", labelKey: "details.sourceOptions.manual" },
+  { value: "tag", labelKey: "details.sourceOptions.fromTags" },
+];
+
+const tagMatchOptions: {
+  value: "any" | "all";
+  labelKey: "details.matchOptions.any" | "details.matchOptions.all";
+}[] = [
+  { value: "any", labelKey: "details.matchOptions.any" },
+  { value: "all", labelKey: "details.matchOptions.all" },
+];
 
 export function PlaylistDetailsDrawer({
+  desktop,
+  open,
+  tab,
   canManage,
   sourceType,
   name,
@@ -11,12 +76,14 @@ export function PlaylistDetailsDrawer({
   tagIds,
   tagImageSeconds,
   tags,
+  usage,
   metadataDirty,
   tagRuleDirty,
   metadataSaving,
   tagRuleSaving,
   metadataError,
   tagRuleError,
+  onTabChange,
   onClose,
   onNameChange,
   onDescriptionChange,
@@ -27,6 +94,9 @@ export function PlaylistDetailsDrawer({
   onSaveMetadata,
   onSaveTagRule,
 }: {
+  desktop: boolean;
+  open: boolean;
+  tab: PlaylistDetailsTab;
   canManage: boolean;
   sourceType: "static" | "tag";
   name: string;
@@ -35,12 +105,15 @@ export function PlaylistDetailsDrawer({
   tagIds: string[];
   tagImageSeconds: number;
   tags: ContentTag[];
+  /** The Used By composition shown under the Usage tab. */
+  usage: ReactNode;
   metadataDirty: boolean;
   tagRuleDirty: boolean;
   metadataSaving: boolean;
   tagRuleSaving: boolean;
   metadataError?: string;
   tagRuleError?: string;
+  onTabChange: (tab: PlaylistDetailsTab) => void;
   onClose: () => void;
   onNameChange: (value: string) => void;
   onDescriptionChange: (value: string) => void;
@@ -51,179 +124,266 @@ export function PlaylistDetailsDrawer({
   onSaveMetadata: () => void;
   onSaveTagRule: () => void;
 }) {
-  return (
-    <Drawer
-      title="Playlist details"
-      eyebrow={
-        sourceType === "tag" ? "Tag-driven playlist" : "Playlist settings"
-      }
-      onClose={onClose}
-      closeLabel="Close playlist details"
-      className="playlist-details-drawer"
+  const { t } = useTranslation("playlists");
+  const sourceTypeItems = sourceTypeOptions.map((option) => ({
+    value: option.value,
+    label: t(option.labelKey),
+  }));
+  const tagMatchItems = tagMatchOptions.map((option) => ({
+    value: option.value,
+    label: t(option.labelKey),
+  }));
+  const body = (
+    <Tabs
+      value={tab}
+      onValueChange={(value) => onTabChange(value as PlaylistDetailsTab)}
+      className="min-h-0 flex-1 gap-0"
     >
-      <div className="playlist-details-drawer__content">
-        <section className="playlist-details-section">
-          <div className="playlist-details-section__heading">
-            <h3>Details</h3>
-            <p>
-              Name and description are saved separately from timeline edits.
-            </p>
-          </div>
-          <div className="playlist-details-section__fields">
-            <Field label="Name">
-              <input
+      <TabsList variant="line" className="mx-4 shrink-0">
+        <TabsTrigger value="general">{t("details.tabs.general")}</TabsTrigger>
+        <TabsTrigger value="source">{t("details.tabs.source")}</TabsTrigger>
+        <TabsTrigger value="usage">{t("details.tabs.usage")}</TabsTrigger>
+      </TabsList>
+      <div className="min-h-0 flex-1 overflow-y-auto border-t px-4 pt-5 pb-4">
+        <TabsContent value="general">
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="playlist-details-name">
+                {t("details.nameLabel")}
+              </FieldLabel>
+              <Input
+                id="playlist-details-name"
                 disabled={!canManage}
                 value={name}
                 onChange={(event) => onNameChange(event.target.value)}
               />
             </Field>
-            <Field label="Description">
-              <textarea
+            <Field>
+              <FieldLabel htmlFor="playlist-details-description">
+                {t("details.descriptionLabel")}
+              </FieldLabel>
+              <Textarea
+                id="playlist-details-description"
                 disabled={!canManage}
                 value={description}
                 onChange={(event) => onDescriptionChange(event.target.value)}
               />
+              <FieldDescription>
+                {t("details.descriptionHint")}
+              </FieldDescription>
             </Field>
-          </div>
-          {metadataError && (
-            <div
-              className="playlist-editor-notice playlist-editor-notice--error"
-              role="alert"
-            >
-              {metadataError}
+            {metadataError && (
+              <Alert variant="destructive">
+                <AlertDescription>{metadataError}</AlertDescription>
+              </Alert>
+            )}
+            <div>
+              <Button
+                type="button"
+                disabled={!canManage || !metadataDirty || metadataSaving}
+                onClick={onSaveMetadata}
+              >
+                {metadataSaving && <Spinner aria-hidden="true" />}
+                {t("details.saveDetails")}
+              </Button>
             </div>
-          )}
-          <div className="playlist-details-section__actions">
-            <Button
-              variant="primary"
-              compact
-              loading={metadataSaving}
-              disabled={!canManage || !metadataDirty}
-              onClick={onSaveMetadata}
-            >
-              <Save size={14} aria-hidden="true" />
-              Save details
-            </Button>
-          </div>
-        </section>
+          </FieldGroup>
+        </TabsContent>
 
-        <section className="playlist-details-section">
-          <div className="playlist-details-section__heading">
-            <h3>Content source</h3>
-            <p>
-              Choose a manual timeline or let matching ready media appear from
-              tags.
-            </p>
-          </div>
-          <Field label="Source">
-            <Select
-              disabled={!canManage}
-              value={sourceType}
-              onChange={(event) =>
-                onSourceTypeChange(event.target.value as "static" | "tag")
-              }
-            >
-              <option value="static">Manual timeline</option>
-              <option value="tag">Automatically from media tags</option>
-            </Select>
-          </Field>
-
-          {sourceType === "tag" && (
-            <>
-              <Field label="Match">
-                <Select
-                  disabled={!canManage}
-                  value={tagMatch}
-                  onChange={(event) =>
-                    onTagMatchChange(event.target.value as "any" | "all")
-                  }
+        <TabsContent value="source">
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="playlist-details-source">
+                {t("details.sourceLabel")}
+              </FieldLabel>
+              <Select
+                disabled={!canManage}
+                value={sourceType}
+                onValueChange={(next) =>
+                  onSourceTypeChange(next as "static" | "tag")
+                }
+                items={sourceTypeItems}
+              >
+                <SelectTrigger
+                  id="playlist-details-source"
+                  aria-label={t("details.sourceLabel")}
                 >
-                  <option value="any">Any selected tag</option>
-                  <option value="all">All selected tags</option>
-                </Select>
-              </Field>
-              <div className="field playlist-details-drawer__tags">
-                <span className="field__label">Media tags</span>
-                <div className="playlist-details-drawer__tag-list">
-                  {tags.length ? (
-                    tags.map((tag) => {
-                      const active = tagIds.includes(tag.id);
-                      return (
-                        <button
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {sourceTypeItems.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FieldDescription>{t("details.sourceHint")}</FieldDescription>
+            </Field>
+
+            {sourceType === "tag" && (
+              <>
+                <Field>
+                  <FieldLabel htmlFor="playlist-details-match">
+                    {t("details.matchLabel")}
+                  </FieldLabel>
+                  <Select
+                    disabled={!canManage}
+                    value={tagMatch}
+                    onValueChange={(next) =>
+                      onTagMatchChange(next as "any" | "all")
+                    }
+                    items={tagMatchItems}
+                  >
+                    <SelectTrigger
+                      id="playlist-details-match"
+                      aria-label={t("details.matchLabel")}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {tagMatchItems.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <FieldSet>
+                  <FieldLegend variant="label">
+                    {t("details.tagsLabel")}
+                  </FieldLegend>
+                  <div className="flex flex-wrap gap-2">
+                    {tags.length ? (
+                      tags.map((tag) => (
+                        <Toggle
                           key={tag.id}
-                          type="button"
-                          className={`playlist-details-drawer__tag${active ? " playlist-details-drawer__tag--active" : ""}`}
-                          aria-pressed={active}
+                          variant="outline"
+                          size="sm"
+                          pressed={tagIds.includes(tag.id)}
                           disabled={!canManage}
-                          onClick={() => onTagToggle(tag.id)}
+                          onPressedChange={() => onTagToggle(tag.id)}
                         >
                           <span
-                            className="playlist-details-drawer__tag-dot"
+                            className="size-2 rounded-full"
                             style={{ backgroundColor: tag.color }}
                             aria-hidden="true"
                           />
                           {tag.name}
-                        </button>
-                      );
-                    })
-                  ) : (
-                    <span className="playlist-editor__readout">
-                      No tags available
-                    </span>
+                        </Toggle>
+                      ))
+                    ) : (
+                      <span className="text-sm text-muted-foreground">
+                        {t("details.noTags")}
+                      </span>
+                    )}
+                  </div>
+                  {tagIds.length === 0 && (
+                    <FieldDescription>
+                      {t("details.tagRequired")}
+                    </FieldDescription>
                   )}
-                </div>
-              </div>
-              <Field
-                label="Image duration"
-                description="Applied to matching image content."
+                </FieldSet>
+                <Field>
+                  <FieldLabel htmlFor="playlist-details-image-duration">
+                    {t("details.imageDurationLabel")}
+                  </FieldLabel>
+                  <InputGroup className="w-32">
+                    <InputGroupInput
+                      id="playlist-details-image-duration"
+                      type="number"
+                      min="1"
+                      max="86400"
+                      disabled={!canManage}
+                      value={tagImageSeconds}
+                      onChange={(event) =>
+                        onTagImageSecondsChange(Number(event.target.value))
+                      }
+                    />
+                    <InputGroupAddon align="inline-end">
+                      <InputGroupText>
+                        {t("details.secondsUnit")}
+                      </InputGroupText>
+                    </InputGroupAddon>
+                  </InputGroup>
+                  <FieldDescription>
+                    {t("details.imageDurationHint")}
+                  </FieldDescription>
+                </Field>
+              </>
+            )}
+            {tagRuleError && (
+              <Alert variant="destructive">
+                <AlertDescription>{tagRuleError}</AlertDescription>
+              </Alert>
+            )}
+            <div>
+              <Button
+                type="button"
+                disabled={
+                  !canManage ||
+                  !tagRuleDirty ||
+                  tagRuleSaving ||
+                  (sourceType === "tag" && tagIds.length === 0)
+                }
+                onClick={onSaveTagRule}
               >
-                <div className="playlist-playback__duration-control">
-                  <input
-                    type="number"
-                    min="1"
-                    max="86400"
-                    disabled={!canManage}
-                    value={tagImageSeconds}
-                    onChange={(event) =>
-                      onTagImageSecondsChange(Number(event.target.value))
-                    }
-                  />
-                  <span>seconds</span>
-                </div>
-              </Field>
-              {tagIds.length === 0 && (
-                <p className="playlist-details-drawer__warning">
-                  Select at least one tag before saving this source.
-                </p>
-              )}
-            </>
-          )}
-          {tagRuleError && (
-            <div
-              className="playlist-editor-notice playlist-editor-notice--error"
-              role="alert"
-            >
-              {tagRuleError}
+                {tagRuleSaving && <Spinner aria-hidden="true" />}
+                {t("details.saveSource")}
+              </Button>
             </div>
-          )}
-          <div className="playlist-details-section__actions">
-            <Button
-              variant="primary"
-              compact
-              loading={tagRuleSaving}
-              disabled={
-                !canManage ||
-                !tagRuleDirty ||
-                (sourceType === "tag" && tagIds.length === 0)
-              }
-              onClick={onSaveTagRule}
-            >
-              <Tag size={14} aria-hidden="true" />
-              Save content source
-            </Button>
-          </div>
-        </section>
+          </FieldGroup>
+        </TabsContent>
+
+        <TabsContent value="usage">{usage}</TabsContent>
       </div>
+    </Tabs>
+  );
+
+  if (desktop) {
+    return (
+      <Sheet
+        open={open}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) onClose();
+        }}
+      >
+        <SheetContent side="right" className="gap-0 overflow-hidden">
+          <SheetHeader>
+            <SheetTitle>{t("details.title")}</SheetTitle>
+            <SheetDescription>
+              {t("details.drawerDescription")}
+            </SheetDescription>
+          </SheetHeader>
+          {body}
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
+  return (
+    <Drawer
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onClose();
+      }}
+      showSwipeHandle
+    >
+      <DrawerContent className="max-h-[calc(100dvh-2rem)]">
+        <DrawerHeader>
+          <DrawerTitle>{t("details.title")}</DrawerTitle>
+          <DrawerDescription>
+            {t("details.drawerDescription")}
+          </DrawerDescription>
+        </DrawerHeader>
+        {body}
+        <DrawerFooter className="border-t">
+          <DrawerClose render={<Button type="button" variant="outline" />}>
+            {t("details.done")}
+          </DrawerClose>
+        </DrawerFooter>
+      </DrawerContent>
     </Drawer>
   );
 }

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { TFunction } from "i18next";
 import { Link, useNavigate, useParams } from "react-router";
+import { useTranslation } from "react-i18next";
 import {
   Archive,
   CalendarRange,
@@ -10,6 +12,7 @@ import {
   Send,
 } from "lucide-react";
 import { api } from "../api/client";
+import { useFormatLocale } from "../i18n";
 import type {
   Campaign,
   CampaignBlock,
@@ -17,15 +20,48 @@ import type {
   CampaignSnapshot,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { DateInput, DateTimeInput } from "../components/date-picker";
+import { Alert, AlertDescription } from "../components/ui/alert";
 import {
-  Button,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../components/ui/alert-dialog";
+import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
+import { Checkbox } from "../components/ui/checkbox";
+import {
   Dialog,
-  EmptyState,
-  Field,
-  Notice,
-  PageHeader,
-} from "../components/ui";
-import { WorkspaceTabs, presentationTabs } from "../navigation/WorkspaceTabs";
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../components/ui/empty";
+import { Field, FieldLabel } from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { Skeleton } from "../components/ui/skeleton";
+import { Textarea } from "../components/ui/textarea";
+import { toast } from "../components/ui/toast";
 
 function nextHour() {
   const date = new Date(Date.now() + 60 * 60 * 1000);
@@ -36,12 +72,13 @@ function nextHour() {
 function makeBlock(
   type: CampaignBlock["contentType"],
   contentId: string,
+  t: TFunction<"alerts">,
 ): CampaignBlock {
   const start = new Date(Date.now() + 5 * 60 * 1000);
   start.setSeconds(0, 0);
   return {
     id: crypto.randomUUID(),
-    name: "Campaign block",
+    name: t("campaigns.editor.defaultBlockName"),
     contentType: type,
     contentId,
     priority: 0,
@@ -61,7 +98,27 @@ function snapshotForEdit(campaign: Campaign): CampaignSnapshot {
   };
 }
 
-const weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const blockScheduleOptions = [
+  { value: "one_time", labelKey: "campaigns.editor.scheduleTypes.oneTime" },
+  { value: "weekly", labelKey: "campaigns.editor.scheduleTypes.weekly" },
+] as const;
+
+const blockContentOptions = [
+  { value: "playlist", labelKey: "campaigns.editor.contentTypes.playlist" },
+  { value: "layout", labelKey: "campaigns.editor.contentTypes.layout" },
+] as const;
+
+const destinationTypeOptions = [
+  { value: "screen", labelKey: "campaigns.editor.destinationTypes.screen" },
+  { value: "group", labelKey: "campaigns.editor.destinationTypes.group" },
+] as const;
+
+function optionLabel<T extends { value: string; label: string }>(
+  options: readonly T[],
+  value: string,
+) {
+  return options.find((option) => option.value === value)?.label ?? value;
+}
 
 function dateTimeInput(value?: string) {
   if (!value) return "";
@@ -81,6 +138,7 @@ export function CampaignsPage() {
 }
 
 function CampaignLibrary() {
+  const { t } = useTranslation(["alerts", "common"]);
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
   const navigate = useNavigate();
@@ -96,7 +154,10 @@ function CampaignLibrary() {
   const create = useMutation({
     mutationFn: () =>
       api.createCampaign({ name: name.trim(), timezone: "UTC" }, csrf),
-    onSuccess: (campaign) => void navigate(`/campaigns/${campaign.id}`),
+    onSuccess: (campaign) => {
+      toast.add({ title: "Campaign created.", type: "success" });
+      void navigate(`/campaigns/${campaign.id}`);
+    },
   });
   const closeCreate = () => {
     setCreating(false);
@@ -105,80 +166,125 @@ function CampaignLibrary() {
   };
 
   return (
-    <section>
-      <WorkspaceTabs label="Presentations" tabs={presentationTabs} />
-      <PageHeader
-        title="Campaigns"
-        description="Coordinate immutable content releases across screens and groups. A release reuses the scheduler and never changes what is live until it is published."
-        actions={
-          canCreate ? (
-            <Button variant="primary" onClick={() => setCreating(true)}>
-              <Plus size={16} aria-hidden="true" /> Create campaign
+    <section className="grid gap-4">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {t("campaigns.library.title")}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t("campaigns.library.description")}
+          </p>
+        </div>
+        {canCreate && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" onClick={() => setCreating(true)}>
+              <Plus size={16} aria-hidden="true" />{" "}
+              {t("campaigns.library.createButton")}
             </Button>
-          ) : undefined
-        }
-      />
+          </div>
+        )}
+      </header>
       {query.isLoading ? (
-        <div className="table-loading">Loading campaigns…</div>
+        <div className="grid gap-2">
+          <Skeleton className="h-12" />
+          <Skeleton className="h-12" />
+        </div>
       ) : !query.data?.items.length ? (
-        <EmptyState
-          icon={<CalendarRange size={24} aria-hidden="true" />}
-          title="No campaigns yet"
-          message="Create a campaign to coordinate content and destinations in one reviewed release."
-        />
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <CalendarRange size={24} aria-hidden="true" />
+            </EmptyMedia>
+            <EmptyTitle>{t("campaigns.library.emptyTitle")}</EmptyTitle>
+            <EmptyDescription>
+              {t("campaigns.library.emptyBody")}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
-        <div className="backup-list">
+        <div className="grid gap-2">
           {query.data.items.map((campaign) => (
             <Link
-              className="backup-row"
+              className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-xl border border-border p-3 hover:bg-muted"
               to={`/campaigns/${campaign.id}`}
               key={campaign.id}
             >
-              <div className="backup-row__details">
-                <strong>{campaign.name}</strong>
-                <span>{campaign.description || "No description"}</span>
-                <span>
-                  {campaign.draft.blocks.length} blocks ·{" "}
-                  {campaign.draft.destinations.length} destinations
+              <div className="grid min-w-0 gap-0.5">
+                <strong className="truncate text-sm">{campaign.name}</strong>
+                <span className="truncate text-xs text-muted-foreground">
+                  {campaign.description || t("campaigns.library.noDescription")}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {t("campaigns.library.listMeta", {
+                    blocks: t("campaigns.library.blockCount", {
+                      count: campaign.draft.blocks.length,
+                    }),
+                    destinations: t("campaigns.library.destinationCount", {
+                      count: campaign.draft.destinations.length,
+                    }),
+                  })}
                 </span>
               </div>
-              <span className="status-badge status-badge--recent">
-                {campaign.status}
-              </span>
+              <Badge variant="secondary">{campaign.status}</Badge>
             </Link>
           ))}
         </div>
       )}
-      <Dialog open={creating} title="Create campaign" onClose={closeCreate}>
-        <Field label="Name">
-          <input
-            autoFocus
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-          />
-        </Field>
-        {create.error && (
-          <Notice variant="danger">{create.error.message}</Notice>
-        )}
-        <div className="form-actions">
-          <Button variant="quiet" onClick={closeCreate}>
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            disabled={!name.trim()}
-            loading={create.isPending}
-            onClick={() => create.mutate()}
-          >
-            Create campaign
-          </Button>
-        </div>
+      <Dialog
+        open={creating}
+        onOpenChange={(open) => {
+          if (!open) closeCreate();
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("campaigns.library.createTitle")}</DialogTitle>
+            <DialogDescription>
+              {t("campaigns.library.createDescription")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <Field>
+              <FieldLabel htmlFor="campaign-create-name">
+                {t("campaigns.library.nameLabel")}
+              </FieldLabel>
+              <Input
+                id="campaign-create-name"
+                autoFocus
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+              />
+            </Field>
+            {create.error && (
+              <Alert variant="destructive">
+                <AlertDescription>{create.error.message}</AlertDescription>
+              </Alert>
+            )}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={closeCreate}>
+              {t("common:actions.cancel")}
+            </Button>
+            <Button
+              type="button"
+              disabled={!name.trim() || create.isPending}
+              onClick={() => create.mutate()}
+            >
+              {create.isPending
+                ? t("campaigns.library.creating")
+                : t("campaigns.library.createSubmit")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
     </section>
   );
 }
 
 function CampaignEditor({ campaignId }: { campaignId: string }) {
+  const { t } = useTranslation(["alerts", "common"]);
+  const locale = useFormatLocale();
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
   const navigate = useNavigate();
@@ -228,6 +334,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
   const [destinationType, setDestinationType] =
     useState<CampaignDestination["type"]>("screen");
   const [destination, setDestination] = useState("");
+  const [confirmingArchive, setConfirmingArchive] = useState(false);
 
   useEffect(() => {
     if (campaignQuery.data) {
@@ -244,6 +351,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
         csrf,
       ),
     onSuccess: (campaign) => {
+      toast.add({ title: "Campaign draft saved.", type: "success" });
       setDraft(snapshotForEdit(campaign));
       void queryClient.invalidateQueries({
         queryKey: ["campaign", campaignId],
@@ -267,6 +375,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
         csrf,
       ),
     onSuccess: () => {
+      toast.add({ title: "Campaign published.", type: "success" });
       void queryClient.invalidateQueries({
         queryKey: ["campaign", campaignId],
       });
@@ -283,6 +392,10 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
     mutationFn: (releaseId: string) =>
       api.restoreCampaignRelease(campaignId, releaseId, csrf),
     onSuccess: (campaign) => {
+      toast.add({
+        title: "Campaign release restored to draft.",
+        type: "success",
+      });
       setDraft(snapshotForEdit(campaign));
       void queryClient.invalidateQueries({
         queryKey: ["campaign", campaignId],
@@ -301,6 +414,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
         csrf,
       ),
     onSuccess: async () => {
+      toast.add({ title: "Publication restored to draft.", type: "success" });
       setDraft(undefined);
       await queryClient.invalidateQueries({
         queryKey: ["campaign", campaignId],
@@ -319,6 +433,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
     mutationFn: (publicationId: string) =>
       api.rollbackPublication("campaign", campaignId, publicationId, csrf),
     onSuccess: () => {
+      toast.add({ title: "Publication rolled back.", type: "success" });
       void queryClient.invalidateQueries({
         queryKey: ["campaign", campaignId],
       });
@@ -334,11 +449,46 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
   const archive = useMutation({
     mutationFn: () => api.archiveCampaign(campaignId, csrf),
     onSuccess: () => {
+      toast.add({ title: "Campaign archived.", type: "success" });
       void queryClient.invalidateQueries({ queryKey: ["campaigns"] });
       void navigate("/campaigns");
     },
   });
 
+  const scheduleTypeOptions = useMemo(
+    () =>
+      blockScheduleOptions.map((option) => ({
+        value: option.value,
+        label: t(option.labelKey),
+      })),
+    [t],
+  );
+  const contentTypeOptions = useMemo(
+    () =>
+      blockContentOptions.map((option) => ({
+        value: option.value,
+        label: t(option.labelKey),
+      })),
+    [t],
+  );
+  const destinationTypeSelectOptions = useMemo(
+    () =>
+      destinationTypeOptions.map((option) => ({
+        value: option.value,
+        label: t(option.labelKey),
+      })),
+    [t],
+  );
+  // Short weekday names in the interface language. 2024-01-07 was a Sunday.
+  const weekdayNames = useMemo(
+    () =>
+      Array.from({ length: 7 }, (_, day) =>
+        new Date(2024, 0, 7 + day).toLocaleDateString(locale, {
+          weekday: "short",
+        }),
+      ),
+    [locale],
+  );
   const contentOptions = useMemo(
     () =>
       selectedType === "playlist"
@@ -362,17 +512,31 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
         []);
 
   if (campaignQuery.error)
-    return <Notice variant="danger">{campaignQuery.error.message}</Notice>;
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>{campaignQuery.error.message}</AlertDescription>
+      </Alert>
+    );
   if (campaignQuery.isLoading || !draft)
-    return <div className="table-loading">Loading campaign…</div>;
+    return (
+      <div className="grid gap-2">
+        <Skeleton className="h-12" />
+        <Skeleton className="h-12" />
+      </div>
+    );
   const campaign = campaignQuery.data;
-  if (!campaign) return <Notice variant="danger">Campaign not found.</Notice>;
+  if (!campaign)
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>{t("campaigns.editor.notFound")}</AlertDescription>
+      </Alert>
+    );
 
   const addBlock = () => {
     if (!selectedContent) return;
     setDraft({
       ...draft,
-      blocks: [...draft.blocks, makeBlock(selectedType, selectedContent)],
+      blocks: [...draft.blocks, makeBlock(selectedType, selectedContent, t)],
     });
     setSelectedContent("");
   };
@@ -403,94 +567,139 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
   };
 
   return (
-    <section>
-      <WorkspaceTabs label="Presentations" tabs={presentationTabs} />
-      <PageHeader
-        title={campaign.name}
-        description={`${campaign.status} · draft ${campaign.draftRevision}. Changes remain private until this draft is submitted and published.`}
-        actions={
-          <div className="form-actions">
+    <section className="grid gap-4">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {campaign.name}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t("campaigns.editor.subtitle", {
+              status: campaign.status,
+              revision: campaign.draftRevision,
+            })}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => void preflightRun.mutate()}
+            disabled={preflightRun.isPending}
+          >
+            {t("campaigns.editor.preflightButton")}
+          </Button>
+          {canEdit && (
             <Button
-              onClick={() => void preflightRun.mutate()}
-              disabled={preflightRun.isPending}
+              type="button"
+              onClick={() => save.mutate()}
+              disabled={save.isPending}
             >
-              Preflight
+              <Save size={16} aria-hidden="true" />{" "}
+              {t("campaigns.editor.saveDraft")}
             </Button>
-            {canEdit && (
-              <Button
-                variant="primary"
-                onClick={() => save.mutate()}
-                disabled={save.isPending}
-              >
-                <Save size={16} /> Save draft
-              </Button>
-            )}
-            {canPublish && (
-              <Button
-                variant="primary"
-                onClick={() => publish.mutate()}
-                disabled={publish.isPending}
-              >
-                <Send size={16} /> Submit / publish
-              </Button>
-            )}
-            {canEdit && (
-              <Button
-                onClick={() => {
-                  if (
-                    window.confirm(
-                      "Archive this campaign and stop its schedules?",
-                    )
-                  ) {
-                    archive.mutate();
-                  }
-                }}
-                disabled={archive.isPending}
-              >
-                <Archive size={16} /> Archive
-              </Button>
-            )}
-          </div>
-        }
-      />
+          )}
+          {canPublish && (
+            <Button
+              type="button"
+              onClick={() => publish.mutate()}
+              disabled={publish.isPending}
+            >
+              <Send size={16} aria-hidden="true" />{" "}
+              {t("campaigns.editor.submitPublish")}
+            </Button>
+          )}
+          {canEdit && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setConfirmingArchive(true)}
+              disabled={archive.isPending}
+            >
+              <Archive size={16} aria-hidden="true" />{" "}
+              {t("campaigns.editor.archiveButton")}
+            </Button>
+          )}
+        </div>
+      </header>
+      <AlertDialog
+        open={confirmingArchive}
+        onOpenChange={(open) => {
+          if (!open) setConfirmingArchive(false);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("campaigns.editor.archiveTitle", { name: campaign.name })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("campaigns.editor.archiveBody")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={archive.isPending}
+              onClick={() => {
+                setConfirmingArchive(false);
+                archive.mutate();
+              }}
+            >
+              {t("campaigns.editor.archiveConfirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {(save.error ||
         publish.error ||
         restore.error ||
         restorePublication.error ||
         rollback.error) && (
-        <Notice variant="danger">
-          {
-            (
-              save.error ||
-              publish.error ||
-              restore.error ||
-              restorePublication.error ||
-              rollback.error
-            )?.message
-          }
-        </Notice>
+        <Alert variant="destructive">
+          <AlertDescription>
+            {
+              (
+                save.error ||
+                publish.error ||
+                restore.error ||
+                restorePublication.error ||
+                rollback.error
+              )?.message
+            }
+          </AlertDescription>
+        </Alert>
       )}
       {archive.error && (
-        <Notice variant="danger">{archive.error.message}</Notice>
+        <Alert variant="destructive">
+          <AlertDescription>{archive.error.message}</AlertDescription>
+        </Alert>
       )}
       {publish.isSuccess && (
-        <Notice variant="info">
-          The campaign was submitted or published. Review the submission status
-          in Content review.
-        </Notice>
+        <Alert>
+          <AlertDescription>
+            {t("campaigns.editor.publishedNotice")}
+          </AlertDescription>
+        </Alert>
       )}
 
-      <div className="settings-sections">
-        <section className="settings-subsection">
-          <header>
-            <h3>Draft definition</h3>
-            <p>
-              Every field below is part of the next immutable campaign release.
+      <div className="grid gap-6">
+        <section className="grid gap-3 rounded-xl border border-border p-4">
+          <header className="grid gap-1">
+            <h3 className="text-base font-semibold">
+              {t("campaigns.editor.draftTitle")}
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              {t("campaigns.editor.draftHint")}
             </p>
           </header>
-          <div className="form-grid">
-            <Field label="Name">
-              <input
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor="campaign-name">
+                {t("campaigns.editor.nameLabel")}
+              </FieldLabel>
+              <Input
+                id="campaign-name"
                 value={draft.name}
                 disabled={!canEdit}
                 onChange={(event) =>
@@ -498,8 +707,12 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                 }
               />
             </Field>
-            <Field label="Timezone">
-              <input
+            <Field>
+              <FieldLabel htmlFor="campaign-timezone">
+                {t("campaigns.editor.timezoneLabel")}
+              </FieldLabel>
+              <Input
+                id="campaign-timezone"
                 value={draft.timezone}
                 disabled={!canEdit}
                 onChange={(event) =>
@@ -507,35 +720,49 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                 }
               />
             </Field>
-            <Field label="Campaign start">
-              <input
-                type="datetime-local"
+            <Field>
+              <FieldLabel htmlFor="campaign-start-date">
+                {t("campaigns.editor.startLabel")}
+              </FieldLabel>
+              <DateTimeInput
+                id="campaign-start"
+                aria-label={t("campaigns.editor.startLabel")}
+                timeLabel={t("campaigns.editor.startTimeLabel")}
                 value={dateTimeInput(draft.campaignStart)}
                 disabled={!canEdit}
-                onChange={(event) =>
+                onChange={(value) =>
                   setDraft({
                     ...draft,
-                    campaignStart: dateTimeValue(event.target.value),
+                    campaignStart: dateTimeValue(value),
                   })
                 }
               />
             </Field>
-            <Field label="Campaign end">
-              <input
-                type="datetime-local"
+            <Field>
+              <FieldLabel htmlFor="campaign-end-date">
+                {t("campaigns.editor.endLabel")}
+              </FieldLabel>
+              <DateTimeInput
+                id="campaign-end"
+                aria-label={t("campaigns.editor.endLabel")}
+                timeLabel={t("campaigns.editor.endTimeLabel")}
                 value={dateTimeInput(draft.campaignEnd)}
                 disabled={!canEdit}
-                onChange={(event) =>
+                onChange={(value) =>
                   setDraft({
                     ...draft,
-                    campaignEnd: dateTimeValue(event.target.value),
+                    campaignEnd: dateTimeValue(value),
                   })
                 }
               />
             </Field>
           </div>
-          <Field label="Description">
-            <textarea
+          <Field>
+            <FieldLabel htmlFor="campaign-description">
+              {t("campaigns.editor.descriptionLabel")}
+            </FieldLabel>
+            <Textarea
+              id="campaign-description"
               value={draft.description}
               disabled={!canEdit}
               onChange={(event) =>
@@ -545,52 +772,82 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
           </Field>
         </section>
 
-        <section className="settings-subsection">
-          <header>
-            <h3>Content blocks</h3>
-            <p>
-              Blocks become ordinary schedules when their release is published.
+        <section className="grid gap-3 rounded-xl border border-border p-4">
+          <header className="grid gap-1">
+            <h3 className="text-base font-semibold">
+              {t("campaigns.editor.blocksTitle")}
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              {t("campaigns.editor.blocksHint")}
             </p>
           </header>
           {draft.blocks.map((block, index) => (
-            <div className="backup-row campaign-block-row" key={block.id}>
-              <div className="backup-row__details">
+            <div
+              className="grid gap-3 rounded-lg border border-border p-3"
+              key={block.id}
+            >
+              <div className="grid gap-1">
                 {canEdit ? (
-                  <input
-                    aria-label={`Block ${index + 1} name`}
+                  <Input
+                    aria-label={t("campaigns.editor.blockNameLabel", {
+                      index: index + 1,
+                    })}
                     value={block.name}
                     onChange={(event) =>
                       updateBlock(block.id, { name: event.target.value })
                     }
                   />
                 ) : (
-                  <strong>{block.name}</strong>
+                  <strong className="text-sm">{block.name}</strong>
                 )}
-                <span>
+                <span className="text-xs text-muted-foreground">
                   {block.contentType} · {block.type} · {block.timezone}
                 </span>
-                <span>
+                <span className="text-xs text-muted-foreground">
                   {block.type === "one_time"
-                    ? `${new Date(block.oneTimeStart ?? "").toLocaleString()} – ${new Date(block.oneTimeEnd ?? "").toLocaleString()}`
+                    ? `${new Date(block.oneTimeStart ?? "").toLocaleString(locale)} – ${new Date(block.oneTimeEnd ?? "").toLocaleString(locale)}`
                     : `${block.dailyStart ?? ""} – ${block.dailyEnd ?? ""}`}
                 </span>
                 {canEdit && (
-                  <div className="form-grid">
-                    <Field label="Schedule type">
-                      <select
+                  <div className="grid gap-4 pt-2 sm:grid-cols-2">
+                    <Field>
+                      <FieldLabel htmlFor={`block-type-${block.id}`}>
+                        {t("campaigns.editor.scheduleTypeLabel")}
+                      </FieldLabel>
+                      <Select
                         value={block.type}
-                        onChange={(event) =>
+                        onValueChange={(next) =>
                           updateBlock(block.id, {
-                            type: event.target.value as CampaignBlock["type"],
+                            type: next as CampaignBlock["type"],
                           })
                         }
+                        items={scheduleTypeOptions}
                       >
-                        <option value="one_time">Fixed time</option>
-                        <option value="weekly">Weekly window</option>
-                      </select>
+                        <SelectTrigger
+                          id={`block-type-${block.id}`}
+                          aria-label={t("campaigns.editor.scheduleTypeAria", {
+                            index: index + 1,
+                          })}
+                        >
+                          <SelectValue>
+                            {optionLabel(scheduleTypeOptions, block.type)}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {scheduleTypeOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </Field>
-                    <Field label="Timezone">
-                      <input
+                    <Field>
+                      <FieldLabel htmlFor={`block-timezone-${block.id}`}>
+                        {t("campaigns.editor.blockTimezoneLabel")}
+                      </FieldLabel>
+                      <Input
+                        id={`block-timezone-${block.id}`}
                         value={block.timezone}
                         onChange={(event) =>
                           updateBlock(block.id, {
@@ -599,8 +856,12 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                         }
                       />
                     </Field>
-                    <Field label="Priority">
-                      <input
+                    <Field>
+                      <FieldLabel htmlFor={`block-priority-${block.id}`}>
+                        {t("campaigns.editor.priorityLabel")}
+                      </FieldLabel>
+                      <Input
+                        id={`block-priority-${block.id}`}
                         type="number"
                         min="0"
                         value={block.priority}
@@ -611,38 +872,49 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                         }
                       />
                     </Field>
-                    <label className="field field--checkbox">
-                      <span className="field__label">Enabled</span>
-                      <input
-                        type="checkbox"
+                    {/* The wrapping label names the checkbox; no extra
+                        aria-label. */}
+                    <label className="flex items-center gap-2 text-sm">
+                      <Checkbox
                         checked={block.enabled}
-                        onChange={(event) =>
+                        onCheckedChange={(checked) =>
                           updateBlock(block.id, {
-                            enabled: event.target.checked,
+                            enabled: checked === true,
                           })
                         }
                       />
+                      <span>{t("campaigns.editor.enabledLabel")}</span>
                     </label>
                     {block.type === "one_time" ? (
                       <>
-                        <Field label="Starts">
-                          <input
-                            type="datetime-local"
+                        <Field>
+                          <FieldLabel htmlFor={`block-start-${block.id}`}>
+                            {t("campaigns.editor.startsLabel")}
+                          </FieldLabel>
+                          <DateTimeInput
+                            id={`block-start-${block.id}`}
+                            aria-label="Starts"
+                            timeLabel={t("campaigns.editor.startTimeLabel")}
                             value={dateTimeInput(block.oneTimeStart)}
-                            onChange={(event) =>
+                            onChange={(value) =>
                               updateBlock(block.id, {
-                                oneTimeStart: dateTimeValue(event.target.value),
+                                oneTimeStart: dateTimeValue(value),
                               })
                             }
                           />
                         </Field>
-                        <Field label="Ends">
-                          <input
-                            type="datetime-local"
+                        <Field>
+                          <FieldLabel htmlFor={`block-end-${block.id}`}>
+                            {t("campaigns.editor.endsLabel")}
+                          </FieldLabel>
+                          <DateTimeInput
+                            id={`block-end-${block.id}`}
+                            aria-label="Ends"
+                            timeLabel={t("campaigns.editor.endTimeLabel")}
                             value={dateTimeInput(block.oneTimeEnd)}
-                            onChange={(event) =>
+                            onChange={(value) =>
                               updateBlock(block.id, {
-                                oneTimeEnd: dateTimeValue(event.target.value),
+                                oneTimeEnd: dateTimeValue(value),
                               })
                             }
                           />
@@ -650,30 +922,40 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                       </>
                     ) : (
                       <>
-                        <Field label="Date range start">
-                          <input
-                            type="date"
+                        <Field>
+                          <FieldLabel htmlFor={`block-range-start-${block.id}`}>
+                            {t("campaigns.editor.rangeStartLabel")}
+                          </FieldLabel>
+                          <DateInput
+                            id={`block-range-start-${block.id}`}
                             value={block.startDate ?? ""}
-                            onChange={(event) =>
+                            onChange={(value) =>
                               updateBlock(block.id, {
-                                startDate: event.target.value || undefined,
+                                startDate: value || undefined,
                               })
                             }
                           />
                         </Field>
-                        <Field label="Date range end">
-                          <input
-                            type="date"
+                        <Field>
+                          <FieldLabel htmlFor={`block-range-end-${block.id}`}>
+                            {t("campaigns.editor.rangeEndLabel")}
+                          </FieldLabel>
+                          <DateInput
+                            id={`block-range-end-${block.id}`}
                             value={block.endDate ?? ""}
-                            onChange={(event) =>
+                            onChange={(value) =>
                               updateBlock(block.id, {
-                                endDate: event.target.value || undefined,
+                                endDate: value || undefined,
                               })
                             }
                           />
                         </Field>
-                        <Field label="Daily start">
-                          <input
+                        <Field>
+                          <FieldLabel htmlFor={`block-daily-start-${block.id}`}>
+                            {t("campaigns.editor.dailyStartLabel")}
+                          </FieldLabel>
+                          <Input
+                            id={`block-daily-start-${block.id}`}
                             type="time"
                             value={block.dailyStart ?? ""}
                             onChange={(event) =>
@@ -683,8 +965,12 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                             }
                           />
                         </Field>
-                        <Field label="Daily end">
-                          <input
+                        <Field>
+                          <FieldLabel htmlFor={`block-daily-end-${block.id}`}>
+                            {t("campaigns.editor.dailyEndLabel")}
+                          </FieldLabel>
+                          <Input
+                            id={`block-daily-end-${block.id}`}
                             type="time"
                             value={block.dailyEnd ?? ""}
                             onChange={(event) =>
@@ -694,25 +980,37 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                             }
                           />
                         </Field>
-                        <fieldset className="field campaign-weekdays">
-                          <legend className="field__label">Weekdays</legend>
-                          {weekdayLabels.map((label, day) => (
-                            <label key={label}>
-                              <input
-                                type="checkbox"
-                                checked={(block.daysOfWeek ?? []).includes(day)}
-                                onChange={(event) => {
-                                  const days = new Set(block.daysOfWeek ?? []);
-                                  if (event.target.checked) days.add(day);
-                                  else days.delete(day);
-                                  updateBlock(block.id, {
-                                    daysOfWeek: [...days].sort((a, b) => a - b),
-                                  });
-                                }}
-                              />
-                              {label}
-                            </label>
-                          ))}
+                        <fieldset className="grid gap-2 sm:col-span-2">
+                          <legend className="text-sm font-medium">
+                            {t("campaigns.editor.weekdaysLabel")}
+                          </legend>
+                          <div className="flex flex-wrap gap-x-4 gap-y-2">
+                            {weekdayNames.map((label, day) => (
+                              <label
+                                key={label}
+                                className="flex items-center gap-2 text-sm"
+                              >
+                                <Checkbox
+                                  checked={(block.daysOfWeek ?? []).includes(
+                                    day,
+                                  )}
+                                  onCheckedChange={(checked) => {
+                                    const days = new Set(
+                                      block.daysOfWeek ?? [],
+                                    );
+                                    if (checked === true) days.add(day);
+                                    else days.delete(day);
+                                    updateBlock(block.id, {
+                                      daysOfWeek: [...days].sort(
+                                        (a, b) => a - b,
+                                      ),
+                                    });
+                                  }}
+                                />
+                                <span>{label}</span>
+                              </label>
+                            ))}
+                          </div>
                         </fieldset>
                       </>
                     )}
@@ -721,6 +1019,9 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
               </div>
               {canEdit && (
                 <Button
+                  type="button"
+                  variant="outline"
+                  className="w-fit"
                   onClick={() =>
                     setDraft({
                       ...draft,
@@ -730,56 +1031,118 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                     })
                   }
                 >
-                  Remove
+                  {t("campaigns.editor.removeButton")}
                 </Button>
               )}
             </div>
           ))}
           {canEdit && (
-            <div className="form-grid">
-              <Field label="Content type">
-                <select
+            <div className="grid items-end gap-4 sm:grid-cols-3">
+              <Field>
+                <FieldLabel htmlFor="campaign-content-type">
+                  {t("campaigns.editor.contentTypeLabel")}
+                </FieldLabel>
+                <Select
                   value={selectedType}
-                  onChange={(event) => {
-                    setSelectedType(
-                      event.target.value as CampaignBlock["contentType"],
-                    );
+                  onValueChange={(next) => {
+                    setSelectedType(next as CampaignBlock["contentType"]);
                     setSelectedContent("");
                   }}
+                  items={contentTypeOptions}
                 >
-                  <option value="playlist">Playlist</option>
-                  <option value="layout">Layout</option>
-                </select>
+                  <SelectTrigger
+                    id="campaign-content-type"
+                    aria-label={t("campaigns.editor.contentTypeLabel")}
+                  >
+                    <SelectValue>
+                      {optionLabel(contentTypeOptions, selectedType)}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {contentTypeOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </Field>
-              <Field label="Content">
-                <select
+              <Field>
+                <FieldLabel htmlFor="campaign-content">
+                  {t("campaigns.editor.contentLabel")}
+                </FieldLabel>
+                <Select
                   value={selectedContent}
-                  onChange={(event) => setSelectedContent(event.target.value)}
+                  onValueChange={(next) => setSelectedContent(next as string)}
+                  items={[
+                    { value: "", label: "Select content" },
+                    ...contentOptions.map((item) => ({
+                      value: item.id,
+                      label: item.name,
+                    })),
+                  ]}
                 >
-                  <option value="">Select content</option>
-                  {contentOptions.map((item) => (
-                    <option value={item.id} key={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger
+                    id="campaign-content"
+                    aria-label={t("campaigns.editor.contentLabel")}
+                  >
+                    <SelectValue>
+                      {optionLabel(
+                        [
+                          {
+                            value: "",
+                            label: t("campaigns.editor.selectContent"),
+                          },
+                          ...contentOptions.map((item) => ({
+                            value: item.id,
+                            label: item.name,
+                          })),
+                        ],
+                        selectedContent,
+                      )}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">
+                      {t("campaigns.editor.selectContent")}
+                    </SelectItem>
+                    {contentOptions.map((item) => (
+                      <SelectItem value={item.id} key={item.id}>
+                        {item.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </Field>
-              <Button onClick={addBlock} disabled={!selectedContent}>
-                <Plus size={16} /> Add block
+              <Button
+                type="button"
+                variant="outline"
+                onClick={addBlock}
+                disabled={!selectedContent}
+              >
+                <Plus size={16} aria-hidden="true" />{" "}
+                {t("campaigns.editor.addBlock")}
               </Button>
             </div>
           )}
         </section>
 
-        <section className="settings-subsection">
-          <header>
-            <h3>Destinations</h3>
-            <p>Choose the screens or groups that receive this release.</p>
+        <section className="grid gap-3 rounded-xl border border-border p-4">
+          <header className="grid gap-1">
+            <h3 className="text-base font-semibold">
+              {t("campaigns.editor.destinationsTitle")}
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              {t("campaigns.editor.destinationsHint")}
+            </p>
           </header>
-          <div className="backup-list">
+          <div className="grid gap-2">
             {draft.destinations.map((item) => (
-              <div className="backup-row" key={`${item.type}:${item.id}`}>
-                <span>
+              <div
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border p-3"
+                key={`${item.type}:${item.id}`}
+              >
+                <span className="text-sm">
                   {item.type} ·{" "}
                   {destinationLabel(
                     item,
@@ -789,6 +1152,9 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                 </span>
                 {canEdit && (
                   <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
                     onClick={() =>
                       setDraft({
                         ...draft,
@@ -798,144 +1164,238 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                       })
                     }
                   >
-                    Remove
+                    {t("campaigns.editor.removeButton")}
                   </Button>
                 )}
               </div>
             ))}
           </div>
           {canEdit && (
-            <div className="form-grid">
-              <Field label="Destination type">
-                <select
+            <div className="grid items-end gap-4 sm:grid-cols-3">
+              <Field>
+                <FieldLabel htmlFor="campaign-destination-type">
+                  {t("campaigns.editor.destinationTypeLabel")}
+                </FieldLabel>
+                <Select
                   value={destinationType}
-                  onChange={(event) => {
-                    setDestinationType(
-                      event.target.value as CampaignDestination["type"],
-                    );
+                  onValueChange={(next) => {
+                    setDestinationType(next as CampaignDestination["type"]);
                     setDestination("");
                   }}
+                  items={destinationTypeSelectOptions}
                 >
-                  <option value="screen">Screen</option>
-                  <option value="group">Group</option>
-                </select>
+                  <SelectTrigger
+                    id="campaign-destination-type"
+                    aria-label={t("campaigns.editor.destinationTypeLabel")}
+                  >
+                    <SelectValue>
+                      {optionLabel(
+                        destinationTypeSelectOptions,
+                        destinationType,
+                      )}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {destinationTypeSelectOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </Field>
-              <Field label="Destination">
-                <select
+              <Field>
+                <FieldLabel htmlFor="campaign-destination">
+                  {t("campaigns.editor.destinationLabel")}
+                </FieldLabel>
+                <Select
                   value={destination}
-                  onChange={(event) => setDestination(event.target.value)}
+                  onValueChange={(next) => setDestination(next as string)}
+                  items={[
+                    { value: "", label: "Select destination" },
+                    ...destinationOptions.map((item) => ({
+                      value: item.id,
+                      label: item.name,
+                    })),
+                  ]}
                 >
-                  <option value="">Select destination</option>
-                  {destinationOptions.map((item) => (
-                    <option value={item.id} key={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger
+                    id="campaign-destination"
+                    aria-label={t("campaigns.editor.destinationLabel")}
+                  >
+                    <SelectValue>
+                      {optionLabel(
+                        [
+                          {
+                            value: "",
+                            label: t("campaigns.editor.selectDestination"),
+                          },
+                          ...destinationOptions.map((item) => ({
+                            value: item.id,
+                            label: item.name,
+                          })),
+                        ],
+                        destination,
+                      )}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">
+                      {t("campaigns.editor.selectDestination")}
+                    </SelectItem>
+                    {destinationOptions.map((item) => (
+                      <SelectItem value={item.id} key={item.id}>
+                        {item.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </Field>
-              <Button onClick={addDestination} disabled={!destination}>
-                <Plus size={16} /> Add destination
+              <Button
+                type="button"
+                variant="outline"
+                onClick={addDestination}
+                disabled={!destination}
+              >
+                <Plus size={16} aria-hidden="true" />{" "}
+                {t("campaigns.editor.addDestination")}
               </Button>
             </div>
           )}
         </section>
 
-        <section className="settings-subsection">
-          <header>
-            <h3>Preflight</h3>
-            <p>
-              Publication checks referenced content, schedule windows, and
-              destination membership before any schedule changes are committed.
+        <section className="grid gap-3 rounded-xl border border-border p-4">
+          <header className="grid gap-1">
+            <h3 className="text-base font-semibold">
+              {t("campaigns.editor.preflightTitle")}
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              {t("campaigns.editor.preflightHint")}
             </p>
           </header>
           {preflight.data && (
-            <Notice
-              variant={
-                preflight.data.valid
-                  ? preflight.data.issues.length
-                    ? "info"
-                    : "success"
-                  : "danger"
-              }
-            >
-              <div>
-                {preflight.data.valid
-                  ? `Ready: ${preflight.data.blockCount} blocks can reach ${preflight.data.destinationCount} destinations.`
-                  : "The campaign cannot be published yet."}
-              </div>
-              {preflight.data.issues.map((issue) => (
-                <div key={`${issue.code}:${issue.message}`}>
-                  {issue.severity}: {issue.message}
+            <Alert variant={preflight.data.valid ? undefined : "destructive"}>
+              <AlertDescription>
+                <div>
+                  {preflight.data.valid
+                    ? t("campaigns.editor.readySummary", {
+                        blocks: t("campaigns.editor.blockCount", {
+                          count: preflight.data.blockCount,
+                        }),
+                        destinations: t("campaigns.editor.destinationCount", {
+                          count: preflight.data.destinationCount,
+                        }),
+                      })
+                    : t("campaigns.editor.notReady")}
                 </div>
-              ))}
-            </Notice>
+                {preflight.data.issues.map((issue) => (
+                  <div key={`${issue.code}:${issue.message}`}>
+                    {issue.severity}: {issue.message}
+                  </div>
+                ))}
+              </AlertDescription>
+            </Alert>
           )}
         </section>
 
-        <section className="settings-subsection">
-          <header>
-            <h3>Release history</h3>
-            <p>
-              Releases are immutable. Restoring one returns it to the draft for
-              review; it never rewrites history.
+        <section className="grid gap-3 rounded-xl border border-border p-4">
+          <header className="grid gap-1">
+            <h3 className="text-base font-semibold">
+              {t("campaigns.editor.releasesTitle")}
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              {t("campaigns.editor.releasesHint")}
             </p>
           </header>
           {releases.data?.items.map((release) => (
-            <div className="backup-row" key={release.id}>
-              <div className="backup-row__details">
-                <strong>Release {release.releaseNumber}</strong>
-                <span>
-                  {release.status} ·{" "}
-                  {release.publishedAt
-                    ? new Date(release.publishedAt).toLocaleString()
-                    : "not published"}
+            <div
+              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border p-3"
+              key={release.id}
+            >
+              <div className="grid gap-0.5">
+                <strong className="text-sm">
+                  {t("campaigns.editor.releaseTitle", {
+                    number: release.releaseNumber,
+                  })}
+                </strong>
+                <span className="text-xs text-muted-foreground">
+                  {t("campaigns.editor.releaseMeta", {
+                    status: release.status,
+                    date: release.publishedAt
+                      ? new Date(release.publishedAt).toLocaleString(locale)
+                      : t("campaigns.editor.notPublished"),
+                  })}
                 </span>
               </div>
               {canEdit && (
                 <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
                   onClick={() => restore.mutate(release.id)}
                   disabled={restore.isPending}
                 >
-                  <RotateCcw size={16} /> Restore to draft
+                  <RotateCcw size={16} aria-hidden="true" />{" "}
+                  {t("campaigns.editor.restoreDraft")}
                 </Button>
               )}
             </div>
           ))}
         </section>
 
-        <section className="settings-subsection">
-          <header>
-            <h3>Publication history</h3>
-            <p>
-              Deployment history is separate from the security audit log.
-              Restore creates a draft; rollback creates a new release.
+        <section className="grid gap-3 rounded-xl border border-border p-4">
+          <header className="grid gap-1">
+            <h3 className="text-base font-semibold">
+              {t("campaigns.editor.publicationsTitle")}
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              {t("campaigns.editor.publicationsHint")}
             </p>
           </header>
           {history.data?.items.map((publication) => (
-            <div className="backup-row" key={publication.id}>
-              <div className="backup-row__details">
-                <strong>Release {publication.revision}</strong>
-                <span>
-                  {publication.method} ·{" "}
-                  {new Date(publication.publishedAt).toLocaleString()} ·{" "}
-                  {publication.affectedScreenCount} screens
+            <div
+              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border p-3"
+              key={publication.id}
+            >
+              <div className="grid gap-0.5">
+                <strong className="text-sm">
+                  {t("campaigns.editor.releaseTitle", {
+                    number: publication.revision,
+                  })}
+                </strong>
+                <span className="text-xs text-muted-foreground">
+                  {t("campaigns.editor.publicationMeta", {
+                    method: publication.method,
+                    date: new Date(publication.publishedAt).toLocaleString(
+                      locale,
+                    ),
+                    screens: t("campaigns.editor.screenCount", {
+                      count: publication.affectedScreenCount,
+                    }),
+                  })}
                 </span>
               </div>
-              <div className="form-actions">
+              <div className="flex flex-wrap items-center gap-2">
                 {canEdit && (
                   <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
                     onClick={() => restorePublication.mutate(publication.id)}
                     disabled={restorePublication.isPending}
                   >
-                    Restore as draft
+                    {t("campaigns.editor.restoreAsDraft")}
                   </Button>
                 )}
                 {canPublish && (
                   <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
                     onClick={() => rollback.mutate(publication.id)}
                     disabled={rollback.isPending}
                   >
-                    Roll back to this release
+                    {t("campaigns.editor.rollbackToRelease")}
                   </Button>
                 )}
               </div>

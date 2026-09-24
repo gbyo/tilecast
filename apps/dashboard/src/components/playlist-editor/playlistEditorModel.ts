@@ -1,4 +1,11 @@
-import type { PlaylistItem, PlaylistItemInput } from "../../api/types";
+import type { TFunction } from "i18next";
+import type {
+  AssetStatus,
+  PlaylistItem,
+  PlaylistItemInput,
+} from "../../api/types";
+
+export type PlaylistsT = TFunction<"playlists", undefined>;
 
 export type PlaylistTransition = PlaylistItem["transition"] | "mixed";
 
@@ -48,56 +55,110 @@ export function playlistItemUsesFixedDuration(item: PlaylistItem) {
   );
 }
 
-export function formatDuration(ms: number | null) {
-  if (ms == null) return "Contains full-length video";
+export function formatDuration(ms: number | null, t: PlaylistsT) {
+  if (ms == null) return t("model.duration.fullVideo");
   const seconds = Math.round(ms / 1000);
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
 export function playlistDurationLabel(
   items: PlaylistItem[] | null | undefined,
+  t: PlaylistsT,
 ) {
   const duration = playlistDuration(items);
-  if (duration != null) return formatDuration(duration);
+  if (duration != null) return formatDuration(duration, t);
   if (
     (Array.isArray(items) ? items : []).some(
       (item) => item.assetType === "image" && item.usePlayerDefaults,
     )
   ) {
-    return "Uses Player defaults";
+    return t("model.duration.usesPlayerDefaults");
   }
-  return formatDuration(null);
+  return formatDuration(null, t);
 }
 
-export function formatItemDuration(item: PlaylistItem) {
+export function formatItemDuration(item: PlaylistItem, t: PlaylistsT) {
   if (item.usePlayerDefaults && item.assetType === "image") {
-    return "Player defaults";
+    return t("model.duration.playerDefaultsValue");
   }
   if (item.assetType === "video") {
     if (item.videoEndOffsetMs != null) {
       return formatDuration(
         item.videoEndOffsetMs - (item.videoStartOffsetMs ?? 0),
+        t,
       );
     }
     return item.assetDurationSeconds != null
       ? formatDuration(
           Math.round(item.assetDurationSeconds * 1000) -
             (item.videoStartOffsetMs ?? 0),
+          t,
         )
-      : "Full video";
+      : t("model.duration.fullVideoItem");
   }
-  if (item.durationMs != null) return formatDuration(item.durationMs);
-  return "Until source ends";
+  if (item.durationMs != null) return formatDuration(item.durationMs, t);
+  return t("model.duration.untilSourceEnds");
 }
 
-export function transitionLabel(transition: PlaylistTransition) {
+export function playlistItemTypeLabel(item: PlaylistItem, t: PlaylistsT) {
+  if (item.assetType === "widget") {
+    return item.widgetProvider === "youtube"
+      ? t("model.itemType.youtubeWidget")
+      : t("model.itemType.widget");
+  }
+  if (item.assetType === "video") return t("model.itemType.video");
+  if (item.assetType === "layout") return t("model.itemType.layout");
+  return t("model.itemType.image");
+}
+
+// playlistItemSummary is the single muted metadata line under a timeline row:
+// what the item is, how it transitions in, and whether a video plays sound.
+export function playlistItemSummary(item: PlaylistItem, t: PlaylistsT) {
+  const parts = [
+    playlistItemTypeLabel(item, t),
+    item.usePlayerDefaults
+      ? t("model.duration.playerDefaultsValue")
+      : transitionLabel(item.transition, t),
+  ];
+  if (item.assetType === "video" && !item.usePlayerDefaults) {
+    parts.push(
+      item.audioEnabled ? t("model.summary.audio") : t("model.summary.muted"),
+    );
+  }
+  return parts.join(" · ");
+}
+
+export function assetStatusLabel(status: AssetStatus, t: PlaylistsT) {
+  switch (status) {
+    case "ready":
+      return t("model.assetStatus.ready");
+    case "uploading":
+      return t("model.assetStatus.uploading");
+    case "uploaded":
+      return t("model.assetStatus.uploaded");
+    case "queued":
+      return t("model.assetStatus.queued");
+    case "inspecting":
+      return t("model.assetStatus.inspecting");
+    case "processing":
+      return t("model.assetStatus.processing");
+    case "failed":
+      return t("model.assetStatus.failed");
+    case "deleting":
+      return t("model.assetStatus.deleting");
+    case "deleted":
+      return t("model.assetStatus.deleted");
+  }
+}
+
+export function transitionLabel(transition: PlaylistTransition, t: PlaylistsT) {
   return transition === "mixed"
-    ? "Mixed"
+    ? t("model.transition.mixed")
     : transition === "crossfade"
-      ? "Crossfade"
+      ? t("model.transition.crossfade")
       : transition === "fade"
-        ? "Fade"
-        : "None";
+        ? t("model.transition.fade")
+        : t("model.transition.none");
 }
 
 export function playlistTransition(
@@ -176,6 +237,21 @@ export function movePlaylistItem(
   const from = ids.indexOf(itemId);
   if (from < 0) return ids;
   const to = Math.max(0, Math.min(ids.length - 1, from + offset));
+  if (from === to) return ids;
+  const [moved] = ids.splice(from, 1);
+  if (moved) ids.splice(to, 0, moved);
+  return ids;
+}
+
+export function movePlaylistItemToEdge(
+  items: PlaylistItem[],
+  itemId: string,
+  edge: "top" | "bottom",
+) {
+  const ids = items.map((item) => item.id);
+  const from = ids.indexOf(itemId);
+  if (from < 0) return ids;
+  const to = edge === "top" ? 0 : ids.length - 1;
   if (from === to) return ids;
   const [moved] = ids.splice(from, 1);
   if (moved) ids.splice(to, 0, moved);

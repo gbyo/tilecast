@@ -3,18 +3,44 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { Globe2, Upload, X } from "lucide-react";
-import { createPortal } from "react-dom";
+import { AlertCircle, LibraryBig, Plus, SearchX, Upload } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { Asset, WidgetProvider } from "../../api/types";
-import { ContentLibraryGrid } from "./ContentLibraryGrid";
+import { apiErrorMessage } from "../../i18n";
+import {
+  ContentLibraryGrid,
+  ContentLibraryList,
+  ContentLibraryLoading,
+} from "./ContentLibraryGrid";
+import { Alert, AlertAction, AlertDescription, AlertTitle } from "../ui/alert";
+import { Button } from "../ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../ui/dialog";
 import {
   ContentPickerToolbar,
   type ContentPickerFilter,
 } from "./ContentPickerToolbar";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../ui/empty";
+import { Spinner } from "../ui/spinner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { useUploadCloseGuard } from "./MediaUploadDialog";
+import { MediaUploadPanel } from "./MediaUploadPanel";
 import { SelectedContentTray } from "./SelectedContentTray";
-import { UploadContentDialog } from "./UploadContentDialog";
 
 export type ContentPickerResult = {
   failures: { id: string; name: string; message: string }[];
@@ -34,6 +60,7 @@ export type ContentPickerProps = {
   description?: string;
   onConfirm: (items: Asset[]) => Promise<void | ContentPickerResult> | void;
   onClose: () => void;
+  onCloseComplete?: () => void;
   /**
    * Leaves the picker to build a new Widget. The caller owns the round trip,
    * because only it knows where the author should land afterwards; the create
@@ -50,14 +77,20 @@ export function ContentPicker({
   allowedProviders,
   disabledItemIds = [],
   selectedIds = [],
-  confirmLabel = "Add content",
-  title = "Choose content",
-  description = "Select existing content or upload media. Apps are managed in their own library.",
+  confirmLabel,
+  title,
+  description,
   onConfirm,
   onClose,
+  onCloseComplete,
   onCreateWidget,
 }: ContentPickerProps) {
+  const { t } = useTranslation(["content", "common"]);
   const queryClient = useQueryClient();
+  const resolvedConfirmLabel = confirmLabel ?? t("picker.dialog.addContent");
+  const resolvedTitle = title ?? t("picker.dialog.chooseContent");
+  const resolvedDescription =
+    description ?? t("picker.dialog.chooseDescription");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<ContentPickerFilter>("all");
   const [folderFilter, setFolderFilter] = useState("");
@@ -69,10 +102,12 @@ export function ContentPicker({
   const [initialIds] = useState(() => new Set(selectedIds));
   const [created, setCreated] = useState<Map<string, Asset>>(new Map());
   const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
-  const [child, setChild] = useState<"upload">();
+  const [tab, setTab] = useState<"library" | "upload">("library");
+  const seen = useRef(new Set<string>());
+  const uploads = useUploadCloseGuard();
+  const [uploadsActive, setUploadsActive] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [failures, setFailures] = useState<ContentPickerResult["failures"]>([]);
-  const dialog = useRef<HTMLElement>(null);
   const folders = useQuery({
     queryKey: ["content-folders"],
     queryFn: api.contentFolders,
@@ -88,6 +123,10 @@ export function ContentPicker({
     queryFn: api.contentTags,
     enabled: open,
   });
+  // Every opening starts on the library.
+  useEffect(() => {
+    if (open) setTab("library");
+  }, [open]);
   // Narrow the request to what the caller accepts. Without this an "All" page of 48
   // mixed items can be filtered down to a handful client-side, so a widgets-only picker
   // looks nearly empty while the library scrolls on.
@@ -153,66 +192,36 @@ export function ContentPicker({
       return next;
     });
   }, [initialIds, loaded, mode]);
-  useEffect(() => {
-    if (!open) return;
-    const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !child) {
-        event.preventDefault();
-        onClose();
-      }
-      if (event.key === "Tab" && !child && dialog.current) {
-        const focusable = [
-          ...dialog.current.querySelectorAll<HTMLElement>(
-            'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
-          ),
-        ];
-        const first = focusable[0];
-        const last = focusable.at(-1);
-        if (!first || !last) return;
-        if (event.shiftKey && document.activeElement === first) {
-          event.preventDefault();
-          last.focus();
-        } else if (!event.shiftKey && document.activeElement === last) {
-          event.preventDefault();
-          first.focus();
-        }
-      }
-    };
-    addEventListener("keydown", escape);
-    return () => removeEventListener("keydown", escape);
-  }, [child, onClose, open]);
-  const trackCreated = (asset: Asset) => {
+  // The upload panel follows each new asset until processing settles and
+  // reports every change here. A new upload joins the selection at once; later
+  // reports refresh it in place so it becomes confirmable when ready.
+  const trackUpload = (asset: Asset) => {
+    const first = !seen.current.has(asset.id);
+    seen.current.add(asset.id);
     setCreated((current) => new Map(current).set(asset.id, asset));
-    setHighlighted((current) => new Set(current).add(asset.id));
-    setSelected((current) => {
-      const next =
-        mode === "single" ? new Map<string, Asset>() : new Map(current);
-      next.set(asset.id, asset);
-      return next;
-    });
-    void queryClient.invalidateQueries({ queryKey: ["assets"] });
-    if (asset.processingStatus !== "ready") {
-      void (async () => {
-        for (let attempt = 0; attempt < 80; attempt += 1) {
-          await new Promise((resolve) => window.setTimeout(resolve, 1500));
-          const latest = await api.asset(asset.id).catch(() => undefined);
-          if (!latest) return;
-          setCreated((current) => new Map(current).set(latest.id, latest));
-          setSelected((current) =>
-            current.has(latest.id)
-              ? new Map(current).set(latest.id, latest)
-              : current,
-          );
-          if (
-            latest.processingStatus === "ready" ||
-            latest.processingStatus === "failed"
-          )
-            return;
-        }
-      })();
+    if (first) {
+      setHighlighted((current) => new Set(current).add(asset.id));
+      setSelected((current) => {
+        const next =
+          mode === "single" ? new Map<string, Asset>() : new Map(current);
+        next.set(asset.id, asset);
+        return next;
+      });
+    } else {
+      setSelected((current) => {
+        if (!current.has(asset.id)) return current;
+        const next = new Map(current);
+        // A failed upload can never be confirmed, so it leaves the selection
+        // instead of holding the confirm action disabled.
+        if (asset.processingStatus === "failed") next.delete(asset.id);
+        else next.set(asset.id, asset);
+        return next;
+      });
+    }
+    if (first || asset.processingStatus === "ready") {
+      void queryClient.invalidateQueries({ queryKey: ["assets"] });
     }
   };
-  if (!open) return null;
   const allowed = new Set(allowedTypes);
   const providers = allowedProviders ? new Set(allowedProviders) : undefined;
   const combined = [...created.values(), ...loaded].filter(
@@ -225,9 +234,23 @@ export function ContentPicker({
   );
   const disabled = new Set(disabledItemIds);
   const chosen = [...selected.values()];
-  const selectionPreparing = chosen.some(
-    (asset) => asset.processingStatus !== "ready",
-  );
+  const selectionPreparing =
+    uploadsActive || chosen.some((asset) => asset.processingStatus !== "ready");
+  const canUpload = allowed.has("image") || allowed.has("video");
+  const filtered =
+    search !== "" ||
+    filter !== "all" ||
+    folderFilter !== "" ||
+    collectionFilter !== "" ||
+    tagFilter !== "";
+  const clearFilters = () => {
+    setSearch("");
+    setFilter("all");
+    setFolderFilter("");
+    setCollectionFilter("");
+    setTagFilter("");
+  };
+  const close = () => uploads.guard(onClose);
   const toggle = (asset: Asset) => {
     setFailures([]);
     setSelected((current) => {
@@ -254,172 +277,267 @@ export function ContentPicker({
       setFailures([
         {
           id: "picker",
-          name: "Content selection",
+          name: t("picker.errors.selectionName"),
           message:
             error instanceof Error
-              ? error.message
-              : "Content could not be added.",
+              ? apiErrorMessage(error)
+              : t("picker.errors.addError"),
         },
       ]);
     } finally {
       setConfirming(false);
     }
   };
-  return createPortal(
-    <div className="content-picker-backdrop">
-      <section
-        ref={dialog}
-        className="content-picker"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="content-picker-title"
-      >
-        <header className="content-picker__header">
-          <div>
-            <h2 id="content-picker-title">{title}</h2>
-            <p>{description}</p>
-          </div>
-          <div className="content-picker__primary-actions">
-            {(allowed.has("image") || allowed.has("video")) && (
-              <button
-                className="button button--secondary"
-                onClick={() => setChild("upload")}
-              >
-                <Upload size={16} /> Upload media
-              </button>
-            )}
+  const libraryProps = {
+    items: combined,
+    selectedIds: new Set(selected.keys()),
+    disabledIds: disabled,
+    highlightedIds: highlighted,
+    onToggle: toggle,
+  };
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) close();
+      }}
+      onOpenChangeComplete={(nextOpen) => {
+        if (!nextOpen) onCloseComplete?.();
+      }}
+    >
+      {uploads.dialog}
+      <DialogContent className="flex h-[min(54rem,calc(100dvh-2rem))] w-[min(74rem,calc(100vw-2rem))] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none">
+        <DialogHeader className="gap-1 px-6 pt-5 pb-3 pr-14">
+          <DialogTitle className="text-base">{resolvedTitle}</DialogTitle>
+          <DialogDescription>{resolvedDescription}</DialogDescription>
+        </DialogHeader>
+        <Tabs
+          value={tab}
+          onValueChange={(value) => setTab(value as "library" | "upload")}
+          className="min-h-0 flex-1 gap-0"
+        >
+          <div className="flex items-center justify-between gap-3 border-b px-6">
+            <TabsList variant="line">
+              <TabsTrigger value="library">
+                <LibraryBig aria-hidden="true" />
+                {t("picker.tabs.library")}
+              </TabsTrigger>
+              {canUpload && (
+                <TabsTrigger value="upload">
+                  <Upload aria-hidden="true" />
+                  {t("picker.tabs.upload")}
+                </TabsTrigger>
+              )}
+            </TabsList>
             {allowed.has("widget") && onCreateWidget && (
-              <button
-                className="button button--secondary"
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
                 onClick={onCreateWidget}
               >
-                <Globe2 size={16} /> Create widget
-              </button>
+                <Plus aria-hidden="true" />
+                {t("picker.dialog.createWidget")}
+              </Button>
             )}
-            <button
-              className="icon-button"
-              aria-label="Close content picker"
-              onClick={onClose}
-            >
-              <X size={18} />
-            </button>
           </div>
-        </header>
-        <ContentPickerToolbar
-          search={search}
-          filter={filter}
-          allowedTypes={allowedTypes}
-          sort={sort}
-          view={view}
-          folders={folders.data ?? []}
-          collections={collections.data ?? []}
-          tags={tags.data ?? []}
-          folderFilter={folderFilter}
-          collectionFilter={collectionFilter}
-          tagFilter={tagFilter}
-          onSearch={setSearch}
-          onFilter={setFilter}
-          onFolderFilter={setFolderFilter}
-          onCollectionFilter={setCollectionFilter}
-          onTagFilter={setTagFilter}
-          onSort={setSort}
-          onView={setView}
-        />
-        <main className="content-picker__library">
-          {library.isLoading ? (
-            <div className="table-loading">Loading content…</div>
-          ) : library.isError ? (
-            <div className="notice notice--error">
-              <strong>Content could not be loaded.</strong>
-              <button
-                className="button button--quiet"
-                onClick={() => void library.refetch()}
-              >
-                Try again
-              </button>
-            </div>
-          ) : combined.length === 0 ? (
-            <div className="content-empty">
-              <h3>No matching content</h3>
-              <p>Try a different search or create new content.</p>
-            </div>
-          ) : (
-            <>
-              <ContentLibraryGrid
-                items={combined}
-                view={view}
-                selectedIds={new Set(selected.keys())}
-                disabledIds={disabled}
-                highlightedIds={highlighted}
-                onToggle={toggle}
-              />
-              {library.hasNextPage && (
-                <button
-                  className="button button--secondary picker-load-more"
-                  disabled={library.isFetchingNextPage}
-                  onClick={() => void library.fetchNextPage()}
-                >
-                  {library.isFetchingNextPage
-                    ? "Loading…"
-                    : "Load more content"}
-                </button>
-              )}
-            </>
-          )}
-        </main>
-        <SelectedContentTray
-          items={chosen}
-          onRemove={(id) =>
-            setSelected(
-              (current) => new Map([...current].filter(([key]) => key !== id)),
-            )
-          }
-          onClear={() => setSelected(new Map())}
-        />
-        {failures.length > 0 && (
-          <div
-            className="content-picker-failures notice notice--error"
-            role="alert"
+          <TabsContent
+            value="library"
+            className="flex min-h-0 flex-1 flex-col data-hidden:hidden"
           >
-            <strong>Some content could not be added.</strong>
-            <ul>
-              {failures.map((failure) => (
-                <li key={failure.id}>
-                  <b>{failure.name}:</b> {failure.message}
-                </li>
-              ))}
-            </ul>
+            <div className="border-b px-6 py-3">
+              <ContentPickerToolbar
+                search={search}
+                filter={filter}
+                allowedTypes={allowedTypes}
+                sort={sort}
+                view={view}
+                folders={folders.data ?? []}
+                collections={collections.data ?? []}
+                tags={tags.data ?? []}
+                folderFilter={folderFilter}
+                collectionFilter={collectionFilter}
+                tagFilter={tagFilter}
+                onSearch={setSearch}
+                onFilter={setFilter}
+                onFolderFilter={setFolderFilter}
+                onCollectionFilter={setCollectionFilter}
+                onTagFilter={setTagFilter}
+                onSort={setSort}
+                onView={setView}
+              />
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+              {library.isLoading ? (
+                <ContentLibraryLoading view={view} />
+              ) : library.isError ? (
+                <Alert variant="destructive">
+                  <AlertCircle aria-hidden="true" />
+                  <AlertTitle>{t("picker.library.loadError")}</AlertTitle>
+                  <AlertDescription>
+                    {t("picker.library.loadErrorHint")}
+                  </AlertDescription>
+                  <AlertAction>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void library.refetch()}
+                    >
+                      {t("picker.errors.tryAgain")}
+                    </Button>
+                  </AlertAction>
+                </Alert>
+              ) : combined.length === 0 ? (
+                <Empty className="h-full">
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <SearchX aria-hidden="true" />
+                    </EmptyMedia>
+                    <EmptyTitle>
+                      {filtered
+                        ? t("picker.library.noMatch")
+                        : t("picker.library.emptyTitle")}
+                    </EmptyTitle>
+                    <EmptyDescription>
+                      {filtered
+                        ? t("picker.library.noMatchClearHint")
+                        : canUpload
+                          ? t("picker.library.emptyUploadHint")
+                          : t("picker.library.emptyWidgetHint")}
+                    </EmptyDescription>
+                  </EmptyHeader>
+                  {(filtered || canUpload) && (
+                    <EmptyContent className="flex-row justify-center">
+                      {filtered && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={clearFilters}
+                        >
+                          {t("picker.library.clearFilters")}
+                        </Button>
+                      )}
+                      {canUpload && (
+                        <Button type="button" onClick={() => setTab("upload")}>
+                          <Upload aria-hidden="true" />
+                          {t("picker.upload.uploadMedia")}
+                        </Button>
+                      )}
+                    </EmptyContent>
+                  )}
+                </Empty>
+              ) : (
+                <div className="grid gap-6">
+                  {view === "grid" ? (
+                    <ContentLibraryGrid {...libraryProps} />
+                  ) : (
+                    <ContentLibraryList {...libraryProps} />
+                  )}
+                  {library.hasNextPage && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="justify-self-center"
+                      disabled={library.isFetchingNextPage}
+                      onClick={() => void library.fetchNextPage()}
+                    >
+                      {library.isFetchingNextPage && (
+                        <Spinner aria-hidden="true" />
+                      )}
+                      {t("picker.library.loadMore")}
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+          {canUpload && (
+            // Kept mounted so switching back to the library never drops an
+            // upload that is still transferring or processing.
+            <TabsContent
+              value="upload"
+              keepMounted
+              className="min-h-0 flex-1 overflow-y-auto px-6 py-4 data-hidden:hidden"
+            >
+              <MediaUploadPanel
+                csrf={csrf}
+                onAsset={trackUpload}
+                onActiveChange={(active) => {
+                  setUploadsActive(active);
+                  uploads.setActive(active);
+                }}
+              />
+              {created.size > 0 && (
+                <p className="mt-4 text-sm text-muted-foreground">
+                  <Trans
+                    i18nKey="picker.upload.newUploadsHint"
+                    ns="content"
+                    components={{
+                      libraryLink: (
+                        <Button
+                          type="button"
+                          variant="link"
+                          className="h-auto p-0"
+                          onClick={() => setTab("library")}
+                        />
+                      ),
+                    }}
+                  />
+                </p>
+              )}
+            </TabsContent>
+          )}
+        </Tabs>
+        {failures.length > 0 && (
+          <div className="px-6 pb-3">
+            <Alert variant="destructive">
+              <AlertCircle aria-hidden="true" />
+              <AlertTitle>{t("picker.errors.addFailed")}</AlertTitle>
+              <AlertDescription>
+                <ul className="list-disc pl-4">
+                  {failures.map((failure) => (
+                    <li key={failure.id}>
+                      <b>{failure.name}:</b> {failure.message}
+                    </li>
+                  ))}
+                </ul>
+              </AlertDescription>
+            </Alert>
           </div>
         )}
-        <footer className="content-picker__footer">
-          <span>
-            {chosen.length} item{chosen.length === 1 ? "" : "s"} selected
-            {selectionPreparing ? " · waiting for processing" : ""}
-          </span>
-          <div>
-            <button className="button button--quiet" onClick={onClose}>
-              Cancel
-            </button>
-            <button
-              className="button button--primary"
+        <DialogFooter className="gap-3 border-t px-6 py-3 sm:items-center sm:justify-between">
+          <SelectedContentTray
+            items={chosen}
+            preparing={selectionPreparing}
+            onRemove={(id) =>
+              setSelected(
+                (current) =>
+                  new Map([...current].filter(([key]) => key !== id)),
+              )
+            }
+            onClear={() => setSelected(new Map())}
+          />
+          <div className="flex shrink-0 items-center justify-end gap-2">
+            <Button type="button" variant="outline" onClick={close}>
+              {t("common:actions.cancel")}
+            </Button>
+            <Button
+              type="button"
               disabled={chosen.length === 0 || selectionPreparing || confirming}
               onClick={() => void confirm()}
             >
-              {confirming
-                ? "Adding…"
-                : `${confirmLabel}${chosen.length > 0 ? ` (${chosen.length})` : ""}`}
-            </button>
+              {confirming && <Spinner aria-hidden="true" />}
+              {chosen.length > 0
+                ? t("picker.footer.confirmWithCount", {
+                    label: resolvedConfirmLabel,
+                    count: chosen.length,
+                  })
+                : resolvedConfirmLabel}
+            </Button>
           </div>
-        </footer>
-      </section>
-      {child === "upload" && (
-        <UploadContentDialog
-          csrf={csrf}
-          onCreated={trackCreated}
-          onClose={() => setChild(undefined)}
-        />
-      )}
-    </div>,
-    document.body,
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

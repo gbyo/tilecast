@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useBlocker } from "react-router";
+import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import type {
   FormDataSource,
   FormTypedDataset,
@@ -8,23 +10,52 @@ import type {
   FormViewInput,
 } from "../api/types";
 import { api, ApiError } from "../api/client";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
+import { Checkbox } from "../components/ui/checkbox";
 import {
-  Button,
-  Checkbox,
-  EmptyState,
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "../components/ui/empty";
+import {
   Field,
-  Input,
-  Notice,
+  FieldDescription,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import {
   Select,
-  StatusBadge,
-  TableContainer,
-} from "../components/ui";
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../components/ui/table";
+import { Spinner } from "../components/ui/spinner";
+import { toast } from "../components/ui/toast";
 import {
   availableOutputFields,
   isTimeField,
   operatorsForType,
 } from "./outputFields";
+import { formToneBadgeProps } from "./formBadge";
 import { slugifyKey } from "./formKeys";
+
+// Base UI Select has no empty-string item, so the "none" choice in each legacy
+// native select is an explicit sentinel mapped back to "" in the handler.
+const NONE_VALUE = "__none__";
 
 function emptyView(): FormViewInput {
   return {
@@ -64,6 +95,7 @@ export function ViewsEditor({
   form: FormDataSource;
   csrf: string;
 }) {
+  const { t } = useTranslation("forms");
   const [mode, setMode] = useState<"list" | "edit" | "new">("list");
   const [draft, setDraft] = useState<FormViewInput>(emptyView);
   const [isNew, setIsNew] = useState(true);
@@ -80,7 +112,11 @@ export function ViewsEditor({
   };
   const openDuplicate = (view: FormView) => {
     const copy = toInput(view);
-    setDraft({ ...copy, key: "", name: `${view.name} (copy)` });
+    setDraft({
+      ...copy,
+      key: "",
+      name: t("views.copyName", { name: view.name }),
+    });
     setIsNew(true);
     setMode("new");
   };
@@ -121,11 +157,13 @@ function ViewList({
   onEdit: (view: FormView) => void;
   onDuplicate: (view: FormView) => void;
 }) {
+  const { t } = useTranslation(["forms", "common"]);
   const queryClient = useQueryClient();
   const [error, setError] = useState("");
   const remove = useMutation({
     mutationFn: (viewId: string) => api.deleteFormView(form.id, viewId, csrf),
     onSuccess: () => {
+      toast.add({ title: "Form view saved.", type: "success" });
       void queryClient.invalidateQueries({
         queryKey: ["form-data-source", form.id],
       });
@@ -139,77 +177,95 @@ function ViewList({
         setError(err.message);
       } else {
         setError(
-          err instanceof Error ? err.message : "Could not delete the view.",
+          err instanceof Error ? err.message : t("views.deleteFallback"),
         );
       }
     },
   });
 
   return (
-    <div className="form-views">
-      <div className="form-views__toolbar">
-        <Button variant="primary" onClick={onNew}>
-          New view
+    <div className="grid gap-3">
+      <div className="flex flex-wrap gap-2">
+        <Button variant="default" onClick={onNew}>
+          {t("views.newView")}
         </Button>
       </div>
       {error && (
-        <Notice variant="danger" title="View in use">
-          {error}
-        </Notice>
+        <Alert variant="destructive">
+          <AlertTitle>{t("views.viewInUse")}</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
       {form.views.length === 0 ? (
-        <EmptyState
-          title="No saved views"
-          message="Create a view to publish a named dataset for Widgets."
-        />
+        <Empty>
+          <EmptyHeader>
+            <EmptyTitle>{t("views.noViews")}</EmptyTitle>
+            <EmptyDescription>{t("views.noViewsHint")}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
-        <TableContainer>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th scope="col">Name</th>
-                <th scope="col">Dataset key</th>
-                <th scope="col">States</th>
-                <th scope="col" aria-label="Actions" />
-              </tr>
-            </thead>
-            <tbody>
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <Table className="w-full text-sm">
+            <TableHeader>
+              <TableRow className="border-b border-border text-left text-xs text-muted-foreground">
+                <TableHead scope="col" className="px-3 py-2 font-medium">
+                  {t("views.tableName")}
+                </TableHead>
+                <TableHead scope="col" className="px-3 py-2 font-medium">
+                  {t("views.tableKey")}
+                </TableHead>
+                <TableHead scope="col" className="px-3 py-2 font-medium">
+                  {t("views.tableStates")}
+                </TableHead>
+                <TableHead scope="col" className="px-3 py-2 font-medium">
+                  <span className="sr-only">{t("views.tableActions")}</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {form.views.map((view) => (
-                <tr key={view.id}>
-                  <td>{view.name}</td>
-                  <td>
-                    <code>{view.key}</code>
-                  </td>
-                  <td>{view.includedStates.join(", ") || "—"}</td>
-                  <td className="form-views__row-actions">
-                    <Button
-                      variant="quiet"
-                      compact
-                      onClick={() => onEdit(view)}
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      variant="quiet"
-                      compact
-                      onClick={() => onDuplicate(view)}
-                    >
-                      Duplicate
-                    </Button>
-                    <Button
-                      variant="quiet"
-                      compact
-                      disabled={remove.isPending}
-                      onClick={() => remove.mutate(view.id)}
-                    >
-                      Delete
-                    </Button>
-                  </td>
-                </tr>
+                <TableRow
+                  key={view.id}
+                  className="border-b border-border last:border-0"
+                >
+                  <TableCell className="px-3 py-2">{view.name}</TableCell>
+                  <TableCell className="px-3 py-2">
+                    <code className="text-xs">{view.key}</code>
+                  </TableCell>
+                  <TableCell className="px-3 py-2">
+                    {view.includedStates.join(", ") || "—"}
+                  </TableCell>
+                  <TableCell className="px-3 py-2">
+                    <div className="flex flex-wrap justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onEdit(view)}
+                      >
+                        {t("common:actions.edit")}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onDuplicate(view)}
+                      >
+                        {t("views.duplicate")}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={remove.isPending}
+                        onClick={() => remove.mutate(view.id)}
+                      >
+                        {t("common:actions.delete")}
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
-        </TableContainer>
+            </TableBody>
+          </Table>
+        </div>
       )}
     </div>
   );
@@ -230,8 +286,9 @@ function ViewForm({
   isNew: boolean;
   onDone: () => void;
 }) {
+  const { t } = useTranslation(["forms", "common"]);
   const queryClient = useQueryClient();
-  const fields = useMemo(() => availableOutputFields(form), [form]);
+  const fields = useMemo(() => availableOutputFields(form, t), [form, t]);
   const fieldType = (key: string) =>
     fields.find((f) => f.key === key)?.type ?? "text";
   const timeFields = fields.filter((f) => isTimeField(f.type));
@@ -281,7 +338,7 @@ function ViewForm({
       onDone();
     },
     onError: (err) =>
-      setError(err instanceof Error ? err.message : "Could not save the view."),
+      setError(err instanceof Error ? err.message : t("views.saveFallback")),
   });
 
   const runPreview = useMutation({
@@ -296,9 +353,7 @@ function ViewForm({
       setError("");
     },
     onError: (err) =>
-      setError(
-        err instanceof Error ? err.message : "Could not preview the view.",
-      ),
+      setError(err instanceof Error ? err.message : t("views.previewFallback")),
   });
 
   const toggleState = (key: string) => {
@@ -326,53 +381,58 @@ function ViewForm({
   const nameMissing = draft.name.trim() === "";
 
   return (
-    <div className="form-view-form">
+    <div className="grid gap-4">
       {blocker.state === "blocked" && (
-        <Notice
-          variant="warning"
-          title="Leave without saving?"
-          action={
-            <div className="form-builder__confirm-actions">
-              <Button variant="quiet" onClick={() => blocker.reset?.()}>
-                Stay
-              </Button>
-              <Button variant="primary" onClick={() => blocker.proceed?.()}>
-                Leave
-              </Button>
-            </div>
-          }
-        >
-          This view has unsaved changes.
-        </Notice>
+        <Alert>
+          <AlertTitle>{t("views.leaveTitle")}</AlertTitle>
+          <AlertDescription>{t("views.leaveBody")}</AlertDescription>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="ghost" onClick={() => blocker.reset?.()}>
+              {t("views.stay")}
+            </Button>
+            <Button variant="default" onClick={() => blocker.proceed?.()}>
+              {t("views.leave")}
+            </Button>
+          </div>
+        </Alert>
       )}
       {error && (
-        <Notice variant="danger" title="View not saved">
-          {error}
-        </Notice>
+        <Alert variant="destructive">
+          <AlertTitle>{t("views.notSaved")}</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
-      <div className="form-view-form__grid">
-        <Field label="View name" required>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field>
+          <FieldLabel htmlFor="form-view-name">
+            {t("views.nameLabel")}
+          </FieldLabel>
           <Input
-            aria-label="View name"
+            id="form-view-name"
+            required
             value={draft.name}
             onChange={(e) => update({ name: e.target.value })}
           />
         </Field>
-        <Field
-          label="Dataset key"
-          description={
-            isNew ? "Lowercase key; fixed once saved." : "Keys are immutable."
-          }
-        >
+        <Field>
+          <FieldLabel htmlFor="form-view-key">{t("views.keyLabel")}</FieldLabel>
           <Input
+            id="form-view-key"
             value={draft.key || (isNew ? slugifyKey(draft.name) : "")}
             disabled={!isNew}
             onChange={(e) => update({ key: slugifyKey(e.target.value) })}
           />
+          <FieldDescription>
+            {isNew ? t("views.newKeyHint") : t("views.lockedKeyHint")}
+          </FieldDescription>
         </Field>
-        <Field label="Record limit">
+        <Field>
+          <FieldLabel htmlFor="form-view-limit">
+            {t("views.limitLabel")}
+          </FieldLabel>
           <Input
+            id="form-view-limit"
             type="number"
             value={String(draft.recordLimit)}
             onChange={(e) =>
@@ -380,8 +440,12 @@ function ViewForm({
             }
           />
         </Field>
-        <Field label="Order">
+        <Field>
+          <FieldLabel htmlFor="form-view-position">
+            {t("views.orderLabel")}
+          </FieldLabel>
           <Input
+            id="form-view-position"
             type="number"
             value={String(draft.position)}
             onChange={(e) => update({ position: Number(e.target.value) || 0 })}
@@ -389,96 +453,152 @@ function ViewForm({
         </Field>
       </div>
 
-      <fieldset className="form-view-form__section">
-        <legend>Included states</legend>
-        <div className="form-view-form__checks">
+      <FieldSet className="grid gap-3 rounded-xl border border-border p-4">
+        <FieldLegend variant="label" className="mb-0">
+          {t("views.statesLegend")}
+        </FieldLegend>
+        <div className="flex flex-wrap gap-2">
           {form.workflow.states.map((state) => (
-            <Checkbox
+            <Field
               key={state.key}
-              label={state.label}
-              checked={draft.includedStates.includes(state.key)}
-              onChange={() => toggleState(state.key)}
-            />
+              orientation="horizontal"
+              className="items-center"
+            >
+              <Checkbox
+                id={"form-view-state-" + state.key}
+                checked={draft.includedStates.includes(state.key)}
+                onCheckedChange={() => toggleState(state.key)}
+              />
+              <FieldLabel
+                htmlFor={"form-view-state-" + state.key}
+                className="font-normal"
+              >
+                {state.label}
+              </FieldLabel>
+            </Field>
           ))}
         </div>
-      </fieldset>
+      </FieldSet>
 
-      <fieldset className="form-view-form__section">
-        <legend>Output fields &amp; order</legend>
-        <div className="form-view-form__add-field">
+      <FieldSet className="grid gap-3 rounded-xl border border-border p-4">
+        <FieldLegend variant="label" className="mb-0">
+          {t("views.fieldsLegend")}
+        </FieldLegend>
+        <div>
           {/* No wrapping label: the control sits alone under the section legend. */}
           <Select
-            aria-label="Add an output field"
-            value=""
-            onChange={(e) => addOutputField(e.target.value)}
+            items={[
+              { value: NONE_VALUE, label: t("views.addFieldPlaceholder") },
+              ...fields
+                .filter((field) => !draft.outputFields.includes(field.key))
+                .map((field) => ({ value: field.key, label: field.label })),
+            ]}
+            value={NONE_VALUE}
+            onValueChange={(value) => {
+              if (value && value !== NONE_VALUE) addOutputField(value);
+            }}
           >
-            <option value="">Add a field…</option>
-            {fields
-              .filter((f) => !draft.outputFields.includes(f.key))
-              .map((f) => (
-                <option key={f.key} value={f.key}>
-                  {f.label}
-                </option>
-              ))}
+            <SelectTrigger aria-label={t("views.addFieldLabel")}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NONE_VALUE}>
+                {t("views.addFieldPlaceholder")}
+              </SelectItem>
+              {fields
+                .filter((f) => !draft.outputFields.includes(f.key))
+                .map((f) => (
+                  <SelectItem key={f.key} value={f.key}>
+                    {f.label}
+                  </SelectItem>
+                ))}
+            </SelectContent>
           </Select>
         </div>
-        <ol className="form-view-form__ordered">
+        <ol className="grid gap-2">
           {draft.outputFields.map((key, index) => (
-            <li key={key}>
+            <li
+              key={key}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border px-3 py-2 text-sm"
+            >
               <span>{fields.find((f) => f.key === key)?.label ?? key}</span>
-              <div>
-                <button
+              <div className="flex gap-1">
+                <Button
                   type="button"
-                  aria-label={`Move ${key} up`}
+                  variant="outline"
+                  size="icon-xs"
+                  className="size-7 p-0 text-sm"
+                  aria-label={t("views.moveUp", {
+                    label: fields.find((f) => f.key === key)?.label ?? key,
+                  })}
                   disabled={index === 0}
                   onClick={() => moveOutputField(index, -1)}
                 >
-                  ↑
-                </button>
-                <button
+                  <ArrowUp size={14} aria-hidden="true" />
+                </Button>
+                <Button
                   type="button"
-                  aria-label={`Move ${key} down`}
+                  variant="outline"
+                  size="icon-xs"
+                  className="size-7 p-0 text-sm"
+                  aria-label={t("views.moveDown", {
+                    label: fields.find((f) => f.key === key)?.label ?? key,
+                  })}
                   disabled={index === draft.outputFields.length - 1}
                   onClick={() => moveOutputField(index, 1)}
                 >
-                  ↓
-                </button>
-                <button
+                  <ArrowDown size={14} aria-hidden="true" />
+                </Button>
+                <Button
                   type="button"
-                  aria-label={`Remove ${key}`}
+                  variant="outline"
+                  size="icon-xs"
+                  className="size-7 p-0 text-sm"
+                  aria-label={t("views.removeLabel", {
+                    label: fields.find((f) => f.key === key)?.label ?? key,
+                  })}
                   onClick={() =>
                     update({
                       outputFields: draft.outputFields.filter((k) => k !== key),
                     })
                   }
                 >
-                  ✕
-                </button>
+                  <Trash2 size={14} aria-hidden="true" />
+                </Button>
               </div>
             </li>
           ))}
           {draft.outputFields.length === 0 && (
-            <li className="form-view-form__hint">
-              All available fields (none selected).
+            <li className="text-sm text-muted-foreground">
+              {t("views.noneSelected")}
             </li>
           )}
         </ol>
-      </fieldset>
+      </FieldSet>
 
-      <fieldset className="form-view-form__section">
-        <legend>Field filters</legend>
+      <FieldSet className="grid gap-3 rounded-xl border border-border p-4">
+        <FieldLegend variant="label" className="mb-0">
+          {t("views.filtersLegend")}
+        </FieldLegend>
         {draft.fieldFilters.map((filter, index) => {
-          const operators = operatorsForType(fieldType(filter.field));
+          const operators = operatorsForType(fieldType(filter.field), t);
           return (
-            <div key={index} className="form-view-form__filter-row">
+            <div key={index} className="flex flex-wrap items-center gap-2">
               <Select
-                aria-label="Filter field"
-                value={filter.field}
-                onChange={(e) => {
-                  const nextField = e.target.value;
-                  const validOps = operatorsForType(fieldType(nextField)).map(
-                    (o) => o.value,
-                  );
+                items={[
+                  { value: NONE_VALUE, label: t("views.fieldPlaceholder") },
+                  ...fields.map((field) => ({
+                    value: field.key,
+                    label: field.label,
+                  })),
+                ]}
+                value={filter.field || NONE_VALUE}
+                onValueChange={(value) => {
+                  const nextField = !value || value === NONE_VALUE ? "" : value;
+                  const validOps = operatorsForType(
+                    fieldType(nextField),
+                    t,
+                  ).map((o) => o.value);
                   const filters = [...draft.fieldFilters];
                   filters[index] = {
                     ...filter,
@@ -490,35 +610,47 @@ function ViewForm({
                   update({ fieldFilters: filters });
                 }}
               >
-                <option value="">Field…</option>
-                {fields.map((f) => (
-                  <option key={f.key} value={f.key}>
-                    {f.label}
-                  </option>
-                ))}
+                <SelectTrigger aria-label={t("views.filterFieldLabel")}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE_VALUE}>
+                    {t("views.fieldPlaceholder")}
+                  </SelectItem>
+                  {fields.map((f) => (
+                    <SelectItem key={f.key} value={f.key}>
+                      {f.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
               <Select
-                aria-label="Filter operator"
+                items={operators}
                 value={filter.operator}
-                onChange={(e) => {
+                onValueChange={(value) => {
                   const filters = [...draft.fieldFilters];
                   filters[index] = {
                     ...filter,
-                    operator: e.target.value as typeof filter.operator,
+                    operator: value ?? filter.operator,
                   };
                   update({ fieldFilters: filters });
                 }}
               >
-                {operators.map((op) => (
-                  <option key={op.value} value={op.value}>
-                    {op.label}
-                  </option>
-                ))}
+                <SelectTrigger aria-label={t("views.operatorLabel")}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {operators.map((op) => (
+                    <SelectItem key={op.value} value={op.value}>
+                      {op.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
               {filter.operator !== "empty" &&
                 filter.operator !== "not_empty" && (
                   <Input
-                    aria-label="Filter value"
+                    className="min-w-40 flex-1"
                     value={filter.value}
                     onChange={(e) => {
                       const filters = [...draft.fieldFilters];
@@ -528,8 +660,8 @@ function ViewForm({
                   />
                 )}
               <Button
-                variant="quiet"
-                compact
+                variant="ghost"
+                size="sm"
                 onClick={() =>
                   update({
                     fieldFilters: draft.fieldFilters.filter(
@@ -538,14 +670,14 @@ function ViewForm({
                   })
                 }
               >
-                Remove
+                {t("views.removeItem")}
               </Button>
             </div>
           );
         })}
         <Button
-          variant="quiet"
-          compact
+          variant="ghost"
+          size="sm"
           onClick={() => {
             const first = fields[0];
             if (!first) return;
@@ -554,66 +686,92 @@ function ViewForm({
                 ...draft.fieldFilters,
                 {
                   field: first.key,
-                  operator: operatorsForType(first.type)[0]!.value as never,
+                  operator: operatorsForType(first.type, t)[0]!.value as never,
                   value: "",
                 },
               ],
             });
           }}
         >
-          Add filter
+          {t("views.addFilter")}
         </Button>
-      </fieldset>
+      </FieldSet>
 
-      <fieldset className="form-view-form__section">
-        <legend>Sort</legend>
+      <FieldSet className="grid gap-3 rounded-xl border border-border p-4">
+        <FieldLegend variant="label" className="mb-0">
+          {t("views.sortLegend")}
+        </FieldLegend>
         {draft.sort.map((rule, index) => (
-          <div key={index} className="form-view-form__filter-row">
+          <div key={index} className="flex flex-wrap items-center gap-2">
             <Select
-              aria-label="Sort field"
-              value={rule.field}
-              onChange={(e) => {
-                const sort = [...draft.sort];
-                sort[index] = { ...rule, field: e.target.value };
-                update({ sort });
-              }}
-            >
-              <option value="">Field…</option>
-              {fields.map((f) => (
-                <option key={f.key} value={f.key}>
-                  {f.label}
-                </option>
-              ))}
-            </Select>
-            <Select
-              aria-label="Sort direction"
-              value={rule.direction}
-              onChange={(e) => {
+              items={[
+                { value: NONE_VALUE, label: t("views.fieldPlaceholder") },
+                ...fields.map((field) => ({
+                  value: field.key,
+                  label: field.label,
+                })),
+              ]}
+              value={rule.field || NONE_VALUE}
+              onValueChange={(value) => {
                 const sort = [...draft.sort];
                 sort[index] = {
                   ...rule,
-                  direction: e.target.value as "asc" | "desc",
+                  field: !value || value === NONE_VALUE ? "" : value,
                 };
                 update({ sort });
               }}
             >
-              <option value="asc">Ascending</option>
-              <option value="desc">Descending</option>
+              <SelectTrigger aria-label={t("views.sortFieldLabel")}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE_VALUE}>
+                  {t("views.fieldPlaceholder")}
+                </SelectItem>
+                {fields.map((f) => (
+                  <SelectItem key={f.key} value={f.key}>
+                    {f.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              items={[
+                { value: "asc", label: t("views.ascending") },
+                { value: "desc", label: t("views.descending") },
+              ]}
+              value={rule.direction}
+              onValueChange={(value) => {
+                const sort = [...draft.sort];
+                sort[index] = {
+                  ...rule,
+                  direction: value ?? "asc",
+                };
+                update({ sort });
+              }}
+            >
+              <SelectTrigger aria-label={t("views.sortDirectionLabel")}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="asc">{t("views.ascending")}</SelectItem>
+                <SelectItem value="desc">{t("views.descending")}</SelectItem>
+              </SelectContent>
             </Select>
             <Button
-              variant="quiet"
-              compact
+              variant="ghost"
+              size="sm"
               onClick={() =>
                 update({ sort: draft.sort.filter((_, i) => i !== index) })
               }
             >
-              Remove
+              {t("views.removeItem")}
             </Button>
           </div>
         ))}
         <Button
-          variant="quiet"
-          compact
+          variant="ghost"
+          size="sm"
           onClick={() => {
             const first = fields[0];
             if (!first) return;
@@ -622,147 +780,224 @@ function ViewForm({
             });
           }}
         >
-          Add sort rule
+          {t("views.addSort")}
         </Button>
-      </fieldset>
+      </FieldSet>
 
-      <fieldset className="form-view-form__section">
-        <legend>Time window</legend>
-        <Checkbox
-          label="Filter by a relative time window"
-          checked={draft.timeFilter.enabled}
-          onChange={(e) =>
-            update({
-              timeFilter: { ...draft.timeFilter, enabled: e.target.checked },
-            })
-          }
-        />
+      <FieldSet className="grid gap-3 rounded-xl border border-border p-4">
+        <FieldLegend variant="label" className="mb-0">
+          {t("views.timeLegend")}
+        </FieldLegend>
+        <Field orientation="horizontal" className="items-center">
+          <Checkbox
+            id="form-view-time-window-enabled"
+            checked={draft.timeFilter.enabled}
+            onCheckedChange={(checked) =>
+              update({
+                timeFilter: {
+                  ...draft.timeFilter,
+                  enabled: checked === true,
+                },
+              })
+            }
+          />
+          <FieldLabel
+            htmlFor="form-view-time-window-enabled"
+            className="font-normal"
+          >
+            {t("views.timeEnabled")}
+          </FieldLabel>
+        </Field>
         {draft.timeFilter.enabled && (
-          <div className="form-view-form__grid">
-            <Field label="Start field">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor="form-view-start-field">
+                {t("views.startField")}
+              </FieldLabel>
               <Select
-                value={draft.timeFilter.startField ?? ""}
-                onChange={(e) =>
+                items={[
+                  { value: NONE_VALUE, label: t("views.noneOption") },
+                  ...timeFields.map((field) => ({
+                    value: field.key,
+                    label: field.label,
+                  })),
+                ]}
+                value={draft.timeFilter.startField ?? NONE_VALUE}
+                onValueChange={(value) =>
                   update({
                     timeFilter: {
                       ...draft.timeFilter,
-                      startField: e.target.value,
+                      startField: !value || value === NONE_VALUE ? "" : value,
                     },
                   })
                 }
               >
-                <option value="">None</option>
-                {timeFields.map((f) => (
-                  <option key={f.key} value={f.key}>
-                    {f.label}
-                  </option>
-                ))}
+                <SelectTrigger id="form-view-start-field">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE_VALUE}>
+                    {t("views.noneOption")}
+                  </SelectItem>
+                  {timeFields.map((f) => (
+                    <SelectItem key={f.key} value={f.key}>
+                      {f.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </Field>
-            <Field label="End field">
+            <Field>
+              <FieldLabel htmlFor="form-view-end-field">
+                {t("views.endField")}
+              </FieldLabel>
               <Select
-                value={draft.timeFilter.endField ?? ""}
-                onChange={(e) =>
+                items={[
+                  { value: NONE_VALUE, label: t("views.noneOption") },
+                  ...timeFields.map((field) => ({
+                    value: field.key,
+                    label: field.label,
+                  })),
+                ]}
+                value={draft.timeFilter.endField ?? NONE_VALUE}
+                onValueChange={(value) =>
                   update({
                     timeFilter: {
                       ...draft.timeFilter,
-                      endField: e.target.value,
+                      endField: !value || value === NONE_VALUE ? "" : value,
                     },
                   })
                 }
               >
-                <option value="">None</option>
-                {timeFields.map((f) => (
-                  <option key={f.key} value={f.key}>
-                    {f.label}
-                  </option>
-                ))}
+                <SelectTrigger id="form-view-end-field">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE_VALUE}>
+                    {t("views.noneOption")}
+                  </SelectItem>
+                  {timeFields.map((f) => (
+                    <SelectItem key={f.key} value={f.key}>
+                      {f.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </Field>
-            <Checkbox
-              label="Start is before now"
-              checked={Boolean(draft.timeFilter.startBeforeNow)}
-              onChange={(e) =>
-                update({
-                  timeFilter: {
-                    ...draft.timeFilter,
-                    startBeforeNow: e.target.checked,
-                  },
-                })
-              }
-            />
-            <Checkbox
-              label="End is after now"
-              checked={Boolean(draft.timeFilter.endAfterNow)}
-              onChange={(e) =>
-                update({
-                  timeFilter: {
-                    ...draft.timeFilter,
-                    endAfterNow: e.target.checked,
-                  },
-                })
-              }
-            />
+            <Field orientation="horizontal" className="items-center">
+              <Checkbox
+                id="form-view-start-before-now"
+                checked={Boolean(draft.timeFilter.startBeforeNow)}
+                onCheckedChange={(checked) =>
+                  update({
+                    timeFilter: {
+                      ...draft.timeFilter,
+                      startBeforeNow: checked === true,
+                    },
+                  })
+                }
+              />
+              <FieldLabel
+                htmlFor="form-view-start-before-now"
+                className="font-normal"
+              >
+                {t("views.startBeforeNow")}
+              </FieldLabel>
+            </Field>
+            <Field orientation="horizontal" className="items-center">
+              <Checkbox
+                id="form-view-end-after-now"
+                checked={Boolean(draft.timeFilter.endAfterNow)}
+                onCheckedChange={(checked) =>
+                  update({
+                    timeFilter: {
+                      ...draft.timeFilter,
+                      endAfterNow: checked === true,
+                    },
+                  })
+                }
+              />
+              <FieldLabel
+                htmlFor="form-view-end-after-now"
+                className="font-normal"
+              >
+                {t("views.endAfterNow")}
+              </FieldLabel>
+            </Field>
           </div>
         )}
-      </fieldset>
+      </FieldSet>
 
-      <div className="form-view-form__actions">
-        <Button variant="quiet" onClick={onDone}>
-          Back
+      <div className="flex flex-wrap gap-2">
+        <Button variant="ghost" onClick={onDone}>
+          {t("common:actions.back")}
         </Button>
         <Button
           variant="secondary"
-          loading={runPreview.isPending}
           disabled={runPreview.isPending || nameMissing}
+          aria-busy={runPreview.isPending || undefined}
           onClick={() => runPreview.mutate()}
         >
-          Preview
+          {runPreview.isPending && <Spinner aria-hidden="true" />}
+          {t("views.previewButton")}
         </Button>
         <Button
-          variant="primary"
-          loading={save.isPending}
+          variant="default"
           disabled={save.isPending || nameMissing}
+          aria-busy={save.isPending || undefined}
           onClick={() => save.mutate()}
         >
-          Save view
+          {save.isPending && <Spinner aria-hidden="true" />}
+          {t("views.saveButton")}
         </Button>
       </div>
 
       {preview && (
-        <section className="form-view-form__preview" aria-label="Preview">
-          <h3>
-            Preview{" "}
-            <StatusBadge
-              label={`${preview.records?.length ?? 0} records`}
-              tone="neutral"
-            />
+        <section className="grid gap-2 rounded-xl border border-border p-4">
+          <h3 className="flex flex-wrap items-center gap-2 text-base font-semibold">
+            {t("views.previewTitle")}{" "}
+            <Badge {...formToneBadgeProps("neutral")}>
+              {t("views.previewCount", {
+                count: preview.records?.length ?? 0,
+              })}
+            </Badge>
           </h3>
           {(preview.records?.length ?? 0) === 0 ? (
-            <p>No records match this view.</p>
+            <p className="text-sm text-muted-foreground">
+              {t("views.previewEmpty")}
+            </p>
           ) : (
-            <TableContainer>
-              <table className="data-table">
-                <thead>
-                  <tr>
+            <div className="overflow-x-auto rounded-xl border border-border">
+              <Table className="w-full text-sm">
+                <TableHeader>
+                  <TableRow className="border-b border-border text-left text-xs text-muted-foreground">
                     {(preview.fields ?? []).map((f) => (
-                      <th key={f.key} scope="col">
+                      <TableHead
+                        key={f.key}
+                        scope="col"
+                        className="px-3 py-2 font-medium"
+                      >
                         {f.label || f.key}
-                      </th>
+                      </TableHead>
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {(preview.records ?? []).map((record) => (
-                    <tr key={record.id}>
+                    <TableRow
+                      key={record.id}
+                      className="border-b border-border last:border-0"
+                    >
                       {(preview.fields ?? []).map((f) => (
-                        <td key={f.key}>{record.values[f.key] ?? ""}</td>
+                        <TableCell key={f.key} className="px-3 py-2">
+                          {record.values[f.key] ?? ""}
+                        </TableCell>
                       ))}
-                    </tr>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
-            </TableContainer>
+                </TableBody>
+              </Table>
+            </div>
           )}
         </section>
       )}

@@ -1,7 +1,16 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { CheckCircle2 } from "lucide-react";
-import { Pagination } from "../components/ui";
+import { useTranslation } from "react-i18next";
+import { translateKnown } from "../i18n";
+import { Pagination } from "../components/Pagination";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "../components/ui/collapsible";
+import { Skeleton } from "../components/ui/skeleton";
 
 export type ActivityResult =
   | "playing"
@@ -160,7 +169,11 @@ export async function activityRequest<T>(path: string): Promise<T> {
   };
   if (!response.ok || !body.data)
     throw new Error(
-      body.error?.message ?? "Activity data could not be loaded.",
+      body.error?.message ??
+        translateKnown(
+          "activity:shared.loadFailed",
+          "Activity data could not be loaded.",
+        ),
     );
   return body.data;
 }
@@ -204,11 +217,12 @@ export function ActivityPagination({
   pagination: CursorPagination;
   nextCursor?: string;
 }) {
+  const { t } = useTranslation("activity");
   if (!pagination.canGoBack && !nextCursor) return null;
   return (
     <Pagination
       className="activity-pagination"
-      label="Activity pages"
+      label={t("shared.paginationLabel")}
       previous={pagination.previous}
       previousDisabled={!pagination.canGoBack}
       next={() => nextCursor && pagination.next(nextCursor)}
@@ -252,23 +266,32 @@ export function TechnicalDetails({
   const entries = Object.entries(value).filter(
     ([, item]) => item != null && item !== "",
   );
+  const { t } = useTranslation("activity");
   if (!entries.length) return <span>—</span>;
   return (
-    <details className="activity-details">
-      <summary>View</summary>
-      <dl>
-        {entries.map(([key, item]) => (
-          <div key={key}>
-            <dt>{humanize(key)}</dt>
-            <dd>{formatTechnicalValue(item)}</dd>
-          </div>
-        ))}
-      </dl>
-    </details>
+    <Collapsible className="grid gap-1 text-xs">
+      <CollapsibleTrigger className="w-fit cursor-pointer text-left font-medium text-primary hover:underline">
+        {t("shared.viewDetails")}
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <dl className="grid gap-1 rounded-lg border border-border bg-muted/50 p-2">
+          {entries.map(([key, item]) => (
+            <div key={key} className="flex flex-wrap gap-x-2">
+              <dt className="shrink-0 text-muted-foreground">
+                {humanize(key)}
+              </dt>
+              <dd className="min-w-0 flex-1 break-words">
+                {formatTechnicalValue(item, t("shared.detailsUnavailable"))}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
-function formatTechnicalValue(value: unknown): string {
+function formatTechnicalValue(value: unknown, unavailable: string): string {
   if (typeof value === "string") return value;
   if (typeof value === "number" || typeof value === "boolean") {
     return String(value);
@@ -277,35 +300,40 @@ function formatTechnicalValue(value: unknown): string {
   try {
     return JSON.stringify(value);
   } catch {
-    return "Details unavailable";
+    return unavailable;
   }
 }
 
 export function ResultBadge({ value }: { value: string }) {
-  return (
-    <span
-      className={`activity-badge activity-badge--${value.replaceAll("_", "-")}`}
-    >
-      {humanize(value)}
-    </span>
-  );
+  const variant =
+    value === "failed" || value === "critical" || value === "error"
+      ? "destructive"
+      : value === "completed" ||
+          value === "playing" ||
+          value === "success" ||
+          value === "recovered"
+        ? "default"
+        : "secondary";
+  return <Badge variant={variant}>{humanize(value)}</Badge>;
 }
 
 export function Loading() {
-  return <div className="table-loading">Loading Activity…</div>;
-}
-export function ErrorNotice({ error }: { error: Error }) {
-  return <div className="notice notice--error">{error.message}</div>;
-}
-export function EmptyState({ message }: { message: string }) {
+  const { t } = useTranslation("activity");
   return (
-    <div className="activity-empty">
-      <CheckCircle2 size={22} />
-      <p>{message}</p>
+    <div className="grid gap-2" aria-label={t("shared.loadingActivity")}>
+      <Skeleton className="h-12 w-full" />
+      <Skeleton className="h-12 w-full" />
+      <Skeleton className="h-12 w-full" />
     </div>
   );
 }
-
+export function ErrorNotice({ error }: { error: Error }) {
+  return (
+    <Alert variant="destructive">
+      <AlertDescription>{error.message}</AlertDescription>
+    </Alert>
+  );
+}
 export function formatWhen(value: string) {
   return new Date(value).toLocaleString([], {
     month: "short",

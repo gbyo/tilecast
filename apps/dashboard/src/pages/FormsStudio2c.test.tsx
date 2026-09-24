@@ -203,7 +203,7 @@ describe("Form tabs — capability visibility and normalization", () => {
       "Access",
     ]) {
       expect(
-        await screen.findByRole("button", { name: label }),
+        await screen.findByRole("tab", { name: label }),
       ).toBeInTheDocument();
     }
   });
@@ -217,17 +217,17 @@ describe("Form tabs — capability visibility and normalization", () => {
     const router = renderPage("/data-sources/f1?tab=workflow");
 
     expect(
-      await screen.findByRole("button", { name: "Responses" }),
+      await screen.findByRole("tab", { name: "Responses" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Outputs" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Outputs" })).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Workflow" }),
+      screen.queryByRole("tab", { name: "Workflow" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Views" }),
+      screen.queryByRole("tab", { name: "Views" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Access" }),
+      screen.queryByRole("tab", { name: "Access" }),
     ).not.toBeInTheDocument();
     // The Workflow editor never renders for an unauthorized deep link.
     expect(
@@ -259,7 +259,13 @@ describe("Workflow tab", () => {
     renderPage("/data-sources/f1?tab=workflow");
 
     // The used "draft" state (recordCount 2, removable false) has a locked key and delete control.
-    const draftKey = await screen.findByDisplayValue("draft");
+    // Hidden select inputs mirror option values, so name the visible key field
+    // rather than matching on its value alone.
+    const keyInputs = await screen.findAllByRole("textbox", { name: "Key" });
+    const draftKey = keyInputs.find(
+      (input) => (input as HTMLInputElement).value === "draft",
+    );
+    expect(draftKey).toBeDefined();
     expect(draftKey).toBeDisabled();
     expect(screen.getByRole("button", { name: "Delete Draft" })).toBeDisabled();
     // An unused state remains editable/removable.
@@ -404,7 +410,7 @@ describe("Outputs tab", () => {
     renderPage("/data-sources/f1?tab=outputs");
 
     expect(await screen.findByText("Approved one")).toBeInTheDocument();
-    expect(screen.getByText("1 records")).toBeInTheDocument();
+    expect(screen.getByText("1 record")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Rebuild outputs" }));
     await waitFor(() => expect(rebuild).toHaveBeenCalled());
   });
@@ -451,9 +457,10 @@ describe("Access tab", () => {
     // The creator is an unremovable manager (no Edit control).
     expect(await screen.findByText("Manager (creator)")).toBeInTheDocument();
     expect(screen.getByText("Manager (Owner)")).toBeInTheDocument();
-    // Edit Alice's access and save.
+    // Edit Alice's access and save. The checkbox query uses the checkbox
+    // role so Base UI's hidden mirror input is not matched as well.
     await user.click(screen.getByRole("button", { name: "Edit access" }));
-    await user.click(await screen.findByLabelText("Review"));
+    await user.click(await screen.findByRole("checkbox", { name: "Review" }));
     await user.click(screen.getByRole("button", { name: "Save access" }));
 
     await waitFor(() => expect(replace).toHaveBeenCalled());

@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -140,7 +141,7 @@ func (p structuredSourceProvider) Normalize(ctx context.Context, raw json.RawMes
 		if c.DateSelection.DateFormat == "" {
 			c.DateSelection.DateFormat = "auto"
 		}
-		if c.DateSelection.DateFormat != "auto" && c.DateSelection.DateFormat != "iso_date" && c.DateSelection.DateFormat != "us_date" && c.DateSelection.DateFormat != "us_short" && c.DateSelection.DateFormat != "day_month_name" && c.DateSelection.DateFormat != "rfc3339" {
+		if c.DateSelection.DateFormat != "auto" && c.DateSelection.DateFormat != "iso_date" && c.DateSelection.DateFormat != "us_date" && c.DateSelection.DateFormat != "us_short" && c.DateSelection.DateFormat != "day_first_date" && c.DateSelection.DateFormat != "day_first_short" && c.DateSelection.DateFormat != "day_month_name" && c.DateSelection.DateFormat != "rfc3339" {
 			return nil, errors.New("date selection format is invalid")
 		}
 		if c.DateSelection.Timezone == "" {
@@ -591,20 +592,74 @@ func normalizeRecordDate(value string) string {
 }
 func normalizeStructuredDate(value string, selection DateSelection) string {
 	value = strings.TrimSpace(value)
-	formats := map[string][]string{"iso_date": {"2006-01-02"}, "us_date": {"01/02/2006"}, "us_short": {"1/2/2006"}, "day_month_name": {"02-Jan-2006"}, "rfc3339": {time.RFC3339}}
+	formats := map[string][]string{
+		"iso_date":        {"2006-01-02"},
+		"us_date":         {"01/02/2006"},
+		"us_short":        {"1/2/2006"},
+		"day_first_date":  {"02/01/2006"},
+		"day_first_short": {"2/1/2006"},
+		"day_month_name":  {"02-Jan-2006"},
+		"rfc3339":         {time.RFC3339, time.RFC3339Nano},
+	}
 	layouts := formats[selection.DateFormat]
 	if selection.DateFormat == "" || selection.DateFormat == "auto" {
-		layouts = []string{time.RFC3339, time.RFC1123Z, time.RFC1123, time.RFC822Z, time.RFC822, "2006-01-02", "01/02/2006", "1/2/2006", "02-Jan-2006"}
+		// Automatic parsing accepts only slash dates whose order is unambiguous.
+		// Values such as 03/04/2026 remain text until the author selects a format.
+		if parsed, ok := parseUnambiguousSlashDate(value); ok {
+			return parsed
+		}
+		layouts = []string{
+			time.RFC3339Nano, time.RFC3339, time.RFC1123Z, time.RFC1123,
+			time.RFC822Z, time.RFC822, "2006-01-02", "02-Jan-2006",
+			"Jan 2, 2006", "January 2, 2006", "2 January 2006",
+			"2006-01-02T15:04:05", "2006-01-02 15:04:05", "2006-01-02 15:04",
+		}
 	}
 	for _, layout := range layouts {
 		if parsed, err := time.Parse(layout, value); err == nil {
-			if layout == "2006-01-02" || layout == "01/02/2006" || layout == "1/2/2006" || layout == "02-Jan-2006" {
+			if isDateOnlyLayout(layout) {
 				return parsed.Format("2006-01-02")
 			}
 			return parsed.UTC().Format(time.RFC3339)
 		}
 	}
 	return sanitizeCalendarText(value, 80)
+}
+
+func isDateOnlyLayout(layout string) bool {
+	switch layout {
+	case "2006-01-02", "01/02/2006", "1/2/2006", "02/01/2006", "2/1/2006",
+		"02-Jan-2006", "Jan 2, 2006", "January 2, 2006", "2 January 2006":
+		return true
+	default:
+		return false
+	}
+}
+
+func parseUnambiguousSlashDate(value string) (string, bool) {
+	parts := strings.Split(value, "/")
+	if len(parts) != 3 || len(strings.TrimSpace(parts[2])) != 4 {
+		return "", false
+	}
+	first, err1 := strconv.Atoi(strings.TrimSpace(parts[0]))
+	second, err2 := strconv.Atoi(strings.TrimSpace(parts[1]))
+	if err1 != nil || err2 != nil {
+		return "", false
+	}
+	layout := ""
+	switch {
+	case first > 12 && second >= 1 && second <= 12:
+		layout = "2/1/2006"
+	case second > 12 && first >= 1 && first <= 12:
+		layout = "1/2/2006"
+	default:
+		return "", false
+	}
+	parsed, err := time.Parse(layout, value)
+	if err != nil {
+		return "", false
+	}
+	return parsed.Format("2006-01-02"), true
 }
 func firstNonempty(values ...string) string {
 	for _, value := range values {
@@ -653,12 +708,16 @@ func (s *Service) StructuredPreview(ctx context.Context, provider string, raw js
 		return StructuredPreview{}, err
 	}
 	if c.DateSelection.Enabled {
-		prepared.Records = selectStructuredRecords(prepared.Records, c.DateSelection, previewDate)
+		prepared.Records = selectStructuredRecords(prepared.Records, c.DateSelection, previewDate, s.organizationFirstDayOfWeek(ctx))
 	}
 	return StructuredPreview{Configuration: StructuredPlayerConfig{Presentation: c.Presentation, Fields: c.Fields, EmptyState: c.EmptyState, DateSelection: c.DateSelection, Data: prepared}, Diagnostics: diagnostics}, nil
 }
 
-func selectStructuredRecords(records []StructuredRecord, selection DateSelection, previewDate string) []StructuredRecord {
+func selectStructuredRecords(records []StructuredRecord, selection DateSelection, previewDate string, firstDays ...time.Weekday) []StructuredRecord {
+	firstDay := time.Monday
+	if len(firstDays) > 0 && firstDays[0] >= time.Sunday && firstDays[0] <= time.Saturday {
+		firstDay = firstDays[0]
+	}
 	loc, _ := time.LoadLocation(selection.Timezone)
 	target := time.Now().In(loc)
 	if parsed, err := time.ParseInLocation("2006-01-02", previewDate, loc); err == nil {
@@ -686,12 +745,10 @@ func selectStructuredRecords(records []StructuredRecord, selection DateSelection
 				matches = append(matches, record)
 			}
 		case "current_week":
-			weekday := int(target.Weekday())
-			if weekday == 0 {
-				weekday = 7
-			}
-			start := target.AddDate(0, 0, -weekday+1).Format("2006-01-02")
-			end := target.AddDate(0, 0, 7-weekday).Format("2006-01-02")
+			daysBack := (int(target.Weekday()) - int(firstDay) + 7) % 7
+			startDate := target.AddDate(0, 0, -daysBack)
+			start := startDate.Format("2006-01-02")
+			end := startDate.AddDate(0, 0, 6).Format("2006-01-02")
 			if date >= start && date <= end {
 				matches = append(matches, record)
 			}

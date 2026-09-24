@@ -159,10 +159,22 @@ describe("Form Data Source Studio", () => {
     const user = userEvent.setup();
     renderAt("/plugins/forms/new");
 
+    // Guided creation: purpose first, then display, then review and create.
     await user.type(
       await screen.findByLabelText(/Form name/),
       "Staff Announcements",
     );
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    expect(
+      await screen.findByText("What do submitters see first?"),
+    ).toBeInTheDocument();
+    // Optional questions are skipped; skipping the last one submits.
+    await user.click(await screen.findByRole("button", { name: "Skip" }));
+    await user.click(await screen.findByRole("button", { name: "Skip" }));
+    await user.click(await screen.findByRole("button", { name: "Skip" }));
+    expect(
+      await screen.findByRole("heading", { name: "Review and create" }),
+    ).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Create form" }));
 
     await waitFor(() => expect(createForm).toHaveBeenCalled());
@@ -173,6 +185,24 @@ describe("Form Data Source Studio", () => {
       control: "short_text",
       required: true,
     });
+  });
+
+  it("blocks guided creation until the form has a name", async () => {
+    mockAuth("owner");
+    const createForm = vi
+      .spyOn(api, "createForm")
+      .mockResolvedValue(formDetail(["manage"]));
+    const user = userEvent.setup();
+    renderAt("/plugins/forms/new");
+
+    await screen.findByLabelText(/Form name/);
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    // The required purpose question blocks progress until it is answered.
+    expect(await screen.findByText("Question 1 of 4")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Review and create" }),
+    ).not.toBeInTheDocument();
+    expect(createForm).not.toHaveBeenCalled();
   });
 
   it("lets a global Viewer with a manage grant edit the form", async () => {
@@ -325,7 +355,7 @@ describe("Form Data Source Studio", () => {
     renderAt("/data-sources/f1?tab=form");
 
     await user.type(await screen.findByLabelText("Form title"), "X");
-    await user.click(screen.getByRole("button", { name: "Workflow" }));
+    await user.click(screen.getByRole("tab", { name: "Workflow" }));
 
     expect(
       await screen.findByText("Leave without saving?"),
@@ -333,5 +363,42 @@ describe("Form Data Source Studio", () => {
     expect(
       screen.getByRole("button", { name: "Save draft" }),
     ).toBeInTheDocument();
+  });
+});
+
+describe("Form responses table", () => {
+  it("opens a response through its title link instead of a clickable row", async () => {
+    mockAuth("owner");
+    vi.spyOn(api, "getDataSource").mockResolvedValue(formDataSourceDetail);
+    vi.spyOn(api, "getForm").mockResolvedValue(formDetail(["manage"]));
+    vi.spyOn(api, "listFormRecords").mockResolvedValue({
+      items: [
+        {
+          id: "r1",
+          dataSourceId: "f1",
+          revisionId: "r1",
+          state: "submitted",
+          values: { title: "Field trip" },
+          submitterName: "Sam",
+          displayTitle: "Field trip",
+          priority: 0,
+          eligible: true,
+          version: 1,
+          createdAt: "2026-01-02T00:00:00Z",
+          updatedAt: "2026-01-02T00:00:00Z",
+        },
+      ],
+      total: 1,
+      page: 1,
+      pageSize: 25,
+    });
+    const user = userEvent.setup();
+    const { router } = renderAt("/plugins/forms/f1?tab=responses");
+
+    // The title is a real link; the row itself carries no button role.
+    const title = await screen.findByRole("link", { name: "Field trip" });
+    expect(title.closest("tr")?.getAttribute("role")).toBeNull();
+    await user.click(title);
+    expect(router.state.location.search).toContain("record=r1");
   });
 });

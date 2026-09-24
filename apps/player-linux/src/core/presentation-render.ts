@@ -8,7 +8,13 @@
  * an empty box rather than failing the whole presentation.
  */
 
-import { formatValue, safeColor, type ValueFormat } from "./format";
+import {
+  formatValue,
+  resolveRegionalFormatting,
+  safeColor,
+  type RegionalFormatting,
+  type ValueFormat,
+} from "./format";
 import { parseCountdownFormat } from "./countdown";
 import { qrDataUri } from "./qr";
 import type { NormalizedSource } from "./datasource";
@@ -28,7 +34,11 @@ export interface PresentationContext {
   assets?: readonly ManifestAsset[];
   /** Current repeat record and index, set while expanding a repeat. */
   record?: Record<string, string>;
+  recordRaw?: Record<string, string>;
   repeatIndex?: number;
+  recordCurrencies?: Record<string, string>;
+  recordTypes?: Record<string, string>;
+  regionalFormat?: RegionalFormatting;
 }
 
 function styleFromProps(props: Record<string, unknown>): BoxStyle {
@@ -110,12 +120,20 @@ export function resolveBinding(
     return "";
   }
   let raw: string | number | null | undefined;
+  let source: NormalizedSource | undefined;
+  let currency: string | undefined;
+  let inferredFormat = "";
   switch (binding.source) {
     case "literal":
       raw = binding.value ?? "";
       break;
     case "repeat":
-      raw = ctx.record?.[binding.path ?? ""] ?? "";
+      inferredFormat = ctx.recordTypes?.[binding.path ?? ""] ?? "";
+      raw =
+        ctx.recordRaw?.[binding.path ?? ""] ??
+        ctx.record?.[binding.path ?? ""] ??
+        "";
+      currency = ctx.recordCurrencies?.[binding.path ?? ""];
       break;
     case "repeat_index":
       raw = (ctx.repeatIndex ?? 0) + 1;
@@ -125,25 +143,35 @@ export function resolveBinding(
       // nothing about those compound formats, so it is resolved and returned here.
       const environment = parseEnvironmentFormat(binding.format ?? "");
       if (environment) {
-        return formatEnvironment(environment, ctx.at);
+        return formatEnvironment(
+          environment,
+          ctx.at,
+          ctx.regionalFormat ?? resolveRegionalFormatting(undefined),
+        );
       }
       raw = resolveEnvironment(binding.path ?? "", ctx.at);
       break;
     }
     case "dataset": {
-      const source = ctx.datasets.get(datasetId(binding.dataset ?? ""));
-      raw = resolveDatasetPath(source, binding, ctx.at);
+      source = ctx.datasets.get(datasetId(binding.dataset ?? ""));
+      const resolved = resolveDatasetPath(source, binding, ctx.at);
+      raw = resolved.raw;
+      inferredFormat = resolved.type;
+      const field = binding.path?.split(".").at(-1) ?? "";
+      currency = source?.fieldCurrencies[field];
       break;
     }
     default:
       raw = "";
   }
   const formatted = formatValue(raw ?? "", {
-    format: (binding.format || "text") as ValueFormat,
+    format: (binding.format || inferredFormat || "text") as ValueFormat,
     precision: binding.precision ?? 0,
     prefix: binding.prefix,
     suffix: binding.suffix,
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    timezone: ctx.regionalFormat?.timezone,
+    currency,
+    regionalFormat: ctx.regionalFormat,
   });
   return formatted === "" ? (binding.fallback ?? "") : formatted;
 }
@@ -156,9 +184,9 @@ function resolveDatasetPath(
   source: NormalizedSource | undefined,
   binding: PresentationBinding,
   at: Date,
-): string {
+): { raw: string; type: string } {
   if (!source) {
-    return "";
+    return { raw: "", type: "" };
   }
   // A path like "0.title" or "title" (first record). Repeats bind via record.
   const path = binding.path ?? "";
@@ -173,19 +201,28 @@ function resolveDatasetPath(
   // an object binding resolves even when the same source also carries records.
   const objectValue = source.objectValues[field];
   if (objectValue !== undefined && objectValue !== "") {
-    return objectValue;
+    return {
+      raw: source.rawObjectValues[field] ?? objectValue,
+      type: source.fieldTypes[field] ?? "",
+    };
   }
   const record = temporalRecords(source.records, binding, at)[index];
   if (!record) {
-    return "";
+    return { raw: "", type: source.fieldTypes[field] ?? "" };
   }
   if (binding.fields && binding.fields.length > 0) {
-    return binding.fields
-      .map((f) => record.fields[f] ?? "")
-      .filter(Boolean)
-      .join(binding.separator || " ");
+    return {
+      raw: binding.fields
+        .map((f) => record.fields[f] ?? "")
+        .filter(Boolean)
+        .join(binding.separator || " "),
+      type: "text",
+    };
   }
-  return record.fields[field] ?? "";
+  return {
+    raw: record.rawFields[field] ?? record.fields[field] ?? "",
+    type: source.fieldTypes[field] ?? "",
+  };
 }
 
 function temporalRecords(
@@ -200,8 +237,14 @@ function temporalRecords(
   const now = at.getTime();
   const timed = records
     .map((record) => {
-      const start = Date.parse(record.fields[startField] ?? "");
-      const end = Date.parse(record.fields[selection.endField ?? ""] ?? "");
+      const start = Date.parse(
+        record.rawFields[startField] ?? record.fields[startField] ?? "",
+      );
+      const end = Date.parse(
+        record.rawFields[selection.endField ?? ""] ??
+          record.fields[selection.endField ?? ""] ??
+          "",
+      );
       return { record, start, end };
     })
     .filter((entry) => Number.isFinite(entry.start))
@@ -252,7 +295,7 @@ function resolveEnvironment(path: string, at: Date): string {
  * countdown.ts, because they project to a self-updating node rather than to a string.
  */
 type EnvironmentFormat =
-  | { kind: "time"; hour12: boolean; showSeconds: boolean; timezone: string }
+  | { kind: "time"; hour12?: boolean; showSeconds: boolean; timezone: string }
   | { kind: "date"; format: ValueFormat; timezone: string };
 
 export function parseEnvironmentFormat(
@@ -262,9 +305,9 @@ export function parseEnvironmentFormat(
   if (parts[0] === "time") {
     return {
       kind: "time",
-      hour12: parts[1] !== "24",
+      hour12: parts[1] === "locale" ? undefined : parts[1] !== "24",
       showSeconds: parts[2] === "true",
-      timezone: parts[3] || "UTC",
+      timezone: parts[3] || "",
     };
   }
   if (parts[0] === "date") {
@@ -272,30 +315,43 @@ export function parseEnvironmentFormat(
     return {
       kind: "date",
       format:
-        style === "short" || style === "medium" ? "date-short" : "date-long",
-      timezone: parts[2] || "UTC",
+        style === "locale"
+          ? "date"
+          : style === "short" || style === "medium"
+            ? "date-short"
+            : "date-long",
+      timezone: parts[2] || "",
     };
   }
   return null;
 }
 
-function formatEnvironment(format: EnvironmentFormat, at: Date): string {
+function formatEnvironment(
+  format: EnvironmentFormat,
+  at: Date,
+  regional: RegionalFormatting,
+): string {
   if (format.kind === "date") {
     return formatValue(at.toISOString(), {
       format: format.format,
-      timezone: format.timezone,
+      timezone: format.timezone || regional.timezone,
+      regionalFormat: regional,
     });
   }
   try {
-    return new Intl.DateTimeFormat("en-US", {
-      timeZone: format.timezone,
+    return new Intl.DateTimeFormat(regional.locale, {
+      timeZone: format.timezone || regional.timezone,
       hour: "numeric",
       minute: "2-digit",
       second: format.showSeconds ? "2-digit" : undefined,
-      hour12: format.hour12,
+      hour12:
+        format.hour12 ??
+        (regional.timeFormat === "locale"
+          ? undefined
+          : regional.timeFormat === "12-hour"),
     }).format(at);
   } catch {
-    return at.toLocaleTimeString("en-US");
+    return at.toLocaleTimeString(regional.locale);
   }
 }
 
@@ -387,7 +443,10 @@ export function renderPresentation(
         const child = projectSelf(node, {
           ...local,
           record: record.fields,
+          recordRaw: record.rawFields,
           repeatIndex: i,
+          recordCurrencies: source?.fieldCurrencies,
+          recordTypes: source?.fieldTypes,
         });
         if (child) {
           out.push(child);
@@ -677,7 +736,9 @@ function renderChart(
   const valueField = String(props["valueField"] ?? "value");
   const labelField = String(props["labelField"] ?? "label");
   const records = source?.records ?? [];
-  const series = records.map((r) => Number(r.fields[valueField]) || 0);
+  const series = records.map(
+    (r) => Number(r.rawFields[valueField] ?? r.fields[valueField]) || 0,
+  );
   const labels = records.map((r) => r.fields[labelField] ?? "");
   const palette = Array.isArray(props["colors"])
     ? (props["colors"] as string[]).map((c) => safeColor(c, "#4C8BF5"))
