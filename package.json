@@ -5,12 +5,17 @@
   "license": "AGPL-3.0-only",
   "workspaces": [
     "apps/dashboard",
+    "apps/docs",
     "apps/player-linux",
     "packages/*"
   ],
   "scripts": {
     "build": "npm run build --workspace @tilecast/dashboard",
     "dev": "npm run dev --workspace @tilecast/dashboard",
+    "docs:dev": "npm run dev --workspace @tilecast/docs --",
+    "docs:check": "npm run check --workspace @tilecast/docs",
+    "docs:build": "npm run build --workspace @tilecast/docs",
+    "docs:preview": "npm run preview --workspace @tilecast/docs --",
     "player:linux": "npm start --workspace @gibsonmb71/tilecast-player-linux",
     "player:linux:build": "npm run build --workspace @gibsonmb71/tilecast-player-linux",
     "player:linux:test": "npm test --workspace @gibsonmb71/tilecast-player-linux",
