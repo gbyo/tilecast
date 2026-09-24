@@ -1,0 +1,31 @@
+---
+title: Understand a screen's status
+description: Read the connection status in Screens > Fleet and choose what to check next.
+---
+
+**Screens** > **Fleet** shows the Player's current connection status. A connection status says whether Tilecast can reach the Player. It does not prove that content is playing correctly.
+
+## Read the Fleet status
+
+| Status              | What it means                                                                                    |
+| ------------------- | ------------------------------------------------------------------------------------------------ |
+| **Online**          | The Player has an active connection to the server.                                               |
+| **Recently online** | There is no active connection, but the Player contacted the server within the last two minutes.  |
+| **Stale**           | The last contact was more than two minutes ago and no more than fifteen minutes ago.             |
+| **Offline**         | The Player has not contacted the server in more than fifteen minutes, or has never contacted it. |
+| **Disabled**        | An Owner or Administrator disabled this screen.                                                  |
+| **Pairing revoked** | The screen has no active Player credential. Pair the Player again before it can reconnect.       |
+
+## If the screen is offline or stale
+
+1. Open **Screens** > **Fleet** and select the screen.
+2. Check **Last contact**, the Player version, and the device details in the screen view.
+3. Confirm the device has power and can reach the server's current address. If you use a hostname, check that it resolves on the display's network.
+4. If the Player reports a server identity mismatch, verify the installation before resetting or pairing the device. See [Connect a display](../../players/).
+5. If the screen is disabled or its pairing was revoked, ask an Owner or Administrator to enable it or pair the Player again.
+
+If the Player can connect but content is failing, open [Activity](../activity/) and check **Incidents**. A screen can be reachable while playback is impaired.
+
+:::note
+The **Online** count in **Activity** uses recent Player contact as a reachability measure. It is not the same signal as **Screens** > **Fleet** **Online**, which means the Player has an active connection. In either view, reachability is separate from playback health.
+:::

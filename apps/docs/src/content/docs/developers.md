@@ -1,71 +1,72 @@
 ---
 title: Developers
-description: Build Tilecast from source, run it locally, and find your way around the repository.
+description: Run Tilecast from source, check changes, and find the repository's technical references.
 ---
 
-Tilecast is developed in one repository on GitHub. It's licensed under AGPL-3.0, and contributions are welcome.
+Tilecast is an AGPL-3.0-only project in the [`gbyo/tilecast` repository](https://github.com/gbyo/tilecast). The repository contains the server, Studio, Android and Linux Players, shared packages, deployment files, and this documentation site.
 
-## What Tilecast is built with
+## Repository layout
 
-| Part                      | Technology                 | Location              |
-| ------------------------- | -------------------------- | --------------------- |
-| Tilecast Server           | Go, PostgreSQL             | `apps/server`         |
-| Tilecast Studio           | React and TypeScript       | `apps/dashboard`      |
-| Tilecast Player (Android) | Kotlin and Jetpack Compose | `apps/player-android` |
-| Tilecast Player (Linux)   | Electron                   | `apps/player-linux`   |
-| These docs                | Astro and Starlight        | `apps/docs`           |
+| Path                   | Contents                                                                                                        |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `apps/server/`         | Go server, HTTP API, and database migrations. The server applies pending migrations before it accepts requests. |
+| `apps/dashboard/`      | React and TypeScript management app, Tilecast Studio.                                                           |
+| `apps/player-android/` | Kotlin and Jetpack Compose Player for Android TV devices.                                                       |
+| `apps/player-linux/`   | Electron Player for Linux kiosk devices.                                                                        |
+| `apps/docs/`           | Astro and Starlight public documentation.                                                                       |
+| `packages/`            | Shared design tokens and application contracts.                                                                 |
+| `deploy/`              | Docker deployment and optional network integrations.                                                            |
+| `docs/`                | Engineering references, API descriptions, and implementation contracts.                                         |
 
-The server is a single Go application. It applies its own database migrations at startup and serves Studio from files built into the server binary.
+## Run the server and Studio locally
 
-## Run Tilecast locally
+You need Go (use the version in `apps/server/go.mod`), Node.js with npm, and a PostgreSQL database. From the repository root:
 
-You need Go, Node.js 22 or later, npm, Docker, and a PostgreSQL database. `apps/server/go.mod` sets the Go version. From the repository root:
-
-1. Install dependencies:
+1. Install workspace and Go dependencies:
 
    ```sh
    make bootstrap
    ```
 
-2. Point the server at your development database. The server doesn't start without it:
+2. Set `TILECAST_DATABASE_URL` to a development database Tilecast can use:
 
    ```sh
    export TILECAST_DATABASE_URL='postgres://localhost:5432/tilecast?sslmode=disable'
    ```
 
-3. Start the server:
+3. Start the Go server in one terminal:
 
    ```sh
    make dev-server
    ```
 
-4. In a second terminal, start Studio:
+4. Start the Vite development server in a second terminal:
 
    ```sh
    make dev-dashboard
    ```
 
-Studio reloads when you change its code. Restart the server after you change Go code. The server reads the rest of its settings from `TILECAST_*` environment variables. `deploy/docker/.env.example` shows the common ones.
+The Go server applies pending migrations during startup. Complete the one-time Owner setup in Studio when using a new database. Vite reloads dashboard changes; restart the Go server after changing server code. Server settings are read from `TILECAST_*` environment variables; [`deploy/docker/.env.example`](https://github.com/gbyo/tilecast/blob/main/deploy/docker/.env.example) lists the deployment settings.
 
-Before you open a pull request, run the checks:
+## Check and build changes
 
-```sh
-make check
-```
+From the repository root, `make check` runs the repository's documented format, lint, test, and static checks. `make build` builds the dashboard bundle, server binary, and Android debug APK. See [Contributing](https://github.com/gbyo/tilecast/blob/main/CONTRIBUTING.md) before opening a pull request. Security reports follow the private process in the repository's [Security Policy](https://github.com/gbyo/tilecast/blob/main/SECURITY.md).
 
-## Work on these docs
+## Work on the public docs
 
-The documentation site is the `@tilecast/docs` workspace. From the repository root:
+The docs site is an npm workspace. Run these commands from the repository root:
 
 ```sh
 npm run docs:dev
+npm run docs:check
+npm run docs:build
 ```
 
-Follow the [docs writing style](https://github.com/gbyo/tilecast/blob/main/apps/docs/STYLE.md) when you add or change a page.
+Follow the [documentation style guide](https://github.com/gbyo/tilecast/blob/main/apps/docs/STYLE.md). The docs build also checks internal links.
 
-## Go further
+## Technical references
 
-- [Contributing guide](https://github.com/gbyo/tilecast/blob/main/CONTRIBUTING.md)
-- [Development setup](https://github.com/gbyo/tilecast/blob/main/docs/development.md)
-- [Architecture](https://github.com/gbyo/tilecast/blob/main/docs/architecture.md)
-- [Android development](https://github.com/gbyo/tilecast/blob/main/docs/android-development.md)
+- [HTTP API overview](../reference/api/) explains the shared API contract and links to the OpenAPI description.
+- [Development setup](https://github.com/gbyo/tilecast/blob/main/docs/development.md) covers local database and migration workflows.
+- [Architecture](https://github.com/gbyo/tilecast/blob/main/docs/architecture.md) describes the server and application boundaries.
+- [Android Player development](https://github.com/gbyo/tilecast/blob/main/docs/android-development.md) covers Android build and device workflows.

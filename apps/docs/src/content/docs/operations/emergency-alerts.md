@@ -1,0 +1,44 @@
+---
+title: Configure Emergency Alerts
+description: Monitor National Weather Service alerts and choose what Tilecast shows when a rule matches.
+---
+
+The **Emergency Alerts** plugin checks active U.S. National Weather Service alerts and applies rules to matching Players. A rule can show Tilecast's live fullscreen alert, show a ticker while playback continues, or start a ready playlist as a fullscreen response.
+
+:::caution
+Alert delivery is best-effort and is not a life-safety system. Keep local emergency procedures and Wireless Emergency Alerts in place. Tilecast needs the server to reach the NWS service, and the plugin reports poll health so you can see upstream or network failures.
+:::
+
+## Install the plugin
+
+An Owner or Administrator can open **Operations** > **Plugins**, select **Add plugin**, choose **Emergency Alerts**, and install it. Then open **Emergency Alerts** from the installed plugin list. Installation does not enable monitoring or create rules.
+
+## Choose which alerts Tilecast checks
+
+1. In **Emergency Alerts**, turn on **Automated NWS monitoring**.
+2. Under **Alert coverage**, select a **State or territory**. Choose **Monitor entire state** to include it all, or add one or more **County or forecast zone** locations. You can combine state coverage and specific locations.
+3. Choose a **Poll interval**. Tilecast offers one, two, five, or fifteen minutes; the interface recommends one or two minutes for most sites.
+4. Select **Save NWS monitor**.
+
+Tilecast reads the locations from the NWS. If the location list cannot load, check that the server can reach `api.weather.gov` and retry. Use **Check now** to request an immediate poll. **Last success**, **Last attempt**, **Matched rules**, and **Health** show the latest monitor result.
+
+## Add a response rule
+
+1. Under **Weather event rules**, select **Add rule** and enter a **Rule name**.
+2. Enter one or more **NWS event names**, separated by commas, or leave the field empty to match every event that meets the severity and urgency thresholds. Names are matched without regard to capitalization; use the event wording shown by the NWS.
+3. Set **Minimum severity** and **Minimum urgency**. An alert must meet both thresholds.
+4. Choose an **Emergency display**:
+   - **Tilecast live NWS alert — fullscreen** shows the event, headline, severity, affected area, instructions, sender, and expiration.
+   - **Tilecast live NWS alert — ticker bar** leaves playback running and shows the alert in a bar. Choose whether it pushes content up or overlays the bottom edge, plus its height and speed.
+   - **Use a custom playlist — fullscreen** starts a selected, non-empty playlist. Create or edit one in [Tilecast Studio](../../studio/).
+5. Set the **Maximum duration**, then choose at least one **Target screens** or **Target groups**. Enable the rule and select **Add rule**.
+
+Only enabled rules and enabled monitoring act on alerts. Tilecast ends the response when the alert is no longer active or the maximum duration is reached. Fullscreen playback then returns to the schedule or fallback that applies at that time; a ticker is removed while normal playback continues.
+
+## Check a rule's result
+
+The **Active weather emergencies** list shows alerts currently matched to a rule and displaying content. If a rule is not acting, check that monitoring is enabled, its coverage includes the alert location, the rule is enabled, its event and severity/urgency match, and at least one target is selected. Check **Health** and **Last success** for NWS or network errors.
+
+An Owner or Administrator can edit or delete a rule. A Viewer or other read-only role can inspect the page but cannot change monitoring or rules.
+
+For a manual, immediate override that is not tied to a weather alert, see [Start a Takeover](../takeover/).

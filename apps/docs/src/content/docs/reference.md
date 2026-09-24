@@ -1,35 +1,29 @@
 ---
 title: Reference
-description: Where to find exact details about the Tilecast API, protocols, settings, and security design.
+description: Find API contracts, product limits, and deeper technical references.
 ---
 
-Reference pages give exact details for looking something up, rather than steps to follow. The detailed reference material is currently kept with the source code in the repository's `docs/` directory.
+Use these pages when you need exact request conventions or a technical contract rather than a procedure.
 
-## API
+## API and integrations
 
-Tilecast Server's HTTP API is versioned under `/api/v1`. Successful responses wrap their result in a `data` object, and errors return an `error` object with a machine-readable `code` and a readable `message`:
+- [HTTP API overview](./api/) covers API paths, response envelopes, authentication boundaries, and the OpenAPI definition.
+- [Integration tokens](../integrations/tokens/) describes token capabilities and lifecycle.
+- [Manual Table integration](../integrations/manual-table/) and [fleet health](../integrations/fleet-health/) document supported integration requests.
 
-```json
-{
-  "error": {
-    "code": "invalid_token",
-    "message": "The integration token is missing, revoked, expired, or wrong."
-  }
-}
-```
+## Product operations
 
-- [API overview](https://github.com/gbyo/tilecast/blob/main/docs/api.md)
-- [OpenAPI description](https://github.com/gbyo/tilecast/blob/main/docs/openapi.yaml)
+- [Screen status](../operations/screen-status/) explains Fleet connection labels and what they mean.
+- [Activity reports](../operations/activity/) defines the practical meaning of playback, incidents, and health reports, with links to the detailed metric contract.
+- [Install built-in plugins](../operations/plugins/) lists the current optional plugin capabilities and prerequisites.
+- [Administration](../administration/) links to guides for accounts, backups, security, and Player policies.
 
-## Player protocol and security
+## Deeper repository references
 
-- [Player protocol](https://github.com/gbyo/tilecast/blob/main/docs/player-protocol.md): discovery, pairing, enrollment, and the Player connection
-- [Device credential security](https://github.com/gbyo/tilecast/blob/main/docs/device-credential-security.md): how Player credentials are issued, stored, and revoked
-- [LAN discovery](https://github.com/gbyo/tilecast/blob/main/docs/mdns-discovery.md): the `_tilecast._tcp` service and its limits
+These technical documents live with the source because they describe implementation contracts used by maintainers and integrators:
 
-## Settings and content
-
-- [Settings and player policies](https://github.com/gbyo/tilecast/blob/main/docs/settings.md)
-- [Widgets, Data Sources, and Layouts](https://github.com/gbyo/tilecast/blob/main/docs/widgets-and-layouts.md)
-- [Installable built-in plugins](https://github.com/gbyo/tilecast/blob/main/docs/plugins.md)
-- [Activity metric definitions](https://github.com/gbyo/tilecast/blob/main/docs/activity.md)
+- [Player protocol](https://github.com/gbyo/tilecast/blob/main/docs/player-protocol.md) and [device credential security](https://github.com/gbyo/tilecast/blob/main/docs/device-credential-security.md)
+- [LAN discovery](https://github.com/gbyo/tilecast/blob/main/docs/mdns-discovery.md)
+- [Activity metric definitions](https://github.com/gbyo/tilecast/blob/main/docs/activity.md) and [event contract](https://github.com/gbyo/tilecast/blob/main/docs/activity-event-contract.md)
+- [Settings registry and player policy contract](https://github.com/gbyo/tilecast/blob/main/docs/settings.md)
+- [OpenAPI YAML](https://github.com/gbyo/tilecast/blob/main/docs/openapi.yaml)
