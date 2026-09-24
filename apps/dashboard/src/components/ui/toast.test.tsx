@@ -2,21 +2,19 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { ToastProvider, ToastViewport, createToastManager } from "./toast";
+import { Toaster, createToastManager } from "./toast";
 
 afterEach(cleanup);
 
-describe("ToastViewport", () => {
-  it("stays above the shared z-50 overlay layer", () => {
+describe("Toaster", () => {
+  it("keeps its viewport above the shared z-50 overlay layer", () => {
     const toastManager = createToastManager();
 
-    render(
-      <ToastProvider toastManager={toastManager}>
-        <ToastViewport />
-      </ToastProvider>,
-    );
+    render(<Toaster toastManager={toastManager} />);
 
-    const viewport = document.querySelector('[data-slot="toast-viewport"]');
+    const viewport = document.querySelector<HTMLElement>(
+      '[data-slot="toast-viewport"]',
+    )!;
     expect(viewport).toHaveClass("z-[60]");
     expect(viewport).not.toHaveClass("z-50");
   });
