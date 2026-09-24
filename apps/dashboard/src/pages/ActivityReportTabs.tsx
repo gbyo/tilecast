@@ -329,7 +329,10 @@ export function ProofTab({
                   <TableHead className="px-3 py-2 font-medium">
                     {t("proof.headers.result")}
                   </TableHead>
-                  <TableHead aria-label={t("proof.openDetails")} className="w-10" />
+                  <TableHead
+                    aria-label={t("proof.openDetails")}
+                    className="w-10"
+                  />
                 </TableRow>
               </TableHeader>
               <TableBody>

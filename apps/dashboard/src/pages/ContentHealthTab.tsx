@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
+import { useFormatLocale } from "../i18n";
 import { api } from "../api/client";
 import type { ContentHealthReport } from "../api/types";
 import { Alert, AlertDescription } from "../components/ui/alert";
@@ -25,6 +26,7 @@ import {
 // week's menu is online, playing, and compliant.
 export function ContentHealthTab() {
   const { t } = useTranslation("activity");
+  const formatLocale = useFormatLocale();
   const report = useQuery({
     queryKey: ["content-health"],
     queryFn: api.contentHealth,
@@ -192,7 +194,9 @@ export function ContentHealthTab() {
                   <ItemTitle>
                     <Link to={`/screens/${screen.id}`}>{screen.name}</Link>
                   </ItemTitle>
-                  <ItemDescription>{t("contentHealth.noPlaylist")}</ItemDescription>
+                  <ItemDescription>
+                    {t("contentHealth.noPlaylist")}
+                  </ItemDescription>
                 </ItemContent>
                 <ItemActions>
                   <Badge variant="outline">{t("contentHealth.setup")}</Badge>
