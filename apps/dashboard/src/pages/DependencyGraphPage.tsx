@@ -30,7 +30,9 @@ import {
   type WheelEvent as ReactWheelEvent,
 } from "react";
 import { Link } from "react-router";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
+import { useFormatLocale } from "../i18n";
 import type {
   DependencyEdge,
   DependencyGraph,
@@ -77,13 +79,6 @@ const typeAccent: Record<DependencyNodeType, string> = {
   screen: "border-l-green-600",
 };
 
-type TypePresentation = {
-  label: string;
-  plural: string;
-  icon: LucideIcon;
-  path: (id: string) => string;
-};
-
 type PositionedNode = DependencyNode & { x: number; y: number };
 type Viewport = { x: number; y: number; scale: number };
 
@@ -93,62 +88,64 @@ const columnGap = 82;
 const rowGap = 24;
 const worldPadding = 42;
 
-const typePresentation: Record<DependencyNodeType, TypePresentation> = {
+// Node-kind presentation. Labels translate at render; the kind values matched
+// against the API (data_source, screen_group, …) are never translated.
+const typePresentation = {
   data_source: {
-    label: "Data Source",
-    plural: "Data Sources",
+    labelKey: "graph.kinds.dataSource",
+    pluralKey: "graph.kinds.dataSources",
     icon: Database,
-    path: (id) => `/data-sources/${id}`,
+    path: (id: string) => `/data-sources/${id}`,
   },
   asset: {
-    label: "Media",
-    plural: "Media",
+    labelKey: "graph.kinds.media",
+    pluralKey: "graph.kinds.mediaPlural",
     icon: FileImage,
     path: () => "/assets",
   },
   widget: {
-    label: "Widget",
-    plural: "Widgets",
+    labelKey: "graph.kinds.widget",
+    pluralKey: "graph.kinds.widgets",
     icon: WandSparkles,
-    path: (id) => `/widgets/${id}`,
+    path: (id: string) => `/widgets/${id}`,
   },
   layout: {
-    label: "Layout",
-    plural: "Layouts",
+    labelKey: "graph.kinds.layout",
+    pluralKey: "graph.kinds.layouts",
     icon: LayoutTemplate,
-    path: (id) => `/layouts/${id}`,
+    path: (id: string) => `/layouts/${id}`,
   },
   playlist: {
-    label: "Playlist",
-    plural: "Playlists",
+    labelKey: "graph.kinds.playlist",
+    pluralKey: "graph.kinds.playlists",
     icon: ListVideo,
-    path: (id) => `/playlists/${id}`,
+    path: (id: string) => `/playlists/${id}`,
   },
   campaign: {
-    label: "Campaign",
-    plural: "Campaigns",
+    labelKey: "graph.kinds.campaign",
+    pluralKey: "graph.kinds.campaigns",
     icon: Megaphone,
-    path: (id) => `/campaigns/${id}`,
+    path: (id: string) => `/campaigns/${id}`,
   },
   schedule: {
-    label: "Schedule",
-    plural: "Schedules",
+    labelKey: "graph.kinds.schedule",
+    pluralKey: "graph.kinds.schedules",
     icon: CalendarClock,
-    path: (id) => `/schedules/${id}`,
+    path: (id: string) => `/schedules/${id}`,
   },
   screen_group: {
-    label: "Display Group",
-    plural: "Display Groups",
+    labelKey: "graph.kinds.screenGroup",
+    pluralKey: "graph.kinds.screenGroups",
     icon: Users,
-    path: (id) => `/groups/${id}`,
+    path: (id: string) => `/groups/${id}`,
   },
   screen: {
-    label: "Screen",
-    plural: "Screens",
+    labelKey: "graph.kinds.screen",
+    pluralKey: "graph.kinds.screens",
     icon: Monitor,
-    path: (id) => `/screens/${id}`,
+    path: (id: string) => `/screens/${id}`,
   },
-};
+} as const;
 
 const typeOrder = Object.keys(typePresentation) as DependencyNodeType[];
 const nodeKey = (type: DependencyNodeType, id: string) => `${type}:${id}`;
@@ -245,6 +242,7 @@ function RelationshipNode({
   relationship?: string;
   onSelect: (node: DependencyNode) => void;
 }) {
+  const { t } = useTranslation(["content", "common"]);
   const presentation = typePresentation[node.type];
   const Icon = presentation.icon;
   return (
@@ -259,7 +257,7 @@ function RelationshipNode({
           {node.name}
         </strong>
         <small className="truncate text-xs text-muted-foreground">
-          {presentation.label}
+          {t(presentation.labelKey)}
           {relationship ? ` · ${relationship}` : ""}
         </small>
       </span>
@@ -282,6 +280,7 @@ function RelationshipList({
   direction: "upstream" | "downstream";
   onSelect: (node: DependencyNode) => void;
 }) {
+  const { t } = useTranslation(["content", "common"]);
   const nodes = new Map(
     graph.nodes.map((node) => [nodeKey(node.type, node.id), node]),
   );
@@ -296,7 +295,11 @@ function RelationshipList({
       </h3>
       {edges.length === 0 ? (
         <p className="rounded-md border border-dashed border-border bg-muted/50 p-4 text-sm text-muted-foreground">
-          No direct {direction} connections.
+          {t(
+            direction === "upstream"
+              ? "graph.inspector.emptyUpstream"
+              : "graph.inspector.emptyDownstream",
+          )}
         </p>
       ) : (
         <div className="grid gap-2">
@@ -327,6 +330,8 @@ function RelationshipList({
  * page heading.
  */
 export function DependencyGraphPage() {
+  const { t } = useTranslation(["content", "common"]);
+  const locale = useFormatLocale();
   const graph = useQuery({
     queryKey: ["dependency-graph"],
     queryFn: api.dependencyGraph,
@@ -390,15 +395,15 @@ export function DependencyGraphPage() {
           edge.fromType === selected.type && edge.fromId === selected.id,
       )
     : [];
-  const needle = search.trim().toLocaleLowerCase();
+  const needle = search.trim().toLocaleLowerCase(locale);
   const matchingNodes = useMemo(
     () =>
       data.nodes.filter(
         (node) =>
           (type === "all" || node.type === type) &&
-          (!needle || node.name.toLocaleLowerCase().includes(needle)),
+          (!needle || node.name.toLocaleLowerCase(locale).includes(needle)),
       ),
-    [data.nodes, needle, type],
+    [data.nodes, needle, type, locale],
   );
   const matchingKeys = useMemo(
     () => new Set(matchingNodes.map((node) => nodeKey(node.type, node.id))),
@@ -522,14 +527,12 @@ export function DependencyGraphPage() {
     <div className="grid w-full gap-4 pt-5">
       {graph.isError && (
         <Alert variant="destructive" className="mx-auto w-full max-w-6xl">
-          <AlertDescription>
-            The dependency graph could not be loaded.
-          </AlertDescription>
+          <AlertDescription>{t("graph.loadError")}</AlertDescription>
         </Alert>
       )}
       {graph.isLoading ? (
         <p className="mx-auto w-full max-w-6xl text-sm text-muted-foreground">
-          Mapping dependencies…
+          {t("graph.loading")}
         </p>
       ) : data.nodes.length === 0 ? (
         <Empty className="mx-auto w-full max-w-6xl">
@@ -537,11 +540,8 @@ export function DependencyGraphPage() {
             <EmptyMedia variant="icon">
               <Network size={24} aria-hidden="true" />
             </EmptyMedia>
-            <EmptyTitle>Nothing to map yet</EmptyTitle>
-            <EmptyDescription>
-              Add content, a presentation, or a screen to start building the
-              graph.
-            </EmptyDescription>
+            <EmptyTitle>{t("graph.emptyTitle")}</EmptyTitle>
+            <EmptyDescription>{t("graph.emptyDescription")}</EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : (
@@ -549,7 +549,7 @@ export function DependencyGraphPage() {
           <section
             className={`relative h-[680px] min-w-0 touch-none overflow-hidden rounded-xl border border-border bg-background select-none max-sm:h-[560px] ${dragRef.current ? "cursor-grabbing" : "cursor-grab"} bg-[linear-gradient(var(--color-border)_1px,transparent_1px),linear-gradient(90deg,var(--color-border)_1px,transparent_1px)] bg-[size:24px_24px]`}
             ref={canvasRef}
-            aria-label="Visual dependency graph"
+            aria-label={t("graph.canvasLabel")}
             onWheel={handleWheel}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
@@ -570,7 +570,7 @@ export function DependencyGraphPage() {
                 </InputGroupAddon>
                 <InputGroupInput
                   type="search"
-                  aria-label="Search graph"
+                  aria-label={t("graph.toolbar.searchLabel")}
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   onKeyDown={(event) => {
@@ -578,13 +578,13 @@ export function DependencyGraphPage() {
                       selectNode(matchingNodes[0]);
                     }
                   }}
-                  placeholder="Search nodes"
+                  placeholder={t("graph.toolbar.searchPlaceholder")}
                 />
                 {search && (
                   <InputGroupAddon align="inline-end">
                     <InputGroupButton
                       size="icon-xs"
-                      aria-label="Clear search"
+                      aria-label={t("graph.toolbar.clearSearch")}
                       onClick={() => setSearch("")}
                     >
                       <X aria-hidden="true" />
@@ -599,20 +599,22 @@ export function DependencyGraphPage() {
                 }
               >
                 <SelectTrigger
-                  aria-label="Filter by type"
+                  aria-label={t("graph.toolbar.typeFilter")}
                   className="h-[34px] border-transparent"
                 >
                   <SelectValue>
                     {type === "all"
-                      ? "All types"
-                      : typePresentation[type].plural}
+                      ? t("graph.toolbar.allTypes")
+                      : t(typePresentation[type].pluralKey)}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All types</SelectItem>
+                  <SelectItem value="all">
+                    {t("graph.toolbar.allTypes")}
+                  </SelectItem>
                   {typeOrder.map((nodeType) => (
                     <SelectItem value={nodeType} key={nodeType}>
-                      {typePresentation[nodeType].plural}
+                      {t(typePresentation[nodeType].pluralKey)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -629,7 +631,7 @@ export function DependencyGraphPage() {
             >
               <button
                 type="button"
-                aria-label="Zoom in"
+                aria-label={t("graph.toolbar.zoomIn")}
                 onClick={() => zoom(1.1)}
                 className="grid h-9 w-9 place-items-center text-muted-foreground hover:bg-primary/10 hover:text-primary"
               >
@@ -637,7 +639,7 @@ export function DependencyGraphPage() {
               </button>
               <button
                 type="button"
-                aria-label="Zoom out"
+                aria-label={t("graph.toolbar.zoomOut")}
                 onClick={() => zoom(0.9)}
                 className="grid h-9 w-9 place-items-center border-l border-border text-muted-foreground hover:bg-primary/10 hover:text-primary"
               >
@@ -645,7 +647,7 @@ export function DependencyGraphPage() {
               </button>
               <button
                 type="button"
-                aria-label="Fit graph"
+                aria-label={t("graph.toolbar.fitGraph")}
                 onClick={fitGraph}
                 className="grid h-9 w-9 place-items-center border-l border-border text-muted-foreground hover:bg-primary/10 hover:text-primary"
               >
@@ -658,15 +660,15 @@ export function DependencyGraphPage() {
             >
               <span className="inline-flex items-center gap-1.5">
                 <span className="inline-block size-2 rounded-full bg-sky-500" />
-                Sources
+                {t("graph.legend.sources")}
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <span className="inline-block size-2 rounded-full bg-primary" />
-                Presentations
+                {t("graph.legend.presentations")}
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <span className="inline-block size-2 rounded-full bg-green-600" />
-                Delivery
+                {t("graph.legend.delivery")}
               </span>
             </div>
             <div
@@ -741,7 +743,7 @@ export function DependencyGraphPage() {
                     width: nodeWidth,
                   }}
                 >
-                  {typePresentation[nodeType].plural}
+                  {t(typePresentation[nodeType].pluralKey)}
                 </div>
               ))}
               {layout.nodes.map((node) => {
@@ -773,7 +775,7 @@ export function DependencyGraphPage() {
                         {node.name}
                       </strong>
                       <small className="truncate text-xs text-muted-foreground">
-                        {presentation.label}
+                        {t(presentation.labelKey)}
                       </small>
                     </span>
                   </button>
@@ -781,7 +783,7 @@ export function DependencyGraphPage() {
               })}
             </div>
             <p className="pointer-events-none absolute bottom-3 left-1/2 z-[8] -translate-x-1/2 rounded-md border border-border bg-card/90 px-3 py-1 text-xs whitespace-nowrap text-muted-foreground max-sm:max-w-[calc(100%-24px)] max-sm:text-center">
-              Drag to pan · Scroll to zoom · Arrows point to consumers
+              {t("graph.panHint")}
             </p>
           </section>
 
@@ -789,12 +791,12 @@ export function DependencyGraphPage() {
             <aside
               data-graph-chrome
               className="absolute top-3 right-3 z-[11] max-h-[calc(100%-24px)] w-[340px] max-w-[calc(100%-24px)] overflow-auto rounded-xl border border-border bg-card shadow-xl max-sm:top-auto max-sm:right-3 max-sm:bottom-3 max-sm:left-3 max-sm:max-h-[min(70%,440px)] max-sm:w-auto"
-              aria-label={`${selected.name} dependency details`}
+              aria-label={t("graph.inspector.title", { name: selected.name })}
             >
               <header className="sticky top-0 z-[2] flex min-h-[68px] items-center justify-between gap-3 border-b border-border bg-card px-4 py-3">
                 <span className="grid min-w-0 gap-1">
                   <small className="text-xs text-muted-foreground">
-                    {typePresentation[selected.type].label}
+                    {t(typePresentation[selected.type].labelKey)}
                   </small>
                   <h2 className="truncate text-base font-semibold">
                     {selected.name}
@@ -808,13 +810,14 @@ export function DependencyGraphPage() {
                     })}
                     to={typePresentation[selected.type].path(selected.id)}
                   >
-                    Open <ExternalLink size={14} aria-hidden="true" />
+                    {t("graph.inspector.open")}{" "}
+                    <ExternalLink size={14} aria-hidden="true" />
                   </Link>
                   <Button
                     variant="ghost"
                     size="icon-sm"
                     type="button"
-                    aria-label="Close inspector"
+                    aria-label={t("graph.inspector.close")}
                     onClick={() => setSelectedKey(undefined)}
                   >
                     <X size={16} />
@@ -826,18 +829,22 @@ export function DependencyGraphPage() {
                   <strong className="text-foreground tabular-nums">
                     {upstream.length}
                   </strong>
-                  upstream
+                  {t("graph.inspector.upstreamCount", {
+                    count: upstream.length,
+                  })}
                 </span>
                 <span className="flex items-baseline gap-2">
                   <strong className="text-foreground tabular-nums">
                     {downstream.length}
                   </strong>
-                  downstream
+                  {t("graph.inspector.downstreamCount", {
+                    count: downstream.length,
+                  })}
                 </span>
               </div>
               <div className="grid gap-5 p-4">
                 <RelationshipList
-                  title="Direct dependencies"
+                  title={t("graph.inspector.upstreamTitle")}
                   icon={ArrowUp}
                   edges={directUpstream}
                   graph={data}
@@ -845,7 +852,7 @@ export function DependencyGraphPage() {
                   onSelect={selectNode}
                 />
                 <RelationshipList
-                  title="Direct consumers"
+                  title={t("graph.inspector.downstreamTitle")}
                   icon={ArrowDown}
                   edges={directDownstream}
                   graph={data}

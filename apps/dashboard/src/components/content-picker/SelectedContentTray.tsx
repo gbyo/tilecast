@@ -1,4 +1,5 @@
 import { X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { Asset } from "../../api/types";
 import { Button } from "../ui/button";
 
@@ -11,13 +12,16 @@ export function SelectedContentTray({
   onRemove: (id: string) => void;
   onClear: () => void;
 }) {
+  const { t } = useTranslation(["content", "common"]);
   if (items.length === 0) return null;
   return (
     <div className="selected-content-tray">
       <div>
-        <strong>{items.length} selected</strong>
+        <strong>
+          {t("picker.tray.selectedCount", { count: items.length })}
+        </strong>
         <Button type="button" variant="ghost" size="sm" onClick={onClear}>
-          Clear selection
+          {t("picker.tray.clearSelection")}
         </Button>
       </div>
       <ul>
@@ -28,7 +32,9 @@ export function SelectedContentTray({
               type="button"
               variant="ghost"
               size="icon-sm"
-              aria-label={`Remove ${asset.name} from selection`}
+              aria-label={t("picker.tray.removeFromSelection", {
+                name: asset.name,
+              })}
               onClick={() => onRemove(asset.id)}
             >
               <X size={14} />

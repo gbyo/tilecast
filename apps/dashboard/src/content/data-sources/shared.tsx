@@ -1,5 +1,6 @@
 import { X } from "lucide-react";
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { Button as RheaButton } from "../../components/ui/button";
 
 // Providers handled by a dedicated legacy editor below. Anything not listed here is a
@@ -44,6 +45,7 @@ export function EditorFrame({
   children: ReactNode;
   footer: ReactNode;
 }) {
+  const { t } = useTranslation(["content", "common"]);
   return (
     <div
       className={
@@ -71,7 +73,7 @@ export function EditorFrame({
             type="button"
             variant="ghost"
             size="icon"
-            aria-label="Close"
+            aria-label={t("common:actions.close")}
             onClick={onClose}
           >
             <X aria-hidden="true" />
