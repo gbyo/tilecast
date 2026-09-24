@@ -52,7 +52,11 @@ save or cancel.
   right language.
 - Once the account's saved preference loads, `DashboardShell` applies it; the
   saved preference beats the cache.
-- `<html lang>` follows the active language.
+- `<html lang>` follows the active language, and `<html dir>` follows the
+  language's text direction. Direction uses `Intl.Locale.getTextInfo()` where
+  available with a compact script/language fallback. The direction behavior is
+  independent of translation catalogs, so RTL layout can be tested before an
+  RTL translation ships.
 
 ## Converting a file
 
