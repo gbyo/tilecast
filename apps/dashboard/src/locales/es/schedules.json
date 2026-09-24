@@ -1,0 +1,242 @@
+{
+  "page": {
+    "title": "Programaciones",
+    "subtitle": "La prioridad más alta gana. Las pantallas de un grupo de pantallas siempre comparten la misma programación y el mismo contenido alternativo.",
+    "create": "Crear programación",
+    "timelineTitle": "Línea de tiempo de las programaciones",
+    "timelineSummary_one": "{{count}} programación activa · las horas se evalúan en la zona horaria IANA de cada programación · los intervalos nocturnos continúan al día siguiente",
+    "timelineSummary_many": "{{count}} de programaciones activas · las horas se evalúan en la zona horaria IANA de cada programación · los intervalos nocturnos continúan al día siguiente",
+    "timelineSummary_other": "{{count}} programaciones activas · las horas se evalúan en la zona horaria IANA de cada programación · los intervalos nocturnos continúan al día siguiente",
+    "loading": "Cargando programaciones",
+    "loadError": "No se pudieron cargar las programaciones. Intenta actualizar la página.",
+    "enabled": "Activada",
+    "disabled": "Desactivada",
+    "priorityBadge": "Prioridad {{priority}}",
+    "emptyTitle": "No hay programaciones todavía",
+    "emptyDescription": "Las asignaciones directas de pantalla seguirán reproduciéndose hasta que se cree una programación."
+  },
+  "editor": {
+    "createTitle": "Crear programación",
+    "editTitle": "Editar programación",
+    "subtitle": "Crea la regla de reproducción y revisa su efecto antes de guardar.",
+    "loading": "Cargando programación",
+    "content": "Contenido",
+    "contentTypeLabel": "Tipo de contenido de la programación",
+    "displayControl": "Control de pantalla",
+    "scheduleTypeLabel": "Tipo de programación",
+    "typeWeekly": "Recurrente semanal",
+    "typeOneTime": "Evento único",
+    "nameLabel": "Nombre de la programación",
+    "namePlaceholder": "Anuncios matutinos",
+    "enabledLabel": "Activada",
+    "enabledHint": "Las programaciones desactivadas se conservan pero no afectan la reproducción.",
+    "descriptionLabel": "Descripción",
+    "descriptionHint": "Nota interna opcional visible en Studio.",
+    "save": "Guardar programación",
+    "discardAction": "Descartar",
+    "deleteTitle": "¿Eliminar {{name}}?",
+    "discardTitle": "¿Descartar los cambios sin guardar de la programación?",
+    "presentationLabel": "Presentación",
+    "presentationLayoutFallback": "Diseño",
+    "presentationPlaylistFallback": "Lista de reproducción",
+    "presentationLayoutMeta": "{{width}} × {{height}} · revisión {{revision}}",
+    "presentationPlaylistMeta_one": "{{count}} elemento · {{duration}}",
+    "presentationPlaylistMeta_many": "{{count}} de elementos · {{duration}}",
+    "presentationPlaylistMeta_other": "{{count}} elementos · {{duration}}",
+    "choosePresentation": "Elegir presentación",
+    "change": "Cambiar",
+    "useSelected": "Usar esta presentación",
+    "noSelection": "Sin presentación seleccionada",
+    "durationVaries": "La duración varía",
+    "emptyPlaylist": "Lista de reproducción vacía",
+    "sections": {
+      "content": {
+        "description": "Nombra esta programación y elige qué debe reproducir."
+      },
+      "timing": {
+        "title": "Horario",
+        "description": "Elige cuándo tiene prioridad este contenido."
+      },
+      "targets": {
+        "title": "Destinos",
+        "description": "Selecciona pantallas independientes o grupos sincronizados. Las pantallas agrupadas se programan juntas."
+      },
+      "advanced": {
+        "title": "Opciones avanzadas",
+        "description": "Controla la disponibilidad, la precedencia y las notas del administrador."
+      }
+    },
+    "status": {
+      "unsaved": "Cambios sin guardar",
+      "saved": "Todos los cambios guardados",
+      "incomplete": "Completa los campos obligatorios"
+    }
+  },
+  "displayAction": {
+    "label": "Acción de pantalla",
+    "actionLabel": "Acción",
+    "inputLabel": "Identificador de entrada",
+    "inputHint": "Para HDMI-CEC, usa una dirección física como 1.0.0.0.",
+    "volumeLabel": "Volumen",
+    "brightnessLabel": "Brillo",
+    "notSet": "sin definir",
+    "note": "La acción usa el mismo horario, prioridad y destinos que las programaciones de contenido. Los reproductores informan si el estado del panel está confirmado.",
+    "options": {
+      "powerOn": "Encender",
+      "powerOff": "Apagar",
+      "setInput": "Elegir entrada",
+      "setVolume": "Ajustar volumen",
+      "mute": "Silenciar",
+      "unmute": "Activar sonido",
+      "setBrightness": "Ajustar brillo"
+    },
+    "summary": {
+      "powerOn": "Encender la pantalla",
+      "powerOff": "Apagar la pantalla",
+      "setInput": "Cambiar la entrada de la pantalla a {{value}}",
+      "setVolume": "Ajustar el volumen de la pantalla a {{value}}",
+      "mute": "Silenciar la pantalla",
+      "unmute": "Activar el sonido de la pantalla",
+      "setBrightness": "Ajustar el brillo de la pantalla a {{value}}"
+    }
+  },
+  "weekdays": {
+    "monday": { "short": "lun.", "long": "lunes" },
+    "tuesday": { "short": "mar.", "long": "martes" },
+    "wednesday": { "short": "mié.", "long": "miércoles" },
+    "thursday": { "short": "jue.", "long": "jueves" },
+    "friday": { "short": "vie.", "long": "viernes" },
+    "saturday": { "short": "sáb.", "long": "sábado" },
+    "sunday": { "short": "dom.", "long": "domingo" }
+  },
+  "timing": {
+    "weekdaysLabel": "Días activos de la semana",
+    "starts": "Inicio",
+    "ends": "Fin",
+    "overnight24h": "Intervalo de 24 horas",
+    "overnightTitle": "Programación nocturna",
+    "overnightHint": "La reproducción termina al día siguiente.",
+    "addDateRange": "Agregar intervalo de fechas",
+    "firstDate": "Primera fecha activa",
+    "lastDate": "Última fecha activa",
+    "removeDateRange": "Quitar intervalo de fechas",
+    "timezoneLabel": "Zona horaria",
+    "timezoneSearch": "Buscar ciudad o región",
+    "timezoneEmpty": "Ninguna zona horaria coincide con esta búsqueda.",
+    "clockNotSet": "Sin definir",
+    "daysSummary": {
+      "weekdays": "De lunes a viernes",
+      "everyDay": "todos los días",
+      "none": "ningún día seleccionado",
+      "single": "todos los {{day}}"
+    },
+    "summary": {
+      "weeklyRange": "{{days}} de {{start}} a {{end}}",
+      "overnightSuffix": " del día siguiente",
+      "rangeStart": ", desde el {{start}}",
+      "rangeThrough": " hasta el {{end}}",
+      "oneTimeRange": "{{start}} a {{end}}",
+      "chooseOneTime": "Elige la hora de inicio y de fin."
+    }
+  },
+  "duration": {
+    "days_one": "{{count}} día",
+    "days_many": "{{count}} de días",
+    "days_other": "{{count}} días",
+    "hours": "{{count}} h",
+    "minutes": "{{count}} min",
+    "seconds": "{{count}} s",
+    "unavailable": "Duración no disponible",
+    "invalidOrder": "El fin debe ser posterior al inicio."
+  },
+  "targets": {
+    "tabLabel": "Tipo de destino",
+    "screensTab": "Pantallas",
+    "groupsTab": "Grupos de pantallas",
+    "searchScreens": "Buscar pantallas",
+    "searchGroups": "Buscar grupos de pantallas",
+    "selectedLabel": "Destinos seleccionados",
+    "removeOption": "Quitar {{name}}",
+    "selectedMark": "Seleccionado",
+    "addMark": "Agregar",
+    "emptyScreens": "Ninguna pantalla coincide con esta búsqueda.",
+    "emptyGroups": "Ningún grupo coincide con esta búsqueda.",
+    "groupDetail": "Grupo de pantallas: {{name}}",
+    "noLocation": "Sin ubicación",
+    "unknownTarget": "Destino seleccionado",
+    "groupCount_one": "{{count}} pantalla",
+    "groupCount_many": "{{count}} de pantallas",
+    "groupCount_other": "{{count}} pantallas"
+  },
+  "priority": {
+    "label": "Prioridad",
+    "hint": "Las programaciones de mayor prioridad ganan cuando los horarios y destinos se superponen.",
+    "controlLabel": "Prioridad de la programación",
+    "customLabel": "Prioridad personalizada",
+    "customValue": "Personalizada ({{priority}})",
+    "presets": {
+      "normal": "Normal",
+      "important": "Importante",
+      "special": "Evento especial",
+      "custom": "Personalizada"
+    }
+  },
+  "summary": {
+    "title": "Resumen de la programación",
+    "when": "Cuándo",
+    "showsLayout": "Muestra el diseño {{name}}",
+    "playsPlaylist": "Reproduce {{name}}",
+    "targetCount_one": "En {{count}} pantalla",
+    "targetCount_many": "En {{count}} de pantallas",
+    "targetCount_other": "En {{count}} pantallas",
+    "noTargets": "Ningún destino seleccionado",
+    "conflictTitle": "Vista previa de conflictos",
+    "conflictHint": "Elige contenido y destinos para comprobar conflictos.",
+    "checking": "Comprobando programaciones aplicables…",
+    "unavailable": "Comprobación de conflictos no disponible",
+    "noConflicts": "Sin conflictos",
+    "noOverlap": "Ninguna otra programación se superpone con esta hora de vista previa.",
+    "overlapCount_one": "{{count}} programación superpuesta",
+    "overlapCount_many": "{{count}} de programaciones superpuestas",
+    "overlapCount_other": "{{count}} programaciones superpuestas",
+    "winner": "{{name}} gana porque {{reason}}.",
+    "reasonHighest": "tiene la prioridad más alta",
+    "reasonDirect": "está dirigida directamente a la pantalla",
+    "reasonLater": "empieza más tarde según las reglas de precedencia",
+    "fallbackNote": "El contenido alternativo directo se reproduce cuando no hay ninguna programación activa.",
+    "directTarget": "Destino directo de pantalla",
+    "groupTarget": "Destino de grupo",
+    "note": "Las asignaciones directas de pantalla siguen siendo contenido alternativo cuando no hay ninguna programación activa."
+  },
+  "validation": {
+    "nameRequired": "Escribe el nombre de la programación.",
+    "contentRequired": "Elige contenido o una acción de Control de pantalla.",
+    "inputRequired": "Escribe un identificador de entrada para la acción de Control de pantalla.",
+    "volumeRange": "El volumen debe estar entre 0 y 100.",
+    "brightnessRange": "El brillo debe estar entre 0 y 100.",
+    "timezoneRequired": "Elige una zona horaria.",
+    "targetsRequired": "Selecciona al menos una pantalla o un grupo.",
+    "priorityRange": "La prioridad debe estar entre -999 y 999.",
+    "daysRequired": "Selecciona al menos un día de la semana.",
+    "timeRequired": "Elige las horas de inicio y fin.",
+    "dateRangeInvalid": "La fecha de fin no debe ser anterior a la fecha de inicio.",
+    "oneTimeRequired": "Elige el inicio y el fin del evento.",
+    "oneTimeOrder": "El fin del evento debe ser posterior a su inicio."
+  },
+  "range": {
+    "label": "Intervalo de fechas",
+    "from": "Desde",
+    "to": "Hasta",
+    "presets": {
+      "day": "Últimas 24 horas",
+      "week": "Últimos 7 días",
+      "month": "Últimos 30 días",
+      "custom": "Intervalo personalizado"
+    }
+  },
+  "datePicker": {
+    "pickDate": "Elige una fecha",
+    "clear": "Borrar fecha",
+    "time": "Hora"
+  }
+}

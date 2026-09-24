@@ -1,0 +1,177 @@
+{
+  "approvals": {
+    "eyebrow": "Формы",
+    "title": "Согласования",
+    "description": "Материалы, ожидающие решения по проверке, во всех ваших формах.",
+    "table": {
+      "form": "Форма",
+      "submission": "Материал",
+      "submitter": "Автор",
+      "state": "Состояние",
+      "submitted": "Отправлен",
+      "displayWindow": "Период показа",
+      "reviewAction": "Проверить"
+    },
+    "untitledSubmission": "Материал без названия",
+    "untitledSubmissionInline": "материал без названия",
+    "unknownSubmitter": "Неизвестно",
+    "reviewActionLabel": "Проверить {{title}} из {{formName}}",
+    "loadErrorTitle": "Не удалось загрузить согласования",
+    "loadErrorFallback": "Повторите попытку.",
+    "loading": "Загрузка согласований",
+    "emptyTitle": "Нет материалов для проверки",
+    "emptyDescription": "Сейчас нет материалов, ожидающих вашего решения.",
+    "paginationLabel": "Страницы согласований",
+    "paginationStatus": "Страница {{page}} из {{totalPages}} · на согласовании: {{total}}",
+    "displayWindow": {
+      "now": "сейчас",
+      "range": "{{start}} → {{end}}"
+    }
+  },
+  "contentReview": {
+    "title": "Проверка контента",
+    "description": "Плейлист или макет должен быть согласован в текущей версии, прежде чем попадёт на экран. Изменение согласованного контента возвращает его сюда.",
+    "openInbox": "Открыть входящие материалы",
+    "notRequiredNotice": "Согласование не требуется в этой установке, поэтому здесь ничего не блокирует назначение. Владелец или администратор может включить его в разделе <settingsLink>Настройки, Проверка контента</settingsLink>.",
+    "filterLabel": "Состояние проверки",
+    "filterAll": "Все",
+    "loading": "Загрузка очереди проверки",
+    "emptyPending": "Нет контента, ожидающего проверки",
+    "emptyOther": "Нечего показать",
+    "table": {
+      "content": "Контент",
+      "state": "Состояние",
+      "screens": "На экранах",
+      "reviewAction": "Проверить"
+    },
+    "state": {
+      "pending": "Ожидает проверки",
+      "approved": "Согласован",
+      "rejected": "Возвращён"
+    },
+    "contentType": {
+      "playlist": "Плейлист",
+      "layout": "Макет"
+    },
+    "contentTypeName": {
+      "playlist": "плейлист",
+      "layout": "макет"
+    },
+    "itemMeta": "{{type}} · версия {{revision}} · обновлено {{updatedAt}}",
+    "itemMetaWithAuthor": "{{type}} · версия {{revision}} · {{author}} · обновлено {{updatedAt}}",
+    "assignedScreens_one": "Уже на {{count}} экране",
+    "assignedScreens_few": "Уже на {{count}} экранах",
+    "assignedScreens_many": "Уже на {{count}} экранах",
+    "assignedScreens_other": "Уже на {{count}} экране",
+    "sheet": {
+      "lastNote": "Последнее примечание: {{note}}",
+      "openContent": "Открыть {{type}}"
+    },
+    "actions": {
+      "approve": "Согласовать",
+      "sendBack": "Вернуть"
+    },
+    "rejectDialog": {
+      "title": "Вернуть на доработку",
+      "description": "Необязательное примечание подскажет автору, что исправить.",
+      "noteLabel": "Примечание",
+      "notePlaceholder": "Что нужно изменить, чтобы материал можно было согласовать?",
+      "noteHint": "Записывается вместе с решением и показывается автору."
+    },
+    "toast": {
+      "approved": "Материал согласован.",
+      "sentBack": "Материал возвращён.",
+      "decisionFailed": "Не удалось записать решение."
+    }
+  },
+  "submissions": {
+    "title": "Проверка контента",
+    "description": "Каждый материал фиксирует точный черновик, который видел проверяющий. Публикация создаёт новую неизменяемую рабочую версию; дальнейшие правки остаются приватными до следующей отправки.",
+    "openLegacyQueue": "Открыть прежнюю очередь проверки",
+    "policyNotice": "Политика: <strong>{{policy}}</strong>. Самосогласование {{selfApproval}}; согласованные материалы {{behavior}}.",
+    "policy": {
+      "selfApprovalAllowed": "разрешено",
+      "selfApprovalDisabled": "запрещено",
+      "behaviorAuto": "публикуются автоматически",
+      "behaviorManual": "ждут явной публикации или планирования"
+    },
+    "filterLabel": "Состояние материалов",
+    "filters": {
+      "needsReview": "Требует проверки",
+      "changesRequested": "Запрошены изменения",
+      "approved": "Согласовано",
+      "scheduled": "Запланировано",
+      "publicationFailed": "Ошибка публикации",
+      "published": "Опубликовано",
+      "allHistory": "Вся история"
+    },
+    "status": {
+      "inReview": "Требует проверки",
+      "changesRequested": "Запрошены изменения",
+      "approved": "Согласовано",
+      "scheduled": "Запланировано",
+      "published": "Опубликовано",
+      "superseded": "Заменён",
+      "cancelled": "Отменён",
+      "publicationFailed": "Ошибка публикации"
+    },
+    "table": {
+      "submission": "Материал",
+      "status": "Статус",
+      "impact": "Охват",
+      "reviewAction": "Проверить"
+    },
+    "loading": "Загрузка материалов…",
+    "loadErrorTitle": "Не удалось загрузить материалы",
+    "emptyTitle": "Нет материалов, соответствующих этому представлению",
+    "emptyDescription": "Материалы появляются здесь после отправки контента на проверку.",
+    "itemMeta": "Черновая версия {{revision}} · отправлен {{submittedAt}}",
+    "itemMetaWithSubmitter": "Черновая версия {{revision}} · отправлен {{submittedAt}}, автор: {{submitter}}",
+    "itemImpact": "Опубликованная версия {{published}} · экранов: {{screens}} · мест: {{locations}}",
+    "detail": {
+      "status": "Статус",
+      "publishedRevision": "Опубликованная версия",
+      "impact": "Охват",
+      "snapshotHash": "SHA-256 снимка",
+      "noRevision": "нет",
+      "coverage": "экранов: {{screens}} · мест: {{locations}}",
+      "newerDraft": "Есть более новый приватный черновик.",
+      "reviewNote": "Примечание проверяющего: {{note}}",
+      "viewSnapshot": "Посмотреть точный отправленный снимок",
+      "cancelSchedule": "Отменить расписание",
+      "openContent": "Открыть контент"
+    },
+    "reviewForm": {
+      "noteLabel": "Примечание проверяющего",
+      "notePlaceholder": "Необязательное примечание к согласованию",
+      "approve": "Согласовать",
+      "requestChanges": "Запросить изменения"
+    },
+    "rejectDialog": {
+      "title": "Запросить изменения",
+      "description": "Нужна причина, чтобы автор знал, что исправить.",
+      "reasonLabel": "Причина возврата",
+      "reasonPlaceholder": "Что нужно изменить, чтобы материал можно было согласовать?",
+      "reasonHint": "Записывается вместе с решением и показывается автору.",
+      "confirm": "Вернуть"
+    },
+    "publish": {
+      "publishNow": "Опубликовать сейчас",
+      "publishAtLabel": "Опубликовать в",
+      "publishAtHint": "Запланируйте публикацию на будущие дату и время.",
+      "schedule": "Запланировать"
+    },
+    "toast": {
+      "approved": "Материал согласован.",
+      "changesRequested": "Изменения запрошены.",
+      "published": "Материал опубликован.",
+      "scheduled": "Публикация запланирована.",
+      "scheduleCancelled": "Расписание отменено.",
+      "approveFailed": "Не удалось согласовать.",
+      "requestChangesFailed": "Не удалось запросить изменения.",
+      "publishFailed": "Не удалось опубликовать.",
+      "scheduleFailed": "Не удалось запланировать.",
+      "cancelScheduleFailed": "Не удалось отменить расписание."
+    }
+  }
+}

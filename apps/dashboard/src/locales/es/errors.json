@@ -1,0 +1,20 @@
+{
+  "generic": "Algo salió mal. Inténtalo de nuevo.",
+  "fallback": {
+    "somethingWentWrong": "Algo salió mal.",
+    "requestFailed": "La solicitud falló.",
+    "uploadFailed": "La subida falló."
+  },
+  "codes": {
+    "forbidden": "Tu rol no permite esta acción.",
+    "rate_limited": "Demasiados intentos. Espera un momento e inténtalo de nuevo.",
+    "authentication_required": "Es necesario autenticarse.",
+    "unauthenticated": "Inicia sesión para continuar.",
+    "internal_error": "Tilecast no pudo completar la solicitud.",
+    "unknown_error": "Tilecast no pudo completar la solicitud.",
+    "database_unavailable": "La base de datos no está lista.",
+    "csrf_failed": "No se pudo verificar la solicitud.",
+    "conflict": "Otra persona modificó el registro. Vuelve a cargar la página e inténtalo de nuevo.",
+    "file_read_failed": "No se pudo leer el archivo seleccionado."
+  }
+}

@@ -1,0 +1,653 @@
+{
+  "access": {
+    "capabilities": {
+      "manage": {
+        "label": "Manage",
+        "implies": "Full control — includes every ability below."
+      },
+      "approve": {
+        "label": "Approve",
+        "implies": "Approve or reject — includes Review and View all."
+      },
+      "review": {
+        "label": "Review",
+        "implies": "Request changes — includes View all."
+      },
+      "viewAll": {
+        "label": "View all responses",
+        "implies": "Includes View own."
+      },
+      "viewOwn": {
+        "label": "View own responses"
+      },
+      "submit": {
+        "label": "Submit responses"
+      }
+    },
+    "loading": "Loading access…",
+    "loadError": "Could not load access",
+    "loadRetry": "Please try again.",
+    "updateError": "Could not update access.",
+    "changeFailed": "Access change failed",
+    "table": {
+      "user": "User",
+      "globalRole": "Global role",
+      "access": "Access",
+      "actions": "Actions"
+    },
+    "managerCreator": "Manager (creator)",
+    "managerOwner": "Manager (Owner)",
+    "alwaysManager": "Always a manager",
+    "editAccess": "Edit access",
+    "grant": {
+      "title": "Grant access",
+      "findUser": "Find a user",
+      "searchPlaceholder": "Search users",
+      "searchHint": "Search by name or username.",
+      "grantingTo": "Granting access to",
+      "searching": "Searching…",
+      "noMatch": "No matching users",
+      "noMatchHint": "Try a different search."
+    },
+    "includedByBroader": "Included by a broader capability.",
+    "saveAccess": "Save access"
+  },
+  "builder": {
+    "actions": {
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "moveTop": "Move to top",
+      "moveBottom": "Move to bottom",
+      "deleteField": "Delete field"
+    },
+    "row": {
+      "editField": "Edit {{name}}",
+      "actionsFor": "Actions for {{name}}"
+    },
+    "fieldsPanel": "Form fields",
+    "emptyFields": "No fields yet. Add the first one below.",
+    "previewPanel": "Form preview",
+    "formTitle": "Form title",
+    "formDescription": "Form description",
+    "inspectorPanel": "Field settings",
+    "inspectorEyebrow": "Inspector",
+    "inspectorEmpty": "Select a field to edit its settings.",
+    "status": {
+      "saving": "Saving…",
+      "saveFailed": "Save failed",
+      "unsaved": "Unsaved changes",
+      "saved": "Saved"
+    },
+    "saveDraft": "Save draft",
+    "publish": "Publish",
+    "leave": {
+      "title": "Leave without saving?",
+      "body": "You have unsaved changes to this form. Leaving now will discard them.",
+      "stay": "Stay on page",
+      "leave": "Leave without saving"
+    },
+    "draftError": "Draft not saved",
+    "draftFallback": "Could not save the draft.",
+    "publishTitle": "Publish a new revision?",
+    "publishBody": "Publishing creates a new immutable revision. Existing submissions stay tied to the revision they were created against.",
+    "publishConfirm": "Publish revision",
+    "publishConflict": "The form changed elsewhere. Reload and try again.",
+    "publishFallback": "Could not publish.",
+    "layout": {
+      "group": "Form fields, preview, and inspector",
+      "fields": "Form fields",
+      "resizeFieldsPreview": "Resize fields and preview panes",
+      "preview": "Form preview",
+      "resizePreviewInspector": "Resize preview and inspector panes",
+      "inspector": "Field settings"
+    }
+  },
+  "fieldEditor": {
+    "publishedTitle": "Published field",
+    "publishedWithType": "This field is part of the published form, so its key and output type are locked to keep Widgets and saved views working. You can still edit its label, help text, validation, and order.",
+    "publishedBase": "This field is part of the published form, so its key are locked to keep Widgets and saved views working. You can still edit its label, help text, validation, and order.",
+    "label": "Label",
+    "key": "Field key",
+    "keyHint": "Stable identifier used by Widgets and views.",
+    "type": "Field type",
+    "help": "Help text",
+    "helpHint": "Shown under the field.",
+    "required": "Required",
+    "defaultValue": "Default value",
+    "minimum": "Minimum",
+    "maximum": "Maximum",
+    "minLength": "Minimum length",
+    "maxLength": "Maximum length",
+    "options": "Options",
+    "remove": "Remove",
+    "addOption": "Add option",
+    "optionLabel": "Option {{n}} label",
+    "optionValue": "Option {{n}} value",
+    "newOptionLabel": "Option {{index}}"
+  },
+  "palette": {
+    "title": "Add a field"
+  },
+  "controls": {
+    "shortText": {
+      "label": "Short text",
+      "description": "A single line of text."
+    },
+    "longText": {
+      "label": "Long text",
+      "description": "A multi-line paragraph."
+    },
+    "number": {
+      "label": "Number",
+      "description": "A decimal number."
+    },
+    "integer": {
+      "label": "Integer",
+      "description": "A whole number."
+    },
+    "boolean": {
+      "label": "Yes / no",
+      "description": "A checkbox toggle."
+    },
+    "select": {
+      "label": "Select",
+      "description": "Choose one option."
+    },
+    "multiSelect": {
+      "label": "Multi-select",
+      "description": "Choose one or more options."
+    },
+    "date": {
+      "label": "Date",
+      "description": "A calendar date."
+    },
+    "datetime": {
+      "label": "Date & time",
+      "description": "A date with a time."
+    },
+    "url": {
+      "label": "URL",
+      "description": "A web link."
+    },
+    "image": {
+      "label": "Image upload",
+      "description": "An uploaded image."
+    },
+    "section": {
+      "label": "Section heading",
+      "description": "A heading to group fields."
+    },
+    "helpText": {
+      "label": "Help text",
+      "description": "Guidance shown to submitters."
+    }
+  },
+  "defaults": {
+    "sectionLabel": "Section",
+    "helpTextLabel": "Help text",
+    "optionLabel": "Option {{n}}",
+    "titleLabel": "Title"
+  },
+  "renderer": {
+    "empty": "This form has no fields yet.",
+    "charLimitReached": "Character limit reached ({{max}})",
+    "charsLeft": "{{remaining}} of {{max}} characters left",
+    "selectPlaceholder": "Select…",
+    "imageNoteSubmit": "Image uploads are available when submitting.",
+    "pendingUpload": "{{name}} — uploads when you save.",
+    "uploading": "Uploading…",
+    "replaceImage": "Replace image",
+    "chooseImage": "Choose image",
+    "replaceLabel": "Replace {{label}}",
+    "chooseLabel": "Choose {{label}}",
+    "imageAlt": "{{label}} attachment",
+    "removeImage": "Remove",
+    "noImage": "No image provided."
+  },
+  "outputs": {
+    "loading": "Loading outputs…",
+    "loadError": "Could not load outputs",
+    "retry": "Please try again.",
+    "projectionError": "Projection error",
+    "staleCache": "Stale cache",
+    "upToDate": "Up to date",
+    "lastProjection": "Last projection: {{value}}",
+    "never": "never",
+    "nextRefresh": "Next refresh: {{value}}",
+    "onChange": "on change",
+    "rebuild": "Rebuild outputs",
+    "rebuildError": "Rebuild failed",
+    "lastReport": "The last projection reported: {{code}}",
+    "noViews": "No saved views",
+    "noViewsHint": "Create a view in the Views tab to generate an output dataset.",
+    "viewLabel": "Output {{name}}",
+    "recordCount_one": "{{count}} record",
+    "recordCount_other": "{{count}} records",
+    "usedByWidgets_one": "Used by {{count}} widget",
+    "usedByWidgets_other": "Used by {{count}} widgets",
+    "referencedBy": "Referenced by: {{names}}",
+    "noRecords": "No records match this view yet."
+  },
+  "review": {
+    "loading": "Loading submission…",
+    "unavailable": "Submission unavailable",
+    "unavailableBody": "This submission could not be loaded or you no longer have access to it.",
+    "decisionRecorded": "Decision recorded.",
+    "untitled": "Untitled submission",
+    "submittedBy": "Submitted by {{name}}",
+    "unknownSubmitter": "Unknown",
+    "revision": "· Revision {{number}}",
+    "actionFailed": "Action failed",
+    "displaySection": "Display metadata",
+    "displayTitle": "Display settings",
+    "titleLabel": "Display title",
+    "priorityLabel": "Priority",
+    "fromLabel": "Display from",
+    "expiresLabel": "Expires at",
+    "decisionSection": "Decision",
+    "decisionTitle": "{{label}} this submission",
+    "decisionFallback": "Record a decision",
+    "noteRequired": "A note is required to {{label}}.",
+    "noteLabel": "Note",
+    "notePlaceholder": "What changed or what must the author fix?",
+    "noteHint": "Recorded with the decision and shown in history.",
+    "commentsSection": "Comments",
+    "noComments": "No comments yet.",
+    "addComment": "Add a comment",
+    "commentButton": "Comment",
+    "historySection": "History",
+    "applyFallback": "Could not apply the change.",
+    "commentFallback": "Could not add the comment.",
+    "refreshedConflict": "This submission changed since you opened it. It has been refreshed — review the latest version and try again.",
+    "events": {
+      "created": "Created",
+      "createdBy": "Created by {{name}}",
+      "edited": "Edited",
+      "editedBy": "Edited by {{name}}",
+      "moved": "Moved {{from}} → {{to}}",
+      "movedBy": "Moved {{from}} → {{to}} by {{name}}",
+      "commented": "Commented",
+      "commentedBy": "Commented by {{name}}",
+      "attachmentAdded": "Added an attachment",
+      "attachmentAddedBy": "Added an attachment by {{name}}",
+      "attachmentRemoved": "Removed an attachment",
+      "attachmentRemovedBy": "Removed an attachment by {{name}}",
+      "unknown": "{{type}}{{actor}}",
+      "byActor": " by {{name}}"
+    }
+  },
+  "editor": {
+    "leaveTitle": "Leave without saving?",
+    "leaveBody": "You have unsaved changes to this submission. Leaving now will discard them.",
+    "stay": "Stay on page",
+    "leave": "Leave without saving",
+    "changesRequested": "Changes requested",
+    "anonymousReviewer": "Reviewer",
+    "saveFailed": "Could not save",
+    "saveDraft": "Save draft",
+    "submitFallback": "Submit",
+    "completedTitle": "This submission is {{state}}",
+    "completedBody": "It can no longer be edited. A reviewer will follow up if changes are needed.",
+    "commentsSection": "Comments",
+    "fixFields_one": "Fix {{count}} field before continuing",
+    "fixFields_other": "Fix {{count}} fields before continuing",
+    "cannotSubmit": "This form cannot be submitted from its current state."
+  },
+  "views": {
+    "newView": "New view",
+    "viewInUse": "View in use",
+    "deleteFallback": "Could not delete the view.",
+    "noViews": "No saved views",
+    "noViewsHint": "Create a view to publish a named dataset for Widgets.",
+    "tableName": "Name",
+    "tableKey": "Dataset key",
+    "tableStates": "States",
+    "tableActions": "Actions",
+    "duplicate": "Duplicate",
+    "leaveTitle": "Leave without saving?",
+    "leaveBody": "This view has unsaved changes.",
+    "stay": "Stay",
+    "leave": "Leave",
+    "notSaved": "View not saved",
+    "saveFallback": "Could not save the view.",
+    "previewFallback": "Could not preview the view.",
+    "nameLabel": "View name",
+    "keyLabel": "Dataset key",
+    "newKeyHint": "Lowercase key; fixed once saved.",
+    "lockedKeyHint": "Keys are immutable.",
+    "limitLabel": "Record limit",
+    "orderLabel": "Order",
+    "statesLegend": "Included states",
+    "fieldsLegend": "Output fields & order",
+    "addFieldLabel": "Add an output field",
+    "addFieldPlaceholder": "Add a field…",
+    "noneSelected": "All available fields (none selected).",
+    "filtersLegend": "Field filters",
+    "filterFieldLabel": "Filter field",
+    "fieldPlaceholder": "Field…",
+    "operatorLabel": "Filter operator",
+    "removeItem": "Remove",
+    "addFilter": "Add filter",
+    "sortLegend": "Sort",
+    "sortFieldLabel": "Sort field",
+    "sortDirectionLabel": "Sort direction",
+    "ascending": "Ascending",
+    "descending": "Descending",
+    "addSort": "Add sort rule",
+    "timeLegend": "Time window",
+    "timeEnabled": "Filter by a relative time window",
+    "startField": "Start field",
+    "noneOption": "None",
+    "endField": "End field",
+    "startBeforeNow": "Start is before now",
+    "endAfterNow": "End is after now",
+    "previewButton": "Preview",
+    "saveButton": "Save view",
+    "previewTitle": "Preview",
+    "previewCount_one": "{{count}} record",
+    "previewCount_other": "{{count}} records",
+    "previewEmpty": "No records match this view.",
+    "moveUp": "Move {{label}} up",
+    "moveDown": "Move {{label}} down",
+    "removeLabel": "Remove {{label}}",
+    "copyName": "{{name}} (copy)"
+  },
+  "workflow": {
+    "capabilities": {
+      "submit": { "label": "Submit" },
+      "review": { "label": "Review" },
+      "approve": { "label": "Approve" },
+      "manage": { "label": "Manage" },
+      "viewAll": { "label": "View all" },
+      "viewOwn": { "label": "View own" }
+    },
+    "leaveTitle": "Leave without saving?",
+    "leaveBody": "The workflow has unsaved changes.",
+    "stay": "Stay",
+    "leave": "Leave",
+    "notSaved": "Workflow not saved",
+    "saveFallback": "Could not save the workflow.",
+    "fixBefore": "Fix these before saving",
+    "statesSection": "States",
+    "statesTitle": "States",
+    "addState": "Add state",
+    "stateLabel": "Label",
+    "stateKey": "Key",
+    "lockedHint": "In use — locked",
+    "keyHint": "Lowercase, stable",
+    "stateRecords_one": "{{count}} record",
+    "stateRecords_other": "{{count}} records",
+    "initialOption": "Initial",
+    "eligibleOption": "Output-eligible",
+    "terminalOption": "Terminal",
+    "moveUp": "Move {{label}} up",
+    "moveDown": "Move {{label}} down",
+    "deleteState": "Delete {{label}}",
+    "deleteLockedTitle": "Referenced by records",
+    "deleteTitle": "Delete state",
+    "newStateLabel": "New state",
+    "transitionsSection": "Transitions",
+    "transitionsTitle": "Transitions",
+    "addTransition": "Add transition",
+    "colFrom": "From",
+    "colTo": "To",
+    "colLabel": "Label",
+    "colCapability": "Required capability",
+    "fromStateLabel": "From state",
+    "toStateLabel": "To state",
+    "capabilityLabel": "Required capability",
+    "moveTransitionUp": "Move transition up",
+    "moveTransitionDown": "Move transition down",
+    "removeTransition": "Remove transition {{label}}",
+    "newTransitionLabel": "New transition",
+    "impactTitle": "This change affects output or submission paths",
+    "reviewAgain": "Review again",
+    "saveAnyway": "Save anyway",
+    "saveWorkflow": "Save workflow",
+    "validation": {
+      "noStates": "Add at least one state.",
+      "invalidStateKey": "State key \"{{key}}\" is invalid (lowercase letters, digits, underscores).",
+      "emptyKey": "(empty)",
+      "duplicateStateKey": "Duplicate state key \"{{key}}\".",
+      "stateNeedsLabel": "Every state needs a label.",
+      "exactlyOneInitial": "Exactly one state must be the initial state.",
+      "needEligible": "At least one state must be output-eligible.",
+      "badReference": "Every transition must reference existing states.",
+      "duplicateTransition": "Duplicate transition {{from}} → {{to}}."
+    },
+    "warnings": {
+      "lostEligible": "State \"{{key}}\" is no longer output-eligible; its records will leave signage.",
+      "gainedEligible": "State \"{{key}}\" is now output-eligible; its records may appear on signage.",
+      "submissionPaths": "Submission paths changed; this affects how submitters move records."
+    }
+  },
+  "validation": {
+    "imageRequired": "{{label}} requires an image.",
+    "required": "{{label}} is required.",
+    "maxLength": "{{label}} must be at most {{max}} characters.",
+    "minLength": "{{label}} must be at least {{min}} characters.",
+    "notNumber": "{{label}} must be a number.",
+    "notInteger": "{{label}} must be a whole number.",
+    "minValue": "{{label}} must be at least {{minimum}}.",
+    "maxValue": "{{label}} must be at most {{maximum}}.",
+    "urlProtocol": "{{label}} must be an http(s) URL.",
+    "urlInvalid": "{{label}} must be a valid URL.",
+    "dateInvalid": "{{label}} must be a date.",
+    "keyPattern": "Keys must start with a letter and use only letters, numbers, and underscores.",
+    "keyReserved": "\"{{key}}\" is a reserved key.",
+    "keyTaken": "Another field already uses this key."
+  },
+  "outputFields": {
+    "synthetic": {
+      "state": "Workflow state",
+      "displayTitle": "Display title",
+      "priority": "Priority",
+      "submittedAt": "Submitted time",
+      "displayAt": "Display from",
+      "expiresAt": "Expires at"
+    },
+    "operators": {
+      "equals": "equals",
+      "notEquals": "does not equal",
+      "empty": "is empty",
+      "notEmpty": "is not empty",
+      "greaterThan": "greater than",
+      "lessThan": "less than",
+      "contains": "contains"
+    }
+  },
+  "plugin": {
+    "breadcrumb": "Plugins",
+    "title": "Forms",
+    "subtitle": "Build forms, manage responses, and make approved records available to signage.",
+    "create": "Create form",
+    "loadError": "Could not load forms",
+    "loadFallback": "Forms could not be loaded.",
+    "empty": "No forms yet",
+    "emptyCreate": "Create a form to start collecting submissions.",
+    "emptyDenied": "You do not have access to any forms.",
+    "publishedRevision": "Published revision {{number}}",
+    "draft": "Draft",
+    "noDescription": "No description",
+    "manage": "Manage form"
+  },
+  "detail": {
+    "tabs": {
+      "responses": "Responses",
+      "form": "Form",
+      "workflow": "Workflow",
+      "views": "Views",
+      "outputs": "Outputs",
+      "access": "Access"
+    },
+    "loading": "Loading form…",
+    "unavailable": "Form unavailable",
+    "unavailableBody": "This form could not be loaded.",
+    "pluginEyebrow": "Forms plugin",
+    "sectionsLabel": "Form sections",
+    "filters": {
+      "needsReview": "Needs review",
+      "allStates": "All states",
+      "state": "State",
+      "search": "Search",
+      "searchPlaceholder": "Title or submitter",
+      "sort": "Sort"
+    },
+    "sort": {
+      "updated": "Recently updated",
+      "newest": "Newest",
+      "oldest": "Oldest",
+      "priority": "Priority"
+    },
+    "loadResponsesError": "Could not load responses",
+    "retry": "Please try again.",
+    "loadingResponses": "Loading responses…",
+    "noResponses": "No responses",
+    "emptyNeedsReview": "Nothing is waiting for review right now.",
+    "emptyFiltered": "No submissions match these filters yet.",
+    "table": {
+      "submission": "Submission",
+      "submitter": "Submitter",
+      "state": "State",
+      "priority": "Priority",
+      "updated": "Updated",
+      "window": "Display window",
+      "reviewAction": "Review"
+    },
+    "untitled": "Untitled submission",
+    "unknown": "Unknown",
+    "reviewLink": "Review {{title}}",
+    "untitledLink": "untitled submission",
+    "pagination": "Page {{page}} of {{totalPages}} · {{total}} total",
+    "pagesLabel": "Responses pages",
+    "sheetLabel": "Response detail",
+    "sheetEyebrow": "Response",
+    "sheetTitle": "Review submission",
+    "sheetBody": "The list stays in place behind this panel; closing returns to it.",
+    "backToResponses": "← Back to responses",
+    "displayWindowRange": "{{start}} → {{end}}",
+    "displayWindowEmpty": "—",
+    "displayWindowNow": "now",
+    "editDetails": "Edit details",
+    "detailsError": "Details not saved",
+    "detailsFallback": "Could not update details.",
+    "nameLabel": "Form name",
+    "descriptionLabel": "Description",
+    "saveDetails": "Save details",
+    "readOnlyTitle": "Read-only",
+    "readOnlyBody": "You can view this form but do not have permission to edit it.",
+    "publishedMeta": "Published revision {{revision}} · {{date}}"
+  },
+  "create": {
+    "questions": {
+      "name": {
+        "title": "What is this form for?",
+        "description": "The name shown in the Forms plugin and when selecting form output in Widgets.",
+        "label": "Form name"
+      },
+      "description": {
+        "title": "Describe the purpose",
+        "description": "Optional. A short note for other Studio authors about what this form collects.",
+        "label": "Form description"
+      },
+      "formTitle": {
+        "title": "What do submitters see first?",
+        "description": "Optional. The title shown above the form to the person filling it in.",
+        "label": "Submitter-facing title"
+      },
+      "formDescription": {
+        "title": "Add guidance for submitters",
+        "description": "Optional. Short instructions shown under the title on the form itself.",
+        "label": "Submitter-facing description"
+      }
+    },
+    "phasePurpose": "Purpose",
+    "phaseDisplay": "Display",
+    "phaseReview": "Review",
+    "starterFieldLabel": "Title",
+    "createFallback": "Could not create the form.",
+    "nameRequired": "A name is required.",
+    "deniedTitle": "Insufficient access",
+    "deniedBody": "You do not have permission to create forms.",
+    "reviewEyebrow": "Forms plugin · Step 3 of 3 · Review",
+    "reviewTitle": "Review and create",
+    "reviewBody": "Check the details before creating this form.",
+    "createErrorTitle": "Could not create form",
+    "summaryName": "Form name",
+    "summaryPurpose": "Purpose",
+    "summarySubmitterTitle": "Submitter title",
+    "summaryGuidance": "Submitter guidance",
+    "starterTitle": "A starter field is included",
+    "starterBody": "Your form starts with a required “{{starterLabel}}” field and is published immediately. You can add fields and publish new revisions from the builder. Who may submit and the review rules are configured in the builder’s Access and Workflow tabs after creation.",
+    "createButton": "Create form",
+    "backToQuestions": "Back to questions",
+    "backHint": "Returns to guided creation without losing your answers.",
+    "stepHeader": "Forms plugin · Step {{step}} of 3 · {{phase}}",
+    "createTitle": "Create a Form",
+    "createSubtitle": "Collect submissions, approve them, and publish records to Widgets.",
+    "progress": "Question {{index}} of {{total}}",
+    "navPrevious": "Previous",
+    "navSkip": "Skip",
+    "navNext": "Next",
+    "navReview": "Review"
+  },
+  "portal": {
+    "loadingIcon": "Loading",
+    "shell": {
+      "homeLabel": "My Forms",
+      "formsLabel": "Forms",
+      "studioLink": "Back to Studio",
+      "signOut": "Sign out"
+    },
+    "list": {
+      "loading": "Loading your forms…",
+      "error": "Could not load forms",
+      "retry": "Please try again.",
+      "eyebrow": "Forms",
+      "title": "My Forms",
+      "description": "Forms you can submit to or help review.",
+      "empty": "No forms yet",
+      "emptyBody": "You do not have access to any forms. Ask an administrator to grant you access.",
+      "draftOnly": "Draft only",
+      "drafts": "Drafts",
+      "submitted": "Submitted",
+      "changesRequested": "Changes requested"
+    },
+    "detail": {
+      "loading": "Loading form…",
+      "unavailable": "Form unavailable",
+      "unavailableBody": "You may not have access to this form, or it no longer exists.",
+      "backToForms": "Back to My Forms",
+      "eyebrow": "Form",
+      "start": "Start submission",
+      "sentTitle": "Submission sent",
+      "sentBody": "Your submission is now with the reviewers. You can follow its status below.",
+      "notOpen": "Not open for submissions yet",
+      "notOpenBody": "This form has not published a version you can submit to.",
+      "viewOnly": "View only",
+      "viewOnlyBody": "You can review submissions to this form but cannot create your own.",
+      "submissionsLabel": "Your submissions",
+      "submissionsTitle": "Your submissions",
+      "submissionsLoading": "Loading submissions…",
+      "submissionsEmpty": "No submissions yet",
+      "submissionsEmptySubmit": "Start a submission to see it here.",
+      "submissionsEmptyNone": "You have not submitted to this form.",
+      "submissionsPages": "Your submissions pages",
+      "pagination": "Page {{page}} of {{totalPages}} · {{total}} total",
+      "updatedAt": "Updated {{date}}",
+      "untitled": "Untitled submission"
+    },
+    "submission": {
+      "loading": "Loading…",
+      "unavailable": "Form unavailable",
+      "backToForms": "Back to My Forms",
+      "recordUnavailable": "Submission unavailable",
+      "recordDenied": "You may not have access to this submission.",
+      "backToForm": "Back to the form",
+      "newTitle": "New submission",
+      "editTitle": "Edit submission"
+    },
+    "previous": "Previous",
+    "next": "Next"
+  }
+}

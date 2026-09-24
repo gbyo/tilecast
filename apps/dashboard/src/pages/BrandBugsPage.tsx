@@ -1,8 +1,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Plus, Stamp, Trash2 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
+import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router";
 import { z } from "zod";
 import { api } from "../api/client";
@@ -39,6 +40,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
+import { apiErrorMessage } from "../i18n";
 import {
   RegisterCheckbox,
   TargetFields,
@@ -46,83 +48,93 @@ import {
   toLocalInputValue,
   useTargetSource,
 } from "../plugins/shared";
+import type { PluginsT } from "../plugins/pluginCatalog";
 
-const cornerLabels: Record<BrandBugInput["corner"], string> = {
-  top_left: "Top left",
-  top_right: "Top right",
-  bottom_left: "Bottom left",
-  bottom_right: "Bottom right",
-};
+const cornerLabelKeys = {
+  top_left: "brandBug.editor.corners.topLeft",
+  top_right: "brandBug.editor.corners.topRight",
+  bottom_left: "brandBug.editor.corners.bottomLeft",
+  bottom_right: "brandBug.editor.corners.bottomRight",
+} as const satisfies Record<
+  BrandBugInput["corner"],
+  `brandBug.editor.corners.${string}`
+>;
 
-const brandBugSchema = z
-  .object({
-    name: z.string().trim().min(1).max(180),
-    corner: z.enum(["top_left", "top_right", "bottom_left", "bottom_right"]),
-    imageAssetId: z.string(),
-    text: z.string().trim().max(180, "Text is limited to 180 characters."),
-    widthPercent: z.coerce
-      .number({ error: "Enter a width between 2 and 40 percent." })
-      .int("Enter a width between 2 and 40 percent.")
-      .min(2, "Enter a width between 2 and 40 percent.")
-      .max(40, "Enter a width between 2 and 40 percent."),
-    textSizePercent: z.coerce
-      .number({ error: "Enter a text size between 1 and 12 percent." })
-      .int("Enter a text size between 1 and 12 percent.")
-      .min(1, "Enter a text size between 1 and 12 percent.")
-      .max(12, "Enter a text size between 1 and 12 percent."),
-    opacityPercent: z.coerce
-      .number({ error: "Enter an opacity between 10 and 100 percent." })
-      .int("Enter an opacity between 10 and 100 percent.")
-      .min(10, "Enter an opacity between 10 and 100 percent.")
-      .max(100, "Enter an opacity between 10 and 100 percent."),
-    marginPercent: z.coerce
-      .number({ error: "Enter a margin between 0 and 20 percent." })
-      .int("Enter a margin between 0 and 20 percent.")
-      .min(0, "Enter a margin between 0 and 20 percent.")
-      .max(20, "Enter a margin between 0 and 20 percent."),
-    textColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Choose a color."),
-    backgroundStyle: z.enum(["none", "scrim"]),
-    startsAt: z.string(),
-    endsAt: z.string(),
-    enabled: z.boolean(),
-    priority: z.coerce
-      .number({ error: "Enter a priority between -1000 and 1000." })
-      .int("Enter a priority between -1000 and 1000.")
-      .min(-1000, "Enter a priority between -1000 and 1000.")
-      .max(1000, "Enter a priority between -1000 and 1000."),
-    targetScope: z.enum(["all", "screens", "sync_groups", "locations"]),
-    targetIds: z.array(z.string()),
-  })
-  .superRefine((value, context) => {
-    if (!value.imageAssetId && value.text.length === 0) {
-      context.addIssue({
-        code: "custom",
-        path: ["text"],
-        message: "Choose a logo image, enter text, or both.",
-      });
-    }
-    if (
-      value.startsAt &&
-      value.endsAt &&
-      new Date(value.endsAt) <= new Date(value.startsAt)
-    ) {
-      context.addIssue({
-        code: "custom",
-        path: ["endsAt"],
-        message: "The end must be after the start.",
-      });
-    }
-    if (value.targetScope !== "all" && value.targetIds.length === 0) {
-      context.addIssue({
-        code: "custom",
-        path: ["targetIds"],
-        message: "Choose at least one target.",
-      });
-    }
-  });
+// Schemas are built at render time from `t` so validation messages follow
+// the interface language. Callers pass the `t` they already use.
+export function makeBrandBugSchema(t: PluginsT) {
+  return z
+    .object({
+      name: z.string().trim().min(1).max(180),
+      corner: z.enum(["top_left", "top_right", "bottom_left", "bottom_right"]),
+      imageAssetId: z.string(),
+      text: z.string().trim().max(180, t("brandBug.validation.textMax")),
+      widthPercent: z.coerce
+        .number({ error: t("brandBug.validation.widthRange") })
+        .int(t("brandBug.validation.widthRange"))
+        .min(2, t("brandBug.validation.widthRange"))
+        .max(40, t("brandBug.validation.widthRange")),
+      textSizePercent: z.coerce
+        .number({ error: t("brandBug.validation.textSizeRange") })
+        .int(t("brandBug.validation.textSizeRange"))
+        .min(1, t("brandBug.validation.textSizeRange"))
+        .max(12, t("brandBug.validation.textSizeRange")),
+      opacityPercent: z.coerce
+        .number({ error: t("brandBug.validation.opacityRange") })
+        .int(t("brandBug.validation.opacityRange"))
+        .min(10, t("brandBug.validation.opacityRange"))
+        .max(100, t("brandBug.validation.opacityRange")),
+      marginPercent: z.coerce
+        .number({ error: t("brandBug.validation.marginRange") })
+        .int(t("brandBug.validation.marginRange"))
+        .min(0, t("brandBug.validation.marginRange"))
+        .max(20, t("brandBug.validation.marginRange")),
+      textColor: z
+        .string()
+        .regex(/^#[0-9a-fA-F]{6}$/, t("brandBug.validation.color")),
+      backgroundStyle: z.enum(["none", "scrim"]),
+      startsAt: z.string(),
+      endsAt: z.string(),
+      enabled: z.boolean(),
+      priority: z.coerce
+        .number({ error: t("brandBug.validation.priorityRange") })
+        .int(t("brandBug.validation.priorityRange"))
+        .min(-1000, t("brandBug.validation.priorityRange"))
+        .max(1000, t("brandBug.validation.priorityRange")),
+      targetScope: z.enum(["all", "screens", "sync_groups", "locations"]),
+      targetIds: z.array(z.string()),
+    })
+    .superRefine((value, context) => {
+      if (!value.imageAssetId && value.text.length === 0) {
+        context.addIssue({
+          code: "custom",
+          path: ["text"],
+          message: t("brandBug.validation.contentRequired"),
+        });
+      }
+      if (
+        value.startsAt &&
+        value.endsAt &&
+        new Date(value.endsAt) <= new Date(value.startsAt)
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["endsAt"],
+          message: t("brandBug.validation.windowOrder"),
+        });
+      }
+      if (value.targetScope !== "all" && value.targetIds.length === 0) {
+        context.addIssue({
+          code: "custom",
+          path: ["targetIds"],
+          message: t("brandBug.validation.targetRequired"),
+        });
+      }
+    });
+}
 
-type BrandBugFormValues = z.infer<typeof brandBugSchema>;
-type BrandBugFormInput = z.input<typeof brandBugSchema>;
+type BrandBugFormValues = z.infer<ReturnType<typeof makeBrandBugSchema>>;
+type BrandBugFormInput = z.input<ReturnType<typeof makeBrandBugSchema>>;
 
 const brandBugDefaults: BrandBugFormValues = {
   name: "",
@@ -144,16 +156,19 @@ const brandBugDefaults: BrandBugFormValues = {
 };
 
 /** One line describing what a configured mark actually puts on screen. */
-function brandBugSummary(instance: BrandBug) {
-  const parts = [cornerLabels[instance.corner]];
-  if (instance.imageAssetId) parts.push("logo");
-  if (instance.text) parts.push(`“${instance.text}”`);
-  parts.push(`${instance.opacityPercent}% opacity`);
-  if (instance.startsAt || instance.endsAt) parts.push("scheduled window");
+function brandBugSummary(instance: BrandBug, t: PluginsT) {
+  const parts = [t(cornerLabelKeys[instance.corner])];
+  if (instance.imageAssetId) parts.push(t("brandBug.summary.logo"));
+  if (instance.text)
+    parts.push(t("brandBug.summary.quotedText", { text: instance.text }));
+  parts.push(t("brandBug.summary.opacity", { value: instance.opacityPercent }));
+  if (instance.startsAt || instance.endsAt)
+    parts.push(t("brandBug.summary.scheduledWindow"));
   return parts.join(" · ");
 }
 
 export function BrandBugsPage() {
+  const { t } = useTranslation(["plugins", "common"]);
   const auth = useAuth();
   const queryClient = useQueryClient();
   const { confirm, dialog: confirmDialog } = useConfirm();
@@ -187,14 +202,14 @@ export function BrandBugsPage() {
               className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
               to="/plugins"
             >
-              <ArrowLeft size={15} aria-hidden="true" /> Plugins
+              <ArrowLeft size={15} aria-hidden="true" />{" "}
+              {t("shared.backToPlugins")}
             </Link>
             <h1 className="text-2xl font-semibold tracking-tight">
-              Brand Bug / Watermark
+              {t("brandBug.title")}
             </h1>
             <p className="text-sm text-muted-foreground">
-              Corner marks stay on screen over playlists, Layouts, websites, and
-              Widgets without changing what is playing.
+              {t("brandBug.subtitle")}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -203,8 +218,8 @@ export function BrandBugsPage() {
                 className={buttonVariants({ size: "lg" })}
                 to="/plugins/brand-bug/new"
               >
-                <Plus data-icon="inline-start" aria-hidden="true" /> New
-                instance
+                <Plus data-icon="inline-start" aria-hidden="true" />{" "}
+                {t("shared.newInstance")}
               </Link>
             )}
             <PluginActionsMenu pluginId="brand_bug" />
@@ -212,19 +227,17 @@ export function BrandBugsPage() {
         </header>
         {!manageable && (
           <Alert>
-            <AlertDescription>
-              Owner or Administrator access is required to make changes.
-            </AlertDescription>
+            <AlertDescription>{t("shared.manageNote")}</AlertDescription>
           </Alert>
         )}
         {instances.isError && (
           <Alert variant="destructive">
-            <AlertDescription>Brand bugs could not be loaded.</AlertDescription>
+            <AlertDescription>{t("brandBug.loadError")}</AlertDescription>
           </Alert>
         )}
         {remove.isError && (
           <Alert variant="destructive">
-            <AlertDescription>{remove.error.message}</AlertDescription>
+            <AlertDescription>{apiErrorMessage(remove.error)}</AlertDescription>
           </Alert>
         )}
         {showEmptyState ? (
@@ -233,16 +246,15 @@ export function BrandBugsPage() {
               <EmptyMedia variant="icon">
                 <Stamp size={24} aria-hidden="true" />
               </EmptyMedia>
-              <EmptyTitle>No brand bugs configured</EmptyTitle>
+              <EmptyTitle>{t("brandBug.emptyTitle")}</EmptyTitle>
               <EmptyDescription>
-                Create an instance to hold a logo, notice, or badge in a corner
-                of selected screens.
+                {t("brandBug.emptyDescription")}
               </EmptyDescription>
             </EmptyHeader>
             {manageable && (
               <EmptyContent>
                 <Link className={buttonVariants()} to="/plugins/brand-bug/new">
-                  Create instance
+                  {t("shared.createInstance")}
                 </Link>
               </EmptyContent>
             )}
@@ -255,10 +267,14 @@ export function BrandBugsPage() {
                   <ItemTitle>
                     <h2 className="text-sm font-medium">{instance.name}</h2>
                     <Badge variant={instance.enabled ? "default" : "secondary"}>
-                      {instance.enabled ? "Enabled" : "Disabled"}
+                      {instance.enabled
+                        ? t("shared.enabledBadge")
+                        : t("shared.disabledBadge")}
                     </Badge>
                   </ItemTitle>
-                  <ItemDescription>{brandBugSummary(instance)}</ItemDescription>
+                  <ItemDescription>
+                    {brandBugSummary(instance, t)}
+                  </ItemDescription>
                 </ItemContent>
                 <ItemActions className="flex-wrap">
                   <Link
@@ -268,19 +284,23 @@ export function BrandBugsPage() {
                     })}
                     to={`/plugins/brand-bug/${instance.id}`}
                   >
-                    Manage
+                    {t("shared.manage")}
                   </Link>
                   {manageable && (
                     <RheaButton
                       type="button"
                       size="icon"
                       variant="destructive"
-                      aria-label={`Delete ${instance.name}`}
+                      aria-label={t("shared.deleteAction", {
+                        name: instance.name,
+                      })}
                       onClick={() => {
                         void confirm({
-                          title: `Delete “${instance.name}”?`,
-                          body: "The mark will be removed from targeted Players.",
-                          action: "Delete",
+                          title: t("shared.deleteTitle", {
+                            name: instance.name,
+                          }),
+                          body: t("brandBug.deleteBody"),
+                          action: t("common:actions.delete"),
                           destructive: true,
                         }).then((ok) => {
                           if (ok) remove.mutate(instance.id);
@@ -301,11 +321,13 @@ export function BrandBugsPage() {
 }
 
 export function BrandBugEditorPage() {
+  const { t } = useTranslation(["plugins", "common"]);
   const { id } = useParams();
   const editing = Boolean(id);
   const auth = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const schema = useMemo(() => makeBrandBugSchema(t), [t]);
   const instance = useQuery({
     queryKey: ["brand-bug", id],
     queryFn: () => api.brandBug(id ?? ""),
@@ -334,7 +356,7 @@ export function BrandBugEditorPage() {
     watch,
     formState: { errors },
   } = useForm<BrandBugFormInput, unknown, BrandBugFormValues>({
-    resolver: zodResolver(brandBugSchema),
+    resolver: zodResolver(schema),
     defaultValues: brandBugDefaults,
   });
   useEffect(() => {
@@ -403,9 +425,9 @@ export function BrandBugEditorPage() {
     });
   };
   const backingOptions = [
-    { value: "scrim", label: "Shaded plate behind the mark" },
-    { value: "none", label: "Nothing behind the mark" },
-  ];
+    { value: "scrim", labelKey: "brandBug.editor.backing.scrim" },
+    { value: "none", labelKey: "brandBug.editor.backing.none" },
+  ] as const;
   return (
     <main className="grid gap-4">
       <header className="grid min-w-0 gap-1">
@@ -413,14 +435,15 @@ export function BrandBugEditorPage() {
           className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
           to="/plugins/brand-bug"
         >
-          <ArrowLeft size={15} aria-hidden="true" /> Brand Bug / Watermark
+          <ArrowLeft size={15} aria-hidden="true" /> {t("brandBug.title")}
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight">
-          {editing ? "Manage brand bug" : "New brand bug"}
+          {editing
+            ? t("brandBug.editor.manageTitle")
+            : t("brandBug.editor.createTitle")}
         </h1>
         <p className="text-sm text-muted-foreground">
-          One mark shows per corner. Priority decides which instance wins when
-          two want the same corner.
+          {t("brandBug.editor.subtitle")}
         </p>
       </header>
       <form
@@ -428,16 +451,20 @@ export function BrandBugEditorPage() {
         onSubmit={(event) => void handleSubmit(submit)(event)}
       >
         <section className="grid gap-4 rounded-xl border border-border p-4">
-          <h2 className="text-base font-semibold">Mark</h2>
+          <h2 className="text-base font-semibold">
+            {t("brandBug.editor.sections.mark")}
+          </h2>
           <FormField
             id="brand-bug-name"
-            label="Name"
+            label={t("shared.nameLabel")}
             aria-required="true"
             error={errors.name?.message}
             {...register("name")}
           />
           <Field>
-            <FieldLabel htmlFor="brand-bug-image">Logo image</FieldLabel>
+            <FieldLabel htmlFor="brand-bug-image">
+              {t("brandBug.editor.logoLabel")}
+            </FieldLabel>
             <RheaSelect
               items={[
                 { value: "none", label: "No image" },
@@ -454,11 +481,22 @@ export function BrandBugEditorPage() {
                 })
               }
             >
-              <SelectTrigger id="brand-bug-image" aria-label="Logo image">
-                <SelectValue />
+              <SelectTrigger
+                id="brand-bug-image"
+                aria-label={t("brandBug.editor.logoLabel")}
+              >
+                <SelectValue>
+                  {imageAssetId
+                    ? ((images.data?.items ?? []).find(
+                        (item) => item.id === imageAssetId,
+                      )?.name ?? imageAssetId)
+                    : t("brandBug.editor.noImage")}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">No image</SelectItem>
+                <SelectItem value="none">
+                  {t("brandBug.editor.noImage")}
+                </SelectItem>
                 {(images.data?.items ?? []).map((item) => (
                   <SelectItem key={item.id} value={item.id}>
                     {item.name}
@@ -466,25 +504,27 @@ export function BrandBugEditorPage() {
                 ))}
               </SelectContent>
             </RheaSelect>
-            <FieldDescription>
-              Uploaded, processed images only.
-            </FieldDescription>
+            <FieldDescription>{t("brandBug.editor.logoHint")}</FieldDescription>
           </Field>
           <FormField
             id="brand-bug-text"
-            label="Text"
-            placeholder="Presented by Example"
-            hint="Shown beneath the logo, or on its own for a notice or location label."
+            label={t("brandBug.editor.textLabel")}
+            placeholder={t("brandBug.editor.textPlaceholder")}
+            hint={t("brandBug.editor.textHint")}
             error={errors.text?.message}
             {...register("text")}
           />
         </section>
 
         <section className="grid gap-4 rounded-xl border border-border p-4">
-          <h2 className="text-base font-semibold">Placement</h2>
+          <h2 className="text-base font-semibold">
+            {t("brandBug.editor.sections.placement")}
+          </h2>
           <div className="grid gap-4 sm:grid-cols-3">
             <Field>
-              <FieldLabel htmlFor="brand-bug-corner">Corner</FieldLabel>
+              <FieldLabel htmlFor="brand-bug-corner">
+                {t("brandBug.editor.cornerLabel")}
+              </FieldLabel>
               <RheaSelect
                 items={(
                   Object.keys(cornerLabels) as BrandBugInput["corner"][]
@@ -498,23 +538,26 @@ export function BrandBugEditorPage() {
                     });
                 }}
               >
-                <SelectTrigger id="brand-bug-corner" aria-label="Corner">
-                  <SelectValue />
+                <SelectTrigger
+                  id="brand-bug-corner"
+                  aria-label={t("brandBug.editor.cornerLabel")}
+                >
+                  <SelectValue>{t(cornerLabelKeys[corner])}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {(Object.keys(cornerLabels) as BrandBugInput["corner"][]).map(
-                    (value) => (
-                      <SelectItem key={value} value={value}>
-                        {cornerLabels[value]}
-                      </SelectItem>
-                    ),
-                  )}
+                  {(
+                    Object.keys(cornerLabelKeys) as BrandBugInput["corner"][]
+                  ).map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {t(cornerLabelKeys[value])}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </RheaSelect>
             </Field>
             <FormField
               id="brand-bug-width"
-              label="Logo width (% of screen width)"
+              label={t("brandBug.editor.widthLabel")}
               type="number"
               min={2}
               max={40}
@@ -523,7 +566,7 @@ export function BrandBugEditorPage() {
             />
             <FormField
               id="brand-bug-margin"
-              label="Margin (% of short edge)"
+              label={t("brandBug.editor.marginLabel")}
               type="number"
               min={0}
               max={20}
@@ -534,11 +577,13 @@ export function BrandBugEditorPage() {
         </section>
 
         <section className="grid gap-4 rounded-xl border border-border p-4">
-          <h2 className="text-base font-semibold">Appearance</h2>
+          <h2 className="text-base font-semibold">
+            {t("brandBug.editor.sections.appearance")}
+          </h2>
           <div className="grid gap-4 sm:grid-cols-3">
             <FormField
               id="brand-bug-text-size"
-              label="Text size (% of screen height)"
+              label={t("brandBug.editor.textSizeLabel")}
               type="number"
               min={1}
               max={12}
@@ -547,13 +592,15 @@ export function BrandBugEditorPage() {
             />
             <FormField
               id="brand-bug-color"
-              label="Text color"
+              label={t("brandBug.editor.colorLabel")}
               type="color"
               error={errors.textColor?.message}
               {...register("textColor")}
             />
             <Field>
-              <FieldLabel htmlFor="brand-bug-backing">Backing</FieldLabel>
+              <FieldLabel htmlFor="brand-bug-backing">
+                {t("brandBug.editor.backingLabel")}
+              </FieldLabel>
               <RheaSelect
                 items={backingOptions}
                 name="backgroundStyle"
@@ -563,13 +610,22 @@ export function BrandBugEditorPage() {
                     setValue("backgroundStyle", next, { shouldDirty: true });
                 }}
               >
-                <SelectTrigger id="brand-bug-backing" aria-label="Backing">
-                  <SelectValue />
+                <SelectTrigger
+                  id="brand-bug-backing"
+                  aria-label={t("brandBug.editor.backingLabel")}
+                >
+                  <SelectValue>
+                    {t(
+                      backingOptions.find(
+                        (option) => option.value === backgroundStyle,
+                      )?.labelKey ?? "brandBug.editor.backing.scrim",
+                    )}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {backingOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
-                      {option.label}
+                      {t(option.labelKey)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -579,7 +635,7 @@ export function BrandBugEditorPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField
               id="brand-bug-opacity"
-              label="Opacity (%)"
+              label={t("brandBug.editor.opacityLabel")}
               type="number"
               min={10}
               max={100}
@@ -588,7 +644,7 @@ export function BrandBugEditorPage() {
             />
             <FormField
               id="brand-bug-priority"
-              label="Priority"
+              label={t("shared.priorityLabel")}
               type="number"
               min={-1000}
               max={1000}
@@ -596,25 +652,30 @@ export function BrandBugEditorPage() {
               {...register("priority", { valueAsNumber: true })}
             />
           </div>
-          <RegisterCheckbox label="Enabled" {...register("enabled")} />
+          <RegisterCheckbox
+            label={t("shared.enabledLabel")}
+            {...register("enabled")}
+          />
         </section>
 
         <section className="grid gap-4 rounded-xl border border-border p-4">
-          <h2 className="text-base font-semibold">Optional window</h2>
+          <h2 className="text-base font-semibold">
+            {t("brandBug.editor.sections.window")}
+          </h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField
               id="brand-bug-starts"
-              label="Show from"
+              label={t("brandBug.editor.windowFrom")}
               type="datetime-local"
-              hint="Leave blank to show as soon as it is enabled."
+              hint={t("brandBug.editor.windowFromHint")}
               error={errors.startsAt?.message}
               {...register("startsAt")}
             />
             <FormField
               id="brand-bug-ends"
-              label="Show until"
+              label={t("brandBug.editor.windowUntil")}
               type="datetime-local"
-              hint="Leave blank to show indefinitely."
+              hint={t("brandBug.editor.windowUntilHint")}
               error={errors.endsAt?.message}
               {...register("endsAt")}
             />
@@ -622,7 +683,9 @@ export function BrandBugEditorPage() {
         </section>
 
         <section className="grid gap-4 rounded-xl border border-border p-4">
-          <h2 className="text-base font-semibold">Targets</h2>
+          <h2 className="text-base font-semibold">
+            {t("shared.targetsSection")}
+          </h2>
           <TargetFields
             idPrefix="brand-bug"
             scope={targetScope}
@@ -639,7 +702,7 @@ export function BrandBugEditorPage() {
 
         {save.isError && (
           <Alert variant="destructive">
-            <AlertDescription>{save.error.message}</AlertDescription>
+            <AlertDescription>{apiErrorMessage(save.error)}</AlertDescription>
           </Alert>
         )}
         <div className="flex flex-wrap items-center justify-end gap-2">
@@ -647,14 +710,14 @@ export function BrandBugEditorPage() {
             className={buttonVariants({ variant: "outline", size: "lg" })}
             to="/plugins/brand-bug"
           >
-            Cancel
+            {t("common:actions.cancel")}
           </Link>
           <RheaButton type="submit" disabled={save.isPending}>
             {save.isPending
-              ? "Saving…"
+              ? t("common:actions.saving")
               : editing
-                ? "Save changes"
-                : "Create instance"}
+                ? t("common:actions.saveChanges")
+                : t("shared.createInstance")}
           </RheaButton>
         </div>
       </form>

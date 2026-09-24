@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { InputHTMLAttributes } from "react";
 import type { UseFormRegisterReturn } from "react-hook-form";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { Field, FieldError, FieldLabel } from "../components/ui/field";
 import {
@@ -10,13 +11,37 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
+import type { PluginsT } from "./pluginCatalog";
 
 const targetScopeOptions = [
-  { value: "all", label: "All screens" },
-  { value: "screens", label: "Individual screens" },
-  { value: "sync_groups", label: "Display Groups" },
-  { value: "locations", label: "Locations" },
-];
+  { value: "all", labelKey: "shared.scope.all" },
+  { value: "screens", labelKey: "shared.scope.screens" },
+  { value: "sync_groups", labelKey: "shared.scope.syncGroups" },
+  { value: "locations", labelKey: "shared.scope.locations" },
+] as const;
+
+export function targetScopeLabel(value: TargetScope, t: PluginsT) {
+  const found = targetScopeOptions.find((option) => option.value === value);
+  return found ? t(found.labelKey) : value;
+}
+
+/** Weekday toggle labels, keyed by the numeric scheduleWeekdays value. */
+const weekdayShortKeys = {
+  0: "weekdays.sunday.short",
+  1: "weekdays.monday.short",
+  2: "weekdays.tuesday.short",
+  3: "weekdays.wednesday.short",
+  4: "weekdays.thursday.short",
+  5: "weekdays.friday.short",
+  6: "weekdays.saturday.short",
+} as const;
+
+export function weekdayShortLabel(value: number, t: PluginsT) {
+  const key =
+    weekdayShortKeys[value as keyof typeof weekdayShortKeys] ??
+    weekdayShortKeys[0];
+  return t(key);
+}
 
 /** Wrapping-label native checkbox for react-hook-form register() spreads. */
 export function RegisterCheckbox({
@@ -71,6 +96,7 @@ export interface TargetSource {
 }
 
 export function useTargetSource(scope: TargetScope): TargetSource | null {
+  const { t } = useTranslation("plugins");
   const screens = useQuery({
     queryKey: ["screens"],
     queryFn: api.screens,
@@ -87,18 +113,22 @@ export function useTargetSource(scope: TargetScope): TargetSource | null {
     enabled: scope === "locations",
   });
   return scope === "screens"
-    ? { query: screens, noun: "screens", empty: "No screens are enrolled yet." }
+    ? {
+        query: screens,
+        noun: t("shared.nouns.screens"),
+        empty: t("shared.empty.screens"),
+      }
     : scope === "sync_groups"
       ? {
           query: groups,
-          noun: "Display Groups",
-          empty: "No Display Groups exist yet.",
+          noun: t("shared.nouns.syncGroups"),
+          empty: t("shared.empty.syncGroups"),
         }
       : scope === "locations"
         ? {
             query: locations,
-            noun: "locations",
-            empty: "No locations exist yet.",
+            noun: t("shared.nouns.locations"),
+            empty: t("shared.empty.locations"),
           }
         : null;
 }
@@ -120,6 +150,7 @@ export function TargetFields({
   registerTargetIds: UseFormRegisterReturn;
   onScopeChange: (value: TargetScope) => void;
 }) {
+  const { t } = useTranslation("plugins");
   const targets = (source?.query.data?.items ?? []).map((item) => ({
     id: item.id,
     name: item.name,
@@ -128,7 +159,7 @@ export function TargetFields({
     <>
       <Field>
         <FieldLabel htmlFor={`${idPrefix}-target-scope`}>
-          Target type
+          {t("shared.targetType")}
         </FieldLabel>
         <RheaSelect
           items={targetScopeOptions}
@@ -140,14 +171,14 @@ export function TargetFields({
         >
           <SelectTrigger
             id={`${idPrefix}-target-scope`}
-            aria-label="Target type"
+            aria-label={t("shared.targetType")}
           >
-            <SelectValue />
+            <SelectValue>{targetScopeLabel(scope, t)}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             {targetScopeOptions.map((option) => (
               <SelectItem key={option.value} value={option.value}>
-                {option.label}
+                {t(option.labelKey)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -159,7 +190,7 @@ export function TargetFields({
             className="text-sm font-medium"
             id={`${idPrefix}-targets-label`}
           >
-            Choose targets
+            {t("shared.chooseTargets")}
           </span>
           <div
             className="grid gap-2 rounded-xl border border-border p-3"
@@ -167,9 +198,14 @@ export function TargetFields({
             aria-labelledby={`${idPrefix}-targets-label`}
           >
             <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-              <span className="font-medium">Available {source.noun}</span>
+              <span className="font-medium">
+                {t("shared.available", { noun: source.noun })}
+              </span>
               <span className="text-xs text-muted-foreground tabular-nums">
-                {chosenCount} of {targets.length} selected
+                {t("shared.selectedCount", {
+                  chosen: chosenCount,
+                  total: targets.length,
+                })}
               </span>
             </div>
             <div className="grid max-h-56 gap-1 overflow-auto">
@@ -192,9 +228,9 @@ export function TargetFields({
               {!targets.length && (
                 <p className="text-sm text-muted-foreground">
                   {source.query.isLoading
-                    ? `Loading ${source.noun}…`
+                    ? t("shared.loadingNoun", { noun: source.noun })
                     : source.query.isError
-                      ? `The ${source.noun} could not be loaded.`
+                      ? t("shared.loadErrorNoun", { noun: source.noun })
                       : source.empty}
                 </p>
               )}

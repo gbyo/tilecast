@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useBlocker } from "react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import type {
   FormDataSource,
   FormTypedDataset,
@@ -87,6 +88,7 @@ export function ViewsEditor({
   form: FormDataSource;
   csrf: string;
 }) {
+  const { t } = useTranslation("forms");
   const [mode, setMode] = useState<"list" | "edit" | "new">("list");
   const [draft, setDraft] = useState<FormViewInput>(emptyView);
   const [isNew, setIsNew] = useState(true);
@@ -103,7 +105,11 @@ export function ViewsEditor({
   };
   const openDuplicate = (view: FormView) => {
     const copy = toInput(view);
-    setDraft({ ...copy, key: "", name: `${view.name} (copy)` });
+    setDraft({
+      ...copy,
+      key: "",
+      name: t("views.copyName", { name: view.name }),
+    });
     setIsNew(true);
     setMode("new");
   };
@@ -144,6 +150,7 @@ function ViewList({
   onEdit: (view: FormView) => void;
   onDuplicate: (view: FormView) => void;
 }) {
+  const { t } = useTranslation(["forms", "common"]);
   const queryClient = useQueryClient();
   const [error, setError] = useState("");
   const remove = useMutation({
@@ -163,7 +170,7 @@ function ViewList({
         setError(err.message);
       } else {
         setError(
-          err instanceof Error ? err.message : "Could not delete the view.",
+          err instanceof Error ? err.message : t("views.deleteFallback"),
         );
       }
     },
@@ -173,22 +180,20 @@ function ViewList({
     <div className="grid gap-3">
       <div className="flex flex-wrap gap-2">
         <RheaButton variant="default" onClick={onNew}>
-          New view
+          {t("views.newView")}
         </RheaButton>
       </div>
       {error && (
         <Alert variant="destructive">
-          <AlertTitle>View in use</AlertTitle>
+          <AlertTitle>{t("views.viewInUse")}</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
       {form.views.length === 0 ? (
         <Empty>
           <EmptyHeader>
-            <EmptyTitle>No saved views</EmptyTitle>
-            <EmptyDescription>
-              Create a view to publish a named dataset for Widgets.
-            </EmptyDescription>
+            <EmptyTitle>{t("views.noViews")}</EmptyTitle>
+            <EmptyDescription>{t("views.noViewsHint")}</EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : (
@@ -197,16 +202,16 @@ function ViewList({
             <TableHeader>
               <TableRow className="border-b border-border text-left text-xs text-muted-foreground">
                 <TableHead scope="col" className="px-3 py-2 font-medium">
-                  Name
+                  {t("views.tableName")}
                 </TableHead>
                 <TableHead scope="col" className="px-3 py-2 font-medium">
-                  Dataset key
+                  {t("views.tableKey")}
                 </TableHead>
                 <TableHead scope="col" className="px-3 py-2 font-medium">
-                  States
+                  {t("views.tableStates")}
                 </TableHead>
                 <TableHead scope="col" className="px-3 py-2 font-medium">
-                  <span className="sr-only">Actions</span>
+                  <span className="sr-only">{t("views.tableActions")}</span>
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -230,14 +235,14 @@ function ViewList({
                         size="sm"
                         onClick={() => onEdit(view)}
                       >
-                        Edit
+                        {t("common:actions.edit")}
                       </RheaButton>
                       <RheaButton
                         variant="ghost"
                         size="sm"
                         onClick={() => onDuplicate(view)}
                       >
-                        Duplicate
+                        {t("views.duplicate")}
                       </RheaButton>
                       <RheaButton
                         variant="ghost"
@@ -245,7 +250,7 @@ function ViewList({
                         disabled={remove.isPending}
                         onClick={() => remove.mutate(view.id)}
                       >
-                        Delete
+                        {t("common:actions.delete")}
                       </RheaButton>
                     </div>
                   </TableCell>
@@ -274,8 +279,9 @@ function ViewForm({
   isNew: boolean;
   onDone: () => void;
 }) {
+  const { t } = useTranslation(["forms", "common"]);
   const queryClient = useQueryClient();
-  const fields = useMemo(() => availableOutputFields(form), [form]);
+  const fields = useMemo(() => availableOutputFields(form, t), [form, t]);
   const fieldType = (key: string) =>
     fields.find((f) => f.key === key)?.type ?? "text";
   const timeFields = fields.filter((f) => isTimeField(f.type));
@@ -325,7 +331,7 @@ function ViewForm({
       onDone();
     },
     onError: (err) =>
-      setError(err instanceof Error ? err.message : "Could not save the view."),
+      setError(err instanceof Error ? err.message : t("views.saveFallback")),
   });
 
   const runPreview = useMutation({
@@ -340,9 +346,7 @@ function ViewForm({
       setError("");
     },
     onError: (err) =>
-      setError(
-        err instanceof Error ? err.message : "Could not preview the view.",
-      ),
+      setError(err instanceof Error ? err.message : t("views.previewFallback")),
   });
 
   const toggleState = (key: string) => {
@@ -373,28 +377,30 @@ function ViewForm({
     <div className="grid gap-4">
       {blocker.state === "blocked" && (
         <Alert>
-          <AlertTitle>Leave without saving?</AlertTitle>
-          <AlertDescription>This view has unsaved changes.</AlertDescription>
+          <AlertTitle>{t("views.leaveTitle")}</AlertTitle>
+          <AlertDescription>{t("views.leaveBody")}</AlertDescription>
           <div className="flex flex-wrap gap-2">
             <RheaButton variant="ghost" onClick={() => blocker.reset?.()}>
-              Stay
+              {t("views.stay")}
             </RheaButton>
             <RheaButton variant="default" onClick={() => blocker.proceed?.()}>
-              Leave
+              {t("views.leave")}
             </RheaButton>
           </div>
         </Alert>
       )}
       {error && (
         <Alert variant="destructive">
-          <AlertTitle>View not saved</AlertTitle>
+          <AlertTitle>{t("views.notSaved")}</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Field>
-          <FieldLabel htmlFor="form-view-name">View name</FieldLabel>
+          <FieldLabel htmlFor="form-view-name">
+            {t("views.nameLabel")}
+          </FieldLabel>
           <Input
             id="form-view-name"
             required
@@ -403,7 +409,7 @@ function ViewForm({
           />
         </Field>
         <Field>
-          <FieldLabel htmlFor="form-view-key">Dataset key</FieldLabel>
+          <FieldLabel htmlFor="form-view-key">{t("views.keyLabel")}</FieldLabel>
           <Input
             id="form-view-key"
             value={draft.key || (isNew ? slugifyKey(draft.name) : "")}
@@ -411,11 +417,13 @@ function ViewForm({
             onChange={(e) => update({ key: slugifyKey(e.target.value) })}
           />
           <FieldDescription>
-            {isNew ? "Lowercase key; fixed once saved." : "Keys are immutable."}
+            {isNew ? t("views.newKeyHint") : t("views.lockedKeyHint")}
           </FieldDescription>
         </Field>
         <Field>
-          <FieldLabel htmlFor="form-view-limit">Record limit</FieldLabel>
+          <FieldLabel htmlFor="form-view-limit">
+            {t("views.limitLabel")}
+          </FieldLabel>
           <Input
             id="form-view-limit"
             type="number"
@@ -426,7 +434,9 @@ function ViewForm({
           />
         </Field>
         <Field>
-          <FieldLabel htmlFor="form-view-position">Order</FieldLabel>
+          <FieldLabel htmlFor="form-view-position">
+            {t("views.orderLabel")}
+          </FieldLabel>
           <Input
             id="form-view-position"
             type="number"
@@ -437,7 +447,9 @@ function ViewForm({
       </div>
 
       <fieldset className="grid gap-3 rounded-xl border border-border p-4">
-        <legend className="text-sm font-medium">Included states</legend>
+        <legend className="text-sm font-medium">
+          {t("views.statesLegend")}
+        </legend>
         <div className="flex flex-wrap gap-2">
           {form.workflow.states.map((state) => (
             /* Base UI names the span from the wrapping label. */
@@ -454,13 +466,13 @@ function ViewForm({
 
       <fieldset className="grid gap-3 rounded-xl border border-border p-4">
         <legend className="text-sm font-medium">
-          Output fields &amp; order
+          {t("views.fieldsLegend")}
         </legend>
         <div>
           {/* No wrapping label: the control sits alone under the section legend. */}
           <RheaSelect
             items={[
-              { value: NONE_VALUE, label: "Add a field…" },
+              { value: NONE_VALUE, label: t("views.addFieldPlaceholder") },
               ...fields
                 .filter((field) => !draft.outputFields.includes(field.key))
                 .map((field) => ({ value: field.key, label: field.label })),
@@ -470,11 +482,13 @@ function ViewForm({
               if (value && value !== NONE_VALUE) addOutputField(value);
             }}
           >
-            <SelectTrigger aria-label="Add an output field">
+            <SelectTrigger aria-label={t("views.addFieldLabel")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={NONE_VALUE}>Add a field…</SelectItem>
+              <SelectItem value={NONE_VALUE}>
+                {t("views.addFieldPlaceholder")}
+              </SelectItem>
               {fields
                 .filter((f) => !draft.outputFields.includes(f.key))
                 .map((f) => (
@@ -496,7 +510,9 @@ function ViewForm({
                 <button
                   type="button"
                   className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
-                  aria-label={`Move ${fields.find((f) => f.key === key)?.label ?? key} up`}
+                  aria-label={t("views.moveUp", {
+                    label: fields.find((f) => f.key === key)?.label ?? key,
+                  })}
                   disabled={index === 0}
                   onClick={() => moveOutputField(index, -1)}
                 >
@@ -505,7 +521,9 @@ function ViewForm({
                 <button
                   type="button"
                   className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
-                  aria-label={`Move ${fields.find((f) => f.key === key)?.label ?? key} down`}
+                  aria-label={t("views.moveDown", {
+                    label: fields.find((f) => f.key === key)?.label ?? key,
+                  })}
                   disabled={index === draft.outputFields.length - 1}
                   onClick={() => moveOutputField(index, 1)}
                 >
@@ -514,7 +532,9 @@ function ViewForm({
                 <button
                   type="button"
                   className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
-                  aria-label={`Remove ${fields.find((f) => f.key === key)?.label ?? key}`}
+                  aria-label={t("views.removeLabel", {
+                    label: fields.find((f) => f.key === key)?.label ?? key,
+                  })}
                   onClick={() =>
                     update({
                       outputFields: draft.outputFields.filter((k) => k !== key),
@@ -528,21 +548,23 @@ function ViewForm({
           ))}
           {draft.outputFields.length === 0 && (
             <li className="text-sm text-muted-foreground">
-              All available fields (none selected).
+              {t("views.noneSelected")}
             </li>
           )}
         </ol>
       </fieldset>
 
       <fieldset className="grid gap-3 rounded-xl border border-border p-4">
-        <legend className="text-sm font-medium">Field filters</legend>
+        <legend className="text-sm font-medium">
+          {t("views.filtersLegend")}
+        </legend>
         {draft.fieldFilters.map((filter, index) => {
-          const operators = operatorsForType(fieldType(filter.field));
+          const operators = operatorsForType(fieldType(filter.field), t);
           return (
             <div key={index} className="flex flex-wrap items-center gap-2">
               <RheaSelect
                 items={[
-                  { value: NONE_VALUE, label: "Field…" },
+                  { value: NONE_VALUE, label: t("views.fieldPlaceholder") },
                   ...fields.map((field) => ({
                     value: field.key,
                     label: field.label,
@@ -551,9 +573,10 @@ function ViewForm({
                 value={filter.field || NONE_VALUE}
                 onValueChange={(value) => {
                   const nextField = !value || value === NONE_VALUE ? "" : value;
-                  const validOps = operatorsForType(fieldType(nextField)).map(
-                    (o) => o.value,
-                  );
+                  const validOps = operatorsForType(
+                    fieldType(nextField),
+                    t,
+                  ).map((o) => o.value);
                   const filters = [...draft.fieldFilters];
                   filters[index] = {
                     ...filter,
@@ -565,11 +588,13 @@ function ViewForm({
                   update({ fieldFilters: filters });
                 }}
               >
-                <SelectTrigger aria-label="Filter field">
+                <SelectTrigger aria-label={t("views.filterFieldLabel")}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NONE_VALUE}>Field…</SelectItem>
+                  <SelectItem value={NONE_VALUE}>
+                    {t("views.fieldPlaceholder")}
+                  </SelectItem>
                   {fields.map((f) => (
                     <SelectItem key={f.key} value={f.key}>
                       {f.label}
@@ -589,7 +614,7 @@ function ViewForm({
                   update({ fieldFilters: filters });
                 }}
               >
-                <SelectTrigger aria-label="Filter operator">
+                <SelectTrigger aria-label={t("views.operatorLabel")}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -623,7 +648,7 @@ function ViewForm({
                   })
                 }
               >
-                Remove
+                {t("views.removeItem")}
               </RheaButton>
             </div>
           );
@@ -639,24 +664,24 @@ function ViewForm({
                 ...draft.fieldFilters,
                 {
                   field: first.key,
-                  operator: operatorsForType(first.type)[0]!.value as never,
+                  operator: operatorsForType(first.type, t)[0]!.value as never,
                   value: "",
                 },
               ],
             });
           }}
         >
-          Add filter
+          {t("views.addFilter")}
         </RheaButton>
       </fieldset>
 
       <fieldset className="grid gap-3 rounded-xl border border-border p-4">
-        <legend className="text-sm font-medium">Sort</legend>
+        <legend className="text-sm font-medium">{t("views.sortLegend")}</legend>
         {draft.sort.map((rule, index) => (
           <div key={index} className="flex flex-wrap items-center gap-2">
             <RheaSelect
               items={[
-                { value: NONE_VALUE, label: "Field…" },
+                { value: NONE_VALUE, label: t("views.fieldPlaceholder") },
                 ...fields.map((field) => ({
                   value: field.key,
                   label: field.label,
@@ -672,11 +697,13 @@ function ViewForm({
                 update({ sort });
               }}
             >
-              <SelectTrigger aria-label="Sort field">
+              <SelectTrigger aria-label={t("views.sortFieldLabel")}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={NONE_VALUE}>Field…</SelectItem>
+                <SelectItem value={NONE_VALUE}>
+                  {t("views.fieldPlaceholder")}
+                </SelectItem>
                 {fields.map((f) => (
                   <SelectItem key={f.key} value={f.key}>
                     {f.label}
@@ -686,8 +713,8 @@ function ViewForm({
             </RheaSelect>
             <RheaSelect
               items={[
-                { value: "asc", label: "Ascending" },
-                { value: "desc", label: "Descending" },
+                { value: "asc", label: t("views.ascending") },
+                { value: "desc", label: t("views.descending") },
               ]}
               value={rule.direction}
               onValueChange={(value) => {
@@ -699,12 +726,12 @@ function ViewForm({
                 update({ sort });
               }}
             >
-              <SelectTrigger aria-label="Sort direction">
+              <SelectTrigger aria-label={t("views.sortDirectionLabel")}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="asc">Ascending</SelectItem>
-                <SelectItem value="desc">Descending</SelectItem>
+                <SelectItem value="asc">{t("views.ascending")}</SelectItem>
+                <SelectItem value="desc">{t("views.descending")}</SelectItem>
               </SelectContent>
             </RheaSelect>
             <RheaButton
@@ -714,7 +741,7 @@ function ViewForm({
                 update({ sort: draft.sort.filter((_, i) => i !== index) })
               }
             >
-              Remove
+              {t("views.removeItem")}
             </RheaButton>
           </div>
         ))}
@@ -729,12 +756,12 @@ function ViewForm({
             });
           }}
         >
-          Add sort rule
+          {t("views.addSort")}
         </RheaButton>
       </fieldset>
 
       <fieldset className="grid gap-3 rounded-xl border border-border p-4">
-        <legend className="text-sm font-medium">Time window</legend>
+        <legend className="text-sm font-medium">{t("views.timeLegend")}</legend>
         {/* Base UI names the span from the wrapping label. */}
         <label className="flex items-center gap-2 text-sm">
           <RheaCheckbox
@@ -748,17 +775,17 @@ function ViewForm({
               })
             }
           />
-          <span>Filter by a relative time window</span>
+          <span>{t("views.timeEnabled")}</span>
         </label>
         {draft.timeFilter.enabled && (
           <div className="grid gap-3 sm:grid-cols-2">
             <Field>
               <FieldLabel htmlFor="form-view-start-field">
-                Start field
+                {t("views.startField")}
               </FieldLabel>
               <RheaSelect
                 items={[
-                  { value: NONE_VALUE, label: "None" },
+                  { value: NONE_VALUE, label: t("views.noneOption") },
                   ...timeFields.map((field) => ({
                     value: field.key,
                     label: field.label,
@@ -778,7 +805,9 @@ function ViewForm({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NONE_VALUE}>None</SelectItem>
+                  <SelectItem value={NONE_VALUE}>
+                    {t("views.noneOption")}
+                  </SelectItem>
                   {timeFields.map((f) => (
                     <SelectItem key={f.key} value={f.key}>
                       {f.label}
@@ -788,10 +817,12 @@ function ViewForm({
               </RheaSelect>
             </Field>
             <Field>
-              <FieldLabel htmlFor="form-view-end-field">End field</FieldLabel>
+              <FieldLabel htmlFor="form-view-end-field">
+                {t("views.endField")}
+              </FieldLabel>
               <RheaSelect
                 items={[
-                  { value: NONE_VALUE, label: "None" },
+                  { value: NONE_VALUE, label: t("views.noneOption") },
                   ...timeFields.map((field) => ({
                     value: field.key,
                     label: field.label,
@@ -811,7 +842,9 @@ function ViewForm({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NONE_VALUE}>None</SelectItem>
+                  <SelectItem value={NONE_VALUE}>
+                    {t("views.noneOption")}
+                  </SelectItem>
                   {timeFields.map((f) => (
                     <SelectItem key={f.key} value={f.key}>
                       {f.label}
@@ -833,7 +866,7 @@ function ViewForm({
                   })
                 }
               />
-              <span>Start is before now</span>
+              <span>{t("views.startBeforeNow")}</span>
             </label>
             {/* Base UI names the span from the wrapping label. */}
             <label className="flex items-center gap-2 text-sm">
@@ -848,7 +881,7 @@ function ViewForm({
                   })
                 }
               />
-              <span>End is after now</span>
+              <span>{t("views.endAfterNow")}</span>
             </label>
           </div>
         )}
@@ -856,7 +889,7 @@ function ViewForm({
 
       <div className="flex flex-wrap gap-2">
         <RheaButton variant="ghost" onClick={onDone}>
-          Back
+          {t("common:actions.back")}
         </RheaButton>
         <RheaButton
           variant="secondary"
@@ -865,7 +898,7 @@ function ViewForm({
           onClick={() => runPreview.mutate()}
         >
           {runPreview.isPending && <Spinner aria-hidden="true" />}
-          Preview
+          {t("views.previewButton")}
         </RheaButton>
         <RheaButton
           variant="default"
@@ -874,21 +907,23 @@ function ViewForm({
           onClick={() => save.mutate()}
         >
           {save.isPending && <Spinner aria-hidden="true" />}
-          Save view
+          {t("views.saveButton")}
         </RheaButton>
       </div>
 
       {preview && (
         <section className="grid gap-2 rounded-xl border border-border p-4">
           <h3 className="flex flex-wrap items-center gap-2 text-base font-semibold">
-            Preview{" "}
+            {t("views.previewTitle")}{" "}
             <Badge {...formToneBadgeProps("neutral")}>
-              {`${preview.records?.length ?? 0} records`}
+              {t("views.previewCount", {
+                count: preview.records?.length ?? 0,
+              })}
             </Badge>
           </h3>
           {(preview.records?.length ?? 0) === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No records match this view.
+              {t("views.previewEmpty")}
             </p>
           ) : (
             <div className="overflow-x-auto rounded-xl border border-border">

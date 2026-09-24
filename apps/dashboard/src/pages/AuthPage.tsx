@@ -1,11 +1,12 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
+import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router";
 import { useAuth } from "../auth/AuthProvider";
 import {
-  loginSchema,
-  mfaSchema,
+  makeLoginSchema,
+  makeMfaSchema,
   type LoginForm,
   type MFAForm,
 } from "../auth/schemas";
@@ -32,6 +33,7 @@ import { SetupFlow } from "./SetupFlow";
 
 export function AuthPage({ mode }: { mode: "setup" | "login" }) {
   const auth = useAuth();
+  const { t } = useTranslation(["auth", "common"]);
   const navigate = useNavigate();
   const location = useLocation();
   const requestedReturn = new URLSearchParams(location.search).get("returnTo");
@@ -71,13 +73,13 @@ export function AuthPage({ mode }: { mode: "setup" | "login" }) {
                   data-slot="card-title"
                   className="font-heading text-xl font-medium"
                 >
-                  Two-step verification
+                  {t("challenge.title")}
                 </h1>
                 <CardDescription>
                   {auth.challenge.methods.includes("totp") ||
                   auth.challenge.methods.includes("recovery_code")
-                    ? "Enter the six-digit code from your authenticator app, or one of your recovery codes."
-                    : "Confirm your passkey to finish signing in."}
+                    ? t("challenge.codeDescription")
+                    : t("challenge.passkeyDescription")}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -91,11 +93,9 @@ export function AuthPage({ mode }: { mode: "setup" | "login" }) {
                   data-slot="card-title"
                   className="font-heading text-xl font-medium"
                 >
-                  Sign in
+                  {t("login.title")}
                 </h1>
-                <CardDescription>
-                  Manage your Tilecast displays.
-                </CardDescription>
+                <CardDescription>{t("login.description")}</CardDescription>
               </CardHeader>
               <CardContent>
                 <LoginFormView />
@@ -125,8 +125,12 @@ function LoginFormView() {
     isSubmitting,
     status,
   } = useAuth();
+  const { t } = useTranslation(["auth", "common"]);
+  // The schema is built at render time so its messages follow the interface
+  // language.
+  const schema = useMemo(() => makeLoginSchema(t), [t]);
   const form = useForm<LoginForm>({
-    resolver: zodResolver(loginSchema),
+    resolver: zodResolver(schema),
     defaultValues: { username: "", password: "" },
   });
   const submit = form.handleSubmit(async (values) => {
@@ -153,7 +157,7 @@ function LoginFormView() {
       <FieldGroup>
         {error && <AuthError message={error.message} />}
         <Field>
-          <FieldLabel htmlFor="username">Email or username</FieldLabel>
+          <FieldLabel htmlFor="username">{t("fields.username")}</FieldLabel>
           <Input
             id="username"
             autoComplete="username webauthn"
@@ -164,7 +168,7 @@ function LoginFormView() {
           <FieldError errors={[form.formState.errors.username]} />
         </Field>
         <Field>
-          <FieldLabel htmlFor="password">Password</FieldLabel>
+          <FieldLabel htmlFor="password">{t("fields.password")}</FieldLabel>
           <Input
             id="password"
             type="password"
@@ -176,13 +180,13 @@ function LoginFormView() {
         </Field>
         <Field>
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Signing in…" : "Sign in"}
+            {isSubmitting ? t("login.submitting") : t("login.submit")}
           </Button>
         </Field>
         {passkeys && (
           <>
             <FieldSeparator className="*:data-[slot=field-separator-content]:bg-card">
-              or
+              {t("separators.or")}
             </FieldSeparator>
             <Field>
               <Button
@@ -191,7 +195,7 @@ function LoginFormView() {
                 disabled={isSubmitting}
                 onClick={() => void loginWithPasskey()}
               >
-                Sign in with a passkey
+                {t("login.passkeyButton")}
               </Button>
             </Field>
           </>
@@ -214,8 +218,10 @@ function ChallengeFormView() {
     error,
     isSubmitting,
   } = useAuth();
+  const { t } = useTranslation(["auth", "common"]);
+  const schema = useMemo(() => makeMfaSchema(t), [t]);
   const form = useForm<MFAForm>({
-    resolver: zodResolver(mfaSchema),
+    resolver: zodResolver(schema),
     defaultValues: { code: "" },
   });
   const submit = form.handleSubmit(async (values) => {
@@ -237,7 +243,7 @@ function ChallengeFormView() {
         <form onSubmit={(event) => void submit(event)} noValidate>
           <FieldGroup>
             <Field>
-              <FieldLabel htmlFor="code">Verification code</FieldLabel>
+              <FieldLabel htmlFor="code">{t("challenge.codeLabel")}</FieldLabel>
               <Input
                 id="code"
                 autoComplete="one-time-code"
@@ -250,7 +256,9 @@ function ChallengeFormView() {
             </Field>
             <Field>
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Verifying…" : "Verify"}
+                {isSubmitting
+                  ? t("challenge.submitting")
+                  : t("challenge.submit")}
               </Button>
             </Field>
           </FieldGroup>
@@ -260,7 +268,7 @@ function ChallengeFormView() {
         <div className="grid gap-4">
           {canUseCode && (
             <FieldSeparator className="*:data-[slot=field-separator-content]:bg-card">
-              or
+              {t("separators.or")}
             </FieldSeparator>
           )}
           <Button
@@ -269,22 +277,23 @@ function ChallengeFormView() {
             disabled={isSubmitting}
             onClick={() => void verifyMfaPasskey()}
           >
-            Use a passkey
+            {t("challenge.passkeyButton")}
           </Button>
         </div>
       )}
       <Button variant="ghost" type="button" onClick={cancelChallenge}>
-        Back to sign in
+        {t("challenge.back")}
       </Button>
     </div>
   );
 }
 
 function LoadingScreen() {
+  const { t } = useTranslation(["auth", "common"]);
   return (
     <div className="flex min-h-svh items-center justify-center gap-3 bg-muted">
       <Brand compact />
-      <Spinner aria-label="Loading" />
+      <Spinner aria-label={t("status.loading")} />
     </div>
   );
 }

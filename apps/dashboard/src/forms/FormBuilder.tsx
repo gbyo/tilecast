@@ -64,6 +64,7 @@ import {
 } from "../components/ui/sheet";
 import { Spinner } from "../components/ui/spinner";
 import { Textarea } from "../components/ui/textarea";
+import { useTranslation } from "react-i18next";
 import { useDesktopLayout } from "../hooks/use-desktop-layout";
 import { FormFieldEditor, type FieldLock } from "./FormFieldEditor";
 import { FormFieldPalette } from "./FormFieldPalette";
@@ -91,6 +92,7 @@ export function FormBuilder({
   csrf: string;
   readOnly?: boolean;
 }) {
+  const { t } = useTranslation(["forms", "common"]);
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<FormSchema>(() =>
     cloneSchema(form.draftSchema),
@@ -156,7 +158,7 @@ export function FormBuilder({
     },
     onError: (error) =>
       setSaveError(
-        error instanceof Error ? error.message : "Could not save the draft.",
+        error instanceof Error ? error.message : t("builder.draftFallback"),
       ),
   });
 
@@ -188,10 +190,10 @@ export function FormBuilder({
     },
     onError: (error) => {
       if (error instanceof ApiError && error.status === 409) {
-        setPublishError("The form changed elsewhere. Reload and try again.");
+        setPublishError(t("builder.publishConflict"));
       } else {
         setPublishError(
-          error instanceof Error ? error.message : "Could not publish.",
+          error instanceof Error ? error.message : t("builder.publishFallback"),
         );
       }
     },
@@ -229,7 +231,7 @@ export function FormBuilder({
     return [
       {
         key: "up",
-        label: "Move up",
+        label: t("builder.actions.moveUp"),
         icon: <ArrowUp size={14} aria-hidden="true" />,
         shortcut: "Alt+↑",
         disabled: index === 0,
@@ -237,7 +239,7 @@ export function FormBuilder({
       },
       {
         key: "down",
-        label: "Move down",
+        label: t("builder.actions.moveDown"),
         icon: <ArrowDown size={14} aria-hidden="true" />,
         shortcut: "Alt+↓",
         disabled: index === last,
@@ -245,7 +247,7 @@ export function FormBuilder({
       },
       {
         key: "top",
-        label: "Move to top",
+        label: t("builder.actions.moveTop"),
         icon: <ArrowUpToLine size={14} aria-hidden="true" />,
         shortcut: "Alt+Home",
         disabled: index === 0,
@@ -253,7 +255,7 @@ export function FormBuilder({
       },
       {
         key: "bottom",
-        label: "Move to bottom",
+        label: t("builder.actions.moveBottom"),
         icon: <ArrowDownToLine size={14} aria-hidden="true" />,
         shortcut: "Alt+End",
         disabled: index === last,
@@ -261,7 +263,7 @@ export function FormBuilder({
       },
       {
         key: "delete",
-        label: "Delete field",
+        label: t("builder.actions.deleteField"),
         icon: <Trash2 size={14} aria-hidden="true" />,
         disabled: lockFor(field).deleteLocked,
         danger: true,
@@ -290,8 +292,8 @@ export function FormBuilder({
 
   const renderFieldRow = (field: FormField, index: number) => {
     const name = field.label || field.key;
-    const rowLabel = `Edit ${name}`;
-    const menuLabel = `Actions for ${name}`;
+    const rowLabel = t("builder.row.editField", { name });
+    const menuLabel = t("builder.row.actionsFor", { name });
     const actions = readOnly ? [] : fieldActions(index, field);
     const selectButton = (
       <button
@@ -303,7 +305,7 @@ export function FormBuilder({
       >
         <span className="truncate text-sm font-medium">{name}</span>
         <span className="text-xs text-muted-foreground">
-          {controlMeta(field.control).label}
+          {t(controlMeta(field.control).labelKey)}
         </span>
       </button>
     );
@@ -402,10 +404,11 @@ export function FormBuilder({
   // Selection is updated outside the setDraft updater so the updater stays pure (React StrictMode
   // may invoke it more than once).
   const addField = (control: FormFieldControl) => {
-    const field = newField(control, [
-      ...draft.fields.map((f) => f.key),
-      ...RESERVED_FIELD_KEYS,
-    ]);
+    const field = newField(
+      control,
+      [...draft.fields.map((f) => f.key), ...RESERVED_FIELD_KEYS],
+      t,
+    );
     setDraft((current) => ({ ...current, fields: [...current.fields, field] }));
     setSelected(draft.fields.length);
   };
@@ -467,10 +470,13 @@ export function FormBuilder({
   };
 
   const fieldsPanel = (
-    <section className="grid content-start gap-3" aria-label="Form fields">
+    <section
+      className="grid content-start gap-3"
+      aria-label={t("builder.fieldsPanel")}
+    >
       {draft.fields.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          No fields yet. Add the first one below.
+          {t("builder.emptyFields")}
         </p>
       ) : (
         <RheaItemGroup>
@@ -482,11 +488,16 @@ export function FormBuilder({
   );
 
   const previewPanel = (
-    <section className="grid content-start gap-3" aria-label="Form preview">
+    <section
+      className="grid content-start gap-3"
+      aria-label={t("builder.previewPanel")}
+    >
       {!readOnly && (
         <div className="grid gap-3">
           <Field>
-            <FieldLabel htmlFor="form-builder-title">Form title</FieldLabel>
+            <FieldLabel htmlFor="form-builder-title">
+              {t("builder.formTitle")}
+            </FieldLabel>
             <Input
               id="form-builder-title"
               value={draft.title ?? ""}
@@ -500,7 +511,7 @@ export function FormBuilder({
           </Field>
           <Field>
             <FieldLabel htmlFor="form-builder-description">
-              Form description
+              {t("builder.formDescription")}
             </FieldLabel>
             <Textarea
               id="form-builder-description"
@@ -521,12 +532,17 @@ export function FormBuilder({
   );
 
   const inspectorPanel = !readOnly ? (
-    <aside className="grid content-start gap-4" aria-label="Field settings">
+    <aside
+      className="grid content-start gap-4"
+      aria-label={t("builder.inspectorPanel")}
+    >
       <div className="grid gap-1">
         <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          Inspector
+          {t("builder.inspectorEyebrow")}
         </p>
-        <h3 className="text-base font-semibold">Field settings</h3>
+        <h3 className="text-base font-semibold">
+          {t("builder.inspectorPanel")}
+        </h3>
       </div>
       <Separator />
       {selectedField ? (
@@ -539,7 +555,7 @@ export function FormBuilder({
         />
       ) : (
         <p className="text-sm text-muted-foreground">
-          Select a field to edit its settings.
+          {t("builder.inspectorEmpty")}
         </p>
       )}
     </aside>
@@ -551,12 +567,12 @@ export function FormBuilder({
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border px-3 py-2">
           <span className="text-sm text-muted-foreground">
             {saveState === "saving"
-              ? "Saving…"
+              ? t("builder.status.saving")
               : saveState === "error"
-                ? "Save failed"
+                ? t("builder.status.saveFailed")
                 : saveState === "dirty"
-                  ? "Unsaved changes"
-                  : "Saved"}
+                  ? t("builder.status.unsaved")
+                  : t("builder.status.saved")}
           </span>
           <div className="flex flex-wrap gap-2">
             <RheaButton
@@ -566,7 +582,7 @@ export function FormBuilder({
               onClick={() => saveDraft.mutate()}
             >
               {saveDraft.isPending && <Spinner aria-hidden="true" />}
-              Save draft
+              {t("builder.saveDraft")}
             </RheaButton>
             <RheaButton
               variant="default"
@@ -577,7 +593,7 @@ export function FormBuilder({
               }
               onClick={() => setShowPublish(true)}
             >
-              Publish
+              {t("builder.publish")}
             </RheaButton>
           </div>
         </div>
@@ -585,17 +601,14 @@ export function FormBuilder({
 
       {blocker.state === "blocked" && (
         <Alert>
-          <AlertTitle>Leave without saving?</AlertTitle>
-          <AlertDescription>
-            You have unsaved changes to this form. Leaving now will discard
-            them.
-          </AlertDescription>
+          <AlertTitle>{t("builder.leave.title")}</AlertTitle>
+          <AlertDescription>{t("builder.leave.body")}</AlertDescription>
           <div className="flex flex-wrap gap-2">
             <RheaButton variant="ghost" onClick={() => blocker.reset?.()}>
-              Stay on page
+              {t("builder.leave.stay")}
             </RheaButton>
             <RheaButton variant="default" onClick={() => blocker.proceed?.()}>
-              Leave without saving
+              {t("builder.leave.leave")}
             </RheaButton>
           </div>
         </Alert>
@@ -603,17 +616,16 @@ export function FormBuilder({
 
       {saveError && (
         <Alert variant="destructive">
-          <AlertTitle>Draft not saved</AlertTitle>
+          <AlertTitle>{t("builder.draftError")}</AlertTitle>
           <AlertDescription>{saveError}</AlertDescription>
         </Alert>
       )}
 
       {showPublish && (
         <Alert>
-          <AlertTitle>Publish a new revision?</AlertTitle>
+          <AlertTitle>{t("builder.publishTitle")}</AlertTitle>
           <AlertDescription>
-            Publishing creates a new immutable revision. Existing submissions
-            stay tied to the revision they were created against.
+            {t("builder.publishBody")}
             {publishError && (
               <span className="font-medium text-destructive">
                 {" "}
@@ -627,7 +639,7 @@ export function FormBuilder({
               onClick={() => setShowPublish(false)}
               disabled={publish.isPending}
             >
-              Cancel
+              {t("common:actions.cancel")}
             </RheaButton>
             <RheaButton
               variant="default"
@@ -636,7 +648,7 @@ export function FormBuilder({
               onClick={() => publish.mutate()}
             >
               {publish.isPending && <Spinner aria-hidden="true" />}
-              Publish revision
+              {t("builder.publishConfirm")}
             </RheaButton>
           </div>
         </Alert>
@@ -646,13 +658,13 @@ export function FormBuilder({
         <ResizablePanelGroup
           orientation="horizontal"
           role="group"
-          aria-label="Form fields, preview, and inspector"
+          aria-label={t("builder.layout.group")}
         >
           <ResizablePanel
             id="form-fields"
             defaultSize="26%"
             minSize="18%"
-            aria-label="Form fields"
+            aria-label={t("builder.layout.fields")}
           >
             <div className="grid min-w-0 content-start gap-3 pr-4">
               {fieldsPanel}
@@ -660,13 +672,13 @@ export function FormBuilder({
           </ResizablePanel>
           <ResizableHandle
             withHandle
-            aria-label="Resize fields and preview panes"
+            aria-label={t("builder.layout.resizeFieldsPreview")}
           />
           <ResizablePanel
             id="form-preview"
             defaultSize={readOnly ? "74%" : "44%"}
             minSize="30%"
-            aria-label="Form preview"
+            aria-label={t("builder.layout.preview")}
           >
             <div className="grid min-w-0 content-start gap-3 px-4">
               {previewPanel}
@@ -676,13 +688,13 @@ export function FormBuilder({
             <>
               <ResizableHandle
                 withHandle
-                aria-label="Resize preview and inspector panes"
+                aria-label={t("builder.layout.resizePreviewInspector")}
               />
               <ResizablePanel
                 id="form-inspector"
                 defaultSize="30%"
                 minSize="20%"
-                aria-label="Field settings"
+                aria-label={t("builder.layout.inspector")}
               >
                 <div className="grid min-w-0 content-start gap-3 pl-4">
                   {inspectorPanel}
@@ -708,7 +720,7 @@ export function FormBuilder({
           <SheetContent side="right" className="overflow-y-auto">
             <SheetHeader>
               <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Field settings
+                {t("builder.inspectorPanel")}
               </p>
               <SheetTitle>
                 {selectedField.label || selectedField.key}

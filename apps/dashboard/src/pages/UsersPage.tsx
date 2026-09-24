@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import {
   Pencil,
   Plus,
@@ -33,6 +34,7 @@ import {
 } from "../components/ui/select";
 import { Spinner } from "../components/ui/spinner";
 import { toast } from "../components/ui/toast";
+import { useFormatLocale } from "../i18n";
 
 type UserRole = User["role"];
 type UserInput = {
@@ -48,6 +50,7 @@ async function userRequest<T>(
   path: string,
   csrfToken: string,
   init?: RequestInit,
+  fallbackMessage?: string,
 ) {
   const response = await fetch(`/api/v1${path}`, {
     ...init,
@@ -60,9 +63,7 @@ async function userRequest<T>(
   });
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as ErrorResponse;
-    throw new Error(
-      body.error?.message ?? "Tilecast could not update this account.",
-    );
+    throw new Error(body.error?.message ?? fallbackMessage);
   }
   if (response.status === 204) return undefined as T;
   return ((await response.json()) as { data: T }).data;
@@ -72,33 +73,41 @@ async function userRequest<T>(
 // see who is still unenrolled under a policy without opening every account.
 type ManagedUser = User & { mfaEnrolled: boolean; mfaRequired: boolean };
 
-function listUsers() {
-  return userRequest<{ items: ManagedUser[]; total: number }>("/users", "");
+function listUsers(fallbackMessage: string) {
+  return userRequest<{ items: ManagedUser[]; total: number }>(
+    "/users",
+    "",
+    undefined,
+    fallbackMessage,
+  );
 }
 
 import { ScreenScopeEditor } from "./ScreenScopeEditor";
 
-const roleLabels: Record<UserRole, string> = {
-  owner: "Owner",
-  administrator: "Administrator",
-  editor: "Editor",
-  contributor: "Contributor",
-  viewer: "Viewer",
-};
+// Role structures hold translation keys, never rendered text. Labels are
+// resolved with t() at render so the page follows language changes.
+const roleKeys = {
+  owner: "roles.owner",
+  administrator: "roles.administrator",
+  editor: "roles.editor",
+  contributor: "roles.contributor",
+  viewer: "roles.viewer",
+} as const satisfies Record<UserRole, string>;
 
 // Roles are a hierarchy of what an account can put in front of people, so the
 // difference between the two content roles is worth spelling out where somebody
 // is choosing between them.
-const roleDescriptions: Record<UserRole, string> = {
-  owner: "Everything, including backups and integration tokens.",
-  administrator: "Everything except Owner-only system operations.",
-  editor: "Creates content, publishes it, and manages screens and playback.",
-  contributor:
-    "Creates and edits content, but cannot publish a Layout, delete anything, or put content on a screen.",
-  viewer: "Reads only.",
-};
+const roleDescriptionKeys = {
+  owner: "roles.descriptions.owner",
+  administrator: "roles.descriptions.administrator",
+  editor: "roles.descriptions.editor",
+  contributor: "roles.descriptions.contributor",
+  viewer: "roles.descriptions.viewer",
+} as const satisfies Record<UserRole, string>;
 
 export function UsersPage() {
+  const { t } = useTranslation(["account", "common"]);
+  const locale = useFormatLocale();
   const auth = useAuth();
   const client = useQueryClient();
   const csrf = auth.status?.csrfToken ?? "";
@@ -109,7 +118,7 @@ export function UsersPage() {
   const isOwner = currentUser?.role === "owner";
   const users = useQuery({
     queryKey: ["users"],
-    queryFn: listUsers,
+    queryFn: () => listUsers(t("users.errors.requestFailed")),
     enabled: canManage,
   });
   const [name, setName] = useState("");
@@ -119,12 +128,17 @@ export function UsersPage() {
   const [editing, setEditing] = useState<ManagedUser>();
   const create = useMutation({
     mutationFn: (input: UserInput) =>
-      userRequest<User>("/users", csrf, {
-        method: "POST",
-        body: JSON.stringify(input),
-      }),
+      userRequest<User>(
+        "/users",
+        csrf,
+        {
+          method: "POST",
+          body: JSON.stringify(input),
+        },
+        t("users.errors.requestFailed"),
+      ),
     onSuccess: async () => {
-      toast.add({ title: "User created.", type: "success" });
+      toast.add({ title: t("users.toasts.created"), type: "success" });
       setName("");
       setUsername("");
       setPassword("");
@@ -136,9 +150,7 @@ export function UsersPage() {
   if (!canManage) {
     return (
       <Alert variant="destructive">
-        <AlertDescription>
-          Owner or Administrator access is required to manage Studio users.
-        </AlertDescription>
+        <AlertDescription>{t("users.accessDenied")}</AlertDescription>
       </Alert>
     );
   }
@@ -155,15 +167,17 @@ export function UsersPage() {
       >
         <div className="grid gap-0.5">
           <h2 id="add-user-title" className="text-sm font-semibold">
-            Add a user
+            {t("users.addForm.title")}
           </h2>
           <p className="text-sm text-muted-foreground">
-            Passwords must contain at least 12 characters.
+            {t("users.addForm.passwordHint")}
           </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field>
-            <FieldLabel htmlFor="users-add-name">Name</FieldLabel>
+            <FieldLabel htmlFor="users-add-name">
+              {t("users.addForm.nameLabel")}
+            </FieldLabel>
             <Input
               id="users-add-name"
               value={name}
@@ -171,7 +185,9 @@ export function UsersPage() {
             />
           </Field>
           <Field>
-            <FieldLabel htmlFor="users-add-username">Username</FieldLabel>
+            <FieldLabel htmlFor="users-add-username">
+              {t("users.addForm.usernameLabel")}
+            </FieldLabel>
             <Input
               id="users-add-username"
               value={username}
@@ -182,7 +198,7 @@ export function UsersPage() {
           </Field>
           <Field>
             <FieldLabel htmlFor="users-add-password">
-              Temporary password
+              {t("users.addForm.passwordLabel")}
             </FieldLabel>
             <Input
               id="users-add-password"
@@ -193,27 +209,29 @@ export function UsersPage() {
             />
           </Field>
           <Field>
-            <FieldLabel htmlFor="users-add-role">Role</FieldLabel>
+            <FieldLabel htmlFor="users-add-role">
+              {t("users.addForm.roleLabel")}
+            </FieldLabel>
             <RheaSelect
               items={allowedRoles.map((value) => ({
                 value,
-                label: roleLabels[value],
+                label: t(roleKeys[value]),
               }))}
               value={role}
               onValueChange={(value) => setRole(value ?? "viewer")}
             >
               <SelectTrigger id="users-add-role">
-                <SelectValue />
+                <SelectValue>{t(roleKeys[role])}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {allowedRoles.map((value) => (
                   <SelectItem key={value} value={value}>
-                    {roleLabels[value]}
+                    {t(roleKeys[value])}
                   </SelectItem>
                 ))}
               </SelectContent>
             </RheaSelect>
-            <FieldDescription>{roleDescriptions[role]}</FieldDescription>
+            <FieldDescription>{t(roleDescriptionKeys[role])}</FieldDescription>
           </Field>
         </div>
         <div>
@@ -236,7 +254,9 @@ export function UsersPage() {
             }
           >
             <Plus size={16} aria-hidden="true" />{" "}
-            {create.isPending ? "Adding…" : "Add user"}
+            {create.isPending
+              ? t("users.addForm.submitting")
+              : t("users.addForm.submit")}
           </Button>
         </div>
         {create.error && (
@@ -250,7 +270,7 @@ export function UsersPage() {
 
       {users.isLoading ? (
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Spinner aria-hidden="true" /> Loading users…
+          <Spinner aria-hidden="true" /> {t("users.list.loading")}
         </p>
       ) : users.error ? (
         <Alert variant="destructive">
@@ -284,27 +304,41 @@ export function UsersPage() {
                     {user.username}
                   </span>
                   <small className="text-xs text-muted-foreground">
-                    {roleLabels[user.role]} ·{" "}
-                    {user.active ? "Active" : "Inactive"}
-                    {user.lastLoginAt
-                      ? ` · Last signed in ${new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(user.lastLoginAt))}`
-                      : " · Never signed in"}
+                    {t(roleKeys[user.role])} ·{" "}
+                    {user.active
+                      ? t("users.list.status.active")
+                      : t("users.list.status.inactive")}
+                    {user.lastLoginAt ? (
+                      <>
+                        {" · "}
+                        {t("users.list.lastSignedIn", {
+                          date: new Intl.DateTimeFormat(locale, {
+                            dateStyle: "medium",
+                          }).format(new Date(user.lastLoginAt)),
+                        })}
+                      </>
+                    ) : (
+                      <>
+                        {" · "}
+                        {t("users.list.neverSignedIn")}
+                      </>
+                    )}
                   </small>
                   <small className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                     {user.mfaEnrolled ? (
                       <>
-                        <ShieldCheck size={13} aria-hidden="true" /> Two-step
-                        verification on
+                        <ShieldCheck size={13} aria-hidden="true" />{" "}
+                        {t("users.list.mfa.on")}
                       </>
                     ) : user.mfaRequired ? (
                       <>
-                        <ShieldAlert size={13} aria-hidden="true" /> Two-step
-                        verification required, not yet enrolled
+                        <ShieldAlert size={13} aria-hidden="true" />{" "}
+                        {t("users.list.mfa.required")}
                       </>
                     ) : (
                       <>
-                        <ShieldOff size={13} aria-hidden="true" /> No two-step
-                        verification
+                        <ShieldOff size={13} aria-hidden="true" />{" "}
+                        {t("users.list.mfa.off")}
                       </>
                     )}
                   </small>
@@ -316,7 +350,8 @@ export function UsersPage() {
                   disabled={!canEdit}
                   onClick={() => setEditing(user)}
                 >
-                  <Pencil size={15} aria-hidden="true" /> Edit
+                  <Pencil size={15} aria-hidden="true" />{" "}
+                  {t("common:actions.edit")}
                 </Button>
               </article>
             );
@@ -361,6 +396,7 @@ function UserEditorDialog({
   onClose: () => void;
   onChanged: () => Promise<void>;
 }) {
+  const { t } = useTranslation(["account", "common"]);
   const [name, setName] = useState(user.name);
   const [username, setUsername] = useState(user.username);
   const [role, setRole] = useState<UserRole>(user.role);
@@ -375,49 +411,69 @@ function UserEditorDialog({
   }, [user]);
   const update = useMutation({
     mutationFn: () =>
-      userRequest<User>(`/users/${user.id}`, csrf, {
-        method: "PATCH",
-        body: JSON.stringify({
-          name: name.trim(),
-          username: username.trim(),
-          role,
-          active,
-          ...(password ? { password } : {}),
-        }),
-      }),
-    onSuccess: () => {
-      toast.add({ title: "User updated.", type: "success" });
-      void onChanged();
+      userRequest<User>(
+        `/users/${user.id}`,
+        csrf,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            name: name.trim(),
+            username: username.trim(),
+            role,
+            active,
+            ...(password ? { password } : {}),
+          }),
+        },
+        t("users.errors.requestFailed"),
+      ),
+    onSuccess: async () => {
+      toast.add({ title: t("users.toasts.updated"), type: "success" });
+      await onChanged();
     },
   });
   const deactivate = useMutation({
     mutationFn: () =>
-      userRequest<void>(`/users/${user.id}`, csrf, { method: "DELETE" }),
-    onSuccess: () => {
-      toast.add({ title: "User disabled.", type: "success" });
-      void onChanged();
+      userRequest<void>(
+        `/users/${user.id}`,
+        csrf,
+        { method: "DELETE" },
+        t("users.errors.requestFailed"),
+      ),
+    onSuccess: async () => {
+      toast.add({ title: t("users.toasts.disabled"), type: "success" });
+      await onChanged();
     },
   });
   const permanentlyDelete = useMutation({
     mutationFn: () =>
-      userRequest<void>(`/users/${user.id}/permanent`, csrf, {
-        method: "DELETE",
-      }),
-    onSuccess: () => {
-      toast.add({ title: "User permanently deleted.", type: "success" });
-      void onChanged();
+      userRequest<void>(
+        `/users/${user.id}/permanent`,
+        csrf,
+        {
+          method: "DELETE",
+        },
+        t("users.errors.requestFailed"),
+      ),
+    onSuccess: async () => {
+      toast.add({ title: t("users.toasts.deleted"), type: "success" });
+      await onChanged();
     },
   });
   // Tilecast has no email delivery, so there is no self-service factor reset.
   // An administrator clearing the factors is the ordinary recovery path.
   const resetSecurity = useMutation({
     mutationFn: () =>
-      userRequest<void>(`/users/${user.id}/security/reset`, csrf, {
-        method: "POST",
-      }),
-    onSuccess: () => {
-      toast.add({ title: "User sign-in factors reset.", type: "success" });
-      void onChanged();
+      userRequest<void>(
+        `/users/${user.id}/security/reset`,
+        csrf,
+        {
+          method: "POST",
+        },
+        t("users.errors.requestFailed"),
+      ),
+    onSuccess: async () => {
+      toast.add({ title: t("users.toasts.securityReset"), type: "success" });
+      await onChanged();
     },
   });
   const isSelf = user.id === currentUser.id;
@@ -433,7 +489,9 @@ function UserEditorDialog({
       <DialogContent className="max-w-lg">
         {confirmDialog}
         <DialogHeader>
-          <DialogTitle>Edit {user.name}</DialogTitle>
+          <DialogTitle>
+            {t("users.editDialog.title", { name: user.name })}
+          </DialogTitle>
         </DialogHeader>
         <form
           className="grid gap-4"
@@ -444,7 +502,9 @@ function UserEditorDialog({
         >
           <div className="grid gap-4 sm:grid-cols-2">
             <Field>
-              <FieldLabel htmlFor="users-edit-name">Name</FieldLabel>
+              <FieldLabel htmlFor="users-edit-name">
+                {t("users.editDialog.nameLabel")}
+              </FieldLabel>
               <Input
                 id="users-edit-name"
                 value={name}
@@ -452,7 +512,9 @@ function UserEditorDialog({
               />
             </Field>
             <Field>
-              <FieldLabel htmlFor="users-edit-username">Username</FieldLabel>
+              <FieldLabel htmlFor="users-edit-username">
+                {t("users.editDialog.usernameLabel")}
+              </FieldLabel>
               <Input
                 id="users-edit-username"
                 value={username}
@@ -462,22 +524,24 @@ function UserEditorDialog({
               />
             </Field>
             <Field>
-              <FieldLabel htmlFor="users-edit-role">Role</FieldLabel>
+              <FieldLabel htmlFor="users-edit-role">
+                {t("users.editDialog.roleLabel")}
+              </FieldLabel>
               <RheaSelect
                 items={allowedRoles.map((value) => ({
                   value,
-                  label: roleLabels[value],
+                  label: t(roleKeys[value]),
                 }))}
                 value={role}
                 onValueChange={(value) => setRole(value ?? user.role)}
               >
                 <SelectTrigger id="users-edit-role">
-                  <SelectValue />
+                  <SelectValue>{t(roleKeys[role])}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {allowedRoles.map((value) => (
                     <SelectItem key={value} value={value}>
-                      {roleLabels[value]}
+                      {t(roleKeys[value])}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -485,17 +549,19 @@ function UserEditorDialog({
             </Field>
             <Field>
               <FieldLabel htmlFor="users-edit-password">
-                New password
+                {t("users.editDialog.passwordLabel")}
               </FieldLabel>
               <Input
                 id="users-edit-password"
                 type="password"
                 value={password}
-                placeholder="Leave unchanged"
+                placeholder={t("users.editDialog.passwordPlaceholder")}
                 autoComplete="new-password"
                 onChange={(event) => setPassword(event.target.value)}
               />
-              <FieldDescription>At least 12 characters.</FieldDescription>
+              <FieldDescription>
+                {t("users.editDialog.passwordHint")}
+              </FieldDescription>
             </Field>
           </div>
           <label className="flex cursor-pointer items-center gap-2 text-sm">
@@ -506,17 +572,17 @@ function UserEditorDialog({
               disabled={isSelf}
               onChange={(event) => setActive(event.target.checked)}
             />
-            <span>Account active</span>
+            <span>{t("users.editDialog.activeLabel")}</span>
           </label>
           <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/50 p-4">
             <div className="grid gap-0.5">
               <strong className="text-sm font-semibold">
-                Two-step verification
+                {t("users.editDialog.mfaTitle")}
               </strong>
               <p className="text-sm text-muted-foreground">
                 {user.mfaEnrolled
-                  ? "This account has an authenticator app or a passkey enrolled."
-                  : "This account has no second factor enrolled."}
+                  ? t("users.editDialog.mfaEnrolled")
+                  : t("users.editDialog.mfaNotEnrolled")}
               </p>
             </div>
             <Button
@@ -526,17 +592,21 @@ function UserEditorDialog({
               disabled={!user.mfaEnrolled || resetSecurity.isPending}
               onClick={() => {
                 void confirm({
-                  title: `Clear every authenticator, passkey, and recovery code for ${user.name}?`,
-                  body: "They will be signed out everywhere and must enroll again.",
-                  action: "Reset",
+                  title: t("users.editDialog.resetConfirmTitle", {
+                    name: user.name,
+                  }),
+                  body: t("users.editDialog.resetConfirmBody"),
+                  action: t("users.editDialog.resetAction"),
                   destructive: true,
                 }).then((ok) => {
                   if (ok) resetSecurity.mutate();
                 });
               }}
             >
-              <ShieldOff size={15} aria-hidden="true" />
-              {resetSecurity.isPending ? "Resetting…" : "Reset"}
+              <ShieldOff size={15} aria-hidden="true" />{" "}
+              {resetSecurity.isPending
+                ? t("users.editDialog.resetting")
+                : t("users.editDialog.resetAction")}
             </Button>
           </section>
           {(update.error ||
@@ -557,7 +627,9 @@ function UserEditorDialog({
             </Alert>
           )}
           <section className="grid gap-2 border-t border-border py-3">
-            <h4 className="text-[13px] font-semibold">Screen scope</h4>
+            <h4 className="text-[13px] font-semibold">
+              {t("users.editDialog.scopeTitle")}
+            </h4>
             <ScreenScopeEditor
               userId={user.id}
               userRole={role}
@@ -574,16 +646,20 @@ function UserEditorDialog({
                 disabled={isSelf || deactivate.isPending}
                 onClick={() => {
                   void confirm({
-                    title: `Deactivate ${user.name}?`,
-                    action: "Deactivate",
+                    title: t("users.editDialog.deactivateTitle", {
+                      name: user.name,
+                    }),
+                    action: t("users.editDialog.deactivateAction"),
                     destructive: true,
                   }).then((ok) => {
                     if (ok) deactivate.mutate();
                   });
                 }}
               >
-                <UserRoundX size={15} aria-hidden="true" />
-                {deactivate.isPending ? "Deactivating…" : "Deactivate"}
+                <UserRoundX size={15} aria-hidden="true" />{" "}
+                {deactivate.isPending
+                  ? t("users.editDialog.deactivating")
+                  : t("users.editDialog.deactivateAction")}
               </Button>
             ) : (
               <Button
@@ -593,23 +669,25 @@ function UserEditorDialog({
                 disabled={isSelf || permanentlyDelete.isPending}
                 onClick={() => {
                   void confirm({
-                    title: `Permanently delete ${user.name}?`,
-                    body: "This removes their login, preferences, and security credentials. This cannot be undone.",
-                    action: "Delete permanently",
+                    title: t("users.editDialog.deleteTitle", {
+                      name: user.name,
+                    }),
+                    body: t("users.editDialog.deleteBody"),
+                    action: t("users.editDialog.deleteAction"),
                     destructive: true,
                   }).then((ok) => {
                     if (ok) permanentlyDelete.mutate();
                   });
                 }}
               >
-                <Trash2 size={15} aria-hidden="true" />
+                <Trash2 size={15} aria-hidden="true" />{" "}
                 {permanentlyDelete.isPending
-                  ? "Deleting…"
-                  : "Delete permanently"}
+                  ? t("users.editDialog.deleting")
+                  : t("users.editDialog.deleteAction")}
               </Button>
             )}
             <Button type="button" variant="ghost" onClick={onClose}>
-              Cancel
+              {t("common:actions.cancel")}
             </Button>
             <Button
               type="submit"
@@ -622,7 +700,9 @@ function UserEditorDialog({
               }
             >
               <Save size={15} aria-hidden="true" />{" "}
-              {update.isPending ? "Saving…" : "Save changes"}
+              {update.isPending
+                ? t("common:actions.saving")
+                : t("common:actions.saveChanges")}
             </Button>
           </DialogFooter>
         </form>

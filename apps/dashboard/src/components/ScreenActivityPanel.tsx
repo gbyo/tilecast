@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
+import { useTranslation } from "react-i18next";
+import { translateKnown } from "../i18n";
 import { AlertTriangle } from "lucide-react";
 import { buildActivityLink } from "../pages/activityLinks";
 import { ScreenTimeline } from "./ScreenTimeline";
@@ -62,13 +64,19 @@ async function loadScreenActivity(id: string): Promise<ScreenActivity> {
   };
   if (!response.ok || !body.data)
     throw new Error(
-      body.error?.message ?? "Screen Activity could not be loaded.",
+      body.error?.message ??
+        translateKnown(
+          "activity:screenActivity.loadFailed",
+          "Screen Activity could not be loaded.",
+        ),
     );
   return body.data;
 }
 
 /** The screen-detail page owns the Activity tab; this renders its contents. */
 export function ScreenActivityPanel({ screenId }: { screenId: string }) {
+  const { t } = useTranslation("activity");
+  const notReported = t("screenActivity.notReported");
   const query = useQuery({
     queryKey: ["activity", "screen", screenId],
     queryFn: () => loadScreenActivity(screenId),
@@ -84,10 +92,10 @@ export function ScreenActivityPanel({ screenId }: { screenId: string }) {
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 id="screen-activity-title" className="text-base font-semibold">
-            Activity
+            {t("screenActivity.title")}
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Recent Player-confirmed playback and technical screen events.
+            {t("screenActivity.subtitle")}
           </p>
         </div>
         <Button
@@ -97,12 +105,12 @@ export function ScreenActivityPanel({ screenId }: { screenId: string }) {
             <Link to={buildActivityLink("proof", { screen: screenId })} />
           }
         >
-          Open filtered Activity
+          {t("screenActivity.openFiltered")}
         </Button>
       </header>
 
       {query.isLoading && (
-        <div className="space-y-2" aria-label="Loading screen Activity">
+        <div className="space-y-2" aria-label={t("screenActivity.loading")}>
           <Skeleton className="h-20 w-full" />
           <Skeleton className="h-36 w-full" />
         </div>
@@ -110,7 +118,7 @@ export function ScreenActivityPanel({ screenId }: { screenId: string }) {
       {query.error && (
         <Alert variant="destructive">
           <AlertTriangle aria-hidden="true" />
-          <AlertTitle>Activity could not be loaded</AlertTitle>
+          <AlertTitle>{t("screenActivity.loadErrorTitle")}</AlertTitle>
           <AlertDescription>{query.error.message}</AlertDescription>
         </Alert>
       )}
@@ -118,22 +126,28 @@ export function ScreenActivityPanel({ screenId }: { screenId: string }) {
         <>
           <dl className="grid gap-x-6 gap-y-4 border-y border-border py-4 sm:grid-cols-2 xl:grid-cols-4">
             <ActivityFact
-              label="Current presentation"
+              label={t("screenActivity.facts.presentation")}
               value={
                 data.currentPresentation?.presentationName ||
                 data.currentPresentation?.presentationId ||
-                "Not reported"
+                notReported
               }
             />
             <ActivityFact
-              label="Last healthy playback"
-              value={formatDate(data.lastHealthyPlayback)}
+              label={t("screenActivity.facts.lastPlayback")}
+              value={formatDate(data.lastHealthyPlayback, notReported)}
             />
             <ActivityFact
-              label="Last manifest activation"
-              value={formatDate(data.lastSuccessfulManifestActivation)}
+              label={t("screenActivity.facts.lastActivation")}
+              value={formatDate(
+                data.lastSuccessfulManifestActivation,
+                notReported,
+              )}
             />
-            <ActivityFact label="Playback gaps" value={data.playbackGaps} />
+            <ActivityFact
+              label={t("screenActivity.facts.gaps")}
+              value={data.playbackGaps}
+            />
           </dl>
 
           {data.currentIssue && (
@@ -149,7 +163,9 @@ export function ScreenActivityPanel({ screenId }: { screenId: string }) {
               <AlertDescription>
                 {data.currentIssue.description}
                 <span className="mt-1 block text-xs text-muted-foreground">
-                  Reported {formatDate(data.currentIssue.occurredAt)}
+                  {t("screenActivity.reportedAt", {
+                    when: formatDate(data.currentIssue.occurredAt, notReported),
+                  })}
                 </span>
               </AlertDescription>
             </Alert>
@@ -159,8 +175,8 @@ export function ScreenActivityPanel({ screenId }: { screenId: string }) {
 
           <div className="grid min-w-0 gap-6 xl:grid-cols-2">
             <ActivityList
-              title="Recent proof of play"
-              empty="No proof of play has been reported."
+              title={t("screenActivity.lists.proofTitle")}
+              empty={t("screenActivity.lists.proofEmpty")}
               items={data.recentProofOfPlay.map((item) => ({
                 id: item.id,
                 label:
@@ -168,18 +184,18 @@ export function ScreenActivityPanel({ screenId }: { screenId: string }) {
                   item.contentId ||
                   item.presentationName ||
                   item.presentationId ||
-                  "Presentation",
-                detail: formatDate(item.startedAt),
+                  t("shared.unnamedPresentation"),
+                detail: formatDate(item.startedAt, notReported),
                 status: item.result,
               }))}
             />
             <ActivityList
-              title="Recent technical events"
-              empty="No technical events have been reported."
+              title={t("screenActivity.lists.eventsTitle")}
+              empty={t("screenActivity.lists.eventsEmpty")}
               items={data.recentEvents.map((item) => ({
                 id: item.id,
                 label: humanize(item.eventType),
-                detail: `${formatDate(item.timestamp)} · ${item.description}`,
+                detail: `${formatDate(item.timestamp, notReported)} · ${item.description}`,
                 status: item.severity,
               }))}
             />
@@ -249,7 +265,7 @@ function ActivityList({
   );
 }
 
-function formatDate(value?: string) {
+function formatDate(value: string | undefined, notReported: string) {
   return value
     ? new Date(value).toLocaleString([], {
         month: "short",
@@ -257,7 +273,7 @@ function formatDate(value?: string) {
         hour: "numeric",
         minute: "2-digit",
       })
-    : "Not reported";
+    : notReported;
 }
 
 function humanize(value: string) {

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useBlocker } from "react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import type {
   FormCapability,
   FormDataSource,
@@ -33,14 +34,26 @@ import { Spinner } from "../components/ui/spinner";
 import { toast } from "../components/ui/toast";
 import { formToneBadgeProps } from "./formBadge";
 import { slugifyKey } from "./formKeys";
+import type { FormsT } from "./formSchema";
 
-const CAPABILITY_OPTIONS: { value: FormCapability; label: string }[] = [
-  { value: "submit", label: "Submit" },
-  { value: "review", label: "Review" },
-  { value: "approve", label: "Approve" },
-  { value: "manage", label: "Manage" },
-  { value: "view_all", label: "View all" },
-  { value: "view_own", label: "View own" },
+type CapabilityOptionLabelKey =
+  | "workflow.capabilities.submit.label"
+  | "workflow.capabilities.review.label"
+  | "workflow.capabilities.approve.label"
+  | "workflow.capabilities.manage.label"
+  | "workflow.capabilities.viewAll.label"
+  | "workflow.capabilities.viewOwn.label";
+
+const CAPABILITY_OPTIONS: {
+  value: FormCapability;
+  labelKey: CapabilityOptionLabelKey;
+}[] = [
+  { value: "submit", labelKey: "workflow.capabilities.submit.label" },
+  { value: "review", labelKey: "workflow.capabilities.review.label" },
+  { value: "approve", labelKey: "workflow.capabilities.approve.label" },
+  { value: "manage", labelKey: "workflow.capabilities.manage.label" },
+  { value: "view_all", labelKey: "workflow.capabilities.viewAll.label" },
+  { value: "view_own", labelKey: "workflow.capabilities.viewOwn.label" },
 ];
 
 const KEY_PATTERN = /^[a-z][a-z0-9_]{0,39}$/;
@@ -55,6 +68,7 @@ export function WorkflowEditor({
   form: FormDataSource;
   csrf: string;
 }) {
+  const { t } = useTranslation("forms");
   const queryClient = useQueryClient();
   const original = useRef(form.workflow);
   const [states, setStates] = useState<FormWorkflowState[]>(() =>
@@ -91,8 +105,8 @@ export function WorkflowEditor({
   }, []);
 
   const errors = useMemo(
-    () => validateWorkflow(states, transitions),
-    [states, transitions],
+    () => validateWorkflow(states, transitions, t),
+    [states, transitions, t],
   );
   const warnings = useMemo(
     () =>
@@ -101,8 +115,9 @@ export function WorkflowEditor({
         original.current.transitions,
         states,
         transitions,
+        t,
       ),
-    [states, transitions],
+    [states, transitions, t],
   );
 
   const save = useMutation({
@@ -140,9 +155,7 @@ export function WorkflowEditor({
     },
     onError: (err) => {
       setConfirming(false);
-      setError(
-        err instanceof Error ? err.message : "Could not save the workflow.",
-      );
+      setError(err instanceof Error ? err.message : t("workflow.saveFallback"));
     },
   });
 
@@ -168,7 +181,7 @@ export function WorkflowEditor({
       ...prev,
       {
         key: "",
-        label: "New state",
+        label: t("workflow.newStateLabel"),
         position: prev.length,
         eligibleForOutput: false,
         initial: false,
@@ -195,7 +208,7 @@ export function WorkflowEditor({
       {
         from: states[0]?.key ?? "",
         to: states[0]?.key ?? "",
-        label: "New transition",
+        label: t("workflow.newTransitionLabel"),
         requiredCapability: "submit",
         position: prev.length,
       },
@@ -207,27 +220,27 @@ export function WorkflowEditor({
     <div className="grid gap-4">
       {blocker.state === "blocked" && (
         <Alert>
-          <AlertTitle>Leave without saving?</AlertTitle>
-          <AlertDescription>The workflow has unsaved changes.</AlertDescription>
+          <AlertTitle>{t("workflow.leaveTitle")}</AlertTitle>
+          <AlertDescription>{t("workflow.leaveBody")}</AlertDescription>
           <div className="flex flex-wrap gap-2">
             <RheaButton variant="ghost" onClick={() => blocker.reset?.()}>
-              Stay
+              {t("workflow.stay")}
             </RheaButton>
             <RheaButton variant="default" onClick={() => blocker.proceed?.()}>
-              Leave
+              {t("workflow.leave")}
             </RheaButton>
           </div>
         </Alert>
       )}
       {error && (
         <Alert variant="destructive">
-          <AlertTitle>Workflow not saved</AlertTitle>
+          <AlertTitle>{t("workflow.notSaved")}</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
       {errors.length > 0 && (
         <Alert variant="destructive">
-          <AlertTitle>Fix these before saving</AlertTitle>
+          <AlertTitle>{t("workflow.fixBefore")}</AlertTitle>
           <AlertDescription>
             <ul className="grid gap-1">
               {errors.map((message) => (
@@ -238,11 +251,13 @@ export function WorkflowEditor({
         </Alert>
       )}
 
-      <section className="grid gap-3" aria-label="States">
+      <section className="grid gap-3" aria-label={t("workflow.statesSection")}>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-base font-semibold">States</h3>
+          <h3 className="text-base font-semibold">
+            {t("workflow.statesTitle")}
+          </h3>
           <RheaButton variant="secondary" size="sm" onClick={addState}>
-            Add state
+            {t("workflow.addState")}
           </RheaButton>
         </div>
         {states.map((state, index) => {
@@ -255,7 +270,7 @@ export function WorkflowEditor({
               <div className="grid gap-3 sm:grid-cols-3 sm:items-end">
                 <Field>
                   <FieldLabel htmlFor={`workflow-state-label-${index}`}>
-                    Label
+                    {t("workflow.stateLabel")}
                   </FieldLabel>
                   <Input
                     id={`workflow-state-label-${index}`}
@@ -267,7 +282,7 @@ export function WorkflowEditor({
                 </Field>
                 <Field>
                   <FieldLabel htmlFor={`workflow-state-key-${index}`}>
-                    Key
+                    {t("workflow.stateKey")}
                   </FieldLabel>
                   <Input
                     id={`workflow-state-key-${index}`}
@@ -280,12 +295,14 @@ export function WorkflowEditor({
                     }
                   />
                   <FieldDescription>
-                    {locked ? "In use — locked" : "Lowercase, stable"}
+                    {locked ? t("workflow.lockedHint") : t("workflow.keyHint")}
                   </FieldDescription>
                 </Field>
                 <span className="sm:pb-1">
                   <Badge {...formToneBadgeProps("neutral")}>
-                    {`${state.recordCount ?? 0} records`}
+                    {t("workflow.stateRecords", {
+                      count: state.recordCount ?? 0,
+                    })}
                   </Badge>
                 </span>
               </div>
@@ -299,7 +316,7 @@ export function WorkflowEditor({
                     checked={state.initial}
                     onChange={() => setInitial(index)}
                   />
-                  <span>Initial</span>
+                  <span>{t("workflow.initialOption")}</span>
                 </label>
                 {/* Base UI names the span from the wrapping label. */}
                 <label className="flex items-center gap-2 text-sm">
@@ -311,7 +328,7 @@ export function WorkflowEditor({
                       })
                     }
                   />
-                  <span>Output-eligible</span>
+                  <span>{t("workflow.eligibleOption")}</span>
                 </label>
                 {/* Base UI names the span from the wrapping label. */}
                 <label className="flex items-center gap-2 text-sm">
@@ -321,13 +338,13 @@ export function WorkflowEditor({
                       updateState(index, { terminal: checked === true })
                     }
                   />
-                  <span>Terminal</span>
+                  <span>{t("workflow.terminalOption")}</span>
                 </label>
                 <div className="flex gap-1">
                   <button
                     type="button"
                     className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
-                    aria-label={`Move ${state.label} up`}
+                    aria-label={t("workflow.moveUp", { label: state.label })}
                     disabled={index === 0}
                     onClick={() => moveState(index, -1)}
                   >
@@ -336,7 +353,7 @@ export function WorkflowEditor({
                   <button
                     type="button"
                     className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
-                    aria-label={`Move ${state.label} down`}
+                    aria-label={t("workflow.moveDown", { label: state.label })}
                     disabled={index === states.length - 1}
                     onClick={() => moveState(index, 1)}
                   >
@@ -345,9 +362,15 @@ export function WorkflowEditor({
                   <button
                     type="button"
                     className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
-                    aria-label={`Delete ${state.label}`}
+                    aria-label={t("workflow.deleteState", {
+                      label: state.label,
+                    })}
                     disabled={locked}
-                    title={locked ? "Referenced by records" : "Delete state"}
+                    title={
+                      locked
+                        ? t("workflow.deleteLockedTitle")
+                        : t("workflow.deleteTitle")
+                    }
                     onClick={() => removeState(index)}
                   >
                     ✕
@@ -359,16 +382,21 @@ export function WorkflowEditor({
         })}
       </section>
 
-      <section className="grid gap-3" aria-label="Transitions">
+      <section
+        className="grid gap-3"
+        aria-label={t("workflow.transitionsSection")}
+      >
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-base font-semibold">Transitions</h3>
+          <h3 className="text-base font-semibold">
+            {t("workflow.transitionsTitle")}
+          </h3>
           <RheaButton
             variant="secondary"
             size="sm"
             onClick={addTransition}
             disabled={states.length === 0}
           >
-            Add transition
+            {t("workflow.addTransition")}
           </RheaButton>
         </div>
         <div className="overflow-x-auto rounded-xl border border-border">
@@ -376,19 +404,19 @@ export function WorkflowEditor({
             <TableHeader>
               <TableRow className="border-b border-border text-left text-xs text-muted-foreground">
                 <TableHead scope="col" className="px-3 py-2 font-medium">
-                  From
+                  {t("workflow.colFrom")}
                 </TableHead>
                 <TableHead scope="col" className="px-3 py-2 font-medium">
-                  To
+                  {t("workflow.colTo")}
                 </TableHead>
                 <TableHead scope="col" className="px-3 py-2 font-medium">
-                  Label
+                  {t("workflow.colLabel")}
                 </TableHead>
                 <TableHead scope="col" className="px-3 py-2 font-medium">
-                  Required capability
+                  {t("workflow.colCapability")}
                 </TableHead>
                 <TableHead scope="col" className="px-3 py-2 font-medium">
-                  <span className="sr-only">Actions</span>
+                  <span className="sr-only">{t("access.table.actions")}</span>
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -409,7 +437,7 @@ export function WorkflowEditor({
                         updateTransition(index, { from: value ?? "" })
                       }
                     >
-                      <SelectTrigger aria-label="From state">
+                      <SelectTrigger aria-label={t("workflow.fromStateLabel")}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -432,7 +460,7 @@ export function WorkflowEditor({
                         updateTransition(index, { to: value ?? "" })
                       }
                     >
-                      <SelectTrigger aria-label="To state">
+                      <SelectTrigger aria-label={t("workflow.toStateLabel")}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -454,7 +482,10 @@ export function WorkflowEditor({
                   </TableCell>
                   <TableCell className="px-3 py-2">
                     <RheaSelect
-                      items={CAPABILITY_OPTIONS}
+                      items={CAPABILITY_OPTIONS.map((option) => ({
+                        value: option.value,
+                        label: t(option.labelKey),
+                      }))}
                       value={transition.requiredCapability}
                       onValueChange={(value) =>
                         updateTransition(index, {
@@ -462,13 +493,13 @@ export function WorkflowEditor({
                         })
                       }
                     >
-                      <SelectTrigger aria-label="Required capability">
+                      <SelectTrigger aria-label={t("workflow.capabilityLabel")}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         {CAPABILITY_OPTIONS.map((option) => (
                           <SelectItem key={option.value} value={option.value}>
-                            {option.label}
+                            {t(option.labelKey)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -479,7 +510,7 @@ export function WorkflowEditor({
                       <button
                         type="button"
                         className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
-                        aria-label="Move transition up"
+                        aria-label={t("workflow.moveTransitionUp")}
                         disabled={index === 0}
                         onClick={() => moveTransition(index, -1)}
                       >
@@ -488,7 +519,7 @@ export function WorkflowEditor({
                       <button
                         type="button"
                         className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
-                        aria-label="Move transition down"
+                        aria-label={t("workflow.moveTransitionDown")}
                         disabled={index === transitions.length - 1}
                         onClick={() => moveTransition(index, 1)}
                       >
@@ -497,7 +528,9 @@ export function WorkflowEditor({
                       <button
                         type="button"
                         className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
-                        aria-label={`Remove transition ${transition.label || index + 1}`}
+                        aria-label={t("workflow.removeTransition", {
+                          label: transition.label || String(index + 1),
+                        })}
                         onClick={() => removeTransition(index)}
                       >
                         ✕
@@ -513,9 +546,7 @@ export function WorkflowEditor({
 
       {confirming && warnings.length > 0 && (
         <Alert>
-          <AlertTitle>
-            This change affects output or submission paths
-          </AlertTitle>
+          <AlertTitle>{t("workflow.impactTitle")}</AlertTitle>
           <AlertDescription>
             <ul className="grid gap-1">
               {warnings.map((message) => (
@@ -525,7 +556,7 @@ export function WorkflowEditor({
           </AlertDescription>
           <div className="flex flex-wrap gap-2">
             <RheaButton variant="ghost" onClick={() => setConfirming(false)}>
-              Review again
+              {t("workflow.reviewAgain")}
             </RheaButton>
             <RheaButton
               variant="default"
@@ -534,7 +565,7 @@ export function WorkflowEditor({
               onClick={() => save.mutate()}
             >
               {save.isPending && <Spinner aria-hidden="true" />}
-              Save anyway
+              {t("workflow.saveAnyway")}
             </RheaButton>
           </div>
         </Alert>
@@ -548,11 +579,16 @@ export function WorkflowEditor({
           onClick={attemptSave}
         >
           {save.isPending && <Spinner aria-hidden="true" />}
-          Save workflow
+          {t("workflow.saveWorkflow")}
         </RheaButton>
       </div>
     </div>
   );
+}
+
+function capabilityOptionLabel(value: FormCapability, t: FormsT): string {
+  const found = CAPABILITY_OPTIONS.find((option) => option.value === value);
+  return found ? t(found.labelKey) : value;
 }
 
 function reorder<T>(items: T[], index: number, delta: number): T[] {
@@ -572,37 +608,46 @@ function slugifyStateKey(value: string): string {
 function validateWorkflow(
   states: FormWorkflowState[],
   transitions: FormWorkflowTransition[],
+  t: FormsT,
 ): string[] {
   const errors: string[] = [];
-  if (states.length === 0) errors.push("Add at least one state.");
+  if (states.length === 0) errors.push(t("workflow.validation.noStates"));
   const keys = new Set<string>();
   let initialCount = 0;
   let eligibleCount = 0;
   for (const state of states) {
     if (!KEY_PATTERN.test(state.key)) {
       errors.push(
-        `State key "${state.key || "(empty)"}" is invalid (lowercase letters, digits, underscores).`,
+        t("workflow.validation.invalidStateKey", {
+          key: state.key || t("workflow.validation.emptyKey"),
+        }),
       );
     }
-    if (keys.has(state.key)) errors.push(`Duplicate state key "${state.key}".`);
+    if (keys.has(state.key))
+      errors.push(
+        t("workflow.validation.duplicateStateKey", { key: state.key }),
+      );
     keys.add(state.key);
-    if (state.label.trim() === "") errors.push("Every state needs a label.");
+    if (state.label.trim() === "")
+      errors.push(t("workflow.validation.stateNeedsLabel"));
     if (state.initial) initialCount += 1;
     if (state.eligibleForOutput) eligibleCount += 1;
   }
   if (initialCount !== 1)
-    errors.push("Exactly one state must be the initial state.");
-  if (eligibleCount === 0)
-    errors.push("At least one state must be output-eligible.");
+    errors.push(t("workflow.validation.exactlyOneInitial"));
+  if (eligibleCount === 0) errors.push(t("workflow.validation.needEligible"));
   const seen = new Set<string>();
   for (const transition of transitions) {
     if (!keys.has(transition.from) || !keys.has(transition.to)) {
-      errors.push("Every transition must reference existing states.");
+      errors.push(t("workflow.validation.badReference"));
     }
     const pair = `${transition.from} ${transition.to}`;
     if (seen.has(pair))
       errors.push(
-        `Duplicate transition ${transition.from} → ${transition.to}.`,
+        t("workflow.validation.duplicateTransition", {
+          from: transition.from,
+          to: transition.to,
+        }),
       );
     seen.add(pair);
   }
@@ -616,6 +661,7 @@ function impactWarnings(
   originalTransitions: FormWorkflowTransition[],
   states: FormWorkflowState[],
   transitions: FormWorkflowTransition[],
+  t: FormsT,
 ): string[] {
   const warnings: string[] = [];
   const originalEligible = new Set(
@@ -626,32 +672,29 @@ function impactWarnings(
   );
   for (const key of originalEligible) {
     if (!nextEligible.has(key))
-      warnings.push(
-        `State "${key}" is no longer output-eligible; its records will leave signage.`,
-      );
+      warnings.push(t("workflow.warnings.lostEligible", { key }));
   }
   for (const key of nextEligible) {
     if (!originalEligible.has(key))
-      warnings.push(
-        `State "${key}" is now output-eligible; its records may appear on signage.`,
-      );
+      warnings.push(t("workflow.warnings.gainedEligible", { key }));
   }
-  const submitKey = (t: FormWorkflowTransition) => `${t.from}→${t.to}`;
+  const submitKey = (transition: FormWorkflowTransition) =>
+    `${transition.from}→${transition.to}`;
   const originalSubmit = new Set(
     originalTransitions
-      .filter((t) => t.requiredCapability === "submit")
+      .filter((transition) => transition.requiredCapability === "submit")
       .map(submitKey),
   );
   const nextSubmit = new Set(
-    transitions.filter((t) => t.requiredCapability === "submit").map(submitKey),
+    transitions
+      .filter((transition) => transition.requiredCapability === "submit")
+      .map(submitKey),
   );
   if (
     originalSubmit.size !== nextSubmit.size ||
     [...nextSubmit].some((k) => !originalSubmit.has(k))
   ) {
-    warnings.push(
-      "Submission paths changed; this affects how submitters move records.",
-    );
+    warnings.push(t("workflow.warnings.submissionPaths"));
   }
   return warnings;
 }

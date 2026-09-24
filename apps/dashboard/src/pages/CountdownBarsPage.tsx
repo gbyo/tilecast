@@ -1,8 +1,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Clock3, Plus, Trash2 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useForm } from "react-hook-form";
+import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router";
 import { z } from "zod";
 import { api } from "../api/client";
@@ -41,123 +42,124 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
+import { apiErrorMessage } from "../i18n";
 import {
   RegisterCheckbox,
   TargetFields,
   canManage,
   toLocalInputValue,
   useTargetSource,
+  weekdayShortLabel,
 } from "../plugins/shared";
+import type { PluginsT } from "../plugins/pluginCatalog";
 
-const formSchema = z
-  .object({
-    name: z.string().trim().min(1).max(180),
-    message: z.string().trim().min(1).max(280),
-    scheduleType: z.enum(["weekly", "one_time"]),
-    targetTime: z.string(),
-    daysOfWeek: z.array(z.coerce.number().int().min(0).max(6)),
-    oneTimeAt: z.string(),
-    timezone: z
-      .string({ error: "Enter an IANA timezone such as America/Chicago." })
-      .trim()
-      .min(1, "Enter an IANA timezone such as America/Chicago.")
-      .max(100, "Enter an IANA timezone such as America/Chicago."),
-    leadMinutes: z.coerce
-      .number({ error: "Enter a whole number of minutes." })
-      .int("Enter a whole number of minutes.")
-      .min(1, "Lead time must be between 1 and 43200 minutes.")
-      .max(43_200, "Lead time must be between 1 and 43200 minutes."),
-    completionText: z.string().trim().max(280),
-    showConfetti: z.boolean(),
-    displayMode: z.enum(["overlay", "push"]),
-    progressFill: z.enum(["none", "drain"]),
-    heightPx: z.coerce
-      .number({ error: "Enter a height between 40 and 320 pixels." })
-      .int("Enter a height between 40 and 320 pixels.")
-      .min(40, "Enter a height between 40 and 320 pixels.")
-      .max(320, "Enter a height between 40 and 320 pixels."),
-    contentPadding: z.coerce
-      .number({ error: "Enter padding between 0 and 40 percent." })
-      .int("Enter padding between 0 and 40 percent.")
-      .min(0, "Enter padding between 0 and 40 percent.")
-      .max(40, "Enter padding between 0 and 40 percent."),
-    textScale: z.coerce
-      .number({ error: "Enter a text size between 25 and 500 percent." })
-      .int("Enter a text size between 25 and 500 percent.")
-      .min(25, "Enter a text size between 25 and 500 percent.")
-      .max(500, "Enter a text size between 25 and 500 percent."),
-    urgencyEnabled: z.boolean(),
-    startingSoonMinutes: z.coerce
-      .number({ error: "Enter a whole number of minutes." })
-      .int("Enter a whole number of minutes.")
-      .min(
-        1,
-        "Starting soon must begin between 1 and 1440 minutes before zero.",
-      )
-      .max(
-        1_440,
-        "Starting soon must begin between 1 and 1440 minutes before zero.",
-      ),
-    urgentSeconds: z.coerce
-      .number({ error: "Enter a whole number of seconds." })
-      .int("Enter a whole number of seconds.")
-      .min(2, "Urgent must begin between 2 and 3600 seconds before zero.")
-      .max(3_600, "Urgent must begin between 2 and 3600 seconds before zero."),
-    pulseSeconds: z.coerce
-      .number({ error: "Enter a whole number of seconds." })
-      .int("Enter a whole number of seconds.")
-      .min(1, "Pulse must begin between 1 and 60 seconds before zero.")
-      .max(60, "Pulse must begin between 1 and 60 seconds before zero."),
-    enabled: z.boolean(),
-    priority: z.coerce
-      .number({ error: "Enter a priority between -1000 and 1000." })
-      .int("Enter a priority between -1000 and 1000.")
-      .min(-1000, "Enter a priority between -1000 and 1000.")
-      .max(1000, "Enter a priority between -1000 and 1000."),
-    targetScope: z.enum(["all", "screens", "sync_groups", "locations"]),
-    targetIds: z.array(z.string()),
-  })
-  .superRefine((value, context) => {
-    if (
-      value.scheduleType === "weekly" &&
-      (!/^\d{2}:\d{2}$/.test(value.targetTime) || value.daysOfWeek.length === 0)
-    ) {
-      context.addIssue({
-        code: "custom",
-        path: ["daysOfWeek"],
-        message: "Choose a target time and at least one day.",
-      });
-    }
-    if (value.scheduleType === "one_time" && !value.oneTimeAt) {
-      context.addIssue({
-        code: "custom",
-        path: ["oneTimeAt"],
-        message: "Choose the one-time target date and time.",
-      });
-    }
-    if (value.targetScope !== "all" && value.targetIds.length === 0) {
-      context.addIssue({
-        code: "custom",
-        path: ["targetIds"],
-        message: "Choose at least one target.",
-      });
-    }
-    if (
-      value.urgencyEnabled &&
-      (value.startingSoonMinutes * 60 <= value.urgentSeconds ||
-        value.urgentSeconds <= value.pulseSeconds)
-    ) {
-      context.addIssue({
-        code: "custom",
-        path: ["startingSoonMinutes"],
-        message:
-          "Stages must begin in order: starting soon, urgent, then pulse.",
-      });
-    }
-  });
+// Schemas are built at render time from `t` so validation messages follow
+// the interface language. Callers pass the `t` they already use.
+export function makeCountdownSchema(t: PluginsT) {
+  return z
+    .object({
+      name: z.string().trim().min(1).max(180),
+      message: z.string().trim().min(1).max(280),
+      scheduleType: z.enum(["weekly", "one_time"]),
+      targetTime: z.string(),
+      daysOfWeek: z.array(z.coerce.number().int().min(0).max(6)),
+      oneTimeAt: z.string(),
+      timezone: z
+        .string({ error: t("countdown.validation.timezone") })
+        .trim()
+        .min(1, t("countdown.validation.timezone"))
+        .max(100, t("countdown.validation.timezone")),
+      leadMinutes: z.coerce
+        .number({ error: t("countdown.validation.wholeMinutes") })
+        .int(t("countdown.validation.wholeMinutes"))
+        .min(1, t("countdown.validation.leadRange"))
+        .max(43_200, t("countdown.validation.leadRange")),
+      completionText: z.string().trim().max(280),
+      showConfetti: z.boolean(),
+      displayMode: z.enum(["overlay", "push"]),
+      progressFill: z.enum(["none", "drain"]),
+      heightPx: z.coerce
+        .number({ error: t("countdown.validation.heightRange") })
+        .int(t("countdown.validation.heightRange"))
+        .min(40, t("countdown.validation.heightRange"))
+        .max(320, t("countdown.validation.heightRange")),
+      contentPadding: z.coerce
+        .number({ error: t("countdown.validation.paddingRange") })
+        .int(t("countdown.validation.paddingRange"))
+        .min(0, t("countdown.validation.paddingRange"))
+        .max(40, t("countdown.validation.paddingRange")),
+      textScale: z.coerce
+        .number({ error: t("countdown.validation.textScaleRange") })
+        .int(t("countdown.validation.textScaleRange"))
+        .min(25, t("countdown.validation.textScaleRange"))
+        .max(500, t("countdown.validation.textScaleRange")),
+      urgencyEnabled: z.boolean(),
+      startingSoonMinutes: z.coerce
+        .number({ error: t("countdown.validation.wholeMinutes") })
+        .int(t("countdown.validation.wholeMinutes"))
+        .min(1, t("countdown.validation.soonRange"))
+        .max(1_440, t("countdown.validation.soonRange")),
+      urgentSeconds: z.coerce
+        .number({ error: t("countdown.validation.wholeSeconds") })
+        .int(t("countdown.validation.wholeSeconds"))
+        .min(2, t("countdown.validation.urgentRange"))
+        .max(3_600, t("countdown.validation.urgentRange")),
+      pulseSeconds: z.coerce
+        .number({ error: t("countdown.validation.wholeSeconds") })
+        .int(t("countdown.validation.wholeSeconds"))
+        .min(1, t("countdown.validation.pulseRange"))
+        .max(60, t("countdown.validation.pulseRange")),
+      enabled: z.boolean(),
+      priority: z.coerce
+        .number({ error: t("countdown.validation.priorityRange") })
+        .int(t("countdown.validation.priorityRange"))
+        .min(-1000, t("countdown.validation.priorityRange"))
+        .max(1000, t("countdown.validation.priorityRange")),
+      targetScope: z.enum(["all", "screens", "sync_groups", "locations"]),
+      targetIds: z.array(z.string()),
+    })
+    .superRefine((value, context) => {
+      if (
+        value.scheduleType === "weekly" &&
+        (!/^\d{2}:\d{2}$/.test(value.targetTime) ||
+          value.daysOfWeek.length === 0)
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["daysOfWeek"],
+          message: t("countdown.validation.weeklyRequired"),
+        });
+      }
+      if (value.scheduleType === "one_time" && !value.oneTimeAt) {
+        context.addIssue({
+          code: "custom",
+          path: ["oneTimeAt"],
+          message: t("countdown.validation.oneTimeRequired"),
+        });
+      }
+      if (value.targetScope !== "all" && value.targetIds.length === 0) {
+        context.addIssue({
+          code: "custom",
+          path: ["targetIds"],
+          message: t("countdown.validation.targetRequired"),
+        });
+      }
+      if (
+        value.urgencyEnabled &&
+        (value.startingSoonMinutes * 60 <= value.urgentSeconds ||
+          value.urgentSeconds <= value.pulseSeconds)
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["startingSoonMinutes"],
+          message: t("countdown.validation.stageOrder"),
+        });
+      }
+    });
+}
 
-type FormValues = z.infer<typeof formSchema>;
-type FormInput = z.input<typeof formSchema>;
+type FormValues = z.infer<ReturnType<typeof makeCountdownSchema>>;
+type FormInput = z.input<ReturnType<typeof makeCountdownSchema>>;
 
 function urgencyDefaults(leadMinutes: number) {
   const leadSeconds = Math.max(60, Math.round(leadMinutes * 60));
@@ -178,48 +180,53 @@ function urgencyDefaults(leadMinutes: number) {
   return { startingSoonMinutes, urgentSeconds, pulseSeconds };
 }
 
-const defaultValues: FormValues = {
-  name: "",
-  message: "Lunch ends in",
-  scheduleType: "weekly",
-  targetTime: "12:00",
-  daysOfWeek: [1, 2, 3, 4, 5],
-  oneTimeAt: "",
-  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-  leadMinutes: 15,
-  completionText: "",
-  showConfetti: false,
-  displayMode: "overlay",
-  progressFill: "none",
-  heightPx: 72,
-  contentPadding: 4,
-  textScale: 100,
-  urgencyEnabled: false,
-  startingSoonMinutes: 5,
-  urgentSeconds: 60,
-  pulseSeconds: 10,
-  enabled: true,
-  priority: 0,
-  targetScope: "all",
-  targetIds: [],
-};
+// New-instance defaults, including the suggested message callers see
+// prefilled in the form. Built from `t` like the schema above.
+function makeCountdownDefaults(t: PluginsT): FormValues {
+  return {
+    name: "",
+    message: t("countdown.editor.defaults.message"),
+    scheduleType: "weekly",
+    targetTime: "12:00",
+    daysOfWeek: [1, 2, 3, 4, 5],
+    oneTimeAt: "",
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+    leadMinutes: 15,
+    completionText: "",
+    showConfetti: false,
+    displayMode: "overlay",
+    progressFill: "none",
+    heightPx: 72,
+    contentPadding: 4,
+    textScale: 100,
+    urgencyEnabled: false,
+    startingSoonMinutes: 5,
+    urgentSeconds: 60,
+    pulseSeconds: 10,
+    enabled: true,
+    priority: 0,
+    targetScope: "all",
+    targetIds: [],
+  };
+}
 
 const scheduleTypeOptions = [
-  { value: "weekly", label: "Days of the week" },
-  { value: "one_time", label: "One-time date" },
-];
+  { value: "weekly", labelKey: "countdown.editor.scheduleType.weekly" },
+  { value: "one_time", labelKey: "countdown.editor.scheduleType.oneTime" },
+] as const;
 
 const displayModeOptions = [
-  { value: "overlay", label: "Overlay current content" },
-  { value: "push", label: "Push and shrink current content" },
-];
+  { value: "overlay", labelKey: "countdown.editor.displayMode.overlay" },
+  { value: "push", labelKey: "countdown.editor.displayMode.push" },
+] as const;
 
 const progressFillOptions = [
-  { value: "none", label: "Plain background" },
-  { value: "drain", label: "Drain right to left" },
-];
+  { value: "none", labelKey: "countdown.editor.progressFill.none" },
+  { value: "drain", labelKey: "countdown.editor.progressFill.drain" },
+] as const;
 
 export function CountdownBarsPage() {
+  const { t } = useTranslation(["plugins", "common"]);
   const auth = useAuth();
   const queryClient = useQueryClient();
   const { confirm, dialog: confirmDialog } = useConfirm();
@@ -253,14 +260,14 @@ export function CountdownBarsPage() {
               className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
               to="/plugins"
             >
-              <ArrowLeft size={15} aria-hidden="true" /> Plugins
+              <ArrowLeft size={15} aria-hidden="true" />{" "}
+              {t("shared.backToPlugins")}
             </Link>
             <h1 className="text-2xl font-semibold tracking-tight">
-              Countdown Bar
+              {t("countdown.title")}
             </h1>
             <p className="text-sm text-muted-foreground">
-              Timed bars run independently of the playlist and keep evaluating
-              from the Player&apos;s cached manifest.
+              {t("countdown.subtitle")}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -269,8 +276,8 @@ export function CountdownBarsPage() {
                 className={buttonVariants({ size: "lg" })}
                 to="/plugins/countdown-bar/new"
               >
-                <Plus data-icon="inline-start" aria-hidden="true" /> New
-                instance
+                <Plus data-icon="inline-start" aria-hidden="true" />{" "}
+                {t("shared.newInstance")}
               </Link>
             )}
             <PluginActionsMenu pluginId="countdown_bar" />
@@ -278,21 +285,17 @@ export function CountdownBarsPage() {
         </header>
         {!manageable && (
           <Alert>
-            <AlertDescription>
-              Owner or Administrator access is required to make changes.
-            </AlertDescription>
+            <AlertDescription>{t("shared.manageNote")}</AlertDescription>
           </Alert>
         )}
         {instances.isError && (
           <Alert variant="destructive">
-            <AlertDescription>
-              Countdown bars could not be loaded.
-            </AlertDescription>
+            <AlertDescription>{t("countdown.loadError")}</AlertDescription>
           </Alert>
         )}
         {remove.isError && (
           <Alert variant="destructive">
-            <AlertDescription>{remove.error.message}</AlertDescription>
+            <AlertDescription>{apiErrorMessage(remove.error)}</AlertDescription>
           </Alert>
         )}
         {showEmptyState ? (
@@ -301,10 +304,9 @@ export function CountdownBarsPage() {
               <EmptyMedia variant="icon">
                 <Clock3 size={24} aria-hidden="true" />
               </EmptyMedia>
-              <EmptyTitle>No countdown bars configured</EmptyTitle>
+              <EmptyTitle>{t("countdown.emptyTitle")}</EmptyTitle>
               <EmptyDescription>
-                Create an instance to show a locally-timed bar on selected
-                screens.
+                {t("countdown.emptyDescription")}
               </EmptyDescription>
             </EmptyHeader>
             {manageable && (
@@ -313,7 +315,7 @@ export function CountdownBarsPage() {
                   className={buttonVariants()}
                   to="/plugins/countdown-bar/new"
                 >
-                  Create instance
+                  {t("shared.createInstance")}
                 </Link>
               </EmptyContent>
             )}
@@ -326,12 +328,18 @@ export function CountdownBarsPage() {
                   <ItemTitle>
                     <h2 className="text-sm font-medium">{instance.name}</h2>
                     <Badge variant={instance.enabled ? "default" : "secondary"}>
-                      {instance.enabled ? "Enabled" : "Disabled"}
+                      {instance.enabled
+                        ? t("shared.enabledBadge")
+                        : t("shared.disabledBadge")}
                     </Badge>
                   </ItemTitle>
                   <ItemDescription>
-                    {instance.message} · {instance.displayMode} ·{" "}
-                    {instance.heightPx}px · priority {instance.priority}
+                    {t("countdown.itemDescription", {
+                      message: instance.message,
+                      displayMode: instance.displayMode,
+                      height: instance.heightPx,
+                      priority: instance.priority,
+                    })}
                   </ItemDescription>
                 </ItemContent>
                 <ItemActions className="flex-wrap">
@@ -342,19 +350,23 @@ export function CountdownBarsPage() {
                     })}
                     to={`/plugins/countdown-bar/${instance.id}`}
                   >
-                    Manage
+                    {t("shared.manage")}
                   </Link>
                   {manageable && (
                     <RheaButton
                       type="button"
                       size="icon"
                       variant="destructive"
-                      aria-label={`Delete ${instance.name}`}
+                      aria-label={t("shared.deleteAction", {
+                        name: instance.name,
+                      })}
                       onClick={() => {
                         void confirm({
-                          title: `Delete “${instance.name}”?`,
-                          body: "The bar will be removed from targeted Players.",
-                          action: "Delete",
+                          title: t("shared.deleteTitle", {
+                            name: instance.name,
+                          }),
+                          body: t("countdown.deleteBody"),
+                          action: t("common:actions.delete"),
                           destructive: true,
                         }).then((ok) => {
                           if (ok) remove.mutate(instance.id);
@@ -375,17 +387,25 @@ export function CountdownBarsPage() {
 }
 
 export function CountdownBarEditorPage() {
+  const { t } = useTranslation(["plugins", "common"]);
   const { id } = useParams();
   const editing = Boolean(id);
   const auth = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const schema = useMemo(() => makeCountdownSchema(t), [t]);
+  const defaults = useMemo(() => makeCountdownDefaults(t), [t]);
   const instance = useQuery({
     queryKey: ["countdown-bar", id],
     queryFn: () => api.countdownBar(id ?? ""),
     enabled: editing,
   });
-  const previousLeadMinutes = useRef(defaultValues.leadMinutes);
+  const previousLeadMinutes = useRef(defaults.leadMinutes);
+  // Numeric urgency fallbacks are identical in every language; destructuring
+  // keeps the reset effect below from re-running on a language change.
+  const defaultStartingSoon = defaults.startingSoonMinutes;
+  const defaultUrgent = defaults.urgentSeconds;
+  const defaultPulse = defaults.pulseSeconds;
   const linkedUrgencyDefaults = useRef({
     startingSoonMinutes: true,
     urgentSeconds: true,
@@ -399,8 +419,8 @@ export function CountdownBarEditorPage() {
     watch,
     formState: { errors },
   } = useForm<FormInput, unknown, FormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues,
+    resolver: zodResolver(schema),
+    defaultValues: defaults,
   });
   useEffect(() => {
     if (!instance.data) return;
@@ -414,13 +434,12 @@ export function CountdownBarEditorPage() {
     linkedUrgencyDefaults.current = {
       startingSoonMinutes:
         storedStartingSoon === derived.startingSoonMinutes ||
-        storedStartingSoon === defaultValues.startingSoonMinutes,
+        storedStartingSoon === defaultStartingSoon,
       urgentSeconds:
         storedUrgent === derived.urgentSeconds ||
-        storedUrgent === defaultValues.urgentSeconds,
+        storedUrgent === defaultUrgent,
       pulseSeconds:
-        storedPulse === derived.pulseSeconds ||
-        storedPulse === defaultValues.pulseSeconds,
+        storedPulse === derived.pulseSeconds || storedPulse === defaultPulse,
     };
     reset({
       name: value.name,
@@ -447,7 +466,7 @@ export function CountdownBarEditorPage() {
       targetScope: value.targetScope,
       targetIds: value.targetIds,
     });
-  }, [instance.data, reset]);
+  }, [instance.data, reset, defaultStartingSoon, defaultUrgent, defaultPulse]);
   const save = useMutation({
     mutationFn: (input: CountdownBarInput) =>
       editing
@@ -561,14 +580,15 @@ export function CountdownBarEditorPage() {
           className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
           to="/plugins/countdown-bar"
         >
-          <ArrowLeft size={15} aria-hidden="true" /> Countdown Bar
+          <ArrowLeft size={15} aria-hidden="true" /> {t("countdown.title")}
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight">
-          {editing ? "Manage countdown bar" : "New countdown bar"}
+          {editing
+            ? t("countdown.editor.manageTitle")
+            : t("countdown.editor.createTitle")}
         </h1>
         <p className="text-sm text-muted-foreground">
-          The Player evaluates this schedule locally. Priority decides which bar
-          wins when instances overlap.
+          {t("countdown.editor.subtitle")}
         </p>
       </header>
       <form
@@ -576,39 +596,45 @@ export function CountdownBarEditorPage() {
         onSubmit={(event) => void handleSubmit(submit)(event)}
       >
         <section className="grid gap-4 rounded-xl border border-border p-4">
-          <h2 className="text-base font-semibold">Content</h2>
+          <h2 className="text-base font-semibold">
+            {t("countdown.editor.sections.content")}
+          </h2>
           <FormField
             id="countdown-name"
-            label="Name"
+            label={t("shared.nameLabel")}
             aria-required="true"
             error={errors.name?.message}
             {...register("name")}
           />
           <FormField
             id="countdown-message"
-            label="Message"
+            label={t("countdown.editor.messageLabel")}
             aria-required="true"
             error={errors.message?.message}
             {...register("message")}
           />
           <FormField
             id="countdown-completion"
-            label="Optional completion text"
-            placeholder="Lunch is over"
-            hint="Shown for one minute after the target; leave blank to hide at zero."
+            label={t("countdown.editor.completionLabel")}
+            placeholder={t("countdown.editor.completionPlaceholder")}
+            hint={t("countdown.editor.completionHint")}
             error={errors.completionText?.message}
             {...register("completionText")}
           />
           <RegisterCheckbox
-            label="Show confetti when the countdown reaches zero"
+            label={t("countdown.editor.confettiLabel")}
             {...register("showConfetti")}
           />
         </section>
 
         <section className="grid gap-4 rounded-xl border border-border p-4">
-          <h2 className="text-base font-semibold">Timing</h2>
+          <h2 className="text-base font-semibold">
+            {t("countdown.editor.sections.timing")}
+          </h2>
           <Field>
-            <FieldLabel htmlFor="countdown-schedule-type">Schedule</FieldLabel>
+            <FieldLabel htmlFor="countdown-schedule-type">
+              {t("countdown.editor.scheduleLabel")}
+            </FieldLabel>
             <RheaSelect
               items={scheduleTypeOptions}
               name="scheduleType"
@@ -617,13 +643,22 @@ export function CountdownBarEditorPage() {
                 if (next) setScheduleType(next);
               }}
             >
-              <SelectTrigger id="countdown-schedule-type" aria-label="Schedule">
-                <SelectValue />
+              <SelectTrigger
+                id="countdown-schedule-type"
+                aria-label={t("countdown.editor.scheduleLabel")}
+              >
+                <SelectValue>
+                  {t(
+                    scheduleTypeOptions.find(
+                      (option) => option.value === scheduleType,
+                    )?.labelKey ?? "countdown.editor.scheduleType.weekly",
+                  )}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {scheduleTypeOptions.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
-                    {option.label}
+                    {t(option.labelKey)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -633,14 +668,14 @@ export function CountdownBarEditorPage() {
             <>
               <FormField
                 id="countdown-target-time"
-                label="Target time"
+                label={t("countdown.editor.targetTimeLabel")}
                 type="time"
                 error={errors.targetTime?.message}
                 {...register("targetTime")}
               />
               <div className="grid gap-2">
                 <span className="text-sm font-medium" id="countdown-days-label">
-                  Days of the week
+                  {t("countdown.editor.daysLabel")}
                 </span>
                 <ToggleGroup
                   multiple
@@ -665,7 +700,7 @@ export function CountdownBarEditorPage() {
                       value={String(day.value)}
                       className="min-w-10 aria-pressed:bg-primary aria-pressed:text-primary-foreground"
                     >
-                      {day.short}
+                      {weekdayShortLabel(day.value, t)}
                     </ToggleGroupItem>
                   ))}
                 </ToggleGroup>
@@ -679,9 +714,9 @@ export function CountdownBarEditorPage() {
           ) : (
             <FormField
               id="countdown-one-time"
-              label="Target date and time"
+              label={t("countdown.editor.oneTimeLabel")}
               type="datetime-local"
-              hint="Entered in this browser's local time; the Player counts down to the same instant."
+              hint={t("countdown.editor.oneTimeHint")}
               error={errors.oneTimeAt?.message}
               {...register("oneTimeAt")}
             />
@@ -689,14 +724,14 @@ export function CountdownBarEditorPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField
               id="countdown-timezone"
-              label="Timezone"
+              label={t("countdown.editor.timezoneLabel")}
               aria-required="true"
               error={errors.timezone?.message}
               {...register("timezone")}
             />
             <FormField
               id="countdown-lead"
-              label="Appear this many minutes before"
+              label={t("countdown.editor.leadLabel")}
               type="number"
               min={1}
               max={43_200}
@@ -707,10 +742,14 @@ export function CountdownBarEditorPage() {
         </section>
 
         <section className="grid gap-4 rounded-xl border border-border p-4">
-          <h2 className="text-base font-semibold">Display</h2>
+          <h2 className="text-base font-semibold">
+            {t("countdown.editor.sections.display")}
+          </h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field>
-              <FieldLabel htmlFor="countdown-display-mode">Mode</FieldLabel>
+              <FieldLabel htmlFor="countdown-display-mode">
+                {t("countdown.editor.modeLabel")}
+              </FieldLabel>
               <RheaSelect
                 items={displayModeOptions}
                 name="displayMode"
@@ -719,13 +758,22 @@ export function CountdownBarEditorPage() {
                   if (next) setDisplayMode(next);
                 }}
               >
-                <SelectTrigger id="countdown-display-mode" aria-label="Mode">
-                  <SelectValue />
+                <SelectTrigger
+                  id="countdown-display-mode"
+                  aria-label={t("countdown.editor.modeLabel")}
+                >
+                  <SelectValue>
+                    {t(
+                      displayModeOptions.find(
+                        (option) => option.value === displayMode,
+                      )?.labelKey ?? "countdown.editor.displayMode.overlay",
+                    )}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {displayModeOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
-                      {option.label}
+                      {t(option.labelKey)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -733,7 +781,7 @@ export function CountdownBarEditorPage() {
             </Field>
             <Field>
               <FieldLabel htmlFor="countdown-progress-fill">
-                Background countdown
+                {t("countdown.editor.progressLabel")}
               </FieldLabel>
               <RheaSelect
                 items={progressFillOptions}
@@ -745,26 +793,31 @@ export function CountdownBarEditorPage() {
               >
                 <SelectTrigger
                   id="countdown-progress-fill"
-                  aria-label="Background countdown"
+                  aria-label={t("countdown.editor.progressLabel")}
                 >
-                  <SelectValue />
+                  <SelectValue>
+                    {t(
+                      progressFillOptions.find(
+                        (option) => option.value === progressFill,
+                      )?.labelKey ?? "countdown.editor.progressFill.none",
+                    )}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {progressFillOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
-                      {option.label}
+                      {t(option.labelKey)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </RheaSelect>
               <FieldDescription>
-                Drain empties the bar from right to left as the target
-                approaches.
+                {t("countdown.editor.progressHint")}
               </FieldDescription>
             </Field>
             <FormField
               id="countdown-height"
-              label="Bottom-bar height (px)"
+              label={t("countdown.editor.heightLabel")}
               type="number"
               min={40}
               max={320}
@@ -773,9 +826,9 @@ export function CountdownBarEditorPage() {
             />
             <FormField
               id="countdown-padding"
-              label="Horizontal padding (%)"
-              hint="Lower padding gives the message and countdown more room."
-              aria-label="Horizontal padding (%)"
+              label={t("countdown.editor.paddingLabel")}
+              hint={t("countdown.editor.paddingHint")}
+              aria-label={t("countdown.editor.paddingLabel")}
               type="number"
               min={0}
               max={40}
@@ -784,9 +837,9 @@ export function CountdownBarEditorPage() {
             />
             <FormField
               id="countdown-text-scale"
-              label="Text size (%)"
-              hint="Increase the type size without changing the bar height."
-              aria-label="Text size (%)"
+              label={t("countdown.editor.textScaleLabel")}
+              hint={t("countdown.editor.textScaleHint")}
+              aria-label={t("countdown.editor.textScaleLabel")}
               type="number"
               min={25}
               max={500}
@@ -795,7 +848,7 @@ export function CountdownBarEditorPage() {
             />
             <FormField
               id="countdown-priority"
-              label="Priority"
+              label={t("shared.priorityLabel")}
               type="number"
               min={-1000}
               max={1000}
@@ -803,27 +856,30 @@ export function CountdownBarEditorPage() {
               {...register("priority", { valueAsNumber: true })}
             />
           </div>
-          <RegisterCheckbox label="Enabled" {...register("enabled")} />
+          <RegisterCheckbox
+            label={t("shared.enabledLabel")}
+            {...register("enabled")}
+          />
         </section>
 
         <section className="grid gap-4 rounded-xl border border-border p-4">
           <header className="grid gap-1">
-            <h2 className="text-base font-semibold">Urgency stages</h2>
+            <h2 className="text-base font-semibold">
+              {t("countdown.editor.sections.urgency")}
+            </h2>
             <p className="text-sm text-muted-foreground">
-              Change the bar automatically as the target approaches. Untouched
-              stage times follow the total lead time; custom values stay fixed.
-              Completed messages return to the normal size.
+              {t("countdown.editor.urgencyDescription")}
             </p>
           </header>
           <RegisterCheckbox
-            label="Enable countdown urgency stages"
+            label={t("countdown.editor.urgencyEnabledLabel")}
             {...register("urgencyEnabled")}
           />
           {urgencyEnabled && (
             <div className="grid gap-4 sm:grid-cols-3">
               <FormField
                 id="countdown-starting-soon"
-                label="Starting soon (orange), minutes before"
+                label={t("countdown.editor.startingSoonLabel")}
                 type="number"
                 min={1}
                 max={1_440}
@@ -837,7 +893,7 @@ export function CountdownBarEditorPage() {
               />
               <FormField
                 id="countdown-urgent"
-                label="Urgent (red), seconds before"
+                label={t("countdown.editor.urgentLabel")}
                 type="number"
                 min={2}
                 max={3_600}
@@ -851,8 +907,8 @@ export function CountdownBarEditorPage() {
               />
               <FormField
                 id="countdown-pulse"
-                label="Pulse and enlarge, final seconds"
-                hint="The bar and text grow by 25% during this final stage."
+                label={t("countdown.editor.pulseLabel")}
+                hint={t("countdown.editor.pulseHint")}
                 type="number"
                 min={1}
                 max={60}
@@ -869,7 +925,9 @@ export function CountdownBarEditorPage() {
         </section>
 
         <section className="grid gap-4 rounded-xl border border-border p-4">
-          <h2 className="text-base font-semibold">Targets</h2>
+          <h2 className="text-base font-semibold">
+            {t("shared.targetsSection")}
+          </h2>
           <TargetFields
             idPrefix="countdown"
             scope={targetScope}
@@ -888,7 +946,7 @@ export function CountdownBarEditorPage() {
 
         {save.isError && (
           <Alert variant="destructive">
-            <AlertDescription>{save.error.message}</AlertDescription>
+            <AlertDescription>{apiErrorMessage(save.error)}</AlertDescription>
           </Alert>
         )}
         <div className="flex flex-wrap items-center justify-end gap-2">
@@ -896,14 +954,14 @@ export function CountdownBarEditorPage() {
             className={buttonVariants({ variant: "outline", size: "lg" })}
             to="/plugins/countdown-bar"
           >
-            Cancel
+            {t("common:actions.cancel")}
           </Link>
           <RheaButton type="submit" disabled={save.isPending}>
             {save.isPending
-              ? "Saving…"
+              ? t("common:actions.saving")
               : editing
-                ? "Save changes"
-                : "Create instance"}
+                ? t("common:actions.saveChanges")
+                : t("shared.createInstance")}
           </RheaButton>
         </div>
       </form>

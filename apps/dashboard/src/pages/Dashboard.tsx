@@ -9,6 +9,11 @@ import { ThemeProvider } from "@/components/studio/ThemeProvider";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { StudioTopbar } from "@/components/StudioTopbar";
+import {
+  LANGUAGE_PREFERENCE_KEY,
+  applyLanguagePreference,
+  isLanguagePreference,
+} from "@/i18n";
 import { OperationsDashboard } from "./OperationsDashboard";
 import { EnrollmentWizard } from "./EnrollmentWizard";
 
@@ -75,6 +80,14 @@ export function DashboardShell() {
       // Preference state remains available from the server when storage is disabled.
     }
   }, [serverAppearance]);
+  const serverLanguage = preferences.data?.values?.[LANGUAGE_PREFERENCE_KEY];
+  useEffect(() => {
+    // The cached value chose the starting language; the account's saved
+    // preference is authoritative once it arrives.
+    if (isLanguagePreference(serverLanguage)) {
+      applyLanguagePreference(serverLanguage);
+    }
+  }, [serverLanguage]);
   useEffect(() => {
     if (!auth.isLoading && !auth.status?.authenticated) {
       void navigate(

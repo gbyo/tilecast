@@ -1,8 +1,12 @@
+import type { TFunction } from "i18next";
 import type { ReliabilityStatus } from "../api/types";
 
 // Fallback for a player too old to send its own limitation string, and for the
 // group case where several displays fail for different reasons.
-export function missingAirplayComponents(blocked: ReliabilityStatus[]) {
+export function missingAirplayComponents(
+  blocked: ReliabilityStatus[],
+  t: TFunction<"alerts">,
+) {
   const missing = [
     [
       "UxPlay",
@@ -13,7 +17,7 @@ export function missingAirplayComponents(blocked: ReliabilityStatus[]) {
       blocked.some((item) => item.airplayGstreamerInstalled === false),
     ] as const,
     [
-      "an H.264 decoder",
+      t("airplay.missing.h264Decoder"),
       blocked.some((item) => item.airplayH264DecoderAvailable === false),
     ] as const,
     [
@@ -23,16 +27,18 @@ export function missingAirplayComponents(blocked: ReliabilityStatus[]) {
   ]
     .filter(([, absent]) => absent)
     .map(([name]) => name);
-  if (missing.length === 0)
-    return "Run the server's /install-airplay.sh installer as root to provision UxPlay, GStreamer, an H.264 decoder, and Avahi.";
+  if (missing.length === 0) return t("airplay.missing.installerAll");
   const list =
     missing.length === 1
       ? missing[0]
-      : `${missing.slice(0, -1).join(", ")} and ${missing[missing.length - 1]}`;
-  return `Missing ${list}. Run the server's /install-airplay.sh installer as root.`;
+      : `${missing.slice(0, -1).join(", ")} ${t("airplay.missing.and")} ${missing[missing.length - 1]}`;
+  return t("airplay.missing.list", { list });
 }
 
-export function airplayCapabilityBlockDetail(blocked: ReliabilityStatus[]) {
+export function airplayCapabilityBlockDetail(
+  blocked: ReliabilityStatus[],
+  t: TFunction<"alerts">,
+) {
   const limitations = blocked
     .map((item) => item.airplayLimitation?.trim())
     .filter((value): value is string => Boolean(value));
@@ -42,5 +48,5 @@ export function airplayCapabilityBlockDetail(blocked: ReliabilityStatus[]) {
   ) {
     return limitations[0];
   }
-  return missingAirplayComponents(blocked);
+  return missingAirplayComponents(blocked, t);
 }
