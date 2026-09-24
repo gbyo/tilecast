@@ -38,6 +38,7 @@ http-body-util.workspace = true
 hyper.workspace = true
 hyper-util.workspace = true
 tempfile.workspace = true
+tokio = { workspace = true, features = ["full", "test-util"] }
 
 [lints]
 workspace = true

@@ -64,6 +64,15 @@ struct FakeServer {
     release: tokio::sync::Notify,
     heartbeats: Mutex<Vec<Value>>,
     manifest_requests: AtomicUsize,
+    /// The configuration document; `None` serves the server's revision 1.
+    config: Mutex<Option<Value>>,
+    config_requests: AtomicUsize,
+    /// Offered command deliveries (`state` is the server state).
+    commands: Mutex<Vec<Value>>,
+    command_results: Mutex<Vec<(String, Value)>>,
+    /// Keep offering a command after its result, as when a result report
+    /// never reached the server.
+    lose_results: AtomicBool,
 }
 
 impl FakeServer {
@@ -77,7 +86,28 @@ impl FakeServer {
             release: tokio::sync::Notify::new(),
             heartbeats: Mutex::new(Vec::new()),
             manifest_requests: AtomicUsize::new(0),
+            config: Mutex::new(None),
+            config_requests: AtomicUsize::new(0),
+            commands: Mutex::new(Vec::new()),
+            command_results: Mutex::new(Vec::new()),
+            lose_results: AtomicBool::new(false),
         })
+    }
+
+    fn set_config(&self, config: Value) {
+        *self.config.lock().unwrap() = Some(config);
+    }
+
+    /// Offers a command; returns its delivery ID.
+    fn offer(&self, command_type: &str, key: uuid::Uuid, payload: Value) -> String {
+        let id = uuid::Uuid::new_v4().to_string();
+        self.commands.lock().unwrap().push(json!({"id": id, "type": command_type,
+            "idempotencyKey": key.to_string(), "payload": payload, "state": "delivered"}));
+        id
+    }
+
+    fn results_for(&self, id: &str) -> Vec<Value> {
+        self.command_results.lock().unwrap().iter().filter(|(rid, _)| rid == id).map(|(_, r)| r.clone()).collect()
     }
 
     fn set_manifest(&self, manifest: Value) {
@@ -150,6 +180,61 @@ async fn handle(fake: Arc<FakeServer>, request: Request<Body>) -> Result<Respons
             let mut response = data(manifest);
             response.headers_mut().insert("etag", etag.parse().unwrap());
             Ok(response)
+        }
+        "/api/v1/player/config" => {
+            fake.config_requests.fetch_add(1, Ordering::SeqCst);
+            let config =
+                fake.config.lock().unwrap().clone().unwrap_or_else(|| json!({"schemaVersion": 1, "configRevision": 1}));
+            // The real server's validator is derived from the revision alone.
+            let etag = format!("\"config-{}\"", config["configRevision"]);
+            if request.headers().get("if-none-match").and_then(|v| v.to_str().ok()) == Some(etag.as_str()) {
+                let mut response = Response::new(Full::new(Bytes::new()));
+                *response.status_mut() = StatusCode::NOT_MODIFIED;
+                return Ok(response);
+            }
+            let mut config = config;
+            config["generatedAt"] = json!(Timestamp::from_unix_millis(now_ms()).unwrap().to_string());
+            let mut response = data(config);
+            response.headers_mut().insert("etag", etag.parse().unwrap());
+            Ok(response)
+        }
+        "/api/v1/player/commands" => {
+            let items: Vec<Value> = fake
+                .commands
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|c| matches!(c["state"].as_str(), Some("delivered" | "acknowledged")))
+                .cloned()
+                .collect();
+            Ok(data(json!({ "items": items })))
+        }
+        command if command.starts_with("/api/v1/player/commands/") => {
+            let rest = command.trim_start_matches("/api/v1/player/commands/").to_owned();
+            let (id, action) = rest.split_once('/').unwrap();
+            let body = request.into_body().collect().await.unwrap().to_bytes();
+            let mut commands = fake.commands.lock().unwrap();
+            let Some(entry) = commands.iter_mut().find(|c| c["id"] == id) else {
+                return Ok(status(StatusCode::CONFLICT, "command_expired"));
+            };
+            match action {
+                "acknowledge" => {
+                    if matches!(entry["state"].as_str(), Some("succeeded" | "failed")) {
+                        return Ok(data(json!({"id": id, "state": entry["state"]})));
+                    }
+                    entry["state"] = json!("acknowledged");
+                    Ok(data(json!({"id": id, "state": "acknowledged"})))
+                }
+                "result" => {
+                    let result: Value = serde_json::from_slice(&body).unwrap();
+                    if !fake.lose_results.load(Ordering::SeqCst) {
+                        entry["state"] = json!(if result["success"] == true { "succeeded" } else { "failed" });
+                    }
+                    fake.command_results.lock().unwrap().push((id.to_owned(), result));
+                    Ok(data(json!({"id": id, "state": entry["state"]})))
+                }
+                _ => Ok(status(StatusCode::NOT_FOUND, "not_found")),
+            }
         }
         asset_path if asset_path.starts_with("/api/v1/player/assets/") => {
             let entry = fake.assets.lock().unwrap().get(asset_path).cloned();
@@ -283,6 +368,8 @@ enum Evidence {
 struct RendererLog {
     activations: Vec<PresentationActivate>,
     plugins: Vec<PluginState>,
+    identify: Vec<(String, u32)>,
+    commands: Vec<edge_protocol::ipc::event::RendererCommandKind>,
 }
 
 struct FakeRenderer {
@@ -327,6 +414,12 @@ impl FakeRenderer {
                             }
                         }
                         Event::PluginState(state) => log.lock().unwrap().plugins.push(state),
+                        Event::Identify(identify) => log
+                            .lock()
+                            .unwrap()
+                            .identify
+                            .push((identify.name.as_str().to_owned(), identify.duration_seconds)),
+                        Event::RendererCommand(command) => log.lock().unwrap().commands.push(command.command),
                         _ => {}
                     }
                 }
@@ -1050,6 +1143,292 @@ async fn layouts_widgets_and_plugins_reach_the_renderer_as_projection_inputs() {
         .await;
     let heartbeat = heartbeat(&player.context).await;
     assert_eq!(heartbeat["currentItemId"], item);
+    renderer.stop();
+    player.stop().await;
+}
+
+// ------------------------------------------------------------ M4: configuration and commands
+
+fn branded_config(revision: i64) -> Value {
+    json!({"schemaVersion": 1, "configRevision": revision,
+        "branding": {"disabledTitle": "Closed today", "disabledMessage": "See the front desk.",
+            "backgroundColor": "#112233", "textColor": "#FFEECC", "footerText": "Greenwood Library",
+            "noContentTitle": "Nothing scheduled"},
+        "playback": {"defaultImageDurationSeconds": 12, "identifyShowsLocation": true, "screenLocation": "Main · Lobby",
+            "regionalFormat": {"locale": "es-US", "timezone": "America/Chicago", "dateFormat": "locale",
+                "timeFormat": "12-hour", "firstDayOfWeek": "sunday"}},
+        "sync": {"statusReportSeconds": 60, "manifestReconciliationSeconds": 300}})
+}
+
+async fn accepted_revision(player: &Player, binding: &Binding) -> Option<i64> {
+    let binding = binding.clone();
+    player
+        .context
+        .db()
+        .unwrap()
+        .run(move |c| edge_state::repo::config::get_for(c, edge_state::repo::config::ConfigStage::Current, &binding))
+        .await
+        .unwrap()
+        .map(|stored| stored.revision)
+}
+
+fn disabled_title(activation: &PresentationActivate) -> Option<(String, Option<String>, Option<String>)> {
+    match &activation.presentation {
+        PresentationDocument::Disabled(surface) => Some((
+            surface.title.as_str().to_owned(),
+            surface.background_color.as_ref().map(|c| c.as_str().to_owned()),
+            surface.footer_text.as_ref().map(|c| c.as_str().to_owned()),
+        )),
+        _ => None,
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn configuration_and_disable_playback_change_the_screen_live_and_after_an_offline_restart() {
+    let harness = Harness::new().await;
+    harness.fake.set_config(branded_config(5));
+    let asset = Asset::new("lobby", "image/png");
+    let (player, renderer) = harness.committed(&asset, 3).await;
+    let binding = harness.binding();
+    wait_until("the configuration", || async { accepted_revision(&player, &binding).await == Some(5) }).await;
+    // Playback defaults reach the items: the fixture authors 10 s, but a
+    // delegating item takes the configured 12 s.
+    let heartbeat_now = heartbeat(&player.context).await;
+    assert_eq!(heartbeat_now["activeConfigRevision"], 5);
+    assert!(heartbeat_now.get("configurationError").is_none());
+
+    let key = uuid::Uuid::new_v4();
+    let delivery = harness.fake.offer("disable_playback", key, json!({}));
+    player.context.command_wake.notify_one();
+    let surface = wait_for("the branded disabled surface", || renderer.last().as_ref().and_then(disabled_title)).await;
+    assert_eq!(surface, ("Closed today".to_owned(), Some("#112233".to_owned()), Some("Greenwood Library".to_owned())));
+    wait_for("the result", || harness.fake.results_for(&delivery).into_iter().next()).await;
+    let result = harness.fake.results_for(&delivery).remove(0);
+    assert_eq!((result["success"].clone(), result["code"].clone()), (json!(true), json!("playback_disabled")));
+    let heartbeat_now = heartbeat(&player.context).await;
+    assert_eq!(heartbeat_now["playbackDisabled"], true);
+    assert_eq!(heartbeat_now["playbackState"], "disabled");
+    renderer.stop();
+    player.stop().await;
+
+    // No server: the cached configuration and the persisted flag apply
+    // before any network access.
+    harness.fake.offline.store(true, Ordering::SeqCst);
+    let player = harness.start().await;
+    let renderer = FakeRenderer::connect(&player.socket, Evidence::Auto).await;
+    let surface = wait_for("the disabled surface offline", || renderer.last().as_ref().and_then(disabled_title)).await;
+    assert_eq!(surface.0, "Closed today");
+    assert_eq!(player.context.player_config.read().unwrap().as_ref().map(|c| c.revision), Some(5));
+
+    harness.fake.offline.store(false, Ordering::SeqCst);
+    let delivery = harness.fake.offer("enable_playback", uuid::Uuid::new_v4(), json!({}));
+    player.context.command_wake.notify_one();
+    wait_for("content again", || renderer.last().filter(|a| shows(a, &asset))).await;
+    wait_for("the result", || harness.fake.results_for(&delivery).into_iter().next()).await;
+    assert_eq!(harness.fake.results_for(&delivery)[0]["code"], "playback_enabled");
+    let PresentationDocument::Playing { items, .. } = &renderer.last().unwrap().presentation else { unreachable!() };
+    assert_eq!(items[0].duration_ms, Some(10_000), "an authored duration stays authoritative");
+    renderer.stop();
+    player.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_stale_invalid_or_unsupported_configuration_never_replaces_the_accepted_one() {
+    let harness = Harness::new().await;
+    harness.fake.set_config(branded_config(5));
+    let asset = Asset::new("lobby", "image/png");
+    let (player, renderer) = harness.committed(&asset, 3).await;
+    let binding = harness.binding();
+    wait_until("revision 5", || async { accepted_revision(&player, &binding).await == Some(5) }).await;
+
+    for (document, reason) in [
+        (branded_config(4), "config_revision_stale"),
+        (with(branded_config(6), |c| c["schemaVersion"] = json!(9)), "config_schema_unsupported"),
+        (with(branded_config(7), |c| c["power"] = json!("always")), "config_section_invalid"),
+    ] {
+        harness.fake.set_config(document);
+        let before = harness.fake.config_requests.load(Ordering::SeqCst);
+        player.push();
+        wait_until("a configuration fetch", || async { harness.fake.config_requests.load(Ordering::SeqCst) > before })
+            .await;
+        wait_until(reason, || async {
+            heartbeat(&player.context).await.get("configurationError").and_then(Value::as_str) == Some(reason)
+        })
+        .await;
+        assert_eq!(accepted_revision(&player, &binding).await, Some(5), "{reason}");
+        assert_eq!(heartbeat(&player.context).await["activeConfigRevision"], 5);
+    }
+
+    harness.fake.set_config(branded_config(8));
+    player.push();
+    wait_until("revision 8", || async { accepted_revision(&player, &binding).await == Some(8) }).await;
+    wait_until("the error to clear", || async { heartbeat(&player.context).await.get("configurationError").is_none() })
+        .await;
+    let binding_previous = binding.clone();
+    let previous = player
+        .context
+        .db()
+        .unwrap()
+        .run(move |c| {
+            edge_state::repo::config::get_for(c, edge_state::repo::config::ConfigStage::Previous, &binding_previous)
+        })
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(previous.revision, 5, "the replaced document is kept for recovery");
+    renderer.stop();
+    player.stop().await;
+}
+
+/// `HH:MM` in UTC, `hours` from now.
+fn utc_clock(hours: i64) -> String {
+    let minutes = (now_ms() / 60_000 + hours * 60).rem_euclid(24 * 60);
+    format!("{:02}:{:02}", minutes / 60, minutes % 60)
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn outside_active_hours_the_screen_rests_until_a_takeover_outranks_it() {
+    let harness = Harness::new().await;
+    harness.fake.set_config(json!({"schemaVersion": 1, "configRevision": 3,
+        "branding": {"textColor": "#AABBCC"},
+        "power": {"activeHoursEnabled": true, "activeHoursTimezone": "UTC", "activeHoursDays": [1, 2, 3, 4, 5, 6, 7],
+            "activeHoursStart": utc_clock(2), "activeHoursEnd": utc_clock(3),
+            "outsideActiveHoursDisplay": "custom_text", "outsideActiveHoursText": "Closed for the night"}}));
+    let asset = Asset::new("daytime", "image/png");
+    harness.fake.add_asset(&asset, AssetMode::Serve);
+    harness.fake.set_manifest(manifest(harness.screen, 3, &[&asset]));
+    let player = harness.start().await;
+    let renderer = FakeRenderer::connect(&player.socket, Evidence::Auto).await;
+    let sleeping = wait_for("the rest surface", || {
+        renderer.last().filter(|a| matches!(a.presentation, PresentationDocument::Sleep { .. }))
+    })
+    .await;
+    let PresentationDocument::Sleep { display, text, text_color } = &sleeping.presentation else { unreachable!() };
+    assert_eq!(display.as_ref().map(|d| d.as_str()), Some("custom_text"));
+    assert_eq!(text.as_ref().map(|t| t.as_str()), Some("Closed for the night"));
+    assert_eq!(text_color.as_ref().map(|t| t.as_str()), Some("#AABBCC"));
+    assert_eq!(heartbeat(&player.context).await["playbackState"], "sleep");
+    // Content never reached the screen, so nothing was promoted on evidence.
+    let binding = harness.binding();
+    assert!(player.stage(&binding, Stage::Active).await.is_none());
+    tokio::time::sleep(Duration::from_secs(1)).await;
+    assert!(!renderer.log.lock().unwrap().activations.iter().any(|a| shows(a, &asset)));
+
+    let urgent = Asset::new("urgent", "image/png");
+    harness.fake.add_asset(&urgent, AssetMode::Serve);
+    let takeover_playlist = uuid::Uuid::new_v4().to_string();
+    harness.fake.set_manifest(with(manifest(harness.screen, 4, &[&asset, &urgent]), |m| {
+        m["playlist"]["items"] = json!([asset.item(uuid::Uuid::new_v4())]);
+        m["playlists"] = json!([{"id": takeover_playlist, "revision": 1, "name": "Alert",
+            "items": [urgent.item(uuid::Uuid::new_v4())]}]);
+        m["takeover"] = json!({"id": uuid::Uuid::new_v4().to_string(), "playlistId": takeover_playlist,
+            "activatedAt": Timestamp::from_unix_millis(now_ms() - 60_000).unwrap().to_string(),
+            "expiresAt": Timestamp::from_unix_millis(now_ms() + 3_600_000).unwrap().to_string()});
+    }));
+    player.push();
+    wait_for("the takeover over the rest surface", || renderer.last().filter(|a| shows(a, &urgent))).await;
+    wait_until("promotion", || async { player.stage(&binding, Stage::Active).await.is_some_and(|m| m.version == 4) })
+        .await;
+    renderer.stop();
+    player.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn commands_run_at_most_once_across_redelivery_and_restart() {
+    let harness = Harness::new().await;
+    harness.fake.set_config(branded_config(2));
+    let asset = Asset::new("lobby", "image/png");
+    let (player, renderer) = harness.committed(&asset, 3).await;
+    // Every result report is "lost": the server keeps offering the command.
+    harness.fake.lose_results.store(true, Ordering::SeqCst);
+    let key = uuid::Uuid::new_v4();
+    let delivery = harness.fake.offer("identify_screen", key, json!({"durationSeconds": 30}));
+    player.context.command_wake.notify_one();
+    wait_for("identification", || renderer.log.lock().unwrap().identify.first().cloned()).await;
+    for _ in 0..3 {
+        player.context.command_wake.notify_one();
+        tokio::time::sleep(Duration::from_millis(300)).await;
+    }
+    assert!(harness.fake.results_for(&delivery).len() >= 2, "the stored result is resent to each redelivery");
+    assert_eq!(renderer.log.lock().unwrap().identify.len(), 1, "never shown twice");
+    assert_eq!(renderer.log.lock().unwrap().identify[0], ("Lobby\nMain · Lobby".to_owned(), 30));
+    renderer.stop();
+    player.stop().await;
+
+    // After a restart the same delivery, and a new delivery of the same key,
+    // are answered from the stored result.
+    let redelivered = harness.fake.offer("identify_screen", key, json!({"durationSeconds": 30}));
+    let player = harness.start().await;
+    let renderer = FakeRenderer::connect(&player.socket, Evidence::Auto).await;
+    wait_for("the stored result for the new delivery", || harness.fake.results_for(&redelivered).into_iter().next())
+        .await;
+    for id in [&delivery, &redelivered] {
+        let results = harness.fake.results_for(id);
+        assert!(results.iter().all(|r| r["code"] == "identified" && r["success"] == true), "{results:?}");
+    }
+    assert!(renderer.log.lock().unwrap().identify.is_empty(), "not shown again after the restart");
+
+    // Ordinary commands keep working: reload issues a new generation and a
+    // skip reaches the renderer.
+    harness.fake.lose_results.store(false, Ordering::SeqCst);
+    let generation = wait_for("content", || renderer.last().filter(|a| shows(a, &asset))).await.generation;
+    let reload = harness.fake.offer("reload_playback", uuid::Uuid::new_v4(), json!({}));
+    let skip = harness.fake.offer("skip_current_item", uuid::Uuid::new_v4(), json!({}));
+    let unsupported = harness.fake.offer("display_power_off", uuid::Uuid::new_v4(), json!({}));
+    player.context.command_wake.notify_one();
+    wait_for("reload", || renderer.last().filter(|a| a.generation > generation && shows(a, &asset))).await;
+    wait_for("all results", || (harness.fake.results_for(&unsupported).len() == 1).then_some(())).await;
+    assert_eq!(harness.fake.results_for(&reload)[0]["code"], "playback_reloaded");
+    assert_eq!(harness.fake.results_for(&skip)[0]["code"], "skipped");
+    assert_eq!(renderer.log.lock().unwrap().commands, vec![edge_protocol::ipc::event::RendererCommandKind::SkipItem]);
+    let refused = &harness.fake.results_for(&unsupported)[0];
+    assert_eq!((refused["success"].clone(), refused["code"].clone()), (json!(false), json!("unsupported_command")));
+    renderer.stop();
+    player.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn safe_mode_holds_its_surface_until_exit_safe_mode_and_sync_now_reconciles() {
+    let harness = Harness::new().await;
+    let asset = Asset::new("lobby", "image/png");
+    let (player, renderer) = harness.committed(&asset, 3).await;
+    // Drive the recovery ladder with synthetic time: no evidence is newer
+    // than the real clock, so every rung is due.
+    let mut at = now_ms() + 10 * 60_000;
+    for _ in 0..40 {
+        let mut engine = player.context.presentation.lock().await;
+        engine.tick(at);
+        if engine.is_safe_mode() {
+            break;
+        }
+        drop(engine);
+        at += 100_000;
+    }
+    assert!(player.context.presentation.lock().await.is_safe_mode());
+    wait_for("the safe-mode surface", || {
+        renderer.last().filter(|a| matches!(a.presentation, PresentationDocument::SafeMode { .. }))
+    })
+    .await;
+    // Activation runs again and must not put content back over safe mode.
+    for _ in 0..5 {
+        player.context.manifest_wake.notify_one();
+        tokio::time::sleep(Duration::from_millis(200)).await;
+    }
+    assert!(matches!(renderer.last().unwrap().presentation, PresentationDocument::SafeMode { .. }));
+    assert_eq!(heartbeat(&player.context).await["safeMode"], true);
+
+    let exit = harness.fake.offer("exit_safe_mode", uuid::Uuid::new_v4(), json!({}));
+    player.context.command_wake.notify_one();
+    wait_for("content after safe mode", || renderer.last().filter(|a| shows(a, &asset))).await;
+    wait_for("the result", || harness.fake.results_for(&exit).into_iter().next()).await;
+    assert_eq!(harness.fake.results_for(&exit)[0]["code"], "safe_mode_cleared");
+
+    let before = harness.fake.manifest_requests.load(Ordering::SeqCst);
+    let sync = harness.fake.offer("sync_now", uuid::Uuid::new_v4(), json!({}));
+    player.context.command_wake.notify_one();
+    wait_for("the sync result", || harness.fake.results_for(&sync).into_iter().next()).await;
+    assert_eq!(harness.fake.results_for(&sync)[0]["code"], "synchronized");
+    assert!(harness.fake.manifest_requests.load(Ordering::SeqCst) > before, "sync_now reconciled the manifest");
     renderer.stop();
     player.stop().await;
 }
