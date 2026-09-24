@@ -1,8 +1,8 @@
 import { useTranslation } from "react-i18next";
 import type { FormField, FormFieldControl } from "../api/types";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
-import { Button as RheaButton } from "../components/ui/button";
-import { Checkbox as RheaCheckbox } from "../components/ui/checkbox";
+import { Button } from "../components/ui/button";
+import { Checkbox } from "../components/ui/checkbox";
 import {
   Field,
   FieldDescription,
@@ -11,7 +11,7 @@ import {
 } from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -133,7 +133,7 @@ export function FormFieldEditor({
         <FieldLabel htmlFor="form-field-type">
           {t("fieldEditor.type")}
         </FieldLabel>
-        <RheaSelect
+        <Select
           items={controlOptions.map((control) => ({
             value: control,
             label: t(controlMeta(control).labelKey),
@@ -159,7 +159,7 @@ export function FormFieldEditor({
               </SelectItem>
             ))}
           </SelectContent>
-        </RheaSelect>
+        </Select>
       </Field>
 
       <Field>
@@ -178,7 +178,7 @@ export function FormFieldEditor({
 
       {!meta.presentation && (
         <Field orientation="horizontal" className="items-center">
-          <RheaCheckbox
+          <Checkbox
             id="form-field-required"
             checked={Boolean(field.required)}
             disabled={disabled}
@@ -338,17 +338,17 @@ function OptionsEditor({
               setOptions(next);
             }}
           />
-          <RheaButton
+          <Button
             variant="ghost"
             size="sm"
             disabled={disabled || options.length <= 1}
             onClick={() => setOptions(options.filter((_, i) => i !== index))}
           >
             {t("fieldEditor.remove")}
-          </RheaButton>
+          </Button>
         </div>
       ))}
-      <RheaButton
+      <Button
         variant="secondary"
         size="sm"
         disabled={disabled}
@@ -370,7 +370,7 @@ function OptionsEditor({
         }}
       >
         {t("fieldEditor.addOption")}
-      </RheaButton>
+      </Button>
     </fieldset>
   );
 }

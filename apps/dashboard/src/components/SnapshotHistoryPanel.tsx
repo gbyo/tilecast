@@ -5,7 +5,7 @@ import { Trans, useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { useFormatLocale } from "../i18n";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
-import { buttonVariants } from "./ui/button";
+import { Button, buttonVariants } from "./ui/button";
 import {
   Empty,
   EmptyContent,
@@ -85,9 +85,10 @@ export function SnapshotHistoryPanel({ screenId }: { screenId: string }) {
           );
           return (
             <figure key={snapshot.id} className="min-w-0 space-y-1">
-              <button
+              <Button
                 type="button"
-                className="block w-full overflow-hidden rounded-xl border border-border outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                variant="ghost"
+                className="block h-auto w-full overflow-hidden rounded-xl border border-border p-0"
                 aria-label={t("snapshots.viewSnapshot", { date: captured })}
                 aria-expanded={openId === snapshot.id}
                 onClick={() =>
@@ -100,7 +101,7 @@ export function SnapshotHistoryPanel({ screenId }: { screenId: string }) {
                   loading="lazy"
                   className="aspect-video w-full object-cover"
                 />
-              </button>
+              </Button>
               <figcaption className="text-xs text-muted-foreground">
                 {captured}
                 {snapshot.trigger === "manual"

@@ -13,7 +13,6 @@ import { toast } from "../components/ui/toast";
 import { api } from "../api/client";
 import type { ContentReviewItem, ContentReviewState } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import { ViewTabs } from "../components/ViewTabs";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Button, buttonVariants } from "../components/ui/button";
@@ -49,6 +48,7 @@ import {
 } from "../components/ui/table";
 import { Skeleton } from "../components/ui/skeleton";
 import { Textarea } from "../components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 
 const stateLabelKeys = {
   pending: "contentReview.state.pending",
@@ -245,17 +245,32 @@ export function ContentReviewPage() {
         </Alert>
       )}
 
-      <ViewTabs
-        label={t("contentReview.filterLabel")}
-        value={filter}
-        items={[
-          { value: "pending", label: t(stateLabelKeys.pending) },
-          { value: "approved", label: t(stateLabelKeys.approved) },
-          { value: "rejected", label: t(stateLabelKeys.rejected) },
-          { value: "", label: t("contentReview.filterAll") },
-        ]}
-        onValueChange={setFilter}
-      />
+      <ToggleGroup
+        value={[filter || "all"]}
+        onValueChange={(values) => {
+          // Pressing the active item would clear the group; keep one filter selected.
+          const next = values[0];
+          if (!next) return;
+          setFilter(next === "all" ? "" : (next as ContentReviewState));
+        }}
+        variant="outline"
+        size="sm"
+        spacing={1}
+        aria-label={t("contentReview.filterLabel")}
+      >
+        <ToggleGroupItem value="pending">
+          {t(stateLabelKeys.pending)}
+        </ToggleGroupItem>
+        <ToggleGroupItem value="approved">
+          {t(stateLabelKeys.approved)}
+        </ToggleGroupItem>
+        <ToggleGroupItem value="rejected">
+          {t(stateLabelKeys.rejected)}
+        </ToggleGroupItem>
+        <ToggleGroupItem value="all">
+          {t("contentReview.filterAll")}
+        </ToggleGroupItem>
+      </ToggleGroup>
 
       {queue.isLoading ? (
         <div className="grid gap-2" aria-label={t("contentReview.loading")}>

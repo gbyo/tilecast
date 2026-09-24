@@ -130,7 +130,16 @@
     "secondsUnit": "segundos",
     "imageDurationHint": "Se aplica al contenido de imagen coincidente.",
     "tagRequired": "Selecciona al menos una etiqueta antes de guardar esta fuente.",
-    "saveSource": "Guardar fuente de contenido"
+    "saveSource": "Guardar fuente de contenido",
+    "tabs": {
+      "general": "General",
+      "source": "Fuente de contenido",
+      "usage": "Uso"
+    },
+    "descriptionHint": "Se guarda por separado de las ediciones de la línea de tiempo.",
+    "sourceHint": "Elige una línea de tiempo manual o deja que el multimedia listo coincidente aparezca desde las etiquetas.",
+    "drawerDescription": "Nombre, fuente de contenido y dónde se reproduce esta lista de reproducción.",
+    "done": "Listo"
   },
   "editor": {
     "loadError": "No se pudo cargar la lista de reproducción.",
@@ -176,7 +185,24 @@
         "schedules": "Programaciones",
         "campaigns": "Campañas"
       }
-    }
+    },
+    "toasts": {
+      "detailsSaved": "Detalles de la lista de reproducción guardados.",
+      "sourceSaved": "Fuente de contenido de la lista de reproducción guardada.",
+      "published": "Lista de reproducción publicada.",
+      "submitted": "Lista de reproducción enviada para revisión.",
+      "duplicated": "Lista de reproducción duplicada.",
+      "deleted": "Lista de reproducción eliminada.",
+      "itemRemoved": "Elemento quitado de la lista de reproducción.",
+      "transitionSet": "Transición {{transition}} establecida para todos los elementos.",
+      "imageDurationsSet": "Duración de las imágenes establecida en {{seconds}} segundos.",
+      "layoutAdded": "Diseño agregado a la lista de reproducción.",
+      "itemsAdded_one": "{{count}} elemento agregado a la lista de reproducción.",
+      "itemsAdded_many": "{{count}} de elementos agregados a la lista de reproducción.",
+      "itemsAdded_other": "{{count}} elementos agregados a la lista de reproducción."
+    },
+    "loadingLabel": "Cargando lista de reproducción",
+    "noPublishedLayoutsTitle": "No hay diseños publicados"
   },
   "header": {
     "back": "Listas de reproducción",
@@ -193,7 +219,11 @@
     "history": "Historial",
     "details": "Detalles de la lista de reproducción",
     "duplicate": "Duplicar lista de reproducción",
-    "delete": "Eliminar lista de reproducción"
+    "delete": "Eliminar lista de reproducción",
+    "menu": {
+      "duplicate": "Duplicar",
+      "delete": "Eliminar"
+    }
   },
   "inspector": {
     "itemHeading": "Elemento {{index}} · {{type}}",
@@ -257,7 +287,12 @@
     "widgetBehavior": {
       "untilEnd": "Reproducir hasta que termine el video",
       "fixedDuration": "Reproducir durante un tiempo fijo"
-    }
+    },
+    "drawerDescription": "Edita la configuración del elemento de la lista de reproducción.",
+    "close": "Cerrar el inspector de elementos",
+    "notReadyTitle": "Contenido: {{status}}",
+    "notReadyDescription": "Los reproductores omiten este elemento hasta que su multimedia esté listo.",
+    "crossfadeShortHint": "Lo visual se mezcla. El audio cambia en el límite del elemento."
   },
   "defaults": {
     "eyebrow": "Reproducción",
@@ -292,6 +327,28 @@
       "none": "Ninguna",
       "fade": "Fundido",
       "crossfade": "Fundido cruzado"
+    },
+    "itemType": {
+      "image": "Imagen",
+      "video": "Video",
+      "layout": "Diseño",
+      "widget": "Widget",
+      "youtubeWidget": "Widget de YouTube"
+    },
+    "summary": {
+      "audio": "Audio",
+      "muted": "Silenciado"
+    },
+    "assetStatus": {
+      "ready": "Listo",
+      "uploading": "Subiendo",
+      "uploaded": "Subido",
+      "queued": "En espera",
+      "inspecting": "Inspeccionando",
+      "processing": "Procesando",
+      "failed": "Fallido",
+      "deleting": "Eliminando",
+      "deleted": "No disponible"
     }
   },
   "timeline": {
@@ -321,7 +378,12 @@
     "moveBottom": "Mover al final",
     "moveUpFor": "Subir {{name}}",
     "moveDownFor": "Bajar {{name}}",
-    "actionsFor": "Acciones para {{name}}"
+    "actionsFor": "Acciones para {{name}}",
+    "emptyPlaylistTitle": "Esta lista de reproducción está vacía",
+    "actions": {
+      "inspect": "Inspeccionar",
+      "remove": "Quitar de la lista de reproducción"
+    }
   },
   "history": {
     "loading": "Cargando historial…",
@@ -346,6 +408,24 @@
     "restored": "Revisión {{from}} restaurada como revisión {{to}}.",
     "restoredWithSkipped_one": "Revisión {{from}} restaurada como revisión {{to}}. {{count}} elemento no se pudo restaurar porque el contenido se eliminó.",
     "restoredWithSkipped_many": "Revisión {{from}} restaurada como revisión {{to}}. {{count}} de elementos no se pudieron restaurar porque el contenido se eliminó.",
-    "restoredWithSkipped_other": "Revisión {{from}} restaurada como revisión {{to}}. {{count}} elementos no se pudieron restaurar porque el contenido se eliminó."
+    "restoredWithSkipped_other": "Revisión {{from}} restaurada como revisión {{to}}. {{count}} elementos no se pudieron restaurar porque el contenido se eliminó.",
+    "loadingLabel": "Cargando historial",
+    "restoredToast": "Revisión de la lista de reproducción restaurada."
+  },
+  "authoring": {
+    "addGroup": "Agregar a la lista",
+    "moreWaysToAdd": "Más formas de agregar",
+    "mediaOrWidget": "Multimedia o widget",
+    "publishedLayout": "Diseño publicado",
+    "toolbarLabel": "Edición de la lista de reproducción",
+    "tagSourceNote": "Los elementos provienen de etiquetas multimedia.",
+    "editSource": "Editar fuente de contenido",
+    "transitionDescription": "Se aplica a todos los elementos.",
+    "crossfadeInfo": "Acerca del audio con fundido cruzado",
+    "crossfadeTooltip": "El fundido cruzado mezcla lo visual. El audio sigue cambiando en el límite normal del elemento.",
+    "imagesLabel": "Imágenes",
+    "imageDurationDescription": "Actualiza todos los elementos de imagen con duración fija.",
+    "imageDurationMixed": "Mixta",
+    "imageDurationAuto": "Auto"
   }
 }

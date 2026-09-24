@@ -1,8 +1,8 @@
-# Tilecast Signal design system
+# Tilecast Studio and Player design system
 
-Tilecast Signal is the shared visual language for Tilecast Studio and Tilecast
-Player. It is calm, operational, compact, and accessible. It favors clear
-hierarchy, borders, readable density, and explicit state over decoration.
+Tilecast Studio and Tilecast Player share an operational, compact, accessible
+character. They favor clear hierarchy, readable density, and explicit state over
+decoration, while using different rendering systems.
 
 This specification is for contributors designing or implementing Tilecast
 interfaces. It records what is available today and the rules new work must
@@ -11,7 +11,7 @@ to present planned features as complete.
 
 ## System boundaries
 
-Signal covers two related but separate interfaces:
+Tilecast has two related but separate interfaces:
 
 | Surface         | Purpose                                        | Implementation source                                                                                              |
 | --------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
@@ -19,20 +19,20 @@ Signal covers two related but separate interfaces:
 | Tilecast Player | Fullscreen Android TV application              | Native Compose theme and components under `org.tilecast.player.ui.theme`                                           |
 | Signage content | Organization-authored material shown by Player | Content, layout, and organization-branding settings. it does not redefine Studio                                   |
 
-Studio and Player share Signal's operational character and accessibility
-expectations. They do not share a rendering library. CSS is authoritative for
-Studio. Compose is authoritative for Player.
+Studio and Player share accessibility expectations. They do not share a
+rendering library. CSS is authoritative for Studio. Compose is authoritative
+for Player.
 
 Studio's canonical component baseline is shadcn Base UI **Base Vega**, with a
 neutral theme, Geist, Lucide, CSS variables, and a small radius. Generated
-components are kept aligned with the official Vega registry. The older Signal
-tokens remain in use for domain-specific and unmigrated surfaces; do not use
-them to restyle canonical shadcn components or the Studio shell.
+components are kept aligned with the official Vega registry. Compatibility
+tokens remain for domain-specific and not-yet-migrated surfaces; do not use them
+to restyle canonical shadcn components or the Studio shell.
 
 Organization branding is content identity, not application chrome. An
 organization accent or logo may appear in a preview, avatar, or small identity
-detail. It never replaces Signal Blue in Studio navigation, actions, selected
-states, links, or focus rings.
+detail. It never replaces the Base Vega neutral tokens used by Studio navigation,
+actions, selected states, links, or focus rings.
 
 ## Status of guidance
 
@@ -59,8 +59,8 @@ implemented and normative behavior.
 4. **Keep identity in its lane.** Tilecast application chrome stays neutral
    and restrained. Organization branding belongs to signage and small identity
    details.
-5. **Communicate beyond color.** Pair every status color with text and, where
-   useful, an icon or dot.
+5. **Communicate beyond color.** Pair every status color with readable text;
+   add an icon or marker where it helps recognition.
 6. **Preserve focus.** Keyboard and D-pad focus must always be visible, ordered,
    and recoverable.
 7. **Show real system truth.** Do not fabricate analytics, storage totals,
@@ -96,10 +96,12 @@ value from this document.
 
 ### Color
 
-Signal Blue is the fixed interface action color. Broadcast Amber is a Tilecast
-identity color used in the tall logo tile and restrained brand details. It is
-not a warning color. Success, warning, danger, information, and neutral each
-have separate foreground, background, and border roles.
+Base Vega's neutral preset defines standard Studio chrome. The Signal semantic
+tokens below remain for legacy and domain-specific surfaces; they do not define
+the generated components' colors. Broadcast Amber is a Tilecast identity color
+used in the logo and restrained brand details, not a warning color. Success,
+warning, danger, information, and neutral each have separate foreground,
+background, and border roles.
 
 #### Core identity and surfaces
 
@@ -306,81 +308,107 @@ New work must:
 
 ## Studio components
 
-Shared React primitives live in `apps/dashboard/src/components/ui`. Use them
-before writing equivalent markup in a page. Their public props and rendered
-semantics remain the source of truth.
+Generated shadcn Base UI components live in `apps/dashboard/src/components/ui`.
+Use them before writing equivalent markup in a page. Their current registry
+implementation and rendered semantics are the source of truth. Keep these files
+canonical; do not turn them into a Tilecast wrapper library.
 
 ### Component inventory
 
-| Primitive                  | Implemented variants or behavior                                                             | Use                                                |
-| -------------------------- | -------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| `Button`                   | Primary, secondary, quiet, danger. compact and loading states                                | Labeled actions                                    |
-| `IconButton`               | Required accessible label and title                                                          | Compact familiar action with no visible label      |
-| `Input`, `Textarea`        | Native form semantics                                                                        | Text and multiline entry                           |
-| `Select`                   | Signal Select with keyboard menu and hidden native value control                             | Choosing one option from a closed set              |
-| `Field`                    | Label, description, required indicator, error                                                | Form control grouping                              |
-| `Checkbox`                 | Native checkbox with visible label                                                           | Independent boolean choice                         |
-| `Switch`                   | Native checkbox with switch semantics and optional description                               | Immediate on/off setting                           |
-| `RadioGroup`               | Fieldset and legend                                                                          | One choice from a small visible set                |
-| `Panel`                    | Semantic section wrapper                                                                     | One genuinely separate concept                     |
-| `SectionHeader`            | Title, description, actions                                                                  | Page section introduction                          |
-| `PageHeader`               | Title, description, eyebrow, and actions                                                     | Consistent route and editor heading                |
-| `Toolbar`                  | Toolbar role                                                                                 | Related high-frequency controls                    |
-| `ViewTabs`                 | Current-view navigation, markers, Arrow/Home/End focus                                       | Switching route-backed or page-owned views         |
-| `Pagination`               | Previous/next controls with optional status                                                  | Server- or cursor-paginated collections            |
-| `ViewToggle`               | Grid/list selection                                                                          | Collection presentation choice                     |
-| `ToggleGroup`              | One active option in a compact visible group                                                 | Short filters and display modes                    |
-| `Notice`                   | Information, success, warning, danger, neutral                                               | Contextual feedback with optional title and action |
-| `StatusDot`, `StatusBadge` | Success, information, warning, danger, neutral                                               | Compact textual status                             |
-| `EmptyState`               | Title, message, optional action                                                              | Valid collection or workspace with no content      |
-| `Dialog`                   | Native modal dialog, title, close action, cancel handling                                    | Focused modal task                                 |
-| `Drawer`                   | Modal detail surface, focus containment, responsive full width                               | Browsing or editing contextual detail              |
-| `Popover`                  | Anchored surface with menu and form modes, collision-aware placement, one dismissal contract | Trigger-opened menu or compact filter panel        |
-| `ContextMenu`              | Right-click and trigger-opened actions, single-level submenus, Arrow/Home/End/Escape         | Row and card actions                               |
-| `TableContainer`           | Contained overflow                                                                           | Responsive data table boundary                     |
-| `Skeleton`                 | Decorative loading placeholder                                                               | Preserve approximate layout while loading          |
-| `Spinner`                  | Labeled status                                                                               | Indeterminate work                                 |
-| `MetricTile`               | Value, label, optional icon, hint, delta, and drill-through link                             | One measured figure in a summary row               |
-| `FilterBar`, `FilterChips` | Declarative filter definitions with removable active chips                                   | Narrowing a reported collection                    |
-| `TimeRangePicker`          | Presets, custom bounds, and a resolved comparison window                                     | Choosing the period a report covers                |
+| Component family                                                                     | Use                                                                                                                       |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| `Button`, `ButtonGroup`, `Toggle`, `ToggleGroup`                                     | Actions and compact, persistent modes or filters. Use real links for navigation.                                          |
+| `Input`, `InputGroup`, `Textarea`, `Field`                                           | Labeled form entry, descriptions, and validation.                                                                         |
+| `Select`, `Combobox`, `Checkbox`, `RadioGroup`, `Switch`, `Slider`                   | Choose controls by option count and interaction semantics.                                                                |
+| `Tabs`, `Breadcrumb`, `Sidebar`, `Command`                                           | Same-page panels, route-aware workspace tabs, route hierarchy, primary navigation, and global search.                     |
+| `Table`, `Item`, `Card`, `Empty`                                                     | Collection and resource composition. Use TanStack Table with shadcn Table only when the feature needs richer table state. |
+| `Badge`, `Alert`, `Toast`, `Skeleton`, `Spinner`, `Progress`                         | Persistent state, contextual feedback, transient action results, and loading.                                             |
+| `Tooltip`, `HoverCard`, `Popover`, `DropdownMenu`, `ContextMenu`, `Menubar`          | Short hints, supplemental previews, anchored forms, and command menus.                                                    |
+| `Dialog`, `AlertDialog`, `Sheet`, `Drawer`                                           | Focused modal tasks, consequential confirmation, desktop detail, and swipeable narrow detail.                             |
+| `Accordion`, `Collapsible`, `AspectRatio`, `Attachment`, `Avatar`, `Bubble`, `Chart` | Disclosures and media, identity, conversation, file, and data visualization compositions.                                 |
 
-ARIA tab panels, drop zones, inspectors, timelines, and editor shells currently
-have page-specific implementations. Their proposed shared forms are Planned, not
-Implemented. `ViewTabs` is navigation between page-owned views. It does not claim
-ARIA `tab` or `tabpanel` semantics.
+Page-specific helpers remain appropriate when they encode domain behavior, such
+as Activity metrics, URL-backed report filters, layout canvases, timelines, and
+previews. Keep those helpers out of `components/ui` unless they are actual
+generated primitives.
 
-#### Anchored surfaces
+#### Surface choice and overlay lifecycle
 
-`Popover` owns everything an anchored surface needs to behave the same way twice.
-It measures placement against the viewport and folds the panel back on screen
-near an edge. It dismisses on an outside pointer press, on Escape, on a scroll
-that moves the trigger, and on a route change. It also sets the trigger's
-`aria-expanded`, `aria-haspopup`, and `aria-controls`. Escape always returns
-focus to the trigger.
+Choose the component that matches the content and task:
 
-Its two modes are separate contracts. Do not blur them:
+- `Tooltip` explains a control briefly; `HoverCard` adds a supplemental preview
+  to a usable resource link.
+- `Popover` holds interactive anchored content such as a filter form.
+- `DropdownMenu` and `ContextMenu` hold commands, not arbitrary forms.
+- `Dialog` handles a focused modal task; `AlertDialog` handles destructive or
+  otherwise consequential confirmation.
+- `Sheet` is the desktop contextual detail surface; `Drawer` is for narrow,
+  swipeable contextual detail where that interaction helps.
 
-| Mode   | Surface role        | Contents               | Focus on open | Tab                     | Arrow keys            |
-| ------ | ------------------- | ---------------------- | ------------- | ----------------------- | --------------------- |
-| `menu` | `menu`              | Menu items only        | First item    | Closes, restores focus  | Move between items    |
-| `form` | `dialog`, non-modal | Labelled form controls | First control | Cycles within the panel | Belong to the control |
+Use the generated Base UI components for portal, focus, dismissal, and motion
+behavior. Do not recreate those contracts with page CSS or a custom overlay
+shell. Keep controlled detail payloads mounted through the exit transition and
+clear them after `onOpenChangeComplete(false)`. Test nested menus and Selects in
+the browser when an overlay workflow changes.
 
-Choose `form` when the panel holds anything a menu must not contain. A heading,
-static text, group labels, and fields are all such content. An ARIA `menu` drops
-that content. The notification panel previously announced as a bare item count,
-because its heading and priority-group labels were illegal inside the role it
-claimed. Tab cycles inside a form popover instead of leaving it, because the
-panel is portaled and is not next in document order after its trigger.
+#### Authoring workspaces
 
-A panel is portaled through `overlayPortalTarget`. This lets it escape clipping
-ancestors and share the top layer with a modal dialog that opened it. The panel
-sits at z-index 3100, which is above the drawer layer and below the select and
-context menus. A `Select` opened inside a popover therefore paints on top, and a
-press on one of its options does not dismiss the panel below it.
+The Playlist Editor, Content Picker, media uploader, and Layout Editor are
+composed from the generated components by these rules:
 
-The shared row and padding treatments in `styles/popover.css` are published
-inside `:where()`. They carry no specificity, so a consumer restyles rows with a
-plain class instead of out-specifying the shared layer.
+| Need                                        | Component                                                           |
+| ------------------------------------------- | ------------------------------------------------------------------- |
+| Ordered resource rows (timeline, list view) | `ItemGroup` and `Item`                                              |
+| Visual media in a picker grid               | `Card` with `AspectRatio` and one `Checkbox`                        |
+| Related actions (Add, Undo/Redo)            | `ButtonGroup`                                                       |
+| Related state (Grid/List)                   | `ToggleGroup`                                                       |
+| Panels of one resource shown one at a time  | `Tabs` (picker Library/Upload, playlist details, Layout library)    |
+| Row commands                                | A visible `DropdownMenu`, with `ContextMenu` as a supplement only   |
+| Persistent desktop editor commands          | `Menubar` in the Layout Editor. The Playlist Editor does not use it |
+| Files being uploaded                        | `Attachment` with `Progress`                                        |
+| Result of a completed action                | `Toast`. Persistent problems stay in an inline `Alert`              |
+
+- **Playlist Editor.** The header holds the name, one publication-state
+  badge (Published, Unpublished changes, or Draft), Preview, Publish, and a
+  More menu for details, history, duplicate, and delete. The Studio breadcrumb
+  is the only way back to the list. A compact authoring bar sits above the
+  timeline: Add content with Add Layout beside it, the playlist transition,
+  and the fixed image duration. Timeline rows show a drag handle, position,
+  media, name, one muted metadata line, the duration, and an overflow menu;
+  badges appear only for an override or unavailable media. The overflow menu
+  and the right-click menu render the same action list. On desktop the
+  timeline and the inspector scroll independently inside a viewport-height
+  region, and the inspector pane exists only while an item is selected.
+  Playlist details use General, Content source, and Usage tabs; History stays
+  a separate surface.
+- **Content Picker.** One `Dialog` holds Library and Upload tabs, so uploading
+  never opens a second dialog. Each grid card or list row is a single checkbox
+  whose label covers the entry, so clicking anywhere toggles it without
+  nesting controls. The footer always shows the selection and the confirm
+  action. Loading uses `Skeleton`, an empty result uses `Empty`, and a load
+  failure uses `Alert` with a retry.
+- **Uploads.** `MediaUploadPanel` is the one upload surface, hosted by the
+  picker's Upload tab and by the standalone Upload media dialog. Each row maps
+  Tilecast state onto `Attachment`: waiting to idle, transferring to
+  uploading, inspection or encoding to processing, failure to error, and ready
+  to done. A row stays processing until the server reports the asset ready or
+  failed. Closing while a file is still transferring asks first.
+- **Layout Editor.** The toolbar holds the Layout name, the `Menubar`, an
+  Undo/Redo `ButtonGroup`, a passive save status, Preview, and Publish. Rename
+  and History live in the File menu. Save state is status text, and only a
+  failed save offers Retry. A revision conflict shows a persistent `Alert`.
+  The desktop library, canvas, and inspector panes keep their sizes when the
+  selection changes: the inspector shows Layout settings when nothing is
+  selected.
+
+Page CSS in these workspaces is limited to what the components do not own:
+canvas geometry, guides, resize handles, placement outlines, and preview
+rendering. Toolbars, pane headings, tabs, lists, and empty states use the
+generated components and utility classes.
+
+`Carousel` has no current consumer: snapshot history is easier to scan as a
+grid. `Direction` remains uninstalled because Tilecast has no established RTL
+product requirement.
 
 #### Reporting primitives
 
@@ -416,9 +444,9 @@ than carried. A link that opens a differently-filtered report is worse than no
 link, because it silently contradicts the figure just read.
 
 **Excluded quantities stay visible.** Where a metric deliberately removes
-something from its denominator. Emergency-overridden or intentionally stopped
-playback. List those amounts beside it. Silently improving a percentage makes
-it unexplainable.
+something from its denominator, such as emergency-overridden or intentionally
+stopped playback, list those amounts beside it. Silently improving a percentage
+makes it unexplainable.
 
 **Severity lives on a rail, not only in color.** Timeline rows carry severity
 as a left border alongside their badge text, so a failure is findable while
@@ -430,18 +458,16 @@ Recovered items are grouped apart from failing ones and never described as
 still failing.
 
 Long-format reporting tables use a header row on the same grid and collapse to
-two columns on narrow viewports. Prefer a table over a chart when the reader
-needs an exact figure, which in operational reporting is most of the time.
-Uptime strips remain the only chart-like primitive in Studio: the reporting
-added since has been built from tiles, tables and timelines rather than plotted
-series, so there is no chart palette to define yet. Specify one here before
-writing it.
+two columns on narrow viewports. Prefer a table when the reader needs exact
+operational figures. Use the generated Chart composition when a plotted trend
+helps reveal change over time; keep status fills in the visualization token
+family and expose labels, thresholds, and missing data in an accessible form.
 
 A `FilterBar` renders from filter definitions rather than hand-placed controls,
 and reflects every active filter except the search field as a removable chip, so
 a narrowed result set never reads as an empty one. Filter state belongs in the
 URL through `useUrlFilters`, which leaves parameters it does not own untouched.
-a filtered report that cannot be reloaded or shared is not finished.
+A filtered report that cannot be reloaded or shared is not finished.
 
 `resolveTimeRange` returns the selected bounds together with the equally long
 window immediately before them. It returns no comparison window for a custom
@@ -557,17 +583,18 @@ package lists at the UI boundary without changing stored values.
 
 ### Status and feedback
 
-Every status includes readable text. Use `StatusDot` for dense table or metadata
-rows and `StatusBadge` when the state benefits from a contained label. Translate
-raw internal values into user-facing language.
+Every status includes readable text. Use `Badge` when a compact contained label
+helps; plain text or an `Item` description is often enough. Translate raw
+internal values into user-facing language.
 
-Use a Notice for feedback that belongs in the current context. Danger notices
-use alert semantics. Non-urgent variants use polite status semantics. Do not use
-a warning notice as a permanent decorative panel.
+Use `Alert` for information that must remain visible in context, including load
+failures, security warnings, and operations that need attention. Use `Toast` for
+brief feedback after a user action; do not use it for persistent failures,
+validation, or active incidents.
 
-Use an Empty State only when loading has completed successfully and the result
-is genuinely empty. Loading, permission denial, network failure, and processing
-failure are separate states. Skeletons preserve structure. Spinners represent
+Use `Empty` only after loading succeeds and the result is genuinely empty.
+Permission denial, network failure, and processing failure are separate states.
+`Skeleton` preserves structure while loading; `Spinner` represents
 indeterminate work. Neither replaces explanatory text when a wait may be long.
 
 ### Panels, tables, and dialogs
@@ -575,11 +602,11 @@ indeterminate work. Neither replaces explanatory text when a wait may be long.
 Panels group genuinely separate concepts. Within a panel, use spacing, headings,
 rows, and dividers instead of one card per field.
 
-Tables have no vertical rules, use a subtle header, keep rows approximately
-44–52 px high, and contain their own horizontal overflow. Selected rows use the
-soft action color. Row actions remain visually secondary and keyboard
-accessible. A table must retain meaningful headers and must not become an
-unlabeled grid of values on narrow screens.
+Use generated `Table` primitives for semantic tables. Feature-rich tables use
+TanStack Table with those primitives; do not create a universal table wrapper.
+Keep headers meaningful, contain horizontal overflow, and preserve readable
+structure on narrow screens. Use `Item` for resource/action rows that are not
+tabular.
 
 Borders have three weights and they are not interchangeable. `--tc-border-default`
 outlines a panel, a control, or a table against the page. `--tc-border-subtle`
@@ -588,24 +615,11 @@ border, so a list does not read as a stack of boxes. `--tc-border-strong` marks
 a deliberate emphasis such as a selected boundary. Because the subtle weight is
 derived from the theme's own border and surface, it needs no per-theme copy.
 
-Dialogs are for bounded tasks that require attention before returning to the
-page. Give each dialog a specific title, a visible close action, Escape/cancel
-behavior, and an unambiguous primary action. Do not layer dialogs. Large detail
-browsing and persistent inspectors remain page-specific patterns until the
-roadmap standardizes them.
-
-A dialog is a native modal `<dialog>`, which the browser paints in the **top
-layer**: above every z-index in the document, with the rest of the page inert.
-Floating content opened from inside one — a `Select` menu, a context menu — must
-therefore portal into the dialog rather than into `<body>`, or it renders behind
-the dialog and cannot be clicked at all. `overlayPortalTarget` in
-`components/ui/overlayPortal.ts` resolves that target, and `fixedPositionOffset`
-beside it corrects `position: fixed` coordinates for a host that is itself the
-containing block for fixed children. Two consequences worth remembering: raising
-a z-index can never lift something above a modal dialog, and an overlay
-animation must not leave a filled `transform` behind (use `backwards`, not
-`both`) — a lingering identity matrix silently makes the element a containing
-block.
+`Dialog` is for a bounded task that needs attention before returning to the
+page. Give it a specific title, a visible close action, and an unambiguous
+primary action. Use `AlertDialog` for destructive confirmation and unsaved-work
+decisions. Avoid stacking dialogs; let the generated components handle focus,
+dismissal, and nested popup behavior.
 
 ### Icons and logos
 

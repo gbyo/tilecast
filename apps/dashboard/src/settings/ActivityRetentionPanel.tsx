@@ -5,7 +5,7 @@ import { z } from "zod";
 import type { TFunction } from "i18next";
 import { useAuth } from "../auth/AuthProvider";
 import { Alert, AlertDescription } from "../components/ui/alert";
-import { Button as RheaButton } from "../components/ui/button";
+import { Button } from "../components/ui/button";
 import { Field, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import { toast } from "../components/ui/toast";
@@ -159,14 +159,14 @@ export function ActivityRetentionPanel({
           </p>
         </div>
         {value && (
-          <RheaButton
+          <Button
             variant="default"
             type="button"
             disabled={save.isPending || !dirty || !checked?.ok}
             onClick={() => checked?.ok && save.mutate(checked.payload)}
           >
             {save.isPending ? t("common:actions.saving") : t("retention.save")}
-          </RheaButton>
+          </Button>
         )}
       </header>
 
@@ -183,7 +183,7 @@ export function ActivityRetentionPanel({
                 ? query.error.message
                 : t("retention.loadError")}
             </span>
-            <RheaButton
+            <Button
               type="button"
               variant="secondary"
               size="sm"
@@ -193,7 +193,7 @@ export function ActivityRetentionPanel({
               {query.isFetching
                 ? t("retention.retrying")
                 : t("retention.retry")}
-            </RheaButton>
+            </Button>
           </AlertDescription>
         </Alert>
       )}

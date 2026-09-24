@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CalendarDays, X } from "lucide-react";
-import { cn } from "cn";
 import { es, ru } from "date-fns/locale";
-import { Button, buttonVariants } from "./ui/button";
+import { Button } from "./ui/button";
 import { Calendar } from "./ui/calendar";
 import { Input } from "./ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
@@ -81,19 +80,17 @@ export function DateInput({
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger
           render={
-            <button
+            <Button
               id={id}
               type="button"
+              variant="outline"
               disabled={disabled}
               aria-label={ariaLabel}
               aria-describedby={describedBy}
               aria-invalid={invalid}
               aria-required={required}
               onBlur={onBlur}
-              className={cn(
-                buttonVariants({ variant: "outline" }),
-                "min-w-36 justify-start font-normal",
-              )}
+              className="min-w-36 justify-start font-normal"
             />
           }
         >

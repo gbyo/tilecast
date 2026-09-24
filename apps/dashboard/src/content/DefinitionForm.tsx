@@ -9,18 +9,23 @@ import type {
   DataSourceDefinition,
   DataSourceField,
 } from "../api/types";
-import { Button as RheaButton } from "../components/ui/button";
+import { DateInput, DateTimeInput } from "../components/date-picker";
+import { Button } from "../components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
-import { Switch as RheaSwitch } from "../components/ui/switch";
+import { Switch } from "../components/ui/switch";
 import { Textarea } from "../components/ui/textarea";
+import {
+  localDateTimeToRfc3339,
+  rfc3339ToLocalDateTime,
+} from "../lib/dateTime";
 import { DataSourcePicker, type DataFormatGuide } from "./DataSourcePicker";
 
 type Values = Record<string, unknown>;
@@ -366,14 +371,14 @@ function DefinitionControl({
     // alone so the accessible name stays exact, with no extra aria-label.
     return (
       <Field>
-        <label className="flex items-center gap-2 text-sm">
-          <RheaSwitch
+        <FieldLabel className="flex items-center gap-2 text-sm">
+          <Switch
             checked={!!value}
             disabled={readOnly}
             onCheckedChange={(checked) => setValue(checked === true)}
           />
           <span>{labelText}</span>
-        </label>
+        </FieldLabel>
         {field.description && (
           <FieldDescription>{field.description}</FieldDescription>
         )}
@@ -429,7 +434,7 @@ function DefinitionControl({
     return (
       <Field>
         <FieldLabel htmlFor={`definition-${field.key}`}>{labelText}</FieldLabel>
-        <RheaSelect
+        <Select
           value={fieldText(value)}
           disabled={readOnly}
           required={field.required}
@@ -446,7 +451,7 @@ function DefinitionControl({
               </SelectItem>
             ))}
           </SelectContent>
-        </RheaSelect>
+        </Select>
         {field.description && (
           <FieldDescription>{field.description}</FieldDescription>
         )}
@@ -474,7 +479,7 @@ function DefinitionControl({
               }
             />
             {!readOnly && (
-              <RheaButton
+              <Button
                 type="button"
                 variant="ghost"
                 size="icon"
@@ -487,34 +492,62 @@ function DefinitionControl({
                 }
               >
                 <Trash2 size={15} aria-hidden="true" />
-              </RheaButton>
+              </Button>
             )}
           </div>
         ))}
         {!readOnly && items.length < (field.maximumItems ?? 0) && (
-          <RheaButton
+          <Button
             type="button"
             variant="outline"
             onClick={() => setValue([...items, {}])}
           >
             <Plus size={15} aria-hidden="true" /> {t("widgets.form.addItem")}
-          </RheaButton>
+          </Button>
         )}
       </fieldset>
     );
   }
+  if (field.control === "date")
+    return (
+      <Field>
+        <FieldLabel htmlFor={`definition-${field.key}`}>{labelText}</FieldLabel>
+        <DateInput
+          id={`definition-${field.key}`}
+          {...common}
+          aria-label={labelText}
+          value={fieldText(value)}
+          onChange={setValue}
+        />
+        {field.description && (
+          <FieldDescription>{field.description}</FieldDescription>
+        )}
+      </Field>
+    );
+  if (field.control === "datetime")
+    return (
+      <Field>
+        <FieldLabel htmlFor={`definition-${field.key}`}>{labelText}</FieldLabel>
+        <DateTimeInput
+          id={`definition-${field.key}`}
+          {...common}
+          aria-label={labelText}
+          value={rfc3339ToLocalDateTime(fieldText(value))}
+          onChange={(next) => setValue(localDateTimeToRfc3339(next))}
+        />
+        {field.description && (
+          <FieldDescription>{field.description}</FieldDescription>
+        )}
+      </Field>
+    );
   const inputType =
     field.control === "number" || field.control === "integer"
       ? "number"
-      : field.control === "datetime"
-        ? "datetime-local"
-        : field.control === "color"
-          ? "color"
-          : field.control === "date"
-            ? "date"
-            : field.control === "url"
-              ? "url"
-              : "text";
+      : field.control === "color"
+        ? "color"
+        : field.control === "url"
+          ? "url"
+          : "text";
   return (
     <Field>
       <FieldLabel htmlFor={`definition-${field.key}`}>{labelText}</FieldLabel>
@@ -533,9 +566,7 @@ function DefinitionControl({
               ? event.target.value === ""
                 ? undefined
                 : Number(event.target.value)
-              : field.control === "datetime" && event.target.value
-                ? new Date(event.target.value).toISOString()
-                : event.target.value,
+              : event.target.value,
           )
         }
       />

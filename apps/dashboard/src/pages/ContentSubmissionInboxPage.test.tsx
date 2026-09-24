@@ -131,4 +131,36 @@ describe("Content submission inbox", () => {
       await screen.findByText("No submissions match this view"),
     ).toBeTruthy();
   });
+
+  it("filters submissions by state with a single pressed toggle", async () => {
+    const list = vi.spyOn(api, "contentSubmissions").mockResolvedValue({
+      policy: "everyone",
+      allowSelfApproval: false,
+      autoPublishOnApproval: false,
+      items: [],
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(
+      await screen.findByRole("group", { name: "Submission state" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Needs review" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await waitFor(() => expect(list).toHaveBeenCalledWith("in_review"));
+
+    await user.click(screen.getByRole("button", { name: "Published" }));
+    await waitFor(() => expect(list).toHaveBeenCalledWith("published"));
+    expect(screen.getByRole("button", { name: "Published" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(
+      screen.getByRole("button", { name: "Needs review" }),
+    ).toHaveAttribute("aria-pressed", "false");
+
+    await user.click(screen.getByRole("button", { name: "All history" }));
+    await waitFor(() => expect(list).toHaveBeenCalledWith(""));
+  });
 });

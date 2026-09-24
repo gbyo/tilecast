@@ -126,4 +126,41 @@ describe("Content review", () => {
     expect(screen.queryByRole("button", { name: "Approve" })).toBe(null);
     expect(screen.queryByRole("button", { name: "Send back" })).toBe(null);
   });
+
+  it("filters the queue by review state with a single pressed toggle", async () => {
+    const reviews = vi.spyOn(api, "contentReviews").mockResolvedValue({
+      required: true,
+      items: [],
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    const group = await screen.findByRole("group", { name: "Review state" });
+    expect(group).toBeTruthy();
+    const pendingItem = screen.getByRole("button", {
+      name: "Waiting for review",
+    });
+    expect(pendingItem.getAttribute("aria-pressed")).toBe("true");
+    await waitFor(() => expect(reviews).toHaveBeenCalledWith("pending"));
+
+    await user.click(screen.getByRole("button", { name: "Sent back" }));
+    await waitFor(() => expect(reviews).toHaveBeenCalledWith("rejected"));
+    expect(
+      screen
+        .getByRole("button", { name: "Sent back" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(pendingItem.getAttribute("aria-pressed")).toBe("false");
+
+    // Pressing the active filter again keeps it selected.
+    await user.click(screen.getByRole("button", { name: "Sent back" }));
+    expect(
+      screen
+        .getByRole("button", { name: "Sent back" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+
+    await user.click(screen.getByRole("button", { name: "All" }));
+    await waitFor(() => expect(reviews).toHaveBeenCalledWith(""));
+  });
 });

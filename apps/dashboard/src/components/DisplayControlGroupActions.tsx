@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { DisplayControlGroupPreview } from "../api/types";
 import { Alert, AlertDescription } from "./ui/alert";
-import { Button as RheaButton } from "./ui/button";
+import { Button } from "./ui/button";
 import { toast } from "./ui/toast";
 
 type GroupDisplayCommand = DisplayControlGroupPreview["commandType"];
@@ -89,7 +89,7 @@ export function DisplayControlGroupActions({
         aria-label={t("groupctl.groupLabel")}
       >
         {actions.map((action) => (
-          <RheaButton
+          <Button
             key={action.commandType}
             type="button"
             variant={
@@ -102,7 +102,7 @@ export function DisplayControlGroupActions({
             }}
           >
             {t(action.labelKey)}
-          </RheaButton>
+          </Button>
         ))}
       </div>
       {memberCount === 0 ? (
@@ -150,13 +150,13 @@ export function DisplayControlGroupActions({
             <span className="text-sm text-muted-foreground">
               {t("groupctl.eligible", { count: data.eligibleCount })}
             </span>
-            <RheaButton
+            <Button
               type="button"
               disabled={apply.isPending || data.eligibleCount === 0}
               onClick={() => apply.mutate()}
             >
               {apply.isPending ? t("detail.sending") : t("groupctl.send")}
-            </RheaButton>
+            </Button>
           </div>
           {lastResult && (
             <Alert>

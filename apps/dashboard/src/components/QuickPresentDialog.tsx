@@ -88,13 +88,18 @@ export function QuickPresentDialog({
   const [selectedContent, setSelectedContent] =
     useState<QuickPresentSelection>();
   const [picker, setPicker] = useState<QuickPresentContentType>();
-  const pickerOpen = open && picker !== undefined;
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const chooseContent = (selection: QuickPresentSelection) => {
     setContentType(selection.type);
     setContentId(selection.id);
     setSelectedContent(selection);
-    setPicker(undefined);
+    setPickerOpen(false);
+  };
+
+  const openPicker = (type: QuickPresentContentType) => {
+    setPicker(type);
+    setPickerOpen(true);
   };
 
   const changeContentType = (type: QuickPresentContentType) => {
@@ -142,9 +147,9 @@ export function QuickPresentDialog({
   return (
     <>
       <Dialog
-        open={open && !pickerOpen}
+        open={open && picker === undefined}
         onOpenChange={(nextOpen) => {
-          if (!nextOpen && !pickerOpen) onClose();
+          if (!nextOpen && picker === undefined) onClose();
         }}
       >
         <DialogContent className="max-h-[min(90vh,54rem)] max-w-xl overflow-y-auto">
@@ -205,7 +210,7 @@ export function QuickPresentDialog({
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => setPicker(contentType)}
+                    onClick={() => openPicker(contentType)}
                     disabled={present.isPending}
                   >
                     {t("quickPresent.change")}
@@ -215,7 +220,7 @@ export function QuickPresentDialog({
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setPicker(contentType)}
+                  onClick={() => openPicker(contentType)}
                   disabled={present.isPending}
                 >
                   {chooseLabel}
@@ -278,9 +283,9 @@ export function QuickPresentDialog({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {open && picker === "playlist" && (
+      {picker === "playlist" && (
         <PlaylistPicker
-          open
+          open={open && pickerOpen}
           allowedKinds={["playlist"]}
           title={t("quickPresent.playlistPicker.title")}
           description={t("quickPresent.playlistPicker.description")}
@@ -297,12 +302,15 @@ export function QuickPresentDialog({
               }),
             });
           }}
-          onClose={() => setPicker(undefined)}
+          onClose={() => setPickerOpen(false)}
+          onCloseComplete={() => {
+            if (!pickerOpen) setPicker(undefined);
+          }}
         />
       )}
-      {open && picker === "layout" && (
+      {picker === "layout" && (
         <PlaylistPicker
-          open
+          open={open && pickerOpen}
           allowedKinds={["layout"]}
           title={t("quickPresent.layoutPicker.title")}
           description={t("quickPresent.layoutPicker.description")}
@@ -321,12 +329,15 @@ export function QuickPresentDialog({
               }),
             });
           }}
-          onClose={() => setPicker(undefined)}
+          onClose={() => setPickerOpen(false)}
+          onCloseComplete={() => {
+            if (!pickerOpen) setPicker(undefined);
+          }}
         />
       )}
-      {open && picker === "asset" && (
+      {picker === "asset" && (
         <ContentPicker
-          open
+          open={open && pickerOpen}
           mode="single"
           csrf={csrfToken}
           allowedTypes={["image", "video", "widget"]}
@@ -344,7 +355,10 @@ export function QuickPresentDialog({
               detail: assetDetail(asset, t),
             });
           }}
-          onClose={() => setPicker(undefined)}
+          onClose={() => setPickerOpen(false)}
+          onCloseComplete={() => {
+            if (!pickerOpen) setPicker(undefined);
+          }}
         />
       )}
     </>

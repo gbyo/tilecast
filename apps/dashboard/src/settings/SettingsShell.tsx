@@ -2,7 +2,7 @@ import { Link, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Field, FieldLabel } from "../components/ui/field";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -40,7 +40,7 @@ export function SettingsShell({
           <FieldLabel htmlFor="settings-mobile-section">
             {t("shell.sectionLabel")}
           </FieldLabel>
-          <RheaSelect
+          <Select
             items={items.map((item) => ({
               value: item.id,
               label: `${item.label}${dirty.has(item.id) ? " • Unsaved" : ""}`,
@@ -65,7 +65,7 @@ export function SettingsShell({
                 </SelectItem>
               ))}
             </SelectContent>
-          </RheaSelect>
+          </Select>
         </Field>
         {settingsNavigation.map((group) => (
           <div className="grid gap-0.5 max-[850px]:hidden" key={group.labelKey}>

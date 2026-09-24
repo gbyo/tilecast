@@ -11,7 +11,7 @@ import { descriptionFor, enumLabel, titleFor } from "./settingDisplay";
 import { normalizeSettingValues } from "./settingValues";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import {
-  AlertDialog as RheaAlertDialog,
+  AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
@@ -21,7 +21,7 @@ import {
   AlertDialogTitle,
 } from "../components/ui/alert-dialog";
 import { Badge } from "../components/ui/badge";
-import { Button as RheaButton } from "../components/ui/button";
+import { Button } from "../components/ui/button";
 import {
   InputGroup,
   InputGroupAddon,
@@ -33,7 +33,7 @@ import {
   CollapsibleTrigger,
 } from "../components/ui/collapsible";
 import { Field, FieldLabel } from "../components/ui/field";
-import { Switch as RheaSwitch } from "../components/ui/switch";
+import { Switch } from "../components/ui/switch";
 
 type PolicyGroupTitleKey =
   | "policies.groups.playback.title"
@@ -265,7 +265,7 @@ export function PlayerPolicyEditor({
           />
         </InputGroup>
         <Field orientation="horizontal" className="items-center">
-          <RheaSwitch
+          <Switch
             id="player-settings-overridden-only"
             checked={overriddenOnly}
             onCheckedChange={setOverriddenOnly}
@@ -283,7 +283,7 @@ export function PlayerPolicyEditor({
         </Badge>
         {manageable && (
           <>
-            <RheaButton
+            <Button
               type="button"
               variant="destructive"
               size="sm"
@@ -291,8 +291,8 @@ export function PlayerPolicyEditor({
               onClick={() => setConfirmReset(true)}
             >
               {t("policies.resetAll")}
-            </RheaButton>
-            <RheaButton
+            </Button>
+            <Button
               type="button"
               size="sm"
               disabled={!dirty || save.isPending}
@@ -301,11 +301,11 @@ export function PlayerPolicyEditor({
               {save.isPending
                 ? t("common:actions.saving")
                 : t("common:actions.saveChanges")}
-            </RheaButton>
+            </Button>
           </>
         )}
       </div>
-      <RheaAlertDialog open={confirmReset} onOpenChange={setConfirmReset}>
+      <AlertDialog open={confirmReset} onOpenChange={setConfirmReset}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t("policies.resetTitle")}</AlertDialogTitle>
@@ -325,7 +325,7 @@ export function PlayerPolicyEditor({
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </RheaAlertDialog>
+      </AlertDialog>
 
       {save.isError && (
         <Alert variant="destructive">
@@ -358,42 +358,38 @@ export function PlayerPolicyEditor({
             overriddenOnly && sectionOverrideCount === 0 && !normalizedSearch;
           if (hiddenByFilter) return null;
           return (
-            <section
-              className="rounded-xl border border-border"
+            <Collapsible
               key={group.titleKey}
+              open={open}
+              onOpenChange={(nextOpen) =>
+                setExpanded((current) => {
+                  const next = new Set(current);
+                  if (nextOpen) next.add(group.titleKey);
+                  else next.delete(group.titleKey);
+                  return next;
+                })
+              }
             >
-              <button
-                type="button"
-                className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                aria-expanded={open}
-                onClick={() =>
-                  setExpanded((current) => {
-                    const next = new Set(current);
-                    if (next.has(group.titleKey)) next.delete(group.titleKey);
-                    else next.add(group.titleKey);
-                    return next;
-                  })
-                }
-              >
-                <span className="min-w-0">
-                  <span className="block text-sm font-medium">
-                    {t(group.titleKey)}
+              <section className="rounded-xl border border-border">
+                <CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium">
+                      {t(group.titleKey)}
+                    </span>
+                    <span className="block truncate text-sm text-muted-foreground">
+                      {t(group.descriptionKey)}
+                    </span>
                   </span>
-                  <span className="block truncate text-sm text-muted-foreground">
-                    {t(group.descriptionKey)}
+                  <span className="flex shrink-0 items-center gap-2 text-sm text-muted-foreground">
+                    {t("policies.overrides", { count: sectionOverrideCount })}
+                    <ChevronDown
+                      size={18}
+                      aria-hidden="true"
+                      className={open ? "rotate-180" : undefined}
+                    />
                   </span>
-                </span>
-                <span className="flex shrink-0 items-center gap-2 text-sm text-muted-foreground">
-                  {t("policies.overrides", { count: sectionOverrideCount })}
-                  <ChevronDown
-                    size={18}
-                    aria-hidden="true"
-                    className={open ? "rotate-180" : undefined}
-                  />
-                </span>
-              </button>
-              {open && (
-                <div className="grid gap-1 border-t border-border px-4 py-3">
+                </CollapsibleTrigger>
+                <CollapsibleContent className="grid gap-1 border-t border-border px-4 py-3">
                   {definitionsToShow.length ? (
                     definitionsToShow.map((definition) => (
                       <PolicyRow
@@ -440,9 +436,9 @@ export function PlayerPolicyEditor({
                         : t("policies.emptySection")}
                     </p>
                   )}
-                </div>
-              )}
-            </section>
+                </CollapsibleContent>
+              </section>
+            </Collapsible>
           );
         })}
       </div>
@@ -470,15 +466,15 @@ export function PlayerPolicyEditor({
             {t("policies.unsaved")}
           </strong>
           <div className="flex flex-wrap items-center gap-2">
-            <RheaButton
+            <Button
               type="button"
               variant="outline"
               disabled={save.isPending}
               onClick={cancelChanges}
             >
               {t("common:actions.cancel")}
-            </RheaButton>
-            <RheaButton
+            </Button>
+            <Button
               type="button"
               disabled={save.isPending}
               onClick={() => save.mutate()}
@@ -486,7 +482,7 @@ export function PlayerPolicyEditor({
               {save.isPending
                 ? t("common:actions.saving")
                 : t("common:actions.saveChanges")}
-            </RheaButton>
+            </Button>
           </div>
         </div>
       )}
@@ -550,7 +546,7 @@ function PolicyRow({
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Field orientation="horizontal" className="items-center">
-          <RheaSwitch
+          <Switch
             size="sm"
             id={"player-setting-override-" + definition.key}
             aria-label={t("policies.overrideSetting", { title })}
@@ -566,14 +562,14 @@ function PolicyRow({
           </FieldLabel>
         </Field>
         {overridden && (
-          <RheaButton
+          <Button
             type="button"
             variant="ghost"
             size="sm"
             onClick={() => onToggle(false)}
           >
             {t("policies.revert")}
-          </RheaButton>
+          </Button>
         )}
       </div>
       {overridden && (

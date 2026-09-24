@@ -1,7 +1,7 @@
 import { useCallback, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  AlertDialog as RheaAlertDialog,
+  AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
@@ -20,7 +20,7 @@ export type ConfirmRequest = {
 };
 
 /**
- * Rhea replacement for window.confirm. Awaiting the returned promise keeps
+ * Base UI replacement for window.confirm. Awaiting the returned promise keeps
  * the call site reading like the synchronous version without blocking the
  * browser chrome. Render the returned dialog next to the confirming UI.
  */
@@ -47,7 +47,7 @@ export function useConfirm() {
   }, []);
 
   const dialog = (
-    <RheaAlertDialog
+    <AlertDialog
       open={pending !== null}
       onOpenChange={(open) => {
         if (!open) settle(false);
@@ -78,7 +78,7 @@ export function useConfirm() {
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
-    </RheaAlertDialog>
+    </AlertDialog>
   );
 
   return { confirm, dialog };

@@ -6,17 +6,17 @@ import { api } from "../../api/client";
 import { toast } from "../../components/ui/toast";
 import { apiErrorMessage } from "../../i18n";
 import { Alert, AlertDescription } from "../../components/ui/alert";
-import { Button as RheaButton } from "../../components/ui/button";
+import { Button } from "../../components/ui/button";
 import { Field, FieldLabel } from "../../components/ui/field";
 import { Input } from "../../components/ui/input";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
-import { Switch as RheaSwitch } from "../../components/ui/switch";
+import { Switch } from "../../components/ui/switch";
 import type {
   DataSourceDetail,
   DateSelection,
@@ -136,7 +136,7 @@ export function ManualDataSourceEditor({
       onClose={onClose}
       footer={
         !readOnly && (
-          <RheaButton
+          <Button
             type="button"
             disabled={save.isPending || !name.trim()}
             onClick={() => save.mutate()}
@@ -144,7 +144,7 @@ export function ManualDataSourceEditor({
             {save.isPending
               ? t("common:actions.saving")
               : t("dataSources.editor.save")}
-          </RheaButton>
+          </Button>
         )
       }
     >
@@ -211,7 +211,7 @@ export function ManualDataSourceEditor({
               <FieldLabel htmlFor={`manual-column-type-${index}`}>
                 {t("dataSources.manual.columnType")}
               </FieldLabel>
-              <RheaSelect
+              <Select
                 items={manualColumnTypes.map((type) => ({
                   value: type,
                   label: columnTypeLabels[type],
@@ -243,7 +243,7 @@ export function ManualDataSourceEditor({
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </RheaSelect>
+              </Select>
             </Field>
             {column.type === "currency" && (
               <Field>
@@ -264,7 +264,7 @@ export function ManualDataSourceEditor({
               </Field>
             )}
             {!readOnly && configuration.columns.length > 1 && (
-              <RheaButton
+              <Button
                 type="button"
                 variant="destructive"
                 onClick={() =>
@@ -281,12 +281,12 @@ export function ManualDataSourceEditor({
               >
                 <Trash2 size={15} aria-hidden="true" />{" "}
                 {t("dataSources.manual.removeColumn")}
-              </RheaButton>
+              </Button>
             )}
           </div>
         ))}
         {!readOnly && configuration.columns.length < 12 && (
-          <RheaButton
+          <Button
             type="button"
             variant="outline"
             onClick={() =>
@@ -306,7 +306,7 @@ export function ManualDataSourceEditor({
           >
             <Plus size={15} aria-hidden="true" />{" "}
             {t("dataSources.manual.addColumn")}
-          </RheaButton>
+          </Button>
         )}
       </fieldset>
       <fieldset className="grid gap-3">
@@ -327,7 +327,7 @@ export function ManualDataSourceEditor({
                     {column.label}
                   </FieldLabel>
                   {column.type === "boolean" ? (
-                    <RheaSelect
+                    <Select
                       value={row.values[column.key] ?? ""}
                       disabled={readOnly}
                       onValueChange={(next) =>
@@ -374,7 +374,7 @@ export function ManualDataSourceEditor({
                           </SelectItem>
                         ))}
                       </SelectContent>
-                    </RheaSelect>
+                    </Select>
                   ) : (
                     <Input
                       id={`manual-cell-${rowIndex}-${column.key}`}
@@ -415,7 +415,7 @@ export function ManualDataSourceEditor({
                 </Field>
               ))}
               {!readOnly && (
-                <RheaButton
+                <Button
                   type="button"
                   variant="ghost"
                   size="icon"
@@ -432,13 +432,13 @@ export function ManualDataSourceEditor({
                   }
                 >
                   <Trash2 size={15} aria-hidden="true" />
-                </RheaButton>
+                </Button>
               )}
             </div>
           ))}
         </div>
         {!readOnly && configuration.rows.length < 200 && (
-          <RheaButton
+          <Button
             type="button"
             variant="outline"
             onClick={() =>
@@ -453,7 +453,7 @@ export function ManualDataSourceEditor({
           >
             <Plus size={15} aria-hidden="true" />{" "}
             {t("dataSources.manual.addRow")}
-          </RheaButton>
+          </Button>
         )}
       </fieldset>
       <fieldset className="grid gap-3">
@@ -462,7 +462,7 @@ export function ManualDataSourceEditor({
         </legend>
         {/* The wrapping label names the switch; no extra aria-label. */}
         <label className="flex items-center gap-2 text-sm">
-          <RheaSwitch
+          <Switch
             checked={configuration.dateSelection.enabled}
             disabled={readOnly}
             onCheckedChange={(checked) =>
@@ -483,7 +483,7 @@ export function ManualDataSourceEditor({
               <FieldLabel htmlFor="manual-date-field">
                 {t("dataSources.manual.dateField")}
               </FieldLabel>
-              <RheaSelect
+              <Select
                 value={configuration.dateField ?? ""}
                 disabled={readOnly}
                 onValueChange={(next) =>
@@ -545,7 +545,7 @@ export function ManualDataSourceEditor({
                       </SelectItem>
                     ))}
                 </SelectContent>
-              </RheaSelect>
+              </Select>
             </Field>
             <Field>
               <FieldLabel htmlFor="manual-timezone">
@@ -570,7 +570,7 @@ export function ManualDataSourceEditor({
               <FieldLabel htmlFor="manual-selection">
                 {t("dataSources.manual.selection")}
               </FieldLabel>
-              <RheaSelect
+              <Select
                 value={configuration.dateSelection.mode}
                 disabled={readOnly}
                 onValueChange={(next) =>
@@ -608,7 +608,7 @@ export function ManualDataSourceEditor({
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </RheaSelect>
+              </Select>
             </Field>
           </div>
         )}

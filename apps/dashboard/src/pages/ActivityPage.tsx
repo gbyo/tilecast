@@ -9,9 +9,15 @@ import {
   resolveTimeRange,
   type TimeRangePreset,
 } from "../components/TimeRangePicker";
-import { ViewTabs } from "../components/ViewTabs";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../components/ui/tabs";
 import { Badge } from "../components/ui/badge";
 import { Button, buttonVariants } from "../components/ui/button";
+import { Field, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import {
   Popover,
@@ -408,129 +414,139 @@ export function ActivityPage() {
         </div>
       </header>
 
-      <ViewTabs
-        label={t("page.tabsLabel")}
+      <Tabs
         value={tab}
-        items={activityTabs}
-        onValueChange={selectTab}
-      />
-
-      {tab !== "overview" && tab !== "content-health" && (
-        <FilterBar
-          definitions={definitions}
-          values={values}
-          onChange={set}
-          onClear={clear}
-          label={t("page.filtersForTab", {
-            tab: activityTabs.find((item) => item.value === tab)?.label ?? tab,
-          })}
-        >
-          {tab === "proof" && (
-            <Popover>
-              <PopoverTrigger
-                render={<Button variant="outline" />}
-                aria-label={
-                  activeAdvanced.length
-                    ? t("page.advancedFiltersActive", {
-                        active: activeAdvanced.length,
-                      })
-                    : t("page.advancedFilters")
-                }
-              >
-                <SlidersHorizontal aria-hidden="true" />
-                <span>{t("page.moreFilters")}</span>
-                {activeAdvanced.length > 0 && (
-                  <Badge variant="secondary">{activeAdvanced.length}</Badge>
-                )}
-              </PopoverTrigger>
-              <PopoverContent
-                align="end"
-                className="grid w-80 gap-3 p-3"
-                aria-label={t("page.advancedFilters")}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="grid gap-0.5">
-                    <strong className="text-sm">
-                      {t("page.advancedFilters")}
-                    </strong>
-                    <small className="text-xs text-muted-foreground">
-                      {t("page.advancedHint")}
-                    </small>
-                  </div>
-                  {activeAdvanced.length > 0 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        for (const filter of advancedProofFilters)
-                          set(filter.key, "");
-                      }}
-                    >
-                      {t("page.clear")}
-                    </Button>
-                  )}
-                </div>
-                <div className="grid gap-2">
-                  {advancedProofFilters.map((filter) => (
-                    <label
-                      key={filter.key}
-                      className="grid gap-1 text-xs font-medium"
-                    >
-                      <span>
-                        {t("page.resourceId", { label: filter.label })}
-                      </span>
-                      <Input
-                        value={values[filter.key] ?? ""}
-                        onChange={(event) =>
-                          set(filter.key, event.target.value)
-                        }
-                        placeholder={t("page.resourceId", {
-                          label: filter.label,
-                        })}
-                      />
-                    </label>
-                  ))}
-                </div>
-              </PopoverContent>
-            </Popover>
+        onValueChange={(value) => selectTab(value as ActivityTab)}
+        className="grid gap-4"
+      >
+        <TabsList variant="line" aria-label={t("page.tabsLabel")}>
+          {activityTabs.map((item) => (
+            <TabsTrigger key={item.value} value={item.value}>
+              {item.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        <TabsContent value={tab} className="grid gap-4">
+          {tab !== "overview" && tab !== "content-health" && (
+            <FilterBar
+              definitions={definitions}
+              values={values}
+              onChange={set}
+              onClear={clear}
+              label={t("page.filtersForTab", {
+                tab:
+                  activityTabs.find((item) => item.value === tab)?.label ?? tab,
+              })}
+            >
+              {tab === "proof" && (
+                <Popover>
+                  <PopoverTrigger
+                    render={<Button variant="outline" />}
+                    aria-label={
+                      activeAdvanced.length
+                        ? t("page.advancedFiltersActive", {
+                            active: activeAdvanced.length,
+                          })
+                        : t("page.advancedFilters")
+                    }
+                  >
+                    <SlidersHorizontal aria-hidden="true" />
+                    <span>{t("page.moreFilters")}</span>
+                    {activeAdvanced.length > 0 && (
+                      <Badge variant="secondary">{activeAdvanced.length}</Badge>
+                    )}
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="end"
+                    className="grid w-80 gap-3 p-3"
+                    aria-label={t("page.advancedFilters")}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="grid gap-0.5">
+                        <strong className="text-sm">
+                          {t("page.advancedFilters")}
+                        </strong>
+                        <small className="text-xs text-muted-foreground">
+                          {t("page.advancedHint")}
+                        </small>
+                      </div>
+                      {activeAdvanced.length > 0 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            for (const filter of advancedProofFilters)
+                              set(filter.key, "");
+                          }}
+                        >
+                          {t("page.clear")}
+                        </Button>
+                      )}
+                    </div>
+                    <div className="grid gap-2">
+                      {advancedProofFilters.map((filter) => (
+                        <Field key={filter.key} className="gap-1">
+                          <FieldLabel
+                            htmlFor={`proof-filter-${filter.key}`}
+                            className="text-xs font-medium"
+                          >
+                            {t("page.resourceId", { label: filter.label })}
+                          </FieldLabel>
+                          <Input
+                            id={`proof-filter-${filter.key}`}
+                            value={values[filter.key] ?? ""}
+                            onChange={(event) =>
+                              set(filter.key, event.target.value)
+                            }
+                            placeholder={t("page.resourceId", {
+                              label: filter.label,
+                            })}
+                          />
+                        </Field>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
+            </FilterBar>
           )}
-        </FilterBar>
-      )}
 
-      {tab === "overview" && (
-        <OverviewTab
-          range={range}
-          canViewScreenEvents={privileged}
-          canViewAudit={privileged || role === "editor"}
-        />
-      )}
-      {tab === "proof" && (
-        <ProofTab
-          range={range}
-          filters={values}
-          dimension={summaryDimension}
-          setDimension={setSummaryDimension}
-          hasActiveFilters={hasActiveFilters}
-          canExtendRange={preset === "24h"}
-          onClearFilters={clear}
-          onExtendRange={() => setRange("range", "7d")}
-          onViewScreenEvents={
-            privileged ? () => selectTab("events") : undefined
-          }
-        />
-      )}
-      {tab === "incidents" && (
-        <IncidentsTab
-          range={range}
-          filters={values}
-          hasActiveFilters={hasActiveFilters}
-          onClearFilters={clear}
-        />
-      )}
-      {tab === "content-health" && <ContentHealthTab />}
-      {tab === "events" && <EventsTab range={range} filters={values} />}
-      {tab === "audit" && <AuditTab range={range} filters={values} />}
+          {tab === "overview" && (
+            <OverviewTab
+              range={range}
+              canViewScreenEvents={privileged}
+              canViewAudit={privileged || role === "editor"}
+            />
+          )}
+          {tab === "proof" && (
+            <ProofTab
+              range={range}
+              filters={values}
+              dimension={summaryDimension}
+              setDimension={setSummaryDimension}
+              hasActiveFilters={hasActiveFilters}
+              canExtendRange={preset === "24h"}
+              onClearFilters={clear}
+              onExtendRange={() => setRange("range", "7d")}
+              onViewScreenEvents={
+                privileged ? () => selectTab("events") : undefined
+              }
+            />
+          )}
+          {tab === "incidents" && (
+            <IncidentsTab
+              range={range}
+              filters={values}
+              hasActiveFilters={hasActiveFilters}
+              onClearFilters={clear}
+            />
+          )}
+          {tab === "content-health" && <ContentHealthTab />}
+          {tab === "events" && <EventsTab range={range} filters={values} />}
+          {tab === "audit" && <AuditTab range={range} filters={values} />}
+        </TabsContent>
+      </Tabs>
     </section>
   );
 }

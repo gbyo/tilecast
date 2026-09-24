@@ -53,7 +53,7 @@ function renderRoute(element: ReactNode, path = "/plugins") {
   );
 }
 
-/** Rhea Select hides its native control, so pick the way a person does. */
+/** Base UI Select hides its native control, so pick the way a person does. */
 async function chooseOption(selectLabel: string, optionLabel: string) {
   const user = userEvent.setup();
   await user.click(screen.getByRole("combobox", { name: selectLabel }));

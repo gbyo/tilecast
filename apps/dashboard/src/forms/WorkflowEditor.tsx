@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useBlocker } from "react-router";
+import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type {
@@ -11,13 +12,13 @@ import type {
 import { api } from "../api/client";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
-import { Button as RheaButton } from "../components/ui/button";
-import { Checkbox as RheaCheckbox } from "../components/ui/checkbox";
+import { Button } from "../components/ui/button";
+import { Checkbox } from "../components/ui/checkbox";
 import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
 import {
-  Select as RheaSelect,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -225,12 +226,12 @@ export function WorkflowEditor({
           <AlertTitle>{t("workflow.leaveTitle")}</AlertTitle>
           <AlertDescription>{t("workflow.leaveBody")}</AlertDescription>
           <div className="flex flex-wrap gap-2">
-            <RheaButton variant="ghost" onClick={() => blocker.reset?.()}>
+            <Button variant="ghost" onClick={() => blocker.reset?.()}>
               {t("workflow.stay")}
-            </RheaButton>
-            <RheaButton variant="default" onClick={() => blocker.proceed?.()}>
+            </Button>
+            <Button variant="default" onClick={() => blocker.proceed?.()}>
               {t("workflow.leave")}
-            </RheaButton>
+            </Button>
           </div>
         </Alert>
       )}
@@ -258,9 +259,9 @@ export function WorkflowEditor({
           <h3 className="text-base font-semibold">
             {t("workflow.statesTitle")}
           </h3>
-          <RheaButton variant="secondary" size="sm" onClick={addState}>
+          <Button variant="secondary" size="sm" onClick={addState}>
             {t("workflow.addState")}
-          </RheaButton>
+          </Button>
         </div>
         <RadioGroup
           aria-label={t("workflow.initialOption")}
@@ -339,7 +340,7 @@ export function WorkflowEditor({
                     </FieldLabel>
                   </Field>
                   <Field orientation="horizontal" className="items-center">
-                    <RheaCheckbox
+                    <Checkbox
                       id={`workflow-state-output-${index}`}
                       checked={state.eligibleForOutput}
                       onCheckedChange={(checked) =>
@@ -356,7 +357,7 @@ export function WorkflowEditor({
                     </FieldLabel>
                   </Field>
                   <Field orientation="horizontal" className="items-center">
-                    <RheaCheckbox
+                    <Checkbox
                       id={`workflow-state-terminal-${index}`}
                       checked={state.terminal}
                       onCheckedChange={(checked) =>
@@ -371,31 +372,37 @@ export function WorkflowEditor({
                     </FieldLabel>
                   </Field>
                   <div className="flex gap-1">
-                    <button
+                    <Button
                       type="button"
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
+                      variant="outline"
+                      size="icon-xs"
+                      className="size-7 p-0 text-sm"
                       aria-label={t("workflow.moveUp", {
                         label: state.label,
                       })}
                       disabled={index === 0}
                       onClick={() => moveState(index, -1)}
                     >
-                      ↑
-                    </button>
-                    <button
+                      <ArrowUp size={14} aria-hidden="true" />
+                    </Button>
+                    <Button
                       type="button"
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
+                      variant="outline"
+                      size="icon-xs"
+                      className="size-7 p-0 text-sm"
                       aria-label={t("workflow.moveDown", {
                         label: state.label,
                       })}
                       disabled={index === states.length - 1}
                       onClick={() => moveState(index, 1)}
                     >
-                      ↓
-                    </button>
-                    <button
+                      <ArrowDown size={14} aria-hidden="true" />
+                    </Button>
+                    <Button
                       type="button"
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
+                      variant="outline"
+                      size="icon-xs"
+                      className="size-7 p-0 text-sm"
                       aria-label={t("workflow.deleteState", {
                         label: state.label,
                       })}
@@ -407,8 +414,8 @@ export function WorkflowEditor({
                       }
                       onClick={() => removeState(index)}
                     >
-                      ✕
-                    </button>
+                      <Trash2 size={14} aria-hidden="true" />
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -425,14 +432,14 @@ export function WorkflowEditor({
           <h3 className="text-base font-semibold">
             {t("workflow.transitionsTitle")}
           </h3>
-          <RheaButton
+          <Button
             variant="secondary"
             size="sm"
             onClick={addTransition}
             disabled={states.length === 0}
           >
             {t("workflow.addTransition")}
-          </RheaButton>
+          </Button>
         </div>
         <div className="overflow-x-auto rounded-xl border border-border">
           <Table className="w-full text-sm">
@@ -462,7 +469,7 @@ export function WorkflowEditor({
                   className="border-b border-border last:border-0"
                 >
                   <TableCell className="px-3 py-2">
-                    <RheaSelect
+                    <Select
                       items={states.map((state) => ({
                         value: state.key,
                         label: state.label || state.key,
@@ -482,10 +489,10 @@ export function WorkflowEditor({
                           </SelectItem>
                         ))}
                       </SelectContent>
-                    </RheaSelect>
+                    </Select>
                   </TableCell>
                   <TableCell className="px-3 py-2">
-                    <RheaSelect
+                    <Select
                       items={states.map((state) => ({
                         value: state.key,
                         label: state.label || state.key,
@@ -505,7 +512,7 @@ export function WorkflowEditor({
                           </SelectItem>
                         ))}
                       </SelectContent>
-                    </RheaSelect>
+                    </Select>
                   </TableCell>
                   <TableCell className="px-3 py-2">
                     <Input
@@ -516,7 +523,7 @@ export function WorkflowEditor({
                     />
                   </TableCell>
                   <TableCell className="px-3 py-2">
-                    <RheaSelect
+                    <Select
                       items={CAPABILITY_OPTIONS.map((option) => ({
                         value: option.value,
                         label: t(option.labelKey),
@@ -538,38 +545,44 @@ export function WorkflowEditor({
                           </SelectItem>
                         ))}
                       </SelectContent>
-                    </RheaSelect>
+                    </Select>
                   </TableCell>
                   <TableCell className="px-3 py-2">
                     <div className="flex gap-1">
-                      <button
+                      <Button
                         type="button"
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
+                        variant="outline"
+                        size="icon-xs"
+                        className="size-7 p-0 text-sm"
                         aria-label={t("workflow.moveTransitionUp")}
                         disabled={index === 0}
                         onClick={() => moveTransition(index, -1)}
                       >
-                        ↑
-                      </button>
-                      <button
+                        <ArrowUp size={14} aria-hidden="true" />
+                      </Button>
+                      <Button
                         type="button"
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
+                        variant="outline"
+                        size="icon-xs"
+                        className="size-7 p-0 text-sm"
                         aria-label={t("workflow.moveTransitionDown")}
                         disabled={index === transitions.length - 1}
                         onClick={() => moveTransition(index, 1)}
                       >
-                        ↓
-                      </button>
-                      <button
+                        <ArrowDown size={14} aria-hidden="true" />
+                      </Button>
+                      <Button
                         type="button"
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
+                        variant="outline"
+                        size="icon-xs"
+                        className="size-7 p-0 text-sm"
                         aria-label={t("workflow.removeTransition", {
                           label: transition.label || String(index + 1),
                         })}
                         onClick={() => removeTransition(index)}
                       >
-                        ✕
-                      </button>
+                        <Trash2 size={14} aria-hidden="true" />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -590,10 +603,10 @@ export function WorkflowEditor({
             </ul>
           </AlertDescription>
           <div className="flex flex-wrap gap-2">
-            <RheaButton variant="ghost" onClick={() => setConfirming(false)}>
+            <Button variant="ghost" onClick={() => setConfirming(false)}>
               {t("workflow.reviewAgain")}
-            </RheaButton>
-            <RheaButton
+            </Button>
+            <Button
               variant="default"
               disabled={save.isPending}
               aria-busy={save.isPending || undefined}
@@ -601,13 +614,13 @@ export function WorkflowEditor({
             >
               {save.isPending && <Spinner aria-hidden="true" />}
               {t("workflow.saveAnyway")}
-            </RheaButton>
+            </Button>
           </div>
         </Alert>
       )}
 
       <div className="flex flex-wrap gap-2">
-        <RheaButton
+        <Button
           variant="default"
           disabled={save.isPending || errors.length > 0 || !dirty}
           aria-busy={save.isPending || undefined}
@@ -615,7 +628,7 @@ export function WorkflowEditor({
         >
           {save.isPending && <Spinner aria-hidden="true" />}
           {t("workflow.saveWorkflow")}
-        </RheaButton>
+        </Button>
       </div>
     </div>
   );

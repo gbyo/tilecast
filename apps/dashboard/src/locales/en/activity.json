@@ -3,7 +3,6 @@
     "loadFailed": "Activity data could not be loaded.",
     "noData": "No data",
     "none": "None",
-    "noResults": "No results",
     "loadingActivity": "Loading Activity",
     "viewDetails": "View",
     "detailsUnavailable": "Details unavailable",
@@ -203,7 +202,8 @@
     "timelineDescription": "High-value playback, recovery, takeover, and administrative events.",
     "timelineFilter": "Filter the timeline by domain",
     "all": "All",
-    "emptyTimeline": "No high-value events occurred in this range."
+    "emptyTimeline": "No high-value events occurred in this range.",
+    "emptyTimelineTitle": "No activity"
   },
   "uptime": {
     "windows": {
@@ -296,7 +296,8 @@
       "confirmed": "Confirmed",
       "missed": "Missed",
       "mainReason": "Main reason"
-    }
+    },
+    "emptyTitle": "No expected playback"
   },
   "incidents": {
     "attentionLabel": "Needs attention",
@@ -394,7 +395,9 @@
         "auditEmpty": "No administrative changes touched this screen during the incident.",
         "screens": "Affected screens"
       }
-    }
+    },
+    "emptyAttentionTitle": "No active failures",
+    "emptyTitle": "No incidents"
   },
   "proof": {
     "summaryLabel": "Proof-of-play summary",
@@ -486,7 +489,8 @@
     "receivedAt": "Received {{when}}",
     "sequence": "{{category}} · seq {{sequence}}",
     "serverAssigned": "server",
-    "empty": "No technical screen events matched these filters."
+    "empty": "No technical screen events matched these filters.",
+    "emptyTitle": "No technical events"
   },
   "audit": {
     "title": "Audit Log",
@@ -500,7 +504,8 @@
       "summary": "Summary",
       "details": "Details"
     },
-    "empty": "No administrative changes matched these filters."
+    "empty": "No administrative changes matched these filters.",
+    "emptyTitle": "No administrative changes"
   },
   "operations": {
     "title": "Overview",

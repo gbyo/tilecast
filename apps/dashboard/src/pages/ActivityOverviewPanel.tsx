@@ -16,11 +16,16 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import type { ResolvedTimeRange } from "../components/TimeRangePicker";
 import { Badge } from "../components/ui/badge";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "../components/ui/empty";
 import { FleetUptimePanel } from "../components/FleetUptimePanel";
 import {
   activityParams,
   activityRequest,
-  EmptyState,
   ErrorNotice,
   formatDay,
   formatDuration,
@@ -386,7 +391,12 @@ function ImportantTimeline({ items }: { items: Overview["timeline"] }) {
         )}
       </header>
       {visible.length === 0 ? (
-        <EmptyState message={t("overview.emptyTimeline")} />
+        <Empty className="min-h-40 p-6">
+          <EmptyHeader>
+            <EmptyTitle>{t("overview.emptyTimelineTitle")}</EmptyTitle>
+            <EmptyDescription>{t("overview.emptyTimeline")}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <div className="grid gap-4">
           {days.map((entries) => (

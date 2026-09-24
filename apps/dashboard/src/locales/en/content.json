@@ -271,7 +271,16 @@
       "loadingContent": "Loading content…",
       "loadMore": "Load more content",
       "noMatch": "No matching content",
-      "noMatchHint": "Try a different search or create new content."
+      "noMatchHint": "Try a different search or create new content.",
+      "alreadyAdded": "{{type}} · Already added",
+      "newBadge": "New",
+      "loadingLabel": "Loading content",
+      "loadErrorHint": "Check the connection to Tilecast and try again.",
+      "emptyTitle": "No content yet",
+      "noMatchClearHint": "Try a different search or clear the filters.",
+      "emptyUploadHint": "Upload images or videos to start the library.",
+      "emptyWidgetHint": "Create a Widget to add it here.",
+      "clearFilters": "Clear filters"
     },
     "playlist": {
       "addPlaylist": "Add playlist",
@@ -325,21 +334,42 @@
       "sortNewest": "Newest",
       "sortOldest": "Oldest",
       "sortRecent": "Recently updated",
-      "clearContentSearch": "Clear content search"
+      "clearContentSearch": "Clear content search",
+      "allTypes": "All types"
     },
     "tray": {
       "clearSelection": "Clear selection",
       "removeFromSelection": "Remove {{name}} from selection",
-      "selectedCount": "{{count}} selected"
+      "selectedCount": "{{count}} selected",
+      "selectedContent": "Selected content",
+      "clear": "Clear"
     },
     "upload": {
       "acceptedHint": "Images and videos · multiple files supported",
       "activeConfirm": "Uploads are still active. Close this upload view?",
-      "closeUploads": "Close uploads",
       "dropHint": "Drop files here or choose files",
       "returnToContent": "Return to content",
       "subtitle": "Upload one or more images or videos.",
-      "uploadMedia": "Upload media"
+      "uploadMedia": "Upload media",
+      "newUploadsHint": "New uploads are selected and appear first in the <libraryLink>library</libraryLink>.",
+      "waitingForProcessing": "Waiting for processing",
+      "stageProgress": "{{stage}} · {{percent}}%",
+      "processingFailed": "Processing failed. Check the file and try again.",
+      "uploadFailed": "Upload failed. Check the file and try again.",
+      "dropTitle": "Drop images or videos here",
+      "formatsHint": "JPEG, PNG, WebP, GIF, MP4, MOV, WebM, or MKV. Multiple files are supported.",
+      "rowWaiting": "Waiting to upload · {{size}}",
+      "rowUploading": "Uploading · {{percent}}% · {{uploaded}} of {{total}}",
+      "processingProgressLabel": "Processing progress for {{name}}",
+      "retryUpload": "Retry uploading {{name}}",
+      "dismiss": "Dismiss {{name}}",
+      "activeConfirmBody": "Transfers keep running in the background, but this view stops showing their progress.",
+      "dialogDescription": "Uploaded images and videos land in the media library once processing finishes.",
+      "done": "Done"
+    },
+    "tabs": {
+      "library": "Library",
+      "upload": "Upload"
     }
   },
   "widgets": {

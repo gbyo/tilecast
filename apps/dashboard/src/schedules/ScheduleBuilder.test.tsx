@@ -1,14 +1,14 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createMemoryRouter } from "react-router";
 import { ScheduleEditorPage } from "./ScheduleBuilder";
 import { api } from "../api/client";
 import * as authModule from "../auth/AuthProvider";
-import type { Screen, ScreenGroup } from "../api/types";
+import type { Playlist, Screen, ScreenGroup } from "../api/types";
 
 class RequestWithoutSignal extends globalThis.Request {
   constructor(input: RequestInfo | URL, init: RequestInit = {}) {
@@ -184,5 +184,57 @@ describe("ScheduleBuilder mode switches", () => {
       "aria-pressed",
       "true",
     );
+  });
+});
+
+describe("ScheduleBuilder presentation picker", () => {
+  it("keeps the picker mounted through close and reopens it", async () => {
+    mockAuth();
+    mockLists();
+    const morning = {
+      id: "p1",
+      name: "Morning loop",
+      itemCount: 2,
+      sourceType: "manual",
+      items: [],
+    } as unknown as Playlist;
+    const playlists = vi.spyOn(api, "playlists").mockResolvedValue({
+      items: [morning],
+      total: 1,
+      page: 1,
+      pageSize: 100,
+    });
+    const user = userEvent.setup();
+    renderEditor();
+
+    await user.click(
+      await screen.findByRole("button", { name: "Choose presentation" }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Choose presentation",
+    });
+    expect(dialog).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Search presentations"), "Morn");
+
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    await user.click(
+      screen.getByRole("button", { name: "Choose presentation" }),
+    );
+    expect(
+      await screen.findByRole("dialog", { name: "Choose presentation" }),
+    ).toBeInTheDocument();
+    // The picker stays mounted while closed, so its state survives reopening.
+    expect(screen.getByLabelText("Search presentations")).toHaveValue("Morn");
+    await user.click(
+      await screen.findByRole("button", { name: /Morning loop/ }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Use this presentation" }),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByText("Morning loop")).toBeInTheDocument();
+    expect(playlists).toHaveBeenCalled();
   });
 });

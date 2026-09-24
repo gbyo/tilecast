@@ -412,7 +412,9 @@ describe("Activity filters", () => {
     renderPage("/activity?tab=proof");
 
     await user.click(await screen.findByRole("combobox", { name: "Screen" }));
-    await user.click(screen.getByRole("option", { name: "Lobby north" }));
+    await user.click(
+      await screen.findByRole("option", { name: "Lobby north" }),
+    );
 
     await waitFor(() =>
       expect(screen.getByRole("status").textContent).toContain(
@@ -439,7 +441,7 @@ describe("Activity filters", () => {
     const user = userEvent.setup();
     renderPage("/activity?tab=proof&screen=screen-1&media=asset-1");
 
-    await user.click(await screen.findByRole("button", { name: "Audit Log" }));
+    await user.click(await screen.findByRole("tab", { name: "Audit Log" }));
 
     await waitFor(() => {
       const search = screen.getByRole("status").textContent ?? "";
@@ -456,6 +458,78 @@ describe("Activity filters", () => {
       await screen.findByRole("button", {
         name: /Remove filter Media: asset-1/,
       }),
+    ).toBeTruthy();
+  });
+});
+
+describe("Activity tabs", () => {
+  it("exposes the reports as tabs and switches the panel", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const tabs = await screen.findByRole("tablist", {
+      name: "Activity reports",
+    });
+    const overview = within(tabs).getByRole("tab", { name: "Overview" });
+    expect(overview.getAttribute("aria-selected")).toBe("true");
+
+    await user.click(within(tabs).getByRole("tab", { name: "Screen Events" }));
+
+    await waitFor(() =>
+      expect(
+        within(tabs)
+          .getByRole("tab", { name: "Screen Events" })
+          .getAttribute("aria-selected"),
+      ).toBe("true"),
+    );
+    const panel = screen.getByRole("tabpanel");
+    expect(
+      await within(panel).findByText(
+        "No technical screen events matched these filters.",
+      ),
+    ).toBeTruthy();
+    expect(within(panel).getByText("No technical events")).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toContain("tab=events");
+  });
+});
+
+describe("Activity empty states", () => {
+  it("titles an empty overview timeline", async () => {
+    renderPage();
+
+    expect(
+      await screen.findByText("No high-value events occurred in this range."),
+    ).toBeTruthy();
+    expect(screen.getByText("No activity")).toBeTruthy();
+  });
+
+  it("titles an empty Audit Log", async () => {
+    renderPage("/activity?tab=audit");
+
+    expect(
+      await screen.findByText(
+        "No administrative changes matched these filters.",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText("No administrative changes")).toBeTruthy();
+  });
+});
+
+describe("Activity date range", () => {
+  it("labels the preset and custom bounds", async () => {
+    renderPage(
+      "/activity?range=custom&from=2026-07-01T00:00&to=2026-07-14T12:30",
+    );
+
+    const preset = await screen.findByLabelText("Date range", {
+      selector: "#time-range-preset",
+    });
+    expect(preset.getAttribute("role")).toBe("combobox");
+    expect(
+      screen.getByLabelText("From", { selector: "#time-range-from" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByLabelText("To", { selector: "#time-range-to" }),
     ).toBeTruthy();
   });
 });

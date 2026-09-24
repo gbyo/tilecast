@@ -14,7 +14,6 @@ import {
   ActivityPagination,
   activityParams,
   activityRequest,
-  EmptyState,
   ErrorNotice,
   formatDuration,
   formatWhen,
@@ -56,6 +55,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
+import { Field, FieldLabel } from "../components/ui/field";
 import {
   Sheet,
   SheetContent,
@@ -197,8 +197,13 @@ export function ProofTab({
                 {t("proof.summaryDescription")}
               </p>
             </div>
-            <label className="grid gap-1 text-xs font-medium">
-              <span>{t("proof.groupBy")}</span>
+            <Field className="w-fit gap-1">
+              <FieldLabel
+                htmlFor="proof-group-by"
+                className="text-xs font-medium"
+              >
+                {t("proof.groupBy")}
+              </FieldLabel>
               <Select
                 items={proofDimensionOptions.map((option) => ({
                   value: option.value,
@@ -209,11 +214,7 @@ export function ProofTab({
                   if (next) setDimension(next);
                 }}
               >
-                <SelectTrigger
-                  size="sm"
-                  className="w-44"
-                  aria-label={t("proof.groupBy")}
-                >
+                <SelectTrigger id="proof-group-by" size="sm" className="w-44">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -224,7 +225,7 @@ export function ProofTab({
                   ))}
                 </SelectContent>
               </Select>
-            </label>
+            </Field>
           </header>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
             <MetricTile
@@ -415,8 +416,10 @@ export function ProofTab({
                       <ResultBadge value={item.result} />
                     </TableCell>
                     <TableCell className="px-3 py-2 text-muted-foreground">
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="icon-sm"
                         aria-label={t("proof.openRecordDetails", {
                           screen: item.screenName,
                         })}
@@ -427,7 +430,7 @@ export function ProofTab({
                         }}
                       >
                         <ChevronRight size={17} aria-hidden="true" />
-                      </button>
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -896,7 +899,14 @@ export function EventsTab({
           </TableBody>
         </Table>
       </div>
-      {!query.data?.items?.length && <EmptyState message={t("events.empty")} />}
+      {!query.data?.items?.length && (
+        <Empty className="min-h-40 p-6">
+          <EmptyHeader>
+            <EmptyTitle>{t("events.emptyTitle")}</EmptyTitle>
+            <EmptyDescription>{t("events.empty")}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      )}
       <ActivityPagination
         pagination={pagination}
         nextCursor={query.data?.nextCursor}
@@ -1017,7 +1027,14 @@ export function AuditTab({
           </TableBody>
         </Table>
       </div>
-      {!query.data?.items?.length && <EmptyState message={t("audit.empty")} />}
+      {!query.data?.items?.length && (
+        <Empty className="min-h-40 p-6">
+          <EmptyHeader>
+            <EmptyTitle>{t("audit.emptyTitle")}</EmptyTitle>
+            <EmptyDescription>{t("audit.empty")}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      )}
       <ActivityPagination
         pagination={pagination}
         nextCursor={query.data?.nextCursor}
