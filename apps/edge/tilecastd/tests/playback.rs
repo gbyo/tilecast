@@ -673,7 +673,7 @@ async fn heartbeat(context: &DaemonContext) -> Value {
     let heartbeat = tilecastd::server_link::build_heartbeat(context).await;
     if let Some(source) = heartbeat.get("selectionSource") {
         assert!(
-            ["takeover", "schedule", "direct_fallback", "none"].contains(&source.as_str().unwrap()),
+            ["takeover", "quick_present", "schedule", "direct_fallback", "none"].contains(&source.as_str().unwrap()),
             "the server discards status with selectionSource {source}"
         );
     }

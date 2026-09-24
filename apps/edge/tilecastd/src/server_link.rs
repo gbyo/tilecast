@@ -528,14 +528,15 @@ pub fn heartbeat_item_id(key: &str) -> Option<String> {
     edge_protocol::ids::parse_canonical_uuid(candidate).ok().map(|id| id.to_string())
 }
 
-/// The heartbeat `selectionSource` for a selection. The server records player
-/// status only when this is one of `takeover`, `schedule`, `direct_fallback`
-/// or `none`, and discards the whole status otherwise. A direct assignment is
-/// reported as `direct_fallback`, as the Android player does; Quick Present
-/// has no accepted value and is omitted rather than mislabelled.
+/// The heartbeat `selectionSource` for a selection, in the server's shared
+/// status vocabulary (`takeover`, `quick_present`, `schedule`,
+/// `direct_fallback`, `none`); the server discards a whole status with any
+/// other value. A direct assignment is reported as `direct_fallback`, as the
+/// Android player does.
 pub fn heartbeat_selection_source(source: &str) -> Option<&'static str> {
     match source {
         "takeover" => Some("takeover"),
+        "quick_present" => Some("quick_present"),
         "schedule" => Some("schedule"),
         "direct" => Some("direct_fallback"),
         "none" => Some("none"),
@@ -704,7 +705,8 @@ mod tests {
         assert_eq!(heartbeat_selection_source("schedule"), Some("schedule"));
         assert_eq!(heartbeat_selection_source("takeover"), Some("takeover"));
         assert_eq!(heartbeat_selection_source("none"), Some("none"));
-        assert_eq!(heartbeat_selection_source("quick_present"), None);
+        assert_eq!(heartbeat_selection_source("quick_present"), Some("quick_present"));
+        assert_eq!(heartbeat_selection_source("emergency"), None);
     }
 
     #[test]

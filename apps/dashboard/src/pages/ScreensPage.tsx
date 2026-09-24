@@ -2248,6 +2248,8 @@ function selectionSummary(
   t: ScreensT,
 ) {
   if (assignment?.selectionSource === "takeover") return t("takeover.title");
+  if (assignment?.selectionSource === "quick_present")
+    return t("detail.selectionQuickPresent");
   if (assignment?.selectionSource === "schedule") {
     if (!assignment.currentScheduleId) return t("detail.selectionScheduled");
     const name =

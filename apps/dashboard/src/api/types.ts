@@ -534,7 +534,8 @@ export type PlaylistAssignment = {
   lastPlaybackError?: string;
   currentScheduleId?: string;
   currentPlaylistId?: string;
-  selectionSource?: "takeover" | "schedule" | "direct_fallback" | "none";
+  selectionSource?:
+    "takeover" | "quick_present" | "schedule" | "direct_fallback" | "none";
   nextTransitionAt?: string;
   deviceClockOffsetSeconds?: number;
   scheduleEvaluationError?: string;
