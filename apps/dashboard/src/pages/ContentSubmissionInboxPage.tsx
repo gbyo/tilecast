@@ -13,7 +13,6 @@ import { toast } from "../components/ui/toast";
 import { api } from "../api/client";
 import type { ContentSubmission, SubmissionStatus } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import { ViewTabs } from "../components/ViewTabs";
 import { PageHeader } from "../components/PageHeader";
 import { DateTimeInput } from "../components/date-picker";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
@@ -56,6 +55,7 @@ import {
   TableRow,
 } from "../components/ui/table";
 import { Textarea } from "../components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 
 const filterDefs = [
   { value: "in_review", labelKey: "submissions.filters.needsReview" },
@@ -342,15 +342,25 @@ export function ContentSubmissionInboxPage() {
           </AlertDescription>
         </Alert>
       )}
-      <ViewTabs
-        label={t("submissions.filterLabel")}
-        value={filter}
-        items={filterDefs.map((def) => ({
-          value: def.value,
-          label: t(def.labelKey),
-        }))}
-        onValueChange={setFilter}
-      />
+      <ToggleGroup
+        value={[filter || "all"]}
+        onValueChange={(values) => {
+          // Pressing the active item would clear the group; keep one filter selected.
+          const next = values[0];
+          if (!next) return;
+          setFilter(next === "all" ? "" : (next as SubmissionStatus));
+        }}
+        variant="outline"
+        size="sm"
+        spacing={1}
+        aria-label={t("submissions.filterLabel")}
+      >
+        {filterDefs.map((def) => (
+          <ToggleGroupItem key={def.value || "all"} value={def.value || "all"}>
+            {t(def.labelKey)}
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
       {query.isLoading ? (
         <p className="text-sm text-muted-foreground">
           {t("submissions.loading")}

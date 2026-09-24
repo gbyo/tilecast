@@ -280,7 +280,8 @@ function PlaylistTimelineItem({
 
         <Button
           type="button"
-          className="flex min-w-0 flex-1 items-center gap-3 rounded-lg p-1 text-left hover:bg-muted"
+          variant="ghost"
+          className="h-auto min-w-0 flex-1 justify-start gap-3 rounded-lg p-1 text-left whitespace-normal"
           aria-label={t("timeline.inspectAction", { name: item.assetName })}
           aria-pressed={selected}
           onClick={() => onSelect(item.id)}

@@ -1,15 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
-import { CheckCircle2 } from "lucide-react";
 import { translateKnown } from "../i18n";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "../components/ui/empty";
 import { Pagination } from "../components/Pagination";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
@@ -342,21 +334,6 @@ export function ErrorNotice({ error }: { error: Error }) {
     </Alert>
   );
 }
-export function EmptyState({ message }: { message: string }) {
-  const { t } = useTranslation("activity");
-  return (
-    <Empty>
-      <EmptyHeader>
-        <EmptyMedia variant="icon">
-          <CheckCircle2 size={22} aria-hidden="true" />
-        </EmptyMedia>
-        <EmptyTitle>{t("shared.noResults")}</EmptyTitle>
-        <EmptyDescription>{message}</EmptyDescription>
-      </EmptyHeader>
-    </Empty>
-  );
-}
-
 export function formatWhen(value: string) {
   return new Date(value).toLocaleString([], {
     month: "short",

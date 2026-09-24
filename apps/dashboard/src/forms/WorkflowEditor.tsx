@@ -374,7 +374,9 @@ export function WorkflowEditor({
                   <div className="flex gap-1">
                     <Button
                       type="button"
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
+                      variant="outline"
+                      size="icon-xs"
+                      className="size-7 p-0 text-sm"
                       aria-label={t("workflow.moveUp", {
                         label: state.label,
                       })}
@@ -385,7 +387,9 @@ export function WorkflowEditor({
                     </Button>
                     <Button
                       type="button"
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
+                      variant="outline"
+                      size="icon-xs"
+                      className="size-7 p-0 text-sm"
                       aria-label={t("workflow.moveDown", {
                         label: state.label,
                       })}
@@ -396,7 +400,9 @@ export function WorkflowEditor({
                     </Button>
                     <Button
                       type="button"
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
+                      variant="outline"
+                      size="icon-xs"
+                      className="size-7 p-0 text-sm"
                       aria-label={t("workflow.deleteState", {
                         label: state.label,
                       })}
@@ -545,7 +551,9 @@ export function WorkflowEditor({
                     <div className="flex gap-1">
                       <Button
                         type="button"
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
+                        variant="outline"
+                        size="icon-xs"
+                        className="size-7 p-0 text-sm"
                         aria-label={t("workflow.moveTransitionUp")}
                         disabled={index === 0}
                         onClick={() => moveTransition(index, -1)}
@@ -554,7 +562,9 @@ export function WorkflowEditor({
                       </Button>
                       <Button
                         type="button"
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
+                        variant="outline"
+                        size="icon-xs"
+                        className="size-7 p-0 text-sm"
                         aria-label={t("workflow.moveTransitionDown")}
                         disabled={index === transitions.length - 1}
                         onClick={() => moveTransition(index, 1)}
@@ -563,7 +573,9 @@ export function WorkflowEditor({
                       </Button>
                       <Button
                         type="button"
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
+                        variant="outline"
+                        size="icon-xs"
+                        className="size-7 p-0 text-sm"
                         aria-label={t("workflow.removeTransition", {
                           label: transition.label || String(index + 1),
                         })}

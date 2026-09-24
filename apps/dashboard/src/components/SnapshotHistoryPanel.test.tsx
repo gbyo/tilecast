@@ -2,6 +2,7 @@
 
 import { describe, expect, it, vi, afterEach } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { SnapshotHistoryPanel } from "./SnapshotHistoryPanel";
@@ -96,5 +97,46 @@ describe("Snapshot history", () => {
     });
     renderPanel();
     expect(await screen.findByText(/manual/)).toBeTruthy();
+  });
+
+  it("opens a snapshot from a generated button with pointer or keyboard", async () => {
+    vi.spyOn(api, "screenSnapshots").mockResolvedValue({
+      items: [
+        {
+          id: "n1",
+          screenId: "s1",
+          capturedAt: "2026-03-04T10:14:00Z",
+          width: 1920,
+          height: 1080,
+          fileSize: 12345,
+          trigger: "scheduled",
+        },
+      ],
+      enabled: true,
+      retentionDays: 7,
+      maxPerScreen: 48,
+      proofNote,
+    });
+    renderPanel();
+    const user = userEvent.setup();
+    const trigger = await screen.findByRole("button", {
+      name: /View the snapshot from/,
+    });
+    expect(trigger.getAttribute("data-slot")).toBe("button");
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+
+    await user.click(trigger);
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByText("Open full size")).toBeTruthy();
+
+    await user.click(trigger);
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByText("Open full size")).toBeNull();
+
+    trigger.focus();
+    await user.keyboard("{Enter}");
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+    await user.keyboard(" ");
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
   });
 });

@@ -832,22 +832,20 @@ export function PlaylistEditorPage() {
         onSaveTagRule={() => saveTagRule.mutate()}
       />
 
-      {picker && (
-        <ContentPicker
-          open
-          mode="multiple"
-          csrf={csrf}
-          allowedTypes={["image", "video", "widget"]}
-          confirmLabel={t("editor.pickerConfirm")}
-          onConfirm={add}
-          onClose={() => setPicker(false)}
-          onCreateWidget={() =>
-            void navigate(
-              `/widgets/new?returnTo=${encodeURIComponent(`/playlists/${id}`)}`,
-            )
-          }
-        />
-      )}
+      <ContentPicker
+        open={picker}
+        mode="multiple"
+        csrf={csrf}
+        allowedTypes={["image", "video", "widget"]}
+        confirmLabel={t("editor.pickerConfirm")}
+        onConfirm={add}
+        onClose={() => setPicker(false)}
+        onCreateWidget={() =>
+          void navigate(
+            `/widgets/new?returnTo=${encodeURIComponent(`/playlists/${id}`)}`,
+          )
+        }
+      />
 
       <Dialog
         open={layoutPicker}

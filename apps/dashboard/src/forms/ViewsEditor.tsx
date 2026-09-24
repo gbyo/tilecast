@@ -525,7 +525,9 @@ function ViewForm({
               <div className="flex gap-1">
                 <Button
                   type="button"
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
+                  variant="outline"
+                  size="icon-xs"
+                  className="size-7 p-0 text-sm"
                   aria-label={t("views.moveUp", {
                     label: fields.find((f) => f.key === key)?.label ?? key,
                   })}
@@ -536,7 +538,9 @@ function ViewForm({
                 </Button>
                 <Button
                   type="button"
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
+                  variant="outline"
+                  size="icon-xs"
+                  className="size-7 p-0 text-sm"
                   aria-label={t("views.moveDown", {
                     label: fields.find((f) => f.key === key)?.label ?? key,
                   })}
@@ -547,7 +551,9 @@ function ViewForm({
                 </Button>
                 <Button
                   type="button"
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50"
+                  variant="outline"
+                  size="icon-xs"
+                  className="size-7 p-0 text-sm"
                   aria-label={t("views.removeLabel", {
                     label: fields.find((f) => f.key === key)?.label ?? key,
                   })}

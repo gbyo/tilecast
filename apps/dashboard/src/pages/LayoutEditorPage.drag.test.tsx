@@ -344,7 +344,7 @@ describe("Layout editor layers and zoom controls", () => {
     fireEvent.click(
       await screen.findByRole("menuitem", { name: /Select all/ }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Layers" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Layers" }));
 
     expect(screen.getAllByRole("button", { name: "Text" })[0]).toHaveAttribute(
       "aria-pressed",
@@ -356,7 +356,7 @@ describe("Layout editor layers and zoom controls", () => {
     mockAuth();
     renderLayoutEditor();
     await screen.findByText("New text");
-    fireEvent.click(screen.getByRole("button", { name: "Layers" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Layers" }));
 
     const hide = await screen.findByRole("button", {
       name: "Hide Text",
@@ -380,7 +380,7 @@ describe("Layout editor layers and zoom controls", () => {
     mockAuth();
     renderLayoutEditor();
     await screen.findByText("New text");
-    fireEvent.click(screen.getByRole("button", { name: "Layers" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Layers" }));
 
     const row = screen
       .getByRole("button", { name: "Text" })
@@ -410,7 +410,7 @@ describe("Layout editor layers and zoom controls", () => {
     mockAuth();
     renderLayoutEditor();
     await screen.findByText("New text");
-    fireEvent.click(screen.getByRole("button", { name: "Layers" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Layers" }));
     fireEvent.click(screen.getByRole("button", { name: "Text" }));
 
     expect(await screen.findByText("Position & size")).toBeInTheDocument();
@@ -419,5 +419,32 @@ describe("Layout editor layers and zoom controls", () => {
     fireEvent.click(screen.getByRole("button", { name: "Appearance" }));
     expect(screen.queryByLabelText("Layer opacity")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Layer name")).toBeInTheDocument();
+  });
+
+  it("switches library sections as tabs and keeps the picker until it closes", async () => {
+    mockAuth();
+    renderLayoutEditor();
+    await screen.findByText("New text");
+    const user = userEvent.setup();
+
+    const playlistsTab = screen.getByRole("tab", { name: "Playlists" });
+    await user.click(playlistsTab);
+    expect(playlistsTab).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Media" })).toHaveAttribute(
+      "aria-selected",
+      "false",
+    );
+
+    const browse = screen.getByRole("button", { name: "Browse playlists" });
+    await user.click(browse);
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+
+    // A fresh open works after the previous picker finished closing.
+    await user.click(screen.getByRole("button", { name: "Browse playlists" }));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
   });
 });

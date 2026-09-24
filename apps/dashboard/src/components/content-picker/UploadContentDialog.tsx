@@ -1,4 +1,4 @@
-import { Upload, X } from "lucide-react";
+import { Upload } from "lucide-react";
 import { useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -145,29 +145,11 @@ export function UploadContentDialog({
           }
         }}
       >
-        <DialogContent
-          className="upload-content-dialog max-w-[min(45rem,calc(100%-2rem))] gap-4 overflow-y-auto p-6"
-          aria-labelledby="upload-content-title"
-        >
-          <header>
-            <DialogHeader className="text-left">
-              <DialogTitle id="upload-content-title">
-                {t("picker.upload.uploadMedia")}
-              </DialogTitle>
-              <DialogDescription>
-                {t("picker.upload.subtitle")}
-              </DialogDescription>
-            </DialogHeader>
-            <Button
-              autoFocus
-              variant="ghost"
-              size="icon-sm"
-              aria-label={t("picker.upload.closeUploads")}
-              onClick={close}
-            >
-              <X size={18} />
-            </Button>
-          </header>
+        <DialogContent className="upload-content-dialog max-w-[min(45rem,calc(100%-2rem))] gap-4 overflow-y-auto p-6">
+          <DialogHeader>
+            <DialogTitle>{t("picker.upload.uploadMedia")}</DialogTitle>
+            <DialogDescription>{t("picker.upload.subtitle")}</DialogDescription>
+          </DialogHeader>
           <Button
             type="button"
             variant="outline"

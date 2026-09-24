@@ -300,8 +300,13 @@ export function GitHubOAuthSetupPortal() {
               title={t("updates.setup.stepClientIdTitle")}
               body={t("updates.setup.stepClientIdBody")}
             >
-              <label className="grid gap-1.5 text-sm font-medium">
-                <span>{t("updates.setup.clientIdLabel")}</span>
+              <Field className="gap-1.5">
+                <FieldLabel
+                  htmlFor="github-client-id"
+                  className="text-sm font-medium"
+                >
+                  {t("updates.setup.clientIdLabel")}
+                </FieldLabel>
                 <Input
                   id="github-client-id"
                   value={clientId}
@@ -312,7 +317,7 @@ export function GitHubOAuthSetupPortal() {
                   placeholder="Ov23li…"
                   onChange={(event) => setClientId(event.target.value)}
                 />
-              </label>
+              </Field>
             </SetupStep>
 
             {message && (

@@ -335,7 +335,6 @@
     "upload": {
       "acceptedHint": "Images and videos · multiple files supported",
       "activeConfirm": "Uploads are still active. Close this upload view?",
-      "closeUploads": "Close uploads",
       "dropHint": "Drop files here or choose files",
       "returnToContent": "Return to content",
       "subtitle": "Upload one or more images or videos.",

@@ -9,8 +9,13 @@ import type {
 } from "../api/types";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
-import { ViewTabs } from "../components/ViewTabs";
 import { Pagination } from "../components/Pagination";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
@@ -212,42 +217,47 @@ export function FormDataSourcePage({
         )}
       </header>
 
-      <ViewTabs<TabValue>
-        label={t("detail.sectionsLabel")}
+      <Tabs
         value={activeTab}
-        items={permittedTabs.map((tab) => ({
-          value: tab.value,
-          label: t(tab.labelKey),
-        }))}
-        onValueChange={setTab}
-      />
-
-      {activeTab === "responses" ? (
-        <ResponsesTab
-          form={detail}
-          csrf={csrf}
-          selectedRecordId={recordParam}
-          onSelectRecord={(recordId) => {
-            const next = new URLSearchParams(searchParams);
-            next.set("tab", "responses");
-            if (recordId) next.set("record", recordId);
-            else next.delete("record");
-            setSearchParams(next, { replace: true });
-          }}
-        />
-      ) : activeTab === "workflow" ? (
-        <WorkflowEditor form={detail} csrf={csrf} />
-      ) : activeTab === "views" ? (
-        <ViewsEditor form={detail} csrf={csrf} />
-      ) : activeTab === "outputs" ? (
-        <OutputsPanel form={detail} csrf={csrf} canManage={canManage} />
-      ) : activeTab === "access" ? (
-        <AccessPanel form={detail} csrf={csrf} />
-      ) : canManage ? (
-        <ManageView form={detail} csrf={csrf} />
-      ) : (
-        <ReadOnlyView form={detail} />
-      )}
+        onValueChange={(value) => setTab(value as TabValue)}
+        className="grid gap-4"
+      >
+        <TabsList variant="line" aria-label={t("detail.sectionsLabel")}>
+          {permittedTabs.map((tab) => (
+            <TabsTrigger key={tab.value} value={tab.value}>
+              {t(tab.labelKey)}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        <TabsContent value={activeTab} className="grid gap-4">
+          {activeTab === "responses" ? (
+            <ResponsesTab
+              form={detail}
+              csrf={csrf}
+              selectedRecordId={recordParam}
+              onSelectRecord={(recordId) => {
+                const next = new URLSearchParams(searchParams);
+                next.set("tab", "responses");
+                if (recordId) next.set("record", recordId);
+                else next.delete("record");
+                setSearchParams(next, { replace: true });
+              }}
+            />
+          ) : activeTab === "workflow" ? (
+            <WorkflowEditor form={detail} csrf={csrf} />
+          ) : activeTab === "views" ? (
+            <ViewsEditor form={detail} csrf={csrf} />
+          ) : activeTab === "outputs" ? (
+            <OutputsPanel form={detail} csrf={csrf} canManage={canManage} />
+          ) : activeTab === "access" ? (
+            <AccessPanel form={detail} csrf={csrf} />
+          ) : canManage ? (
+            <ManageView form={detail} csrf={csrf} />
+          ) : (
+            <ReadOnlyView form={detail} />
+          )}
+        </TabsContent>
+      </Tabs>
     </section>
   );
 }
