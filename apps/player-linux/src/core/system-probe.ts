@@ -176,10 +176,10 @@ export async function readNetworkLinkStatus(): Promise<NetworkLinkStatus> {
     if (table !== undefined) {
       status.wifiSignalDbm = parseWirelessSignalDbm(table, interfaceName);
     }
-  }
-  const speed = await readFile(`/sys/class/net/${interfaceName}/speed`);
-  if (speed !== undefined) {
-    status.wifiLinkSpeedMbps = parseLinkSpeedMbps(speed);
+    const speed = await readFile(`/sys/class/net/${interfaceName}/speed`);
+    if (speed !== undefined) {
+      status.wifiLinkSpeedMbps = parseLinkSpeedMbps(speed);
+    }
   }
   return status;
 }
