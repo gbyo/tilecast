@@ -66,8 +66,15 @@ export function SiteHeader({
           <BreadcrumbList className="flex-nowrap overflow-hidden">
             {breadcrumbs.map((item, index) => (
               <span className="contents" key={`${item.to}:${item.label}`}>
-                {index > 0 && <BreadcrumbSeparator />}
-                <BreadcrumbItem className="min-w-0">
+                {/* Narrow headers show only the current page; the trail has
+                    no room beside the sidebar trigger and search. */}
+                {index > 0 && <BreadcrumbSeparator className="max-md:hidden" />}
+                <BreadcrumbItem
+                  className={cn(
+                    "min-w-0",
+                    index < breadcrumbs.length - 1 && "max-md:hidden",
+                  )}
+                >
                   {index === breadcrumbs.length - 1 ? (
                     <BreadcrumbPage
                       className={cn(
@@ -78,8 +85,11 @@ export function SiteHeader({
                       {item.label}
                     </BreadcrumbPage>
                   ) : (
-                    <BreadcrumbLink render={<Link to={item.to} />}>
-                      <span className="truncate">{item.label}</span>
+                    <BreadcrumbLink
+                      className="truncate"
+                      render={<Link to={item.to} />}
+                    >
+                      {item.label}
                     </BreadcrumbLink>
                   )}
                 </BreadcrumbItem>
@@ -94,12 +104,14 @@ export function SiteHeader({
       <Button
         type="button"
         variant="outline"
-        className="h-8 w-44 justify-start gap-2 px-2.5 text-muted-foreground sm:w-56"
+        className="size-8 text-muted-foreground sm:w-56 sm:justify-start sm:gap-2 sm:px-2.5"
         aria-haspopup="dialog"
         onClick={onSearch}
       >
         <Search aria-hidden="true" />
-        <span className="flex-1 text-left">{t("header.search")}</span>
+        <span className="sr-only sm:not-sr-only sm:flex-1 sm:text-left">
+          {t("header.search")}
+        </span>
         {/* i18n-ignore: keyboard shortcut glyphs, not language text */}
         <Kbd className="hidden shrink-0 sm:inline-flex">{shortcutLabel()}</Kbd>
       </Button>
