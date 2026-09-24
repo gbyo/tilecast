@@ -586,11 +586,6 @@ export function WorkflowEditor({
   );
 }
 
-function capabilityOptionLabel(value: FormCapability, t: FormsT): string {
-  const found = CAPABILITY_OPTIONS.find((option) => option.value === value);
-  return found ? t(found.labelKey) : value;
-}
-
 function reorder<T>(items: T[], index: number, delta: number): T[] {
   const target = index + delta;
   if (target < 0 || target >= items.length) return items;
