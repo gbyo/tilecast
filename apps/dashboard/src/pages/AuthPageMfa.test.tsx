@@ -179,21 +179,23 @@ describe("sign-in with a second factor", () => {
     expect(screen.getByLabelText("Verification code")).toBeTruthy();
   });
 
-  it("cancels passkey autofill before explicit passkey sign-in", async () => {
+  it("waits for passkey autofill to settle before explicit passkey sign-in", async () => {
     let conditionalSignal: AbortSignal | undefined;
+    let releaseConditional: (() => void) | undefined;
+    let conditionalSettled = false;
     const getCredential = vi.fn(
       (options: CredentialRequestOptions): Promise<Credential | null> => {
         if (options.mediation === "conditional") {
           conditionalSignal = options.signal ?? undefined;
-          return new Promise((_, reject) => {
-            options.signal?.addEventListener(
-              "abort",
-              () => reject(new DOMException("aborted", "AbortError")),
-              { once: true },
-            );
+          return new Promise<Credential | null>((_, reject) => {
+            releaseConditional = () =>
+              reject(new DOMException("aborted", "AbortError"));
+          }).finally(() => {
+            conditionalSettled = true;
           });
         }
         expect(conditionalSignal?.aborted).toBe(true);
+        expect(conditionalSettled).toBe(true);
         return Promise.reject(new DOMException("cancelled", "NotAllowedError"));
       },
     );
@@ -232,8 +234,11 @@ describe("sign-in with a second factor", () => {
       screen.getByRole("button", { name: "Sign in with a passkey" }),
     );
 
+    await waitFor(() => expect(conditionalSignal?.aborted).toBe(true));
+    expect(getCredential).toHaveBeenCalledTimes(1);
+    releaseConditional?.();
     await waitFor(() => expect(getCredential).toHaveBeenCalledTimes(2));
-    expect(conditionalSignal?.aborted).toBe(true);
+    expect(conditionalSettled).toBe(true);
     vi.unstubAllGlobals();
   });
 
