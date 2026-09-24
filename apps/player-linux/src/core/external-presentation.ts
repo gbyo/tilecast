@@ -83,6 +83,15 @@ function stringField(value: Record<string, unknown>, key: string): string {
   return result.trim();
 }
 
+function validPort(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= 1 &&
+    value <= 65_535
+  );
+}
+
 /** Strictly decode a server command; no arbitrary values reach a process. */
 export function parseExternalPresentationConfig(
   value: unknown,
@@ -105,7 +114,7 @@ export function parseExternalPresentationConfig(
     }
     const destination = item as Record<string, unknown>;
     const port = destination["port"];
-    if (typeof port !== "number" || !Number.isInteger(port)) {
+    if (!validPort(port)) {
       throw new Error("AirPlay destination port is invalid");
     }
     return {
@@ -115,7 +124,7 @@ export function parseExternalPresentationConfig(
     };
   });
   const videoPort = raw["videoPort"];
-  if (typeof videoPort !== "number" || !Number.isInteger(videoPort)) {
+  if (!validPort(videoPort)) {
     throw new Error("AirPlay video port is invalid");
   }
   if (
@@ -176,7 +185,7 @@ export function parseExternalPresentationConfig(
 }
 
 export type ExternalPresentationProcessState =
-  "preparing" | "waiting" | "connected" | "degraded" | "stopped";
+  | "preparing" | "waiting" | "connected" | "degraded" | "stopped";
 
 export interface ExternalPresentationStatus {
   provider: "airplay";
