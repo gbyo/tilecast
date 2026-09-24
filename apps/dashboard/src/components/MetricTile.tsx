@@ -1,4 +1,5 @@
 import { Link } from "react-router";
+import { useTranslation } from "react-i18next";
 import { Minus, TrendingDown, TrendingUp } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 
@@ -66,6 +67,7 @@ export function MetricTile({
 }
 
 function MetricDeltaLabel({ delta }: { delta: MetricDelta }) {
+  const { t } = useTranslation("activity");
   const { change, comparisonLabel, direction = "neutral" } = delta;
   const format = delta.format ?? ((input: number) => String(Math.abs(input)));
   if (change === 0) {
@@ -75,7 +77,7 @@ function MetricDeltaLabel({ delta }: { delta: MetricDelta }) {
         className="inline-flex items-center gap-1 text-xs text-muted-foreground"
       >
         <Minus size={14} aria-hidden={true} />
-        Unchanged from {comparisonLabel}
+        {t("metricTile.unchangedFrom", { comparison: comparisonLabel })}
       </span>
     );
   }
@@ -101,7 +103,15 @@ function MetricDeltaLabel({ delta }: { delta: MetricDelta }) {
       }`}
     >
       <Icon size={14} aria-hidden={true} />
-      {rising ? "Up" : "Down"} {format(change)} from {comparisonLabel}
+      {rising
+        ? t("metricTile.deltaUp", {
+            change: format(change),
+            comparison: comparisonLabel,
+          })
+        : t("metricTile.deltaDown", {
+            change: format(change),
+            comparison: comparisonLabel,
+          })}
     </span>
   );
 }

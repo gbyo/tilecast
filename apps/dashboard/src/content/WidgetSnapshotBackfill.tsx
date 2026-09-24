@@ -1,5 +1,6 @@
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { Asset, WidgetDefinition } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
@@ -73,11 +74,17 @@ function WidgetSnapshotCapture({
   asset: Asset;
   onSettled: () => void;
 }) {
+  const { t } = useTranslation(["content"]);
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
   const queryClient = useQueryClient();
   const previewRef = useRef<HTMLDivElement>(null);
   const uploaded = useRef(false);
+  // The capture effect must not restart when the language changes: cleanup
+  // would cancel an in-progress capture that is never retried. The ref always
+  // carries the latest translator for subsequent messages.
+  const tRef = useRef(t);
+  tRef.current = t;
   const provider = asset.widget!.provider;
   const authorConfiguration = (asset.widget!.authorConfiguration ??
     asset.widget!.configuration) as Record<string, unknown>;
@@ -151,7 +158,7 @@ function WidgetSnapshotCapture({
           try {
             const element = previewRef.current;
             if (cancelled || !element) return;
-            const image = await captureWidgetPreview(element);
+            const image = await captureWidgetPreview(element, tRef.current);
             if (cancelled) return;
             await api.uploadWidgetPreview(asset.id, image, csrf);
             if (!cancelled)

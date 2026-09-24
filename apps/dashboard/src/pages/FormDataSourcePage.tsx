@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Link, useParams, useSearchParams } from "react-router";
 import type {
   DataSourceDetail,
@@ -67,6 +68,8 @@ import { OutputsPanel } from "../forms/OutputsPanel";
 import { AccessPanel } from "../forms/AccessPanel";
 import { canManageForm, canViewResponses } from "../forms/capabilities";
 import { stateLabel, stateTone } from "../forms/formStatus";
+import { useFormatLocale } from "../i18n";
+import type { FormsT } from "../forms/formSchema";
 import { useDesktopLayout } from "../hooks/use-desktop-layout";
 
 type TabValue =
@@ -77,6 +80,7 @@ export function FormDataSourcePage({
 }: {
   dataSource?: DataSourceDetail;
 }) {
+  const { t } = useTranslation("forms");
   const { id } = useParams();
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
@@ -93,13 +97,35 @@ export function FormDataSourcePage({
   const canViewAll = canViewResponses(detail?.grantedCapabilities ?? []);
 
   // Order is also used to choose the closest permitted fallback for an unauthorized tab.
-  const tabDefs: { value: TabValue; label: string; permitted: boolean }[] = [
-    { value: "responses", label: "Responses", permitted: canViewAll },
-    { value: "form", label: "Form", permitted: true },
-    { value: "workflow", label: "Workflow", permitted: canManage },
-    { value: "views", label: "Views", permitted: canManage },
-    { value: "outputs", label: "Outputs", permitted: canViewAll || canManage },
-    { value: "access", label: "Access", permitted: canManage },
+  const tabDefs: {
+    value: TabValue;
+    labelKey:
+      | "detail.tabs.responses"
+      | "detail.tabs.form"
+      | "detail.tabs.workflow"
+      | "detail.tabs.views"
+      | "detail.tabs.outputs"
+      | "detail.tabs.access";
+    permitted: boolean;
+  }[] = [
+    {
+      value: "responses",
+      labelKey: "detail.tabs.responses",
+      permitted: canViewAll,
+    },
+    { value: "form", labelKey: "detail.tabs.form", permitted: true },
+    {
+      value: "workflow",
+      labelKey: "detail.tabs.workflow",
+      permitted: canManage,
+    },
+    { value: "views", labelKey: "detail.tabs.views", permitted: canManage },
+    {
+      value: "outputs",
+      labelKey: "detail.tabs.outputs",
+      permitted: canViewAll || canManage,
+    },
+    { value: "access", labelKey: "detail.tabs.access", permitted: canManage },
   ];
   const permittedTabs = tabDefs.filter((tab) => tab.permitted);
   const recordParam = searchParams.get("record");
@@ -152,15 +178,15 @@ export function FormDataSourcePage({
   if (form.isLoading) {
     return (
       <p className="px-4 py-6 text-sm text-muted-foreground sm:px-6">
-        Loading form…
+        {t("detail.loading")}
       </p>
     );
   }
   if (!detail || !id) {
     return (
       <Alert variant="destructive" className="m-4 sm:m-6">
-        <AlertTitle>Form unavailable</AlertTitle>
-        <AlertDescription>This form could not be loaded.</AlertDescription>
+        <AlertTitle>{t("detail.unavailable")}</AlertTitle>
+        <AlertDescription>{t("detail.unavailableBody")}</AlertDescription>
       </Alert>
     );
   }
@@ -179,7 +205,7 @@ export function FormDataSourcePage({
     <section className="mx-auto grid w-full max-w-6xl gap-4 px-4 py-6 sm:px-6">
       <header className="grid gap-1">
         <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          Forms plugin
+          {t("detail.pluginEyebrow")}
         </p>
         <h1 className="text-xl font-semibold tracking-tight">
           {dataSource?.name ?? detail.name}
@@ -191,47 +217,42 @@ export function FormDataSourcePage({
         )}
       </header>
 
-      <Tabs
+      <ViewTabs<TabValue>
+        label={t("detail.sectionsLabel")}
         value={activeTab}
-        onValueChange={(value) => setTab(value as TabValue)}
-        className="grid gap-4"
-      >
-        <TabsList variant="line" aria-label="Form sections">
-          {permittedTabs.map((tab) => (
-            <TabsTrigger key={tab.value} value={tab.value}>
-              {tab.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-        <TabsContent value={activeTab} className="grid gap-4">
-          {activeTab === "responses" ? (
-            <ResponsesTab
-              form={detail}
-              csrf={csrf}
-              selectedRecordId={recordParam}
-              onSelectRecord={(recordId) => {
-                const next = new URLSearchParams(searchParams);
-                next.set("tab", "responses");
-                if (recordId) next.set("record", recordId);
-                else next.delete("record");
-                setSearchParams(next, { replace: true });
-              }}
-            />
-          ) : activeTab === "workflow" ? (
-            <WorkflowEditor form={detail} csrf={csrf} />
-          ) : activeTab === "views" ? (
-            <ViewsEditor form={detail} csrf={csrf} />
-          ) : activeTab === "outputs" ? (
-            <OutputsPanel form={detail} csrf={csrf} canManage={canManage} />
-          ) : activeTab === "access" ? (
-            <AccessPanel form={detail} csrf={csrf} />
-          ) : canManage ? (
-            <ManageView form={detail} csrf={csrf} />
-          ) : (
-            <ReadOnlyView form={detail} />
-          )}
-        </TabsContent>
-      </Tabs>
+        items={permittedTabs.map((tab) => ({
+          value: tab.value,
+          label: t(tab.labelKey),
+        }))}
+        onValueChange={setTab}
+      />
+
+      {activeTab === "responses" ? (
+        <ResponsesTab
+          form={detail}
+          csrf={csrf}
+          selectedRecordId={recordParam}
+          onSelectRecord={(recordId) => {
+            const next = new URLSearchParams(searchParams);
+            next.set("tab", "responses");
+            if (recordId) next.set("record", recordId);
+            else next.delete("record");
+            setSearchParams(next, { replace: true });
+          }}
+        />
+      ) : activeTab === "workflow" ? (
+        <WorkflowEditor form={detail} csrf={csrf} />
+      ) : activeTab === "views" ? (
+        <ViewsEditor form={detail} csrf={csrf} />
+      ) : activeTab === "outputs" ? (
+        <OutputsPanel form={detail} csrf={csrf} canManage={canManage} />
+      ) : activeTab === "access" ? (
+        <AccessPanel form={detail} csrf={csrf} />
+      ) : canManage ? (
+        <ManageView form={detail} csrf={csrf} />
+      ) : (
+        <ReadOnlyView form={detail} />
+      )}
     </section>
   );
 }
@@ -251,6 +272,8 @@ function ResponsesTab({
   selectedRecordId: string | null;
   onSelectRecord: (recordId: string | null) => void;
 }) {
+  const { t } = useTranslation("forms");
+  const locale = useFormatLocale();
   const desktop = useDesktopLayout();
   const [detailsOpen, setDetailsOpen] = useState(Boolean(selectedRecordId));
   const [stateFilter, setStateFilter] = useState<string>("needs_review");
@@ -309,19 +332,19 @@ function ResponsesTab({
     return `?${next.toString()}`;
   };
 
-  const stateOptions = [
-    { value: "needs_review", label: "Needs review" },
-    { value: "all", label: "All states" },
+  const stateOptions: { value: string; label: string }[] = [
+    { value: "needs_review", label: t("detail.filters.needsReview") },
+    { value: "all", label: t("detail.filters.allStates") },
     ...form.workflow.states.map((state) => ({
       value: state.key,
       label: state.label,
     })),
   ];
   const sortOptions = [
-    { value: "updated", label: "Recently updated" },
-    { value: "newest", label: "Newest" },
-    { value: "oldest", label: "Oldest" },
-    { value: "priority", label: "Priority" },
+    { value: "updated", label: t("detail.sort.updated") },
+    { value: "newest", label: t("detail.sort.newest") },
+    { value: "oldest", label: t("detail.sort.oldest") },
+    { value: "priority", label: t("detail.sort.priority") },
   ];
 
   useEffect(() => {
@@ -332,9 +355,10 @@ function ResponsesTab({
     <div className="grid content-start gap-4">
       <div className="flex flex-wrap items-end gap-4">
         <Field className="min-w-44">
-          <FieldLabel htmlFor="responses-state">State</FieldLabel>
-          <Select
-            items={stateOptions}
+          <FieldLabel htmlFor="responses-state">
+            {t("detail.filters.state")}
+          </FieldLabel>
+          <RheaSelect
             value={stateFilter}
             onValueChange={(value) => {
               setStateFilter(value ?? "needs_review");
@@ -342,7 +366,9 @@ function ResponsesTab({
             }}
           >
             <SelectTrigger id="responses-state">
-              <SelectValue />
+              <SelectValue>
+                {stateOptions.find((o) => o.value === stateFilter)?.label}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {stateOptions.map((option) => (
@@ -354,11 +380,13 @@ function ResponsesTab({
           </Select>
         </Field>
         <Field className="min-w-44">
-          <FieldLabel htmlFor="responses-search">Search</FieldLabel>
+          <FieldLabel htmlFor="responses-search">
+            {t("detail.filters.search")}
+          </FieldLabel>
           <Input
             id="responses-search"
             value={search}
-            placeholder="Title or submitter"
+            placeholder={t("detail.filters.searchPlaceholder")}
             onChange={(event) => {
               setSearch(event.target.value);
               setPage(1);
@@ -366,14 +394,17 @@ function ResponsesTab({
           />
         </Field>
         <Field className="min-w-44">
-          <FieldLabel htmlFor="responses-sort">Sort</FieldLabel>
-          <Select
-            items={sortOptions}
+          <FieldLabel htmlFor="responses-sort">
+            {t("detail.filters.sort")}
+          </FieldLabel>
+          <RheaSelect
             value={sort}
             onValueChange={(value) => setSort(value ?? "updated")}
           >
             <SelectTrigger id="responses-sort">
-              <SelectValue />
+              <SelectValue>
+                {sortOptions.find((o) => o.value === sort)?.label}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {sortOptions.map((option) => (
@@ -388,27 +419,27 @@ function ResponsesTab({
 
       {records.isError && (
         <Alert variant="destructive">
-          <AlertTitle>Could not load responses</AlertTitle>
+          <AlertTitle>{t("detail.loadResponsesError")}</AlertTitle>
           <AlertDescription>
             {records.error instanceof Error
               ? records.error.message
-              : "Please try again."}
+              : t("detail.retry")}
           </AlertDescription>
         </Alert>
       )}
 
       {records.isLoading ? (
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Spinner aria-hidden="true" /> Loading responses…
+          <Spinner aria-hidden="true" /> {t("detail.loadingResponses")}
         </p>
       ) : items.length === 0 ? (
         <Empty>
           <EmptyHeader>
-            <EmptyTitle>No responses</EmptyTitle>
+            <EmptyTitle>{t("detail.noResponses")}</EmptyTitle>
             <EmptyDescription>
               {stateFilter === "needs_review"
-                ? "Nothing is waiting for review right now."
-                : "No submissions match these filters yet."}
+                ? t("detail.emptyNeedsReview")
+                : t("detail.emptyFiltered")}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -418,14 +449,22 @@ function ResponsesTab({
             <Table className="min-w-[48rem]">
               <TableHeader>
                 <TableRow>
-                  <TableHead scope="col">Submission</TableHead>
-                  <TableHead scope="col">Submitter</TableHead>
-                  <TableHead scope="col">State</TableHead>
-                  <TableHead scope="col">Priority</TableHead>
-                  <TableHead scope="col">Updated</TableHead>
-                  <TableHead scope="col">Display window</TableHead>
                   <TableHead scope="col">
-                    <span className="sr-only">Review</span>
+                    {t("detail.table.submission")}
+                  </TableHead>
+                  <TableHead scope="col">
+                    {t("detail.table.submitter")}
+                  </TableHead>
+                  <TableHead scope="col">{t("detail.table.state")}</TableHead>
+                  <TableHead scope="col">
+                    {t("detail.table.priority")}
+                  </TableHead>
+                  <TableHead scope="col">{t("detail.table.updated")}</TableHead>
+                  <TableHead scope="col">{t("detail.table.window")}</TableHead>
+                  <TableHead scope="col">
+                    <span className="sr-only">
+                      {t("detail.table.reviewAction")}
+                    </span>
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -437,10 +476,12 @@ function ResponsesTab({
                         to={recordHref(record.id)}
                         className="font-medium text-primary hover:underline"
                       >
-                        {record.displayTitle || "Untitled submission"}
+                        {record.displayTitle || t("detail.untitled")}
                       </Link>
                     </TableCell>
-                    <TableCell>{record.submitterName || "Unknown"}</TableCell>
+                    <TableCell>
+                      {record.submitterName || t("detail.unknown")}
+                    </TableCell>
                     <TableCell>
                       <Badge
                         {...formToneBadgeProps(
@@ -452,18 +493,26 @@ function ResponsesTab({
                     </TableCell>
                     <TableCell>{record.priority}</TableCell>
                     <TableCell className="whitespace-nowrap tabular-nums">
-                      {new Date(record.updatedAt).toLocaleString()}
+                      {new Date(record.updatedAt).toLocaleString(locale)}
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
-                      {displayWindow(record.displayAt, record.expiresAt)}
+                      {displayWindow(
+                        record.displayAt,
+                        record.expiresAt,
+                        t,
+                        locale,
+                      )}
                     </TableCell>
                     <TableCell>
                       <Link
                         to={recordHref(record.id)}
-                        aria-label={`Review ${record.displayTitle || "untitled submission"}`}
+                        aria-label={t("detail.reviewLink", {
+                          title:
+                            record.displayTitle || t("detail.untitledLink"),
+                        })}
                         className="font-medium text-primary hover:underline"
                       >
-                        Review
+                        {t("detail.table.reviewAction")}
                       </Link>
                     </TableCell>
                   </TableRow>
@@ -472,8 +521,8 @@ function ResponsesTab({
             </Table>
           </div>
           <Pagination
-            label="Responses pages"
-            status={`Page ${page} of ${totalPages} · ${total} total`}
+            label={t("detail.pagesLabel")}
+            status={t("detail.pagination", { page, totalPages, total })}
             previous={() => setPage((current) => Math.max(1, current - 1))}
             next={() => setPage((current) => Math.min(totalPages, current + 1))}
             previousDisabled={page <= 1}
@@ -493,28 +542,23 @@ function ResponsesTab({
             <SheetContent
               side="right"
               className="overflow-y-auto sm:max-w-xl"
-              aria-label="Response detail"
+              aria-label={t("detail.sheetLabel")}
             >
               <SheetHeader>
                 <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                  Response
+                  {t("detail.sheetEyebrow")}
                 </p>
-                <SheetTitle>Review submission</SheetTitle>
-                <SheetDescription>
-                  The list stays in place behind this panel; closing returns to
-                  it.
-                </SheetDescription>
+                <SheetTitle>{t("detail.sheetTitle")}</SheetTitle>
+                <SheetDescription>{t("detail.sheetBody")}</SheetDescription>
               </SheetHeader>
               <div className="grid content-start gap-4 px-4 pb-4">
-                <div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setDetailsOpen(false)}
-                  >
-                    ← Back to responses
-                  </Button>
-                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setDetailsOpen(false)}
+                >
+                  {t("detail.backToResponses")}
+                </Button>
                 <RecordReview
                   form={form}
                   recordId={selectedRecordId}
@@ -534,18 +578,15 @@ function ResponsesTab({
             showSwipeHandle
           >
             <DrawerContent
-              aria-label="Response detail"
+              aria-label={t("detail.sheetLabel")}
               className="max-h-[calc(100dvh-2rem)]"
             >
               <DrawerHeader>
                 <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                  Response
+                  {t("detail.sheetEyebrow")}
                 </p>
-                <DrawerTitle>Review submission</DrawerTitle>
-                <DrawerDescription>
-                  Review this response. Swipe down or close the drawer to return
-                  to the list.
-                </DrawerDescription>
+                <DrawerTitle>{t("detail.sheetTitle")}</DrawerTitle>
+                <DrawerDescription>{t("detail.sheetBody")}</DrawerDescription>
               </DrawerHeader>
               <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
                 <div className="grid content-start gap-4">
@@ -554,7 +595,7 @@ function ResponsesTab({
                     size="sm"
                     onClick={() => setDetailsOpen(false)}
                   >
-                    ← Back to responses
+                    {t("detail.backToResponses")}
                   </Button>
                   <RecordReview
                     form={form}
@@ -574,11 +615,18 @@ function ResponsesTab({
 function displayWindow(
   displayAt: string | null | undefined,
   expiresAt: string | null | undefined,
+  t: FormsT,
+  locale: string,
 ): string {
-  const start = displayAt ? new Date(displayAt).toLocaleDateString() : null;
-  const end = expiresAt ? new Date(expiresAt).toLocaleDateString() : null;
-  if (!start && !end) return "—";
-  return `${start ?? "now"} → ${end ?? "∞"}`;
+  const start = displayAt
+    ? new Date(displayAt).toLocaleDateString(locale)
+    : null;
+  const end = expiresAt ? new Date(expiresAt).toLocaleDateString(locale) : null;
+  if (!start && !end) return t("detail.displayWindowEmpty");
+  return t("detail.displayWindowRange", {
+    start: start ?? t("detail.displayWindowNow"),
+    end: end ?? "∞",
+  });
 }
 
 // --- Form tab (builder / read-only) ---
@@ -599,6 +647,7 @@ function MetadataEditor({
   form: FormDataSource;
   csrf: string;
 }) {
+  const { t } = useTranslation(["forms", "common"]);
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(form.name);
@@ -628,7 +677,7 @@ function MetadataEditor({
     },
     onError: (err) =>
       setError(
-        err instanceof Error ? err.message : "Could not update details.",
+        err instanceof Error ? err.message : t("detail.detailsFallback"),
       ),
   });
 
@@ -642,7 +691,7 @@ function MetadataEditor({
           )}
         </div>
         <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
-          Edit details
+          {t("detail.editDetails")}
         </Button>
       </div>
     );
@@ -652,12 +701,14 @@ function MetadataEditor({
     <div className="grid gap-3 rounded-xl border border-border bg-card p-4">
       {error && (
         <Alert variant="destructive">
-          <AlertTitle>Details not saved</AlertTitle>
+          <AlertTitle>{t("detail.detailsError")}</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
       <Field>
-        <FieldLabel htmlFor="form-metadata-name">Form name</FieldLabel>
+        <FieldLabel htmlFor="form-metadata-name">
+          {t("detail.nameLabel")}
+        </FieldLabel>
         <Input
           id="form-metadata-name"
           required
@@ -666,7 +717,9 @@ function MetadataEditor({
         />
       </Field>
       <Field>
-        <FieldLabel htmlFor="form-metadata-description">Description</FieldLabel>
+        <FieldLabel htmlFor="form-metadata-description">
+          {t("detail.descriptionLabel")}
+        </FieldLabel>
         <Textarea
           id="form-metadata-description"
           rows={2}
@@ -683,7 +736,7 @@ function MetadataEditor({
             setEditing(false);
           }}
         >
-          Cancel
+          {t("common:actions.cancel")}
         </Button>
         <Button
           variant="default"
@@ -695,7 +748,7 @@ function MetadataEditor({
           }}
         >
           {save.isPending && <Spinner aria-hidden="true" />}
-          Save details
+          {t("detail.saveDetails")}
         </Button>
       </div>
     </div>
@@ -703,19 +756,21 @@ function MetadataEditor({
 }
 
 function ReadOnlyView({ form }: { form: FormDataSource }) {
+  const { t } = useTranslation("forms");
+  const locale = useFormatLocale();
   const revision = form.publishedRevision;
   return (
     <div className="grid content-start gap-4">
       <Alert>
-        <AlertTitle>Read-only</AlertTitle>
-        <AlertDescription>
-          You can view this form but do not have permission to edit it.
-        </AlertDescription>
+        <AlertTitle>{t("detail.readOnlyTitle")}</AlertTitle>
+        <AlertDescription>{t("detail.readOnlyBody")}</AlertDescription>
       </Alert>
       {revision && (
         <p className="text-sm text-muted-foreground">
-          Published revision {revision.revisionNumber} ·{" "}
-          {new Date(revision.publishedAt).toLocaleString()}
+          {t("detail.publishedMeta", {
+            revision: revision.revisionNumber,
+            date: new Date(revision.publishedAt).toLocaleString(locale),
+          })}
         </p>
       )}
       <FormRenderer schema={form.draftSchema} readOnly />

@@ -17,6 +17,7 @@ import type { Screen } from "../api/types";
 import { StudioRoutesProvider } from "../navigation/studioRoutes";
 import { SidebarProvider } from "./ui/sidebar";
 import { buildCommandResults, fuzzyScore, StudioTopbar } from "./StudioTopbar";
+import { i18n } from "../i18n";
 
 afterEach(() => {
   cleanup();
@@ -400,8 +401,16 @@ describe("command search", () => {
   it("fuzzy matches screens and route destinations", () => {
     expect(fuzzyScore("scrns", "Screens")).toBeGreaterThan(0);
     expect(fuzzyScore("xyz", "Screens")).toBe(-1);
-    expect(
-      buildCommandResults(studioRoutes, [lobbyScreen], "aftkrt")[0]?.to,
-    ).toBe("/screens/screen-1");
+    const result = buildCommandResults(
+      studioRoutes,
+      [lobbyScreen],
+      "aftkrt",
+      undefined,
+      undefined,
+      i18n.getFixedT("en", "navigation"),
+    )[0];
+
+    expect(result?.to).toBe("/screens/screen-1");
+    expect(result?.description).toBe("Offline · Lobby");
   });
 });

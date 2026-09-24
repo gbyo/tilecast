@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import type {
   FormAccessEntry,
   FormCapability,
@@ -38,35 +39,51 @@ import {
 import { toast } from "../components/ui/toast";
 import { expandCapabilities } from "./capabilities";
 import { formToneBadgeProps } from "./formBadge";
+import type { FormsT } from "./formSchema";
 
 // Grantable capabilities in lattice order (broadest first), each with a plain-language implication.
+// Display text lives in the forms locale; render sites translate labelKey/impliesKey.
+type CapabilityLabelKey =
+  | "access.capabilities.manage.label"
+  | "access.capabilities.approve.label"
+  | "access.capabilities.review.label"
+  | "access.capabilities.viewAll.label"
+  | "access.capabilities.viewOwn.label"
+  | "access.capabilities.submit.label";
+
+type CapabilityImpliesKey =
+  | "access.capabilities.manage.implies"
+  | "access.capabilities.approve.implies"
+  | "access.capabilities.review.implies"
+  | "access.capabilities.viewAll.implies";
+
 const CAPABILITIES: {
   value: FormCapability;
-  label: string;
-  implies: string;
+  labelKey: CapabilityLabelKey;
+  impliesKey?: CapabilityImpliesKey;
 }[] = [
   {
     value: "manage",
-    label: "Manage",
-    implies: "Full control — includes every ability below.",
+    labelKey: "access.capabilities.manage.label",
+    impliesKey: "access.capabilities.manage.implies",
   },
   {
     value: "approve",
-    label: "Approve",
-    implies: "Approve or reject — includes Review and View all.",
+    labelKey: "access.capabilities.approve.label",
+    impliesKey: "access.capabilities.approve.implies",
   },
   {
     value: "review",
-    label: "Review",
-    implies: "Request changes — includes View all.",
+    labelKey: "access.capabilities.review.label",
+    impliesKey: "access.capabilities.review.implies",
   },
   {
     value: "view_all",
-    label: "View all responses",
-    implies: "Includes View own.",
+    labelKey: "access.capabilities.viewAll.label",
+    impliesKey: "access.capabilities.viewAll.implies",
   },
-  { value: "view_own", label: "View own responses", implies: "" },
-  { value: "submit", label: "Submit responses", implies: "" },
+  { value: "view_own", labelKey: "access.capabilities.viewOwn.label" },
+  { value: "submit", labelKey: "access.capabilities.submit.label" },
 ];
 
 // AccessPanel manages per-user access: one row per user with effective access, plus a searchable
@@ -80,6 +97,7 @@ export function AccessPanel({
   form: FormDataSource;
   csrf: string;
 }) {
+  const { t } = useTranslation(["forms", "common"]);
   const queryClient = useQueryClient();
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -107,18 +125,18 @@ export function AccessPanel({
       setError("");
     },
     onError: (err) =>
-      setError(err instanceof Error ? err.message : "Could not update access."),
+      setError(err instanceof Error ? err.message : t("access.updateError")),
   });
 
-  if (access.isLoading) return <Spinner aria-label="Loading access…" />;
+  if (access.isLoading) return <Spinner aria-label={t("access.loading")} />;
   if (access.isError || !access.data) {
     return (
       <Alert variant="destructive">
-        <AlertTitle>Could not load access</AlertTitle>
+        <AlertTitle>{t("access.loadError")}</AlertTitle>
         <AlertDescription>
           {access.error instanceof Error
             ? access.error.message
-            : "Please try again."}
+            : t("access.loadRetry")}
         </AlertDescription>
       </Alert>
     );
@@ -130,7 +148,7 @@ export function AccessPanel({
     <div className="grid gap-4">
       {error && (
         <Alert variant="destructive">
-          <AlertTitle>Access change failed</AlertTitle>
+          <AlertTitle>{t("access.changeFailed")}</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
@@ -140,16 +158,16 @@ export function AccessPanel({
           <TableHeader>
             <TableRow className="border-b border-border text-left text-xs text-muted-foreground">
               <TableHead scope="col" className="px-3 py-2 font-medium">
-                User
+                {t("access.table.user")}
               </TableHead>
               <TableHead scope="col" className="px-3 py-2 font-medium">
-                Global role
+                {t("access.table.globalRole")}
               </TableHead>
               <TableHead scope="col" className="px-3 py-2 font-medium">
-                Access
+                {t("access.table.access")}
               </TableHead>
               <TableHead scope="col" className="px-3 py-2 font-medium">
-                <span className="sr-only">Actions</span>
+                <span className="sr-only">{t("access.table.actions")}</span>
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -199,6 +217,7 @@ function AccessRow({
   onCancel: () => void;
   onSave: (caps: FormCapability[]) => void;
 }) {
+  const { t } = useTranslation("forms");
   const implicitManager = entry.isCreator || entry.isGlobalOwner;
   return (
     <>
@@ -215,13 +234,15 @@ function AccessRow({
         <TableCell className="px-3 py-2">
           {implicitManager ? (
             <Badge {...formToneBadgeProps("info")}>
-              {entry.isCreator ? "Manager (creator)" : "Manager (Owner)"}
+              {entry.isCreator
+                ? t("access.managerCreator")
+                : t("access.managerOwner")}
             </Badge>
           ) : (
             <span className="flex flex-wrap gap-1">
               {entry.capabilities.map((cap) => (
                 <Badge key={cap} {...formToneBadgeProps("neutral")}>
-                  {capabilityLabel(cap)}
+                  {capabilityLabel(cap, t)}
                 </Badge>
               ))}
             </span>
@@ -230,12 +251,12 @@ function AccessRow({
         <TableCell className="px-3 py-2 text-right">
           {implicitManager ? (
             <span className="text-sm text-muted-foreground">
-              Always a manager
+              {t("access.alwaysManager")}
             </span>
           ) : editing ? null : (
-            <Button variant="ghost" size="sm" onClick={onEdit}>
-              Edit access
-            </Button>
+            <RheaButton variant="ghost" size="sm" onClick={onEdit}>
+              {t("access.editAccess")}
+            </RheaButton>
           )}
         </TableCell>
       </TableRow>
@@ -266,6 +287,7 @@ function GrantAccess({
   saving: boolean;
   onGrant: (userId: string, caps: FormCapability[]) => void;
 }) {
+  const { t } = useTranslation("forms");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<FormDirectoryUser | null>(null);
   const directory = useQuery({
@@ -277,26 +299,28 @@ function GrantAccess({
   return (
     <section
       className="grid gap-3 rounded-xl border border-border p-4"
-      aria-label="Grant access"
+      aria-label={t("access.grant.title")}
     >
-      <h3 className="text-base font-semibold">Grant access</h3>
+      <h3 className="text-base font-semibold">{t("access.grant.title")}</h3>
       <Field>
-        <FieldLabel htmlFor="form-access-search">Find a user</FieldLabel>
+        <FieldLabel htmlFor="form-access-search">
+          {t("access.grant.findUser")}
+        </FieldLabel>
         <Input
           id="form-access-search"
           value={search}
-          placeholder="Search users"
+          placeholder={t("access.grant.searchPlaceholder")}
           onChange={(event) => {
             setSearch(event.target.value);
             setSelected(null);
           }}
         />
-        <FieldDescription>Search by name or username.</FieldDescription>
+        <FieldDescription>{t("access.grant.searchHint")}</FieldDescription>
       </Field>
       {selected ? (
         <div className="grid gap-2 rounded-xl border border-border p-3">
           <p className="text-sm">
-            Granting access to{" "}
+            {t("access.grant.grantingTo")}{" "}
             <strong>{selected.name || selected.username}</strong> (@
             {selected.username})
           </p>
@@ -313,14 +337,16 @@ function GrantAccess({
         </div>
       ) : search.trim().length > 0 ? (
         directory.isLoading ? (
-          <Spinner aria-label="Searching…" />
+          <Spinner aria-label={t("access.grant.searching")} />
         ) : (directory.data ?? []).filter(
             (user) => !excludeUserIds.has(user.id),
           ).length === 0 ? (
           <Empty>
             <EmptyHeader>
-              <EmptyTitle>No matching users</EmptyTitle>
-              <EmptyDescription>Try a different search.</EmptyDescription>
+              <EmptyTitle>{t("access.grant.noMatch")}</EmptyTitle>
+              <EmptyDescription>
+                {t("access.grant.noMatchHint")}
+              </EmptyDescription>
             </EmptyHeader>
           </Empty>
         ) : (
@@ -368,6 +394,7 @@ function CapabilityEditor({
   onCancel: () => void;
   onSave: (caps: FormCapability[]) => void;
 }) {
+  const { t } = useTranslation(["forms", "common"]);
   const [checked, setChecked] = useState<Set<FormCapability>>(
     () => new Set(initial),
   );
@@ -401,33 +428,38 @@ function CapabilityEditor({
                   disabled={isImplied || saving}
                   onCheckedChange={() => toggle(cap.value)}
                 />
-                <span>{cap.label}</span>
+                <span>{t(cap.labelKey)}</span>
               </label>
               <span className="pl-6 text-xs text-muted-foreground">
-                {isImplied ? "Included by a broader capability." : cap.implies}
+                {isImplied
+                  ? t("access.includedByBroader")
+                  : cap.impliesKey
+                    ? t(cap.impliesKey)
+                    : null}
               </span>
             </li>
           );
         })}
       </ul>
       <div className="flex flex-wrap gap-2">
-        <Button variant="ghost" onClick={onCancel} disabled={saving}>
-          Cancel
-        </Button>
-        <Button
+        <RheaButton variant="ghost" onClick={onCancel} disabled={saving}>
+          {t("common:actions.cancel")}
+        </RheaButton>
+        <RheaButton
           variant="default"
           disabled={saving}
           aria-busy={saving || undefined}
           onClick={() => onSave([...checked])}
         >
           {saving && <Spinner aria-hidden="true" />}
-          Save access
-        </Button>
+          {t("access.saveAccess")}
+        </RheaButton>
       </div>
     </div>
   );
 }
 
-function capabilityLabel(cap: FormCapability): string {
-  return CAPABILITIES.find((entry) => entry.value === cap)?.label ?? cap;
+function capabilityLabel(cap: FormCapability, t: FormsT): string {
+  const found = CAPABILITIES.find((entry) => entry.value === cap);
+  return found ? t(found.labelKey) : cap;
 }

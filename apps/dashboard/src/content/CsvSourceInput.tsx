@@ -1,5 +1,6 @@
 import { ClipboardPaste, Link, RotateCcw, UploadCloud } from "lucide-react";
 import { useId, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { StructuredSourceConfig } from "../api/types";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import {
@@ -16,6 +17,13 @@ import { Textarea } from "../components/ui/textarea";
 const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
 
 export type CsvInputMode = "upload" | "url" | "paste";
+
+type CsvErrorKey =
+  | "widgets.csv.errors.empty"
+  | "widgets.csv.errors.noColumns"
+  | "widgets.csv.errors.badExtension"
+  | "widgets.csv.errors.tooLarge"
+  | "widgets.csv.errors.notUtf8";
 
 export type CsvInspection = {
   columns: string[];
@@ -100,6 +108,7 @@ export function CsvSourceInput({
   readOnly: boolean;
   onChange: (patch: Partial<StructuredSourceConfig>) => void;
 }) {
+  const { t } = useTranslation(["content", "common"]);
   const inputId = useId();
   const urlId = useId();
   const pasteId = useId();
@@ -114,18 +123,20 @@ export function CsvSourceInput({
   const [fileName, setFileName] = useState("");
   const [fileSize, setFileSize] = useState<number>();
   const [inspection, setInspection] = useState<CsvInspection>();
-  const [error, setError] = useState("");
+  // The untranslated key, so a language change re-renders the alert instead
+  // of freezing the message in the language that was active when it fired.
+  const [error, setError] = useState<CsvErrorKey | "">("");
   const [dragging, setDragging] = useState(false);
 
   const applyContent = (content: string) => {
     const inspection = inspectCsv(content);
     if (!content.trim()) {
       onChange({ url: "", uploadedContent: undefined, uploaded: false });
-      setError("Choose a CSV file that contains a header row.");
+      setError("widgets.csv.errors.empty");
       return;
     }
     if (inspection.columns.length < 1) {
-      setError("Tilecast could not find any column names in the first row.");
+      setError("widgets.csv.errors.noColumns");
       return;
     }
     setError("");
@@ -137,11 +148,11 @@ export function CsvSourceInput({
     if (!file) return;
     const extension = file.name.split(".").pop()?.toLowerCase();
     if (!extension || !["csv", "tsv", "txt"].includes(extension)) {
-      setError("Use a .csv, .tsv, or delimited .txt file.");
+      setError("widgets.csv.errors.badExtension");
       return;
     }
     if (file.size > MAX_UPLOAD_BYTES) {
-      setError("This file is larger than the 2 MB upload limit.");
+      setError("widgets.csv.errors.tooLarge");
       return;
     }
     try {
@@ -152,9 +163,7 @@ export function CsvSourceInput({
       setFileSize(file.size);
       applyContent(content);
     } catch {
-      setError(
-        "This file is not valid UTF-8. Export it as UTF-8 CSV and retry.",
-      );
+      setError("widgets.csv.errors.notUtf8");
     }
   };
 
@@ -174,10 +183,10 @@ export function CsvSourceInput({
 
   return (
     <fieldset className="csv-source-input">
-      <legend>CSV connection</legend>
+      <legend>{t("widgets.csv.connection.legend")}</legend>
       <ToggleGroup
         className="csv-source-input__modes"
-        aria-label="CSV connection type"
+        aria-label={t("widgets.csv.connection.typeLabel")}
         multiple={false}
         value={[mode]}
         onValueChange={(next) => {
@@ -186,13 +195,15 @@ export function CsvSourceInput({
         }}
       >
         <ToggleGroupItem value="upload" disabled={readOnly}>
-          <UploadCloud size={15} aria-hidden="true" /> Upload
+          <UploadCloud size={15} aria-hidden="true" />{" "}
+          {t("widgets.csv.mode.upload")}
         </ToggleGroupItem>
         <ToggleGroupItem value="url" disabled={readOnly}>
-          <Link size={15} aria-hidden="true" /> Hosted URL
+          <Link size={15} aria-hidden="true" /> {t("widgets.csv.mode.url")}
         </ToggleGroupItem>
         <ToggleGroupItem value="paste" disabled={readOnly}>
-          <ClipboardPaste size={15} aria-hidden="true" /> Paste data
+          <ClipboardPaste size={15} aria-hidden="true" />{" "}
+          {t("widgets.csv.mode.paste")}
         </ToggleGroupItem>
       </ToggleGroup>
 
@@ -213,10 +224,8 @@ export function CsvSourceInput({
         >
           <UploadCloud size={24} />
           <span>
-            <strong>Drop a spreadsheet export here</strong>
-            <small>
-              or choose a CSV, TSV, or delimited text file up to 2 MB
-            </small>
+            <strong>{t("widgets.csv.dropzone.title")}</strong>
+            <small>{t("widgets.csv.dropzone.hint")}</small>
           </span>
           <Button
             type="button"
@@ -224,7 +233,7 @@ export function CsvSourceInput({
             size="sm"
             onClick={() => fileInput.current?.click()}
           >
-            Choose file
+            {t("widgets.csv.dropzone.choose")}
           </Button>
           <Input
             ref={fileInput}
@@ -240,11 +249,15 @@ export function CsvSourceInput({
 
       {mode === "upload" && configuration.uploaded && (
         <Alert role="status">
-          <AlertTitle>{fileName || "CSV data ready"}</AlertTitle>
+          <AlertTitle>{fileName || t("widgets.csv.uploaded.ready")}</AlertTitle>
           <AlertDescription>
             {fileSize === undefined
-              ? "Stored CSV data will remain attached unless you replace it"
-              : `${formatBytes(fileSize)} · ${inspection?.rowCount ?? 0} data rows · ${inspection?.columns?.length ?? 0} columns`}
+              ? t("widgets.csv.uploaded.stored")
+              : t("widgets.csv.uploaded.summary", {
+                  count: inspection?.rowCount ?? 0,
+                  size: formatBytes(fileSize),
+                  columns: inspection?.columns?.length ?? 0,
+                })}
           </AlertDescription>
           {!readOnly && (
             <AlertAction>
@@ -252,8 +265,8 @@ export function CsvSourceInput({
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                title="Choose a different CSV file"
-                aria-label="Choose a different CSV file"
+                title={t("widgets.csv.uploaded.replace")}
+                aria-label={t("widgets.csv.uploaded.replace")}
                 onClick={() => {
                   onChange({ uploadedContent: undefined, uploaded: false });
                   setFileName("");
@@ -271,7 +284,7 @@ export function CsvSourceInput({
 
       {mode === "url" && (
         <Field>
-          <FieldLabel htmlFor={urlId}>Direct CSV URL</FieldLabel>
+          <FieldLabel htmlFor={urlId}>{t("widgets.csv.url.label")}</FieldLabel>
           <Input
             id={urlId}
             type="url"
@@ -286,47 +299,50 @@ export function CsvSourceInput({
               })
             }
           />
-          <FieldDescription>
-            Tilecast refreshes a public HTTPS URL automatically. Use a direct
-            CSV response, not a spreadsheet sharing page.
-          </FieldDescription>
+          <FieldDescription>{t("widgets.csv.url.hint")}</FieldDescription>
         </Field>
       )}
 
       {mode === "paste" && (
         <Field>
-          <FieldLabel htmlFor={pasteId}>CSV data</FieldLabel>
+          <FieldLabel htmlFor={pasteId}>
+            {t("widgets.csv.paste.label")}
+          </FieldLabel>
           <Textarea
             id={pasteId}
             rows={7}
             className="min-h-36 resize-y font-mono text-xs"
             value={configuration.uploadedContent ?? ""}
+            // i18n-ignore: sample CSV content, not interface copy
             placeholder={
               "title,subtitle,date\nBoard meeting,Room 204,2026-08-12"
             }
             disabled={readOnly}
             onChange={(event) => applyContent(event.target.value)}
           />
-          <FieldDescription>
-            Include column names in the first row. Comma, semicolon, tab, and
-            pipe delimiters are supported.
-          </FieldDescription>
+          <FieldDescription>{t("widgets.csv.paste.hint")}</FieldDescription>
         </Field>
       )}
 
       {mode === "paste" && inspection && configuration.uploaded && (
         <Alert role="status">
-          <AlertTitle>{inspection.columns.length} columns detected</AlertTitle>
+          <AlertTitle>
+            {t("widgets.csv.paste.detected", {
+              count: inspection.columns.length,
+            })}
+          </AlertTitle>
           <AlertDescription>
-            {inspection.rowCount} data rows. Available columns:{" "}
-            {inspection.columns.join(", ")}.
+            {t("widgets.csv.paste.summary", {
+              count: inspection.rowCount,
+              columns: inspection.columns.join(", "),
+            })}
           </AlertDescription>
         </Alert>
       )}
 
       {error && (
         <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>{t(error)}</AlertDescription>
         </Alert>
       )}
     </fieldset>

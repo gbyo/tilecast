@@ -1,4 +1,5 @@
-import { Button } from "../components/ui/button";
+import { useTranslation } from "react-i18next";
+import { Button as RheaButton } from "../components/ui/button";
 
 export function SettingsActionBar({
   dirty,
@@ -17,6 +18,7 @@ export function SettingsActionBar({
   onSave: () => void;
   onReload?: () => void;
 }) {
+  const { t } = useTranslation(["settings", "common"]);
   if (!dirty && !success && !error) return null;
   return (
     <div
@@ -26,9 +28,11 @@ export function SettingsActionBar({
       <div className="grid gap-1">
         {dirty ? (
           <>
-            <strong className="text-sm font-semibold">Unsaved changes</strong>
+            <strong className="text-sm font-semibold">
+              {t("actionBar.unsavedTitle")}
+            </strong>
             <span className="text-sm text-muted-foreground">
-              Changes are kept while you browse Settings.
+              {t("actionBar.unsavedDescription")}
             </span>
             {error && <span className="text-sm text-destructive">{error}</span>}
           </>
@@ -40,9 +44,9 @@ export function SettingsActionBar({
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {error && onReload && (
-          <Button type="button" variant="ghost" onClick={onReload}>
-            Reload settings
-          </Button>
+          <RheaButton type="button" variant="ghost" onClick={onReload}>
+            {t("actionBar.reload")}
+          </RheaButton>
         )}
         {dirty && (
           <>
@@ -52,16 +56,18 @@ export function SettingsActionBar({
               disabled={saving}
               onClick={onCancel}
             >
-              Cancel
-            </Button>
-            <Button
+              {t("common:actions.cancel")}
+            </RheaButton>
+            <RheaButton
               type="button"
               variant="default"
               disabled={saving}
               onClick={onSave}
             >
-              {saving ? "Saving…" : "Save changes"}
-            </Button>
+              {saving
+                ? t("common:actions.saving")
+                : t("common:actions.saveChanges")}
+            </RheaButton>
           </>
         )}
       </div>

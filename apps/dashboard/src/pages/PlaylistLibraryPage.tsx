@@ -8,10 +8,13 @@ import {
   Tags,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { api } from "../api/client";
 import type { Playlist, PlaylistPreviewItem } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { useFormatLocale } from "../i18n";
+import type { PlaylistsT } from "../components/playlist-editor/playlistEditorModel";
 import {
   DashboardListToolbar,
   DashboardSearch,
@@ -66,25 +69,39 @@ export type PlaylistLibraryItem = Pick<
 export type PlaylistLibraryFilter = "all" | "standard" | "tag" | "empty";
 export type PlaylistLibrarySort = "updated" | "name" | "items" | "created";
 
-const playlistFilterOptions = [
-  { value: "all", label: "All playlists" },
-  { value: "standard", label: "Standard playlists" },
-  { value: "tag", label: "Tag-driven playlists" },
-  { value: "empty", label: "Empty playlists" },
+const playlistFilterOptions: {
+  value: PlaylistLibraryFilter;
+  labelKey:
+    | "library.filters.all"
+    | "library.filters.standard"
+    | "library.filters.tag"
+    | "library.filters.empty";
+}[] = [
+  { value: "all", labelKey: "library.filters.all" },
+  { value: "standard", labelKey: "library.filters.standard" },
+  { value: "tag", labelKey: "library.filters.tag" },
+  { value: "empty", labelKey: "library.filters.empty" },
 ];
 
-const playlistSortOptions = [
-  { value: "updated", label: "Recently updated" },
-  { value: "name", label: "Name" },
-  { value: "items", label: "Most items" },
-  { value: "created", label: "Recently created" },
+const playlistSortOptions: {
+  value: PlaylistLibrarySort;
+  labelKey:
+    | "library.sorts.updated"
+    | "library.sorts.name"
+    | "library.sorts.items"
+    | "library.sorts.created";
+}[] = [
+  { value: "updated", labelKey: "library.sorts.updated" },
+  { value: "name", labelKey: "library.sorts.name" },
+  { value: "items", labelKey: "library.sorts.items" },
+  { value: "created", labelKey: "library.sorts.created" },
 ];
 
 const playlistViewStorageKey = "tilecast.playlist-library.view";
-const playlistNameCollator = new Intl.Collator(undefined, {
-  numeric: true,
-  sensitivity: "base",
-});
+
+function playlistNameCollator(locale: string) {
+  return new Intl.Collator(locale, { numeric: true, sensitivity: "base" });
+}
 
 function storedPlaylistView(): "grid" | "list" {
   if (typeof window === "undefined") return "grid";
@@ -102,7 +119,9 @@ export function filterAndSortPlaylists(
   search: string,
   filter: PlaylistLibraryFilter,
   sort: PlaylistLibrarySort,
+  locale = "en",
 ): PlaylistLibraryItem[] {
+  const collator = playlistNameCollator(locale);
   const normalizedSearch = search.trim().toLocaleLowerCase();
   const filtered = playlists.filter((playlist) => {
     if (filter === "standard" && playlist.sourceType === "tag") return false;
@@ -120,46 +139,47 @@ export function filterAndSortPlaylists(
   });
 
   return [...filtered].sort((left, right) => {
-    if (sort === "name")
-      return playlistNameCollator.compare(left.name, right.name);
+    if (sort === "name") return collator.compare(left.name, right.name);
     if (sort === "items") {
       return (
         right.itemCount - left.itemCount ||
-        playlistNameCollator.compare(left.name, right.name)
+        collator.compare(left.name, right.name)
       );
     }
     if (sort === "created") {
       return (
         Date.parse(right.createdAt) - Date.parse(left.createdAt) ||
-        playlistNameCollator.compare(left.name, right.name)
+        collator.compare(left.name, right.name)
       );
     }
     return (
       Date.parse(right.updatedAt) - Date.parse(left.updatedAt) ||
-      playlistNameCollator.compare(left.name, right.name)
+      collator.compare(left.name, right.name)
     );
   });
 }
 
 export function formatPlaylistUpdatedAt(
   value: string,
+  t: PlaylistsT,
   now = Date.now(),
+  locale = "en",
 ): string {
   const timestamp = Date.parse(value);
-  if (!Number.isFinite(timestamp)) return "Update time unavailable";
+  if (!Number.isFinite(timestamp)) return t("library.updated.unavailable");
   const elapsed = Math.max(0, now - timestamp);
-  if (elapsed < 60_000) return "Updated just now";
+  if (elapsed < 60_000) return t("library.updated.justNow");
   if (elapsed < 3_600_000) {
     const minutes = Math.max(1, Math.floor(elapsed / 60_000));
-    return `Updated ${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+    return t("library.updated.minutesAgo", { count: minutes });
   }
   if (elapsed < 86_400_000) {
     const hours = Math.max(1, Math.floor(elapsed / 3_600_000));
-    return `Updated ${hours} hour${hours === 1 ? "" : "s"} ago`;
+    return t("library.updated.hoursAgo", { count: hours });
   }
   if (elapsed < 604_800_000) {
     const days = Math.max(1, Math.floor(elapsed / 86_400_000));
-    return `Updated ${days} day${days === 1 ? "" : "s"} ago`;
+    return t("library.updated.daysAgo", { count: days });
   }
   const options: Intl.DateTimeFormatOptions = {
     month: "short",
@@ -168,19 +188,21 @@ export function formatPlaylistUpdatedAt(
   if (new Date(timestamp).getFullYear() !== new Date(now).getFullYear()) {
     options.year = "numeric";
   }
-  return `Updated ${new Intl.DateTimeFormat(undefined, options).format(timestamp)}`;
+  return t("library.updated.onDate", {
+    date: new Intl.DateTimeFormat(locale, options).format(timestamp),
+  });
 }
 
-function playlistStatus(playlist: PlaylistLibraryItem): string {
-  if (playlist.itemCount === 0) return "Empty";
-  return playlist.sourceType === "tag" ? "Tag-driven" : "Standard";
-}
-
-function itemCountLabel(count: number): string {
-  return `${count} item${count === 1 ? "" : "s"}`;
+function playlistStatus(playlist: PlaylistLibraryItem, t: PlaylistsT): string {
+  if (playlist.itemCount === 0) return t("library.status.empty");
+  return playlist.sourceType === "tag"
+    ? t("library.status.tag")
+    : t("library.status.standard");
 }
 
 export function PlaylistLibraryPage() {
+  const { t } = useTranslation("playlists");
+  const formatLocale = useFormatLocale();
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
   const canManage = auth.status?.user?.role !== "viewer";
@@ -213,8 +235,9 @@ export function PlaylistLibraryPage() {
     [query.data?.items],
   );
   const visiblePlaylists = useMemo(
-    () => filterAndSortPlaylists(allPlaylists, search, filter, sort),
-    [allPlaylists, filter, search, sort],
+    () =>
+      filterAndSortPlaylists(allPlaylists, search, filter, sort, formatLocale),
+    [allPlaylists, filter, formatLocale, search, sort],
   );
 
   const closeCreate = () => {
@@ -234,16 +257,18 @@ export function PlaylistLibraryPage() {
     <section className="grid gap-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">Playlists</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {t("library.title")}
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Find, preview, and organize fullscreen playback for your screens.
+            {t("library.subtitle")}
           </p>
         </div>
         {canManage && (
           <div className="flex flex-wrap items-center gap-2">
             <Button type="button" onClick={() => setCreating(true)}>
               <Plus size={16} aria-hidden="true" />
-              Create playlist
+              {t("library.create")}
             </Button>
           </div>
         )}
@@ -252,16 +277,19 @@ export function PlaylistLibraryPage() {
         <DashboardSearch
           value={search}
           onValueChange={setSearch}
-          label="Search playlists"
-          placeholder="Search names, descriptions, or previewed content"
+          label={t("library.searchLabel")}
+          placeholder={t("library.searchPlaceholder")}
         />
         <Select
-          items={playlistFilterOptions}
+          items={playlistFilterOptions.map((option) => ({
+            value: option.value,
+            label: t(option.labelKey),
+          }))}
           value={filter}
           onValueChange={(next) => setFilter(next as PlaylistLibraryFilter)}
         >
           <SelectTrigger
-            aria-label="Filter playlists"
+            aria-label={t("library.filterLabel")}
             className="w-48 max-sm:flex-1"
           >
             <SelectValue />
@@ -269,18 +297,21 @@ export function PlaylistLibraryPage() {
           <SelectContent>
             {playlistFilterOptions.map((option) => (
               <SelectItem key={option.value} value={option.value}>
-                {option.label}
+                {t(option.labelKey)}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
         <Select
-          items={playlistSortOptions}
+          items={playlistSortOptions.map((option) => ({
+            value: option.value,
+            label: t(option.labelKey),
+          }))}
           value={sort}
           onValueChange={(next) => setSort(next as PlaylistLibrarySort)}
         >
           <SelectTrigger
-            aria-label="Sort playlists"
+            aria-label={t("library.sortLabel")}
             className="w-44 max-sm:flex-1"
           >
             <SelectValue />
@@ -288,13 +319,13 @@ export function PlaylistLibraryPage() {
           <SelectContent>
             {playlistSortOptions.map((option) => (
               <SelectItem key={option.value} value={option.value}>
-                {option.label}
+                {t(option.labelKey)}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
         <ToggleGroup
-          aria-label="Playlist view"
+          aria-label={t("library.viewLabel")}
           variant="outline"
           spacing={0}
           value={[view]}
@@ -303,10 +334,10 @@ export function PlaylistLibraryPage() {
             if (next === "grid" || next === "list") setView(next);
           }}
         >
-          <ToggleGroupItem value="grid" aria-label="Grid view">
+          <ToggleGroupItem value="grid" aria-label={t("library.gridView")}>
             <LayoutGrid size={16} aria-hidden="true" />
           </ToggleGroupItem>
-          <ToggleGroupItem value="list" aria-label="List view">
+          <ToggleGroupItem value="list" aria-label={t("library.listView")}>
             <List size={16} aria-hidden="true" />
           </ToggleGroupItem>
         </ToggleGroup>
@@ -314,7 +345,10 @@ export function PlaylistLibraryPage() {
 
       {!query.isLoading && allPlaylists.length > 0 && (
         <div className="text-sm text-muted-foreground" aria-live="polite">
-          Showing {visiblePlaylists.length} of {allPlaylists.length} playlists
+          {t("library.showing", {
+            shown: visiblePlaylists.length,
+            total: allPlaylists.length,
+          })}
         </div>
       )}
 
@@ -329,17 +363,17 @@ export function PlaylistLibraryPage() {
             <EmptyMedia variant="icon">
               <ListVideo size={24} aria-hidden="true" />
             </EmptyMedia>
-            <EmptyTitle>No playlists yet</EmptyTitle>
+            <EmptyTitle>{t("library.emptyTitle")}</EmptyTitle>
             <EmptyDescription>
               {canManage
-                ? "Create a playlist, then add ready images, videos, Widgets, or Layouts."
-                : "An Owner, Administrator, or Editor can create playlists."}
+                ? t("library.emptyDescriptionManage")
+                : t("library.emptyDescriptionReadonly")}
             </EmptyDescription>
           </EmptyHeader>
           {canManage && (
             <EmptyContent>
               <Button type="button" onClick={() => setCreating(true)}>
-                Create playlist
+                {t("library.create")}
               </Button>
             </EmptyContent>
           )}
@@ -350,9 +384,9 @@ export function PlaylistLibraryPage() {
             <EmptyMedia variant="icon">
               <ListVideo size={24} aria-hidden="true" />
             </EmptyMedia>
-            <EmptyTitle>No matching playlists</EmptyTitle>
+            <EmptyTitle>{t("library.noMatchTitle")}</EmptyTitle>
             <EmptyDescription>
-              Try a different search or clear the playlist filter.
+              {t("library.noMatchDescription")}
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
@@ -361,7 +395,7 @@ export function PlaylistLibraryPage() {
               variant="outline"
               onClick={clearLibraryFilters}
             >
-              Clear filters
+              {t("library.clearFilters")}
             </Button>
           </EmptyContent>
         </Empty>
@@ -422,13 +456,13 @@ export function PlaylistLibraryPage() {
             >
               <Link
                 to={`/playlists/${playlist.id}`}
-                title={`Open ${playlist.name}`}
+                title={t("library.openPlaylist", { name: playlist.name })}
                 className="grid gap-3 p-3 hover:bg-muted"
               >
                 <div className="relative">
                   <PlaylistPreview playlist={playlist} />
                   <span className="absolute top-2 left-2 rounded-full bg-background/90 px-2 py-0.5 text-xs font-medium">
-                    {playlistStatus(playlist)}
+                    {playlistStatus(playlist, t)}
                   </span>
                 </div>
                 <div className="grid gap-1">
@@ -438,7 +472,7 @@ export function PlaylistLibraryPage() {
                         <Tags
                           size={15}
                           role="img"
-                          aria-label="Tag-driven playlist"
+                          aria-label={t("library.tagDrivenBadge")}
                           className="shrink-0"
                         />
                       )}
@@ -458,11 +492,20 @@ export function PlaylistLibraryPage() {
                     </p>
                   )}
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span>{itemCountLabel(playlist.itemCount)}</span>
-                    <span>Revision {playlist.revision}</span>
+                    <span>
+                      {t("count.items", { count: playlist.itemCount })}
+                    </span>
+                    <span>
+                      {t("library.revision", { revision: playlist.revision })}
+                    </span>
                   </div>
                   <small className="text-xs text-muted-foreground">
-                    {formatPlaylistUpdatedAt(playlist.updatedAt)}
+                    {formatPlaylistUpdatedAt(
+                      playlist.updatedAt,
+                      t,
+                      Date.now(),
+                      formatLocale,
+                    )}
                   </small>
                 </div>
               </Link>

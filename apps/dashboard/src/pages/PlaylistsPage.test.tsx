@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PlaylistItem } from "../api/types";
+import { i18n } from "../i18n";
 import {
   canManagePlaylists,
   openPlaylistPreview,
@@ -23,6 +24,8 @@ import {
 } from "../components/playlist-editor/playlistEditorModel";
 
 afterEach(() => vi.restoreAllMocks());
+
+const t = i18n.getFixedT("en", "playlists");
 
 const item = (values: Partial<PlaylistItem>): PlaylistItem => ({
   id: "item",
@@ -134,9 +137,10 @@ describe("playlist editor", () => {
       ]),
     ).toEqual({ kind: "player" });
     expect(
-      playlistDurationLabel([
-        item({ durationMs: undefined, usePlayerDefaults: true }),
-      ]),
+      playlistDurationLabel(
+        [item({ durationMs: undefined, usePlayerDefaults: true })],
+        t,
+      ),
     ).toBe("Uses Player defaults");
   });
 

@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useId, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import {
   AlignCenter,
   AlignLeft,
@@ -65,53 +66,67 @@ import {
 } from "../../content/DataSourcePicker";
 
 const fitOptions = [
-  { value: "contain", label: "Fit" },
-  { value: "cover", label: "Fill" },
-  { value: "stretch", label: "Stretch" },
-];
+  { value: "contain", labelKey: "inspector.fitContain" },
+  { value: "cover", labelKey: "inspector.fitCover" },
+  { value: "stretch", labelKey: "inspector.fitStretch" },
+] as const;
 
 const fallbackVisibilityOptions = [
-  { value: "show", label: "Show App fallback" },
-  { value: "hide", label: "Hide placement" },
-];
+  { value: "show", labelKey: "inspector.widgetFallbackShow" },
+  { value: "hide", labelKey: "inspector.widgetFallbackHide" },
+] as const;
 
 const zoneFallbackOptions = [
-  { value: "background", label: "Zone background" },
-  { value: "previous", label: "Previous item" },
-  { value: "hide", label: "Hide zone" },
-];
+  { value: "background", labelKey: "inspector.zoneFallbackBackground" },
+  { value: "previous", labelKey: "inspector.zoneFallbackPrevious" },
+  { value: "hide", labelKey: "inspector.zoneFallbackHide" },
+] as const;
 
 const assetFallbackOptions = [
-  { value: "hide", label: "Hide" },
-  { value: "background", label: "Background" },
-  { value: "previous", label: "Previous frame" },
-];
+  { value: "hide", labelKey: "inspector.assetFallbackHide" },
+  { value: "background", labelKey: "inspector.assetFallbackBackground" },
+  { value: "previous", labelKey: "inspector.assetFallbackPrevious" },
+] as const;
 
 const visibilityOptions = [
-  { value: "always", label: "Always visible" },
-  { value: "field", label: "Hide when field is empty" },
-];
+  { value: "always", labelKey: "inspector.visibilityAlways" },
+  { value: "field", labelKey: "inspector.visibilityField" },
+] as const;
 
 const contentModeOptions = [
-  { value: "static", label: "Static" },
-  { value: "dynamic", label: "Dynamic field" },
-];
+  { value: "static", labelKey: "inspector.contentStatic" },
+  { value: "dynamic", labelKey: "inspector.contentDynamic" },
+] as const;
 
 const formatOptions = [
-  { value: "text", label: "Text" },
-  { value: "date-short", label: "Short date" },
-  { value: "date-long", label: "Long date" },
-  { value: "number", label: "Number" },
-  { value: "integer", label: "Integer" },
-  { value: "currency", label: "Currency" },
-];
+  { value: "text", labelKey: "inspector.formatText" },
+  { value: "date-short", labelKey: "inspector.formatDateShort" },
+  { value: "date-long", labelKey: "inspector.formatDateLong" },
+  { value: "number", labelKey: "inspector.formatNumber" },
+  { value: "integer", labelKey: "inspector.formatInteger" },
+  { value: "currency", labelKey: "inspector.formatCurrency" },
+] as const;
 
 const fontOptions = [
+  // i18n-ignore: font family names are identifiers, not language text
   { value: "Inter", label: "Inter" },
+  // i18n-ignore: font family names are identifiers, not language text
   { value: "Roboto", label: "Roboto" },
+  // i18n-ignore: font family names are identifiers, not language text
   { value: "Source Sans 3", label: "Source Sans 3" },
+  // i18n-ignore: font family names are identifiers, not language text
   { value: "Noto Sans", label: "Noto Sans" },
 ];
+
+function translatedOptions<const T extends string>(
+  options: readonly { value: string; labelKey: T }[],
+  t: (key: T) => string,
+): { value: string; label: string }[] {
+  return options.map((option) => ({
+    value: option.value,
+    label: t(option.labelKey),
+  }));
+}
 
 const weightOptions = [400, 500, 600, 700, 800].map((weight) => ({
   value: String(weight),
@@ -195,6 +210,7 @@ function AlignmentToggle({
   value: string;
   onChange: (next: string) => void;
 }) {
+  const { t } = useTranslation("layouts");
   return (
     <Field>
       <FieldLabel id={`${id}-label`}>{label}</FieldLabel>
@@ -210,13 +226,22 @@ function AlignmentToggle({
         size="sm"
         spacing={1}
       >
-        <ToggleGroupItem value="left" aria-label={`${label}: left`}>
+        <RheaToggleGroupItem
+          value="left"
+          aria-label={`${label}: ${t("inspector.alignLeft")}`}
+        >
           <AlignLeft size={15} aria-hidden="true" />
-        </ToggleGroupItem>
-        <ToggleGroupItem value="center" aria-label={`${label}: center`}>
+        </RheaToggleGroupItem>
+        <RheaToggleGroupItem
+          value="center"
+          aria-label={`${label}: ${t("inspector.alignCenter")}`}
+        >
           <AlignCenter size={15} aria-hidden="true" />
-        </ToggleGroupItem>
-        <ToggleGroupItem value="right" aria-label={`${label}: right`}>
+        </RheaToggleGroupItem>
+        <RheaToggleGroupItem
+          value="right"
+          aria-label={`${label}: ${t("inspector.alignRight")}`}
+        >
           <AlignRight size={15} aria-hidden="true" />
         </ToggleGroupItem>
       </ToggleGroup>
@@ -308,6 +333,14 @@ export function PlacementInspector({
   ungroup: () => void;
   canGroup: boolean;
 }) {
+  const { t } = useTranslation(["layouts", "common"]);
+  const fit = translatedOptions(fitOptions, t);
+  const fallbackVisibility = translatedOptions(fallbackVisibilityOptions, t);
+  const zoneFallback = translatedOptions(zoneFallbackOptions, t);
+  const assetFallback = translatedOptions(assetFallbackOptions, t);
+  const visibility = translatedOptions(visibilityOptions, t);
+  const contentMode = translatedOptions(contentModeOptions, t);
+  const format = translatedOptions(formatOptions, t);
   const navigate = useNavigate();
   const location = useLocation();
   const auth = useAuth();
@@ -333,25 +366,28 @@ export function PlacementInspector({
     });
   };
   const primitive = item.primitive;
+  const openSections = [
+    t("inspector.sectionLayer"),
+    t("inspector.sectionPosition"),
+    t("inspector.sectionAppearance"),
+    t("inspector.widgetTitle"),
+    t("inspector.zoneTitle"),
+    t("inspector.assetTitle"),
+    t("inspector.groupTitle"),
+    t("inspector.textTitle"),
+    t("inspector.shapeTitle"),
+  ];
   return (
     <Accordion
       multiple
-      defaultValue={[
-        "Layer",
-        "Position & size",
-        "Appearance",
-        "Widget",
-        "Playlist zone",
-        "Media",
-        "Group",
-        "Text",
-        "Shape",
-      ]}
+      defaultValue={openSections}
       className="grid gap-0"
     >
-      <InspectorSection title="Layer">
+      <InspectorSection title={t("inspector.sectionLayer")}>
         <Field>
-          <FieldLabel htmlFor="placement-name">Layer name</FieldLabel>
+          <FieldLabel htmlFor="placement-name">
+            {t("inspector.layerName")}
+          </FieldLabel>
           <Input
             id="placement-name"
             value={item.name}
@@ -365,8 +401,8 @@ export function PlacementInspector({
             type="button"
             variant="ghost"
             size="icon"
-            title="Move forward"
-            aria-label="Move forward"
+            title={t("inspector.moveForward")}
+            aria-label={t("inspector.moveForward")}
             onClick={() =>
               update(
                 (target) => (target.layer = Math.min(999, target.layer + 1)),
@@ -379,8 +415,8 @@ export function PlacementInspector({
             type="button"
             variant="ghost"
             size="icon"
-            title="Move backward"
-            aria-label="Move backward"
+            title={t("inspector.moveBackward")}
+            aria-label={t("inspector.moveBackward")}
             onClick={() =>
               update((target) => (target.layer = Math.max(0, target.layer - 1)))
             }
@@ -391,8 +427,8 @@ export function PlacementInspector({
             type="button"
             variant="ghost"
             size="icon"
-            title="Duplicate"
-            aria-label="Duplicate"
+            title={t("editor.menuDuplicate")}
+            aria-label={t("editor.menuDuplicate")}
             onClick={duplicate}
           >
             <Copy size={16} aria-hidden="true" />
@@ -401,8 +437,10 @@ export function PlacementInspector({
             type="button"
             variant="ghost"
             size="icon"
-            title={item.locked ? "Unlock" : "Lock"}
-            aria-label={item.locked ? "Unlock" : "Lock"}
+            title={item.locked ? t("editor.menuUnlock") : t("editor.menuLock")}
+            aria-label={
+              item.locked ? t("editor.menuUnlock") : t("editor.menuLock")
+            }
             onClick={() => update((target) => (target.locked = !target.locked))}
           >
             {item.locked ? (
@@ -415,8 +453,10 @@ export function PlacementInspector({
             type="button"
             variant="ghost"
             size="icon"
-            title={item.visible ? "Hide" : "Show"}
-            aria-label={item.visible ? "Hide" : "Show"}
+            title={item.visible ? t("editor.menuHide") : t("editor.menuShow")}
+            aria-label={
+              item.visible ? t("editor.menuHide") : t("editor.menuShow")
+            }
             onClick={() =>
               update((target) => (target.visible = !target.visible))
             }
@@ -431,33 +471,35 @@ export function PlacementInspector({
         {canGroup && (
           <Button type="button" variant="secondary" onClick={group}>
             <Group size={16} aria-hidden="true" />
-            Group selection
-          </Button>
+            {t("editor.menuGroup")}
+          </RheaButton>
         )}
       </InspectorSection>
-      <InspectorSection title="Position & size">
+      <InspectorSection title={t("inspector.sectionPosition")}>
         <div className="grid gap-4 sm:grid-cols-2">
           <NumberField
+            // i18n-ignore: canvas coordinate abbreviation, not language text
             label="X"
             unit="px"
             value={item.x}
             onChange={(value) => update((target) => (target.x = value))}
           />
           <NumberField
+            // i18n-ignore: canvas coordinate abbreviation, not language text
             label="Y"
             unit="px"
             value={item.y}
             onChange={(value) => update((target) => (target.y = value))}
           />
           <NumberField
-            label="Width"
+            label={t("inspector.fields.width")}
             unit="px"
             value={item.width}
             min={1}
             onChange={(value) => update((target) => (target.width = value))}
           />
           <NumberField
-            label="Height"
+            label={t("inspector.fields.height")}
             unit="px"
             value={item.height}
             min={1}
@@ -465,13 +507,15 @@ export function PlacementInspector({
           />
         </div>
       </InspectorSection>
-      <InspectorSection title="Appearance">
+      <InspectorSection title={t("inspector.sectionAppearance")}>
         <Field>
-          <FieldLabel htmlFor="placement-opacity">Opacity</FieldLabel>
+          <FieldLabel htmlFor="placement-opacity">
+            {t("inspector.opacityLabel")}
+          </FieldLabel>
           <div className="flex items-center gap-3">
             <Slider
               id="placement-opacity"
-              aria-label="Layer opacity"
+              aria-label={t("inspector.opacityAria")}
               min={0}
               max={100}
               step={1}
@@ -493,13 +537,13 @@ export function PlacementInspector({
         </Field>
       </InspectorSection>
       {item.type === "widget" && (
-        <InspectorSection title="Widget">
+        <InspectorSection title={t("inspector.widgetTitle")}>
           <div className="grid gap-4 sm:grid-cols-2">
             <InspectorSelect
               id="widget-fit"
-              label="Fit"
+              label={t("inspector.fitLabel")}
               value={(item.overrides?.fit as string | undefined) ?? "contain"}
-              options={fitOptions}
+              options={fit}
               onChange={(next) =>
                 update((target) => {
                   target.overrides = { ...target.overrides, fit: next };
@@ -508,7 +552,7 @@ export function PlacementInspector({
             />
             <AlignmentToggle
               id="widget-alignment"
-              label="Alignment"
+              label={t("inspector.alignmentLabel")}
               value={
                 (item.overrides?.alignment as string | undefined) ?? "center"
               }
@@ -520,7 +564,7 @@ export function PlacementInspector({
             />
             <ColorField
               id="widget-foreground"
-              label="Foreground"
+              label={t("inspector.foregroundLabel")}
               value={
                 (item.overrides?.foregroundColor as string | undefined) ??
                 "#F5F7FA"
@@ -536,7 +580,7 @@ export function PlacementInspector({
             />
             <ColorField
               id="widget-background"
-              label="Background"
+              label={t("inspector.fields.background")}
               value={
                 (item.overrides?.backgroundColor as string | undefined) ??
                 "#18232D"
@@ -553,12 +597,12 @@ export function PlacementInspector({
           </div>
           <InspectorSelect
             id="widget-fallback"
-            label="When unavailable"
+            label={t("inspector.whenUnavailable")}
             value={
               (item.overrides?.fallbackVisibility as string | undefined) ??
               "show"
             }
-            options={fallbackVisibilityOptions}
+            options={fallbackVisibility}
             onChange={(next) =>
               update((target) => {
                 target.overrides = {
@@ -583,7 +627,7 @@ export function PlacementInspector({
                   })
                 }
               />
-              Muted in this Layout
+              {t("inspector.widgetMuted")}
             </label>
           )}
           {/* Opens the Widget itself and carries a return path, instead of asking for confirmation
@@ -602,24 +646,26 @@ export function PlacementInspector({
             }}
           >
             <AppWindow size={16} aria-hidden="true" />
-            Edit shared Widget
-          </Button>
+            {t("inspector.widgetEdit")}
+          </RheaButton>
         </InspectorSection>
       )}
       {item.type === "playlistZone" && (
-        <InspectorSection title="Playlist zone">
+        <InspectorSection title={t("inspector.zoneTitle")}>
           <Alert>
             <AlertTitle>{playlist?.name ?? item.name}</AlertTitle>
             <AlertDescription>
-              {playlist?.itemCount ?? 0} items
+              {t("common:count.items", {
+                count: playlist?.itemCount ?? 0,
+              })}
             </AlertDescription>
           </Alert>
           <div className="grid gap-4 sm:grid-cols-2">
             <InspectorSelect
               id="zone-fit"
-              label="Fit"
+              label={t("inspector.fitLabel")}
               value={item.playback?.fit ?? "contain"}
-              options={fitOptions}
+              options={fit}
               onChange={(next) =>
                 update((target) => {
                   target.playback = {
@@ -631,9 +677,9 @@ export function PlacementInspector({
             />
             <InspectorSelect
               id="zone-fallback"
-              label="Fallback"
+              label={t("inspector.fallbackLabel")}
               value={item.playback?.fallback ?? "background"}
-              options={zoneFallbackOptions}
+              options={zoneFallback}
               onChange={(next) =>
                 update((target) => {
                   target.playback = {
@@ -656,7 +702,7 @@ export function PlacementInspector({
                 })
               }
             />
-            Loop independently
+            {t("inspector.zoneLoop")}
           </label>
           <label className="flex items-center gap-2 text-sm">
             <Checkbox
@@ -670,10 +716,10 @@ export function PlacementInspector({
                 })
               }
             />
-            Muted
+            {t("inspector.mutedOption")}
           </label>
           <NumberField
-            label="Corner radius"
+            label={t("inspector.fields.cornerRadius")}
             unit="px"
             value={item.playback?.cornerRadius ?? 0}
             max={1000}
@@ -688,17 +734,17 @@ export function PlacementInspector({
             variant="secondary"
             onClick={() => void navigate(`/playlists/${item.playlistId}`)}
           >
-            Edit playlist
-          </Button>
+            {t("inspector.zoneEdit")}
+          </RheaButton>
         </InspectorSection>
       )}
       {item.type === "asset" && (
-        <InspectorSection title="Media">
+        <InspectorSection title={t("inspector.assetTitle")}>
           <InspectorSelect
             id="asset-fit"
-            label="Fit"
+            label={t("inspector.fitLabel")}
             value={item.playback?.fit ?? "contain"}
-            options={fitOptions}
+            options={fit}
             onChange={(next) =>
               update((target) => {
                 target.playback = {
@@ -710,7 +756,7 @@ export function PlacementInspector({
           />
           <div className="grid gap-4 sm:grid-cols-2">
             <NumberField
-              label="Corner radius"
+              label={t("inspector.fields.cornerRadius")}
               unit="px"
               value={item.playback?.cornerRadius ?? 0}
               max={1000}
@@ -725,9 +771,9 @@ export function PlacementInspector({
             />
             <InspectorSelect
               id="asset-fallback"
-              label="Fallback"
+              label={t("inspector.fallbackLabel")}
               value={item.playback?.fallback ?? "hide"}
-              options={assetFallbackOptions}
+              options={assetFallback}
               onChange={(next) =>
                 update((target) => {
                   target.playback = {
@@ -753,7 +799,7 @@ export function PlacementInspector({
                   }
                   className="mt-0.5"
                 />
-                <span>Muted</span>
+                <span>{t("inspector.mutedOption")}</span>
               </label>
               <label className="flex items-start gap-2 text-sm">
                 <Switch
@@ -768,21 +814,21 @@ export function PlacementInspector({
                   }
                   className="mt-0.5"
                 />
-                <span>Loop</span>
+                <span>{t("inspector.loopOption")}</span>
               </label>
             </>
           )}
         </InspectorSection>
       )}
       {primitive?.kind === "group" && (
-        <InspectorSection title="Group">
-          <Button type="button" variant="secondary" onClick={ungroup}>
+        <InspectorSection title={t("inspector.groupTitle")}>
+          <RheaButton type="button" variant="secondary" onClick={ungroup}>
             <Ungroup size={16} aria-hidden="true" />
-            Ungroup
-          </Button>
+            {t("editor.menuUngroup")}
+          </RheaButton>
           {!primitive.binding && dataSources.length === 0 ? (
             <ConnectDataNotice
-              message="Connect data to hide this group when a field is empty."
+              message={t("inspector.groupConnectHint")}
               csrf={csrf}
               onCreated={(dataSourceId) =>
                 void bindNewDataSource(dataSourceId, (binding) =>
@@ -798,9 +844,9 @@ export function PlacementInspector({
           ) : (
             <InspectorSelect
               id="group-visibility"
-              label="Visibility"
+              label={t("inspector.visibilityLabel")}
               value={primitive.binding ? "field" : "always"}
-              options={visibilityOptions}
+              options={visibility}
               onChange={(next) =>
                 update((target) => {
                   if (next === "always") {
@@ -849,10 +895,10 @@ export function PlacementInspector({
         </InspectorSection>
       )}
       {primitive?.kind === "text" && (
-        <InspectorSection title="Text">
+        <InspectorSection title={t("inspector.textTitle")}>
           {!primitive.binding && dataSources.length === 0 ? (
             <ConnectDataNotice
-              message="Connect data to bind this text to a live field."
+              message={t("inspector.textConnectHint")}
               csrf={csrf}
               onCreated={(dataSourceId) =>
                 void bindNewDataSource(dataSourceId, (binding) =>
@@ -868,9 +914,9 @@ export function PlacementInspector({
           ) : (
             <InspectorSelect
               id="text-content-mode"
-              label="Content mode"
+              label={t("inspector.contentModeLabel")}
               value={primitive.binding ? "dynamic" : "static"}
-              options={contentModeOptions}
+              options={contentMode}
               onChange={(next) =>
                 update((target) => {
                   if (next === "static") {
@@ -924,7 +970,9 @@ export function PlacementInspector({
               />
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field>
-                  <FieldLabel htmlFor="text-prefix">Prefix</FieldLabel>
+                  <FieldLabel htmlFor="text-prefix">
+                    {t("inspector.prefixLabel")}
+                  </FieldLabel>
                   <Input
                     id="text-prefix"
                     value={primitive.binding.prefix ?? ""}
@@ -938,7 +986,9 @@ export function PlacementInspector({
                   />
                 </Field>
                 <Field>
-                  <FieldLabel htmlFor="text-suffix">Suffix</FieldLabel>
+                  <FieldLabel htmlFor="text-suffix">
+                    {t("inspector.suffixLabel")}
+                  </FieldLabel>
                   <Input
                     id="text-suffix"
                     value={primitive.binding.suffix ?? ""}
@@ -953,7 +1003,9 @@ export function PlacementInspector({
                 </Field>
               </div>
               <Field>
-                <FieldLabel htmlFor="text-fallback">Fallback text</FieldLabel>
+                <FieldLabel htmlFor="text-fallback">
+                  {t("inspector.fallbackTextLabel")}
+                </FieldLabel>
                 <Input
                   id="text-fallback"
                   value={primitive.binding.fallbackText ?? ""}
@@ -968,9 +1020,9 @@ export function PlacementInspector({
               </Field>
               <InspectorSelect
                 id="text-format"
-                label="Format"
+                label={t("inspector.formatLabel")}
                 value={primitive.binding.format ?? "text"}
-                options={formatOptions}
+                options={format}
                 onChange={(next) =>
                   update(
                     (target) =>
@@ -992,13 +1044,15 @@ export function PlacementInspector({
                   }
                   className="mt-0.5"
                 />
-                <span>Hide when empty</span>
+                <span>{t("inspector.hideWhenEmpty")}</span>
               </label>
             </div>
           )}
           {!primitive.binding && (
             <Field>
-              <FieldLabel htmlFor="text-static">Text</FieldLabel>
+              <FieldLabel htmlFor="text-static">
+                {t("inspector.staticTextLabel")}
+              </FieldLabel>
               <Textarea
                 id="text-static"
                 value={primitive.text ?? ""}
@@ -1013,7 +1067,7 @@ export function PlacementInspector({
           <div className="grid gap-4 sm:grid-cols-2">
             <InspectorSelect
               id="text-font"
-              label="Font"
+              label={t("inspector.fontLabel")}
               value={primitive.fontFamily ?? "Inter"}
               options={fontOptions}
               onChange={(next) =>
@@ -1026,7 +1080,7 @@ export function PlacementInspector({
             />
             <NumberField
               unit="px"
-              label="Size"
+              label={t("inspector.sizeLabel")}
               value={primitive.fontSize ?? 48}
               min={8}
               max={600}
@@ -1036,7 +1090,7 @@ export function PlacementInspector({
             />
             <InspectorSelect
               id="text-weight"
-              label="Weight"
+              label={t("inspector.weightLabel")}
               value={String(primitive.fontWeight)}
               options={weightOptions}
               onChange={(next) =>
@@ -1050,7 +1104,7 @@ export function PlacementInspector({
             />
             <AlignmentToggle
               id="text-align"
-              label="Align"
+              label={t("inspector.alignLabel")}
               value={primitive.textAlign ?? "center"}
               onChange={(next) =>
                 update(
@@ -1062,7 +1116,7 @@ export function PlacementInspector({
             />
             <ColorField
               id="text-color"
-              label="Text color"
+              label={t("inspector.textColorLabel")}
               value={primitive.color ?? "#000000"}
               onChange={(next) =>
                 update((target) => (target.primitive!.color = next))
@@ -1070,14 +1124,14 @@ export function PlacementInspector({
             />
             <ColorField
               id="text-background"
-              label="Background"
+              label={t("inspector.fields.background")}
               value={primitive.backgroundColor ?? "#000000"}
               onChange={(next) =>
                 update((target) => (target.primitive!.backgroundColor = next))
               }
             />
             <NumberField
-              label="Line height"
+              label={t("inspector.lineHeightLabel")}
               value={primitive.lineHeight ?? 1.2}
               min={0.8}
               max={3}
@@ -1088,7 +1142,7 @@ export function PlacementInspector({
             />
             <NumberField
               unit="px"
-              label="Letter spacing"
+              label={t("inspector.letterSpacingLabel")}
               value={primitive.letterSpacing ?? 0}
               min={0}
               max={40}
@@ -1099,7 +1153,7 @@ export function PlacementInspector({
             />
             <NumberField
               unit="px"
-              label="Padding"
+              label={t("inspector.paddingLabel")}
               value={primitive.padding ?? 0}
               max={300}
               onChange={(value) =>
@@ -1107,7 +1161,7 @@ export function PlacementInspector({
               }
             />
             <NumberField
-              label="Corner radius"
+              label={t("inspector.fields.cornerRadius")}
               unit="px"
               value={primitive.cornerRadius ?? 0}
               max={1000}
@@ -1116,7 +1170,7 @@ export function PlacementInspector({
               }
             />
             <NumberField
-              label="Border"
+              label={t("inspector.borderLabel")}
               unit="px"
               value={primitive.borderWidth ?? 0}
               max={100}
@@ -1125,7 +1179,7 @@ export function PlacementInspector({
               }
             />
             <NumberField
-              label="Maximum lines"
+              label={t("inspector.maxLinesLabel")}
               value={primitive.maximumLines ?? 4}
               min={1}
               max={100}
@@ -1144,17 +1198,17 @@ export function PlacementInspector({
               }
               className="mt-0.5"
             />
-            <span>Automatically fit text</span>
+            <span>{t("inspector.autoFitLabel")}</span>
           </label>
         </InspectorSection>
       )}
       {primitive &&
         ["rectangle", "circle", "line"].includes(primitive.kind) && (
-          <InspectorSection title="Shape">
+          <InspectorSection title={t("inspector.shapeTitle")}>
             <div className="grid gap-4 sm:grid-cols-2">
               <ColorField
                 id="shape-fill"
-                label="Fill"
+                label={t("inspector.fillLabel")}
                 value={primitive.fillColor ?? "#2D7FF9"}
                 onChange={(next) =>
                   update((target) => (target.primitive!.fillColor = next))
@@ -1162,14 +1216,14 @@ export function PlacementInspector({
               />
               <ColorField
                 id="shape-stroke"
-                label="Stroke"
+                label={t("inspector.strokeLabel")}
                 value={primitive.strokeColor ?? "#FFFFFF"}
                 onChange={(next) =>
                   update((target) => (target.primitive!.strokeColor = next))
                 }
               />
               <NumberField
-                label="Stroke width"
+                label={t("inspector.strokeWidthLabel")}
                 unit="px"
                 value={primitive.strokeWidth ?? 0}
                 max={100}
@@ -1195,9 +1249,10 @@ function BindingFieldSelect({
   fields: string[];
   onChange: (next: string) => void;
 }) {
+  const { t } = useTranslation("layouts");
   return (
     <Field>
-      <FieldLabel htmlFor={id}>Field</FieldLabel>
+      <FieldLabel htmlFor={id}>{t("inspector.fieldLabel")}</FieldLabel>
       <Combobox
         items={fields}
         value={value}
@@ -1207,11 +1262,11 @@ function BindingFieldSelect({
       >
         <ComboboxInput
           id={id}
-          aria-label="Field"
-          placeholder="Search fields…"
+          aria-label={t("inspector.fieldLabel")}
+          placeholder={t("inspector.fieldSearch")}
         />
         <ComboboxContent>
-          <ComboboxEmpty>No fields match.</ComboboxEmpty>
+          <ComboboxEmpty>{t("inspector.fieldEmpty")}</ComboboxEmpty>
           <ComboboxList>
             {(field: string) => (
               <ComboboxItem key={field} value={field}>

@@ -1,0 +1,49 @@
+{
+  "a11y": {
+    "loading": "Загрузка",
+    "more": "Ещё",
+    "sidebarDescription": "Отображает мобильную боковую панель.",
+    "sidebarTitle": "Боковая панель",
+    "toggleSidebar": "Переключить боковую панель"
+  },
+  "actions": {
+    "back": "Назад",
+    "cancel": "Отмена",
+    "clearAll": "Очистить всё",
+    "close": "Закрыть",
+    "confirm": "Подтвердить",
+    "delete": "Удалить",
+    "edit": "Изменить",
+    "next": "Далее",
+    "previous": "Назад",
+    "refresh": "Обновить",
+    "refreshing": "Обновление…",
+    "remove": "Удалить",
+    "retry": "Повторить",
+    "save": "Сохранить",
+    "saveChanges": "Сохранить изменения",
+    "saving": "Сохранение…",
+    "skip": "Пропустить",
+    "submit": "Отправить"
+  },
+  "status": {
+    "loading": "Загрузка…"
+  },
+  "count": {
+    "items_one": "{{count}} элемент",
+    "items_few": "{{count}} элемента",
+    "items_many": "{{count}} элементов",
+    "items_other": "{{count}} элемента"
+  },
+  "filters": {
+    "active": "Активные фильтры",
+    "remove": "Убрать фильтр {{label}}: {{value}}",
+    "title": "Фильтры"
+  },
+  "planned": {
+    "eyebrow": "ЭТАП {{milestone}}",
+    "title": "«{{feature}}» пока недоступны.",
+    "body": "Эта установка сейчас включает основу Этапа 1. «{{feature}}» будет реализовано и протестировано на Этапе {{milestone}}.",
+    "backLink": "Вернуться к состоянию установки"
+  }
+}

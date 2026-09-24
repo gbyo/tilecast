@@ -5,6 +5,7 @@ import { RouterProvider, createBrowserRouter } from "react-router";
 import "@tilecast/design-tokens/tokens.css";
 import { App } from "./App";
 import { AuthProvider } from "./auth/AuthProvider";
+import { initI18n } from "./i18n";
 import "./styles.css";
 import "./styles/layout-fonts.css";
 import "./styles/signal.css";
@@ -27,14 +28,18 @@ const queryClient = new QueryClient({
 // splat route rendering <App/>, which continues to resolve studioRoutes via useRoutes.
 const router = createBrowserRouter([{ path: "*", element: <App /> }]);
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <TooltipProvider>
+function render() {
+  createRoot(document.getElementById("root")!).render(
+    <StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
           <RouterProvider router={router} />
-        </TooltipProvider>
-      </AuthProvider>
-    </QueryClientProvider>
-  </StrictMode>,
-);
+        </AuthProvider>
+      </QueryClientProvider>
+    </StrictMode>,
+  );
+}
+
+// A translation chunk that fails to load leaves English in place rather than
+// a blank page; i18next falls back to the bundled English strings.
+void initI18n().then(render, render);

@@ -410,7 +410,7 @@ describe("Outputs tab", () => {
     renderPage("/data-sources/f1?tab=outputs");
 
     expect(await screen.findByText("Approved one")).toBeInTheDocument();
-    expect(screen.getByText("1 records")).toBeInTheDocument();
+    expect(screen.getByText("1 record")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Rebuild outputs" }));
     await waitFor(() => expect(rebuild).toHaveBeenCalled());
   });

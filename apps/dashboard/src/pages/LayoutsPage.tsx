@@ -13,10 +13,13 @@ import {
 } from "lucide-react";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
+import { useNavigate, useSearchParams } from "react-router";
 import { api } from "../api/client";
 import type { LayoutOrientation, LayoutSummary } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { apiErrorMessage, useFormatLocale } from "../i18n";
 import {
   DashboardListToolbar,
   DashboardSearch,
@@ -78,32 +81,34 @@ import { Textarea } from "../components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import { toast } from "../components/ui/toast";
 
+export type LayoutsT = TFunction<"layouts", undefined>;
+
 const presets = [
   {
-    label: "Full HD landscape",
+    labelKey: "library.presetFullHdLandscape",
     orientation: "landscape" as const,
     width: 1920,
     height: 1080,
   },
   {
-    label: "Full HD portrait",
+    labelKey: "library.presetFullHdPortrait",
     orientation: "portrait" as const,
     width: 1080,
     height: 1920,
   },
   {
-    label: "4K landscape",
+    labelKey: "library.preset4kLandscape",
     orientation: "landscape" as const,
     width: 3840,
     height: 2160,
   },
   {
-    label: "4K portrait",
+    labelKey: "library.preset4kPortrait",
     orientation: "portrait" as const,
     width: 2160,
     height: 3840,
   },
-];
+] as const;
 
 export type LayoutLibraryOrientationFilter = "all" | LayoutOrientation;
 export type LayoutLibraryPublicationFilter =
@@ -115,31 +120,27 @@ export type LayoutPublicationState = Exclude<
 >;
 
 const layoutOrientationOptions = [
-  { value: "all", label: "All orientations" },
-  { value: "landscape", label: "Landscape" },
-  { value: "portrait", label: "Portrait" },
-  { value: "custom", label: "Custom" },
-];
+  { value: "all", labelKey: "library.orientationAll" },
+  { value: "landscape", labelKey: "orientation.landscape" },
+  { value: "portrait", labelKey: "orientation.portrait" },
+  { value: "custom", labelKey: "orientation.custom" },
+] as const;
 
 const layoutPublicationOptions = [
-  { value: "all", label: "All statuses" },
-  { value: "published", label: "Published" },
-  { value: "changes", label: "Unpublished changes" },
-  { value: "draft", label: "Draft only" },
-];
+  { value: "all", labelKey: "library.statusAll" },
+  { value: "published", labelKey: "library.statusPublished" },
+  { value: "changes", labelKey: "library.publicationChanges" },
+  { value: "draft", labelKey: "library.publicationDraft" },
+] as const;
 
 const layoutSortOptions = [
-  { value: "updated", label: "Recently updated" },
-  { value: "name", label: "Name" },
-  { value: "created", label: "Recently created" },
-  { value: "published", label: "Recently published" },
-];
+  { value: "updated", labelKey: "library.sortUpdated" },
+  { value: "name", labelKey: "library.sortName" },
+  { value: "created", labelKey: "library.sortCreated" },
+  { value: "published", labelKey: "library.sortPublished" },
+] as const;
 
 const layoutViewStorageKey = "tilecast.layout-library.view";
-const layoutNameCollator = new Intl.Collator(undefined, {
-  numeric: true,
-  sensitivity: "base",
-});
 
 function storedLayoutView(): "grid" | "list" {
   if (typeof window === "undefined") return "grid";
@@ -157,8 +158,10 @@ function timestamp(value?: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function orientationLabel(value: LayoutOrientation): string {
-  return value.charAt(0).toUpperCase() + value.slice(1);
+function orientationLabel(value: LayoutOrientation, t: LayoutsT): string {
+  if (value === "landscape") return t("orientation.landscape");
+  if (value === "portrait") return t("orientation.portrait");
+  return t("orientation.custom");
 }
 
 export function layoutPublicationState(
@@ -169,11 +172,16 @@ export function layoutPublicationState(
   return "published";
 }
 
-export function layoutPublicationLabel(layout: LayoutSummary): string {
+export function layoutPublicationLabel(
+  layout: LayoutSummary,
+  t: LayoutsT,
+): string {
   const state = layoutPublicationState(layout);
-  if (state === "draft") return "Draft only";
-  if (state === "changes") return "Unpublished changes";
-  return `Published r${layout.publishedRevision}`;
+  if (state === "draft") return t("library.publicationDraft");
+  if (state === "changes") return t("library.publicationChanges");
+  return t("library.publicationPublished", {
+    revision: layout.publishedRevision,
+  });
 }
 
 export function filterAndSortLayouts(
@@ -182,7 +190,13 @@ export function filterAndSortLayouts(
   orientation: LayoutLibraryOrientationFilter,
   publication: LayoutLibraryPublicationFilter,
   sort: LayoutLibrarySort,
+  t: LayoutsT,
+  locale: string,
 ): LayoutSummary[] {
+  const collator = new Intl.Collator(locale, {
+    numeric: true,
+    sensitivity: "base",
+  });
   const normalizedSearch = search.trim().toLocaleLowerCase();
   const filtered = layouts.filter((layout) => {
     const state = layoutPublicationState(layout);
@@ -194,10 +208,10 @@ export function filterAndSortLayouts(
       layout.name,
       layout.description,
       layout.orientation,
-      orientationLabel(layout.orientation),
+      orientationLabel(layout.orientation, t),
       `${layout.canvasWidth}x${layout.canvasHeight}`,
       `${layout.canvasWidth} × ${layout.canvasHeight}`,
-      layoutPublicationLabel(layout),
+      layoutPublicationLabel(layout, t),
     ]
       .join(" ")
       .toLocaleLowerCase();
@@ -205,44 +219,48 @@ export function filterAndSortLayouts(
   });
 
   return [...filtered].sort((left, right) => {
-    if (sort === "name")
-      return layoutNameCollator.compare(left.name, right.name);
+    if (sort === "name") return collator.compare(left.name, right.name);
     if (sort === "created") {
       return (
         timestamp(right.createdAt) - timestamp(left.createdAt) ||
-        layoutNameCollator.compare(left.name, right.name)
+        collator.compare(left.name, right.name)
       );
     }
     if (sort === "published") {
       return (
         timestamp(right.publishedAt) - timestamp(left.publishedAt) ||
         timestamp(right.updatedAt) - timestamp(left.updatedAt) ||
-        layoutNameCollator.compare(left.name, right.name)
+        collator.compare(left.name, right.name)
       );
     }
     return (
       timestamp(right.updatedAt) - timestamp(left.updatedAt) ||
-      layoutNameCollator.compare(left.name, right.name)
+      collator.compare(left.name, right.name)
     );
   });
 }
 
-export function formatLayoutUpdatedAt(value: string, now = Date.now()): string {
+export function formatLayoutUpdatedAt(
+  value: string,
+  t: LayoutsT,
+  locale: string,
+  now = Date.now(),
+): string {
   const valueTimestamp = Date.parse(value);
-  if (!Number.isFinite(valueTimestamp)) return "Update time unavailable";
+  if (!Number.isFinite(valueTimestamp)) return t("library.updatedUnavailable");
   const elapsed = Math.max(0, now - valueTimestamp);
-  if (elapsed < 60_000) return "Updated just now";
+  if (elapsed < 60_000) return t("library.updatedJustNow");
   if (elapsed < 3_600_000) {
     const minutes = Math.max(1, Math.floor(elapsed / 60_000));
-    return `Updated ${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+    return t("library.updatedMinutesAgo", { count: minutes });
   }
   if (elapsed < 86_400_000) {
     const hours = Math.max(1, Math.floor(elapsed / 3_600_000));
-    return `Updated ${hours} hour${hours === 1 ? "" : "s"} ago`;
+    return t("library.updatedHoursAgo", { count: hours });
   }
   if (elapsed < 604_800_000) {
     const days = Math.max(1, Math.floor(elapsed / 86_400_000));
-    return `Updated ${days} day${days === 1 ? "" : "s"} ago`;
+    return t("library.updatedDaysAgo", { count: days });
   }
   const options: Intl.DateTimeFormatOptions = {
     month: "short",
@@ -251,10 +269,14 @@ export function formatLayoutUpdatedAt(value: string, now = Date.now()): string {
   if (new Date(valueTimestamp).getFullYear() !== new Date(now).getFullYear()) {
     options.year = "numeric";
   }
-  return `Updated ${new Intl.DateTimeFormat(undefined, options).format(valueTimestamp)}`;
+  return t("library.updatedOnDate", {
+    date: new Intl.DateTimeFormat(locale, options).format(valueTimestamp),
+  });
 }
 
 export function LayoutsPage() {
+  const { t } = useTranslation(["layouts", "common"]);
+  const formatLocale = useFormatLocale();
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
   const canManage = auth.status?.user?.role !== "viewer";
@@ -328,6 +350,7 @@ export function LayoutsPage() {
           locked: false,
           primitive: {
             kind: "text",
+            // i18n-ignore: default headline text is layout content shown on screens, not UI
             text: "Announcement",
             fontFamily: "Inter",
             fontSize: 112,
@@ -366,8 +389,8 @@ export function LayoutsPage() {
     onError: (error) =>
       setActionError(
         error instanceof Error
-          ? error.message
-          : "The layout could not be duplicated.",
+          ? apiErrorMessage(error)
+          : t("library.duplicateFailed"),
       ),
   });
   const rename = useMutation({
@@ -393,8 +416,8 @@ export function LayoutsPage() {
     onError: (error) =>
       setActionError(
         error instanceof Error
-          ? error.message
-          : "The layout could not be renamed.",
+          ? apiErrorMessage(error)
+          : t("library.renameFailed"),
       ),
   });
   const remove = useMutation({
@@ -407,8 +430,8 @@ export function LayoutsPage() {
     onError: (error) =>
       setActionError(
         error instanceof Error
-          ? error.message
-          : "The layout could not be deleted because it is still in use.",
+          ? apiErrorMessage(error)
+          : t("library.deleteFailed"),
       ),
   });
 
@@ -430,9 +453,29 @@ export function LayoutsPage() {
   );
   const visibleLayouts = useMemo(
     () =>
-      filterAndSortLayouts(allLayouts, search, orientation, publication, sort),
-    [allLayouts, orientation, publication, search, sort],
+      filterAndSortLayouts(
+        allLayouts,
+        search,
+        orientation,
+        publication,
+        sort,
+        t,
+        formatLocale,
+      ),
+    [allLayouts, formatLocale, orientation, publication, search, sort, t],
   );
+  const orientationOptions = layoutOrientationOptions.map((option) => ({
+    value: option.value,
+    label: t(option.labelKey),
+  }));
+  const publicationOptions = layoutPublicationOptions.map((option) => ({
+    value: option.value,
+    label: t(option.labelKey),
+  }));
+  const sortOptions = layoutSortOptions.map((option) => ({
+    value: option.value,
+    label: t(option.labelKey),
+  }));
 
   const closeCreate = () => {
     setCreating(false);
@@ -473,7 +516,7 @@ export function LayoutsPage() {
   const actionsFor = (layout: LayoutSummary): LayoutMenuAction[] => {
     const actions: LayoutMenuAction[] = [
       {
-        label: canManage ? "Edit" : "Open",
+        label: canManage ? t("common:actions.edit") : t("library.menuOpen"),
         icon: <SquarePen size={14} />,
         onSelect: () => void navigate(`/layouts/${layout.id}`),
       },
@@ -481,19 +524,19 @@ export function LayoutsPage() {
     if (canManage) {
       actions.push(
         {
-          label: "Rename",
+          label: t("library.menuRename"),
           icon: <Pencil size={14} />,
           disabled: rename.isPending,
           onSelect: () => openRename(layout),
         },
         {
-          label: "Duplicate",
+          label: t("library.menuDuplicate"),
           icon: <Copy size={14} />,
           disabled: duplicate.isPending,
           onSelect: () => duplicate.mutate(layout.id),
         },
         {
-          label: "Delete",
+          label: t("common:actions.delete"),
           icon: <Trash2 size={14} />,
           danger: true,
           separated: true,
@@ -509,17 +552,18 @@ export function LayoutsPage() {
     <section className="grid gap-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">Layouts</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {t("library.title")}
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Design reusable screen compositions and find the right canvas at a
-            glance.
+            {t("library.description")}
           </p>
         </div>
         {canManage && (
           <div className="flex flex-wrap items-center gap-2">
             <Button type="button" onClick={() => setCreating(true)}>
               <Plus size={16} aria-hidden="true" />
-              Create layout
+              {t("library.createLayout")}
             </Button>
           </div>
         )}
@@ -528,24 +572,24 @@ export function LayoutsPage() {
         <DashboardSearch
           value={search}
           onValueChange={setSearch}
-          label="Search layouts"
-          placeholder="Search names, descriptions, or dimensions"
+          label={t("library.searchLabel")}
+          placeholder={t("library.searchPlaceholder")}
         />
         <Select
-          items={layoutOrientationOptions}
+          items={orientationOptions}
           value={orientation}
           onValueChange={(next) =>
             setOrientation(next as LayoutLibraryOrientationFilter)
           }
         >
           <SelectTrigger
-            aria-label="Filter layouts by orientation"
+            aria-label={t("library.filterOrientation")}
             className="w-40 max-sm:flex-1"
           >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {layoutOrientationOptions.map((option) => (
+            {orientationOptions.map((option) => (
               <SelectItem key={option.value} value={option.value}>
                 {option.label}
               </SelectItem>
@@ -553,20 +597,20 @@ export function LayoutsPage() {
           </SelectContent>
         </Select>
         <Select
-          items={layoutPublicationOptions}
+          items={publicationOptions}
           value={publication}
           onValueChange={(next) =>
             setPublication(next as LayoutLibraryPublicationFilter)
           }
         >
           <SelectTrigger
-            aria-label="Filter layouts by publication status"
+            aria-label={t("library.filterStatus")}
             className="w-48 max-sm:flex-1"
           >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {layoutPublicationOptions.map((option) => (
+            {publicationOptions.map((option) => (
               <SelectItem key={option.value} value={option.value}>
                 {option.label}
               </SelectItem>
@@ -574,18 +618,18 @@ export function LayoutsPage() {
           </SelectContent>
         </Select>
         <Select
-          items={layoutSortOptions}
+          items={sortOptions}
           value={sort}
           onValueChange={(next) => setSort(next as LayoutLibrarySort)}
         >
           <SelectTrigger
-            aria-label="Sort layouts"
+            aria-label={t("library.sortLabel")}
             className="w-48 max-sm:flex-1"
           >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {layoutSortOptions.map((option) => (
+            {sortOptions.map((option) => (
               <SelectItem key={option.value} value={option.value}>
                 {option.label}
               </SelectItem>
@@ -593,7 +637,7 @@ export function LayoutsPage() {
           </SelectContent>
         </Select>
         <ToggleGroup
-          aria-label="Layout view"
+          aria-label={t("library.viewLabel")}
           variant="outline"
           spacing={0}
           value={[view]}
@@ -602,10 +646,10 @@ export function LayoutsPage() {
             if (next === "grid" || next === "list") setView(next);
           }}
         >
-          <ToggleGroupItem value="grid" aria-label="Grid view">
+          <ToggleGroupItem value="grid" aria-label={t("library.viewGrid")}>
             <LayoutGrid size={16} aria-hidden="true" />
           </ToggleGroupItem>
-          <ToggleGroupItem value="list" aria-label="List view">
+          <ToggleGroupItem value="list" aria-label={t("library.viewList")}>
             <List size={16} aria-hidden="true" />
           </ToggleGroupItem>
         </ToggleGroup>
@@ -613,7 +657,11 @@ export function LayoutsPage() {
 
       {!layouts.isLoading && allLayouts.length > 0 && (
         <div className="text-sm text-muted-foreground" aria-live="polite">
-          Showing {visibleLayouts.length} of {allLayouts.length} layouts
+          {t("library.showingCount", {
+            count: allLayouts.length,
+            shown: visibleLayouts.length,
+            total: allLayouts.length,
+          })}
         </div>
       )}
 
@@ -621,8 +669,8 @@ export function LayoutsPage() {
         <Alert variant="destructive">
           <AlertDescription>
             {layouts.error instanceof Error
-              ? layouts.error.message
-              : "Layouts could not be loaded."}
+              ? apiErrorMessage(layouts.error)
+              : t("library.loadFailed")}
           </AlertDescription>
         </Alert>
       )}
@@ -643,17 +691,17 @@ export function LayoutsPage() {
             <EmptyMedia variant="icon">
               <LayoutTemplate size={24} aria-hidden="true" />
             </EmptyMedia>
-            <EmptyTitle>No layouts yet</EmptyTitle>
+            <EmptyTitle>{t("library.emptyTitle")}</EmptyTitle>
             <EmptyDescription>
               {canManage
-                ? "Create a landscape or portrait canvas, then arrange reusable content on it."
-                : "An Owner, Administrator, or Editor can create layouts."}
+                ? t("library.emptyCreateHint")
+                : t("library.emptyReadOnlyHint")}
             </EmptyDescription>
           </EmptyHeader>
           {canManage && (
             <EmptyContent>
               <Button type="button" onClick={() => setCreating(true)}>
-                Create layout
+                {t("library.createLayout")}
               </Button>
             </EmptyContent>
           )}
@@ -664,10 +712,8 @@ export function LayoutsPage() {
             <EmptyMedia variant="icon">
               <LayoutTemplate size={24} aria-hidden="true" />
             </EmptyMedia>
-            <EmptyTitle>No matching layouts</EmptyTitle>
-            <EmptyDescription>
-              Try a different search or clear the layout filters.
-            </EmptyDescription>
+            <EmptyTitle>{t("library.noResultsTitle")}</EmptyTitle>
+            <EmptyDescription>{t("library.noResultsHint")}</EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
             <Button
@@ -675,7 +721,7 @@ export function LayoutsPage() {
               variant="outline"
               onClick={clearLibraryFilters}
             >
-              Clear filters
+              {t("library.clearFilters")}
             </Button>
           </EmptyContent>
         </Empty>
@@ -689,7 +735,7 @@ export function LayoutsPage() {
         >
           {visibleLayouts.map((layout) => {
             const publicationState = layoutPublicationState(layout);
-            const menuLabel = `Actions for ${layout.name}`;
+            const menuLabel = t("library.cardActions", { name: layout.name });
             return (
               <ContextMenu key={layout.id}>
                 <ContextMenuTrigger
@@ -704,12 +750,17 @@ export function LayoutsPage() {
                   <Link
                     to={`/layouts/${layout.id}`}
                     className="grid w-full gap-3 rounded-xl border border-border p-3 text-left hover:bg-muted"
-                    aria-label={`${canManage ? "Edit" : "Open"} ${layout.name}`}
+                    aria-label={
+                      canManage
+                        ? t("library.cardEdit", { name: layout.name })
+                        : t("library.cardOpen", { name: layout.name })
+                    }
+                    onClick={() => void navigate(`/layouts/${layout.id}`)}
                   >
                     <span className="relative block">
                       <LayoutPreview layout={layout} />
                       <span className="absolute top-2 left-2 rounded-full bg-background/90 px-2 py-0.5 text-xs font-medium">
-                        {layoutPublicationLabel(layout)}
+                        {layoutPublicationLabel(layout, t)}
                       </span>
                       <span className="absolute right-2 bottom-2 rounded-full bg-background/90 px-2 py-0.5 text-xs tabular-nums">
                         {layout.canvasWidth} × {layout.canvasHeight}
@@ -730,17 +781,29 @@ export function LayoutsPage() {
                         />
                       </span>
                       <span className="truncate text-xs text-muted-foreground">
-                        {layout.description || "No description"}
+                        {layout.description || t("library.cardNoDescription")}
                       </span>
                       <span className="flex items-center gap-3 text-xs text-muted-foreground">
-                        <span>{orientationLabel(layout.orientation)}</span>
-                        <span>Draft r{layout.draftRevision}</span>
+                        <span>{orientationLabel(layout.orientation, t)}</span>
+                        <span>
+                          {t("library.cardDraftRevision", {
+                            revision: layout.draftRevision,
+                          })}
+                        </span>
                         {layout.publishedRevision && (
-                          <span>Published r{layout.publishedRevision}</span>
+                          <span>
+                            {t("library.publicationPublished", {
+                              revision: layout.publishedRevision,
+                            })}
+                          </span>
                         )}
                       </span>
                       <small className="text-xs text-muted-foreground">
-                        {formatLayoutUpdatedAt(layout.updatedAt)}
+                        {formatLayoutUpdatedAt(
+                          layout.updatedAt,
+                          t,
+                          formatLocale,
+                        )}
                       </small>
                     </span>
                   </Link>
@@ -797,14 +860,16 @@ export function LayoutsPage() {
       >
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Create layout</DialogTitle>
+            <DialogTitle>{t("library.createLayout")}</DialogTitle>
             <DialogDescription>
-              Name the canvas, pick its size, and choose a starting point.
+              {t("library.createDescription")}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4">
             <Field>
-              <FieldLabel htmlFor="layout-create-name">Name *</FieldLabel>
+              <FieldLabel htmlFor="layout-create-name">
+                {t("library.formName")}
+              </FieldLabel>
               <Input
                 id="layout-create-name"
                 autoFocus
@@ -814,7 +879,7 @@ export function LayoutsPage() {
             </Field>
             <Field>
               <FieldLabel htmlFor="layout-create-description">
-                Description
+                {t("library.formDescription")}
               </FieldLabel>
               <Textarea
                 id="layout-create-description"
@@ -823,11 +888,13 @@ export function LayoutsPage() {
                 onChange={(event) => setDescription(event.target.value)}
               />
               <FieldDescription>
-                Optional context that makes the layout easier to find later.
+                {t("library.formDescriptionHint")}
               </FieldDescription>
             </Field>
             <fieldset className="grid gap-2">
-              <legend className="text-sm font-medium">Canvas size</legend>
+              <legend className="text-sm font-medium">
+                {t("canvas.sizeTitle")}
+              </legend>
               <div className="grid gap-2 sm:grid-cols-2">
                 {presets.map((item, index) => (
                   <Button
@@ -835,7 +902,7 @@ export function LayoutsPage() {
                     variant={preset === index ? "default" : "outline"}
                     className="h-auto items-center gap-3 p-3 text-left"
                     aria-pressed={preset === index}
-                    key={item.label}
+                    key={item.labelKey}
                     onClick={() => setPreset(index)}
                   >
                     <span
@@ -847,7 +914,7 @@ export function LayoutsPage() {
                       }
                     />
                     <span className="grid gap-0.5">
-                      <strong className="text-sm">{item.label}</strong>
+                      <strong className="text-sm">{t(item.labelKey)}</strong>
                       <small className="text-xs font-normal opacity-80">
                         {item.width} × {item.height}
                       </small>
@@ -857,7 +924,9 @@ export function LayoutsPage() {
               </div>
             </fieldset>
             <fieldset className="grid gap-2">
-              <legend className="text-sm font-medium">Starting point</legend>
+              <legend className="text-sm font-medium">
+                {t("library.templateLegend")}
+              </legend>
               <div className="grid gap-2 sm:grid-cols-2">
                 <Button
                   type="button"
@@ -868,9 +937,11 @@ export function LayoutsPage() {
                 >
                   <LayoutTemplate size={20} aria-hidden="true" />
                   <span className="grid gap-0.5">
-                    <strong className="text-sm">Blank canvas</strong>
+                    <strong className="text-sm">
+                      {t("library.templateBlank")}
+                    </strong>
                     <small className="text-xs font-normal opacity-80">
-                      Start with an empty layout.
+                      {t("library.templateBlankHint")}
                     </small>
                   </span>
                 </Button>
@@ -883,9 +954,11 @@ export function LayoutsPage() {
                 >
                   <SquarePen size={20} aria-hidden="true" />
                   <span className="grid gap-0.5">
-                    <strong className="text-sm">Announcement</strong>
+                    <strong className="text-sm">
+                      {t("library.templateAnnouncement")}
+                    </strong>
                     <small className="text-xs font-normal opacity-80">
-                      Begin with an accent bar and headline.
+                      {t("library.templateAnnouncementHint")}
                     </small>
                   </span>
                 </Button>
@@ -895,22 +968,24 @@ export function LayoutsPage() {
               <Alert variant="destructive">
                 <AlertDescription>
                   {create.error instanceof Error
-                    ? create.error.message
-                    : "The layout could not be created."}
+                    ? apiErrorMessage(create.error)
+                    : t("library.createFailed")}
                 </AlertDescription>
               </Alert>
             )}
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={closeCreate}>
-              Cancel
+              {t("common:actions.cancel")}
             </Button>
             <Button
               type="button"
               disabled={!name.trim() || create.isPending}
               onClick={() => create.mutate()}
             >
-              {create.isPending ? "Creating…" : "Create layout"}
+              {create.isPending
+                ? t("library.creating")
+                : t("library.createLayout")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -924,11 +999,13 @@ export function LayoutsPage() {
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Rename layout</DialogTitle>
+            <DialogTitle>{t("library.renameTitle")}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4">
             <Field>
-              <FieldLabel htmlFor="layout-rename-name">Name *</FieldLabel>
+              <FieldLabel htmlFor="layout-rename-name">
+                {t("library.formName")}
+              </FieldLabel>
               <Input
                 id="layout-rename-name"
                 autoFocus
@@ -954,15 +1031,15 @@ export function LayoutsPage() {
               <Alert variant="destructive">
                 <AlertDescription>
                   {rename.error instanceof Error
-                    ? rename.error.message
-                    : "The layout could not be renamed."}
+                    ? apiErrorMessage(rename.error)
+                    : t("library.renameFailed")}
                 </AlertDescription>
               </Alert>
             )}
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={closeRename}>
-              Cancel
+              {t("common:actions.cancel")}
             </Button>
             <Button
               type="button"
@@ -980,7 +1057,9 @@ export function LayoutsPage() {
                 });
               }}
             >
-              {rename.isPending ? "Saving…" : "Save name"}
+              {rename.isPending
+                ? t("common:actions.saving")
+                : t("library.renameSave")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -994,15 +1073,16 @@ export function LayoutsPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Delete {pendingDelete?.name ?? "layout"}?
+              {t("library.deleteTitle", {
+                name: pendingDelete?.name ?? t("library.deleteFallbackName"),
+              })}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Playlists using this layout keep their last published copy. This
-              cannot be undone.
+              {t("library.deleteDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               disabled={remove.isPending}
               onClick={() => {
@@ -1012,7 +1092,7 @@ export function LayoutsPage() {
                 }
               }}
             >
-              Delete layout
+              {t("library.deleteSubmit")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1022,8 +1102,8 @@ export function LayoutsPage() {
 }
 
 export const layoutPresets: {
-  label: string;
+  labelKey: string;
   orientation: LayoutOrientation;
   width: number;
   height: number;
-}[] = presets;
+}[] = [...presets];

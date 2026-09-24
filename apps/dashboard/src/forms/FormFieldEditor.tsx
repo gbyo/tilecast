@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { FormField, FormFieldControl } from "../api/types";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
@@ -44,9 +45,10 @@ export function FormFieldEditor({
   readOnly: boolean;
   onChange: (next: FormField) => void;
 }) {
+  const { t } = useTranslation("forms");
   const meta = controlMeta(field.control);
   const disabled = readOnly;
-  const keyError = validateKey(field.key, allKeys, field.key);
+  const keyError = validateKey(field.key, allKeys, field.key, t);
 
   const update = (patch: Partial<FormField>) =>
     onChange({ ...field, ...patch });
@@ -64,8 +66,14 @@ export function FormFieldEditor({
       delete next.options;
     } else if (!next.options || next.options.length === 0) {
       next.options = [
-        { value: "option_1", label: "Option 1" },
-        { value: "option_2", label: "Option 2" },
+        {
+          value: "option_1",
+          label: t("fieldEditor.newOptionLabel", { index: 1 }),
+        },
+        {
+          value: "option_2",
+          label: t("fieldEditor.newOptionLabel", { index: 2 }),
+        },
       ];
     }
     if (!nextMeta.numericBounds) {
@@ -83,18 +91,19 @@ export function FormFieldEditor({
     <div className="grid gap-3">
       {(lock.keyLocked || lock.controlLocked) && (
         <Alert>
-          <AlertTitle>Published field</AlertTitle>
+          <AlertTitle>{t("fieldEditor.publishedTitle")}</AlertTitle>
           <AlertDescription>
-            This field is part of the published form, so its key
-            {lock.controlLocked ? " and output type" : ""} are locked to keep
-            Widgets and saved views working. You can still edit its label, help
-            text, validation, and order.
+            {lock.controlLocked
+              ? t("fieldEditor.publishedWithType")
+              : t("fieldEditor.publishedBase")}
           </AlertDescription>
         </Alert>
       )}
 
       <Field>
-        <FieldLabel htmlFor="form-field-label">Label</FieldLabel>
+        <FieldLabel htmlFor="form-field-label">
+          {t("fieldEditor.label")}
+        </FieldLabel>
         <Input
           id="form-field-label"
           required
@@ -106,26 +115,28 @@ export function FormFieldEditor({
 
       {!meta.presentation && (
         <Field>
-          <FieldLabel htmlFor="form-field-key">Field key</FieldLabel>
+          <FieldLabel htmlFor="form-field-key">
+            {t("fieldEditor.key")}
+          </FieldLabel>
           <Input
             id="form-field-key"
             value={field.key}
             disabled={disabled || lock.keyLocked}
             onChange={(event) => update({ key: event.target.value })}
           />
-          <FieldDescription>
-            Stable identifier used by Widgets and views.
-          </FieldDescription>
+          <FieldDescription>{t("fieldEditor.keyHint")}</FieldDescription>
           {keyError && <FieldError>{keyError}</FieldError>}
         </Field>
       )}
 
       <Field>
-        <FieldLabel htmlFor="form-field-type">Field type</FieldLabel>
-        <Select
+        <FieldLabel htmlFor="form-field-type">
+          {t("fieldEditor.type")}
+        </FieldLabel>
+        <RheaSelect
           items={controlOptions.map((control) => ({
             value: control,
-            label: controlMeta(control).label,
+            label: t(controlMeta(control).labelKey),
           }))}
           value={field.control}
           disabled={
@@ -135,13 +146,16 @@ export function FormFieldEditor({
             if (value) changeControl(value);
           }}
         >
-          <SelectTrigger id="form-field-type" aria-label="Field type">
+          <SelectTrigger
+            id="form-field-type"
+            aria-label={t("fieldEditor.type")}
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {controlOptions.map((control) => (
               <SelectItem key={control} value={control}>
-                {controlMeta(control).label}
+                {t(controlMeta(control).labelKey)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -149,7 +163,9 @@ export function FormFieldEditor({
       </Field>
 
       <Field>
-        <FieldLabel htmlFor="form-field-help">Help text</FieldLabel>
+        <FieldLabel htmlFor="form-field-help">
+          {t("fieldEditor.help")}
+        </FieldLabel>
         <Textarea
           id="form-field-help"
           rows={2}
@@ -157,7 +173,7 @@ export function FormFieldEditor({
           disabled={disabled}
           onChange={(event) => update({ description: event.target.value })}
         />
-        <FieldDescription>Shown under the field.</FieldDescription>
+        <FieldDescription>{t("fieldEditor.helpHint")}</FieldDescription>
       </Field>
 
       {!meta.presentation && (
@@ -171,14 +187,16 @@ export function FormFieldEditor({
             }
           />
           <FieldLabel htmlFor="form-field-required" className="font-normal">
-            Required
+            {t("fieldEditor.required")}
           </FieldLabel>
         </Field>
       )}
 
       {!meta.presentation && field.control !== "image" && (
         <Field>
-          <FieldLabel htmlFor="form-field-default">Default value</FieldLabel>
+          <FieldLabel htmlFor="form-field-default">
+            {t("fieldEditor.defaultValue")}
+          </FieldLabel>
           <Input
             id="form-field-default"
             value={field.default ?? ""}
@@ -195,7 +213,9 @@ export function FormFieldEditor({
       {meta.numericBounds && (
         <div className="grid gap-3 sm:grid-cols-2">
           <Field>
-            <FieldLabel htmlFor="form-field-minimum">Minimum</FieldLabel>
+            <FieldLabel htmlFor="form-field-minimum">
+              {t("fieldEditor.minimum")}
+            </FieldLabel>
             <Input
               id="form-field-minimum"
               type="number"
@@ -212,7 +232,9 @@ export function FormFieldEditor({
             />
           </Field>
           <Field>
-            <FieldLabel htmlFor="form-field-maximum">Maximum</FieldLabel>
+            <FieldLabel htmlFor="form-field-maximum">
+              {t("fieldEditor.maximum")}
+            </FieldLabel>
             <Input
               id="form-field-maximum"
               type="number"
@@ -235,7 +257,7 @@ export function FormFieldEditor({
         <div className="grid gap-3 sm:grid-cols-2">
           <Field>
             <FieldLabel htmlFor="form-field-min-length">
-              Minimum length
+              {t("fieldEditor.minLength")}
             </FieldLabel>
             <Input
               id="form-field-min-length"
@@ -254,7 +276,7 @@ export function FormFieldEditor({
           </Field>
           <Field>
             <FieldLabel htmlFor="form-field-max-length">
-              Maximum length
+              {t("fieldEditor.maxLength")}
             </FieldLabel>
             <Input
               id="form-field-max-length"
@@ -286,15 +308,18 @@ function OptionsEditor({
   disabled: boolean;
   onChange: (patch: Partial<FormField>) => void;
 }) {
+  const { t } = useTranslation("forms");
   const options = field.options ?? [];
   const setOptions = (next: typeof options) => onChange({ options: next });
   return (
     <fieldset className="grid gap-2 rounded-xl border border-border p-3">
-      <legend className="text-sm font-medium">Options</legend>
+      <legend className="text-sm font-medium">
+        {t("fieldEditor.options")}
+      </legend>
       {options.map((option, index) => (
         <div key={index} className="flex items-center gap-2">
           <Input
-            aria-label={`Option ${index + 1} label`}
+            aria-label={t("fieldEditor.optionLabel", { n: index + 1 })}
             value={option.label}
             disabled={disabled}
             onChange={(event) => {
@@ -304,7 +329,7 @@ function OptionsEditor({
             }}
           />
           <Input
-            aria-label={`Option ${index + 1} value`}
+            aria-label={t("fieldEditor.optionValue", { n: index + 1 })}
             value={option.value}
             disabled={disabled}
             onChange={(event) => {
@@ -319,8 +344,8 @@ function OptionsEditor({
             disabled={disabled || options.length <= 1}
             onClick={() => setOptions(options.filter((_, i) => i !== index))}
           >
-            Remove
-          </Button>
+            {t("fieldEditor.remove")}
+          </RheaButton>
         </div>
       ))}
       <Button
@@ -337,12 +362,15 @@ function OptionsEditor({
           }
           setOptions([
             ...options,
-            { value: `option_${index}`, label: `Option ${index}` },
+            {
+              value: `option_${index}`,
+              label: t("fieldEditor.newOptionLabel", { index }),
+            },
           ]);
         }}
       >
-        Add option
-      </Button>
+        {t("fieldEditor.addOption")}
+      </RheaButton>
     </fieldset>
   );
 }

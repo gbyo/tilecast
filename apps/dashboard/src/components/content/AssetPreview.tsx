@@ -1,8 +1,10 @@
 import { FileImage, FileVideo } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { Asset } from "../../api/types";
 
 export function AssetPreview({ asset }: { asset: Asset }) {
+  const { t } = useTranslation(["content", "common"]);
   const [failedImageUrl, setFailedImageUrl] = useState<string>();
   const imageUrl = asset.thumbnailUrl;
   const isSuperwide = Boolean(
@@ -22,7 +24,9 @@ export function AssetPreview({ asset }: { asset: Asset }) {
   }
   if (asset.type === "widget")
     return (
-      <span className="asset-preview-unavailable">Preview unavailable</span>
+      <span className="asset-preview-unavailable">
+        {t("media.preview.unavailable")}
+      </span>
     );
   if (asset.type === "video") return <FileVideo size={28} />;
   return <FileImage size={28} />;

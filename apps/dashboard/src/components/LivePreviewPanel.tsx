@@ -11,9 +11,12 @@ import {
   WifiOff,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { api } from "../api/client";
 import { previewApi } from "../api/previews";
 import { useAuth } from "../auth/AuthProvider";
+import { useFormatLocale } from "../i18n";
 import { LiveStreamDialog } from "./LiveStreamDialog";
 import { Button } from "./ui/button";
 import {
@@ -32,6 +35,8 @@ const captureAgeToneClasses = {
 
 export function LivePreviewPanel({ screenId }: { screenId: string }) {
   const auth = useAuth();
+  const { t } = useTranslation(["screens", "common"]);
+  const formatLocale = useFormatLocale();
   const [renewalError, setRenewalError] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now);
   const [watchingLive, setWatchingLive] = useState(false);
@@ -58,7 +63,9 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
       } catch (error) {
         if (active)
           setRenewalError(
-            error instanceof Error ? error.message : "Preview session failed.",
+            error instanceof Error
+              ? error.message
+              : t("livePreview.sessionFailed"),
           );
       }
     };
@@ -71,7 +78,7 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
       active = false;
       window.clearInterval(interval);
     };
-  }, [csrfToken, screenId]);
+  }, [csrfToken, screenId, t]);
 
   const manualRefresh = useMutation({
     mutationFn: async () => {
@@ -93,7 +100,7 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
     ? new Date(preview.data.capturedAt)
     : null;
   const captureAge = preview.data?.capturedAt
-    ? previewAge(preview.data.capturedAt, now)
+    ? previewAge(preview.data.capturedAt, now, t)
     : null;
 
   useEffect(() => {
@@ -105,14 +112,16 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
   return (
     <aside
       className="live-preview-panel grid gap-4 rounded-xl border border-border bg-card p-4"
-      aria-label="Live preview"
+      aria-label={t("livePreview.title")}
     >
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            On demand
+            {t("livePreview.onDemand")}
           </span>
-          <h2 className="mt-0.5 text-base font-semibold">Live preview</h2>
+          <h2 className="mt-0.5 text-base font-semibold">
+            {t("livePreview.title")}
+          </h2>
         </div>
         <div className="flex flex-wrap justify-end gap-2">
           <Button
@@ -122,7 +131,9 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
             disabled={manualRefresh.isPending}
           >
             <RefreshCw aria-hidden="true" />
-            {manualRefresh.isPending ? "Refreshing…" : "Refresh"}
+            {manualRefresh.isPending
+              ? t("common:actions.refreshing")
+              : t("common:actions.refresh")}
           </Button>
           <Button
             size="sm"
@@ -130,7 +141,7 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
             disabled={screen.data?.status !== "online" || !csrfToken}
           >
             <Video aria-hidden="true" />
-            Watch live
+            {t("livePreview.watchLive")}
           </Button>
         </div>
       </header>
@@ -140,7 +151,9 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
           <img
             className="size-full bg-black object-contain"
             src={imageUrl}
-            alt={`Current Tilecast output for ${screen.data?.name ?? "screen"}`}
+            alt={t("livePreview.imageAlt", {
+              name: screen.data?.name ?? t("livePreview.unknownScreen"),
+            })}
           />
         ) : (
           <PreviewState
@@ -152,7 +165,11 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
           <span
             className={`absolute right-2 bottom-2 rounded-md px-2 py-1 text-xs font-semibold ${captureAgeToneClasses[captureAge.tone]}`}
             title={
-              capturedAt ? `Captured ${capturedAt.toLocaleString()}` : undefined
+              capturedAt
+                ? t("livePreview.capturedTitle", {
+                    date: capturedAt.toLocaleString(formatLocale),
+                  })
+                : undefined
             }
           >
             {captureAge.label}
@@ -161,33 +178,37 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
       </div>
 
       <div className="grid gap-1" aria-live="polite">
-        <strong className="text-sm font-medium">{stateLabel(state)}</strong>
+        <strong className="text-sm font-medium">
+          {t(stateLabelKeys[state])}
+        </strong>
         <span className="text-sm text-muted-foreground">
-          {stateDescription(state, renewalError)}
+          {stateDescription(state, renewalError, t)}
         </span>
       </div>
 
       <dl className="grid gap-3 border-y border-border py-3 text-xs sm:grid-cols-3">
         <div className="grid gap-1">
-          <dt>Last capture</dt>
+          <dt>{t("livePreview.lastCapture")}</dt>
           <dd className="m-0 break-words text-muted-foreground">
-            {capturedAt ? capturedAt.toLocaleString() : "Not captured"}
+            {capturedAt
+              ? capturedAt.toLocaleString(formatLocale)
+              : t("livePreview.notCaptured")}
           </dd>
         </div>
         <div className="grid gap-1">
-          <dt>Player</dt>
+          <dt>{t("livePreview.player")}</dt>
           <dd className="m-0 break-words text-muted-foreground">
             {preview.data?.playerVersion ||
               screen.data?.playerVersion ||
-              "Unknown"}
+              t("shared.unknown")}
           </dd>
         </div>
         <div className="grid gap-1">
-          <dt>Image</dt>
+          <dt>{t("livePreview.image")}</dt>
           <dd className="m-0 break-words text-muted-foreground">
             {preview.data?.width && preview.data?.height
               ? `${preview.data.width}×${preview.data.height} · ${formatBytes(preview.data.fileSize ?? 0)}`
-              : "No image"}
+              : t("livePreview.noImage")}
           </dd>
         </div>
       </dl>
@@ -196,13 +217,13 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
           className="size-4 text-emerald-700 dark:text-emerald-400"
           aria-hidden="true"
         />
-        <span>Protected screens are not captured.</span>
+        <span>{t("livePreview.protectedNote")}</span>
       </div>
       {csrfToken && (
         <LiveStreamDialog
           open={watchingLive}
           screenId={screenId}
-          screenName={screen.data?.name ?? "Screen"}
+          screenName={screen.data?.name ?? t("livePreview.unnamedScreen")}
           csrfToken={csrfToken}
           onClose={() => setWatchingLive(false)}
         />
@@ -211,6 +232,24 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
   );
 }
 
+const stateLabelKeys = {
+  loading: "livePreview.states.loading.label",
+  live: "livePreview.states.live.label",
+  offline: "livePreview.states.offline.label",
+  stale: "livePreview.states.stale.label",
+  unavailable: "livePreview.states.unavailable.label",
+  "capture-error": "livePreview.states.captureError.label",
+} as const;
+
+const stateDescriptionKeys = {
+  loading: "livePreview.states.loading.description",
+  live: "livePreview.states.live.description",
+  offline: "livePreview.states.offline.description",
+  stale: "livePreview.states.stale.description",
+  unavailable: "livePreview.states.unavailable.description",
+  "capture-error": "livePreview.states.captureError.description",
+} as const;
+
 function PreviewState({
   state,
   failureStatus,
@@ -218,18 +257,19 @@ function PreviewState({
   state: ReturnType<typeof livePreviewState>;
   failureStatus?: string;
 }) {
+  const { t } = useTranslation("screens");
   const content = {
-    loading: [Clock3, "Requesting a fresh capture…"],
-    offline: [WifiOff, "The player is offline."],
-    stale: [Clock3, "The latest preview is stale."],
-    unavailable: [ShieldAlert, previewUnavailableMessage(failureStatus)],
-    "capture-error": [
-      AlertTriangle,
-      "The player could not capture its window.",
-    ],
-    live: [Monitor, "Live preview is ready."],
+    loading: [Clock3, "livePreview.overlay.loading"],
+    offline: [WifiOff, "livePreview.overlay.offline"],
+    stale: [Clock3, "livePreview.overlay.stale"],
+    unavailable: [ShieldAlert, null],
+    "capture-error": [AlertTriangle, "livePreview.overlay.captureError"],
+    live: [Monitor, "livePreview.overlay.live"],
   } as const;
-  const [Icon, message] = content[state] ?? [ImageOff, "Preview unavailable."];
+  const [Icon, messageKey] = content[state] ?? [
+    ImageOff,
+    "livePreview.overlay.unknown",
+  ];
   const stateClasses =
     state === "capture-error"
       ? "bg-destructive/10 text-destructive"
@@ -241,35 +281,22 @@ function PreviewState({
       className={`grid place-content-center justify-items-center gap-2 p-4 text-center text-muted-foreground ${stateClasses}`}
     >
       <Icon className="size-7" aria-hidden="true" />
-      <span>{message}</span>
+      <span>
+        {messageKey
+          ? t(messageKey)
+          : previewUnavailableMessage(failureStatus, t)}
+      </span>
     </div>
   );
-}
-
-function stateLabel(state: ReturnType<typeof livePreviewState>) {
-  return {
-    loading: "Loading",
-    live: "Live",
-    offline: "Offline",
-    stale: "Stale",
-    unavailable: "Unavailable",
-    "capture-error": "Capture error",
-  }[state];
 }
 
 function stateDescription(
   state: ReturnType<typeof livePreviewState>,
   renewalError: string | null,
+  t: TFunction<["screens", "common"]>,
 ) {
   if (renewalError) return renewalError;
-  return {
-    loading: "Waiting for the paired player to respond.",
-    live: "Refreshes about every 20 seconds while this page is open.",
-    offline: "The session will resume when the player reconnects.",
-    stale: "The player has not delivered a recent capture.",
-    unavailable: "The current player screen cannot be previewed.",
-    "capture-error": "Use Refresh to request another capture.",
-  }[state];
+  return t(stateDescriptionKeys[state]);
 }
 
 function formatBytes(bytes: number) {

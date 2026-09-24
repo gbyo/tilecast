@@ -1,5 +1,8 @@
+import type { TFunction } from "i18next";
 import type { Screen, ScreenStatus } from "../api/types";
 import type { ScreenPreview } from "../api/previews";
+
+type ScreensT = TFunction<"screens"> | undefined;
 
 export type LivePreviewState =
   "loading" | "live" | "offline" | "stale" | "unavailable" | "capture-error";
@@ -35,6 +38,7 @@ export function livePreviewState(
 export function previewAge(
   capturedAt: string,
   now = Date.now(),
+  t?: ScreensT,
 ): { label: string; tone: PreviewAgeTone } | null {
   const capturedAtMillis = new Date(capturedAt).getTime();
   if (!Number.isFinite(capturedAtMillis)) return null;
@@ -44,13 +48,18 @@ export function previewAge(
   let label: string;
 
   if (ageSeconds < 60) {
-    label = `${ageSeconds}s ago`;
+    label =
+      t?.("livePreview.age.seconds", { value: ageSeconds }) ??
+      `${ageSeconds}s ago`;
   } else if (ageSeconds < 3_600) {
-    label = `${Math.floor(ageSeconds / 60)}m ago`;
+    const value = Math.floor(ageSeconds / 60);
+    label = t?.("livePreview.age.minutes", { value }) ?? `${value}m ago`;
   } else if (ageSeconds < 86_400) {
-    label = `${Math.floor(ageSeconds / 3_600)}h ago`;
+    const value = Math.floor(ageSeconds / 3_600);
+    label = t?.("livePreview.age.hours", { value }) ?? `${value}h ago`;
   } else {
-    label = `${Math.floor(ageSeconds / 86_400)}d ago`;
+    const value = Math.floor(ageSeconds / 86_400);
+    label = t?.("livePreview.age.days", { value }) ?? `${value}d ago`;
   }
 
   const tone: PreviewAgeTone =
@@ -58,8 +67,17 @@ export function previewAge(
   return { label, tone };
 }
 
-export function previewUnavailableMessage(failureStatus?: string) {
+export function previewUnavailableMessage(
+  failureStatus?: string,
+  t?: ScreensT,
+) {
   if (failureStatus?.startsWith("sensitive_"))
-    return "Preview is paused while a protected player screen is open.";
-  return "A preview is not available from this player yet.";
+    return (
+      t?.("livePreview.unavailable.protected") ??
+      "Preview is paused while a protected player screen is open."
+    );
+  return (
+    t?.("livePreview.unavailable.notYet") ??
+    "A preview is not available from this player yet."
+  );
 }

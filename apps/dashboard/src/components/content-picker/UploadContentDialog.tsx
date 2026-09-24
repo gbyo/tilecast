@@ -1,7 +1,10 @@
 import { Upload } from "lucide-react";
 import { useRef, useState, type ChangeEvent, type DragEvent } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { api } from "../../api/client";
 import type { Asset } from "../../api/types";
+import { apiErrorMessage } from "../../i18n";
 import { useConfirm } from "../ConfirmDialog";
 import { Button } from "../ui/button";
 import {
@@ -23,6 +26,18 @@ type UploadItem = {
   error?: string;
 };
 
+function uploadStateLabel(
+  state: UploadItem["state"],
+  t: TFunction<["content", "common"]>,
+) {
+  return {
+    waiting: t("media.status.waiting"),
+    uploading: t("media.status.uploading"),
+    processing: t("media.status.processing"),
+    failed: t("media.status.failed"),
+  }[state];
+}
+
 const accepted =
   "image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/x-matroska";
 const chunkSize = 4 * 1024 * 1024;
@@ -30,7 +45,7 @@ const chunkSize = 4 * 1024 * 1024;
 export function UploadContentDialog({
   open,
   csrf,
-  closeLabel = "Return to content",
+  closeLabel,
   onCreated,
   onClose,
   onCloseComplete,
@@ -42,9 +57,12 @@ export function UploadContentDialog({
   onClose: () => void;
   onCloseComplete?: () => void;
 }) {
+  const { t } = useTranslation(["content", "common"]);
+  const { t: tErrors } = useTranslation("errors");
   const [items, setItems] = useState<UploadItem[]>([]);
   const input = useRef<HTMLInputElement>(null);
   const { confirm, dialog: confirmDialog } = useConfirm();
+  const resolvedCloseLabel = closeLabel ?? t("picker.upload.returnToContent");
   const active = items.some((item) =>
     ["waiting", "uploading"].includes(item.state),
   );
@@ -54,8 +72,8 @@ export function UploadContentDialog({
       return;
     }
     void confirm({
-      title: "Uploads are still active. Close this upload view?",
-      action: "Close",
+      title: t("picker.upload.activeConfirm"),
+      action: t("common:actions.close"),
     }).then((ok) => {
       if (ok) onClose();
     });
@@ -97,7 +115,10 @@ export function UploadContentDialog({
     } catch (error) {
       update(id, {
         state: "failed",
-        error: error instanceof Error ? error.message : "Upload failed.",
+        error:
+          error instanceof Error
+            ? apiErrorMessage(error)
+            : tErrors("fallback.uploadFailed"),
       });
     }
   };
@@ -124,14 +145,31 @@ export function UploadContentDialog({
           }
         }}
       >
-        <DialogContent className="upload-content-dialog max-w-[min(45rem,calc(100%-2rem))] gap-4 overflow-y-auto p-6">
-          <DialogHeader>
-            <DialogTitle>Upload media</DialogTitle>
-            <DialogDescription>
-              Upload one or more images or videos.
-            </DialogDescription>
-          </DialogHeader>
-          <Button
+        <section
+          ref={dialog}
+          className="upload-content-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="upload-content-title"
+        >
+          <header>
+            <div>
+              <h3 id="upload-content-title">
+                {t("picker.upload.uploadMedia")}
+              </h3>
+              <p>{t("picker.upload.subtitle")}</p>
+            </div>
+            <Button
+              autoFocus
+              variant="ghost"
+              size="icon-sm"
+              aria-label={t("picker.upload.closeUploads")}
+              onClick={close}
+            >
+              <X size={18} />
+            </Button>
+          </header>
+          <button
             type="button"
             variant="outline"
             className="picker-upload-dropzone h-auto w-full grid min-h-[11.25rem] place-items-center content-center gap-2 border-dashed bg-muted py-8 text-foreground hover:bg-accent"
@@ -140,9 +178,9 @@ export function UploadContentDialog({
             onDrop={drop}
           >
             <Upload size={24} />
-            <strong>Drop files here or choose files</strong>
-            <span>Images and videos · multiple files supported</span>
-          </Button>
+            <strong>{t("picker.upload.dropHint")}</strong>
+            <span>{t("picker.upload.acceptedHint")}</span>
+          </button>
           <input
             ref={input}
             className="visually-hidden"
@@ -156,7 +194,7 @@ export function UploadContentDialog({
               <div key={item.id}>
                 <span>
                   <strong>{item.name}</strong>
-                  <small>{item.error ?? item.state}</small>
+                  <small>{item.error ?? uploadStateLabel(item.state, t)}</small>
                 </span>
                 <progress value={item.uploaded} max={item.size} />
               </div>
@@ -164,7 +202,7 @@ export function UploadContentDialog({
           </div>
           <DialogFooter>
             <Button variant="secondary" onClick={close}>
-              {closeLabel}
+              {resolvedCloseLabel}
             </Button>
           </DialogFooter>
         </DialogContent>

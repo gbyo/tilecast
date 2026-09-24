@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { CircleAlert } from "lucide-react";
 import type { PluginSummary } from "../api/types";
 import { Alert, AlertDescription } from "../components/ui/alert";
@@ -17,6 +18,7 @@ import { PluginIcon } from "./PluginIcon";
  * installed. Everything here comes from the server's registry.
  */
 export function PluginDetail({ plugin }: { plugin: PluginSummary }) {
+  const { t } = useTranslation("plugins");
   return (
     <div className="grid gap-5 pr-2">
       <Item className="px-0 py-0">
@@ -27,7 +29,7 @@ export function PluginDetail({ plugin }: { plugin: PluginSummary }) {
           <ItemTitle className="text-base">{plugin.name}</ItemTitle>
           <ItemDescription className="flex flex-wrap items-center gap-1.5">
             <Badge variant="outline">{plugin.category}</Badge>
-            <span>Built into Tilecast</span>
+            <span>{t("detail.builtIn")}</span>
           </ItemDescription>
         </ItemContent>
       </Item>
@@ -40,8 +42,8 @@ export function PluginDetail({ plugin }: { plugin: PluginSummary }) {
       ))}
       <Separator />
       <DetailList
-        title="Requirements"
-        empty="No Player or network requirements."
+        title={t("detail.requirements")}
+        empty={t("detail.noRequirements")}
         items={plugin.requirements.map((requirement) => ({
           key: requirement.kind + requirement.label,
           label: requirement.label,
@@ -49,7 +51,7 @@ export function PluginDetail({ plugin }: { plugin: PluginSummary }) {
         }))}
       />
       <DetailList
-        title="Uses"
+        title={t("detail.uses")}
         items={plugin.capabilities.map((capability) => ({
           key: capability,
           label: capability,

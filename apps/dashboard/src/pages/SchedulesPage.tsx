@@ -34,10 +34,15 @@ import {
 } from "../components/ui/select";
 import { Skeleton } from "../components/ui/skeleton";
 import { useEffect, useState } from "react";
+import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../api/client";
 import type { ScreenGroup } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { useFormatLocale } from "../i18n";
+
+type ScreensT = TFunction<"screens", undefined>;
 import { PlayerPolicyEditor } from "../settings/PlayerPolicyEditor";
 import { AirPlayPresentDialog } from "../components/AirPlayPresentDialog";
 import { QuickPresentDialog } from "../components/QuickPresentDialog";
@@ -50,32 +55,40 @@ const canManage = (role?: string) =>
 
 function groupFallbackName(
   group: Pick<ScreenGroup, "layoutName" | "playlistName">,
+  t: ScreensT,
 ) {
-  return group.layoutName ?? group.playlistName ?? "No fallback content";
+  return group.layoutName ?? group.playlistName ?? t("groups.noFallback");
 }
 
 function groupFallbackType(
   group: Pick<ScreenGroup, "layoutName" | "playlistName">,
+  t: ScreensT,
 ) {
-  if (group.layoutName) return "Layout";
-  if (group.playlistName) return "Playlist";
-  return "Unassigned";
+  if (group.layoutName) return t("groups.fallbackType.layout");
+  if (group.playlistName) return t("groups.fallbackType.playlist");
+  return t("groups.fallbackType.none");
 }
 
-function groupMemberSummary(group: ScreenGroup) {
+function groupMemberSummary(group: ScreenGroup, t: ScreensT) {
   const screens = group.screens ?? [];
-  if (group.membershipCount === 0) return "No screens assigned";
+  if (group.membershipCount === 0) return t("groups.memberSummary.none");
   if (screens.length === 0)
-    return `${group.membershipCount} screen${group.membershipCount === 1 ? "" : "s"} assigned`;
+    return t("groups.memberSummary.assigned", {
+      count: group.membershipCount,
+    });
   const visible = screens.slice(0, 3).map((screen) => screen.name);
   const remaining = Math.max(0, group.membershipCount - visible.length);
-  return `${visible.join(", ")}${remaining ? ` +${remaining} more` : ""}`;
+  if (!remaining) return visible.join(", ");
+  return t("groups.memberSummary.overflow", {
+    names: visible.join(", "),
+    count: remaining,
+  });
 }
 
-function formatGroupDate(value: string) {
+function formatGroupDate(value: string, t: ScreensT, locale: string) {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Unknown";
-  return date.toLocaleDateString(undefined, {
+  if (Number.isNaN(date.getTime())) return t("groups.unknownDate");
+  return date.toLocaleDateString(locale, {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -86,6 +99,8 @@ export function GroupsPage() {
   const auth = useAuth(),
     csrf = auth.status?.csrfToken ?? "",
     client = useQueryClient();
+  const { t } = useTranslation("screens");
+  const formatLocale = useFormatLocale();
   const manageable = canManage(auth.status?.user?.role);
   const q = useQuery({
     queryKey: ["screen-groups"],
@@ -106,30 +121,27 @@ export function GroupsPage() {
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight">
-            Display Groups
+            {t("groups.title")}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Keep a set of screens on the same content, schedule, and playback
-            position. Mirror groups preserve synchronized playback.
+            {t("groups.subtitle")}
           </p>
         </div>
         {manageable && (
           <div className="flex flex-wrap items-center gap-2">
             <Button type="button" onClick={() => setCreateOpen(true)}>
-              Create Display Group
+              {t("groups.create")}
             </Button>
           </div>
         )}
       </header>
       {q.isError && (
         <Alert variant="destructive">
-          <AlertDescription>
-            Display Groups could not be loaded. Try refreshing the page.
-          </AlertDescription>
+          <AlertDescription>{t("groups.loadError")}</AlertDescription>
         </Alert>
       )}
       {q.isLoading && (
-        <div className="grid gap-2" aria-label="Loading Display Groups">
+        <div className="grid gap-2" aria-label={t("groups.loading")}>
           <Skeleton className="h-24 w-full" />
           <Skeleton className="h-24 w-full" />
         </div>
@@ -145,33 +157,36 @@ export function GroupsPage() {
               <span className="grid min-w-0 gap-0.5">
                 <strong className="truncate text-sm">{group.name}</strong>
                 <small className="truncate text-xs text-muted-foreground">
-                  {group.description || "No description"}
+                  {group.description || t("groups.noDescription")}
                 </small>
               </span>
               <Badge
                 variant={group.membershipCount > 0 ? "default" : "secondary"}
               >
-                {group.membershipCount} screen
-                {group.membershipCount === 1 ? "" : "s"}
+                {t("groups.count", { count: group.membershipCount })}
               </Badge>
             </span>
             <dl className="grid gap-2 text-sm">
               <div className="flex flex-wrap gap-x-2">
-                <dt className="text-muted-foreground">Fallback</dt>
+                <dt className="text-muted-foreground">
+                  {t("groups.fallbackLabel")}
+                </dt>
                 <dd className="flex flex-wrap gap-x-2">
-                  <span>{groupFallbackType(group)}</span>
-                  <strong>{groupFallbackName(group)}</strong>
+                  <span>{groupFallbackType(group, t)}</span>
+                  <strong>{groupFallbackName(group, t)}</strong>
                 </dd>
               </div>
               <div className="flex flex-wrap gap-x-2">
-                <dt className="text-muted-foreground">Updated</dt>
-                <dd>{formatGroupDate(group.updatedAt)}</dd>
+                <dt className="text-muted-foreground">
+                  {t("groups.updatedLabel")}
+                </dt>
+                <dd>{formatGroupDate(group.updatedAt, t, formatLocale)}</dd>
               </div>
             </dl>
             <span className="text-sm text-muted-foreground">
-              {groupMemberSummary(group)}
+              {groupMemberSummary(group, t)}
             </span>
-            <span className="text-sm font-medium">View group</span>
+            <span className="text-sm font-medium">{t("groups.viewGroup")}</span>
           </Link>
         ))}
       </div>
@@ -181,17 +196,16 @@ export function GroupsPage() {
             <EmptyMedia variant="icon">
               <LayoutGrid size={24} aria-hidden="true" />
             </EmptyMedia>
-            <EmptyTitle>No Display Groups yet</EmptyTitle>
+            <EmptyTitle>{t("groups.emptyTitle")}</EmptyTitle>
             <EmptyDescription>
-              Create a Display Group for screens that should always share
-              content, schedules, and playback position.
+              {t("groups.emptyDescription")}
               {manageable && (
                 <Button
                   type="button"
                   onClick={() => setCreateOpen(true)}
                   className="mt-3"
                 >
-                  Create Display Group
+                  {t("groups.create")}
                 </Button>
               )}
             </EmptyDescription>
@@ -200,8 +214,8 @@ export function GroupsPage() {
       )}
       {createOpen && (
         <GroupDialog
-          title="Create Display Group"
-          action="Create group"
+          title={t("groups.create")}
+          action={t("groups.detail.dialogCreateAction")}
           initial={{ name: "", description: "" }}
           pending={create.isPending}
           onClose={() => setCreateOpen(false)}
@@ -221,6 +235,8 @@ export function GroupDetailPage() {
     auth = useAuth(),
     csrf = auth.status?.csrfToken ?? "",
     client = useQueryClient();
+  const { t } = useTranslation(["screens", "common"]);
+  const formatLocale = useFormatLocale();
   const manageable = canManage(auth.status?.user?.role);
   const [screenSearch, setScreenSearch] = useState("");
   const [selectedPresentation, setSelectedPresentation] = useState("");
@@ -328,12 +344,28 @@ export function GroupDetailPage() {
   }, [group.data?.layoutId, group.data?.playlistId]);
   if (!group.data)
     return (
-      <div className="grid gap-2" aria-label="Loading group">
+      <div className="grid gap-2" aria-label={t("groups.detail.loading")}>
         <Skeleton className="h-12 w-full" />
         <Skeleton className="h-48 w-full" />
       </div>
     );
   const groupData = group.data;
+  const fallbackOptionLabel = (value: string) => {
+    const [type, id] = value.split(":");
+    if (type === "playlist") {
+      const found = playlists.data?.items?.find((item) => item.id === id);
+      return found
+        ? t("groups.detail.optionPlaylist", { name: found.name })
+        : value;
+    }
+    if (type === "layout") {
+      const found = layouts.data?.items?.find((item) => item.id === id);
+      return found
+        ? t("groups.detail.optionLayout", { name: found.name })
+        : value;
+    }
+    return value;
+  };
   const assignedElsewhere = new Set(
     (groups.data?.items ?? [])
       .filter((candidate) => candidate.id !== id)
@@ -367,8 +399,7 @@ export function GroupDetailPage() {
             {groupData.name}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {groupData.description ||
-              "Screens in this group share fallback content, schedules, and playback position."}
+            {groupData.description || t("groups.detail.descriptionFallback")}
           </p>
         </div>
         {manageable && (
@@ -378,12 +409,12 @@ export function GroupDetailPage() {
               variant="ghost"
               onClick={() => setEditOpen(true)}
             >
-              Edit Display Group
+              {t("groups.detail.edit")}
             </Button>
             {editOpen && (
               <GroupDialog
-                title="Edit Display Group"
-                action="Save changes"
+                title={t("groups.detail.edit")}
+                action={t("common:actions.saveChanges")}
                 initial={{
                   name: groupData.name,
                   description: groupData.description,
@@ -397,30 +428,32 @@ export function GroupDetailPage() {
               />
             )}
             <Button type="button" onClick={() => setAirplayOpen(true)}>
-              Present · AirPlay
+              {t("groups.detail.present")}
             </Button>
             <Button
               type="button"
               variant="secondary"
               onClick={() => setQuickPresentOpen(true)}
             >
-              Show now
+              {t("groups.detail.showNow")}
             </Button>
             <Button
               type="button"
               variant="destructive"
               onClick={() => {
                 void confirm({
-                  title: `Delete ${groupData.name}?`,
-                  body: "Screens will not be deleted.",
-                  action: "Delete",
+                  title: t("groups.detail.deleteTitle", {
+                    name: groupData.name,
+                  }),
+                  body: t("groups.detail.deleteBody"),
+                  action: t("common:actions.delete"),
                   destructive: true,
                 }).then((ok) => {
                   if (ok) deleteGroup.mutate();
                 });
               }}
             >
-              Delete Display Group
+              {t("groups.detail.delete")}
             </Button>
             {confirmDialog}
           </div>
@@ -441,7 +474,7 @@ export function GroupDetailPage() {
             ? groupData.screens.find(
                 (screen) => screen.id === groupData.presentationGatewayScreenId,
               )?.name
-            : "Automatic gateway"
+            : t("groups.detail.audioAutomatic")
         }
         onClose={() => setAirplayOpen(false)}
       />
@@ -457,23 +490,35 @@ export function GroupDetailPage() {
       <section className="grid gap-3 rounded-xl border border-border p-4">
         <dl className="grid gap-2 text-sm sm:grid-cols-2">
           <div className="flex flex-wrap gap-x-2">
-            <dt className="text-muted-foreground">Screens</dt>
+            <dt className="text-muted-foreground">
+              {t("groups.detail.screensLabel")}
+            </dt>
             <dd>{groupData.membershipCount}</dd>
           </div>
           <div className="flex flex-wrap gap-x-2">
-            <dt className="text-muted-foreground">Mode</dt>
-            <dd>{groupData.displayMode === "span" ? "Span" : "Mirror"}</dd>
-          </div>
-          <div className="flex flex-wrap gap-x-2">
-            <dt className="text-muted-foreground">Fallback content</dt>
-            <dd className="flex flex-wrap gap-x-2">
-              <span>{groupFallbackType(groupData)}</span>
-              <strong>{groupFallbackName(groupData)}</strong>
+            <dt className="text-muted-foreground">
+              {t("groups.detail.modeLabel")}
+            </dt>
+            <dd>
+              {groupData.displayMode === "span"
+                ? t("groups.detail.modeSpan")
+                : t("groups.detail.modeMirror")}
             </dd>
           </div>
           <div className="flex flex-wrap gap-x-2">
-            <dt className="text-muted-foreground">Last updated</dt>
-            <dd>{formatGroupDate(groupData.updatedAt)}</dd>
+            <dt className="text-muted-foreground">
+              {t("groups.detail.fallbackLabel")}
+            </dt>
+            <dd className="flex flex-wrap gap-x-2">
+              <span>{groupFallbackType(groupData, t)}</span>
+              <strong>{groupFallbackName(groupData, t)}</strong>
+            </dd>
+          </div>
+          <div className="flex flex-wrap gap-x-2">
+            <dt className="text-muted-foreground">
+              {t("groups.detail.updatedLabel")}
+            </dt>
+            <dd>{formatGroupDate(groupData.updatedAt, t, formatLocale)}</dd>
           </div>
         </dl>
       </section>
@@ -494,16 +539,16 @@ export function GroupDetailPage() {
       {manageable && groupData.screens.length > 0 && (
         <section className="grid gap-3 rounded-xl border border-border p-4">
           <header className="grid gap-1">
-            <h3 className="text-base font-semibold">AirPlay gateway</h3>
+            <h3 className="text-base font-semibold">
+              {t("groups.detail.gatewayTitle")}
+            </h3>
             <p className="text-sm text-muted-foreground">
-              The preferred gateway is stable across sessions. Automatic
-              selection uses online Linux capability, hardware decode, wired
-              link, then screen name.
+              {t("groups.detail.gatewayDescription")}
             </p>
           </header>
           <Field>
             <FieldLabel htmlFor="group-gateway">
-              Preferred presentation gateway
+              {t("groups.detail.gatewayLabel")}
             </FieldLabel>
             <Select
               items={[
@@ -533,12 +578,21 @@ export function GroupDetailPage() {
             >
               <SelectTrigger
                 id="group-gateway"
-                aria-label="Preferred presentation gateway"
+                aria-label={t("groups.detail.gatewayLabel")}
               >
-                <SelectValue />
+                <SelectValue>
+                  {groupData.presentationGatewayScreenId
+                    ? (groupData.screens.find(
+                        (screen) =>
+                          screen.id === groupData.presentationGatewayScreenId,
+                      )?.name ?? groupData.presentationGatewayScreenId)
+                    : t("groups.detail.gatewayAutomatic")}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="automatic">Automatic</SelectItem>
+                <SelectItem value="automatic">
+                  {t("groups.detail.gatewayAutomatic")}
+                </SelectItem>
                 {groupData.screens.map((screen) => (
                   <SelectItem key={screen.id} value={screen.id}>
                     {screen.name}
@@ -552,17 +606,18 @@ export function GroupDetailPage() {
 
       <section className="grid gap-3 rounded-xl border border-border p-4">
         <header className="grid gap-1">
-          <h3 className="text-base font-semibold">Synchronized content</h3>
+          <h3 className="text-base font-semibold">
+            {t("groups.detail.syncTitle")}
+          </h3>
           <p className="text-sm text-muted-foreground">
-            Every screen in this group uses this fallback content whenever no
-            higher-priority schedule or takeover is active.
+            {t("groups.detail.syncDescription")}
           </p>
         </header>
         {manageable ? (
           <div className="flex flex-wrap items-end gap-2">
             <Field className="min-w-52 flex-1">
               <FieldLabel htmlFor="group-fallback">
-                Display Group fallback content
+                {t("groups.detail.fallbackFieldLabel")}
               </FieldLabel>
               <Select
                 items={[
@@ -585,25 +640,35 @@ export function GroupDetailPage() {
               >
                 <SelectTrigger
                   id="group-fallback"
-                  aria-label="Display Group fallback content"
+                  aria-label={t("groups.detail.fallbackFieldLabel")}
                 >
-                  <SelectValue />
+                  <SelectValue>
+                    {selectedPresentation
+                      ? fallbackOptionLabel(selectedPresentation)
+                      : t("groups.detail.noFallbackOption")}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">No fallback presentation</SelectItem>
+                  <SelectItem value="none">
+                    {t("groups.detail.noFallbackOption")}
+                  </SelectItem>
                   {playlists.data?.items?.map((playlist) => (
                     <SelectItem
                       key={playlist.id}
                       value={`playlist:${playlist.id}`}
                     >
-                      Playlist · {playlist.name}
+                      {t("groups.detail.optionPlaylist", {
+                        name: playlist.name,
+                      })}
                     </SelectItem>
                   ))}
                   {layouts.data?.items
                     .filter((layout) => layout.publishedRevision)
                     .map((layout) => (
                       <SelectItem key={layout.id} value={`layout:${layout.id}`}>
-                        Layout · {layout.name}
+                        {t("groups.detail.optionLayout", {
+                          name: layout.name,
+                        })}
                       </SelectItem>
                     ))}
                 </SelectContent>
@@ -617,47 +682,53 @@ export function GroupDetailPage() {
               }
               onClick={() => assignContent.mutate(selectedPresentation)}
             >
-              {assignContent.isPending ? "Applying…" : "Apply to Display Group"}
+              {assignContent.isPending
+                ? t("groups.detail.applying")
+                : t("groups.detail.apply")}
             </Button>
           </div>
         ) : (
           <p className="flex flex-wrap gap-x-2 text-sm">
             <span className="text-muted-foreground">
-              {groupFallbackType(groupData)}
+              {groupFallbackType(groupData, t)}
             </span>
-            <strong>{groupFallbackName(groupData)}</strong>
+            <strong>{groupFallbackName(groupData, t)}</strong>
           </p>
         )}
       </section>
 
       <section className="grid gap-3 rounded-xl border border-border p-4">
         <header className="grid gap-1">
-          <h3 className="text-base font-semibold">Screens</h3>
+          <h3 className="text-base font-semibold">
+            {t("groups.detail.screensLabel")}
+          </h3>
           <p className="text-sm text-muted-foreground">
-            {groupData.membershipCount} screen
-            {groupData.membershipCount === 1 ? "" : "s"} currently share this
-            group&apos;s playback state.
+            {t("groups.detail.membersSummary", {
+              count: groupData.membershipCount,
+            })}
           </p>
         </header>
         {manageable && (
           <div className="grid gap-3 sm:grid-cols-2">
             <Field>
               <FieldLabel htmlFor="group-screen-search">
-                Search available screens
+                {t("groups.detail.searchLabel")}
               </FieldLabel>
               <Input
                 id="group-screen-search"
                 type="search"
-                placeholder="Name or location"
+                placeholder={t("groups.detail.searchPlaceholder")}
                 value={screenSearch}
                 onChange={(event) => setScreenSearch(event.target.value)}
               />
               <FieldDescription>
-                Screens already assigned to another Display Group are excluded.
+                {t("groups.detail.searchHint")}
               </FieldDescription>
             </Field>
             <Field>
-              <FieldLabel htmlFor="group-add-screen">Add screen</FieldLabel>
+              <FieldLabel htmlFor="group-add-screen">
+                {t("groups.detail.addLabel")}
+              </FieldLabel>
               <Select
                 items={available.map((screen) => ({
                   value: screen.id,
@@ -669,14 +740,15 @@ export function GroupDetailPage() {
                   if (next) add.mutate(next);
                 }}
               >
-                <SelectTrigger id="group-add-screen" aria-label="Add screen">
-                  <SelectValue
-                    placeholder={
-                      available.length
-                        ? "Choose a screen…"
-                        : "No matching screens"
-                    }
-                  />
+                <SelectTrigger
+                  id="group-add-screen"
+                  aria-label={t("groups.detail.addLabel")}
+                >
+                  <SelectValue>
+                    {available.length
+                      ? t("groups.detail.chooseOption")
+                      : t("groups.detail.noOptions")}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {available.map((screen) => (
@@ -699,7 +771,7 @@ export function GroupDetailPage() {
               <span className="grid min-w-0 gap-0.5">
                 <strong className="truncate text-sm">{screen.name}</strong>
                 <small className="truncate text-xs text-muted-foreground">
-                  {screen.location || "No location assigned"}
+                  {screen.location || t("groups.detail.noLocation")}
                 </small>
               </span>
               {manageable && (
@@ -710,7 +782,7 @@ export function GroupDetailPage() {
                   disabled={remove.isPending}
                   onClick={() => remove.mutate(screen.id)}
                 >
-                  Remove
+                  {t("groups.detail.removeOption")}
                 </Button>
               )}
             </div>
@@ -718,9 +790,9 @@ export function GroupDetailPage() {
           {groupData.screens.length === 0 && (
             <Empty>
               <EmptyHeader>
-                <EmptyTitle>No screens in this group</EmptyTitle>
+                <EmptyTitle>{t("groups.detail.emptyTitle")}</EmptyTitle>
                 <EmptyDescription>
-                  Add an available screen above to begin synchronized playback.
+                  {t("groups.detail.emptyDescription")}
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
@@ -735,47 +807,49 @@ export function GroupDetailPage() {
 
 export function SchedulesPage() {
   const auth = useAuth();
+  const { t } = useTranslation("schedules");
+  const formatLocale = useFormatLocale();
   const q = useQuery({
     queryKey: ["schedules"],
     queryFn: () => api.schedules(),
   });
+  const enabledCount = (q.data?.items ?? []).filter(
+    (schedule) => schedule.enabled,
+  ).length;
   return (
     <section className="grid gap-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">Schedules</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {t("page.title")}
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Higher priority wins. Screens in a Display Group always share the
-            same schedule and fallback content.
+            {t("page.subtitle")}
           </p>
         </div>
         {canManage(auth.status?.user?.role) && (
           <div className="flex flex-wrap items-center gap-2">
             <Link to="/schedules/new" className={buttonVariants()}>
-              Create schedule
+              {t("page.create")}
             </Link>
           </div>
         )}
       </header>
       <section className="grid gap-1 rounded-xl border border-border p-4">
-        <h2 className="text-base font-semibold">Schedule timeline</h2>
+        <h2 className="text-base font-semibold">{t("page.timelineTitle")}</h2>
         <p className="text-sm text-muted-foreground">
-          {(q.data?.items ?? []).filter((schedule) => schedule.enabled).length}{" "}
-          enabled · times evaluate in each schedule’s IANA timezone · overnight
-          windows continue into the next day
+          {t("page.timelineSummary", { count: enabledCount })}
         </p>
       </section>
       {q.isLoading && (
-        <div className="grid gap-2" aria-label="Loading schedules">
+        <div className="grid gap-2" aria-label={t("page.loading")}>
           <Skeleton className="h-20 w-full" />
           <Skeleton className="h-20 w-full" />
         </div>
       )}
       {q.isError && (
         <Alert variant="destructive">
-          <AlertDescription>
-            Schedules could not be loaded. Try refreshing the page.
-          </AlertDescription>
+          <AlertDescription>{t("page.loadError")}</AlertDescription>
         </Alert>
       )}
       <div className="grid gap-2">
@@ -788,7 +862,7 @@ export function SchedulesPage() {
             <span className="grid min-w-0 gap-0.5">
               <strong className="truncate text-sm">{schedule.name}</strong>
               <small className="truncate text-xs text-muted-foreground">
-                {schedule.enabled ? "Enabled" : "Disabled"}
+                {schedule.enabled ? t("page.enabled") : t("page.disabled")}
               </small>
             </span>
             <span className="text-sm">{schedule.playlistName}</span>
@@ -798,19 +872,18 @@ export function SchedulesPage() {
             <span className="text-sm text-muted-foreground">
               {schedule.type === "weekly"
                 ? `${schedule.dailyStart}–${schedule.dailyEnd} · ${schedule.timezone}`
-                : `${new Date(schedule.oneTimeStart!).toLocaleString()}–${new Date(schedule.oneTimeEnd!).toLocaleString()}`}
+                : `${new Date(schedule.oneTimeStart!).toLocaleString(formatLocale)}–${new Date(schedule.oneTimeEnd!).toLocaleString(formatLocale)}`}
             </span>
-            <Badge variant="secondary">Priority {schedule.priority}</Badge>
+            <Badge variant="secondary">
+              {t("page.priorityBadge", { priority: schedule.priority })}
+            </Badge>
           </Link>
         ))}
         {q.data?.items?.length === 0 && (
           <Empty>
             <EmptyHeader>
-              <EmptyTitle>No schedules yet</EmptyTitle>
-              <EmptyDescription>
-                Direct screen assignments will continue to play until a schedule
-                is created.
-              </EmptyDescription>
+              <EmptyTitle>{t("page.emptyTitle")}</EmptyTitle>
+              <EmptyDescription>{t("page.emptyDescription")}</EmptyDescription>
             </EmptyHeader>
           </Empty>
         )}
@@ -836,6 +909,7 @@ function GroupDialog({
   onClose: () => void;
   onSave: (value: { name: string; description: string }) => void;
 }) {
+  const { t } = useTranslation(["screens", "common"]);
   const [name, setName] = useState(initial.name);
   const [description, setDescription] = useState(initial.description);
   return (
@@ -857,7 +931,9 @@ function GroupDialog({
           </DialogHeader>
           <div className="grid gap-4 py-2">
             <Field>
-              <FieldLabel htmlFor="group-name">Group name</FieldLabel>
+              <FieldLabel htmlFor="group-name">
+                {t("groups.detail.dialogNameLabel")}
+              </FieldLabel>
               <Input
                 id="group-name"
                 value={name}
@@ -867,7 +943,9 @@ function GroupDialog({
               />
             </Field>
             <Field>
-              <FieldLabel htmlFor="group-description">Description</FieldLabel>
+              <FieldLabel htmlFor="group-description">
+                {t("groups.detail.dialogDescriptionLabel")}
+              </FieldLabel>
               <Input
                 id="group-description"
                 value={description}
@@ -875,17 +953,16 @@ function GroupDialog({
                 onChange={(event) => setDescription(event.target.value)}
               />
               <FieldDescription>
-                Screens in this group share fallback content, schedules, and
-                playback position.
+                {t("groups.detail.dialogDescriptionHint")}
               </FieldDescription>
             </Field>
           </div>
           <DialogFooter>
             <Button variant="outline" type="button" onClick={onClose}>
-              Cancel
+              {t("common:actions.cancel")}
             </Button>
             <Button type="submit" disabled={!name.trim() || pending}>
-              {pending ? "Saving…" : action}
+              {pending ? t("common:actions.saving") : action}
             </Button>
           </DialogFooter>
         </form>

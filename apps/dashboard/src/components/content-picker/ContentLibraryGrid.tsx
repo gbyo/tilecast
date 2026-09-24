@@ -1,20 +1,25 @@
 import { Check } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import type { Asset } from "../../api/types";
 import { Button } from "../ui/button";
 import { AssetPreview } from "../content/AssetPreview";
 
-function statusLabel(status: Asset["processingStatus"]) {
+function statusLabel(
+  status: Asset["processingStatus"],
+  t: TFunction<["content", "common"]>,
+) {
   return (
     {
-      ready: "Ready",
-      uploading: "Uploading",
-      uploaded: "Uploaded",
-      queued: "Waiting",
-      inspecting: "Inspecting",
-      processing: "Processing",
-      failed: "Failed",
-      deleting: "Deleting",
-      deleted: "Deleted",
+      ready: t("media.status.ready"),
+      uploading: t("media.status.uploading"),
+      uploaded: t("media.status.uploaded"),
+      queued: t("media.status.waiting"),
+      inspecting: t("media.status.inspecting"),
+      processing: t("media.status.processing"),
+      failed: t("media.status.failed"),
+      deleting: t("media.status.deleting"),
+      deleted: t("media.status.deleted"),
     }[status] ?? status
   );
 }
@@ -34,6 +39,7 @@ export function ContentLibraryGrid({
   highlightedIds: Set<string>;
   onToggle: (asset: Asset) => void;
 }) {
+  const { t } = useTranslation(["content", "common"]);
   return (
     <div className={`picker-library picker-library--${view}`}>
       {items.map((asset) => {
@@ -63,17 +69,17 @@ export function ContentLibraryGrid({
               <small>
                 {asset.type === "widget"
                   ? asset.widget?.provider === "youtube"
-                    ? "YouTube Widget"
-                    : "Website Widget"
+                    ? t("media.type.youtubeWidget")
+                    : t("media.type.websiteWidget")
                   : asset.type === "image"
-                    ? "Image"
-                    : "Video"}
+                    ? t("media.type.image")
+                    : t("media.type.video")}
               </small>
             </span>
             <span
               className={`media-status media-status--${asset.processingStatus}`}
             >
-              {statusLabel(asset.processingStatus)}
+              {statusLabel(asset.processingStatus, t)}
             </span>
           </Button>
         );
