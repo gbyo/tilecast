@@ -15,9 +15,9 @@ gboolean tc_is_sha256_hex (const char *value);
 
 /*
  * A path under the trusted runtime directory, as requested through
- * tilecast://runtime/<path>. Accepts only "/static/<name>" and
- * "/dist/renderer/<name>" where <name> is [A-Za-z0-9._-]+ and not "." or
- * "..". Everything else, including encoded characters, is rejected.
+ * tilecast://runtime/<path>. Accepts only "/<name>" and "/fonts/<name>"
+ * where <name> is [A-Za-z0-9._-]+ and not "." or "..". Everything else,
+ * including encoded characters and deeper paths, is rejected.
  */
 gboolean tc_runtime_path_is_allowed (const char *path);
 

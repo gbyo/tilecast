@@ -32,15 +32,17 @@ name_is_allowed (const char *name)
 gboolean
 tc_runtime_path_is_allowed (const char *path)
 {
-  static const char *const prefixes[] = { "/static/", "/dist/renderer/", NULL };
-  if (path == NULL)
+  /* The shared Player Runtime artifact: top-level files, plus one fixed
+   * subdirectory for its bundled fonts. */
+  static const char *const subdirectories[] = { "/fonts/", NULL };
+  if (path == NULL || path[0] != '/')
     return FALSE;
-  for (guint i = 0; prefixes[i] != NULL; i++) {
-    gsize length = strlen (prefixes[i]);
-    if (strncmp (path, prefixes[i], length) == 0)
+  for (guint i = 0; subdirectories[i] != NULL; i++) {
+    gsize length = strlen (subdirectories[i]);
+    if (strncmp (path, subdirectories[i], length) == 0)
       return name_is_allowed (path + length);
   }
-  return FALSE;
+  return name_is_allowed (path + 1);
 }
 
 const char *
@@ -57,6 +59,7 @@ tc_runtime_content_type (const char *path)
     { ".png", "image/png" },
     { ".woff2", "font/woff2" },
     { ".json", "application/json" },
+    { ".txt", "text/plain; charset=utf-8" },
   };
   if (path == NULL)
     return NULL;
