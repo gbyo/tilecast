@@ -1,10 +1,13 @@
 // ScreenContentChain walks the dependency graph downward from a screen so the operator can see
 // which assigned presentation, widgets, and data sources contribute to its current content.
 import { useQuery } from "@tanstack/react-query";
+import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { AlertTriangle, Database, Layers3, ListVideo } from "lucide-react";
 import { api } from "../api/client";
 import type { PlaylistAssignment } from "../api/types";
+import { apiErrorMessage } from "../i18n";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import {
@@ -17,15 +20,24 @@ import {
 } from "../components/ui/item";
 import { Skeleton } from "../components/ui/skeleton";
 
-function sourceStatus(status: string, recordCount: number) {
+type WidgetsT = TFunction<["content", "common"], undefined>;
+
+function sourceStatus(status: string, recordCount: number, t: WidgetsT) {
   if (status === "error") {
-    return { label: "Last refresh failed", variant: "destructive" as const };
+    return {
+      label: t("widgets.chain.sourceFailed"),
+      variant: "destructive" as const,
+    };
   }
   if (status !== "ready") {
-    return { label: status.replaceAll("_", " "), variant: "outline" as const };
+    // Server data-source status values render as-is; only "error" and "ready" above are Studio states.
+    return {
+      label: status.replaceAll("_", " "), // i18n-ignore: server status value
+      variant: "outline" as const,
+    };
   }
   return {
-    label: `${recordCount} record${recordCount === 1 ? "" : "s"}`,
+    label: t("widgets.chain.records", { count: recordCount }),
     variant: "secondary" as const,
   };
 }
@@ -35,6 +47,7 @@ export function ScreenContentChain({
 }: {
   assignment?: PlaylistAssignment;
 }) {
+  const { t } = useTranslation(["content", "common"]);
   const layoutId = assignment?.layoutId;
   const playlistId = assignment?.playlistId;
   const layout = useQuery({
@@ -59,8 +72,7 @@ export function ScreenContentChain({
   if (!layoutId && !playlistId) {
     return (
       <p className="border-y border-border py-4 text-sm text-muted-foreground">
-        No content is assigned directly to this screen. Schedules and Display
-        Group assignments can still select content for playback.
+        {t("widgets.chain.unassigned")}
       </p>
     );
   }
@@ -81,10 +93,10 @@ export function ScreenContentChain({
     <section className="min-w-0 space-y-3" aria-labelledby="screen-chain-title">
       <header>
         <h3 id="screen-chain-title" className="text-sm font-semibold">
-          Content and data on this screen
+          {t("widgets.chain.title")}
         </h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Follow the assigned presentation to its reusable content and data.
+          {t("widgets.chain.subtitle")}
         </p>
       </header>
 
@@ -101,25 +113,27 @@ export function ScreenContentChain({
                   className="size-4 text-muted-foreground"
                   aria-hidden="true"
                 />
-                {assignment?.layoutName ?? "Assigned layout"}
+                {assignment?.layoutName ?? t("widgets.chain.assignedLayout")}
               </ItemTitle>
-              <ItemDescription>Published layout</ItemDescription>
+              <ItemDescription>
+                {t("widgets.chain.publishedLayout")}
+              </ItemDescription>
             </ItemContent>
           </Item>
           {layout.isLoading ? (
             <Skeleton className="my-2 h-10 w-full" />
           ) : layout.error ? (
             <DependencyError
-              label="Layout dependencies"
-              message={layout.error.message}
+              title={t("widgets.chain.layoutDepsError")}
+              message={apiErrorMessage(layout.error)}
             />
           ) : layoutSources.length === 0 ? (
             <p className="py-3 text-sm text-muted-foreground">
-              This layout reads no data sources.
+              {t("widgets.chain.layoutNoSources")}
             </p>
           ) : (
             layoutSources.map((source) => (
-              <SourceItem key={source.id} source={source} />
+              <SourceItem key={source.id} source={source} t={t} />
             ))
           )}
         </ItemGroup>
@@ -138,11 +152,13 @@ export function ScreenContentChain({
                   className="size-4 text-muted-foreground"
                   aria-hidden="true"
                 />
-                {assignment?.playlistName ?? "Assigned playlist"}
+                {assignment?.playlistName ??
+                  t("widgets.chain.assignedPlaylist")}
               </ItemTitle>
               <ItemDescription>
-                {playlist.data?.itemCount ?? 0} item
-                {playlist.data?.itemCount === 1 ? "" : "s"}
+                {t("widgets.chain.playlistItemCount", {
+                  count: playlist.data?.itemCount ?? 0,
+                })}
               </ItemDescription>
             </ItemContent>
           </Item>
@@ -150,8 +166,8 @@ export function ScreenContentChain({
             <Skeleton className="my-2 h-10 w-full" />
           ) : playlist.error ? (
             <DependencyError
-              label="Playlist dependencies"
-              message={playlist.error.message}
+              title={t("widgets.chain.playlistDepsError")}
+              message={apiErrorMessage(playlist.error)}
             />
           ) : (
             <>
@@ -164,16 +180,18 @@ export function ScreenContentChain({
                 >
                   <ItemContent>
                     <ItemTitle>{item.assetName}</ItemTitle>
-                    <ItemDescription>Widget</ItemDescription>
+                    <ItemDescription>
+                      {t("widgets.chain.widgetKind")}
+                    </ItemDescription>
                   </ItemContent>
                 </Item>
               ))}
               {playlistSources.map((source) => (
-                <SourceItem key={source.id} source={source} />
+                <SourceItem key={source.id} source={source} t={t} />
               ))}
               {!widgetItems.length && !playlistSources.length && (
                 <p className="py-3 text-sm text-muted-foreground">
-                  Nothing in this playlist reads a data source.
+                  {t("widgets.chain.playlistNoSources")}
                 </p>
               )}
             </>
@@ -184,8 +202,8 @@ export function ScreenContentChain({
       {sources.error && (
         <Alert variant="destructive">
           <AlertTriangle aria-hidden="true" />
-          <AlertTitle>Data sources could not be resolved</AlertTitle>
-          <AlertDescription>{sources.error.message}</AlertDescription>
+          <AlertTitle>{t("widgets.chain.sourcesError")}</AlertTitle>
+          <AlertDescription>{apiErrorMessage(sources.error)}</AlertDescription>
         </Alert>
       )}
     </section>
@@ -194,6 +212,7 @@ export function ScreenContentChain({
 
 function SourceItem({
   source,
+  t,
 }: {
   source: {
     id: string;
@@ -201,8 +220,9 @@ function SourceItem({
     status: string;
     cachedRecordCount: number;
   };
+  t: WidgetsT;
 }) {
-  const status = sourceStatus(source.status, source.cachedRecordCount);
+  const status = sourceStatus(source.status, source.cachedRecordCount, t);
   return (
     <Item
       size="xs"
@@ -217,7 +237,7 @@ function SourceItem({
           />
           {source.name}
         </ItemTitle>
-        <ItemDescription>Data source</ItemDescription>
+        <ItemDescription>{t("widgets.chain.sourceKind")}</ItemDescription>
       </ItemContent>
       <ItemActions>
         <Badge variant={status.variant}>{status.label}</Badge>
@@ -227,16 +247,16 @@ function SourceItem({
 }
 
 function DependencyError({
-  label,
+  title,
   message,
 }: {
-  label: string;
+  title: string;
   message: string;
 }) {
   return (
     <Alert variant="destructive" className="my-2">
       <AlertTriangle aria-hidden="true" />
-      <AlertTitle>{label} could not be loaded</AlertTitle>
+      <AlertTitle>{title}</AlertTitle>
       <AlertDescription>{message}</AlertDescription>
     </Alert>
   );

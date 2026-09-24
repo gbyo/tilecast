@@ -1,6 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
+import { apiErrorMessage } from "../../i18n";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button as RheaButton } from "../../components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "../../components/ui/field";
@@ -20,9 +22,9 @@ import type {
 import { EditorFrame, optionLabel } from "./shared";
 
 const weatherUnitOptions = [
-  { value: "imperial", label: "Imperial" },
-  { value: "metric", label: "Metric" },
-];
+  { value: "imperial", labelKey: "dataSources.options.imperial" },
+  { value: "metric", labelKey: "dataSources.options.metric" },
+] as const;
 
 export function WeatherDataSourceEditor({
   dataSource,
@@ -39,6 +41,7 @@ export function WeatherDataSourceEditor({
   onSaved: (dataSource: DataSourceDetail) => void;
   page?: boolean;
 }) {
+  const { t } = useTranslation(["content", "common"]);
   const queryClient = useQueryClient();
   const [name, setName] = useState(dataSource?.name ?? "");
   const [description, setDescription] = useState(dataSource?.description ?? "");
@@ -88,8 +91,12 @@ export function WeatherDataSourceEditor({
   ) => setConfiguration((current) => ({ ...current, [key]: value }));
   return (
     <EditorFrame
-      title={`${dataSource ? "Edit" : "Create"} Weather Data Source`}
-      description="Fetch a cached global forecast from MET Norway."
+      title={
+        dataSource
+          ? t("dataSources.weather.titleEdit")
+          : t("dataSources.weather.titleCreate")
+      }
+      description={t("dataSources.weather.description")}
       page={page}
       onClose={onClose}
       footer={
@@ -99,14 +106,18 @@ export function WeatherDataSourceEditor({
             disabled={save.isPending || !name.trim()}
             onClick={() => save.mutate()}
           >
-            {save.isPending ? "Saving…" : "Save Data Source"}
+            {save.isPending
+              ? t("common:actions.saving")
+              : t("dataSources.editor.save")}
           </RheaButton>
         )
       }
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <Field>
-          <FieldLabel htmlFor="weather-name">Name</FieldLabel>
+          <FieldLabel htmlFor="weather-name">
+            {t("dataSources.editor.name")}
+          </FieldLabel>
           <Input
             id="weather-name"
             value={name}
@@ -115,7 +126,9 @@ export function WeatherDataSourceEditor({
           />
         </Field>
         <Field>
-          <FieldLabel htmlFor="weather-description">Description</FieldLabel>
+          <FieldLabel htmlFor="weather-description">
+            {t("dataSources.editor.description")}
+          </FieldLabel>
           <Input
             id="weather-description"
             value={description}
@@ -126,7 +139,9 @@ export function WeatherDataSourceEditor({
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field>
-          <FieldLabel htmlFor="weather-location">Location label</FieldLabel>
+          <FieldLabel htmlFor="weather-location">
+            {t("dataSources.weather.locationLabel")}
+          </FieldLabel>
           <Input
             id="weather-location"
             value={configuration.locationLabel}
@@ -135,7 +150,9 @@ export function WeatherDataSourceEditor({
           />
         </Field>
         <Field>
-          <FieldLabel htmlFor="weather-timezone">Timezone</FieldLabel>
+          <FieldLabel htmlFor="weather-timezone">
+            {t("dataSources.editor.timezone")}
+          </FieldLabel>
           <Input
             id="weather-timezone"
             value={configuration.timezone}
@@ -144,7 +161,9 @@ export function WeatherDataSourceEditor({
           />
         </Field>
         <Field>
-          <FieldLabel htmlFor="weather-latitude">Latitude</FieldLabel>
+          <FieldLabel htmlFor="weather-latitude">
+            {t("dataSources.weather.latitude")}
+          </FieldLabel>
           <Input
             id="weather-latitude"
             type="number"
@@ -155,7 +174,9 @@ export function WeatherDataSourceEditor({
           />
         </Field>
         <Field>
-          <FieldLabel htmlFor="weather-longitude">Longitude</FieldLabel>
+          <FieldLabel htmlFor="weather-longitude">
+            {t("dataSources.weather.longitude")}
+          </FieldLabel>
           <Input
             id="weather-longitude"
             type="number"
@@ -166,7 +187,9 @@ export function WeatherDataSourceEditor({
           />
         </Field>
         <Field>
-          <FieldLabel htmlFor="weather-units">Units</FieldLabel>
+          <FieldLabel htmlFor="weather-units">
+            {t("dataSources.weather.units")}
+          </FieldLabel>
           <RheaSelect
             value={configuration.units}
             disabled={readOnly}
@@ -174,22 +197,33 @@ export function WeatherDataSourceEditor({
               set("units", next as WeatherSourceConfig["units"])
             }
           >
-            <SelectTrigger id="weather-units" aria-label="Units">
+            <SelectTrigger
+              id="weather-units"
+              aria-label={t("dataSources.weather.units")}
+            >
               <SelectValue>
-                {optionLabel(weatherUnitOptions, configuration.units)}
+                {optionLabel(
+                  weatherUnitOptions.map((option) => ({
+                    value: option.value,
+                    label: t(option.labelKey),
+                  })),
+                  configuration.units,
+                )}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {weatherUnitOptions.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
-                  {option.label}
+                  {t(option.labelKey)}
                 </SelectItem>
               ))}
             </SelectContent>
           </RheaSelect>
         </Field>
         <Field>
-          <FieldLabel htmlFor="weather-forecast-days">Forecast days</FieldLabel>
+          <FieldLabel htmlFor="weather-forecast-days">
+            {t("dataSources.weather.forecastDays")}
+          </FieldLabel>
           <Input
             id="weather-forecast-days"
             type="number"
@@ -205,7 +239,7 @@ export function WeatherDataSourceEditor({
       </div>
       <Field>
         <FieldLabel htmlFor="weather-contact">
-          Contact email or HTTPS URL
+          {t("dataSources.weather.contact")}
         </FieldLabel>
         <Input
           id="weather-contact"
@@ -214,8 +248,7 @@ export function WeatherDataSourceEditor({
           onChange={(event) => set("contact", event.target.value)}
         />
         <FieldDescription>
-          MET Norway requires an identifying contact in each request. It is
-          stored only on the server.
+          {t("dataSources.weather.contactHint")}
         </FieldDescription>
       </Field>
       {!readOnly && (
@@ -225,7 +258,9 @@ export function WeatherDataSourceEditor({
           disabled={previewMutation.isPending}
           onClick={() => previewMutation.mutate()}
         >
-          {previewMutation.isPending ? "Loading…" : "Preview forecast"}
+          {previewMutation.isPending
+            ? t("common:status.loading")
+            : t("dataSources.preview.forecast")}
         </RheaButton>
       )}
       {preview && (
@@ -233,7 +268,7 @@ export function WeatherDataSourceEditor({
           {preview.records.slice(0, 4).map((record) => (
             <div key={record.id} className="grid gap-0.5 rounded-lg border p-3">
               <strong className="text-sm">
-                {record.values.date ?? "Current"}
+                {record.values.date ?? t("dataSources.weather.current")}
               </strong>
               <span className="text-sm text-muted-foreground">
                 {record.values.condition}{" "}
@@ -251,7 +286,7 @@ export function WeatherDataSourceEditor({
       {(save.error || previewMutation.error) && (
         <Alert variant="destructive">
           <AlertDescription>
-            {(save.error ?? previewMutation.error)?.message}
+            {apiErrorMessage(save.error ?? previewMutation.error)}
           </AlertDescription>
         </Alert>
       )}

@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Grid2X2, List, Plus } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useParams } from "react-router";
+import { apiErrorMessage } from "../i18n";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
 import {
@@ -45,6 +47,7 @@ import {
 } from "./ContentPage";
 
 export function WidgetsPage() {
+  const { t } = useTranslation(["content", "common"]);
   const auth = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -70,7 +73,7 @@ export function WidgetsPage() {
   });
   const filterProviders = definitions.data?.widgets ?? [];
   const providerOptions = [
-    { value: "", label: "All Widget types" },
+    { value: "", label: t("widgets.list.allTypes") },
     ...filterProviders.map((item) => ({ value: item.id, label: item.name })),
   ];
   const duplicate = useMutation({
@@ -84,23 +87,23 @@ export function WidgetsPage() {
     <section className="w-full min-w-0 space-y-5">
       <header className="space-y-1">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl font-semibold">Widgets</h1>
+          <h1 className="text-xl font-semibold">{t("widgets.list.title")}</h1>
           {canManage && (
             <Button type="button" onClick={() => void navigate("/widgets/new")}>
-              <Plus size={16} aria-hidden="true" /> Create Widget
+              <Plus size={16} aria-hidden="true" /> {t("widgets.list.create")}
             </Button>
           )}
         </div>
         <p className="text-sm text-muted-foreground">
-          Reusable visual content for playlists and Layouts.
+          {t("widgets.list.subtitle")}
         </p>
       </header>
       <DashboardListToolbar>
         <DashboardSearch
           value={search}
           onValueChange={setSearch}
-          label="Search Widgets"
-          placeholder="Search Widgets"
+          label={t("widgets.list.search")}
+          placeholder={t("widgets.list.search")}
         />
         <Select
           items={providerOptions}
@@ -110,13 +113,13 @@ export function WidgetsPage() {
           }}
         >
           <SelectTrigger
-            aria-label="Filter by Widget provider"
+            aria-label={t("widgets.list.filterProvider")}
             className="w-56 max-sm:flex-1"
           >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Widget types</SelectItem>
+            <SelectItem value="">{t("widgets.list.allTypes")}</SelectItem>
             {filterProviders.map((item) => (
               <SelectItem key={item.id} value={item.id}>
                 {item.name}
@@ -125,7 +128,7 @@ export function WidgetsPage() {
           </SelectContent>
         </Select>
         <ToggleGroup
-          aria-label="View"
+          aria-label={t("widgets.list.view")}
           variant="outline"
           spacing={0}
           multiple={false}
@@ -135,10 +138,10 @@ export function WidgetsPage() {
             if (first === "grid" || first === "list") setView(first);
           }}
         >
-          <ToggleGroupItem value="grid" aria-label="Grid view">
+          <ToggleGroupItem value="grid" aria-label={t("widgets.list.gridView")}>
             <Grid2X2 size={16} aria-hidden="true" />
           </ToggleGroupItem>
-          <ToggleGroupItem value="list" aria-label="List view">
+          <ToggleGroupItem value="list" aria-label={t("widgets.list.listView")}>
             <List size={16} aria-hidden="true" />
           </ToggleGroupItem>
         </ToggleGroup>
@@ -147,13 +150,13 @@ export function WidgetsPage() {
         <Alert variant="destructive">
           <AlertDescription>
             {widgets.error instanceof ApiError
-              ? widgets.error.message
-              : "Widgets could not be loaded."}
+              ? apiErrorMessage(widgets.error)
+              : t("widgets.list.loadError")}
           </AlertDescription>
         </Alert>
       )}
       {widgets.isLoading ? (
-        <div className="grid gap-2" aria-label="Loading Widgets">
+        <div className="grid gap-2" aria-label={t("widgets.list.loading")}>
           <Skeleton className="h-24" />
           <Skeleton className="h-24" />
           <Skeleton className="h-24" />
@@ -164,10 +167,8 @@ export function WidgetsPage() {
             <EmptyMedia variant="icon">
               <Plus size={24} aria-hidden="true" />
             </EmptyMedia>
-            <EmptyTitle>No Widgets yet</EmptyTitle>
-            <EmptyDescription>
-              Create a reusable Widget for signage content.
-            </EmptyDescription>
+            <EmptyTitle>{t("widgets.list.emptyTitle")}</EmptyTitle>
+            <EmptyDescription>{t("widgets.list.emptyHint")}</EmptyDescription>
           </EmptyHeader>
           {canManage && (
             <EmptyContent>
@@ -175,7 +176,7 @@ export function WidgetsPage() {
                 type="button"
                 onClick={() => void navigate("/widgets/new")}
               >
-                Create Widget
+                {t("widgets.list.create")}
               </Button>
             </EmptyContent>
           )}
@@ -202,6 +203,7 @@ export function WidgetsPage() {
 }
 
 export function WidgetEditorPage() {
+  const { t } = useTranslation(["content", "common"]);
   const auth = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -269,22 +271,32 @@ export function WidgetEditorPage() {
     );
   }
   if (id && widget.isLoading)
-    return <Skeleton className="h-24" aria-label="Loading Widget" />;
+    return (
+      <Skeleton
+        className="h-24"
+        aria-label={t("widgets.detail.loadingWidget")}
+      />
+    );
   if (definitions.isLoading)
-    return <Skeleton className="h-24" aria-label="Loading Widget definition" />;
+    return (
+      <Skeleton
+        className="h-24"
+        aria-label={t("widgets.detail.loadingDefinition")}
+      />
+    );
   if ((id && !asset) || !provider || !definition) {
     return (
       <section className="w-full min-w-0 space-y-5">
         <Empty>
           <EmptyHeader>
-            <EmptyTitle>Widget unavailable</EmptyTitle>
+            <EmptyTitle>{t("widgets.detail.unavailableTitle")}</EmptyTitle>
             <EmptyDescription>
-              This Widget could not be loaded.
+              {t("widgets.detail.unavailableHint")}
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
             <Button type="button" onClick={close}>
-              Back to Widgets
+              {t("widgets.detail.backToWidgets")}
             </Button>
           </EmptyContent>
         </Empty>
@@ -318,19 +330,21 @@ export function WidgetEditorPage() {
           consumers, and so editing a shared Widget shows what else it would change. */}
       {asset && (
         <UsedByPanel
-          emptyMessage="No playlist or Layout uses this Widget yet."
+          emptyMessage={t("widgets.detail.noUsage")}
           groups={[
             {
-              label: "Playlists",
+              label: t("widgets.detail.usedInPlaylists"),
               items: asset.playlistsUsing ?? [],
               to: (playlistId) => `/playlists/${playlistId}`,
             },
             {
-              label: "Layouts",
+              label: t("widgets.detail.usedInLayouts"),
               items: (asset.layoutUsage ?? []).map((usage) => ({
                 id: usage.id,
                 name: usage.name,
-                hint: usage.published ? "Published" : "Draft",
+                hint: usage.published
+                  ? t("widgets.detail.published")
+                  : t("widgets.detail.draft"),
               })),
               to: (layoutId) => `/layouts/${layoutId}`,
             },

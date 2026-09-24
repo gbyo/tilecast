@@ -141,6 +141,10 @@
     },
     "errors": {
       "requestFailed": "Tilecast no pudo completar la solicitud."
+    },
+    "qr": {
+      "failed": "No se pudo mostrar el código QR. Introduce la clave de abajo manualmente.",
+      "alt": "Código QR para configurar el autenticador"
     }
   },
   "preferences": {

@@ -11,14 +11,15 @@ import { ArrowLeft, Check, Lightbulb, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { DataSourceDefinition, DataSourceProvider } from "../api/types";
 import { Button as RheaButton } from "../components/ui/button";
 import { DataSourceEditor } from "./data-sources/dispatcher";
 import {
-  providerGalleryDescription,
+  galleryDescriptionText,
+  localizedSetup,
   providerLabel,
-  resolveSetup,
   sourceIcon,
 } from "./dataSourceProviderMeta";
 
@@ -61,6 +62,7 @@ export function DataSourceProviderGallery({
   onClose: () => void;
   page?: boolean;
 }) {
+  const { t } = useTranslation(["content", "common"]);
   const definitions = useDataSourceDefinitions(providers, exclude);
   const dialogRef = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -130,18 +132,20 @@ export function DataSourceProviderGallery({
               id="data-source-gallery-title"
               className="text-xl font-semibold"
             >
-              Create Data Source
+              {t("dataSources.createFlow.galleryTitle")}
             </h2>
             <p className="text-sm text-muted-foreground">
               {description ??
-                `Choose what you are connecting. Every provider uses the same compact, predictable setup pattern. ${definitions.offered.length} typed projectors are available in the current server catalog.`}
+                t("dataSources.createFlow.galleryDescription", {
+                  count: definitions.offered.length,
+                })}
             </p>
           </div>
           <RheaButton
             type="button"
             variant="ghost"
             size="icon"
-            aria-label="Close"
+            aria-label={t("common:actions.close")}
             onClick={onClose}
           >
             <X size={18} aria-hidden="true" />
@@ -159,14 +163,14 @@ export function DataSourceProviderGallery({
               {sourceIcon(definition.id, definition, 30)}
               <strong className="text-sm">{definition.name}</strong>
               <span className="text-xs font-normal text-muted-foreground">
-                {providerGalleryDescription(definition)}
+                {galleryDescriptionText(definition)}
               </span>
             </RheaButton>
           ))}
         </div>
         {!definitions.isLoading && definitions.offered.length === 0 && (
           <p className="text-sm text-muted-foreground">
-            No Data Source providers are available in this installation.
+            {t("dataSources.createFlow.noProviders")}
           </p>
         )}
       </section>
@@ -178,7 +182,7 @@ export function DataSourceCreateShell({
   provider,
   definition,
   csrf,
-  backLabel = "Data Sources",
+  backLabel: backLabelProp,
   onClose,
   onSaved,
 }: {
@@ -189,11 +193,13 @@ export function DataSourceCreateShell({
   onClose: () => void;
   onSaved: (value: { id: string }) => void;
 }) {
-  const copy = resolveSetup(provider, definition);
+  const { t } = useTranslation(["content", "common"]);
+  const backLabel = backLabelProp ?? t("dataSources.createFlow.backDefault");
+  const copy = localizedSetup(provider, definition);
   const label =
     definition && !definition.legacyEditor
       ? definition.name
-      : providerLabel(provider);
+      : providerLabel(provider, t);
   return (
     <div className="grid w-full min-w-0 gap-5">
       <div className="grid gap-4">
@@ -209,7 +215,7 @@ export function DataSourceCreateShell({
               {copy.eyebrow}
             </p>
             <h2 className="text-xl font-semibold">
-              Create {label} Data Source
+              {t("dataSources.createFlow.createTitle", { label })}
             </h2>
             <p className="text-sm text-muted-foreground">{copy.description}</p>
           </div>
@@ -218,11 +224,13 @@ export function DataSourceCreateShell({
       <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
         <aside
           className="grid content-start gap-4 rounded-xl border p-4"
-          aria-label="Data Source setup guidance"
+          aria-label={t("dataSources.createFlow.setupGuidance")}
         >
           {copy.steps.length > 0 && (
             <div className="grid gap-2">
-              <h3 className="text-sm font-medium">Setup checklist</h3>
+              <h3 className="text-sm font-medium">
+                {t("dataSources.createFlow.checklistTitle")}
+              </h3>
               <ol className="grid gap-2">
                 {copy.steps.map((step, index) => (
                   <li key={step} className="flex items-start gap-2 text-sm">
@@ -239,14 +247,16 @@ export function DataSourceCreateShell({
             <div className="flex items-start gap-2 rounded-lg bg-muted p-3">
               <Lightbulb size={17} aria-hidden="true" className="shrink-0" />
               <div className="grid gap-1">
-                <strong className="text-sm">Good to know</strong>
+                <strong className="text-sm">
+                  {t("dataSources.createFlow.goodToKnow")}
+                </strong>
                 <p className="text-sm text-muted-foreground">{copy.tip}</p>
               </div>
             </div>
           )}
           <p className="flex items-start gap-2 text-xs text-muted-foreground">
-            <Check size={15} aria-hidden="true" className="shrink-0" /> Advanced
-            filtering and cache controls are optional.
+            <Check size={15} aria-hidden="true" className="shrink-0" />{" "}
+            {t("dataSources.createFlow.advancedNote")}
           </p>
         </aside>
         <div className="grid min-w-0 content-start">
@@ -285,16 +295,23 @@ export function ConnectDataFlow({
   onClose: () => void;
   onCreated: (id: string) => void;
 }) {
+  const { t } = useTranslation(["content", "common"]);
   const definitions = useDataSourceDefinitions(providers, exclude);
   const definition = definitions.all.find(
     (candidate) => candidate.id === provider,
   );
+  const dialogLabel =
+    definition && !definition.legacyEditor
+      ? definition.name
+      : provider !== undefined
+        ? providerLabel(provider, t)
+        : "";
   if (!provider)
     return createPortal(
       <DataSourceProviderGallery
         providers={providers}
         exclude={exclude}
-        description="Choose where this content&rsquo;s data comes from. You will stay in this editor."
+        description={t("dataSources.createFlow.connectDescription")}
         onChoose={onChooseProvider}
         onClose={onClose}
       />,
@@ -309,18 +326,16 @@ export function ConnectDataFlow({
         className="relative mx-auto grid w-full max-w-5xl gap-5 rounded-xl bg-background p-5"
         role="dialog"
         aria-modal="true"
-        aria-label={`Create ${
-          definition && !definition.legacyEditor
-            ? definition.name
-            : providerLabel(provider)
-        } Data Source`}
+        aria-label={t("dataSources.createFlow.createTitle", {
+          label: dialogLabel,
+        })}
       >
         <RheaButton
           type="button"
           variant="ghost"
           size="icon"
           className="absolute top-4 right-4"
-          aria-label="Close"
+          aria-label={t("common:actions.close")}
           onClick={onClose}
         >
           <X size={18} aria-hidden="true" />
@@ -329,7 +344,7 @@ export function ConnectDataFlow({
           provider={provider}
           definition={definition}
           csrf={csrf}
-          backLabel="All providers"
+          backLabel={t("dataSources.createFlow.backAll")}
           onClose={onBack}
           onSaved={(created) => onCreated(created.id)}
         />

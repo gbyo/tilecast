@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { useSearchParams } from "react-router";
+import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import { DashboardSearch } from "./DashboardListToolbar";
 import { Input } from "./ui/input";
@@ -99,7 +100,7 @@ export function FilterBar({
   onChange,
   onClear,
   children,
-  label = "Filters",
+  label,
   className = "",
 }: {
   definitions: readonly FilterDefinition[];
@@ -111,12 +112,13 @@ export function FilterBar({
   label?: string;
   className?: string;
 }) {
+  const { t } = useTranslation("common");
   return (
     <div className={`grid gap-2 ${className}`.trim()}>
       <div
         className="flex flex-wrap items-center gap-2"
         role="group"
-        aria-label={label}
+        aria-label={label ?? t("filters.title")}
       >
         {definitions
           .filter(
@@ -270,6 +272,7 @@ export function FilterChips({
   onChange: (key: string, value: string) => void;
   onClear: () => void;
 }) {
+  const { t } = useTranslation("common");
   const active = definitions
     .filter(
       (definition) => definition.kind !== "search" && values[definition.key],
@@ -282,7 +285,7 @@ export function FilterChips({
   return (
     <div
       className="flex flex-wrap items-center gap-1.5"
-      aria-label="Active filters"
+      aria-label={t("filters.active")}
     >
       {active.map(({ definition, value }) => {
         const shown = describeValue(definition, value);
@@ -293,7 +296,10 @@ export function FilterChips({
             className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-xs hover:bg-muted/60"
             // The visible text is repeated verbatim so the accessible name
             // still contains the label a sighted person is reading.
-            aria-label={`Remove filter ${definition.label}: ${shown}`}
+            aria-label={t("filters.remove", {
+              label: definition.label,
+              value: shown,
+            })}
             onClick={() => onChange(definition.key, "")}
           >
             <strong className="font-medium">{definition.label}:</strong>
@@ -307,7 +313,7 @@ export function FilterChips({
         className="rounded-full px-2 py-0.5 text-xs font-medium text-primary hover:underline"
         onClick={onClear}
       >
-        Clear all
+        {t("actions.clearAll")}
       </button>
     </div>
   );

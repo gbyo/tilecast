@@ -21,6 +21,8 @@ export type StudioRouteHandle = {
   search?: {
     label: string;
     description: string;
+    /** Translation key resolved with t() at render; description is English. */
+    descriptionKey?: "palette.settingsSearch.dependencyGraph";
     to: string;
     keywords?: string[];
   };
