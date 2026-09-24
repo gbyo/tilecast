@@ -2271,7 +2271,7 @@ export function ScreenGridCard({
       ? previewApi.imageUrl(screen.id, preview.data.updatedAt)
       : undefined;
   const age = preview.data?.capturedAt
-    ? previewAge(preview.data.capturedAt, now)
+    ? previewAge(preview.data.capturedAt, now, t)
     : null;
   useEffect(() => {
     if (!visible || !preview.data?.capturedAt) return;

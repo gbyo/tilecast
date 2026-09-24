@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check, Clipboard, ExternalLink, Github } from "lucide-react";
 import { useLocation } from "react-router";
+import { Trans, useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { api } from "../api/client";
 import type { GitHubDeviceStart } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
@@ -24,7 +26,11 @@ type ErrorResponse = {
   error?: { message?: string };
 };
 
-async function configureGitHubClientID(clientId: string, csrfToken: string) {
+async function configureGitHubClientID(
+  clientId: string,
+  csrfToken: string,
+  t?: TFunction<"settings">,
+) {
   const response = await fetch("/api/v1/player-releases/github/configuration", {
     method: "POST",
     credentials: "same-origin",
@@ -37,7 +43,9 @@ async function configureGitHubClientID(clientId: string, csrfToken: string) {
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as ErrorResponse;
     throw new Error(
-      body.error?.message ?? "Tilecast could not save the GitHub Client ID.",
+      body.error?.message ??
+        t?.("updates.setup.saveError") ??
+        "Tilecast could not save the GitHub Client ID.",
     );
   }
 }
@@ -48,6 +56,7 @@ function validClientID(value: string) {
 
 export function GitHubOAuthSetupPortal() {
   const auth = useAuth();
+  const { t } = useTranslation(["settings", "common"]);
   const location = useLocation();
   const queryClient = useQueryClient();
   const [target, setTarget] = useState<HTMLElement | null>(null);
@@ -115,7 +124,7 @@ export function GitHubOAuthSetupPortal() {
 
   const configure = useMutation({
     mutationFn: async () => {
-      await configureGitHubClientID(clientId.trim(), csrfToken);
+      await configureGitHubClientID(clientId.trim(), csrfToken, t);
       return api.startGitHubDeviceAuthorization(csrfToken);
     },
     onMutate: () => setMessage(""),
@@ -141,7 +150,9 @@ export function GitHubOAuthSetupPortal() {
           if (result.status === "connected") {
             setFlow(null);
             setMessage(
-              `Connected to GitHub as @${result.login ?? "authorized user"}.`,
+              t("updates.setup.connected", {
+                login: result.login ?? t("updates.setup.defaultLogin"),
+              }),
             );
             await queryClient.invalidateQueries({
               queryKey: ["player-releases"],
@@ -152,8 +163,8 @@ export function GitHubOAuthSetupPortal() {
             setFlow(null);
             setMessage(
               result.status === "denied"
-                ? "GitHub authorization was declined."
-                : "The GitHub authorization code expired. Start again for a new code.",
+                ? t("updates.setup.declined")
+                : t("updates.setup.expired"),
             );
             return;
           }
@@ -173,7 +184,7 @@ export function GitHubOAuthSetupPortal() {
           setMessage(
             error instanceof Error
               ? error.message
-              : "GitHub authorization could not be completed.",
+              : t("updates.setup.incomplete"),
           );
         });
     }, flow.retryAfterSeconds * 1000);
@@ -181,7 +192,7 @@ export function GitHubOAuthSetupPortal() {
       cancelled = true;
       window.clearTimeout(timeout);
     };
-  }, [csrfToken, flow, queryClient]);
+  }, [csrfToken, flow, queryClient, t]);
 
   const copy = async (label: string, value: string) => {
     await navigator.clipboard.writeText(value);
@@ -202,7 +213,7 @@ export function GitHubOAuthSetupPortal() {
             }}
           >
             <Github size={16} aria-hidden="true" />
-            Connect GitHub
+            {t("updates.setup.connect")}
           </Button>,
           target,
         )}
@@ -214,18 +225,14 @@ export function GitHubOAuthSetupPortal() {
       >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Set up GitHub connection</DialogTitle>
-            <DialogDescription>
-              Create one GitHub OAuth App for this Tilecast installation.
-              Tilecast only needs the public Client ID; do not create or paste a
-              client secret.
-            </DialogDescription>
+            <DialogTitle>{t("updates.setup.title")}</DialogTitle>
+            <DialogDescription>{t("updates.setup.intro")}</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4">
             <SetupStep
               number="1"
-              title="Create the OAuth App"
-              body="Open GitHub Developer Settings and register a new OAuth App."
+              title={t("updates.setup.stepCreateTitle")}
+              body={t("updates.setup.stepCreateBody")}
             >
               <a
                 className={buttonVariants({ variant: "secondary" })}
@@ -234,29 +241,29 @@ export function GitHubOAuthSetupPortal() {
                 rel="noreferrer"
               >
                 <ExternalLink size={16} aria-hidden="true" />
-                Open GitHub OAuth Apps
+                {t("updates.setup.openApps")}
               </a>
             </SetupStep>
 
             <SetupStep
               number="2"
-              title="Enter these exact values"
-              body="GitHub requires a callback URL even though Tilecast signs in through Device Flow."
+              title={t("updates.setup.stepValuesTitle")}
+              body={t("updates.setup.stepValuesBody")}
             >
               <CopyValue
-                label="Application name"
+                label={t("updates.setup.appName")}
                 value={setupValues.applicationName}
                 copied={copied}
                 onCopy={copy}
               />
               <CopyValue
-                label="Homepage URL"
+                label={t("updates.setup.homepageUrl")}
                 value={setupValues.homepageUrl}
                 copied={copied}
                 onCopy={copy}
               />
               <CopyValue
-                label="Authorization callback URL"
+                label={t("updates.setup.callbackUrl")}
                 value={setupValues.callbackUrl}
                 copied={copied}
                 onCopy={copy}
@@ -268,24 +275,28 @@ export function GitHubOAuthSetupPortal() {
                   className="shrink-0 text-primary"
                 />
                 <span>
-                  Turn on <strong>Enable Device Flow</strong> before registering
-                  the application.
+                  <Trans
+                    i18nKey="updates.setup.deviceFlowNote"
+                    ns="settings"
+                    components={{ deviceFlow: <strong /> }}
+                  />
                 </span>
               </div>
             </SetupStep>
 
             <SetupStep
               number="3"
-              title="Paste the Client ID"
-              body="After GitHub registers the app, copy its Client ID and paste it below. Tilecast saves it in persistent application data and then starts sign-in immediately."
+              title={t("updates.setup.stepClientIdTitle")}
+              body={t("updates.setup.stepClientIdBody")}
             >
               <label className="grid gap-1.5 text-sm font-medium">
-                <span>GitHub Client ID</span>
+                <span>{t("updates.setup.clientIdLabel")}</span>
                 <Input
                   value={clientId}
                   autoCapitalize="none"
                   autoCorrect="off"
                   spellCheck={false}
+                  // i18n-ignore: sample Client ID format, not language text
                   placeholder="Ov23li…"
                   onChange={(event) => setClientId(event.target.value)}
                 />
@@ -304,7 +315,7 @@ export function GitHubOAuthSetupPortal() {
               variant="ghost"
               onClick={() => setSetupOpen(false)}
             >
-              Cancel
+              {t("common:actions.cancel")}
             </Button>
             <Button
               type="button"
@@ -312,7 +323,9 @@ export function GitHubOAuthSetupPortal() {
               onClick={() => configure.mutate()}
             >
               <Github size={16} aria-hidden="true" />
-              {configure.isPending ? "Saving…" : "Save and connect"}
+              {configure.isPending
+                ? t("common:actions.saving")
+                : t("updates.setup.saveConnect")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -326,13 +339,12 @@ export function GitHubOAuthSetupPortal() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Authorize Tilecast on GitHub</DialogTitle>
+            <DialogTitle>{t("updates.setup.authTitle")}</DialogTitle>
           </DialogHeader>
           {flow && (
             <div className="grid w-full max-w-md gap-4 justify-items-center text-center">
               <p className="m-0 text-sm text-muted-foreground">
-                Open GitHub, enter this one-time code, and approve the Tilecast
-                OAuth App. This window will update automatically.
+                {t("updates.setup.authBody")}
               </p>
               <strong className="rounded-[var(--tc-radius-control)] border border-border bg-muted px-4 py-3 font-mono text-2xl tracking-[0.12em]">
                 {flow.userCode}
@@ -344,10 +356,10 @@ export function GitHubOAuthSetupPortal() {
                 rel="noreferrer"
               >
                 <ExternalLink size={16} aria-hidden="true" />
-                Open GitHub
+                {t("updates.setup.openGitHub")}
               </a>
               <small className="text-muted-foreground">
-                Waiting for authorization…
+                {t("updates.setup.waiting")}
               </small>
             </div>
           )}
@@ -396,6 +408,8 @@ function CopyValue({
   copied: string;
   onCopy: (label: string, value: string) => Promise<void>;
 }) {
+  const { t } = useTranslation("settings");
+  const copyLabel = t("updates.setup.copyValue", { label });
   return (
     <label className="grid gap-1 text-xs text-muted-foreground">
       <span>{label}</span>
@@ -405,8 +419,8 @@ function CopyValue({
           type="button"
           variant="ghost"
           size="icon-sm"
-          title={`Copy ${label}`}
-          aria-label={`Copy ${label}`}
+          title={copyLabel}
+          aria-label={copyLabel}
           onClick={() => void onCopy(label, value)}
         >
           {copied === label ? (

@@ -100,6 +100,9 @@
       "offline": "Offline",
       "disabled": "Disabled",
       "revoked": "Pairing revoked"
+    },
+    "settingsSearch": {
+      "dependencyGraph": "Trace content, presentations, schedules, groups, and screens"
     }
   },
   "error": {

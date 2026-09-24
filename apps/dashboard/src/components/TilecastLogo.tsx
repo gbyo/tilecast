@@ -5,6 +5,7 @@ export function TilecastLogo({ className }: { className?: string }) {
       viewBox="0 0 825 197"
       fill="currentColor"
       role="img"
+      // i18n-ignore: product names stay in Latin script in every language
       aria-label="Tilecast"
     >
       <g transform="matrix(1,0,0,1,-109.798649,-161.227277)">

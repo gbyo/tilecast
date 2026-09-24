@@ -8,6 +8,7 @@ export function catalogPlugin(
   return {
     version: 1,
     name: overrides.id,
+    // i18n-ignore: development fixture fallback, not Studio copy
     description: "A plugin.",
     category: "Display",
     icon: "puzzle",
@@ -30,6 +31,7 @@ export function catalogPlugin(
 const catalogDefaults: Record<string, Partial<PluginSummary>> = {
   countdown_bar: {
     name: "Countdown Bar",
+    // i18n-ignore: development fixture label, not Studio copy
     description: "Show a timed bottom bar.",
     category: "Display",
     icon: "clock",
@@ -37,6 +39,7 @@ const catalogDefaults: Record<string, Partial<PluginSummary>> = {
   },
   emergency_alerts: {
     name: "Emergency Alerts",
+    // i18n-ignore: development fixture label, not Studio copy
     description: "Watch official NWS weather alerts.",
     category: "Automation",
     icon: "siren",
@@ -44,13 +47,16 @@ const catalogDefaults: Record<string, Partial<PluginSummary>> = {
     instanceNounSingular: "alert rule",
     instanceNounPlural: "alert rules",
     requirements: [
+      // i18n-ignore: development fixture label, not Studio copy
       { kind: "region", label: "United States" },
+      // i18n-ignore: development fixture label, not Studio copy
       { kind: "network", label: "Internet access from Tilecast Server" },
     ],
     capabilities: ["Background NWS polling"],
   },
   forms: {
     name: "Forms",
+    // i18n-ignore: development fixture label, not Studio copy
     description: "Collect submissions.",
     category: "Workflow",
     icon: "clipboard-list",
@@ -60,6 +66,7 @@ const catalogDefaults: Record<string, Partial<PluginSummary>> = {
   },
   brand_bug: {
     name: "Brand Bug / Watermark",
+    // i18n-ignore: development fixture label, not Studio copy
     description: "Keep a corner mark over content.",
     category: "Display",
     icon: "stamp",
@@ -69,6 +76,7 @@ const catalogDefaults: Record<string, Partial<PluginSummary>> = {
   },
   noise_meter: {
     name: "Noise Meter",
+    // i18n-ignore: development fixture label, not Studio copy
     description: "Watch room noise on Linux players.",
     category: "Hardware",
     icon: "audio-lines",
@@ -76,7 +84,9 @@ const catalogDefaults: Record<string, Partial<PluginSummary>> = {
     instanceNounSingular: "meter",
     instanceNounPlural: "meters",
     requirements: [
+      // i18n-ignore: development fixture label, not Studio copy
       { kind: "platform", label: "Linux Player" },
+      // i18n-ignore: development fixture label, not Studio copy
       { kind: "hardware", label: "Microphone or audio input" },
     ],
     capabilities: ["Player microphone"],

@@ -140,6 +140,10 @@
     },
     "errors": {
       "requestFailed": "Tilecast could not complete the request."
+    },
+    "qr": {
+      "failed": "The QR code could not be displayed. Enter the key below by hand instead.",
+      "alt": "Authenticator setup QR code"
     }
   },
   "preferences": {

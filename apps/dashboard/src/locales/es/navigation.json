@@ -102,6 +102,9 @@
       "offline": "Sin conexión",
       "disabled": "Deshabilitado",
       "revoked": "Vinculación revocada"
+    },
+    "settingsSearch": {
+      "dependencyGraph": "Rastrear contenido, presentaciones, programaciones, grupos y pantallas"
     }
   },
   "error": {
