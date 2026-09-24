@@ -34,7 +34,7 @@ func TestFieldsReferenceDataSourceRecursesIntoRepeatingGroups(t *testing.T) {
 
 func TestLegacyDependencyFallbackRecursesButRequiresExactString(t *testing.T) {
 	configuration := map[string]any{
-		"nested": []any{map[string]any{"source": "target-source"}},
+		"nested":      []any{map[string]any{"source": "target-source"}},
 		"description": "target-source is mentioned in prose",
 	}
 	if !jsonValueContainsExactString(configuration, "target-source") {

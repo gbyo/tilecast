@@ -1,4 +1,9 @@
 {
+  "notifications": {
+    "created": "Horario creado.",
+    "updated": "Horario actualizado.",
+    "deleted": "Horario eliminado."
+  },
   "page": {
     "title": "Programaciones",
     "subtitle": "La prioridad más alta gana. Las pantallas de un grupo de pantallas siempre comparten la misma programación y el mismo contenido alternativo.",

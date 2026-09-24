@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tilecast/tilecast/apps/server/internal/regional"
 )
 
 var ErrRevisionConflict = errors.New("settings revision conflict")
@@ -79,6 +80,17 @@ type PlayerConfig struct {
 	// credential is never part of a configuration document, which is cached on
 	// disk by every player that reads it.
 	PresentationNetwork map[string]any `json:"presentationNetwork,omitempty"`
+}
+
+// RegionalFormatting is the organization-owned formatting policy consumed by
+// signage renderers. It is nested inside the extensible player-config-v1
+// playback section so older Players can ignore it safely.
+type RegionalFormatting struct {
+	Locale         string `json:"locale"`
+	Timezone       string `json:"timezone"`
+	DateFormat     string `json:"dateFormat"`
+	TimeFormat     string `json:"timeFormat"`
+	FirstDayOfWeek string `json:"firstDayOfWeek"`
 }
 
 func NewService(db *pgxpool.Pool, notifier Notifier, limits HardLimits) *Service {
@@ -468,7 +480,7 @@ func (s *Service) PlayerConfiguration(ctx context.Context, screen uuid.UUID) (Pl
 	}
 	v := func(key string) any { return effective.Values[key].Value }
 	o := func(key string) any { return org.Values[key] }
-	config := PlayerConfig{SchemaVersion: 1, ConfigRevision: effective.ConfigRevision, GeneratedAt: time.Now().UTC(), Branding: map[string]any{"organizationName": name, "logoAssetId": o("branding.logo_asset_id"), "backgroundColor": o("branding.player_background_color"), "textColor": o("branding.player_text_color"), "noContentTitle": o("branding.no_content_title"), "noContentMessage": o("branding.no_content_message"), "disabledTitle": o("branding.disabled_title"), "disabledMessage": o("branding.disabled_message"), "footerText": o("branding.footer_text")}, Playback: map[string]any{"defaultVolume": v("player.playback.default_volume"), "defaultFitMode": v("player.playback.default_fit_mode"), "defaultImageDurationSeconds": v("player.playback.default_image_duration_seconds"), "defaultTransition": v("player.playback.default_transition"), "defaultAudioEnabled": v("player.playback.default_audio_enabled"), "resumeAfterRestart": v("player.playback.resume_after_restart"), "identifyShowsLocation": v("player.identify.show_location"), "screenLocation": screenLocation}, Cache: map[string]any{"maximumBytes": v("player.cache.max_bytes"), "minimumFreeBytes": v("player.cache.minimum_free_bytes"), "concurrentDownloads": v("player.download.concurrent_limit"), "automaticThresholdBytes": v("player.download.automatic_threshold_bytes")}, Sync: map[string]any{"manifestReconciliationSeconds": v("player.sync.manifest_seconds"), "statusReportSeconds": v("player.sync.status_seconds")},
+	config := PlayerConfig{SchemaVersion: 1, ConfigRevision: effective.ConfigRevision, GeneratedAt: time.Now().UTC(), Branding: map[string]any{"organizationName": name, "logoAssetId": o("branding.logo_asset_id"), "backgroundColor": o("branding.player_background_color"), "textColor": o("branding.player_text_color"), "noContentTitle": o("branding.no_content_title"), "noContentMessage": o("branding.no_content_message"), "disabledTitle": o("branding.disabled_title"), "disabledMessage": o("branding.disabled_message"), "footerText": o("branding.footer_text")}, Playback: map[string]any{"defaultVolume": v("player.playback.default_volume"), "defaultFitMode": v("player.playback.default_fit_mode"), "defaultImageDurationSeconds": v("player.playback.default_image_duration_seconds"), "defaultTransition": v("player.playback.default_transition"), "defaultAudioEnabled": v("player.playback.default_audio_enabled"), "resumeAfterRestart": v("player.playback.resume_after_restart"), "identifyShowsLocation": v("player.identify.show_location"), "screenLocation": screenLocation, "regionalFormat": regionalFormatting(org.Values)}, Cache: map[string]any{"maximumBytes": v("player.cache.max_bytes"), "minimumFreeBytes": v("player.cache.minimum_free_bytes"), "concurrentDownloads": v("player.download.concurrent_limit"), "automaticThresholdBytes": v("player.download.automatic_threshold_bytes")}, Sync: map[string]any{"manifestReconciliationSeconds": v("player.sync.manifest_seconds"), "statusReportSeconds": v("player.sync.status_seconds")},
 		Reliability:   map[string]any{"mode": v("reliability.mode"), "launchAfterBoot": v("reliability.launch_after_boot"), "immersiveMode": v("reliability.immersive_mode"), "foregroundWatchdogEnabled": v("reliability.foreground_watchdog_enabled"), "playbackStallSeconds": v("reliability.playback_stall_seconds"), "webviewStallSeconds": v("reliability.webview_stall_seconds"), "maximumProcessRestarts": v("reliability.maximum_process_restarts"), "restartWindowMinutes": v("reliability.restart_window_minutes"), "safeModeEnabled": v("reliability.safe_mode_enabled")},
 		Website:       map[string]any{"timeoutSeconds": v("player.website.timeout_seconds"), "cookiePolicy": v("player.website.cookie_policy"), "clearOnRestart": v("player.website.clear_on_restart"), "defaultJavascript": o("website.default_javascript"), "defaultDomStorage": o("website.default_dom_storage"), "defaultTimeoutSeconds": o("website.default_timeout_seconds"), "defaultCookiePolicy": o("website.default_cookie_policy"), "defaultReloadPolicy": o("website.default_reload_policy"), "minimumRefreshSeconds": o("website.minimum_refresh_seconds"), "defaultFailureBehavior": o("website.default_failure_behavior"), "defaultZoomPercent": o("website.default_zoom_percent"), "defaultFallbackImageId": o("website.default_fallback_image_id")},
 		Power:         map[string]any{"activeHoursEnabled": v("power.active_hours_enabled"), "activeHoursTimezone": v("power.active_hours_timezone"), "activeHoursDays": v("power.active_hours_days"), "activeHoursStart": v("power.active_hours_start"), "activeHoursEnd": v("power.active_hours_end"), "startupGraceSeconds": v("power.startup_grace_seconds"), "shutdownPrepareSeconds": v("power.shutdown_prepare_seconds"), "keepScreenOn": v("power.keep_screen_on"), "sleepOutsideActiveHours": v("power.sleep_outside_active_hours"), "outsideActiveHoursDisplay": v("power.outside_active_hours_display"), "outsideActiveHoursText": v("power.outside_active_hours_text"), "blackScreenFallback": v("power.outside_active_hours_display") == "black"},
@@ -477,6 +489,45 @@ func (s *Service) PlayerConfiguration(ctx context.Context, screen uuid.UUID) (Pl
 		Accessibility: map[string]any{"controlAssistEnabled": v("accessibility.control_assist_enabled"), "returnDelaySeconds": v("accessibility.return_delay_seconds"), "allowedPackages": v("accessibility.allowed_packages"), "pauseDuringUpdates": v("accessibility.pause_during_updates"), "pauseDuringAdminSession": v("accessibility.pause_during_admin_session"), "reportForegroundPackage": v("accessibility.report_foreground_package"), "maximumReturns": v("accessibility.maximum_returns"), "returnWindowMinutes": v("accessibility.return_window_minutes")},
 		Updates:       map[string]any{"channel": v("player.update.channel")}}
 	return config, fmt.Sprintf(`"config-%s-%d"`, screen, effective.ConfigRevision), nil
+}
+
+func regionalFormatting(values map[string]any) RegionalFormatting {
+	stringValue := func(key, fallback string) string {
+		value, ok := values[key].(string)
+		if !ok || value == "" {
+			return fallback
+		}
+		return value
+	}
+	locale, err := regional.CanonicalLocale(stringValue("organization.locale", "en-US"))
+	if err != nil {
+		// This fallback preserves player-config v1's original default for a
+		// legacy or unreadable stored value. It is not derived from the device.
+		locale = "en-US"
+	}
+	firstDay := stringValue("organization.first_day_of_week", "sunday")
+	if firstDay == "locale" {
+		firstDay = regional.FirstDayOfWeek(locale)
+	}
+	if !isWeekday(firstDay) {
+		firstDay = "sunday"
+	}
+	return RegionalFormatting{
+		Locale:         locale,
+		Timezone:       stringValue("organization.timezone", "UTC"),
+		DateFormat:     stringValue("organization.date_format", "locale"),
+		TimeFormat:     stringValue("organization.time_format", "locale"),
+		FirstDayOfWeek: firstDay,
+	}
+}
+
+func isWeekday(value string) bool {
+	switch value {
+	case "sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday":
+		return true
+	default:
+		return false
+	}
 }
 
 // BumpScreens advances the configuration revision for a set of screens and

@@ -20,6 +20,12 @@ import type {
   DisplayControlAction,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import {
+  isTimezoneIdentifier,
+  normalizeTimezone,
+  timezoneLabel,
+  timezoneOptions,
+} from "../settings/settingValues";
 import { PlaylistPicker } from "../components/content-picker";
 import { useConfirm } from "../components/ConfirmDialog";
 import { DateInput, DateTimeInput } from "../components/date-picker";
@@ -241,7 +247,7 @@ export function ScheduleEditorPage() {
         : api.createSchedule(input, csrf),
     onSuccess: (schedule) => {
       toast.add({
-        title: id ? "Schedule updated." : "Schedule created.",
+        title: id ? t("notifications.updated") : t("notifications.created"),
         type: "success",
       });
       const next = scheduleToInput(schedule);
@@ -254,7 +260,7 @@ export function ScheduleEditorPage() {
   const remove = useMutation({
     mutationFn: () => api.deleteSchedule(id!, csrf),
     onSuccess: () => {
-      toast.add({ title: "Schedule deleted.", type: "success" });
+      toast.add({ title: t("notifications.deleted"), type: "success" });
       void navigate("/schedules");
     },
   });
@@ -980,8 +986,17 @@ function TimezonePicker({
 }) {
   const { t } = useTranslation("schedules");
   const [search, setSearch] = useState("");
-  const zones = useMemo(timezones, []);
-  const filtered = zones
+  const [open, setOpen] = useState(false);
+  const zones = useMemo(() => timezoneOptions(value), [value]);
+  const candidate = normalizeTimezone(search);
+  const options = useMemo(
+    () =>
+      isTimezoneIdentifier(candidate) && !zones.includes(candidate)
+        ? [...zones, candidate]
+        : zones,
+    [candidate, zones],
+  );
+  const filtered = options
     .filter((zone) =>
       timezoneLabel(zone).toLowerCase().includes(search.toLowerCase()),
     )
@@ -993,11 +1008,18 @@ function TimezonePicker({
           {t("timing.timezoneLabel")} <span aria-hidden="true">*</span>
         </FieldLabel>
         <Combobox
-          items={zones}
+          items={options}
           filteredItems={filtered}
           value={value}
+          open={open}
+          inputValue={open ? search : timezoneLabel(value)}
+          onOpenChange={(next) => {
+            setOpen(next);
+            if (next) setSearch("");
+          }}
           onValueChange={(next) => {
-            if (typeof next === "string" && next) onChange(next);
+            if (typeof next === "string" && isTimezoneIdentifier(next))
+              onChange(next);
           }}
           itemToStringLabel={timezoneLabel}
           onInputValueChange={setSearch}
@@ -1538,24 +1560,6 @@ function localDateTime(value?: string) {
 }
 function toISOString(value: string) {
   return value ? new Date(value).toISOString() : undefined;
-}
-function timezones() {
-  const supported = (
-    Intl as typeof Intl & { supportedValuesOf?: (key: "timeZone") => string[] }
-  ).supportedValuesOf?.("timeZone");
-  return supported?.length
-    ? supported
-    : [
-        "UTC",
-        "America/New_York",
-        "America/Chicago",
-        "America/Denver",
-        "America/Los_Angeles",
-        "Europe/London",
-      ];
-}
-function timezoneLabel(zone: string) {
-  return zone === "UTC" ? "UTC" : zone.replaceAll("_", " ").replace("/", " — ");
 }
 function humanizeConflict(value: string) {
   return value
