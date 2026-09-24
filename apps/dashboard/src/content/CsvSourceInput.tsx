@@ -18,6 +18,13 @@ const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
 
 export type CsvInputMode = "upload" | "url" | "paste";
 
+type CsvErrorKey =
+  | "widgets.csv.errors.empty"
+  | "widgets.csv.errors.noColumns"
+  | "widgets.csv.errors.badExtension"
+  | "widgets.csv.errors.tooLarge"
+  | "widgets.csv.errors.notUtf8";
+
 export type CsvInspection = {
   columns: string[];
   delimiter: NonNullable<StructuredSourceConfig["delimiter"]>;
@@ -116,18 +123,20 @@ export function CsvSourceInput({
   const [fileName, setFileName] = useState("");
   const [fileSize, setFileSize] = useState<number>();
   const [inspection, setInspection] = useState<CsvInspection>();
-  const [error, setError] = useState("");
+  // The untranslated key, so a language change re-renders the alert instead
+  // of freezing the message in the language that was active when it fired.
+  const [error, setError] = useState<CsvErrorKey | "">("");
   const [dragging, setDragging] = useState(false);
 
   const applyContent = (content: string) => {
     const inspection = inspectCsv(content);
     if (!content.trim()) {
       onChange({ url: "", uploadedContent: undefined, uploaded: false });
-      setError(t("widgets.csv.errors.empty"));
+      setError("widgets.csv.errors.empty");
       return;
     }
     if (inspection.columns.length < 1) {
-      setError(t("widgets.csv.errors.noColumns"));
+      setError("widgets.csv.errors.noColumns");
       return;
     }
     setError("");
@@ -139,11 +148,11 @@ export function CsvSourceInput({
     if (!file) return;
     const extension = file.name.split(".").pop()?.toLowerCase();
     if (!extension || !["csv", "tsv", "txt"].includes(extension)) {
-      setError(t("widgets.csv.errors.badExtension"));
+      setError("widgets.csv.errors.badExtension");
       return;
     }
     if (file.size > MAX_UPLOAD_BYTES) {
-      setError(t("widgets.csv.errors.tooLarge"));
+      setError("widgets.csv.errors.tooLarge");
       return;
     }
     try {
@@ -154,7 +163,7 @@ export function CsvSourceInput({
       setFileSize(file.size);
       applyContent(content);
     } catch {
-      setError(t("widgets.csv.errors.notUtf8"));
+      setError("widgets.csv.errors.notUtf8");
     }
   };
 
@@ -333,7 +342,7 @@ export function CsvSourceInput({
 
       {error && (
         <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>{t(error)}</AlertDescription>
         </Alert>
       )}
     </fieldset>

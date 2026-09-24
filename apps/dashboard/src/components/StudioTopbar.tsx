@@ -188,7 +188,7 @@ function collectRouteResults(routes: readonly RouteObject[], t: NavigationT) {
         id: `route:${item.to}`,
         label: item.label,
         description: item.descriptionKey
-          ? t(item.descriptionKey)
+          ? t(item.descriptionKey, item.descriptionValues)
           : item.description,
         to: item.to,
         category: routeGroup(item.to),
