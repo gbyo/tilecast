@@ -668,7 +668,10 @@ export function NoiseMeterEditorPage() {
                 {t("noiseMeter.editor.displayLabel")}
               </FieldLabel>
               <RheaSelect
-                items={noiseDisplayModeOptions}
+                items={noiseDisplayModeOptions.map((option) => ({
+                  value: option.value,
+                  label: t(option.labelKey),
+                }))}
                 name="displayMode"
                 value={displayMode}
                 onValueChange={(next) => {
@@ -822,7 +825,10 @@ export function NoiseMeterEditorPage() {
                 {t("noiseMeter.editor.retentionLabel")}
               </FieldLabel>
               <RheaSelect
-                items={retentionOptions}
+                items={retentionDays.map((days) => ({
+                  value: String(days),
+                  label: t("noiseMeter.editor.retention", { count: days }),
+                }))}
                 name="historyRetentionDays"
                 value={String(historyRetentionDays)}
                 onValueChange={(next) => {

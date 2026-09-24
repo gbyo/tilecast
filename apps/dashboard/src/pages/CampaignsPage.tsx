@@ -113,6 +113,13 @@ const destinationTypeOptions = [
   { value: "group", labelKey: "campaigns.editor.destinationTypes.group" },
 ] as const;
 
+function optionLabel<T extends { value: string; label: string }>(
+  options: readonly T[],
+  value: string,
+) {
+  return options.find((option) => option.value === value)?.label ?? value;
+}
+
 function dateTimeInput(value?: string) {
   if (!value) return "";
   const date = new Date(value);
@@ -814,7 +821,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                             type: next as CampaignBlock["type"],
                           })
                         }
-                        items={blockScheduleOptions}
+                        items={scheduleTypeOptions}
                       >
                         <SelectTrigger
                           id={`block-type-${block.id}`}
@@ -1041,7 +1048,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                     setSelectedType(next as CampaignBlock["contentType"]);
                     setSelectedContent("");
                   }}
-                  items={blockContentOptions}
+                  items={contentTypeOptions}
                 >
                   <SelectTrigger
                     id="campaign-content-type"
@@ -1175,7 +1182,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                     setDestinationType(next as CampaignDestination["type"]);
                     setDestination("");
                   }}
-                  items={destinationTypeOptions}
+                  items={destinationTypeSelectOptions}
                 >
                   <SelectTrigger
                     id="campaign-destination-type"

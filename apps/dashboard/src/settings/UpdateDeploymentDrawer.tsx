@@ -95,7 +95,7 @@ export function UpdateDeploymentDrawer({
         deploymentId,
         screenId,
         auth.status?.csrfToken ?? "",
-    ),
+      ),
     onMutate: () => setActionError(""),
     onSuccess: () => {
       toast.add({ title: t("updates.retryRequested"), type: "success" });
@@ -141,7 +141,9 @@ export function UpdateDeploymentDrawer({
           ? `${deployment.platform === "linux" ? "Linux" : "Android"} · ${deployment.versionName} (${deployment.versionCode})`
           : t("updates.deploymentFallback")}
       </SheetDescription>
-      <SheetTitle>{deployment?.name ?? t("updates.deploymentTitle")}</SheetTitle>
+      <SheetTitle>
+        {deployment?.name ?? t("updates.deploymentTitle")}
+      </SheetTitle>
     </SheetHeader>
   ) : (
     <DrawerHeader>
@@ -150,7 +152,9 @@ export function UpdateDeploymentDrawer({
           ? `${deployment.platform === "linux" ? "Linux" : "Android"} · ${deployment.versionName} (${deployment.versionCode})`
           : t("updates.deploymentFallback")}
       </DrawerDescription>
-      <DrawerTitle>{deployment?.name ?? t("updates.deploymentTitle")}</DrawerTitle>
+      <DrawerTitle>
+        {deployment?.name ?? t("updates.deploymentTitle")}
+      </DrawerTitle>
     </DrawerHeader>
   );
 

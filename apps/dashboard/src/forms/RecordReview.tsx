@@ -256,10 +256,10 @@ function RecordReviewBody({
       setVersion(record.version);
       setNote("");
       setPendingTransition(null);
-          toast.add({
-            title: t("review.decisionRecorded"),
-            type: "success",
-          });
+      toast.add({
+        title: t("review.decisionRecorded"),
+        type: "success",
+      });
       onChanged();
     } catch (err) {
       // On a conflict, fully refresh from the server (values, metadata, images, state, version) and

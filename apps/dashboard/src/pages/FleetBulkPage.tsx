@@ -228,9 +228,7 @@ export function FleetBulkPage() {
               <Empty className="border-0 py-6">
                 <EmptyHeader>
                   <EmptyTitle>{t("bulk.noScreensTitle")}</EmptyTitle>
-                  <EmptyDescription>
-                    {t("bulk.noScreensHint")}
-                  </EmptyDescription>
+                  <EmptyDescription>{t("bulk.noScreensHint")}</EmptyDescription>
                 </EmptyHeader>
                 {canManage && (
                   <EmptyContent>
@@ -241,7 +239,7 @@ export function FleetBulkPage() {
                       })}
                       to="/screens/pair"
                     >
-                      {t("pairScreen")}
+                      {t("page.pairScreen")}
                     </Link>
                   </EmptyContent>
                 )}
@@ -480,9 +478,7 @@ export function FleetBulkPage() {
                 <History aria-hidden="true" />
               </EmptyMedia>
               <EmptyTitle>{t("bulk.recentEmptyTitle")}</EmptyTitle>
-              <EmptyDescription>
-                {t("bulk.recentEmptyHint")}
-              </EmptyDescription>
+              <EmptyDescription>{t("bulk.recentEmptyHint")}</EmptyDescription>
             </EmptyHeader>
           </Empty>
         ) : (
