@@ -1,9 +1,11 @@
 ---
-title: Configure Emergency Alerts
-description: Monitor National Weather Service alerts and choose what Tilecast shows when a rule matches.
+title: Configure US Weather Alerts
+description: Monitor U.S. National Weather Service alerts and choose what Tilecast shows when a rule matches.
 ---
 
-The **Emergency Alerts** plugin checks active U.S. National Weather Service alerts and applies rules to matching Players. A rule can show Tilecast's live fullscreen alert, show a ticker while playback continues, or start a ready playlist as a fullscreen response.
+The **US Weather Alerts** plugin checks active U.S. National Weather Service (NWS) alerts and applies rules to matching Players. A rule can show Tilecast's live fullscreen alert, show a ticker while playback continues, or start a ready playlist as a fullscreen response.
+
+This is a U.S.-specific automated provider. Tilecast's separate CAP Alerts Data Source can display records from a configured public CAP feed, but it does not trigger these alert rules or Takeovers. CAP availability depends on the feed an organization can access; Tilecast does not promise that every country's warning service exposes CAP.
 
 :::caution
 Alert delivery is best-effort and is not a life-safety system. Keep local emergency procedures and Wireless Emergency Alerts in place. Tilecast needs the server to reach the NWS service, and the plugin reports poll health so you can see upstream or network failures.
@@ -11,11 +13,11 @@ Alert delivery is best-effort and is not a life-safety system. Keep local emerge
 
 ## Install the plugin
 
-An Owner or Administrator can open **Operations** > **Plugins**, select **Add plugin**, choose **Emergency Alerts**, and install it. Then open **Emergency Alerts** from the installed plugin list. Installation does not enable monitoring or create rules.
+An Owner or Administrator can open **Operations** > **Plugins**, select **Add plugin**, choose **US Weather Alerts**, and install it. Then open **US Weather Alerts** from the installed plugin list. Installation does not enable monitoring or create rules.
 
 ## Choose which alerts Tilecast checks
 
-1. In **Emergency Alerts**, turn on **Automated NWS monitoring**.
+1. In **US Weather Alerts**, turn on **Automated NWS monitoring**.
 2. Under **Alert coverage**, select a **State or territory**. Choose **Monitor entire state** to include it all, or add one or more **County or forecast zone** locations. You can combine state coverage and specific locations.
 3. Choose a **Poll interval**. Tilecast offers one, two, five, or fifteen minutes; the interface recommends one or two minutes for most sites.
 4. Select **Save NWS monitor**.

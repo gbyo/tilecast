@@ -37,7 +37,12 @@ import {
 import { ScrollArea } from "../components/ui/scroll-area";
 import { Spinner } from "../components/ui/spinner";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
-import { headlineRequirements, pluginCategories } from "./pluginCatalog";
+import {
+  headlineRequirements,
+  pluginCategories,
+  pluginDisplayDescription,
+  pluginDisplayName,
+} from "./pluginCatalog";
 import { PluginIcon } from "./PluginIcon";
 import { PluginDetail } from "./PluginDetail";
 
@@ -80,6 +85,7 @@ export function PluginCatalogDialog({
   onInstall: (plugin: PluginSummary) => void;
 }) {
   const { t } = useTranslation(["plugins", "common"]);
+  const { t: pluginT } = useTranslation("plugins");
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<CategoryFilter>("All");
   const selected = plugins.find((plugin) => plugin.id === selectedId);
@@ -222,7 +228,7 @@ export function PluginCatalogDialog({
                         </ItemMedia>
                         <ItemContent>
                           <ItemTitle>
-                            {plugin.name}
+                            {pluginDisplayName(plugin, pluginT)}
                             {plugin.installed && (
                               <Badge variant="secondary">
                                 {t("catalog.installed")}
@@ -230,7 +236,7 @@ export function PluginCatalogDialog({
                             )}
                           </ItemTitle>
                           <ItemDescription>
-                            {plugin.description}
+                            {pluginDisplayDescription(plugin, pluginT)}
                           </ItemDescription>
                           {headlineRequirements(plugin).length > 0 && (
                             <p className="text-xs text-muted-foreground">

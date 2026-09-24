@@ -1,8 +1,8 @@
 {
   "emergency": {
     "backToPlugins": "Plugins",
-    "title": "Emergency Alerts",
-    "description": "Watch official NWS weather alerts and take matching screens over automatically, then restore normal playback when the alert clears.",
+    "title": "US Weather Alerts",
+    "description": "Watch official U.S. National Weather Service (NWS) alerts and take matching screens over automatically, then restore normal playback when the alert clears.",
     "readOnlyNotice": "Owner or Administrator access is required to make changes.",
     "prepare": {
       "title": "Prepare automatic emergency content",

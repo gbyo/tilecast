@@ -90,8 +90,8 @@ var registry = []Definition{
 		Installable:   true,
 	},
 	{
-		ID: EmergencyAlertsID, Version: 1, Name: "Emergency Alerts",
-		Description:          "Watch official NWS weather alerts and respond automatically while one is active, with a fullscreen takeover or a ticker bar.",
+		ID: EmergencyAlertsID, Version: 1, Name: "US Weather Alerts",
+		Description:          "Watch official U.S. National Weather Service (NWS) alerts and respond automatically while one is active, with a fullscreen takeover or a ticker bar.",
 		Category:             CategoryAutomation,
 		Icon:                 "siren",
 		ManagementPath:       "/plugins/emergency-alerts",

@@ -653,6 +653,7 @@
   "Email needs TILECAST_SMTP_HOST on the server. Without it, notifications stay off and nothing fails.": "Для электронной почты на сервере требуется TILECAST_SMTP_HOST. Без него уведомления останутся выключенными, но ошибок не возникнет.",
   "Emergency alerts": "Экстренные оповещения",
   "Emergency Alerts": "Экстренные оповещения",
+  "US Weather Alerts": "Погодные оповещения США",
   "Emergency display": "Экстренный показ",
   "Empty": "Пусто",
   "Empty playlists": "Пустые плейлисты",

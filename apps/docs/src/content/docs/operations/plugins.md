@@ -12,7 +12,7 @@ Tilecast plugins add optional features that ship with Tilecast. They are not dow
 3. Read the listed requirements and capabilities, then select **Install**.
 4. Open the plugin's page from the installed list and configure its instances.
 
-Tilecast shows installed plugins and their setup state. Some plugins need a compatible Player, hardware, or network connection. For example, **Noise Meter** needs a Linux Player with an available microphone, and **Emergency Alerts** needs the server to reach the National Weather Service. A listed requirement is guidance; installation itself does not confirm that a device meets it.
+Tilecast shows installed plugins and their setup state. Some plugins need a compatible Player, hardware, or network connection. For example, **Noise Meter** needs a Linux Player with an available microphone, and **US Weather Alerts** needs the server to reach the National Weather Service. A listed requirement is guidance; installation itself does not confirm that a device meets it.
 
 The built-in catalog includes:
 
@@ -21,9 +21,9 @@ The built-in catalog includes:
 | **Countdown Bar**         | A timed bar over normal playback.                                          | Target Players must support plugin bars.                                                                            |
 | **Brand Bug / Watermark** | A persistent corner mark over content.                                     | Linux Player renders it; Android Player does not.                                                                   |
 | **Noise Meter**           | A bar that appears while room noise stays above the configured level.      | Linux Player and an audio input are required. The reading is relative, not a calibrated sound-pressure measurement. |
-| **Emergency Alerts**      | Automatic response to matching National Weather Service alerts.            | Covers U.S. alerts and needs outbound server access to the NWS service.                                             |
+| **US Weather Alerts**     | Automatic response to matching National Weather Service alerts.            | Covers U.S. alerts and needs outbound server access to the NWS service.                                             |
 | **Forms**                 | Submission and approval workflows whose approved records can feed Widgets. | Forms are managed from their plugin page, not from the Data Sources library.                                        |
 
 Removing a plugin is blocked while its instances or other plugin-owned resources remain. Remove those through the plugin's own page first. Removal does not delete those resources.
 
-See [Configure Emergency Alerts](../emergency-alerts/) for coverage, matching rules, display modes, and poll health.
+See [Configure US Weather Alerts](../emergency-alerts/) for coverage, matching rules, display modes, and poll health.

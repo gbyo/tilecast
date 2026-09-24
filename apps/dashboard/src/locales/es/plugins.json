@@ -24,6 +24,8 @@
   },
   "catalog": {
     "back": "Todos los complementos",
+    "emergencyAlertsName": "Alertas meteorológicas de EE. UU.",
+    "emergencyAlertsDescription": "Vigila las alertas oficiales del Servicio Meteorológico Nacional de EE. UU. (NWS) y responde automáticamente mientras estén activas, con una toma de control a pantalla completa o una barra informativa.",
     "reviewDescription": "Revisa {{name}} antes de instalarlo.",
     "installed": "Instalado",
     "install": "Instalar",

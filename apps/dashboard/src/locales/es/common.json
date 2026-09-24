@@ -35,6 +35,10 @@
     "items_many": "{{count}} de elementos",
     "items_other": "{{count}} elementos"
   },
+  "toasts": {
+    "pluginInstalled": "Complemento instalado.",
+    "pluginRemoved": "Complemento eliminado."
+  },
   "filters": {
     "active": "Filtros activos",
     "remove": "Quitar el filtro {{label}}: {{value}}",

@@ -15,7 +15,12 @@ import {
 import { Skeleton } from "../components/ui/skeleton";
 import { Spinner } from "../components/ui/spinner";
 import { apiErrorMessage } from "../i18n";
-import { usePluginCatalog, usePluginLifecycle } from "./pluginCatalog";
+import {
+  pluginDisplayDescription,
+  pluginDisplayName,
+  usePluginCatalog,
+  usePluginLifecycle,
+} from "./pluginCatalog";
 import { PluginIcon } from "./PluginIcon";
 import { canManage } from "./shared";
 
@@ -37,6 +42,8 @@ export function PluginRouteGate({
   const catalog = usePluginCatalog();
   const { install } = usePluginLifecycle(auth.status?.csrfToken ?? "");
   const plugin = catalog.data?.items.find((item) => item.id === pluginId);
+  const name = plugin ? pluginDisplayName(plugin, t) : "";
+  const description = plugin ? pluginDisplayDescription(plugin, t) : "";
 
   if (catalog.isLoading)
     return (
@@ -56,17 +63,15 @@ export function PluginRouteGate({
           <EmptyMedia variant="icon">
             <PluginIcon icon={plugin.icon} />
           </EmptyMedia>
-          <EmptyTitle>
-            {t("gate.notInstalled", { name: plugin.name })}
-          </EmptyTitle>
+          <EmptyTitle>{t("gate.notInstalled", { name })}</EmptyTitle>
           <EmptyDescription>
             {canInstall
               ? t("gate.installDescription", {
-                  name: plugin.name,
-                  description: plugin.description,
+                  name,
+                  description,
                 })
               : t("gate.lockedDescription", {
-                  description: plugin.description,
+                  description,
                 })}
           </EmptyDescription>
         </EmptyHeader>
@@ -87,7 +92,7 @@ export function PluginRouteGate({
                 {install.isPending && (
                   <Spinner data-icon="inline-start" aria-hidden="true" />
                 )}
-                {t("gate.installAction", { name: plugin.name })}
+                {t("gate.installAction", { name })}
               </Button>
             )}
             <Link

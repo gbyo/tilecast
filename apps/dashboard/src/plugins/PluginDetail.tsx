@@ -11,6 +11,7 @@ import {
   ItemTitle,
 } from "../components/ui/item";
 import { Separator } from "../components/ui/separator";
+import { pluginDisplayDescription, pluginDisplayName } from "./pluginCatalog";
 import { PluginIcon } from "./PluginIcon";
 
 /**
@@ -19,6 +20,7 @@ import { PluginIcon } from "./PluginIcon";
  */
 export function PluginDetail({ plugin }: { plugin: PluginSummary }) {
   const { t } = useTranslation("plugins");
+  const name = pluginDisplayName(plugin, t);
   return (
     <div className="grid gap-5 pr-2">
       <Item className="px-0 py-0">
@@ -26,14 +28,16 @@ export function PluginDetail({ plugin }: { plugin: PluginSummary }) {
           <PluginIcon icon={plugin.icon} />
         </ItemMedia>
         <ItemContent>
-          <ItemTitle className="text-base">{plugin.name}</ItemTitle>
+          <ItemTitle className="text-base">{name}</ItemTitle>
           <ItemDescription className="flex flex-wrap items-center gap-1.5">
             <Badge variant="outline">{plugin.category}</Badge>
             <span>{t("detail.builtIn")}</span>
           </ItemDescription>
         </ItemContent>
       </Item>
-      <p className="text-sm text-muted-foreground">{plugin.description}</p>
+      <p className="text-sm text-muted-foreground">
+        {pluginDisplayDescription(plugin, t)}
+      </p>
       {plugin.attention.map((note) => (
         <Alert key={note.code}>
           <CircleAlert aria-hidden="true" />

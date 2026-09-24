@@ -4,8 +4,8 @@ Studio keeps two operator flows distinct:
 
 - **Takeover** is the manual “show this now” action on Screens. Its defaults
   live in Settings → Takeovers and commands.
-- **Emergency Alerts** is a plugin, at Plugins → Emergency Alerts, that
-  configures automatic responses to matching National Weather Service alerts.
+- **US Weather Alerts** is a plugin, at Plugins → US Weather Alerts, that
+  configures automatic responses to matching U.S. National Weather Service alerts.
   It is a feature an installation opts into and configures, not an
   organization default, which is why it is not in Settings.
 
@@ -35,11 +35,11 @@ The server stores per-screen preparation and activation state and increments onl
 
 ## National Weather Service monitoring
 
-The Emergency Alerts plugin contains the NWS monitor. An Owner or
+The US Weather Alerts plugin contains the NWS monitor. An Owner or
 Administrator selects a state or territory by name. Studio then loads the
 saved NWS county and forecast-zone list for that area, so the operator can
 monitor the whole state or add specific locations without looking up codes.
-Each rule has exact NWS event names (or all events), minimum CAP severity and
+Each rule has exact NWS event names (or all events), minimum alert severity and
 urgency, a response of takeover or ticker, a built-in live display or custom
 ready playlist for a takeover, bar placement, height, and speed for a ticker,
 explicit screen/group targets, and a duration ceiling.

@@ -36,6 +36,10 @@
     "items_many": "{{count}} элементов",
     "items_other": "{{count}} элемента"
   },
+  "toasts": {
+    "pluginInstalled": "Плагин установлен.",
+    "pluginRemoved": "Плагин удалён."
+  },
   "filters": {
     "active": "Активные фильтры",
     "remove": "Убрать фильтр {{label}}: {{value}}",
