@@ -17,7 +17,6 @@ import { ButtonGroup, ButtonGroupText } from "../components/ui/button-group";
 import {
   Empty,
   EmptyContent,
-  EmptyDescription,
   EmptyHeader,
   EmptyTitle,
 } from "../components/ui/empty";
@@ -928,7 +927,7 @@ export function LayoutEditorPage() {
         csrf,
       ),
     onSuccess: () => {
-      toast.add({ title: "Layout renamed.", type: "success" });
+      toast.add({ title: t("editor.renameSuccess"), type: "success" });
       void queryClient.invalidateQueries({ queryKey: ["layout", id] });
       void queryClient.invalidateQueries({ queryKey: ["layouts"] });
     },
@@ -937,7 +936,7 @@ export function LayoutEditorPage() {
     mutationFn: (revisionId: string) =>
       api.restoreLayoutRevision(id, revisionId, serverRevision, csrf),
     onSuccess: (saved) => {
-      toast.add({ title: "Layout revision restored.", type: "success" });
+      toast.add({ title: t("editor.revisionRestoreSuccess"), type: "success" });
       const next = clone(saved.draft);
       setDocument(next);
       documentRef.current = next;
@@ -2622,11 +2621,11 @@ export function LayoutEditorPage() {
         <span className="toolbar-divider" />
         {desktop && (
           <Menubar
-            aria-label="Layout editor commands"
+            aria-label={t("editor.commandSurface.ariaLabel")}
             className="shrink-0 border-0 p-0 shadow-none"
           >
             <MenubarMenu>
-              <MenubarTrigger>File</MenubarTrigger>
+              <MenubarTrigger>{t("editor.commandSurface.file")}</MenubarTrigger>
               <MenubarContent className="min-w-52">
                 <MenubarItem
                   disabled={rename.isPending}
@@ -2637,7 +2636,7 @@ export function LayoutEditorPage() {
                     })
                   }
                 >
-                  Rename layout
+                  {t("editor.commandSurface.renameLayout")}
                 </MenubarItem>
                 <MenubarItem
                   disabled={
@@ -2647,8 +2646,10 @@ export function LayoutEditorPage() {
                   }
                   onClick={() => void save()}
                 >
-                  Save now
-                  <MenubarShortcut>Ctrl/⌘ S</MenubarShortcut>
+                  {t("editor.commandSurface.saveNow")}
+                  <MenubarShortcut>
+                    {t("editor.commandSurface.shortcutSave")}
+                  </MenubarShortcut>
                 </MenubarItem>
                 <MenubarSeparator />
                 <MenubarItem
@@ -2657,7 +2658,7 @@ export function LayoutEditorPage() {
                     void loadLayoutPreview();
                   }}
                 >
-                  Preview
+                  {t("editor.commandSurface.preview")}
                 </MenubarItem>
                 <MenubarItem
                   onClick={() => {
@@ -2665,7 +2666,7 @@ export function LayoutEditorPage() {
                     void revisions.refetch();
                   }}
                 >
-                  Published revisions
+                  {t("editor.commandSurface.publishedRevisions")}
                 </MenubarItem>
                 {canSubmit && (
                   <>
@@ -2674,75 +2675,95 @@ export function LayoutEditorPage() {
                       disabled={saveState !== "saved" || publish.isPending}
                       onClick={() => publish.mutate()}
                     >
-                      {canPublish ? "Publish" : "Submit for review"}
+                      {canPublish
+                        ? t("editor.commandSurface.publish")
+                        : t("editor.commandSurface.submitForReview")}
                     </MenubarItem>
                   </>
                 )}
               </MenubarContent>
             </MenubarMenu>
             <MenubarMenu>
-              <MenubarTrigger>Edit</MenubarTrigger>
+              <MenubarTrigger>{t("editor.commandSurface.edit")}</MenubarTrigger>
               <MenubarContent className="min-w-52">
                 <MenubarItem disabled={!past.length} onClick={undo}>
-                  Undo
-                  <MenubarShortcut>Ctrl/⌘ Z</MenubarShortcut>
+                  {t("editor.commandSurface.undo")}
+                  <MenubarShortcut>
+                    {t("editor.commandSurface.shortcutUndo")}
+                  </MenubarShortcut>
                 </MenubarItem>
                 <MenubarItem disabled={!future.length} onClick={redo}>
-                  Redo
-                  <MenubarShortcut>Ctrl/⌘ ⇧ Z</MenubarShortcut>
+                  {t("editor.commandSurface.redo")}
+                  <MenubarShortcut>
+                    {t("editor.commandSurface.shortcutRedo")}
+                  </MenubarShortcut>
                 </MenubarItem>
                 <MenubarSeparator />
                 <MenubarItem disabled={!selection.size} onClick={copySelection}>
-                  Copy
-                  <MenubarShortcut>Ctrl/⌘ C</MenubarShortcut>
+                  {t("editor.commandSurface.copy")}
+                  <MenubarShortcut>
+                    {t("editor.commandSurface.shortcutCopy")}
+                  </MenubarShortcut>
                 </MenubarItem>
                 <MenubarItem
                   disabled={!clipboard.current.length}
                   onClick={pasteClipboard}
                 >
-                  Paste
-                  <MenubarShortcut>Ctrl/⌘ V</MenubarShortcut>
+                  {t("editor.commandSurface.paste")}
+                  <MenubarShortcut>
+                    {t("editor.commandSurface.shortcutPaste")}
+                  </MenubarShortcut>
                 </MenubarItem>
                 <MenubarItem
                   disabled={!selection.size}
                   onClick={duplicateSelection}
                 >
-                  Duplicate
-                  <MenubarShortcut>Ctrl/⌘ D</MenubarShortcut>
+                  {t("editor.commandSurface.duplicate")}
+                  <MenubarShortcut>
+                    {t("editor.commandSurface.shortcutDuplicate")}
+                  </MenubarShortcut>
                 </MenubarItem>
                 <MenubarSeparator />
                 <MenubarItem
                   disabled={!document.placements.length}
                   onClick={selectAll}
                 >
-                  Select all
-                  <MenubarShortcut>Ctrl/⌘ A</MenubarShortcut>
+                  {t("editor.commandSurface.selectAll")}
+                  <MenubarShortcut>
+                    {t("editor.commandSurface.shortcutSelectAll")}
+                  </MenubarShortcut>
                 </MenubarItem>
                 <MenubarItem
                   disabled={!selection.size}
                   onClick={() => setSelection(new Set())}
                 >
-                  Deselect
+                  {t("editor.commandSurface.deselect")}
                 </MenubarItem>
                 <MenubarItem
                   disabled={!selection.size}
                   variant="destructive"
                   onClick={deleteSelection}
                 >
-                  Delete selection
-                  <MenubarShortcut>Del</MenubarShortcut>
+                  {t("editor.commandSurface.deleteSelection")}
+                  <MenubarShortcut>
+                    {t("editor.commandSurface.shortcutDelete")}
+                  </MenubarShortcut>
                 </MenubarItem>
               </MenubarContent>
             </MenubarMenu>
             <MenubarMenu>
-              <MenubarTrigger>Arrange</MenubarTrigger>
+              <MenubarTrigger>
+                {t("editor.commandSurface.arrange")}
+              </MenubarTrigger>
               <MenubarContent className="min-w-52">
                 <MenubarItem
                   disabled={selection.size < 2}
                   onClick={groupSelection}
                 >
-                  Group selection
-                  <MenubarShortcut>Ctrl/⌘ G</MenubarShortcut>
+                  {t("editor.commandSurface.groupSelection")}
+                  <MenubarShortcut>
+                    {t("editor.commandSurface.shortcutGroup")}
+                  </MenubarShortcut>
                 </MenubarItem>
                 <MenubarItem
                   disabled={
@@ -2750,99 +2771,99 @@ export function LayoutEditorPage() {
                   }
                   onClick={ungroupSelection}
                 >
-                  Ungroup
+                  {t("editor.commandSurface.ungroup")}
                 </MenubarItem>
                 <MenubarSub>
                   <MenubarSubTrigger disabled={!selected.length}>
-                    Layer order
+                    {t("editor.commandSurface.layerOrder")}
                   </MenubarSubTrigger>
                   <MenubarSubContent>
                     <MenubarItem
                       disabled={!selected.length}
                       onClick={() => arrangeSelection("front")}
                     >
-                      Bring to front
+                      {t("editor.commandSurface.bringToFront")}
                     </MenubarItem>
                     <MenubarItem
                       disabled={!selected.length}
                       onClick={() => arrangeSelection("forward")}
                     >
-                      Bring forward
+                      {t("editor.commandSurface.bringForward")}
                     </MenubarItem>
                     <MenubarItem
                       disabled={!selected.length}
                       onClick={() => arrangeSelection("backward")}
                     >
-                      Send backward
+                      {t("editor.commandSurface.sendBackward")}
                     </MenubarItem>
                     <MenubarItem
                       disabled={!selected.length}
                       onClick={() => arrangeSelection("back")}
                     >
-                      Send to back
+                      {t("editor.commandSurface.sendToBack")}
                     </MenubarItem>
                   </MenubarSubContent>
                 </MenubarSub>
                 <MenubarSub>
                   <MenubarSubTrigger disabled={!selected.length}>
-                    Align selection
+                    {t("editor.commandSurface.alignSelection")}
                   </MenubarSubTrigger>
                   <MenubarSubContent>
                     <MenubarItem
                       disabled={!selected.length}
                       onClick={() => alignSelection("left")}
                     >
-                      Align left
+                      {t("editor.commandSurface.alignLeft")}
                     </MenubarItem>
                     <MenubarItem
                       disabled={!selected.length}
                       onClick={() => alignSelection("hcenter")}
                     >
-                      Horizontal centres
+                      {t("editor.commandSurface.horizontalCenters")}
                     </MenubarItem>
                     <MenubarItem
                       disabled={!selected.length}
                       onClick={() => alignSelection("right")}
                     >
-                      Align right
+                      {t("editor.commandSurface.alignRight")}
                     </MenubarItem>
                     <MenubarItem
                       disabled={!selected.length}
                       onClick={() => alignSelection("top")}
                     >
-                      Align top
+                      {t("editor.commandSurface.alignTop")}
                     </MenubarItem>
                     <MenubarItem
                       disabled={!selected.length}
                       onClick={() => alignSelection("vmiddle")}
                     >
-                      Vertical centres
+                      {t("editor.commandSurface.verticalCenters")}
                     </MenubarItem>
                     <MenubarItem
                       disabled={!selected.length}
                       onClick={() => alignSelection("bottom")}
                     >
-                      Align bottom
+                      {t("editor.commandSurface.alignBottom")}
                     </MenubarItem>
                     <MenubarSeparator />
                     <MenubarItem
                       disabled={selected.length < 3}
                       onClick={() => distributeSelection("horizontal")}
                     >
-                      Distribute horizontally
+                      {t("editor.commandSurface.distributeHorizontally")}
                     </MenubarItem>
                     <MenubarItem
                       disabled={selected.length < 3}
                       onClick={() => distributeSelection("vertical")}
                     >
-                      Distribute vertically
+                      {t("editor.commandSurface.distributeVertically")}
                     </MenubarItem>
                     <MenubarSeparator />
                     <MenubarItem
                       disabled={!selected.length}
                       onClick={fillCanvas}
                     >
-                      Fill canvas
+                      {t("editor.commandSurface.fillCanvas")}
                     </MenubarItem>
                   </MenubarSubContent>
                 </MenubarSub>
@@ -2851,38 +2872,45 @@ export function LayoutEditorPage() {
                   disabled={!selected.length}
                   onClick={() => toggleSelectionFlag("locked")}
                 >
-                  {selected.some((item) => item.locked) ? "Unlock" : "Lock"}{" "}
-                  selection
+                  {selected.some((item) => item.locked)
+                    ? t("editor.commandSurface.unlockSelection")
+                    : t("editor.commandSurface.lockSelection")}
                 </MenubarItem>
                 <MenubarItem
                   disabled={!selected.length}
                   onClick={() => toggleSelectionFlag("visible")}
                 >
                   {selected.some((item) => !item.visible)
-                    ? "Show selection"
-                    : "Hide selection"}
+                    ? t("editor.commandSurface.showSelection")
+                    : t("editor.commandSurface.hideSelection")}
                 </MenubarItem>
               </MenubarContent>
             </MenubarMenu>
             <MenubarMenu>
-              <MenubarTrigger>View</MenubarTrigger>
+              <MenubarTrigger>{t("editor.commandSurface.view")}</MenubarTrigger>
               <MenubarContent className="min-w-52">
                 <MenubarCheckboxItem
                   checked={snap}
                   onCheckedChange={(checked) => setSnap(checked)}
                 >
-                  Snap to grid
+                  {t("editor.commandSurface.snapToGrid")}
                 </MenubarCheckboxItem>
                 <MenubarCheckboxItem
                   checked={safeArea}
                   onCheckedChange={(checked) => setSafeArea(checked)}
                 >
-                  Show safe area
+                  {t("editor.commandSurface.showSafeArea")}
                 </MenubarCheckboxItem>
                 <MenubarSeparator />
-                <MenubarItem onClick={zoomOut}>Zoom out</MenubarItem>
-                <MenubarItem onClick={zoomIn}>Zoom in</MenubarItem>
-                <MenubarItem onClick={fitZoom}>Fit canvas to view</MenubarItem>
+                <MenubarItem onClick={zoomOut}>
+                  {t("editor.commandSurface.zoomOut")}
+                </MenubarItem>
+                <MenubarItem onClick={zoomIn}>
+                  {t("editor.commandSurface.zoomIn")}
+                </MenubarItem>
+                <MenubarItem onClick={fitZoom}>
+                  {t("editor.commandSurface.fitCanvasToView")}
+                </MenubarItem>
               </MenubarContent>
             </MenubarMenu>
           </Menubar>
@@ -3138,10 +3166,12 @@ export function LayoutEditorPage() {
         >
           <DialogHeader className="sr-only">
             <DialogTitle>
-              Preview {layoutQuery.data?.name ?? "Layout"}
+              {t("editor.previewTitle", {
+                name: layoutQuery.data?.name ?? t("editor.toolbarDefaultName"),
+              })}
             </DialogTitle>
             <DialogDescription>
-              Playback preview of the current Layout.
+              {t("editor.previewDescription")}
             </DialogDescription>
           </DialogHeader>
           <div className="layout-preview-toolbar">
@@ -3223,7 +3253,9 @@ export function LayoutEditorPage() {
         <DialogContent className="layout-history-dialog max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t("editor.historyTitle")}</DialogTitle>
-            <DialogDescription>{t("editor.historyDescription")}</DialogDescription>
+            <DialogDescription>
+              {t("editor.historyDescription")}
+            </DialogDescription>
           </DialogHeader>
           <div className="source-editor__body">
             {revisions.isLoading ? (

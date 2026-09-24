@@ -299,7 +299,22 @@ matching `date-fns/locale` (`es`, `ru`) through the same choice.
 
 Do not translate the organization's regional-format settings
 (`organization.locale`, timezones, first day of week). They describe the
-installation, not the reader.
+installation, not the reader. The separate regional-formatting contract
+controls how organization-authored content and values appear on signage; it
+does not translate every Player or Server interface string. `preference.language`
+continues to control the individual person's Studio interface. The organization
+locale, timezone, date/time preferences, and first day of week control signage
+formatting and organization-level date semantics. A widget's explicit format
+wins over organization defaults, and a field's explicit ISO 4217 currency code
+determines the currency independently of locale. See [Settings and player
+policies](settings.md#regional-formatting) and [Player configuration](player-protocol.md).
+
+Locale tags use standard BCP-47 parsing/canonicalization. The browser uses the
+ECMA-402 `Intl` APIs for locale and time-zone data; the server derives the
+locale week default from CLDR supplemental week data. `Intl.Locale.getWeekInfo`
+and `Intl.supportedValuesOf("timeZone")` provide modern runtime data, with
+compatibility fallbacks where those APIs are not available. See the [ECMA-402
+specification](https://402.ecma-international.org/), [MDN `getWeekInfo`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/Locale/getWeekInfo), [MDN `supportedValuesOf`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/supportedValuesOf), and [CLDR date and week data](https://unicode-org.github.io/cldr/ldml/tr35-dates.html).
 
 ### Server-provided text
 

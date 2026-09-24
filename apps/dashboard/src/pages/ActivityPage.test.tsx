@@ -54,8 +54,8 @@ const incident = {
   incidentType: "connectivity",
   severity: "critical",
   status: "open",
-  title: "Screen stopped reporting",
-  description: "Screen is not reporting.",
+  title: "Screen stopped reporting", // i18n-ignore: test fixture from a server incident
+  description: "Screen is not reporting.", // i18n-ignore: test fixture from a server incident
   openedAt: "2026-07-26T08:00:00.000Z",
   lastSeenAt: "2026-07-26T08:30:00.000Z",
   primaryScreenId: "screen-2",
@@ -288,7 +288,7 @@ describe("Playback metric semantics", () => {
               items: [
                 {
                   key: "screen-1",
-                  label: "One session",
+                  label: "One session", // i18n-ignore: distinguishing server fixture
                   confirmedScreenPlaybackMs: 1_000,
                   contentExposureMs: 0,
                   records: 1,
@@ -301,7 +301,7 @@ describe("Playback metric semantics", () => {
                 },
                 {
                   key: "screen-2",
-                  label: "Ninety-nine sessions",
+                  label: "Ninety-nine sessions", // i18n-ignore: distinguishing server fixture
                   confirmedScreenPlaybackMs: 99_000,
                   contentExposureMs: 0,
                   records: 99,
@@ -412,7 +412,9 @@ describe("Activity filters", () => {
     renderPage("/activity?tab=proof");
 
     await user.click(await screen.findByRole("combobox", { name: "Screen" }));
-    await user.click(screen.getByRole("option", { name: "Lobby north" }));
+    await user.click(
+      await screen.findByRole("option", { name: "Lobby north" }),
+    );
 
     await waitFor(() =>
       expect(screen.getByRole("status").textContent).toContain(

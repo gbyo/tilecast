@@ -4,13 +4,24 @@ import { signalColors } from "@tilecast/design-tokens/values";
 import type { SettingDefinition } from "../api/types";
 import { enumLabel, titleFor } from "./settingDisplay";
 import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "../components/ui/combobox";
+import {
   normalizeLocalTime,
   normalizeTimezone,
+  canonicalizeLocale,
+  isTimezoneIdentifier,
+  localeSuggestions,
   timezoneLabel,
   timezoneOptions,
 } from "./settingValues";
 import { Button } from "../components/ui/button";
-import { FieldError } from "../components/ui/field";
+import { FieldDescription, FieldError } from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import {
   InputGroup,
@@ -71,20 +82,25 @@ export function SettingControl({
     );
   }
   if (definition.type === "timezone") {
-    const timezone = normalizeTimezone(value);
     return (
-      <SettingSelect
+      <TimezonePicker
         label={title}
-        value={timezone}
+        value={normalizeTimezone(value)}
         disabled={disabled}
-        onChange={(next) => onChange(next)}
-        options={timezoneOptions(timezone).map((option) => ({
-          value: option,
-          label: timezoneLabel(option),
-        }))}
+        onChange={onChange}
       />
     );
   }
+  if (definition.type === "locale")
+    return (
+      <LocalePicker
+        id={id}
+        label={title}
+        value={typeof value === "string" ? value : ""}
+        disabled={disabled}
+        onChange={onChange}
+      />
+    );
   if (definition.type === "enum")
     return (
       <SettingSelect
@@ -233,6 +249,114 @@ function SettingSelect({
     </Select>
   );
 }
+
+function TimezonePicker({
+  label,
+  value,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  disabled?: boolean;
+  onChange: (value: string) => void;
+}) {
+  const { t } = useTranslation("settings");
+  const [search, setSearch] = useState("");
+  const [open, setOpen] = useState(false);
+  const zones = useMemo(() => timezoneOptions(value), [value]);
+  const candidate = normalizeTimezone(search);
+  const options = useMemo(
+    () =>
+      isTimezoneIdentifier(candidate) && !zones.includes(candidate)
+        ? [...zones, candidate]
+        : zones,
+    [candidate, zones],
+  );
+  const filtered = options
+    .filter((zone) =>
+      timezoneLabel(zone).toLowerCase().includes(search.toLowerCase()),
+    )
+    .slice(0, 80);
+  return (
+    <Combobox
+      items={options}
+      filteredItems={filtered}
+      value={value}
+      open={open}
+      inputValue={open ? search : timezoneLabel(value)}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next) setSearch("");
+      }}
+      disabled={disabled}
+      onValueChange={(next) => {
+        if (typeof next === "string" && isTimezoneIdentifier(next))
+          onChange(next);
+      }}
+      itemToStringLabel={timezoneLabel}
+      onInputValueChange={setSearch}
+    >
+      <ComboboxInput
+        aria-label={label}
+        placeholder={t("controls.timezone.search")}
+      />
+      <ComboboxContent>
+        <ComboboxEmpty>{t("controls.timezone.empty")}</ComboboxEmpty>
+        <ComboboxList>
+          {(zone: string) => (
+            <ComboboxItem key={zone} value={zone}>
+              {timezoneLabel(zone)}
+            </ComboboxItem>
+          )}
+        </ComboboxList>
+      </ComboboxContent>
+    </Combobox>
+  );
+}
+
+function LocalePicker({
+  id,
+  label,
+  value,
+  disabled,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  disabled?: boolean;
+  onChange: (value: string) => void;
+}) {
+  const { t } = useTranslation("settings");
+  const listId = `${id}-common-locales`;
+  const invalid = value.trim().length > 0 && canonicalizeLocale(value) === null;
+  return (
+    <div className="grid gap-1.5">
+      <Input
+        id={id}
+        aria-label={label}
+        aria-invalid={invalid}
+        list={listId}
+        value={value}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
+        onBlur={() => {
+          const canonical = canonicalizeLocale(value);
+          if (canonical) onChange(canonical);
+        }}
+      />
+      <datalist id={listId}>
+        {localeSuggestions().map((tag) => (
+          <option key={tag} value={tag} />
+        ))}
+      </datalist>
+      <FieldDescription>{t("controls.locale.hint")}</FieldDescription>
+      {invalid && <FieldError>{t("controls.locale.invalid")}</FieldError>}
+    </div>
+  );
+}
+
 function WeekdayPicker({
   value,
   disabled,

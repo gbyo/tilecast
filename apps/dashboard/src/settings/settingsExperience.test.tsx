@@ -17,6 +17,7 @@ const definition = (
   key: "test.setting",
   category: "playback",
   type: "string",
+  // i18n-ignore: generic test fixture title, not product copy
   title: "Test setting",
   default: "",
   scope: "organization",
@@ -55,7 +56,11 @@ describe("settings presentation", () => {
     const change = vi.fn();
     render(
       <SettingControl
-        definition={definition({ type: "bool", title: "Launch after boot" })}
+        definition={definition({
+          type: "bool",
+          // i18n-ignore: test fixture label
+          title: "Launch after boot",
+        })}
         value={false}
         onChange={change}
       />,
@@ -74,6 +79,7 @@ describe("settings presentation", () => {
       <SettingControl
         definition={definition({
           type: "enum",
+          // i18n-ignore: test fixture label
           title: "Cookie policy",
           allowed: ["first_party", "first_and_third_party"],
         })}
@@ -96,7 +102,11 @@ describe("settings presentation", () => {
     const change = vi.fn();
     render(
       <SettingControl
-        definition={definition({ type: "weekday_list", title: "Active days" })}
+        definition={definition({
+          type: "weekday_list",
+          // i18n-ignore: test fixture label
+          title: "Active days",
+        })}
         value={[1, 2, 3, 4, 5]}
         onChange={change}
       />,
@@ -113,6 +123,7 @@ describe("settings presentation", () => {
         definition={definition({
           key: "player.cache.max_bytes",
           type: "int64",
+          // i18n-ignore: test fixture label
           title: "Maximum cache bytes",
           min: 1024 ** 2,
           max: 1024 ** 4,
@@ -138,6 +149,7 @@ describe("settings presentation", () => {
         definition={definition({
           key: "player.sync.manifest_seconds",
           type: "int",
+          // i18n-ignore: test fixture label
           title: "Manifest reconciliation interval",
           min: 60,
           max: 86400,
@@ -172,6 +184,7 @@ describe("settings presentation", () => {
         definition={definition({
           key: "power.active_hours_end",
           type: "local_time",
+          // i18n-ignore: test fixture label
           title: "End time",
         })}
         value="16:00:00"
@@ -191,6 +204,7 @@ describe("settings presentation", () => {
         definition={definition({
           key: "organization.timezone",
           type: "timezone",
+          // i18n-ignore: test fixture label
           title: "Default timezone",
         })}
         value="EST"
@@ -200,13 +214,16 @@ describe("settings presentation", () => {
     const timezone = screen.getByRole("combobox", {
       name: "Default timezone",
     });
-    expect(timezone).toHaveTextContent("Eastern Time");
+    expect(timezone).toHaveValue("New York (America/New_York)");
 
     const user = userEvent.setup();
     await user.click(timezone);
     expect(await screen.findByRole("listbox")).toBeInTheDocument();
+    await user.type(timezone, "Los Angeles");
     await user.click(
-      await screen.findByRole("option", { name: "Pacific Time" }),
+      await screen.findByRole("option", {
+        name: "Los Angeles (America/Los_Angeles)",
+      }),
     );
     expect(timezoneChange).toHaveBeenCalledWith("America/Los_Angeles");
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
@@ -255,6 +272,7 @@ describe("settings presentation", () => {
       definition({
         key: "player.cache.max_bytes",
         type: "int64",
+        // i18n-ignore: test fixture label
         title: "Maximum cache bytes",
       }),
     ]);
@@ -265,6 +283,7 @@ describe("settings presentation", () => {
         key: "managed_kiosk.lock_task_enabled",
         category: "reliability",
         type: "bool",
+        // i18n-ignore: test fixture label
         title: "Lock task",
         scope: "policy",
       }),
@@ -272,6 +291,7 @@ describe("settings presentation", () => {
         key: "linux_kiosk.fullscreen_enabled",
         category: "reliability",
         type: "bool",
+        // i18n-ignore: test fixture label
         title: "Kiosk fullscreen",
         scope: "policy",
       }),

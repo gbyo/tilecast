@@ -1,4 +1,9 @@
 {
+  "notifications": {
+    "created": "Schedule created.",
+    "updated": "Schedule updated.",
+    "deleted": "Schedule deleted."
+  },
   "page": {
     "title": "Schedules",
     "subtitle": "Higher priority wins. Screens in a Display Group always share the same schedule and fallback content.",

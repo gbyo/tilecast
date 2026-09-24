@@ -38,7 +38,38 @@
       "required": ["defaultVolume", "defaultFitMode"],
       "properties": {
         "defaultVolume": { "type": "number", "minimum": 0, "maximum": 1 },
-        "defaultFitMode": { "enum": ["contain", "cover", "stretch"] }
+        "defaultFitMode": { "enum": ["contain", "cover", "stretch"] },
+        "regionalFormat": {
+          "description": "Optional organization-owned signage formatting profile. Added inside the extensible playback object so schema-v1 Players that ignore unknown playback properties remain compatible.",
+          "type": "object",
+          "required": [
+            "locale",
+            "timezone",
+            "dateFormat",
+            "timeFormat",
+            "firstDayOfWeek"
+          ],
+          "properties": {
+            "locale": { "type": "string", "minLength": 2, "maxLength": 255 },
+            "timezone": { "type": "string", "minLength": 1, "maxLength": 200 },
+            "dateFormat": {
+              "enum": ["locale", "yyyy-MM-dd", "MM/dd/yyyy", "dd/MM/yyyy"]
+            },
+            "timeFormat": { "enum": ["locale", "12-hour", "24-hour"] },
+            "firstDayOfWeek": {
+              "enum": [
+                "sunday",
+                "monday",
+                "tuesday",
+                "wednesday",
+                "thursday",
+                "friday",
+                "saturday"
+              ]
+            }
+          },
+          "additionalProperties": false
+        }
       },
       "additionalProperties": true
     },

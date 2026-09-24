@@ -381,11 +381,7 @@ export function PlacementInspector({
     t("inspector.shapeTitle"),
   ];
   return (
-    <Accordion
-      multiple
-      defaultValue={openSections}
-      className="grid gap-0"
-    >
+    <Accordion multiple defaultValue={openSections} className="grid gap-0">
       <InspectorSection title={t("inspector.sectionLayer")}>
         <Field>
           <FieldLabel htmlFor="placement-name">

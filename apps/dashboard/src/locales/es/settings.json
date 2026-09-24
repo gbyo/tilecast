@@ -124,7 +124,7 @@
         "title": "Zona horaria predeterminada"
       },
       "locale": {
-        "title": "Configuración regional"
+        "title": "Configuración regional de la organización"
       },
       "first_day_of_week": {
         "title": "Primer día de la semana"
@@ -807,6 +807,14 @@
       "friday": "vie",
       "saturday": "sáb",
       "sunday": "dom"
+    },
+    "timezone": {
+      "search": "Buscar zonas horarias",
+      "empty": "No hay zonas horarias IANA coincidentes."
+    },
+    "locale": {
+      "hint": "Introduce una etiqueta de idioma BCP-47, como ja-JP. Se sugieren opciones comunes.",
+      "invalid": "Introduce una etiqueta de idioma BCP-47 válida."
     },
     "packageList": {
       "label": "Nombre del paquete Android",

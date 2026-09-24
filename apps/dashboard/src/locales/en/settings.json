@@ -124,7 +124,7 @@
         "title": "Default timezone"
       },
       "locale": {
-        "title": "Locale"
+        "title": "Regional locale"
       },
       "first_day_of_week": {
         "title": "First day of week"
@@ -807,6 +807,14 @@
       "friday": "Fri",
       "saturday": "Sat",
       "sunday": "Sun"
+    },
+    "timezone": {
+      "search": "Search time zones",
+      "empty": "No matching IANA time zones."
+    },
+    "locale": {
+      "hint": "Enter a BCP-47 language tag, such as ja-JP. Common choices are suggested.",
+      "invalid": "Enter a valid BCP-47 language tag."
     },
     "packageList": {
       "label": "Android package name",

@@ -170,9 +170,7 @@ describe("PlaylistEditor panes", () => {
     fireEvent.change(screen.getByLabelText("Name"), {
       target: { value: "Updated lobby loop" },
     });
-    fireEvent.click(
-      screen.getByRole("button", { name: "Close playlist details" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
 
     await screen.findByRole("button", { name: "Playlist details" });
     fireEvent.click(screen.getByRole("button", { name: "Playlist details" }));
@@ -180,9 +178,7 @@ describe("PlaylistEditor panes", () => {
       "Updated lobby loop",
     );
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Close playlist details" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
     fireEvent.click(screen.getByRole("button", { name: "History" }));
     expect(
       await screen.findByRole("heading", { name: "History" }),
