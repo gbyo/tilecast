@@ -207,6 +207,9 @@
     "emptyDescription": "Create an instance to show a locally-timed bar on selected screens.",
     "itemDescription": "{{message}} · {{displayMode}} · {{height}}px · priority {{priority}}",
     "deleteBody": "The bar will be removed from targeted Players.",
+    "removedToast": "Countdown Bar removed.",
+    "createdToast": "Countdown Bar created.",
+    "updatedToast": "Countdown Bar updated.",
     "editor": {
       "createTitle": "New countdown bar",
       "manageTitle": "Manage countdown bar",
@@ -285,6 +288,9 @@
     "emptyTitle": "No noise meters configured",
     "emptyDescription": "Create an instance to watch room noise on selected Linux players.",
     "deleteBody": "Targeted players will stop measuring room noise.",
+    "removedToast": "Noise Meter removed.",
+    "createdToast": "Noise Meter created.",
+    "updatedToast": "Noise Meter updated.",
     "tabs": {
       "label": "Noise Meter",
       "settings": "Settings",
@@ -400,6 +406,8 @@
     "chartEmpty": "No measurements to draw yet.",
     "chart": {
       "aria": "Noise Level over time. Warning level {{warning}}, too loud level {{loud}}.",
+      "ariaLabel": "Noise level history chart",
+      "description": "Average and peak Noise Level are shown over time. Gaps indicate periods with no monitoring. The warning threshold is {{warning}}; the too-loud threshold is {{loud}}.",
       "average": "Average",
       "peak": "Peak",
       "warning": "Warning {{level}}",

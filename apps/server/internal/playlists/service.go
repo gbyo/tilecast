@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
+	"github.com/tilecast/tilecast/apps/server/internal/ids"
 	"github.com/tilecast/tilecast/apps/server/internal/manifestchanges"
 	"github.com/tilecast/tilecast/apps/server/internal/plugins"
 	"github.com/tilecast/tilecast/apps/server/internal/scheduling"
@@ -100,7 +101,7 @@ func (s *Service) Create(ctx context.Context, userID uuid.UUID, name, descriptio
 	if err := s.db.QueryRow(ctx, `SELECT id FROM organization_settings WHERE singleton=TRUE`).Scan(&org); err != nil {
 		return Playlist{}, err
 	}
-	id := uuid.New()
+	id := ids.New(ctx)
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return Playlist{}, err

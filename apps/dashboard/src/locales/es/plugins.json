@@ -209,6 +209,9 @@
     "emptyDescription": "Crea una instancia para mostrar una barra temporizada local en las pantallas elegidas.",
     "itemDescription": "{{message}} · {{displayMode}} · {{height}}px · prioridad {{priority}}",
     "deleteBody": "La barra se quitará de los reproductores de destino.",
+    "removedToast": "Se eliminó la barra de cuenta regresiva.",
+    "createdToast": "Se creó la barra de cuenta regresiva.",
+    "updatedToast": "Se actualizó la barra de cuenta regresiva.",
     "editor": {
       "createTitle": "Nueva barra de cuenta atrás",
       "manageTitle": "Gestionar barra de cuenta atrás",
@@ -287,6 +290,9 @@
     "emptyTitle": "Ningún medidor de ruido configurado",
     "emptyDescription": "Crea una instancia para vigilar el ruido de la sala en los reproductores Linux elegidos.",
     "deleteBody": "Los reproductores de destino dejarán de medir el ruido de la sala.",
+    "removedToast": "Se eliminó el medidor de ruido.",
+    "createdToast": "Se creó el medidor de ruido.",
+    "updatedToast": "Se actualizó el medidor de ruido.",
     "tabs": {
       "label": "Medidor de ruido",
       "settings": "Ajustes",
@@ -403,6 +409,8 @@
     "chartEmpty": "Aún no hay mediciones para dibujar.",
     "chart": {
       "aria": "Nivel de ruido en el tiempo. Nivel de aviso {{warning}}, nivel de demasiado ruido {{loud}}.",
+      "ariaLabel": "Gráfico del historial del nivel de ruido",
+      "description": "Se muestran el promedio y el pico del nivel de ruido con el tiempo. Los espacios indican periodos sin supervisión. El umbral de aviso es {{warning}}; el umbral de demasiado ruido es {{loud}}.",
       "average": "Promedio",
       "peak": "Pico",
       "warning": "Aviso {{level}}",

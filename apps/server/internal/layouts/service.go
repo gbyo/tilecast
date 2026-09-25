@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tilecast/tilecast/apps/server/internal/ids"
 	"github.com/tilecast/tilecast/apps/server/internal/manifestchanges"
 )
 
@@ -73,7 +74,7 @@ func (s *Service) Create(ctx context.Context, userID uuid.UUID, name, descriptio
 	}
 	document := defaultDocument(orientation, width, height)
 	encoded, _ := json.Marshal(document)
-	id := uuid.New()
+	id := ids.New(ctx)
 	_, err := s.db.Exec(ctx, `INSERT INTO layouts(id,organization_id,name,description,orientation,canvas_width,canvas_height,draft_document,created_by,updated_by)VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$9)`, id, org, name, description, orientation, width, height, encoded, userID)
 	if err != nil {
 		return Layout{}, err

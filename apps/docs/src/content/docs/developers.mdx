@@ -32,29 +32,31 @@ You need Go (use the version in `apps/server/go.mod`), Node.js with npm, and a P
 
 1. Install workspace and Go dependencies:
 
-   ```sh
+   ```sh title="Repository root · Install dependencies"
    make bootstrap
    ```
 
 2. Set `TILECAST_DATABASE_URL` to a development database Tilecast can use:
 
-   ```sh
+   ```sh title="Set the development database"
    export TILECAST_DATABASE_URL='postgres://localhost:5432/tilecast?sslmode=disable'
    ```
 
 3. Start the Go server in one terminal:
 
-   ```sh
+   ```sh title="Terminal 1 · Start the server"
    make dev-server
    ```
 
 4. Start the Vite development server in a second terminal:
 
-   ```sh
+   ```sh title="Terminal 2 · Start Studio"
    make dev-dashboard
    ```
 
 </Steps>
+
+To explore Studio with sample data instead of an empty database, [run a demo installation](demo-mode/).
 
 The Go server applies pending migrations during startup. Complete the one-time Owner setup in Studio when using a new database. Vite reloads dashboard changes; restart the Go server after changing server code. Server settings are read from `TILECAST_*` environment variables; [`deploy/docker/.env.example`](https://github.com/gbyo/tilecast/blob/main/deploy/docker/.env.example) lists the deployment settings.
 
@@ -74,7 +76,7 @@ From the repository root, `make check` runs the repository's documented format, 
 
 The docs site is an npm workspace. Run these commands from the repository root:
 
-```sh
+```sh title="Repository root · Docs commands"
 npm run docs:dev
 npm run docs:check
 npm run docs:build

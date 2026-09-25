@@ -8,8 +8,12 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
   ChevronDown,
   CircleAlert,
+  CircleCheck,
+  CircleHelp,
+  CircleX,
   TrendingDown,
   TrendingUp,
+  TriangleAlert,
 } from "lucide-react";
 import { api } from "../api/client";
 import type {
@@ -178,15 +182,25 @@ function UptimeBody({ report }: { report: UptimeReport }) {
   const { t } = useTranslation("activity");
   const [screensOpen, setScreensOpen] = useState(false);
   const chartConfig = {
-    up: { label: t("uptime.states.up"), color: chartColors.up },
+    up: {
+      label: t("uptime.states.up"),
+      color: chartColors.up,
+      icon: CircleCheck,
+    },
     impaired: {
       label: t("uptime.states.impaired"),
       color: chartColors.impaired,
+      icon: TriangleAlert,
     },
-    down: { label: t("uptime.states.down"), color: chartColors.down },
+    down: {
+      label: t("uptime.states.down"),
+      color: chartColors.down,
+      icon: CircleX,
+    },
     unknown: {
       label: t("uptime.states.unknown"),
       color: chartColors.unknown,
+      icon: CircleHelp,
     },
   } satisfies ChartConfig;
   const chartData = report.buckets.map((bucket) => ({
@@ -266,17 +280,22 @@ function UptimeBody({ report }: { report: UptimeReport }) {
                         ? formatRange(start, report.bucketSeconds)
                         : report.windowLabel;
                     }}
-                    formatter={(value, name) => (
-                      <span className="flex items-center justify-between gap-4">
-                        <span>
-                          {chartConfig[String(name) as keyof typeof chartConfig]
-                            ?.label ?? String(name)}
-                        </span>
-                        <span className="font-mono font-medium tabular-nums">
-                          {formatTooltipPercent(value)}
-                        </span>
-                      </span>
-                    )}
+                    formatter={(value, name) => {
+                      const itemConfig =
+                        chartConfig[String(name) as keyof typeof chartConfig];
+                      const Icon = itemConfig?.icon;
+                      return (
+                        <>
+                          {Icon ? <Icon aria-hidden="true" /> : null}
+                          <span className="flex flex-1 items-center justify-between gap-4">
+                            <span>{itemConfig?.label ?? String(name)}</span>
+                            <span className="font-mono font-medium tabular-nums">
+                              {formatTooltipPercent(value)}
+                            </span>
+                          </span>
+                        </>
+                      );
+                    }}
                   />
                 }
               />
@@ -457,7 +476,11 @@ function UptimeTrend({ report }: { report: UptimeReport }) {
   const Icon = delta > 0 ? TrendingUp : TrendingDown;
   return (
     <span
-      className={`inline-flex items-center gap-1 text-xs ${delta > 0 ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"}`}
+      className={`inline-flex items-center gap-1 text-xs ${
+        delta > 0
+          ? "text-emerald-700 dark:text-emerald-400"
+          : "text-red-700 dark:text-red-400"
+      }`}
     >
       <Icon className="size-3.5" aria-hidden="true" />
       {t("uptime.trendDelta", {
@@ -491,7 +514,11 @@ function formatRange(start: string | undefined, bucketSeconds: number) {
   if (!start) return "";
   const from = new Date(start);
   const to = new Date(from.getTime() + bucketSeconds * 1000);
-  return `${from.toLocaleString([], { month: "short", day: "numeric", hour: "numeric" })}–${to.toLocaleTimeString([], { hour: "numeric" })}`;
+  return `${from.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+  })}–${to.toLocaleTimeString([], { hour: "numeric" })}`;
 }
 
 function formatAxis(start: string, window: UptimeWindow) {

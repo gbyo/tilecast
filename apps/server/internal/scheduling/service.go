@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/displaycontrol"
+	"github.com/tilecast/tilecast/apps/server/internal/ids"
 )
 
 var (
@@ -193,7 +194,7 @@ func (s *Service) CreateGroup(ctx context.Context, user uuid.UUID, name, descrip
 	if err := validateGroup(name, description); err != nil {
 		return Group{}, err
 	}
-	id := uuid.New()
+	id := ids.New(ctx)
 	_, err := s.db.Exec(ctx, `INSERT INTO screen_groups(id,organization_id,name,description,created_by)SELECT $1,id,$2,$3,$4 FROM organization_settings WHERE singleton`, id, strings.TrimSpace(name), description, user)
 	if err != nil {
 		return Group{}, err
@@ -652,7 +653,7 @@ func (s *Service) Create(ctx context.Context, user uuid.UUID, in Input) (Record,
 	if count >= s.limits.MaxSchedules {
 		return Record{}, ErrLimit
 	}
-	id := uuid.New()
+	id := ids.New(ctx)
 	if err := s.write(ctx, id, user, in, true); err != nil {
 		return Record{}, err
 	}

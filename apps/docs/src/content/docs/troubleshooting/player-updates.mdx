@@ -1,0 +1,50 @@
+---
+title: Player updates
+description: Troubleshoot Android or Linux Player releases that cannot verify, download, install, or finish deploying.
+---
+
+import { TabItem, Tabs } from "@astrojs/starlight/components";
+
+## A release is unavailable
+
+A Player release must be published, verified, and cached before Studio can deploy it.
+
+Open **Settings** > **Player updates**, check the expected release files, and review any verification error.
+
+GitHub synchronization can stop when the API rate limit is reached. If that happens, connect the configured GitHub account or use the supported GitHub token configuration for your deployment.
+
+## Platform-specific install problems
+
+<Tabs syncKey="player-platform">
+
+<TabItem label="Android TV">
+
+Android or Fire OS may require local permission to install apps or may show a confirmation prompt for an update.
+
+Commissioning checks the install permission, but the device firmware can still require someone at the screen.
+
+If Android reports a signing-certificate mismatch, the installed Player and the new release were signed with different keys. Android cannot install one as an update over the other. Use the production-signed Player and keep the same production signing key for future releases.
+
+</TabItem>
+
+<TabItem label="Linux">
+
+The stable Linux update flow is for Tilecast's managed AppImage installation.
+
+Current Tilecast Linux installs use systemd **user** services, so manage them with `systemctl --user`, not the system service manager.
+
+If an older Player uses a custom service or obsolete AppImage startup method, move it to the current Linux setup before expecting Studio-driven updates to work.
+
+</TabItem>
+
+</Tabs>
+
+## A canary deployment paused
+
+A canary deployment waits for the selected canary screens to finish updating and reconnect.
+
+If one fails, enters safe mode, or never reconnects, Tilecast can pause the rest of the deployment.
+
+Check the failed screen before pushing the same release to the rest of the fleet.
+
+See [Update Tilecast Player](../../administration/player-updates/) for the deployment workflow.

@@ -11,6 +11,7 @@
     "cancel": "Cancel",
     "clearAll": "Clear all",
     "close": "Close",
+    "closeToast": "Close toast",
     "confirm": "Confirm",
     "delete": "Delete",
     "edit": "Edit",
@@ -43,5 +44,9 @@
     "title": "{{feature}} are not enabled yet.",
     "body": "This installation currently includes the Milestone 1 foundation. {{feature}} will be implemented and tested in Milestone {{milestone}}.",
     "backLink": "Return to installation status"
+  },
+  "demo": {
+    "title": "Demo mode",
+    "description": "This installation contains sample data and may be reset automatically."
   }
 }

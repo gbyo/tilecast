@@ -287,26 +287,27 @@ impl ContentStore {
         let path = object_path(&self.inner.cas_dir, digest);
         match rustix::fs::open(
             &path,
-            rustix::fs::OFlags::RDONLY | rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::CLOEXEC,
+            rustix::fs::OFlags::RDONLY
+                | rustix::fs::OFlags::NONBLOCK
+                | rustix::fs::OFlags::NOFOLLOW
+                | rustix::fs::OFlags::CLOEXEC,
             rustix::fs::Mode::empty(),
         ) {
             Ok(fd) => {
                 let file = std::fs::File::from(fd);
                 let metadata = file.metadata()?;
-                if !metadata.is_file() {
-                    return Err(std::io::Error::new(
-                        std::io::ErrorKind::InvalidData,
-                        "CAS object is not a regular file",
-                    )
-                    .into());
-                }
-                if metadata.len() != record.size_bytes {
-                    return Err(CasError::SizeMismatch { expected: record.size_bytes, actual: metadata.len() });
+                if !metadata.is_file() || metadata.len() != record.size_bytes {
+                    self.remove_unchecked(digest).await?;
+                    return Ok(None);
                 }
                 self.touch(digest);
                 Ok(Some((file, record)))
             }
             Err(rustix::io::Errno::NOENT) => Ok(None),
+            Err(rustix::io::Errno::LOOP) => {
+                self.remove_unchecked(digest).await?;
+                Ok(None)
+            }
             Err(error) => Err(std::io::Error::from(error).into()),
         }
     }
@@ -399,9 +400,16 @@ impl ContentStore {
         // Row first: a crash after this leaves an orphan file, which the
         // next reconciliation re-hashes and adopts or deletes.
         self.inner.db.run(move |c| repo::delete_object(c, &d)).await?;
-        match tokio::fs::remove_file(object_path(&self.inner.cas_dir, digest)).await {
+        let path = object_path(&self.inner.cas_dir, digest);
+        match tokio::fs::remove_file(&path).await {
             Ok(()) => {}
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error)
+                if matches!(error.kind(), std::io::ErrorKind::IsADirectory | std::io::ErrorKind::PermissionDenied)
+                    && std::fs::symlink_metadata(&path).is_ok_and(|metadata| metadata.is_dir()) =>
+            {
+                tokio::fs::remove_dir(path).await?;
+            }
             Err(error) => return Err(error.into()),
         }
         Ok(())

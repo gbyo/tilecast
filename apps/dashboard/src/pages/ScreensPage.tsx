@@ -2647,7 +2647,16 @@ function PendingPairings({
   );
 }
 
-export function PairScreenPage() {
+export function ScreensPairRoute() {
+  return (
+    <>
+      <ScreensPage />
+      <PairScreenDialog />
+    </>
+  );
+}
+
+export function PairScreenDialog() {
   const { code, requestId } = useParams();
   const { t } = useTranslation(["screens", "common"]);
   const auth = useAuth();
@@ -2680,70 +2689,83 @@ export function PairScreenPage() {
     if (requestId && pending.data)
       setRequest(pending.data.items.find((item) => item.id === requestId));
   }, [requestId, pending.data]);
-  if (!canManageScreens(auth.status?.user))
-    return (
-      <Empty>
-        <EmptyHeader>
-          <EmptyTitle>{t("pair.gateTitle")}</EmptyTitle>
-          <EmptyDescription>{t("pair.gateBody")}</EmptyDescription>
-        </EmptyHeader>
-        <EmptyContent>
-          <Link
-            className={buttonVariants({ variant: "outline", size: "sm" })}
-            to="/screens"
-          >
-            {t("pair.backToScreens")}
-          </Link>
-        </EmptyContent>
-      </Empty>
-    );
-  if (request)
-    return (
-      <ApprovalPanel
-        request={request}
-        onDone={(screenId) =>
-          void navigate(screenId ? `/screens/${screenId}` : "/screens")
-        }
-      />
-    );
+
+  const close = () => void navigate("/screens");
+
   return (
-    <section className="pair-card">
-      <header>
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground">
-          <Link2 className="size-5" aria-hidden="true" />
-        </span>
-        <div>
-          <h2>{t("pair.title")}</h2>
-          <p>{t("pair.body")}</p>
-        </div>
-      </header>
-      {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-      <form onSubmit={(event) => void form.handleSubmit(lookup)(event)}>
-        <FormField
-          id="pairingCode"
-          label={t("pair.codeLabel")}
-          autoComplete="off"
-          autoFocus
-          className="pair-code-input"
-          // i18n-ignore: example pairing-code format, not prose
-          placeholder="ABC234"
-          error={form.formState.errors.code?.message}
-          {...form.register("code")}
-        />
-        <Button type="submit">{t("pair.findPlayer")}</Button>
-        <Link className={buttonVariants({ variant: "ghost" })} to="/screens">
-          {t("common:actions.cancel")}
-        </Link>
-      </form>
-      <div className="pair-help">
-        <strong>{t("pair.onTvTitle")}</strong>
-        <p>{t("pair.onTvBody")}</p>
-      </div>
-    </section>
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) close();
+      }}
+    >
+      <DialogContent
+        className={
+          request
+            ? "max-h-[min(90vh,56rem)] overflow-y-auto sm:max-w-3xl"
+            : "sm:max-w-lg"
+        }
+      >
+        {!canManageScreens(auth.status?.user) ? (
+          <>
+            <DialogHeader className="pr-8">
+              <DialogTitle>{t("pair.gateTitle")}</DialogTitle>
+              <DialogDescription>{t("pair.gateBody")}</DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={close}>
+                {t("pair.backToScreens")}
+              </Button>
+            </DialogFooter>
+          </>
+        ) : request ? (
+          <ApprovalPanel
+            request={request}
+            onDone={(screenId) =>
+              void navigate(screenId ? `/screens/${screenId}` : "/screens")
+            }
+          />
+        ) : (
+          <>
+            <DialogHeader className="pr-8">
+              <DialogTitle>{t("pair.title")}</DialogTitle>
+              <DialogDescription>{t("pair.body")}</DialogDescription>
+            </DialogHeader>
+            {error && (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            <form
+              className="space-y-4"
+              onSubmit={(event) => void form.handleSubmit(lookup)(event)}
+            >
+              <FormField
+                id="pairingCode"
+                label={t("pair.codeLabel")}
+                autoComplete="off"
+                autoFocus
+                className="h-14 font-mono text-xl font-semibold tracking-[0.18em] uppercase"
+                // i18n-ignore: example pairing-code format, not prose
+                placeholder="ABC234"
+                error={form.formState.errors.code?.message}
+                {...form.register("code")}
+              />
+              <Alert>
+                <AlertTitle>{t("pair.onTvTitle")}</AlertTitle>
+                <AlertDescription>{t("pair.onTvBody")}</AlertDescription>
+              </Alert>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={close}>
+                  {t("common:actions.cancel")}
+                </Button>
+                <Button type="submit">{t("pair.findPlayer")}</Button>
+              </DialogFooter>
+            </form>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -2864,6 +2886,38 @@ function ApprovalPanel({
     }
     approve.mutate(values);
   };
+  if (approvalConfirmation)
+    return (
+      <div className="space-y-5">
+        <DialogHeader className="pr-8">
+          <DialogTitle>{approvalConfirmation.title}</DialogTitle>
+          <DialogDescription>
+            {approvalConfirmation.description}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={approve.isPending}
+            onClick={() => setApprovalConfirmation(null)}
+          >
+            {t("approval.goBack")}
+          </Button>
+          <Button
+            type="button"
+            disabled={approve.isPending}
+            onClick={() => {
+              approve.mutate(approvalConfirmation.values);
+              setApprovalConfirmation(null);
+            }}
+          >
+            {t("approval.confirmPairing")}
+          </Button>
+        </DialogFooter>
+      </div>
+    );
+
   const eligibleScreens = (screens.data?.items ?? []).filter(
     (screen) => screen.id !== request.existingScreenId,
   );
@@ -2872,22 +2926,29 @@ function ApprovalPanel({
   );
   const metadata = request.metadata;
   return (
-    <section className="approval-card">
-      <header>
-        <div>
-          <p className="step-label">{t("approval.step")}</p>
-          <h2>{t("approval.title")}</h2>
-          <p>{t("approval.body")}</p>
+    <div className="space-y-5">
+      <DialogHeader className="pr-8">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {t("approval.step")}
+            </p>
+            <DialogTitle>{t("approval.title")}</DialogTitle>
+            <DialogDescription>{t("approval.body")}</DialogDescription>
+          </div>
+          <Badge variant="outline" className="shrink-0">
+            {t("approval.expires", {
+              time: new Date(request.expiresAt).toLocaleTimeString(
+                formatLocale,
+                {
+                  hour: "numeric",
+                  minute: "2-digit",
+                },
+              ),
+            })}
+          </Badge>
         </div>
-        <span className="expiry-label">
-          {t("approval.expires", {
-            time: new Date(request.expiresAt).toLocaleTimeString(formatLocale, {
-              hour: "numeric",
-              minute: "2-digit",
-            }),
-          })}
-        </span>
-      </header>
+      </DialogHeader>
       <dl className="device-facts">
         <div>
           <dt>{t("approval.device")}</dt>
@@ -3051,6 +3112,7 @@ function ApprovalPanel({
         </Alert>
       )}
       <form
+        className="grid gap-4"
         onSubmit={(event) => void form.handleSubmit(requestApproval)(event)}
       >
         <FormField
@@ -3106,40 +3168,7 @@ function ApprovalPanel({
           </Button>
         </div>
       </form>
-      <AlertDialog
-        open={approvalConfirmation !== null}
-        onOpenChange={(open) => {
-          if (!open) setApprovalConfirmation(null);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {approvalConfirmation?.title ?? t("approval.confirmFallback")}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {approvalConfirmation?.description ??
-                t("approval.confirmFallbackBody")}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={approve.isPending}>
-              {t("approval.goBack")}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              disabled={!approvalConfirmation || approve.isPending}
-              onClick={() => {
-                if (!approvalConfirmation) return;
-                approve.mutate(approvalConfirmation.values);
-                setApprovalConfirmation(null);
-              }}
-            >
-              {t("approval.confirmPairing")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </section>
+    </div>
   );
 }
 

@@ -9,13 +9,13 @@ Tilecast's application API is served by Tilecast Server. Most application routes
 
 Successful JSON responses wrap their result in `data`:
 
-```json
+```json title="Successful response"
 { "data": {} }
 ```
 
 Errors use an `error` object with a machine-readable `code` and a human-readable `message`:
 
-```json
+```json title="Error response"
 {
   "error": {
     "code": "machine_readable_code",

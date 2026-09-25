@@ -14,13 +14,15 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
+	currencydata "golang.org/x/text/currency"
 )
 
 var definitionColorPattern = regexp.MustCompile(`^#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?$`)
 
 type definitionConfigNormalizer struct {
-	service *Service
-	schema  contentdefs.ConfigurationSchema
+	service      *Service
+	schema       contentdefs.ConfigurationSchema
+	outputSchema contentdefs.OutputSchema
 }
 
 func (normalizer definitionConfigNormalizer) Normalize(ctx context.Context, raw json.RawMessage) (any, error) {
@@ -28,7 +30,33 @@ func (normalizer definitionConfigNormalizer) Normalize(ctx context.Context, raw 
 	if err := decodeConfig(raw, &input); err != nil {
 		return nil, err
 	}
-	return normalizer.normalizeObject(ctx, input, normalizer.schema.Fields, "")
+	output, err := normalizer.normalizeObject(ctx, input, normalizer.schema.Fields, "")
+	if err != nil {
+		return nil, err
+	}
+	for _, field := range normalizer.outputSchema.Fields {
+		if field.Type != "currency" {
+			continue
+		}
+		code := field.Currency
+		if field.CurrencyConfigKey != "" {
+			code, _ = output[field.CurrencyConfigKey].(string)
+		}
+		if code == "" {
+			// Legacy definitions may have currency-typed fields without a code. Their
+			// values remain usable as plain localized numbers without a money symbol.
+			continue
+		}
+		code = strings.ToUpper(strings.TrimSpace(code))
+		currency, parseErr := currencydata.ParseISO(code)
+		if parseErr != nil || currency == currencydata.XXX {
+			return nil, fmt.Errorf("%s must be a recognized ISO 4217 currency code", field.Label)
+		}
+		if field.CurrencyConfigKey != "" {
+			output[field.CurrencyConfigKey] = currency.String()
+		}
+	}
+	return output, nil
 }
 
 func (normalizer definitionConfigNormalizer) normalizeObject(ctx context.Context, input map[string]any, fields []contentdefs.FieldDefinition, prefix string) (map[string]any, error) {
@@ -109,7 +137,7 @@ func (normalizer definitionConfigNormalizer) validateDataSourceFieldSelections(c
 
 func (normalizer definitionConfigNormalizer) normalizeField(ctx context.Context, field contentdefs.FieldDefinition, value any, path string) (any, error) {
 	switch field.Control {
-	case "text", "multiline_text", "color", "date", "datetime", "timezone", "url", "data_source", "data_source_field", "media_asset":
+	case "text", "multiline_text", "color", "date", "datetime", "timezone", "currency_code", "url", "data_source", "data_source_field", "media_asset":
 		text, ok := value.(string)
 		if !ok {
 			return nil, fmt.Errorf("%s must be text", field.Label)
@@ -119,6 +147,15 @@ func (normalizer definitionConfigNormalizer) normalizeField(ctx context.Context,
 			return nil, fmt.Errorf("%s length is outside the allowed range", field.Label)
 		}
 		switch field.Control {
+		case "currency_code":
+			if text != "" {
+				text = strings.ToUpper(text)
+				currency, err := currencydata.ParseISO(text)
+				if err != nil || currency == currencydata.XXX {
+					return nil, fmt.Errorf("%s must be a recognized ISO 4217 currency code", field.Label)
+				}
+				text = currency.String()
+			}
 		case "color":
 			if !definitionColorPattern.MatchString(text) {
 				return nil, fmt.Errorf("%s must be a hexadecimal color", field.Label)
@@ -263,10 +300,9 @@ func containsString(values []string, wanted string) bool {
 // configuration key are generated (only updatedAt is generated today). This is fully
 // generic — a new manual_object definition needs no provider-specific code here.
 func manualObjectPayload(definition contentdefs.DataSourceDefinition, configuration map[string]any, updatedAt time.Time) TypedDatasetPayload {
-	fields := make([]DataSourceField, 0, len(definition.OutputSchema.Fields))
+	fields := outputDataSourceFields(definition.OutputSchema, configuration)
 	values := make(map[string]string, len(definition.OutputSchema.Fields))
 	for _, field := range definition.OutputSchema.Fields {
-		fields = append(fields, DataSourceField{Key: field.Key, Label: field.Label, Type: field.Type})
 		if raw, ok := configuration[field.Key]; ok {
 			values[field.Key] = manualObjectValueString(raw)
 			continue
