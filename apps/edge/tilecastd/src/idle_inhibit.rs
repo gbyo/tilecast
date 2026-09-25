@@ -106,9 +106,18 @@ async fn take_lock() -> Result<zbus::zvariant::OwnedFd, LockState> {
 
 /// Whether the configuration in force asks the display to stay awake.
 fn wanted(context: &DaemonContext) -> bool {
-    context.config.dev.idle_inhibit != Some(false)
-        && context.config.renderer.prevent_display_sleep
-        && crate::config_sync::effective(context).linux_kiosk.prevent_display_sleep
+    wants_lock(
+        context.config.dev.idle_inhibit,
+        context.config.renderer.prevent_display_sleep,
+        crate::config_sync::effective(context).linux_kiosk.prevent_display_sleep,
+    )
+}
+
+/// `dev_switch` is the operator file's `[dev] idle_inhibit`, which only test
+/// harnesses set; neither the server nor IPC can reach it. Unset means the
+/// production behavior: take the lock whenever both settings ask for it.
+fn wants_lock(dev_switch: Option<bool>, operator: bool, server: bool) -> bool {
+    dev_switch != Some(false) && operator && server
 }
 
 pub async fn run(context: Arc<DaemonContext>) {
@@ -152,6 +161,18 @@ pub async fn run(context: Arc<DaemonContext>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn production_takes_the_lock_unless_a_setting_or_the_test_switch_says_no() {
+        assert!(wants_lock(None, true, true), "the production default takes the lock");
+        assert!(wants_lock(Some(true), true, true));
+        assert!(!wants_lock(Some(false), true, true), "test harnesses never lock the host");
+        assert!(!wants_lock(None, false, true), "the operator turned it off");
+        assert!(!wants_lock(None, true, false), "the server's linuxKiosk.preventDisplaySleep is off");
+        let defaults = crate::config::EdgeConfig::default();
+        assert_eq!(defaults.dev.idle_inhibit, None);
+        assert!(defaults.renderer.prevent_display_sleep);
+    }
 
     #[test]
     fn logind_answers_become_typed_reasons() {

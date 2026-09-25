@@ -71,9 +71,12 @@ pub mod profile {
         "plugin.brand_bug",
         "plugin.countdown_bar",
         "plugin.alert_ticker",
-        // `plugin.noise_meter` waits for the Noise Meter integration: the
-        // session bridge and host-levels plumbing exist, but it is not
-        // qualified, so a Noise Meter stays a typed incompatibility.
+        // The runtime's meter with `host-levels`: tilecast-session-bridge
+        // measures through PipeWire and tilecastd forwards derived levels
+        // (docs/tilecast-edge.md §4.4). Without a bridge or a microphone the
+        // meter shows itself unavailable, as on the reference player, and
+        // `audio.noise_meter` says why.
+        "plugin.noise_meter",
     ];
 
     /// Declarative widget capabilities of the reference projection code the

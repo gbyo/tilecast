@@ -611,6 +611,7 @@ struct RendererLog {
     plugins: Vec<PluginState>,
     identify: Vec<(String, u32)>,
     commands: Vec<edge_protocol::ipc::event::RendererCommandKind>,
+    noise_levels: Vec<Option<f64>>,
 }
 
 struct FakeRenderer {
@@ -661,6 +662,7 @@ impl FakeRenderer {
                             .identify
                             .push((identify.name.as_str().to_owned(), identify.duration_seconds)),
                         Event::RendererCommand(command) => log.lock().unwrap().commands.push(command.command),
+                        Event::NoiseLevel(level) => log.lock().unwrap().noise_levels.push(level.rms),
                         Event::PreviewRequest(request) => {
                             // A tiny JPEG: the signature and a few bytes.
                             let jpeg =
@@ -2528,4 +2530,139 @@ async fn a_studio_preview_lease_uploads_the_renderer_capture() {
     assert!(!form.contains("unavailable"));
     renderer.stop();
     player.stop().await;
+}
+
+// ------------------------------------------------------------ M9: Noise Meter
+
+/// The session bridge's side of the socket: one microphone, and levels only
+/// while tilecastd asks.
+async fn fake_bridge(socket: &Path) -> (Arc<IpcClient>, Arc<Mutex<Vec<bool>>>, tokio::task::JoinHandle<()>) {
+    use edge_protocol::ipc::event::{AudioInventory, PipewireState};
+    let client = Arc::new(
+        IpcClient::connect(socket, ClientOptions::new(Role::SessionBridge, "tilecast-session-bridge", "0.1.0"))
+            .await
+            .unwrap(),
+    );
+    client
+        .send_event(Event::AudioInventory(AudioInventory {
+            pipewire: PipewireState::Available,
+            sources: 1,
+            sinks: 1,
+            default_source: true,
+            default_sink: true,
+        }))
+        .await
+        .unwrap();
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let task = tokio::spawn({
+        let (client, requests) = (Arc::clone(&client), Arc::clone(&requests));
+        async move {
+            while let Ok(Incoming::Event(_, Event::CaptureSet(set))) =
+                client.next_incoming(Duration::from_secs(120)).await
+            {
+                requests.lock().unwrap().push(set.enabled);
+            }
+        }
+    });
+    (client, requests, task)
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn the_noise_meter_opens_the_microphone_only_while_the_runtime_listens_and_queues_its_history() {
+    use edge_protocol::ipc::event::{AudioLevel, CaptureState, NoiseBucket, NoiseReport, NoiseStatus};
+    let harness = Harness::new().await;
+    let image = Asset::new("image", "image/png");
+    harness.fake.add_asset(&image, AssetMode::Serve);
+    harness.fake.set_manifest(with(manifest(harness.screen, 4, &[&image]), |m| {
+        m["plugins"] = json!([{"id": uuid::Uuid::new_v4().to_string(), "type": "noise_meter", "version": 1,
+            "config": {"warningLevel": 60, "loudLevel": 80, "sensitivity": 100, "historyEnabled": true,
+                "historyRetentionDays": 7}}]);
+    }));
+    let player = harness.start().await;
+    let renderer = FakeRenderer::connect(&player.socket, Evidence::Auto).await;
+    wait_for("the presentation", || renderer.last().filter(|a| shows(a, &image))).await;
+    wait_for("the noise meter plugin", || {
+        renderer.log.lock().unwrap().plugins.iter().rev().find(|p| !p.plugins.is_empty()).cloned()
+    })
+    .await;
+    let (bridge, requests, bridge_task) = fake_bridge(&player.socket).await;
+    settle().await;
+    assert!(!requests.lock().unwrap().contains(&true), "no microphone before the runtime's meter listens");
+    let noise = |context: &DaemonContext| {
+        context.audio.capabilities(context.now()).into_iter().find(|c| c.id.as_str() == "audio.noise_meter").unwrap()
+    };
+    assert_eq!(noise(&player.context).reason_code.unwrap().as_str(), "capture_not_requested");
+
+    let report = |status, bucket| Event::NoiseReport(NoiseReport { status, level: None, bucket });
+    renderer.client.send_event(report(NoiseStatus::Active, None)).await.unwrap();
+    wait_for("capture requested", || requests.lock().unwrap().last().copied().filter(|on| *on)).await;
+    for _ in 0..10 {
+        bridge
+            .send_event(Event::AudioLevel(AudioLevel { rms: Some(0.3), state: CaptureState::Capturing }))
+            .await
+            .unwrap();
+        tokio::time::sleep(Duration::from_millis(60)).await;
+    }
+    wait_for("levels forwarded to the runtime", || {
+        let levels = renderer.log.lock().unwrap().noise_levels.clone();
+        (levels.iter().filter(|l| **l == Some(0.3)).count() >= 3).then_some(())
+    })
+    .await;
+    assert_eq!(noise(&player.context).state, edge_protocol::capability::CapabilityState::Available);
+
+    let started_at = Timestamp::from_unix_millis((now_ms() / 10_000 - 1) * 10_000).unwrap();
+    let bucket = NoiseBucket {
+        started_at,
+        average_level: 42.0,
+        peak_level: 55.0,
+        monitored_ms: 10_000,
+        warning_ms: 0,
+        loud_ms: 0,
+        trigger_count: 0,
+    };
+    renderer.client.send_event(report(NoiseStatus::Normal, Some(bucket))).await.unwrap();
+    let (sent, heartbeat) = wait_for_async("the bucket queued for the heartbeat", || {
+        let context = Arc::clone(&player.context);
+        async move {
+            let mut heartbeat = json!({});
+            let sent = tilecastd::audio::heartbeat(&context, &mut heartbeat, true).await;
+            (!sent.is_empty()).then_some((sent, heartbeat))
+        }
+    })
+    .await;
+    let pending = heartbeat["noiseMeter"]["pendingHistory"].as_array().unwrap();
+    assert_eq!(pending.len(), 1);
+    assert_eq!(pending[0]["averageLevel"], 42.0);
+    let keys: Vec<&str> = pending[0].as_object().unwrap().keys().map(String::as_str).collect();
+    assert!(
+        keys.iter().all(|k| [
+            "startedAt",
+            "averageLevel",
+            "peakLevel",
+            "monitoredMs",
+            "warningMs",
+            "loudMs",
+            "triggerCount"
+        ]
+        .contains(k)),
+        "derived numbers only: {keys:?}"
+    );
+    tilecastd::audio::acknowledge(&player.context, sent, Some(1)).await;
+    assert!(!tilecastd::audio::history_pending(&player.context).await, "an acknowledged bucket is removed");
+
+    renderer.client.send_event(report(NoiseStatus::Inactive, None)).await.unwrap();
+    wait_for("capture released", || requests.lock().unwrap().last().copied().filter(|on| !*on).map(|_| ())).await;
+    bridge_task.abort();
+    renderer.stop();
+    player.stop().await;
+}
+
+async fn wait_for_async<T, F: std::future::Future<Output = Option<T>>>(what: &str, mut check: impl FnMut() -> F) -> T {
+    for _ in 0..200 {
+        if let Some(value) = check().await {
+            return value;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    panic!("timed out waiting for {what}");
 }
