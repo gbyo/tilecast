@@ -11,6 +11,12 @@
  * A pipeline that plays but produces no level message within
  * TB_SILENCE_TIMEOUT_US (no source linked, a stalled device) counts as a
  * failure too.
+ *
+ * pipewiresrc can block in a state change (for example while it waits for a
+ * source that does not exist), so every state change runs on a worker
+ * thread and the main loop, which also serves tilecastd, never waits for
+ * PipeWire. At most one such worker runs at a time; a new pipeline waits
+ * until the previous one is gone.
  */
 #include "bridge.h"
 
@@ -41,6 +47,21 @@ tb_capture_send_state (TbBridge *bridge)
 }
 
 static void
+release_in_thread (GTask *task, gpointer source_object, gpointer task_data, GCancellable *cancellable)
+{
+  GstElement *pipeline = task_data;
+  gst_element_set_state (pipeline, GST_STATE_NULL);
+  g_task_return_boolean (task, TRUE);
+}
+
+static void
+on_released (GObject *source, GAsyncResult *result, gpointer data)
+{
+  TbBridge *bridge = data;
+  bridge->capture_workers--;
+}
+
+static void
 teardown (TbBridge *bridge)
 {
   if (bridge->capture_watchdog_source != 0) {
@@ -51,9 +72,34 @@ teardown (TbBridge *bridge)
     GstBus *bus = gst_element_get_bus (bridge->pipeline);
     gst_bus_remove_watch (bus);
     gst_object_unref (bus);
-    gst_element_set_state (bridge->pipeline, GST_STATE_NULL);
-    g_clear_pointer (&bridge->pipeline, gst_object_unref);
+    /* Stopping closes the PipeWire stream; the worker owns the pipeline. */
+    GstElement *pipeline = g_steal_pointer (&bridge->pipeline);
+    bridge->capture_workers++;
+    g_autoptr (GTask) task = g_task_new (NULL, NULL, on_released, bridge);
+    g_task_set_task_data (task, pipeline, gst_object_unref);
+    g_task_run_in_thread (task, release_in_thread);
   }
+}
+
+static void
+play_in_thread (GTask *task, gpointer source_object, gpointer task_data, GCancellable *cancellable)
+{
+  GstStateChangeReturn result = gst_element_set_state (GST_ELEMENT (task_data), GST_STATE_PLAYING);
+  g_task_return_int (task, result);
+}
+
+static void failed (TbBridge *bridge, TbCaptureState reason);
+
+static void
+on_played (GObject *source, GAsyncResult *result, gpointer data)
+{
+  TbBridge *bridge = data;
+  bridge->capture_workers--;
+  GstElement *pipeline = g_task_get_task_data (G_TASK (result));
+  gssize state = g_task_propagate_int (G_TASK (result), NULL);
+  /* Only the current pipeline; a replaced one is already being released. */
+  if (pipeline == bridge->pipeline && state == GST_STATE_CHANGE_FAILURE)
+    failed (bridge, TB_CAPTURE_FAILED);
 }
 
 static void
@@ -176,6 +222,16 @@ start_pipeline (TbBridge *bridge)
     failed (bridge, TB_CAPTURE_PIPEWIRE_UNAVAILABLE);
     return;
   }
+  if (bridge->inventory.sources == 0) {
+    /* No Audio/Source node: a stream would only wait for one. */
+    failed (bridge, TB_CAPTURE_NO_MICROPHONE);
+    return;
+  }
+  if (bridge->capture_workers > 0) {
+    /* The previous pipeline is still starting or stopping. */
+    failed (bridge, TB_CAPTURE_STARTING);
+    return;
+  }
   set_state (bridge, TB_CAPTURE_STARTING);
   GstElement *pipeline = gst_pipeline_new ("noise-meter");
   GstElement *source = gst_element_factory_make ("pipewiresrc", "source");
@@ -204,10 +260,10 @@ start_pipeline (TbBridge *bridge)
   GstBus *bus = gst_element_get_bus (pipeline);
   gst_bus_add_watch (bus, on_bus, bridge);
   gst_object_unref (bus);
-  if (gst_element_set_state (pipeline, GST_STATE_PLAYING) == GST_STATE_CHANGE_FAILURE) {
-    failed (bridge, TB_CAPTURE_FAILED);
-    return;
-  }
+  bridge->capture_workers++;
+  g_autoptr (GTask) task = g_task_new (NULL, NULL, on_played, bridge);
+  g_task_set_task_data (task, gst_object_ref (pipeline), gst_object_unref);
+  g_task_run_in_thread (task, play_in_thread);
   bridge->last_level_at = g_get_monotonic_time ();
   bridge->capture_watchdog_source = g_timeout_add_seconds (1, watchdog, bridge);
 }

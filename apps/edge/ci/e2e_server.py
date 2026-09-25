@@ -637,6 +637,7 @@ def main():
             # the heartbeat carries them to the server, which stores them.
             bridge = FakeSessionBridge(os.path.join(runtime, "edge.sock"), rms=0.3)
             try:
+                client.call("POST", "/api/v1/plugins/noise_meter/install", expect=(200, 201))
                 _, meter = client.call("POST", "/api/v1/plugins/noise-meter/instances", {
                     "name": "Lobby noise", "message": "Please keep it down", "warningLevel": 60, "loudLevel": 80,
                     "sensitivity": 100, "triggerHoldMs": 1000, "clearHoldMs": 3000, "displayMode": "overlay",

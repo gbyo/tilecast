@@ -126,8 +126,27 @@ def summarize(records):
     return roots, items, reasons, boundary_ms
 
 
+def print_item_gaps(label, records, outage):
+    """Where a player's item sessions leave time uncovered, relative to the
+    outage, so a missing play can be placed."""
+    items = sorted((stamp(r["startedAt"]), r.get("actualDurationMs") or 0, r.get("trigger"), r.get("terminalReason"))
+                   for r in records if r.get("sessionType") != "presentation")
+    if not items:
+        return
+    t0 = items[0][0]
+    gaps = []
+    for (start, duration, trigger, reason), (next_start, *_rest) in zip(items, items[1:]):
+        uncovered = next_start - start - duration / 1000
+        if uncovered > 1.0:
+            gaps.append(f"{start - t0:.1f}+{duration / 1000:.1f}s {trigger}/{reason} then {uncovered:.1f}s uncovered")
+    print(f"parity {label}: first item at {t0:.1f}, outage {outage[0] - t0:.1f}-{outage[1] - t0:.1f} s; "
+          f"gaps: {gaps or 'none'}")
+
+
 def compare(electron, edge, outage):
     """The M8 exit criterion, on the records the server holds."""
+    for label, records in (("electron", electron), ("edge", edge)):
+        print_item_gaps(label, records, outage)
     (e_roots, e_items, e_reasons, e_boundary), (d_roots, d_items, d_reasons, d_boundary) = (
         summarize(electron), summarize(edge))
     # The same presentations, triggers and endings.

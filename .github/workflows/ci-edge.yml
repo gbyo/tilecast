@@ -230,6 +230,12 @@ jobs:
           mkdir -p "$RUNNER_TEMP/edge-target"
           docker run --rm -v "$PWD:/src" -v "$RUNNER_TEMP/edge-target:/target" \
             tilecast-edge-parity /src/apps/edge/ci/run-activity-parity.sh
+      - uses: actions/upload-artifact@v6
+        if: ${{ failure() }}
+        with:
+          name: activity-parity-records
+          path: ${{ runner.temp }}/edge-target/activity-parity-records.json
+          if-no-files-found: ignore
 
   required:
     name: Required Edge validation

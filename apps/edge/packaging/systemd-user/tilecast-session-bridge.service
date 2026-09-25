@@ -38,10 +38,14 @@ Environment=GST_REGISTRY=/tmp/gstreamer-registry.bin
 # Sandbox. The bridge talks to PipeWire and tilecastd over Unix sockets only,
 # reads no files of the daemon and writes nothing.
 RestrictAddressFamilies=AF_UNIX
-# The process starts with no capabilities and NoNewPrivileges= keeps it so.
-# CapabilityBoundingSet= must not be set here: a user manager has no
-# CAP_SETPCAP, so it cannot drop the bounding set and every start would fail
-# with 218/CAPABILITIES.
+# A user manager has no capabilities of its own (no CAP_SETPCAP, no
+# CAP_SYS_ADMIN), so the sandbox below works only inside the unit's own user
+# namespace. Without PrivateUsers= set explicitly, the options that shrink
+# the capability bounding set (PrivateDevices=, ProtectKernelModules=,
+# ProtectKernelLogs=, ProtectClock=) fail every start with 218/CAPABILITIES.
+# CapabilityBoundingSet= is not set for the same reason; the bridge has no
+# capabilities outside its namespace and NoNewPrivileges= keeps it so.
+PrivateUsers=yes
 NoNewPrivileges=yes
 ProtectSystem=strict
 # Home directories are hidden; the session's runtime directory (PipeWire and
