@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/editorial"
+	"github.com/tilecast/tilecast/apps/server/internal/ids"
 	"github.com/tilecast/tilecast/apps/server/internal/manifestchanges"
 	"github.com/tilecast/tilecast/apps/server/internal/scheduling"
 )
@@ -151,7 +152,7 @@ func (s *Service) Create(ctx context.Context, userID uuid.UUID, name, descriptio
 		return Campaign{}, err
 	}
 	raw, _ := json.Marshal(draft)
-	id := uuid.New()
+	id := ids.New(ctx)
 	_, err := s.db.Exec(ctx, `INSERT INTO campaigns(id,organization_id,name,description,owner_id,timezone,campaign_start,campaign_end,destinations,draft,draft_revision,created_by,updated_by) SELECT $1,id,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,1,$4,$4 FROM organization_settings WHERE singleton`, id, draft.Name, draft.Description, userID, draft.Timezone, draft.CampaignStart, draft.CampaignEnd, `[]`, string(raw))
 	if err != nil {
 		return Campaign{}, err

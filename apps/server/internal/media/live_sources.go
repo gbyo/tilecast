@@ -148,7 +148,7 @@ func (p airQualitySourceProvider) Normalize(_ context.Context, raw json.RawMessa
 		return nil, errors.New("air quality timezone is invalid")
 	}
 	if c.AQIStandard == "" {
-		c.AQIStandard = "us"
+		return nil, errors.New("air quality index standard must be selected")
 	}
 	if c.AQIStandard != "us" && c.AQIStandard != "european" {
 		return nil, errors.New("air quality index standard is invalid")

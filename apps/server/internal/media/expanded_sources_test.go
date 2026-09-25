@@ -29,6 +29,51 @@ func TestManualSourceNormalizesTypedRows(t *testing.T) {
 	}
 }
 
+func TestManualSourceAllowsLegacyCurrencyWithoutMetadata(t *testing.T) {
+	raw, _ := json.Marshal(ManualSourceConfig{
+		Columns: []ManualColumn{{Key: "price", Label: "Price", Type: "currency"}},
+		Rows:    []ManualRow{{ID: "d43f00ab-b7d9-4c39-a67b-24f7649c558d", Values: map[string]string{"price": "5.5"}}},
+	})
+	normalized, err := (manualSourceProvider{}).Normalize(context.Background(), raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if normalized.(ManualSourceConfig).Columns[0].Currency != "" {
+		t.Fatal("legacy currency metadata should remain empty")
+	}
+}
+
+func TestManualCurrencyMetadataIsRequiredForNewFieldsAndPreservesLegacyFields(t *testing.T) {
+	if err := validateManualCurrencyMetadata([]ManualColumn{{Key: "price", Label: "Price", Type: "currency"}}, nil); err == nil {
+		t.Fatal("new currency columns must declare their ISO 4217 code")
+	}
+	legacy := []ManualColumn{{Key: "price", Label: "Price", Type: "currency"}}
+	if err := validateManualCurrencyMetadata(legacy, legacy); err != nil {
+		t.Fatalf("legacy metadata-less currency field should remain editable: %v", err)
+	}
+	saved := []ManualColumn{{Key: "price", Label: "Price", Type: "currency", Currency: "EUR"}}
+	if err := validateManualCurrencyMetadata(saved, saved); err != nil {
+		t.Fatalf("saved currency code should be preserved: %v", err)
+	}
+	if err := validateManualCurrencyMetadata(legacy, saved); err == nil {
+		t.Fatal("clearing a saved explicit code must be rejected")
+	}
+}
+
+func TestManualSourceRequiresRecognizedISOCurrencyWhenProvided(t *testing.T) {
+	for _, code := range []string{"ABC", "XXX"} {
+		t.Run(code, func(t *testing.T) {
+			raw, _ := json.Marshal(ManualSourceConfig{
+				Columns: []ManualColumn{{Key: "price", Label: "Price", Type: "currency", Currency: code}},
+				Rows:    []ManualRow{{ID: "d43f00ab-b7d9-4c39-a67b-24f7649c558d", Values: map[string]string{"price": "5.5"}}},
+			})
+			if _, err := (manualSourceProvider{}).Normalize(context.Background(), raw); err == nil {
+				t.Fatalf("currency code %q was accepted", code)
+			}
+		})
+	}
+}
+
 func TestManualSourceRejectsUnknownRowFields(t *testing.T) {
 	raw, _ := json.Marshal(ManualSourceConfig{
 		Columns: []ManualColumn{{Key: "title", Label: "Title", Type: "text"}},

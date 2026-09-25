@@ -1,0 +1,42 @@
+---
+title: Server and Studio
+description: Troubleshoot Tilecast Server startup, readiness, reverse proxies, and Studio connection problems.
+---
+
+## Check the server process and readiness
+
+Use `/healthz` to check that the Tilecast Server process answers. Use `/readyz` to check that the services Tilecast depends on are ready.
+
+```sh title="Check process and dependency health"
+curl --fail http://tilecast.local:8080/healthz
+curl --fail http://tilecast.local:8080/readyz
+```
+
+A readiness failure can point to PostgreSQL, media storage, FFmpeg, or FFprobe even when the server process itself is running.
+
+With Docker Compose, check the services and server log:
+
+```sh title="Inspect the Compose services"
+docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml ps
+docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml logs server
+```
+
+## Studio cannot connect
+
+Confirm that `TILECAST_PUBLIC_URL` is the address browsers and Players actually use.
+
+If a reverse proxy or tunnel provides HTTPS, keep the public HTTPS address in that setting and forward requests to the private Tilecast service.
+
+The proxy must pass WebSocket connections for Players and normal browser session headers for Studio. Do not expose PostgreSQL to the internet.
+
+If the public hostname is different from the hostname Tilecast sees internally, passkeys may need explicit WebAuthn settings. See [Sign-in and passkeys](../sign-in/).
+
+## A migration or restart fails
+
+Tilecast runs database migrations during server startup. Read the server log before retrying the same startup repeatedly.
+
+Do not delete PostgreSQL data or `/data` just to make the service start.
+
+Keep the database and media volume together, and use [Backup and restore](../../administration/backups/) if recovery means returning to an earlier installation state.
+
+For a planned version change, follow [Update Tilecast Server](../../administration/server-updates/) instead of rebuilding whatever revision happens to be checked out.

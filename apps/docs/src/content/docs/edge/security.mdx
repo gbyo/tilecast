@@ -1,0 +1,28 @@
+---
+title: Edge security
+description: Learn how Tilecast Edge handles server trust, credentials, downloaded content, and Linux permissions.
+---
+
+Tilecast Server remains the source of screen assignments, schedules, settings, and commands. An offline Edge Player can keep using information it already accepted, but it cannot create new organization settings on its own.
+
+## Server and credentials
+
+Edge verifies that it is talking to the same Tilecast installation before sending a saved Player credential.
+
+A temporary network failure does not erase that credential. It is removed only when the relationship is explicitly rejected or revoked.
+
+The visible pairing code is separate from the private pairing secret and one-time enrollment token.
+
+## Renderer access
+
+The WPE renderer does not own the Player credential. It should not receive pairing secrets, the full Edge data directory, or unrestricted host controls.
+
+`tilecastd` gives the renderer only the presentation information and media it needs.
+
+## Downloads and system permissions
+
+Edge checks downloaded media against its expected hash and size before using it. An incomplete or corrupt download is not promoted into the active content store.
+
+`tilecastd` is intended to run without root privileges. Work that needs elevated access stays in the installer, migration tools, or small helpers.
+
+Tilecast Edge does not provide a general remote shell or an API for running arbitrary executables or writing arbitrary files.

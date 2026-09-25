@@ -52,7 +52,11 @@ save or cancel.
   right language.
 - Once the account's saved preference loads, `DashboardShell` applies it; the
   saved preference beats the cache.
-- `<html lang>` follows the active language.
+- `<html lang>` follows the active language, and `<html dir>` follows the
+  language's text direction. Direction uses `Intl.Locale.getTextInfo()` where
+  available with a compact script/language fallback. The direction behavior is
+  independent of translation catalogs, so RTL layout can be tested before an
+  RTL translation ships.
 
 ## Converting a file
 
@@ -315,6 +319,10 @@ locale week default from CLDR supplemental week data. `Intl.Locale.getWeekInfo`
 and `Intl.supportedValuesOf("timeZone")` provide modern runtime data, with
 compatibility fallbacks where those APIs are not available. See the [ECMA-402
 specification](https://402.ecma-international.org/), [MDN `getWeekInfo`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/Locale/getWeekInfo), [MDN `supportedValuesOf`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/supportedValuesOf), and [CLDR date and week data](https://unicode-org.github.io/cldr/ldml/tr35-dates.html).
+
+Studio's regional settings also determine signage number/date/time formatting and new regional Data Source defaults. Explicit widget choices and source values still take precedence. Currency formatting uses an explicit ISO 4217 field code with `Intl.NumberFormat`; a locale does not select the meaning of a price. Time-zone suggestions use `Intl.supportedValuesOf("timeZone")` when available, while manually entered IANA identifiers remain valid when the runtime's suggestion list is unavailable.
+
+Location labels and component display follow the W3C [international address guidance](https://www.w3.org/International/questions/qa-address-formats): addresses vary in both fields and order, so Tilecast keeps address parts optional and uses a neutral component presentation until it has trustworthy country-specific formatting data.
 
 ### Server-provided text
 

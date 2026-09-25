@@ -1,0 +1,28 @@
+---
+title: Hardware and host integrations
+description: See which Linux hardware features Tilecast Edge can use and how they appear in Studio.
+---
+
+:::caution[Preview]
+The M9 hardware work is still being tested and has not finished hardware qualification for a production release.
+:::
+
+Edge reports hardware features only when they are available on that Player. Missing CEC, DDC, microphone, or Presentation Network support should disable that feature without stopping normal playback.
+
+## Display Control
+
+The current M9 work moves Edge away from calling `cec-ctl` and `ddcutil` as subprocesses. Edge talks to the Linux CEC and I²C/DDC devices directly for supported power, input, brightness, volume, and mute controls.
+
+The current stable Linux Player still uses the providers described in [Display Control](../../screens/display-control/).
+
+## Presentation Network
+
+Edge keeps Presentation Network behind a small helper instead of giving the main Player service unrestricted network-control access.
+
+## Noise Meter
+
+Noise Meter needs a working audio input on the Linux host. Edge reads level information through the Linux audio stack and does not send microphone recordings to the server.
+
+See [Noise Meter](../../operations/plugins/noise-meter/) for setup and privacy details.
+
+Hardware permissions should come from the Edge install setup rather than running the whole Player as root.

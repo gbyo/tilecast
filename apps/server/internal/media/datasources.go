@@ -41,15 +41,15 @@ var dataSourceAdapterRegistry = map[string]dataSourceAdapterFactory{
 	},
 	"manual_object": func(service *Service, provider string) configNormalizer {
 		definition, _ := service.definitions.DataSource(provider)
-		return definitionConfigNormalizer{service: service, schema: definition.ConfigurationSchema}
+		return definitionConfigNormalizer{service: service, schema: definition.ConfigurationSchema, outputSchema: definition.OutputSchema}
 	},
 	"manual_records": func(service *Service, provider string) configNormalizer {
 		definition, _ := service.definitions.DataSource(provider)
-		return definitionConfigNormalizer{service: service, schema: definition.ConfigurationSchema}
+		return definitionConfigNormalizer{service: service, schema: definition.ConfigurationSchema, outputSchema: definition.OutputSchema}
 	},
 	"http_records": func(service *Service, provider string) configNormalizer {
 		definition, _ := service.definitions.DataSource(provider)
-		return definitionConfigNormalizer{service: service, schema: definition.ConfigurationSchema}
+		return definitionConfigNormalizer{service: service, schema: definition.ConfigurationSchema, outputSchema: definition.OutputSchema}
 	},
 	"form_records": func(service *Service, _ string) configNormalizer {
 		return formSourceProvider{service}
@@ -164,6 +164,17 @@ func (s *Service) CreateDataSource(ctx context.Context, user uuid.UUID, input Da
 	if err != nil {
 		return DataSource{}, err
 	}
+	if input.Provider == "manual" {
+		if err = validateManualCurrencyMetadata(configuration.(ManualSourceConfig).Columns, nil); err != nil {
+			return DataSource{}, err
+		}
+	} else if definition, ok := s.definitions.DataSource(input.Provider); ok {
+		if values, ok := configuration.(map[string]any); ok {
+			if err = validateDefinitionCurrencyMetadata(definition, values, nil); err != nil {
+				return DataSource{}, err
+			}
+		}
+	}
 	encoded, _ := json.Marshal(configuration)
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
@@ -236,6 +247,22 @@ func (s *Service) UpdateDataSource(ctx context.Context, id, user uuid.UUID, inpu
 	if err != nil {
 		return DataSource{}, err
 	}
+	if input.Provider == "manual" {
+		var previous ManualSourceConfig
+		if json.Unmarshal(existing.Configuration, &previous) == nil {
+			if err = validateManualCurrencyMetadata(configuration.(ManualSourceConfig).Columns, previous.Columns); err != nil {
+				return DataSource{}, err
+			}
+		}
+	} else if definition, ok := s.definitions.DataSource(input.Provider); ok {
+		var previous map[string]any
+		_ = json.Unmarshal(existing.Configuration, &previous)
+		if values, ok := configuration.(map[string]any); ok {
+			if err = validateDefinitionCurrencyMetadata(definition, values, previous); err != nil {
+				return DataSource{}, err
+			}
+		}
+	}
 	input.Name = strings.TrimSpace(input.Name)
 	if input.Name == "" || len(input.Name) > 180 || len(input.Description) > 2000 {
 		return DataSource{}, errors.New("data source name or description is invalid")
@@ -289,6 +316,52 @@ func (s *Service) UpdateDataSource(ctx context.Context, id, user uuid.UUID, inpu
 		}
 	}
 	return s.GetDataSource(ctx, id)
+}
+
+func validateManualCurrencyMetadata(columns, previous []ManualColumn) error {
+	previousByKey := make(map[string]ManualColumn, len(previous))
+	for _, column := range previous {
+		previousByKey[column.Key] = column
+	}
+	for _, column := range columns {
+		if column.Type != "currency" || column.Currency != "" {
+			continue
+		}
+		legacy, exists := previousByKey[column.Key]
+		if exists && legacy.Type == "currency" && legacy.Currency == "" {
+			continue
+		}
+		return fmt.Errorf("currency column %q requires an explicit ISO 4217 code", column.Label)
+	}
+	return nil
+}
+
+func validateDefinitionCurrencyMetadata(
+	definition contentdefs.DataSourceDefinition,
+	configuration map[string]any,
+	previous map[string]any,
+) error {
+	for _, field := range definition.OutputSchema.Fields {
+		if field.Type != "currency" {
+			continue
+		}
+		code := field.Currency
+		if field.CurrencyConfigKey != "" {
+			code, _ = configuration[field.CurrencyConfigKey].(string)
+		}
+		if code != "" {
+			continue
+		}
+		previousCode := field.Currency
+		if field.CurrencyConfigKey != "" {
+			previousCode, _ = previous[field.CurrencyConfigKey].(string)
+		}
+		if previous != nil && previousCode == "" {
+			continue
+		}
+		return fmt.Errorf("%s requires an explicit ISO 4217 currency code", field.Label)
+	}
+	return nil
 }
 
 func (s *Service) DuplicateDataSource(ctx context.Context, id, user uuid.UUID) (DataSource, error) {
@@ -582,11 +655,9 @@ func (s *Service) dataSourceProviderAndTypedFields(ctx context.Context, id uuid.
 // provider-specific logic.
 func (s *Service) availableDataSourceFields(provider string, raw json.RawMessage) []DataSourceField {
 	if definition, ok := s.definitions.DataSource(provider); ok && !definition.LegacyEditor {
-		fields := make([]DataSourceField, 0, len(definition.OutputSchema.Fields))
-		for _, field := range definition.OutputSchema.Fields {
-			fields = append(fields, DataSourceField{Key: field.Key, Label: field.Label, Type: field.Type})
-		}
-		return fields
+		var configuration map[string]any
+		_ = json.Unmarshal(raw, &configuration)
+		return outputDataSourceFields(definition.OutputSchema, configuration)
 	}
 	fields := []DataSourceField{}
 	if provider == "form" {
@@ -685,6 +756,22 @@ func (s *Service) availableDataSourceFields(provider string, raw json.RawMessage
 			}
 			fields = append(fields, DataSourceField{Key: name, Label: name, Type: fieldType})
 		}
+	}
+	return fields
+}
+
+func outputDataSourceFields(schema contentdefs.OutputSchema, configuration map[string]any) []DataSourceField {
+	fields := make([]DataSourceField, 0, len(schema.Fields))
+	for _, field := range schema.Fields {
+		currency := field.Currency
+		if field.CurrencyConfigKey != "" {
+			if configured, ok := configuration[field.CurrencyConfigKey].(string); ok {
+				currency = configured
+			}
+		}
+		fields = append(fields, DataSourceField{
+			Key: field.Key, Label: field.Label, Type: field.Type, Currency: currency,
+		})
 	}
 	return fields
 }
