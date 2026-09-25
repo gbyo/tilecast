@@ -11,86 +11,86 @@ The detailed Widget and Data Source authoring guides are intentionally kept sepa
 
 ## Widget and App definitions
 
-| Name | ID | Kind | Category | Runtime | Source |
-| --- | --- | --- | --- | --- | --- |
-| Text Notice | `text-notice` | widget | Essentials | native | `basics.json` |
-| Image Notice | `image-notice` | widget | Essentials | native | `basics.json` |
-| QR Call to Action | `qr-call-to-action` | widget | Essentials | native | `basics.json` |
-| Website | `website` | widget | Web and video | web | `catalog.json` |
-| YouTube | `youtube` | app | Video | web | `catalog.json` |
-| Clock | `clock` | widget | Essentials | native | `catalog.json` |
-| Date | `date` | widget | Essentials | native | `catalog.json` |
-| QR Code | `qrcode` | widget | Essentials | native | `catalog.json` |
-| Countdown | `countdown` | widget | Essentials | native | `catalog.json` |
-| World Clock | `world_clock` | widget | Essentials | native | `catalog.json` |
-| Ticker | `ticker` | widget | Data-driven | native | `catalog.json` |
-| Menu / Price Board | `menu` | widget | Data-driven | native | `catalog.json` |
-| List | `list` | widget | Data-driven | native | `catalog.json` |
-| Table | `table` | widget | Data-driven | native | `catalog.json` |
-| Agenda | `agenda` | widget | Data-driven | native | `catalog.json` |
-| Metric | `metric` | widget | Data-driven | native | `catalog.json` |
-| Cards | `cards` | widget | Data-driven | native | `catalog.json` |
-| Weather | `weather` | widget | Data-driven | native | `catalog.json` |
-| Spotlight | `spotlight` | widget | Data Display | native | `catalog.json` |
-| Stat Grid | `stat_grid` | widget | Data Display | native | `catalog.json` |
-| Chart | `chart` | widget | Data Display | native | `catalog.json` |
-| Progress | `progress` | widget | Data Display | native | `catalog.json` |
-| Timeline | `timeline` | widget | Schedules | native | `catalog.json` |
-| School Status Banner | `school-status-banner` | widget | Information | native | `catalog.json` |
-| Grafana | `grafana` | app | Dashboards | web | `dashboards.json` |
-| Power BI | `power-bi` | app | Dashboards | web | `dashboards.json` |
-| Tableau | `tableau-public` | app | Dashboards | web | `dashboards.json` |
-| Looker Studio | `looker-studio` | app | Dashboards | web | `dashboards.json` |
-| Airtable | `airtable` | app | Dashboards | web | `dashboards.json` |
-| Smartsheet | `smartsheet` | app | Dashboards | web | `dashboards.json` |
-| Canva | `canva` | app | Design & Documents | web | `documents.json` |
-| Notion | `notion` | app | Design & Documents | web | `documents.json` |
-| Google Sheets | `google-sheets-display` | app | Google | web | `google.json` |
-| Google Slides | `google-slides` | app | Google | web | `google.json` |
-| Google Sheets Data | `google-sheets-data` | app | Google | native | `google.json` |
-| Alert Banner | `alert-banner` | widget | Information | native | `information.json` |
-| Fundraising Thermometer | `fundraising-thermometer` | widget | Information | native | `information.json` |
-| Now and Next | `now-and-next` | widget | Schedules | native | `information.json` |
-| Recognition Board | `recognition-board` | widget | Information | native | `information.json` |
-| News Feed | `news-feed` | widget | Building Blocks / Advanced | native | `news.json` |
-| ESPN | `espn` | app | News | native | `news.json` |
-| Custom RSS | `custom-rss` | app | News | native | `news.json` |
-| Atom Feed | `atom-feed` | app | Feeds | native | `news.json` |
-| RSS Ticker | `rss-ticker` | app | Feeds | native | `news.json` |
-| BBC News | `bbc-news` | app | News | native | `news.json` |
-| Sky News | `sky-news` | app | News | native | `news.json` |
-| The Guardian | `the-guardian` | app | News | native | `news.json` |
-| School Schedule | `schedule-board` | widget | Schedules | native | `schedule-board.json` |
+| Name                    | ID                        | Kind   | Category                   | Runtime | Source                |
+| ----------------------- | ------------------------- | ------ | -------------------------- | ------- | --------------------- |
+| Text Notice             | `text-notice`             | widget | Essentials                 | native  | `basics.json`         |
+| Image Notice            | `image-notice`            | widget | Essentials                 | native  | `basics.json`         |
+| QR Call to Action       | `qr-call-to-action`       | widget | Essentials                 | native  | `basics.json`         |
+| Website                 | `website`                 | widget | Web and video              | web     | `catalog.json`        |
+| YouTube                 | `youtube`                 | app    | Video                      | web     | `catalog.json`        |
+| Clock                   | `clock`                   | widget | Essentials                 | native  | `catalog.json`        |
+| Date                    | `date`                    | widget | Essentials                 | native  | `catalog.json`        |
+| QR Code                 | `qrcode`                  | widget | Essentials                 | native  | `catalog.json`        |
+| Countdown               | `countdown`               | widget | Essentials                 | native  | `catalog.json`        |
+| World Clock             | `world_clock`             | widget | Essentials                 | native  | `catalog.json`        |
+| Ticker                  | `ticker`                  | widget | Data-driven                | native  | `catalog.json`        |
+| Menu / Price Board      | `menu`                    | widget | Data-driven                | native  | `catalog.json`        |
+| List                    | `list`                    | widget | Data-driven                | native  | `catalog.json`        |
+| Table                   | `table`                   | widget | Data-driven                | native  | `catalog.json`        |
+| Agenda                  | `agenda`                  | widget | Data-driven                | native  | `catalog.json`        |
+| Metric                  | `metric`                  | widget | Data-driven                | native  | `catalog.json`        |
+| Cards                   | `cards`                   | widget | Data-driven                | native  | `catalog.json`        |
+| Weather                 | `weather`                 | widget | Data-driven                | native  | `catalog.json`        |
+| Spotlight               | `spotlight`               | widget | Data Display               | native  | `catalog.json`        |
+| Stat Grid               | `stat_grid`               | widget | Data Display               | native  | `catalog.json`        |
+| Chart                   | `chart`                   | widget | Data Display               | native  | `catalog.json`        |
+| Progress                | `progress`                | widget | Data Display               | native  | `catalog.json`        |
+| Timeline                | `timeline`                | widget | Schedules                  | native  | `catalog.json`        |
+| School Status Banner    | `school-status-banner`    | widget | Information                | native  | `catalog.json`        |
+| Grafana                 | `grafana`                 | app    | Dashboards                 | web     | `dashboards.json`     |
+| Power BI                | `power-bi`                | app    | Dashboards                 | web     | `dashboards.json`     |
+| Tableau                 | `tableau-public`          | app    | Dashboards                 | web     | `dashboards.json`     |
+| Looker Studio           | `looker-studio`           | app    | Dashboards                 | web     | `dashboards.json`     |
+| Airtable                | `airtable`                | app    | Dashboards                 | web     | `dashboards.json`     |
+| Smartsheet              | `smartsheet`              | app    | Dashboards                 | web     | `dashboards.json`     |
+| Canva                   | `canva`                   | app    | Design & Documents         | web     | `documents.json`      |
+| Notion                  | `notion`                  | app    | Design & Documents         | web     | `documents.json`      |
+| Google Sheets           | `google-sheets-display`   | app    | Google                     | web     | `google.json`         |
+| Google Slides           | `google-slides`           | app    | Google                     | web     | `google.json`         |
+| Google Sheets Data      | `google-sheets-data`      | app    | Google                     | native  | `google.json`         |
+| Alert Banner            | `alert-banner`            | widget | Information                | native  | `information.json`    |
+| Fundraising Thermometer | `fundraising-thermometer` | widget | Information                | native  | `information.json`    |
+| Now and Next            | `now-and-next`            | widget | Schedules                  | native  | `information.json`    |
+| Recognition Board       | `recognition-board`       | widget | Information                | native  | `information.json`    |
+| News Feed               | `news-feed`               | widget | Building Blocks / Advanced | native  | `news.json`           |
+| ESPN                    | `espn`                    | app    | News                       | native  | `news.json`           |
+| Custom RSS              | `custom-rss`              | app    | News                       | native  | `news.json`           |
+| Atom Feed               | `atom-feed`               | app    | Feeds                      | native  | `news.json`           |
+| RSS Ticker              | `rss-ticker`              | app    | Feeds                      | native  | `news.json`           |
+| BBC News                | `bbc-news`                | app    | News                       | native  | `news.json`           |
+| Sky News                | `sky-news`                | app    | News                       | native  | `news.json`           |
+| The Guardian            | `the-guardian`            | app    | News                       | native  | `news.json`           |
+| School Schedule         | `schedule-board`          | widget | Schedules                  | native  | `schedule-board.json` |
 
 ## Data Source definitions
 
-| Name | ID | Category | Output | Adapter | Source |
-| --- | --- | --- | --- | --- | --- |
-| Calendar | `calendar` | Feeds | records | calendar | `catalog.json` |
-| RSS | `rss` | Feeds | records | structured | `catalog.json` |
-| Atom | `atom` | Feeds | records | structured | `catalog.json` |
-| JSON | `json` | Structured | records | structured | `catalog.json` |
-| CSV | `csv` | Structured | records | structured | `catalog.json` |
-| Manual Table | `manual` | Structured | records | manual_table | `catalog.json` |
-| Weather | `weather` | External | records | weather | `catalog.json` |
-| Transit | `transit` | Live Information | records | transit | `catalog.json` |
-| CAP Alerts | `cap_alerts` | Live Information | records | cap_alerts | `catalog.json` |
-| Air Quality | `air_quality` | Live Information | time_series | air_quality | `catalog.json` |
-| School Status | `school-status` | Information | object | manual_object | `catalog.json` |
-| Form | `form` | Interactive | records | form_records | `catalog.json` |
-| Google Sheet | `google-sheet` | Structured | records | http_records | `guided-feeds.json` |
-| US Weather Alerts | `weather-alerts-us` | Live Information | records | http_records | `guided-feeds.json` |
-| Public Holidays | `public-holidays` | Live Information | records | http_records | `guided-feeds.json` |
-| Emergency Message | `emergency-message` | Information | object | manual_object | `information.json` |
-| Fundraising Goal | `fundraising-goal` | Information | object | manual_object | `information.json` |
-| Occupancy Count | `occupancy-count` | Information | object | manual_object | `information.json` |
-| Today's Hours | `todays-hours` | Information | object | manual_object | `information.json` |
-| Announcements | `announcements` | Structured | records | manual_records | `manual-records.json` |
-| Events | `events` | Structured | records | manual_records | `manual-records.json` |
-| Closures and Delays | `closures` | Structured | records | manual_records | `manual-records.json` |
-| Directory | `directory-entries` | Structured | records | manual_records | `manual-records.json` |
-| Menu Items | `menu-items` | Structured | records | manual_records | `manual-records.json` |
-| Shout-outs | `shout-outs` | Structured | records | manual_records | `manual-records.json` |
+| Name                | ID                  | Category         | Output      | Adapter        | Source                |
+| ------------------- | ------------------- | ---------------- | ----------- | -------------- | --------------------- |
+| Calendar            | `calendar`          | Feeds            | records     | calendar       | `catalog.json`        |
+| RSS                 | `rss`               | Feeds            | records     | structured     | `catalog.json`        |
+| Atom                | `atom`              | Feeds            | records     | structured     | `catalog.json`        |
+| JSON                | `json`              | Structured       | records     | structured     | `catalog.json`        |
+| CSV                 | `csv`               | Structured       | records     | structured     | `catalog.json`        |
+| Manual Table        | `manual`            | Structured       | records     | manual_table   | `catalog.json`        |
+| Weather             | `weather`           | External         | records     | weather        | `catalog.json`        |
+| Transit             | `transit`           | Live Information | records     | transit        | `catalog.json`        |
+| CAP Alerts          | `cap_alerts`        | Live Information | records     | cap_alerts     | `catalog.json`        |
+| Air Quality         | `air_quality`       | Live Information | time_series | air_quality    | `catalog.json`        |
+| School Status       | `school-status`     | Information      | object      | manual_object  | `catalog.json`        |
+| Form                | `form`              | Interactive      | records     | form_records   | `catalog.json`        |
+| Google Sheet        | `google-sheet`      | Structured       | records     | http_records   | `guided-feeds.json`   |
+| US Weather Alerts   | `weather-alerts-us` | Live Information | records     | http_records   | `guided-feeds.json`   |
+| Public Holidays     | `public-holidays`   | Live Information | records     | http_records   | `guided-feeds.json`   |
+| Emergency Message   | `emergency-message` | Information      | object      | manual_object  | `information.json`    |
+| Fundraising Goal    | `fundraising-goal`  | Information      | object      | manual_object  | `information.json`    |
+| Occupancy Count     | `occupancy-count`   | Information      | object      | manual_object  | `information.json`    |
+| Today's Hours       | `todays-hours`      | Information      | object      | manual_object  | `information.json`    |
+| Announcements       | `announcements`     | Structured       | records     | manual_records | `manual-records.json` |
+| Events              | `events`            | Structured       | records     | manual_records | `manual-records.json` |
+| Closures and Delays | `closures`          | Structured       | records     | manual_records | `manual-records.json` |
+| Directory           | `directory-entries` | Structured       | records     | manual_records | `manual-records.json` |
+| Menu Items          | `menu-items`        | Structured       | records     | manual_records | `manual-records.json` |
+| Shout-outs          | `shout-outs`        | Structured       | records     | manual_records | `manual-records.json` |
 
 ## Keep this page current
 

@@ -41,12 +41,11 @@ for (const name of names) {
 
 const rows = (definitions, columns) =>
   definitions
-    .map((definition) =>
-      "| " +
-      columns
-        .map(([, value]) => escapeCell(value(definition)))
-        .join(" | ") +
-      " |",
+    .map(
+      (definition) =>
+        "| " +
+        columns.map(([, value]) => escapeCell(value(definition))).join(" | ") +
+        " |",
     )
     .join("\n");
 
