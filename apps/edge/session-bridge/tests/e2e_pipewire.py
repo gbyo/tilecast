@@ -8,10 +8,11 @@ decodes it: exact member sets, bounded numbers, per-direction sequence.
 
   no source     inventory says PipeWire is there with no source; asking for
                 capture reports no_microphone
-  tone          a virtual microphone (null-audio-sink, Audio/Source/Virtual)
-                fed with a 0.5 sine tone:
+  tone          a virtual microphone (pipewiresink mode=provide as an
+                Audio/Source) playing a 0.5 sine tone:
                 capture reports levels near its RMS (0.354)
-  silence       the tone stops: levels fall to near zero
+  silence       the tone (the source) stops: levels fall to near zero or
+                capture reports the source gone
   release       capture.set false: state idle, no further levels, and the
                 bridge's PipeWire stream is gone from the graph
   no pipewire   PipeWire stops: inventory says unavailable
@@ -170,7 +171,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--bridge", required=True)
     args = parser.parse_args()
-    for tool in ("pipewire", "wireplumber", "pw-cli", "pw-link", "pw-dump", "gst-launch-1.0", "dbus-daemon"):
+    for tool in ("pipewire", "wireplumber", "pw-link", "pw-dump", "gst-launch-1.0", "dbus-daemon"):
         if shutil.which(tool) is None:
             fail(f"{tool} is not installed; the PipeWire test cannot run")
 
@@ -208,30 +209,17 @@ def main():
             daemon.wait("idle", lambda n, d: n == "audio.level" and d["state"] == "idle")
             print("no source: capture reports no_microphone")
 
-        # A virtual microphone, as PipeWire documents it: a null-audio-sink
-        # node of class Audio/Source/Virtual whose outputs carry whatever is
-        # linked into its inputs. The tone is linked in explicitly.
-        subprocess.run(["pw-cli", "create-node", "adapter",
-                        "{ factory.name=support.null-audio-sink node.name=tc-mic "
-                        "media.class=Audio/Source/Virtual audio.position=[FL FR] object.linger=true }"],
-                       env=env, check=True, capture_output=True)
+        # A virtual microphone: GStreamer provides an Audio/Source node
+        # (pipewiresink mode=provide) that plays a 0.5 sine tone, and the
+        # bridge captures it as the default source.
+        tone = start(["gst-launch-1.0", "-q", "audiotestsrc", "wave=sine", "freq=440", "volume=0.5", "is-live=true",
+                      "!", "audio/x-raw,format=F32LE,channels=1,rate=48000", "!", "pipewiresink", "mode=provide",
+                      "stream-properties=props,media.class=Audio/Source,node.name=tc-mic,"
+                      "node.description=tc-mic"], env, log)
+        processes.append(tone)
         inventory = daemon.wait("the virtual source", lambda n, d: n == "audio.inventory" and d["sources"] >= 1
                                 and d["defaultSource"])
         print(f"tone: inventory {inventory}")
-        tone = start(["gst-launch-1.0", "-q", "audiotestsrc", "wave=sine", "freq=440", "volume=0.5", "is-live=true",
-                      "!", "audio/x-raw,channels=2", "!", "audioconvert", "!", "pipewiresink", "client-name=tc-tone",
-                      "stream-properties=props,node.name=tc-tone,node.autoconnect=false"], env, log)
-        processes.append(tone)
-        deadline = time.monotonic() + 20
-        while True:
-            links = [subprocess.run(["pw-link", f"tc-tone:output_{c}", f"tc-mic:input_{c}"], env=env,
-                                    capture_output=True, text=True) for c in ("FL", "FR")]
-            listed = subprocess.run(["pw-link", "--links"], env=env, capture_output=True, text=True).stdout
-            if "tc-mic:input_FL" in listed and "tc-mic:input_FR" in listed:
-                break
-            if time.monotonic() > deadline:
-                fail(f"could not link the tone into tc-mic: {[l.stderr for l in links]}\n{listed}")
-            time.sleep(0.5)
         daemon.capture(True)
         expected = 0.5 / math.sqrt(2)
         level = daemon.wait("the tone's level",
@@ -241,9 +229,13 @@ def main():
 
         tone.send_signal(signal.SIGINT)
         tone.wait(timeout=10)
-        level = daemon.wait("silence", lambda n, d: n == "audio.level" and d["state"] == "capturing"
-                            and d["rms"] < 0.02, 20)
-        print(f"silence: rms {level['rms']:.4f}")
+        # The tone was the microphone: it stops, and either the level falls
+        # to silence or capture reports that its source went away.
+        level = daemon.wait("the source going quiet or away",
+                            lambda n, d: n == "audio.level" and (
+                                (d["state"] == "capturing" and d["rms"] < 0.02)
+                                or d["state"] in ("capture_failed", "recovering", "no_microphone")), 20)
+        print(f"silence: {level}")
 
         daemon.capture(False)
         daemon.wait("idle", lambda n, d: n == "audio.level" and d["state"] == "idle")

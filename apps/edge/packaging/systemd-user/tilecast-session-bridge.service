@@ -27,46 +27,32 @@ RestartSec=5
 RestartSteps=6
 RestartMaxDelaySec=300
 UMask=0077
-# The account's home can be /var/lib/tilecast-edge, which is hidden below.
 WorkingDirectory=/
 # No JIT: GStreamer's ORC code generator needs writable executable memory,
 # which MemoryDenyWriteExecute= forbids. The plain C paths are enough for
 # one 60 ms level measurement.
 Environment=ORC_CODE=backup
-Environment=GST_REGISTRY=/tmp/gstreamer-registry.bin
+# The registry lives in the session runtime directory, not in a shared /tmp.
+RuntimeDirectory=tilecast-session-bridge
+Environment=GST_REGISTRY=%t/tilecast-session-bridge/gstreamer-registry.bin
 
 # Sandbox. The bridge talks to PipeWire and tilecastd over Unix sockets only,
-# reads no files of the daemon and writes nothing.
-RestrictAddressFamilies=AF_UNIX
-# A user manager has no capabilities (no CAP_SETPCAP, no CAP_SYS_ADMIN).
-# Nothing here may shrink the capability bounding set, or every start fails
-# with 218/CAPABILITIES: that rules out CapabilityBoundingSet= and the
-# options that set it implicitly (PrivateDevices=, ProtectKernelModules=,
-# ProtectKernelLogs=, ProtectClock=). The bridge has no capabilities and
-# NoNewPrivileges= keeps it so.
+# reads no files of the daemon and writes nothing but its GStreamer registry.
 #
-# Two layers:
-# - seccomp (RestrictAddressFamilies=, SystemCallFilter=,
-#   MemoryDenyWriteExecute=, RestrictNamespaces= and the rest) applies on
-#   every host;
-# - the mount options (ProtectSystem=, ProtectHome=, PrivateTmp=,
-#   InaccessiblePaths=) need the unit's own user namespace (PrivateUsers=).
-#   systemd skips them where unprivileged user namespaces are restricted
-#   (Ubuntu 24.04's AppArmor default), and the bridge still starts.
-PrivateUsers=yes
+# A user manager has no capabilities, so its units get only the protections
+# that need none:
+# - nothing may shrink the capability bounding set (CapabilityBoundingSet=,
+#   PrivateDevices=, ProtectKernelModules=, ProtectKernelLogs=,
+#   ProtectClock=), or every start fails with 218/CAPABILITIES;
+# - the filesystem options (ProtectSystem=, ProtectHome=, PrivateTmp=,
+#   InaccessiblePaths=) need the unit's own user namespace (PrivateUsers=),
+#   and inside one, connect() to tilecastd's socket fails with EACCES on
+#   Ubuntu 24.04 hosts, so the bridge could never connect there.
+# What remains holds on every host: no capabilities, no new privileges, and
+# the seccomp filters below. The bridge runs as the same account as the
+# renderer and gains no access the account does not already have.
 NoNewPrivileges=yes
-ProtectSystem=strict
-# Home directories are hidden; the session's runtime directory (PipeWire and
-# the session bus) is the one part of /run/user that stays visible.
-ProtectHome=tmpfs
-BindReadOnlyPaths=%t
-PrivateTmp=yes
-# Audio goes through the PipeWire socket only; the account's display, input
-# and sound device nodes stay hidden.
-InaccessiblePaths=-/var/lib/tilecast-edge -/run/tilecast -/dev/snd -/dev/dri -/dev/input -/dev/bus/usb
-ProtectKernelTunables=yes
-ProtectControlGroups=yes
-ProtectHostname=yes
+RestrictAddressFamilies=AF_UNIX
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
 RestrictRealtime=yes

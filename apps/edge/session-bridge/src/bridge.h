@@ -55,6 +55,8 @@ typedef struct {
   guint capture_retry_source;
   guint capture_watchdog_source;
   gint64 last_level_at;
+  /* Pipeline state changes running on worker threads (at most one). */
+  guint capture_workers;
 
   /* inventory.c */
   WpCore *core;

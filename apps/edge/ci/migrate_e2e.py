@@ -525,11 +525,11 @@ def check_hardware_packaging():
     except AssertionError:
         print_bridge_diagnostics()
         raise
-    sandbox = tilecast_systemctl("show", "--property=RestrictAddressFamilies,PrivateUsers,ProtectHome,"
-                                 "NoNewPrivileges,MemoryDenyWriteExecute,SystemCallFilter,InaccessiblePaths",
+    sandbox = tilecast_systemctl("show", "--property=RestrictAddressFamilies,NoNewPrivileges,"
+                                 "MemoryDenyWriteExecute,SystemCallFilter,RestrictNamespaces",
                                  "tilecast-session-bridge.service").stdout
-    for expected in ("RestrictAddressFamilies=AF_UNIX", "PrivateUsers=yes", "ProtectHome=tmpfs",
-                     "NoNewPrivileges=yes", "MemoryDenyWriteExecute=yes", "/dev/snd"):
+    for expected in ("RestrictAddressFamilies=AF_UNIX", "NoNewPrivileges=yes", "MemoryDenyWriteExecute=yes",
+                     "RestrictNamespaces=yes"):
         assert expected in sandbox, (expected, sandbox)
     assert "SystemCallFilter=" in sandbox and "SystemCallFilter=\n" not in sandbox, sandbox
     # The seccomp layer holds on every host, even where systemd could not
