@@ -90,3 +90,79 @@ func TestManifestRejectsTrailingJSON(t *testing.T) {
 		t.Fatal("multiple JSON values were accepted")
 	}
 }
+
+func edgeEnvelope() Manifest {
+	return Manifest{SchemaVersion: 1, Product: EdgeProduct, PlayerFamily: FamilyEdge, Platform: PlatformLinux, Arch: "x86_64", VersionCode: 2000, VersionName: "0.2.0", Channel: "stable", ArtifactAssetName: "tilecast-edge-0.2.0-x86_64.tar.zst", ArtifactSizeBytes: 4096, ArtifactSHA256: "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", ReleaseManifestSHA256: "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", SBOMSHA256: "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", StateSchemaVersion: 6}
+}
+
+func TestParseAndVerifyManifestEdge(t *testing.T) {
+	public, private, _ := ed25519.GenerateKey(rand.Reader)
+	sign := func(m Manifest) ([]byte, []byte) {
+		raw, _ := json.Marshal(m)
+		return raw, []byte(base64.StdEncoding.EncodeToString(ed25519.Sign(private, raw)))
+	}
+	raw, signature := sign(edgeEnvelope())
+	manifest, err := ParseAndVerifyManifest(raw, signature, public)
+	if err != nil {
+		t.Fatalf("valid edge envelope rejected: %v", err)
+	}
+	if manifest.NormalizedFamily() != FamilyEdge || manifest.Architecture() != "x86_64" || manifest.AssetName() != "tilecast-edge-0.2.0-x86_64.tar.zst" || manifest.ArtifactSize() != 4096 {
+		t.Fatalf("edge accessors wrong: %+v", manifest)
+	}
+
+	for name, change := range map[string]func(*Manifest){
+		"electron product":        func(m *Manifest) { m.Product = "tilecast-player" },
+		"android platform":        func(m *Manifest) { m.Platform = PlatformAndroid },
+		"unknown architecture":    func(m *Manifest) { m.Arch = "riscv64" },
+		"code not from name":      func(m *Manifest) { m.VersionCode = 2001 },
+		"artifact name":           func(m *Manifest) { m.ArtifactAssetName = LinuxArtifactName },
+		"artifact for other arch": func(m *Manifest) { m.ArtifactAssetName = "tilecast-edge-0.2.0-aarch64.tar.zst" },
+		"uppercase digest": func(m *Manifest) {
+			m.ArtifactSHA256 = "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"
+		},
+		"missing manifest digest": func(m *Manifest) { m.ReleaseManifestSHA256 = "" },
+		"missing state schema":    func(m *Manifest) { m.StateSchemaVersion = 0 },
+		"android fields":          func(m *Manifest) { m.ApplicationID = ApplicationID },
+		"too large":               func(m *Manifest) { m.ArtifactSizeBytes = EdgeMaxArtifactBytes + 1 },
+	} {
+		bad := edgeEnvelope()
+		change(&bad)
+		raw, signature := sign(bad)
+		if _, err := ParseAndVerifyManifest(raw, signature, public); err == nil {
+			t.Fatalf("invalid edge envelope accepted: %s", name)
+		}
+	}
+
+	// An Electron manifest that claims the edge family, or carries edge
+	// fields, is refused: a family never changes by adding a field.
+	electron := Manifest{SchemaVersion: 1, Product: "tilecast-player", Platform: PlatformLinux, VersionCode: 1000, VersionName: "0.1.0", Channel: "stable", ArtifactAssetName: LinuxArtifactName, ArtifactSizeBytes: 4096, ArtifactSHA256: "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}
+	for name, change := range map[string]func(*Manifest){
+		"android family on linux": func(m *Manifest) { m.PlayerFamily = FamilyAndroid },
+		"edge field":              func(m *Manifest) { m.StateSchemaVersion = 3 },
+	} {
+		bad := electron
+		change(&bad)
+		raw, signature := sign(bad)
+		if _, err := ParseAndVerifyManifest(raw, signature, public); err == nil {
+			t.Fatalf("electron manifest accepted: %s", name)
+		}
+	}
+	electron.PlayerFamily = FamilyElectronLinux
+	raw, signature = sign(electron)
+	if manifest, err := ParseAndVerifyManifest(raw, signature, public); err != nil || manifest.NormalizedFamily() != FamilyElectronLinux {
+		t.Fatalf("explicit electron-linux family rejected: %v", err)
+	}
+}
+
+func TestEdgeVersionCodeMatchesTheReleaseBuild(t *testing.T) {
+	for name, want := range map[string]int64{"0.1.0": 1000, "1.2.3-rc.1": 1002003, "10.20.30": 10020030} {
+		if got, ok := EdgeVersionCode(name); !ok || got != want {
+			t.Fatalf("%s: got %d %v", name, got, ok)
+		}
+	}
+	for _, bad := range []string{"1.2", "v1.2.3", "1.2000.0", "1.2.3-", "1.2.3-rc_1"} {
+		if _, ok := EdgeVersionCode(bad); ok {
+			t.Fatalf("%s accepted", bad)
+		}
+	}
+}

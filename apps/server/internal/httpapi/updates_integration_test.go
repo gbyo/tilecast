@@ -271,7 +271,7 @@ func TestLinuxUpdateSettlesDespiteSyntheticItemIdentifier(t *testing.T) {
 	if _, err = pool.Exec(ctx, `INSERT INTO screen_player_status(screen_id,player_version_code) VALUES($1,2005)`, screenID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = pool.Exec(ctx, `INSERT INTO player_releases(id,platform,source,channel,version_code,version_name,release_notes,published_at,apk_name,apk_size,apk_sha256,signing_certificate_sha256,manifest,manifest_signature,cache_status,verification_status,imported_by) VALUES($1,'linux','upload','stable',2006,'0.2.6','',now(),'tilecast-player.AppImage',4096,$2,'','{}'::jsonb,'signature','cached','verified',$3)`, releaseID, "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", userID); err != nil {
+	if _, err = pool.Exec(ctx, `INSERT INTO player_releases(id,platform,player_family,source,channel,version_code,version_name,release_notes,published_at,apk_name,apk_size,apk_sha256,signing_certificate_sha256,manifest,manifest_signature,cache_status,verification_status,imported_by) VALUES($1,'linux','electron-linux','upload','stable',2006,'0.2.6','',now(),'tilecast-player.AppImage',4096,$2,'','{}'::jsonb,'signature','cached','verified',$3)`, releaseID, "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", userID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = pool.Exec(ctx, `INSERT INTO update_deployments(id,release_id,name,mode,status,created_by) VALUES($1,$2,'Tilecast Player for Linux 0.2.6','install_now','active',$3)`, deploymentID, releaseID, userID); err != nil {
@@ -399,7 +399,7 @@ func TestStuckReconnectingTargetIsReconciled(t *testing.T) {
 	if _, err = pool.Exec(ctx, `INSERT INTO screen_player_status(screen_id,player_version_code,safe_mode,last_healthy_playback_at) VALUES($1,2006,false,now())`, screenID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = pool.Exec(ctx, `INSERT INTO player_releases(id,platform,source,channel,version_code,version_name,release_notes,published_at,apk_name,apk_size,apk_sha256,signing_certificate_sha256,manifest,manifest_signature,cache_status,verification_status,imported_by) VALUES($1,'linux','upload','stable',2006,'0.2.6','',now(),'tilecast-player.AppImage',4096,$2,'','{}'::jsonb,'signature','cached','verified',$3)`, releaseID, "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", userID); err != nil {
+	if _, err = pool.Exec(ctx, `INSERT INTO player_releases(id,platform,player_family,source,channel,version_code,version_name,release_notes,published_at,apk_name,apk_size,apk_sha256,signing_certificate_sha256,manifest,manifest_signature,cache_status,verification_status,imported_by) VALUES($1,'linux','electron-linux','upload','stable',2006,'0.2.6','',now(),'tilecast-player.AppImage',4096,$2,'','{}'::jsonb,'signature','cached','verified',$3)`, releaseID, "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", userID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = pool.Exec(ctx, `INSERT INTO update_deployments(id,release_id,name,mode,status,created_by) VALUES($1,$2,'Tilecast Player for Linux 0.2.6','install_now','active',$3)`, deploymentID, releaseID, userID); err != nil {
@@ -501,7 +501,7 @@ func TestLinuxDeploymentTargetsOnlyLinuxScreens(t *testing.T) {
 	screen(androidScreen, "Fire TV", "fire-tv")
 
 	// A Linux release: no application_id / minimum_sdk, AppImage artifact name.
-	if _, err = pool.Exec(ctx, `INSERT INTO player_releases(id,platform,source,channel,version_code,version_name,release_notes,published_at,apk_name,apk_size,apk_sha256,signing_certificate_sha256,manifest,manifest_signature,cache_status,verification_status,imported_by) VALUES($1,'linux','upload','stable',2000,'0.2.0','',now(),'tilecast-player.AppImage',4096,$2,'','{}'::jsonb,'signature','cached','verified',$3)`, releaseID, "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", userID); err != nil {
+	if _, err = pool.Exec(ctx, `INSERT INTO player_releases(id,platform,player_family,source,channel,version_code,version_name,release_notes,published_at,apk_name,apk_size,apk_sha256,signing_certificate_sha256,manifest,manifest_signature,cache_status,verification_status,imported_by) VALUES($1,'linux','electron-linux','upload','stable',2000,'0.2.0','',now(),'tilecast-player.AppImage',4096,$2,'','{}'::jsonb,'signature','cached','verified',$3)`, releaseID, "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", userID); err != nil {
 		t.Fatal(err)
 	}
 
@@ -610,7 +610,7 @@ func TestAndroidSocketHeartbeatSettlesInstallingTarget(t *testing.T) {
 	if _, err = pool.Exec(ctx, `INSERT INTO screen_player_status(screen_id,player_version_code,safe_mode,last_healthy_playback_at,commissioning_state) VALUES($1,110,false,now()-interval '30 minutes','complete')`, screenID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = pool.Exec(ctx, `INSERT INTO player_releases(id,platform,source,channel,version_code,version_name,release_notes,published_at,apk_name,apk_size,apk_sha256,signing_certificate_sha256,manifest,manifest_signature,cache_status,verification_status,imported_by) VALUES($1,'android','upload','stable',111,'0.11.1','',now(),'tilecast-player.apk',4096,$2,'','{}'::jsonb,'signature','cached','verified',$3)`, releaseID, "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", userID); err != nil {
+	if _, err = pool.Exec(ctx, `INSERT INTO player_releases(id,platform,player_family,source,channel,version_code,version_name,release_notes,published_at,apk_name,apk_size,apk_sha256,signing_certificate_sha256,manifest,manifest_signature,cache_status,verification_status,imported_by) VALUES($1,'android','android','upload','stable',111,'0.11.1','',now(),'tilecast-player.apk',4096,$2,'','{}'::jsonb,'signature','cached','verified',$3)`, releaseID, "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", userID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = pool.Exec(ctx, `INSERT INTO update_deployments(id,release_id,name,mode,status,created_by) VALUES($1,$2,'Tilecast Player 0.11.1','install_now','active',$3)`, deploymentID, releaseID, userID); err != nil {
@@ -722,7 +722,7 @@ func TestLinuxTargetSettlesWhenStatusReportsWereLost(t *testing.T) {
 			if _, err = pool.Exec(ctx, `INSERT INTO screen_player_status(screen_id,player_version_code,safe_mode) VALUES($1,10000,false)`, screenID); err != nil {
 				t.Fatal(err)
 			}
-			if _, err = pool.Exec(ctx, `INSERT INTO player_releases(id,platform,source,channel,version_code,version_name,release_notes,published_at,apk_name,apk_size,apk_sha256,signing_certificate_sha256,manifest,manifest_signature,cache_status,verification_status,imported_by) VALUES($1,'linux','upload','stable',10000,'0.10.0','',now(),'tilecast-player.AppImage',4096,$2,'','{}'::jsonb,'signature','cached','verified',$3)`, releaseID, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", userID); err != nil {
+			if _, err = pool.Exec(ctx, `INSERT INTO player_releases(id,platform,player_family,source,channel,version_code,version_name,release_notes,published_at,apk_name,apk_size,apk_sha256,signing_certificate_sha256,manifest,manifest_signature,cache_status,verification_status,imported_by) VALUES($1,'linux','electron-linux','upload','stable',10000,'0.10.0','',now(),'tilecast-player.AppImage',4096,$2,'','{}'::jsonb,'signature','cached','verified',$3)`, releaseID, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", userID); err != nil {
 				t.Fatal(err)
 			}
 			if _, err = pool.Exec(ctx, `INSERT INTO update_deployments(id,release_id,name,mode,status,created_by) VALUES($1,$2,'Tilecast Player for Linux 0.10.0','install_now','active',$3)`, deploymentID, releaseID, userID); err != nil {
@@ -806,7 +806,7 @@ func TestStrandedTargetOnTheOldVersionIsNotSettled(t *testing.T) {
 	if _, err = pool.Exec(ctx, `INSERT INTO screen_player_status(screen_id,player_version_code,safe_mode) VALUES($1,9000,false)`, screenID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = pool.Exec(ctx, `INSERT INTO player_releases(id,platform,source,channel,version_code,version_name,release_notes,published_at,apk_name,apk_size,apk_sha256,signing_certificate_sha256,manifest,manifest_signature,cache_status,verification_status,imported_by) VALUES($1,'linux','upload','stable',10000,'0.10.0','',now(),'tilecast-player.AppImage',4096,$2,'','{}'::jsonb,'signature','cached','verified',$3)`, releaseID, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", userID); err != nil {
+	if _, err = pool.Exec(ctx, `INSERT INTO player_releases(id,platform,player_family,source,channel,version_code,version_name,release_notes,published_at,apk_name,apk_size,apk_sha256,signing_certificate_sha256,manifest,manifest_signature,cache_status,verification_status,imported_by) VALUES($1,'linux','electron-linux','upload','stable',10000,'0.10.0','',now(),'tilecast-player.AppImage',4096,$2,'','{}'::jsonb,'signature','cached','verified',$3)`, releaseID, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", userID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = pool.Exec(ctx, `INSERT INTO update_deployments(id,release_id,name,mode,status,created_by) VALUES($1,$2,'Tilecast Player for Linux 0.10.0','install_now','active',$3)`, deploymentID, releaseID, userID); err != nil {
@@ -891,7 +891,7 @@ func TestInstallingTargetSettlesWhenTheDeviceClockRunsBehind(t *testing.T) {
 	if _, err = pool.Exec(ctx, `INSERT INTO screen_player_status(screen_id,player_version_code,safe_mode) VALUES($1,9000,false)`, screenID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = pool.Exec(ctx, `INSERT INTO player_releases(id,platform,source,channel,version_code,version_name,release_notes,published_at,apk_name,apk_size,apk_sha256,signing_certificate_sha256,manifest,manifest_signature,cache_status,verification_status,imported_by) VALUES($1,'linux','upload','stable',10000,'0.10.0','',now(),'tilecast-player.AppImage',4096,$2,'','{}'::jsonb,'signature','cached','verified',$3)`, releaseID, "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", userID); err != nil {
+	if _, err = pool.Exec(ctx, `INSERT INTO player_releases(id,platform,player_family,source,channel,version_code,version_name,release_notes,published_at,apk_name,apk_size,apk_sha256,signing_certificate_sha256,manifest,manifest_signature,cache_status,verification_status,imported_by) VALUES($1,'linux','electron-linux','upload','stable',10000,'0.10.0','',now(),'tilecast-player.AppImage',4096,$2,'','{}'::jsonb,'signature','cached','verified',$3)`, releaseID, "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", userID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = pool.Exec(ctx, `INSERT INTO update_deployments(id,release_id,name,mode,status,created_by) VALUES($1,$2,'Tilecast Player for Linux 0.10.0','install_now','active',$3)`, deploymentID, releaseID, userID); err != nil {
@@ -987,7 +987,7 @@ func TestSleepingScreenSettlesItsUpdate(t *testing.T) {
 	if _, err = pool.Exec(ctx, `INSERT INTO screen_player_status(screen_id,player_version_code,safe_mode,playback_state,last_healthy_playback_at) VALUES($1,14000,false,'sleep',NULL)`, screenID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = pool.Exec(ctx, `INSERT INTO player_releases(id,platform,source,channel,version_code,version_name,release_notes,published_at,apk_name,apk_size,apk_sha256,signing_certificate_sha256,manifest,manifest_signature,cache_status,verification_status,imported_by) VALUES($1,'linux','upload','stable',14000,'0.14.0','',now(),'tilecast-player.AppImage',4096,$2,'','{}'::jsonb,'signature','cached','verified',$3)`, releaseID, "1111111111111111111111111111111111111111111111111111111111111111", userID); err != nil {
+	if _, err = pool.Exec(ctx, `INSERT INTO player_releases(id,platform,player_family,source,channel,version_code,version_name,release_notes,published_at,apk_name,apk_size,apk_sha256,signing_certificate_sha256,manifest,manifest_signature,cache_status,verification_status,imported_by) VALUES($1,'linux','electron-linux','upload','stable',14000,'0.14.0','',now(),'tilecast-player.AppImage',4096,$2,'','{}'::jsonb,'signature','cached','verified',$3)`, releaseID, "1111111111111111111111111111111111111111111111111111111111111111", userID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = pool.Exec(ctx, `INSERT INTO update_deployments(id,release_id,name,mode,status,created_by) VALUES($1,$2,'Tilecast Player 0.14.0','install_now','active',$3)`, deploymentID, releaseID, userID); err != nil {
@@ -1069,7 +1069,7 @@ func TestFreshlyStartedPlayerDoesNotSettleYet(t *testing.T) {
 	if _, err = pool.Exec(ctx, `INSERT INTO screen_player_status(screen_id,player_version_code,safe_mode) VALUES($1,14000,false)`, screenID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = pool.Exec(ctx, `INSERT INTO player_releases(id,platform,source,channel,version_code,version_name,release_notes,published_at,apk_name,apk_size,apk_sha256,signing_certificate_sha256,manifest,manifest_signature,cache_status,verification_status,imported_by) VALUES($1,'linux','upload','stable',14000,'0.14.0','',now(),'tilecast-player.AppImage',4096,$2,'','{}'::jsonb,'signature','cached','verified',$3)`, releaseID, "2222222222222222222222222222222222222222222222222222222222222222", userID); err != nil {
+	if _, err = pool.Exec(ctx, `INSERT INTO player_releases(id,platform,player_family,source,channel,version_code,version_name,release_notes,published_at,apk_name,apk_size,apk_sha256,signing_certificate_sha256,manifest,manifest_signature,cache_status,verification_status,imported_by) VALUES($1,'linux','electron-linux','upload','stable',14000,'0.14.0','',now(),'tilecast-player.AppImage',4096,$2,'','{}'::jsonb,'signature','cached','verified',$3)`, releaseID, "2222222222222222222222222222222222222222222222222222222222222222", userID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = pool.Exec(ctx, `INSERT INTO update_deployments(id,release_id,name,mode,status,created_by) VALUES($1,$2,'Tilecast Player 0.14.0','install_now','active',$3)`, deploymentID, releaseID, userID); err != nil {

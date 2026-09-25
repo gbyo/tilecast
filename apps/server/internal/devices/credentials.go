@@ -205,6 +205,22 @@ func effectiveHealthyPlaybackAt(heartbeat Heartbeat) *time.Time {
 	return heartbeat.LastHealthyPlaybackAt
 }
 
+// knownPlayerFamily keeps only protocol values: a family, and an
+// architecture only for Tilecast Edge.
+func knownPlayerFamily(family, architecture string) (string, string) {
+	switch family {
+	case "edge":
+		if architecture != "x86_64" && architecture != "aarch64" {
+			architecture = ""
+		}
+		return family, architecture
+	case "android", "electron-linux":
+		return family, ""
+	default:
+		return "", ""
+	}
+}
+
 func (s *Service) Heartbeat(ctx context.Context, principal DevicePrincipal, heartbeat Heartbeat, address string) error {
 	if len(heartbeat.PlayerVersion) > 120 {
 		return errors.New("heartbeat metadata is invalid")
@@ -230,7 +246,11 @@ func (s *Service) Heartbeat(ctx context.Context, principal DevicePrincipal, hear
 		return fmt.Errorf("record heartbeat: %w", err)
 	}
 	_, _ = s.db.Exec(ctx, `INSERT INTO screen_player_status(screen_id) VALUES($1) ON CONFLICT DO NOTHING`, principal.ScreenID)
-	_, _ = s.db.Exec(ctx, `UPDATE screen_player_status SET player_version_code=$2,android_sdk=$3,installer_source=NULLIF($4,''),install_permission_status=NULLIF($5,''),current_update_deployment_id=$6,update_state=NULLIF($7,''),update_downloaded_bytes=$8,update_expected_bytes=$9,update_error=NULLIF($10,'') WHERE screen_id=$1`, principal.ScreenID, heartbeat.PlayerVersionCode, heartbeat.AndroidSDK, heartbeat.InstallerSource, heartbeat.InstallPermissionStatus, heartbeat.CurrentUpdateDeploymentID, heartbeat.UpdateState, heartbeat.UpdateDownloadedBytes, heartbeat.UpdateExpectedBytes, heartbeat.UpdateError)
+	// The family is what this heartbeat says, not a sticky value: a screen
+	// migrated back from Edge to the Electron player stops saying `edge`.
+	// An unknown value is dropped, not rejected, like other optional status.
+	family, architecture := knownPlayerFamily(heartbeat.PlayerFamily, heartbeat.PlayerArchitecture)
+	_, _ = s.db.Exec(ctx, `UPDATE screen_player_status SET player_version_code=$2,android_sdk=$3,installer_source=NULLIF($4,''),install_permission_status=NULLIF($5,''),current_update_deployment_id=$6,update_state=NULLIF($7,''),update_downloaded_bytes=$8,update_expected_bytes=$9,update_error=NULLIF($10,''),player_family=NULLIF($11,''),player_architecture=NULLIF($12,'') WHERE screen_id=$1`, principal.ScreenID, heartbeat.PlayerVersionCode, heartbeat.AndroidSDK, heartbeat.InstallerSource, heartbeat.InstallPermissionStatus, heartbeat.CurrentUpdateDeploymentID, heartbeat.UpdateState, heartbeat.UpdateDownloadedBytes, heartbeat.UpdateExpectedBytes, heartbeat.UpdateError, family, architecture)
 	// Linux autostart. Recorded outside the reliability block below because it
 	// is reported on its own cadence (at startup and after each autostart
 	// command) rather than alongside the Android reliability fields.
@@ -342,7 +362,9 @@ func (s *Service) Heartbeat(ctx context.Context, principal DevicePrincipal, hear
 	updateFailureReported := heartbeat.UpdateState == "failed" || heartbeat.UpdateError != ""
 	settledSafeMode := heartbeat.SafeMode == nil || !*heartbeat.SafeMode
 	if heartbeat.PlayerVersionCode != nil && settledUptime(heartbeat) && !updateFailureReported && settledSafeMode {
-		_, _ = s.db.Exec(ctx, `WITH completed AS (UPDATE screen_update_states SET state='succeeded',reconnect_at=now(),completed_at=now(),updated_at=now() WHERE screen_id=$1 AND expected_version_code<=$2 AND state NOT IN('succeeded','failed','cancelled','incompatible','already_current') RETURNING deployment_id) UPDATE update_deployments d SET status=CASE WHEN NOT EXISTS(SELECT 1 FROM screen_update_states st WHERE st.deployment_id=d.id AND st.state NOT IN('succeeded','failed','cancelled','incompatible','already_current')) THEN 'completed' ELSE d.status END,completed_at=CASE WHEN NOT EXISTS(SELECT 1 FROM screen_update_states st WHERE st.deployment_id=d.id AND st.state NOT IN('succeeded','failed','cancelled','incompatible','already_current')) THEN now() ELSE d.completed_at END WHERE d.id IN(SELECT deployment_id FROM completed)`, principal.ScreenID, *heartbeat.PlayerVersionCode)
+		// Never for a Tilecast Edge release: it stays provisional until the
+		// screen confirms it explicitly (docs/tilecast-edge.md §15).
+		_, _ = s.db.Exec(ctx, `WITH completed AS (UPDATE screen_update_states st SET state='succeeded',reconnect_at=now(),completed_at=now(),updated_at=now() WHERE st.screen_id=$1 AND st.expected_version_code<=$2 AND st.state NOT IN('succeeded','failed','cancelled','incompatible','already_current') AND NOT EXISTS(SELECT 1 FROM update_deployments ed JOIN player_releases er ON er.id=ed.release_id WHERE ed.id=st.deployment_id AND er.player_family='edge') RETURNING st.deployment_id) UPDATE update_deployments d SET status=CASE WHEN NOT EXISTS(SELECT 1 FROM screen_update_states st WHERE st.deployment_id=d.id AND st.state NOT IN('succeeded','failed','cancelled','incompatible','already_current')) THEN 'completed' ELSE d.status END,completed_at=CASE WHEN NOT EXISTS(SELECT 1 FROM screen_update_states st WHERE st.deployment_id=d.id AND st.state NOT IN('succeeded','failed','cancelled','incompatible','already_current')) THEN now() ELSE d.completed_at END WHERE d.id IN(SELECT deployment_id FROM completed)`, principal.ScreenID, *heartbeat.PlayerVersionCode)
 	}
 	// Bounded reconciliation: a deployment whose targets are all terminal must not
 	// keep reporting progress just because the transition that finished the last

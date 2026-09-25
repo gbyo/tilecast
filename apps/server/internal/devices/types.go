@@ -134,6 +134,10 @@ type Screen struct {
 	UpdateDownloadedBytes     *int64     `json:"updateDownloadedBytes,omitempty"`
 	UpdateExpectedBytes       *int64     `json:"updateExpectedBytes,omitempty"`
 	UpdateError               *string    `json:"updateError,omitempty"`
+	// PlayerFamily is what the running player reported (`edge` for Tilecast
+	// Edge); absent for players that do not report it.
+	PlayerFamily       *string `json:"playerFamily,omitempty"`
+	PlayerArchitecture *string `json:"playerArchitecture,omitempty"`
 	ScreenWidth               int        `json:"screenWidth"`
 	ScreenHeight              int        `json:"screenHeight"`
 	Density                   float32    `json:"density"`
@@ -175,12 +179,18 @@ type DevicePrincipal struct {
 }
 
 type Heartbeat struct {
-	ScreenWidth                       int               `json:"screenWidth"`
-	ScreenHeight                      int               `json:"screenHeight"`
-	AvailableStorageBytes             *int64            `json:"availableStorageBytes,omitempty"`
-	UptimeSeconds                     *int64            `json:"uptimeSeconds,omitempty"`
-	PlayerVersion                     string            `json:"playerVersion"`
-	PlayerVersionCode                 *int64            `json:"playerVersionCode,omitempty"`
+	ScreenWidth           int    `json:"screenWidth"`
+	ScreenHeight          int    `json:"screenHeight"`
+	AvailableStorageBytes *int64 `json:"availableStorageBytes,omitempty"`
+	UptimeSeconds         *int64 `json:"uptimeSeconds,omitempty"`
+	PlayerVersion         string `json:"playerVersion"`
+	PlayerVersionCode     *int64 `json:"playerVersionCode,omitempty"`
+	// PlayerFamily and PlayerArchitecture say which Player release family
+	// the running player installs (`android`, `electron-linux`, `edge`) and,
+	// for Tilecast Edge, its architecture. A release reaches only screens of
+	// its family; older players omit both.
+	PlayerFamily                      string            `json:"playerFamily,omitempty"`
+	PlayerArchitecture                string            `json:"playerArchitecture,omitempty"`
 	PresentationSchemaVersions        []int             `json:"presentationSchemaVersions,omitempty"`
 	NativePresentationCapabilities    map[string]int    `json:"nativePresentationCapabilities,omitempty"`
 	WebRuntimeVersion                 int               `json:"webRuntimeVersion,omitempty"`

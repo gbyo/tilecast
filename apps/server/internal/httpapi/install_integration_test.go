@@ -29,8 +29,8 @@ func cacheLinuxRelease(t *testing.T, env activityTestEnvironment, root string, b
 	digest := sha256.Sum256(body)
 	hash := hex.EncodeToString(digest[:])
 	id := uuid.New()
-	if _, err := env.pool.Exec(context.Background(), `INSERT INTO player_releases(id,github_release_id,github_tag,channel,version_code,version_name,application_id,minimum_sdk,published_at,apk_name,apk_size,apk_sha256,signing_certificate_sha256,manifest,manifest_signature,apk_download_url,cache_status,verification_status,platform)
-		VALUES($1,$2,$3,'stable',12000,'0.12.0',NULL,NULL,now(),'tilecast-player.AppImage',$4,$5,'','{}'::jsonb,'','https://example.invalid/artifact','cached','verified','linux')`,
+	if _, err := env.pool.Exec(context.Background(), `INSERT INTO player_releases(id,github_release_id,github_tag,channel,version_code,version_name,application_id,minimum_sdk,published_at,apk_name,apk_size,apk_sha256,signing_certificate_sha256,manifest,manifest_signature,apk_download_url,cache_status,verification_status,platform,player_family)
+		VALUES($1,$2,$3,'stable',12000,'0.12.0',NULL,NULL,now(),'tilecast-player.AppImage',$4,$5,'','{}'::jsonb,'','https://example.invalid/artifact','cached','verified','linux','electron-linux')`,
 		id, int64(4210), "player-linux-v0.12.0", int64(len(body)), hash); err != nil {
 		t.Fatal(err)
 	}
