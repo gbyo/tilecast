@@ -161,10 +161,18 @@ async fn daemon_media_open_rejects_symlink_and_truncated_object() {
     store.import_file(&source, digest, DATA.len() as u64, meta()).await.unwrap();
     let path = store.verified_path(&digest).await.unwrap().unwrap();
     std::fs::write(&path, &DATA[..DATA.len() - 1]).unwrap();
-    assert!(matches!(store.open_verified(&digest).await, Err(CasError::SizeMismatch { .. })));
+    assert!(store.open_verified(&digest).await.unwrap().is_none());
+    assert!(store.stat(&digest).await.unwrap().is_none());
+    store.import_file(&source, digest, DATA.len() as u64, meta()).await.unwrap();
     std::fs::remove_file(&path).unwrap();
     symlink(&source, &path).unwrap();
-    assert!(store.open_verified(&digest).await.is_err());
+    assert!(store.open_verified(&digest).await.unwrap().is_none());
+    assert!(store.stat(&digest).await.unwrap().is_none());
+    store.import_file(&source, digest, DATA.len() as u64, meta()).await.unwrap();
+    std::fs::remove_file(&path).unwrap();
+    std::fs::create_dir(&path).unwrap();
+    assert!(store.open_verified(&digest).await.unwrap().is_none());
+    assert!(store.stat(&digest).await.unwrap().is_none());
 }
 
 #[tokio::test]

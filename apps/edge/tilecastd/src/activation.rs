@@ -35,6 +35,7 @@ use crate::schedule::Source;
 
 const MAX_SLEEP: Duration = Duration::from_secs(30);
 const IDLE_SLEEP: Duration = Duration::from_secs(60);
+const TRIAL_TIMEOUT: Duration = Duration::from_secs(30);
 
 pub fn should_activate_pending(
     current_is_playing: bool,
@@ -50,6 +51,8 @@ pub fn should_activate_pending(
 struct ActivationLoop {
     binding: Option<Binding>,
     invalid_pending: Option<Sha256Digest>,
+    pending_error_version: Option<Sha256Digest>,
+    trial: Option<(Sha256Digest, i64)>,
 }
 
 pub async fn run(context: Arc<DaemonContext>) {
@@ -136,6 +139,8 @@ async fn tick(context: &DaemonContext, state: &mut ActivationLoop, item_boundary
     if state.binding.as_ref() != Some(&binding) {
         state.binding = Some(binding.clone());
         state.invalid_pending = None;
+        state.pending_error_version = None;
+        state.trial = None;
     }
     let read = |stage: Stage| {
         let binding = binding.clone();
@@ -166,83 +171,118 @@ async fn tick(context: &DaemonContext, state: &mut ActivationLoop, item_boundary
         }
         pending = None;
     }
+    if state.trial.is_some_and(|(digest, _)| pending.as_ref().is_none_or(|p| p.digest != digest)) {
+        state.trial = None;
+    }
     sweep_pins(context, &active, &pending, current.as_ref().and_then(|c| c.manifest)).await;
 
-    if let Some(stored) = pending.as_ref() {
-        let candidate = match Candidate::parse(stored.document.clone(), screen_id, stored.digest) {
-            Ok(candidate) => candidate,
-            Err(error) => {
-                if state.invalid_pending != Some(stored.digest) {
-                    tracing::warn!(component = "activation", event = "pending_invalid", reason = error.reason_code());
-                    state.invalid_pending = Some(stored.digest);
-                }
-                return Some(local_now_ms.saturating_add(MAX_SLEEP.as_millis() as i64));
+    'pending: {
+        if let Some(stored) = pending.as_ref() {
+            if state.pending_error_version == Some(stored.digest) {
+                break 'pending;
             }
-        };
-        let trial = current.as_ref().is_some_and(|c| c.manifest == Some(stored.digest));
-        if trial {
-            let current = current.as_ref()?;
-            if current.accepted && current.evidence {
-                if promote(context, &binding, stored, &candidate).await {
-                    return Some(local_now_ms.saturating_add(50));
+            let candidate = match Candidate::parse(stored.document.clone(), screen_id, stored.digest) {
+                Ok(candidate) => candidate,
+                Err(error) => {
+                    if state.invalid_pending != Some(stored.digest) {
+                        tracing::warn!(
+                            component = "activation",
+                            event = "pending_invalid",
+                            reason = error.reason_code()
+                        );
+                        state.invalid_pending = Some(stored.digest);
+                    }
+                    break 'pending;
                 }
-                return Some(local_now_ms.saturating_add(MAX_SLEEP.as_millis() as i64));
-            }
-            // The trial follows schedule boundaries like any presentation.
-            return show(context, &candidate, current, presentation_now_ms, local_now_ms, offset_ms).await;
-        }
-        let resolved = match candidate.presentation(presentation_now_ms) {
-            Ok(resolved) => resolved,
-            Err(error) => {
-                if state.invalid_pending != Some(stored.digest) {
+            };
+            let trial = current.as_ref().is_some_and(|c| c.manifest == Some(stored.digest));
+            if trial {
+                let current = current.as_ref()?;
+                let started_at = state.trial.get_or_insert((stored.digest, local_now_ms));
+                if started_at.0 != stored.digest {
+                    *started_at = (stored.digest, local_now_ms);
+                }
+                let deadline = started_at.1.saturating_add(TRIAL_TIMEOUT.as_millis() as i64);
+                let renderer_error = context.presentation.lock().await.current_has_renderer_error();
+                if renderer_error || (local_now_ms >= deadline && !(current.accepted && current.evidence)) {
                     tracing::warn!(
                         component = "activation",
-                        event = "pending_selection_failed",
-                        reason = error.reason_code()
+                        event = "pending_trial_failed",
+                        manifest = %stored.digest.short(),
+                        renderer_error
                     );
-                    state.invalid_pending = Some(stored.digest);
+                    state.pending_error_version = Some(stored.digest);
+                    state.trial = None;
+                    break 'pending;
                 }
-                return None;
-            }
-        };
-        let takeover = matches!(resolved.selection.source, Source::Takeover | Source::QuickPresent);
-        let current_is_playing = current.as_ref().is_some_and(|c| {
-            c.source == ActivationSource::ServerManifest
-                && matches!(&c.document, PresentationDocument::Playing { items, .. } if !items.is_empty())
-        });
-        let grace_at = stored.stored_at.unix_millis().saturating_add(manifest::activation_grace_ms(&stored.document));
-        if should_activate_pending(current_is_playing, takeover, item_boundary, local_now_ms, grace_at) {
-            if manifest::verify_cached(context, &candidate).await.is_err() {
-                return Some(local_now_ms.saturating_add(MAX_SLEEP.as_millis() as i64));
-            }
-            let identity = identity(&candidate, &resolved);
-            let extras = extras(&resolved);
-            let result = context.presentation.lock().await.activate_server_presentation(
-                identity,
-                resolved.document,
-                resolved.content,
-                extras,
-                local_now_ms,
-            );
-            match result {
-                Ok(reference) => tracing::info!(
-                    component = "activation",
-                    event = "activation_started",
-                    manifest = %stored.digest.short(),
-                    version = stored.version,
-                    generation = reference.generation,
-                    boundary = item_boundary,
-                    grace_expired = local_now_ms >= grace_at,
-                    takeover
-                ),
-                Err(error) => {
-                    tracing::warn!(component = "activation", event = "activation_rejected", error = %error);
+                if current.accepted && current.evidence {
+                    if promote(context, &binding, stored, &candidate).await {
+                        state.trial = None;
+                        return Some(local_now_ms.saturating_add(50));
+                    }
                     return Some(local_now_ms.saturating_add(MAX_SLEEP.as_millis() as i64));
                 }
+                // The trial follows schedule boundaries like any presentation.
+                let next = show(context, &candidate, current, presentation_now_ms, local_now_ms, offset_ms).await;
+                return Some(next.unwrap_or(deadline).min(deadline));
             }
-            return Some(local_now_ms.saturating_add(250));
+            let resolved = match candidate.presentation(presentation_now_ms) {
+                Ok(resolved) => resolved,
+                Err(error) => {
+                    if state.invalid_pending != Some(stored.digest) {
+                        tracing::warn!(
+                            component = "activation",
+                            event = "pending_selection_failed",
+                            reason = error.reason_code()
+                        );
+                        state.invalid_pending = Some(stored.digest);
+                    }
+                    break 'pending;
+                }
+            };
+            let takeover = matches!(resolved.selection.source, Source::Takeover | Source::QuickPresent);
+            let current_is_playing = current.as_ref().is_some_and(|c| {
+                c.source == ActivationSource::ServerManifest
+                    && matches!(&c.document, PresentationDocument::Playing { items, .. } if !items.is_empty())
+            });
+            let grace_at =
+                stored.stored_at.unix_millis().saturating_add(manifest::activation_grace_ms(&stored.document));
+            if should_activate_pending(current_is_playing, takeover, item_boundary, local_now_ms, grace_at) {
+                if manifest::verify_cached(context, &candidate).await.is_err() {
+                    return Some(local_now_ms.saturating_add(MAX_SLEEP.as_millis() as i64));
+                }
+                let identity = identity(&candidate, &resolved);
+                let extras = extras(&resolved);
+                let result = context.presentation.lock().await.activate_server_presentation(
+                    identity,
+                    resolved.document,
+                    resolved.content,
+                    extras,
+                    local_now_ms,
+                );
+                match result {
+                    Ok(reference) => {
+                        state.trial = Some((stored.digest, local_now_ms));
+                        tracing::info!(
+                            component = "activation",
+                            event = "activation_started",
+                            manifest = %stored.digest.short(),
+                            version = stored.version,
+                            generation = reference.generation,
+                            boundary = item_boundary,
+                            grace_expired = local_now_ms >= grace_at,
+                            takeover
+                        );
+                    }
+                    Err(error) => {
+                        tracing::warn!(component = "activation", event = "activation_rejected", error = %error);
+                        return Some(local_now_ms.saturating_add(MAX_SLEEP.as_millis() as i64));
+                    }
+                }
+                return Some(local_now_ms.saturating_add(250));
+            }
+            return Some(grace_at);
         }
-        return Some(grace_at);
     }
 
     let Some(stored) = active.as_ref() else {
