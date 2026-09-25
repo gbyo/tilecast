@@ -1,25 +1,27 @@
 ---
 title: Import and export settings
-description: Move non-secret Tilecast organization settings and policy metadata with a required preview.
+description: Export portable Tilecast settings or preview an import before applying it.
 ---
 
 Only an Owner can import or export installation settings.
 
-## Export
+## Export settings
 
-Open **Settings** > **Import and export** and choose the settings export. The document contains portable configuration such as its schema version, export time, Tilecast version, organization settings, and Display Group policy metadata.
+Open **Settings** > **Import and export** and choose the settings export.
 
-The export deliberately excludes secrets and large application data. It does not contain passwords, sessions, Player credentials, connection strings, signing keys, website state, media files, or individual user preferences.
+The export includes portable organization settings and Display Group policy information. It does not include passwords, sessions, Player credentials, signing keys, connection secrets, website browser state, media files, or personal user preferences.
 
-## Import safely
+For a full backup that includes PostgreSQL and media, use [Backup and restore](../backups/).
 
-Tilecast does not apply an uploaded document immediately.
+## Import settings
 
-1. Choose the settings file.
-2. Let Tilecast validate its schema and values.
-3. Review the preview of keys that would change.
-4. Confirm the import only when the preview is expected.
+Tilecast shows a preview before it changes anything:
 
-Import uses revision checking so another settings change cannot be silently overwritten between preview and apply. A successful import is recorded in the audit log.
+1. choose the settings file;
+2. let Tilecast check the file and its values;
+3. review the settings that would change;
+4. confirm the import only when the preview looks correct.
 
-For a full installation recovery that includes PostgreSQL and media, use [Backup and restore](../backups/) instead.
+If another settings change happens between the preview and the import, Tilecast stops instead of overwriting it without warning.
+
+Successful imports are recorded in the audit log.

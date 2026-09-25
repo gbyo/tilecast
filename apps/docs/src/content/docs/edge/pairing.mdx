@@ -1,25 +1,25 @@
 ---
-title: Pair and commission Edge
-description: Connect a fresh Tilecast Edge installation to the correct Tilecast Server and approve its pairing request.
+title: Pair an Edge screen
+description: Connect a new Edge Player to Tilecast Server and approve it in Studio.
 ---
 
 :::caution[Preview]
-Edge pairing is implemented in the development stack but has not replaced the stable Linux Player pairing flow.
+Edge pairing is part of the development preview. The current Linux Player still uses the stable pairing flow.
 :::
 
-A fresh Edge node can get its server address from the setup surface, a server discovered through Avahi/mDNS, or the local `tilecastctl pair <server-url>` command. Discovery is advisory; Edge still verifies the Tilecast installation identity before trusting the relationship or sending a saved credential.
+A new Edge Player can use the setup screen, discover a nearby server with Avahi/mDNS, or be pointed at a server from the command line.
 
-For a headless setup, the preview CLI supports:
+For a headless setup:
 
-```sh
+~~~sh
 tilecastctl pair https://signage.example.org
 tilecastctl status
-```
+~~~
 
-`status` can show the visible pairing code for an unpaired node. It does not expose the private poll secret or device credential.
+`tilecastctl status` can show the pairing code before the Player is enrolled. It does not show the private pairing secret or the Player credential.
 
-Approve the request in Studio using the same workflow described in [Pair a display](../../players/pair-a-display/).
+Approve the request in Studio using the normal [Pair a display](../../players/pair-a-display/) flow.
 
-The pairing session is persisted so a daemon restart does not automatically create a second request. Expired or rejected sessions can be replaced; a paired screen refuses to start another pairing flow until its existing relationship is removed or rejected.
+The Player keeps its current pairing request through a daemon restart, so restarting Edge does not create a new request every time. If the request expires or is rejected, start a new one.
 
-If discovery is unavailable, enter the server address directly. Multicast is never required for pairing.
+Server discovery is optional. If multicast is blocked on the network, enter the server address directly.

@@ -1,28 +1,28 @@
 ---
 title: Offline playback and recovery
-description: Learn how Tilecast Edge keeps prepared signage running through network and renderer failures.
+description: See what Tilecast Edge keeps working when the network or renderer fails.
 ---
 
-Edge separates durable Player state from the renderer so a browser-engine failure does not have to tear down the server relationship or prepared content.
+Edge keeps Player state and downloaded content outside the renderer. That means the renderer can restart without throwing away the screen's cached presentation or server connection details.
 
-## Cached-first playback
+## Offline playback
 
-After Edge accepts and prepares a presentation, it stores the required state and verified media locally. A restart can reconstruct the committed presentation before network reconciliation completes.
+After Edge downloads and prepares a presentation, it keeps the required files and settings locally. If the Player restarts before the server is reachable, it can start from that saved presentation first and reconnect afterward.
 
-While Tilecast Server is unreachable, Edge can continue with state it already has, including local schedule evaluation and previously prepared content. It cannot invent a new server assignment or download content it never received.
+While the Tilecast Server is unavailable, Edge can keep using content and schedules it already has. It cannot receive a new assignment or download files it never received.
 
-## Safe activation
+## Updating content safely
 
-Target, pending, and active presentation state stay separate. New content is prepared and verified before replacing the committed presentation, and renderer evidence gates promotion. A newer target can supersede an older preparation; a failed preparation preserves the previous active presentation.
+Edge prepares a new presentation before replacing the one that is already playing. If the new content cannot be downloaded, verified, or started, the previous presentation stays available.
 
-## Durable commands and configuration
+## Commands and settings
 
-Commands are stored before local execution. The design provides at-most-once local execution with durable non-replay: a command found in the executing state after a crash is reported as interrupted instead of blindly run again.
+Commands are saved before Edge runs them. If the Player crashes while a command is running, Edge reports that interruption after restart instead of running the same command again.
 
-Player configuration is revisioned, cached, and applied at boot. Invalid or stale configuration does not replace the last accepted revision.
+Player settings are also stored locally with a revision number. A bad or older settings revision does not replace the last one Edge accepted.
 
 ## Recovery
 
-`tilecastd` supervises WPE separately from the server link and content store. Recovery can recreate the renderer or playback session while keeping durable state alive. Health is based on meaningful playback evidence, not merely a responsive process.
+`tilecastd` can restart the WPE renderer without restarting the whole Player. If playback repeatedly fails, Edge can enter safe mode instead of getting stuck in a restart loop.
 
-Repeated failure enters safe mode instead of restart-looping. Reconnection then reconciles with the server again; offline operation provides continuity, not a second control plane.
+When the server becomes reachable again, Edge reconnects and gets back in sync with the current Tilecast state.

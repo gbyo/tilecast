@@ -11,8 +11,8 @@ Use these pages to manage Studio accounts and installation-wide settings. Organi
 - [Branding](./branding/) for Tilecast-owned status surfaces.
 - [Locations](./locations/) for reusable place metadata and targeting.
 - [Content and playback settings](./content-settings/) for organization defaults.
-- [Import and export settings](./import-export/) for portable non-secret configuration.
-- [System settings and health](./system/) for bounded installation maintenance.
+- [Import and export settings](./import-export/) to move supported settings between installations without including secrets.
+- [System settings and health](./system/) to check installation status and run the maintenance actions available in Studio.
 - [Dependency Graph](./dependency-graph/) to trace content relationships before a change.
 
 ## Accounts and security

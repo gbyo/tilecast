@@ -1,31 +1,35 @@
 ---
 title: Content and playback settings
-description: Set organization defaults for playback, media, websites, and scheduling.
+description: Set organization defaults for playback, websites, media, and scheduling.
 ---
 
-Tilecast keeps organization-wide content defaults under **Settings**. These defaults do not replace the values authored directly on a Playlist item or Website; they provide the effective Player policy when content delegates to Player defaults.
+Open **Settings** to change defaults that Players use when content does not set its own value.
 
 ## Playback
 
-Playback defaults include volume, fit mode, default image duration, transition, audio enabled, and whether supported content resumes after a Player restart.
+Playback defaults include volume, fit mode, image duration, transition, audio, and whether supported content resumes after a Player restart.
 
-A Playlist item with **Use Player defaults** delegates those values to the effective Player policy. An item with its own authored values keeps them.
+A Playlist item set to **Use Player defaults** follows these settings. If the item has its own value, that item keeps its own setting.
 
 ## Websites
 
-Website policy controls the runtime behavior Tilecast applies around remote content, including timeout and cookie/storage behavior. A startup-only clear setting is evaluated when the Player process starts; changing that setting later does not unexpectedly erase a currently playing website mid-session.
+Website settings control things such as timeouts and browser storage for remote content.
 
-## Media and scheduling
+Settings that only apply when the Player starts take effect the next time the Player starts. They do not clear a website in the middle of playback.
 
-Media settings control organization defaults and bounds around stored or prepared media. Scheduling behavior continues to come from each Schedule's typed dates, times, timezone, priority, and targets; Tilecast does not expose hidden scheduling switches that have no runtime effect.
+## Media and schedules
+
+Media settings control organization defaults and limits for stored or prepared media.
+
+Schedule timing still comes from each Schedule's own dates, times, timezone, priority, and targets.
 
 ## Overrides
 
-Player-related values follow Tilecast's policy order:
+Player settings are resolved in this order:
 
 1. screen override;
 2. Display Group policy;
 3. organization default;
-4. built-in default.
+4. Tilecast built-in default.
 
-See [Set Player policies](../player-policies/) for group and screen overrides.
+See [Set Player policies](../player-policies/) for Display Group and screen overrides.

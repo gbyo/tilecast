@@ -1,14 +1,16 @@
 ---
 title: Accessibility control
-description: Configure Android Accessibility Control Assist and understand its deliberately narrow permissions.
+description: Configure Android Accessibility Control Assist and see exactly what it is allowed to do.
 ---
 
-**Accessibility Control Assist** is an Android Player capability. It remains disabled at the Android platform until someone deliberately enables the Tilecast service in Android Accessibility Settings.
+**Accessibility Control Assist** is an Android Player feature. It stays off until someone enables the Tilecast service in Android Accessibility Settings.
 
-The service is intentionally narrow. It can observe foreground package/window changes, wait, return to Tilecast, and request the Android global-lock action when Power Assist uses it. It does not read window text or passwords, click arbitrary controls, perform gestures, approve installers, or change network settings.
+When enabled, Tilecast can notice when another app comes to the foreground, wait, return to Tilecast, and use Android's global lock action when Power Assist needs it.
 
-Tilecast and sensitive system flows are excluded from automatic return behavior. Configured maintenance apps can also be allowed so an administrator is not trapped in a return loop during approved work.
+It does not read window text or passwords, click arbitrary controls, perform gestures, approve app installers, or change network settings.
 
-Attempts are bounded. If the Player repeatedly leaves Tilecast, automatic return stops for the current window instead of fighting the operator indefinitely.
+Tilecast's own screens and sensitive Android system screens are excluded from automatic return behavior. You can also allow maintenance apps so approved work is not interrupted.
 
-Linux Players do not use Android Accessibility Control Assist. Linux kiosk behavior is covered in [Reliability and kiosk](../reliability-kiosk/).
+If the Player keeps leaving Tilecast, automatic return eventually stops for that window instead of continuously fighting the person using the device.
+
+Linux Players do not use Android Accessibility Control Assist. See [Reliability and kiosk](../reliability-kiosk/) for Linux kiosk behavior.

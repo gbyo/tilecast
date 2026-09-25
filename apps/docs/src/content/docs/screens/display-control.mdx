@@ -20,7 +20,7 @@ import { Steps } from "@astrojs/starlight/components";
 
 The current stable Electron Linux Player uses HDMI-CEC for power and input and DDC/CI for brightness and volume through its existing providers. That Player needs `cec-ctl` for HDMI-CEC or `ddcutil` for DDC/CI, access to the connected device, and a compatible display or adapter.
 
-The Tilecast Edge M9 preview is replacing those subprocess providers with direct, bounded Linux CEC and I²C/DDC device access. Edge can also probe DDC/CI mute when a display exposes that feature. This is still preview behavior and is not a reason to remove `cec-ctl` or `ddcutil` from a stable Linux Player installation.
+The Tilecast Edge M9 preview talks to Linux CEC and I²C/DDC devices directly instead of using those command-line providers. Edge can also check for DDC/CI mute when the display supports it. This is still preview behavior, so keep `cec-ctl` and `ddcutil` on current Linux Player installations that need them.
 
 Android Players do not provide Display Control.
 

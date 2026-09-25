@@ -1,12 +1,14 @@
 ---
 title: Screen archive
-description: Understand why a screen leaves the active fleet and how archived records affect monitoring history.
+description: Keep retired screens out of the active fleet without losing their retained history.
 ---
 
-Open **Screens** > **Archive** to review screens that are no longer part of the active fleet.
+Open **Screens** > **Archive** to see screens that are no longer part of the active fleet.
 
-Archiving is different from deleting historical evidence. Archived screens are excluded from active fleet counts and historical uptime calculations used for the current managed fleet, while retained audit and playback records remain available according to their normal retention rules.
+Archived screens are removed from current fleet counts and current-fleet uptime calculations. Their retained audit and playback history still follows the normal retention settings.
 
-Use the archive when a physical Player has been retired or its active pairing is no longer part of operations. If you are replacing hardware but want to preserve the same logical screen, assignments, schedules, policies, and history, use the [replace-hardware pairing flow](../pair-and-replace/) instead of creating a separate logical screen.
+Archive a screen when that physical Player is retired or should no longer be managed as an active screen.
 
-A screen with an active Player credential and assignments should be treated as operational rather than archived merely to hide an incident.
+If you are replacing the hardware but want to keep the same screen name, assignments, schedules, policies, and history, use the [replace-hardware pairing flow](../pair-and-replace/) instead.
+
+Do not archive an otherwise active screen only to hide an incident or warning.

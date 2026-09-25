@@ -1,32 +1,38 @@
 ---
 title: Install Tilecast Edge
-description: Understand the clean-install flow for the Tilecast Edge preview.
+description: See how a clean Tilecast Edge installation works in the current preview.
 ---
 
-:::caution[Not a production install path yet]
-Tilecast does not currently publish Edge as the stable Linux Player. This page documents the preview installation model. Use [Install Tilecast Player on Linux](../../players/install-linux/) for production until Edge is released.
+:::caution[Not the production Linux install yet]
+Tilecast does not currently ship Edge as the stable Linux Player. Use [Install Tilecast Player on Linux](../../players/install-linux/) for production screens.
 :::
 
-Edge releases are designed as signed release trees rather than an AppImage started from a desktop session. The installer verifies the release, installs system services, and enables Edge only after its self-test succeeds.
+Edge is packaged differently from the current AppImage Player. Instead of starting one AppImage from a desktop session, Edge installs a signed release under system services and checks that the Player can start correctly before enabling it.
 
-## Clean-install flow
+## Clean install
 
-A clean Edge installation is intended to:
+The preview installer is designed to:
 
-1. verify the signed release manifest and every file named by it;
-2. install the release under `/opt/tilecast-edge/`;
-3. create the required system users, runtime directories, and systemd units;
-4. run the daemon and WPE renderer self-tests;
-5. probe the selected display backend;
-6. enable Edge only after those checks succeed;
-7. show the setup surface and wait for pairing.
+1. verify the signed release and its files;
+2. install Edge under `/opt/tilecast-edge/`;
+3. create the required users, directories, and systemd services;
+4. run checks for `tilecastd` and the WPE renderer;
+5. check the selected display backend;
+6. enable Edge only after those checks pass;
+7. show setup and wait for pairing.
 
-The preview migrator exposes a `clean-install` operation for this path. A failed self-test leaves Edge disabled instead of turning an unqualified machine into a blank signage endpoint.
+If the checks fail, Edge stays disabled instead of replacing a working screen with a blank Player.
 
 ## Files and services
 
-The preview packaging uses `tilecast-edge.service` for `tilecastd`, `tilecast-renderer.service` for WPE, `/var/lib/tilecast-edge/` for durable state and verified content, `/run/tilecast-edge/` for local IPC, and `/opt/tilecast-edge/` for release files.
+The preview currently uses:
 
-The renderer does not receive broad access to the durable state directory. Media is granted through the daemon's local media channel.
+- `tilecast-edge.service` for `tilecastd`;
+- `tilecast-renderer.service` for WPE;
+- `/var/lib/tilecast-edge/` for Player state and cached content;
+- `/run/tilecast-edge/` for local communication between Edge components;
+- `/opt/tilecast-edge/` for installed release files.
 
-If an existing host already runs the AppImage, use the [migration flow](../migrate/) instead of combining the two install models.
+The renderer does not get direct access to the whole Player data directory. Media is provided through the local Edge service.
+
+If the computer already runs the current Linux AppImage Player, use the [migration guide](../migrate/) instead of doing a clean install over it.

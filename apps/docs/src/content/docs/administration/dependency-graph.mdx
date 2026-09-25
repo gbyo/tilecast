@@ -1,25 +1,25 @@
 ---
 title: Dependency Graph
-description: Trace what feeds Tilecast content and where a change can appear before you edit or remove it.
+description: See where Tilecast content is used before you change or remove it.
 ---
 
-The Dependency Graph is a **system tool**, not a plugin. Open **Settings** > **System tools** > **Dependency Graph**.
+Open **Settings** > **System tools** > **Dependency Graph**.
 
-It maps the relationships between Data Sources, media, Widgets, Layouts, Playlists, Campaigns, Schedules, Display Groups, and screens.
+The graph shows how Data Sources, media, Widgets, Layouts, Playlists, Campaigns, Schedules, Display Groups, and screens connect to one another.
 
-## Read a relationship
+## Follow a connection
 
-Edges point from a dependency to its consumer.
+Arrows point from something being used to the thing that uses it.
 
-- Follow an edge forward to answer **Where can this change appear?**
-- Follow relationships backward to answer **What feeds this presentation or screen?**
+- Follow an arrow forward to see **where a change could appear**.
+- Follow connections backward to see **what a presentation or screen depends on**.
 
-The explorer separates direct relationships from the complete upstream and downstream impact so a heavily reused asset does not turn into an unreadable all-at-once graph.
+The graph separates nearby connections from the full upstream and downstream view so large installations are easier to navigate.
 
-Each node links back to its canonical Studio page. Deleted content, deleted groups and schedules, and archived screens are excluded.
+Select a node to open that item in Studio. Deleted content, deleted groups and schedules, and archived screens are not shown.
 
 ## Permissions
 
-A screen-scoped account sees only the screen nodes and screen-targeting relationships allowed by the same screen scope used by the Screens list. Shared organization content remains organization-wide.
+Accounts limited to certain screens only see the screen nodes and screen-targeting connections they are allowed to access. Shared organization content can still appear when it is part of those relationships.
 
-Use the graph before deleting or substantially changing a reused resource, then use the resource's own **Used by** information for the final edit.
+Use the Dependency Graph before deleting or making a large change to something that is reused in several places. Then check the item's own **Used by** section before making the final change.

@@ -1,14 +1,18 @@
 ---
 title: Data retention
-description: Control how long Tilecast keeps Activity, diagnostic, audit, and telemetry history.
+description: Choose how long Tilecast keeps Activity, audit, diagnostic, and telemetry history.
 ---
 
-Open **Settings** > **Data retention** to choose bounded retention windows for operational history.
+Open **Settings** > **Data retention** to choose how long Tilecast keeps different kinds of operational history.
 
-Retention covers data such as raw Player events, proof-of-play sessions, screen-state intervals, audit records, detailed diagnostic metadata, and telemetry rollups. Tilecast applies hard bounds so an administrator cannot accidentally configure unbounded operational history.
+Retention settings cover data such as Player events, proof-of-play sessions, screen-state history, audit records, diagnostics, and telemetry summaries.
 
-Telemetry is intentionally split between latest-state snapshots and accumulated rollups. The latest snapshot is updated in place; raw high-frequency telemetry samples are not stored as a history. Rollups are the accumulating telemetry dataset and therefore have their own retention window.
+Tilecast limits the available retention ranges so these histories cannot be set to grow forever.
 
-Changing retention does not rewrite what a Player reports. It controls how long the server keeps eligible historical records.
+## Telemetry
 
-Snapshot images have their own independent limits under [Snapshot history](../snapshot-history/). Full backups follow the backup retention policy described in [Backup and restore](../../administration/backups/).
+Tilecast keeps the latest telemetry state separately from historical telemetry summaries. The latest state is updated in place instead of creating a new history row for every high-frequency sample.
+
+Changing retention does not change what Players report. It only changes how long the server keeps eligible history.
+
+Snapshot images have their own limits under [Snapshot history](../snapshot-history/). Full server backups use the retention rules described in [Backup and restore](../../administration/backups/).
