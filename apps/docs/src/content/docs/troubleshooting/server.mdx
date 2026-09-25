@@ -7,7 +7,7 @@ description: Troubleshoot Tilecast Server startup, readiness, reverse proxies, a
 
 Use `/healthz` to check that the Tilecast Server process answers. Use `/readyz` to check that the services Tilecast depends on are ready.
 
-~~~sh
+~~~sh title="Check process and dependency health"
 curl --fail http://tilecast.local:8080/healthz
 curl --fail http://tilecast.local:8080/readyz
 ~~~
@@ -16,7 +16,7 @@ A readiness failure can point to PostgreSQL, media storage, FFmpeg, or FFprobe e
 
 With Docker Compose, check the services and server log:
 
-~~~sh
+~~~sh title="Inspect the Compose services"
 docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml ps
 docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml logs server
 ~~~
