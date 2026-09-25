@@ -99,11 +99,12 @@ export function ContentPicker({
   const [sort, setSort] = useState("updated");
   const [view, setView] = useState<"grid" | "list">("grid");
   const [selected, setSelected] = useState<Map<string, Asset>>(new Map());
-  const [initialIds] = useState(() => new Set(selectedIds));
   const [created, setCreated] = useState<Map<string, Asset>>(new Map());
   const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
   const [tab, setTab] = useState<"library" | "upload">("library");
+  const initialIds = useRef(new Set<string>());
   const seen = useRef(new Set<string>());
+  const wasOpen = useRef(false);
   const uploads = useUploadCloseGuard();
   const [uploadsActive, setUploadsActive] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -123,10 +124,21 @@ export function ContentPicker({
     queryFn: api.contentTags,
     enabled: open,
   });
-  // Every opening starts on the library.
+  // Selection and newly uploaded assets belong to one picker session. The
+  // dialog stays mounted between openings, so reset session-only state when it
+  // transitions closed -> open while preserving browsing preferences.
   useEffect(() => {
-    if (open) setTab("library");
-  }, [open]);
+    const opening = open && !wasOpen.current;
+    wasOpen.current = open;
+    if (!opening) return;
+    initialIds.current = new Set(selectedIds);
+    setTab("library");
+    setSelected(new Map());
+    setCreated(new Map());
+    setHighlighted(new Set());
+    seen.current.clear();
+    setFailures([]);
+  }, [open, selectedIds]);
   // Narrow the request to what the caller accepts. Without this an "All" page of 48
   // mixed items can be filtered down to a handful client-side, so a widgets-only picker
   // looks nearly empty while the library scrolls on.
@@ -182,16 +194,16 @@ export function ContentPicker({
     [library.data],
   );
   useEffect(() => {
-    if (initialIds.size === 0) return;
+    if (!open || initialIds.current.size === 0) return;
     setSelected((current) => {
       const next = new Map(current);
       for (const asset of loaded) {
-        if (initialIds.has(asset.id)) next.set(asset.id, asset);
+        if (initialIds.current.has(asset.id)) next.set(asset.id, asset);
         if (mode === "single" && next.size > 0) break;
       }
       return next;
     });
-  }, [initialIds, loaded, mode]);
+  }, [loaded, mode, open]);
   // The upload panel follows each new asset until processing settles and
   // reports every change here. A new upload joins the selection at once; later
   // reports refresh it in place so it becomes confirmable when ready.
