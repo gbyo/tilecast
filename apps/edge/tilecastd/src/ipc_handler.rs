@@ -369,7 +369,7 @@ impl DaemonIpc {
             }),
             presentation,
             outbox,
-            update: None,
+            update: crate::update::status(context).await,
         }
     }
 }

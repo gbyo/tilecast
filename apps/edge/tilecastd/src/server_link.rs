@@ -700,6 +700,11 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
         "screenWidth": 0,
         "screenHeight": 0,
         "playerVersion": VERSION,
+        "playerVersionCode": crate::update::own_version_code(),
+        // The Player release family: Edge releases reach only Edge screens
+        // of this architecture (docs/tilecast-edge.md §15).
+        "playerFamily": edge_release::envelope::PLAYER_FAMILY,
+        "playerArchitecture": std::env::consts::ARCH,
         "uptimeSeconds": uptime,
         "playbackState": playback_state,
         "safeMode": renderer.state.as_str() == "safe_mode",

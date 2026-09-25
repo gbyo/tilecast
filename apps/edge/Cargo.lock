@@ -454,6 +454,7 @@ name = "edge-server"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "base64",
  "bytes",
  "edge-cas",
  "edge-platform",
@@ -488,6 +489,7 @@ dependencies = [
  "time",
  "tokio",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -1877,6 +1879,7 @@ dependencies = [
  "edge-ipc",
  "edge-platform",
  "edge-protocol",
+ "edge-release",
  "edge-server",
  "edge-state",
  "futures-util",
@@ -1891,6 +1894,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "thiserror",
+ "tilecast-edge-update",
  "time",
  "tokio",
  "tokio-tungstenite",

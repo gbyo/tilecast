@@ -139,6 +139,10 @@ pub struct DaemonContext {
     /// The logind idle inhibitor's state, and its wake-up (M9).
     pub idle_lock: std::sync::Mutex<crate::idle_inhibit::LockState>,
     pub idle_wake: tokio::sync::Notify,
+    /// Player updates (M10): the coordinator once its task runs, and its
+    /// wake-up (a command accepted a job).
+    pub update: std::sync::Mutex<Option<Arc<crate::update::Coordinator>>>,
+    pub update_wake: tokio::sync::Notify,
 }
 
 impl DaemonContext {
@@ -376,6 +380,8 @@ impl Daemon {
             network_wake: tokio::sync::Notify::new(),
             idle_lock: std::sync::Mutex::new(crate::idle_inhibit::LockState::NotRequested),
             idle_wake: tokio::sync::Notify::new(),
+            update: std::sync::Mutex::new(None),
+            update_wake: tokio::sync::Notify::new(),
         });
 
         let bound_record = match context.db() {
@@ -467,6 +473,7 @@ impl Daemon {
         tasks.spawn(crate::audio::run(Arc::clone(&context)));
         tasks.spawn(crate::network_task::run(Arc::clone(&context)));
         tasks.spawn(crate::idle_inhibit::run(Arc::clone(&context)));
+        tasks.spawn(crate::update::run(Arc::clone(&context)));
 
         let status = ready_status(&context);
         context.notifier.ready(&status);

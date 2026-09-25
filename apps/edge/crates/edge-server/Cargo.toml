@@ -9,6 +9,7 @@ rust-version.workspace = true
 
 [dependencies]
 async-trait.workspace = true
+base64.workspace = true
 edge-cas.workspace = true
 edge-platform.workspace = true
 edge-protocol.workspace = true
