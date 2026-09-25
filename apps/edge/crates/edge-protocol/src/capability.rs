@@ -258,6 +258,7 @@ pub mod ids {
     pub const RENDERER_WPE_DRM: &str = "renderer.wpe.drm";
     pub const RENDERER_WPE_WAYLAND: &str = "renderer.wpe.wayland";
     pub const RENDERER_WPE_HEADLESS: &str = "renderer.wpe.headless";
+    pub const RENDERER_PREVIEW: &str = "renderer.preview";
     pub const TIME_SERVER_OFFSET: &str = "time.server_offset";
     pub const TIME_HOST_SYNC: &str = "time.host_sync";
     pub const DISPLAY_CEC_POWER: &str = "display.cec.power";

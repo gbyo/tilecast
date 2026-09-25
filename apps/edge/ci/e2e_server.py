@@ -163,7 +163,8 @@ class Renderer:
         self.process = subprocess.Popen(
             [self.args.renderer, "--platform=headless", f"--socket={os.path.join(self.runtime, 'edge.sock')}",
              f"--media-socket={os.path.join(self.runtime, 'media.sock')}", f"--runtime-dir={self.args.runtime_dir}",
-             f"--gst-plugin-dir={self.args.gst_plugin_dir}", "--headless-size=1280x720", "--console"],
+             f"--gst-plugin-dir={self.args.gst_plugin_dir}", "--headless-size=1280x720", "--console",
+             "--crash-backtrace"],
             stdout=log, stderr=subprocess.STDOUT, env=env)
         return self.process
 
@@ -749,7 +750,10 @@ def main():
                                if '"level":"WARN"' in line or '"level":"ERROR"' in line or "/player/" in line]
                     print("\n".join(notable[-40:]), file=sys.stderr)
                 else:
-                    print(text[-6000:], file=sys.stderr)
+                    # A container has no sound card; ALSA's complaints
+                    # would push everything else out of the tail.
+                    text = "\n".join(line for line in text.splitlines() if not line.startswith("ALSA lib "))
+                    print(text[-8000:], file=sys.stderr)
         raise
     finally:
         for process in processes:

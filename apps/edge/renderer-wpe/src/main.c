@@ -1,7 +1,10 @@
 #include "host.h"
 #include "validate.h"
 
+#include <execinfo.h>
 #include <glib-unix.h>
+#include <signal.h>
+#include <unistd.h>
 #include <wpe/drm/wpe-drm.h>
 #include <wpe/headless/wpe-headless.h>
 #include <wpe/wayland/wpe-wayland.h>
@@ -35,6 +38,36 @@ on_health (gpointer user_data)
   return G_SOURCE_CONTINUE;
 }
 
+/* --crash-backtrace (development and CI): a fatal signal writes the
+ * renderer's stack to stderr before the default action (the exit systemd
+ * sees). Only async-signal-safe calls run in the handler. */
+static void
+on_fatal_signal (int signal_number)
+{
+  static const char banner[] = "renderer: fatal signal; backtrace follows\n";
+  void *frames[64];
+  if (write (STDERR_FILENO, banner, sizeof banner - 1) < 0) {
+    /* Nothing else can be done inside a signal handler. */
+  }
+  backtrace_symbols_fd (frames, backtrace (frames, G_N_ELEMENTS (frames)), STDERR_FILENO);
+  signal (signal_number, SIG_DFL);
+  raise (signal_number);
+}
+
+static void
+install_crash_backtrace (void)
+{
+  /* backtrace() loads its unwinder on first use; do that now, not in the
+   * handler. */
+  void *frames[1];
+  backtrace (frames, 1);
+  signal (SIGSEGV, on_fatal_signal);
+  signal (SIGBUS, on_fatal_signal);
+  signal (SIGABRT, on_fatal_signal);
+  signal (SIGILL, on_fatal_signal);
+  signal (SIGFPE, on_fatal_signal);
+}
+
 static WPEDisplay *
 create_display (TcPlatform platform)
 {
@@ -60,6 +93,7 @@ main (int argc, char **argv)
   g_autofree char *gst_plugin_dir = NULL;
   gboolean console = FALSE;
   gboolean probe_drm = FALSE;
+  gboolean crash_backtrace = FALSE;
   int exit_after = 0;
   GOptionEntry entries[] = {
     { "platform", 0, 0, G_OPTION_ARG_STRING, &platform, "drm, wayland or headless", "NAME" },
@@ -71,6 +105,7 @@ main (int argc, char **argv)
     { "console", 0, 0, G_OPTION_ARG_NONE, &console, "Write page console messages to stderr (development)", NULL },
     { "exit-after", 0, 0, G_OPTION_ARG_INT, &exit_after, "Exit after N seconds (CI)", "N" },
     { "probe-drm", 0, 0, G_OPTION_ARG_NONE, &probe_drm, "Print the DRM/KMS outputs as JSON and exit (read-only)", NULL },
+    { "crash-backtrace", 0, 0, G_OPTION_ARG_NONE, &crash_backtrace, "Print a backtrace on a fatal signal (development)", NULL },
     { NULL },
   };
   g_autoptr (GOptionContext) options = g_option_context_new ("- Tilecast WPE renderer");
@@ -82,6 +117,8 @@ main (int argc, char **argv)
   }
   if (probe_drm)
     return tc_drm_probe ("/dev/dri");
+  if (crash_backtrace)
+    install_crash_backtrace ();
 
   TcHost host = { 0 };
   host.headless_width = 1920;

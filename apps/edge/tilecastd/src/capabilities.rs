@@ -58,6 +58,7 @@ async fn daemon_capabilities(context: &DaemonContext) -> Vec<Capability> {
         StateMode::Recovery { reason } => (CapabilityState::Blocked, Some(*reason)),
     };
     out.extend(live(ids::SYSTEM_STATE_STORE, state, "sqlite", reason, None, context));
+    out.extend(context.preview_waiters.capability(context.now()));
     out.extend(context.display.capabilities(context.now()));
     out.extend(context.audio.capabilities(context.now()));
     let idle = *context.idle_lock.lock().unwrap_or_else(|poison| poison.into_inner());
