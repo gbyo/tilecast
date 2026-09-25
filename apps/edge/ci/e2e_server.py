@@ -657,20 +657,27 @@ def main():
             # A pending manifest (a third item) activates on a shared boundary
             # on both players and moves both onto the new grid together.
             marks = [os.path.getsize(path) for path in logs]
+
+            def versions():
+                # Manifest versions are per screen.
+                return [client.call("GET", f"/api/v1/screens/{member}/playlist-assignment", expect=200)[1]["data"]
+                        ["manifestVersion"] for member in (screen_id, fresh_screen)]
+
+            before = versions()
             _, loop = client.call("POST", f"/api/v1/playlists/{loop_id}/items", item(wall["id"], 2000),
                                   expect=(200, 201))
             client.call("POST", f"/api/v1/playlists/{loop_id}/publish",
                         {"expectedDraftRevision": loop["data"]["draftRevision"]}, expect=(200, 201))
-            _, assignment = client.call("GET", f"/api/v1/screens/{screen_id}/playlist-assignment", expect=200)
-            grown = assignment["data"]["manifestVersion"]
+            grown = wait_for(lambda: (lambda now: now if all(a > b for a, b in zip(now, before)) else None)(versions()),
+                             "the grown loop's manifests")
 
-            def activated_on_boundary(path, mark):
+            def activated_on_boundary(path, mark, version):
                 with open(path, encoding="utf-8", errors="replace") as handle:
                     handle.seek(mark)
                     lines = [line for line in handle.read().splitlines() if "activation_started" in line]
-                return any(f"version={grown}" in line and "boundary=true" in line for line in lines)
+                return any(f"version={version} " in line and "boundary=true" in line for line in lines)
 
-            wait_for(lambda: all(activated_on_boundary(path, mark) for path, mark in zip(logs, marks)),
+            wait_for(lambda: all(activated_on_boundary(*args) for args in zip(logs, marks, grown)),
                      "the grown loop to activate on a shared boundary", timeout=180)
             time.sleep(4)
             shared_timeline([3000, 3000, 2000], 20, "after a pending manifest")
