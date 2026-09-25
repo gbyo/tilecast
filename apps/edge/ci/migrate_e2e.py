@@ -446,8 +446,21 @@ def check_hardware_packaging():
     assert os.path.exists("/usr/lib/udev/rules.d/70-tilecast-display.rules")
     assert os.path.exists("/usr/lib/modules-load.d/tilecast-edge.conf")
     assert os.path.exists("/var/lib/systemd/linger/tilecast"), "tilecast lingers so its session starts at boot"
-    e2e.wait_for(lambda: tilecast_systemctl("is-active", "tilecast-session-bridge.service").stdout.strip() == "active",
-                 "the session bridge started by its path unit", 90)
+    try:
+        e2e.wait_for(
+            lambda: tilecast_systemctl("is-active", "tilecast-session-bridge.service").stdout.strip() == "active",
+            "the session bridge started by its path unit", 90)
+    except AssertionError:
+        uid = pwd.getpwnam("tilecast").pw_uid
+        for argv in (["systemctl", "status", "--no-pager", f"user@{uid}.service"],
+                     ["systemctl", "--user", "--machine=tilecast@.host", "status", "--no-pager",
+                      "tilecast-session-bridge.path", "tilecast-session-bridge.service"],
+                     ["ls", "-l", "/run/tilecast-edge", "/etc/systemd/user", "/etc/systemd/user/default.target.wants"],
+                     ["journalctl", "--no-pager", "-n", "80", f"_UID={uid}"],
+                     ["journalctl", "--no-pager", "-n", "40", "-u", f"user@{uid}.service"]):
+            print("$", " ".join(argv))
+            print(subprocess.run(argv, capture_output=True, text=True).stdout[-6000:])
+        raise
     sandbox = tilecast_systemctl("show", "--property=RestrictAddressFamilies,PrivateDevices,ProtectHome,"
                                  "NoNewPrivileges,MemoryDenyWriteExecute", "tilecast-session-bridge.service").stdout
     for expected in ("RestrictAddressFamilies=AF_UNIX", "PrivateDevices=yes", "ProtectHome=tmpfs",
