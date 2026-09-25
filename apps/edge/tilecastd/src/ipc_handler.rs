@@ -369,6 +369,7 @@ impl DaemonIpc {
             }),
             presentation,
             outbox,
+            update: None,
         }
     }
 }

@@ -4,6 +4,7 @@
 //! * [`paths`]: the canonical filesystem layout (§5) and how it maps onto
 //!   systemd-managed directories.
 //! * [`systemd`]: `sd_notify` readiness, status, stopping and watchdog.
+//! * [`activation`]: the socket that systemd passes to `tilecast-edge-update`.
 //! * [`disk`]: free-space measurement for CAS reserve enforcement.
 //! * [`fs`]: opening files that another account may control.
 //! * [`capabilities`]: the capability registry and the provider trait every
@@ -24,6 +25,7 @@
 //! * Anything privileged goes through a narrow helper with a fixed operation
 //!   allowlist (today `tilecast-networkd`). No provider gains root.
 
+pub mod activation;
 pub mod capabilities;
 pub mod disk;
 pub mod display;

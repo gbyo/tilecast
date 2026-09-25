@@ -1,6 +1,6 @@
 [package]
-name = "tilecast-edge-migrate"
-description = "Tilecast Edge installer and one-way Electron to Edge migration with automatic rollback (M7). The release installer itself is the edge-release crate."
+name = "tilecast-edge-update"
+description = "The narrow root helper for Tilecast Edge updates (M10): stage, activate, confirm and roll back signed releases."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -9,19 +9,19 @@ rust-version.workspace = true
 
 [features]
 # The systemd integration test only: crash injection through
-# TILECAST_MIGRATE_CRASH_AT and the headless backend. A release build must not
-# enable it (build-edge-release.sh checks the binary).
+# TILECAST_UPDATE_CRASH_AT. A release build must not enable it
+# (build-edge-release.sh checks the binary).
 integration-test = []
 
 [dependencies]
-anyhow.workspace = true
 async-trait.workspace = true
+base64.workspace = true
 clap.workspace = true
 edge-ipc.workspace = true
 edge-platform.workspace = true
 edge-protocol.workspace = true
 edge-release = { workspace = true, features = ["install"] }
-rustix = { workspace = true, features = ["fs", "process"] }
+rustix = { workspace = true, features = ["fs", "process", "net", "time"] }
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
@@ -33,6 +33,7 @@ uuid.workspace = true
 zbus.workspace = true
 
 [dev-dependencies]
+edge-release = { workspace = true, features = ["install", "test-util"] }
 tempfile.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time", "test-util"] }
 

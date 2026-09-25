@@ -6,7 +6,6 @@
 //! The file is written as a temporary file, synced, renamed over the old
 //! file, and the directory is synced.
 
-use std::io::Write as _;
 use std::os::unix::fs::{DirBuilderExt as _, OpenOptionsExt as _};
 use std::path::{Path, PathBuf};
 
@@ -258,24 +257,10 @@ impl StateStore {
 /// Writes `name` in `dir` with mode 0600: temporary file, sync, rename,
 /// directory sync.
 pub fn write_atomic(dir: &Path, name: &str, bytes: &[u8]) -> std::io::Result<()> {
-    let temporary = dir.join(format!(".{name}.tmp"));
-    let _ = std::fs::remove_file(&temporary);
-    let mut file = std::fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .mode(0o600)
-        .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
-        .open(&temporary)?;
-    file.write_all(bytes)?;
-    file.sync_all()?;
-    drop(file);
-    std::fs::rename(&temporary, dir.join(name))?;
-    sync_dir(dir)
+    edge_release::install::write_atomic(dir, name, bytes, 0o600)
 }
 
-pub fn sync_dir(dir: &Path) -> std::io::Result<()> {
-    std::fs::File::open(dir)?.sync_all()
-}
+pub use edge_release::install::sync_dir;
 
 /// An exclusive lock held for the life of one migrator process. The kernel
 /// releases it if the process dies, so a stale lock never blocks recovery.
