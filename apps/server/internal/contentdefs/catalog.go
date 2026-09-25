@@ -19,7 +19,7 @@ const CompilerVersion = "definition-compiler-v2"
 var supportedControls = map[string]bool{
 	"text": true, "multiline_text": true, "number": true, "integer": true,
 	"boolean": true, "select": true, "color": true, "date": true,
-	"datetime": true, "timezone": true, "url": true, "data_source": true,
+	"datetime": true, "timezone": true, "currency_code": true, "url": true, "data_source": true,
 	"data_source_field": true, "media_asset": true, "repeating_group": true,
 }
 
@@ -211,10 +211,12 @@ func (spec FetchSpec) FetchPlaceholders() []string {
 }
 
 type OutputField struct {
-	Key      string `json:"key"`
-	Label    string `json:"label"`
-	Type     string `json:"type"`
-	Required bool   `json:"required,omitempty"`
+	Key               string `json:"key"`
+	Label             string `json:"label"`
+	Type              string `json:"type"`
+	Currency          string `json:"currency,omitempty"`
+	CurrencyConfigKey string `json:"currencyConfigKey,omitempty"`
+	Required          bool   `json:"required,omitempty"`
 }
 
 type WidgetDefinition struct {

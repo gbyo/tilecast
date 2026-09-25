@@ -1,0 +1,36 @@
+---
+title: Install Tilecast Edge
+description: See how a clean Tilecast Edge installation works in the current preview.
+---
+
+For production screens, use [Install Tilecast Player on Linux](../../players/install-linux/).
+
+Edge is packaged differently from the current AppImage Player. Instead of starting one AppImage from a desktop session, Edge installs a signed release under system services and checks that the Player can start correctly before enabling it.
+
+## Clean install
+
+The preview installer is designed to:
+
+1. verify the signed release and its files;
+2. install Edge under `/opt/tilecast-edge/`;
+3. create the required users, directories, and systemd services;
+4. run checks for `tilecastd` and the WPE renderer;
+5. check the selected display backend;
+6. enable Edge only after those checks pass;
+7. show setup and wait for pairing.
+
+If the checks fail, Edge stays disabled instead of replacing a working screen with a blank Player.
+
+## Files and services
+
+The preview currently uses:
+
+- `tilecast-edge.service` for `tilecastd`;
+- `tilecast-renderer.service` for WPE;
+- `/var/lib/tilecast-edge/` for Player state and cached content;
+- `/run/tilecast-edge/` for local communication between Edge components;
+- `/opt/tilecast-edge/` for installed release files.
+
+The renderer does not get direct access to the whole Player data directory. Media is provided through the local Edge service.
+
+If the computer already runs the current Linux AppImage Player, use the [migration guide](../migrate/) instead of doing a clean install over it.

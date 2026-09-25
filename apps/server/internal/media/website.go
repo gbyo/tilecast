@@ -16,6 +16,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/tilecast/tilecast/apps/server/internal/ids"
 	"github.com/tilecast/tilecast/apps/server/internal/manifestchanges"
 )
 
@@ -288,7 +289,7 @@ func (s *Service) CreateWebsite(ctx context.Context, user uuid.UUID, in WebsiteI
 	if err = tx.QueryRow(ctx, `SELECT id FROM organization_settings WHERE singleton`).Scan(&org); err != nil {
 		return Asset{}, err
 	}
-	id := uuid.New()
+	id := ids.New(ctx)
 	_, err = tx.Exec(ctx, `INSERT INTO assets(id,organization_id,name,description,type,original_filename,detected_mime_type,sha256,original_size,processing_status,created_by)VALUES($1,$2,$3,$4,'widget','','application/vnd.tilecast.widget+json',''::bytea,0,'ready',$5)`, id, org, in.Name, in.Description, user)
 	if err != nil {
 		return Asset{}, err

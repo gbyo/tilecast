@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { WidgetPresentation } from "../api/types";
 import { DeclarativePresentationPreview } from "./SourceEditors";
 import { previewDatasetMaps } from "./previewRecords";
+import { previewDatasetCurrencies } from "./previewRecords";
 
 afterEach(cleanup);
 
@@ -55,6 +56,17 @@ describe("previewDatasetMaps", () => {
 
   it("returns nothing for a payload that has not loaded", () => {
     expect(previewDatasetMaps("src-1", undefined)).toEqual({});
+  });
+
+  it("keeps explicit currency metadata beside preview records", () => {
+    expect(
+      previewDatasetCurrencies("menu", {
+        fields: [
+          { key: "price", label: "Price", type: "currency", currency: "EUR" },
+        ],
+        records: [{ id: "1", values: { price: "4.5" } }],
+      }),
+    ).toEqual({ "menu:records": { price: "EUR" } });
   });
 });
 
@@ -218,5 +230,30 @@ describe("DeclarativePresentationPreview dataset resolution", () => {
 
     expect(screen.getByText("Monday")).toBeTruthy();
     expect(screen.getByText("Tuesday")).toBeTruthy();
+  });
+
+  it("renders currency bindings using their ISO code and organization locale", () => {
+    const currency = presentation({
+      root: {
+        type: "text",
+        binding: {
+          source: "dataset",
+          dataset: "menu:records",
+          path: "price",
+          format: "currency",
+          precision: 2,
+        },
+      },
+    });
+    render(
+      <DeclarativePresentationPreview
+        presentation={currency}
+        source={{}}
+        datasets={{ "menu:records": [{ price: "1234.5" }] }}
+        datasetCurrencies={{ "menu:records": { price: "EUR" } }}
+        regional={{ locale: "de-DE", timezone: "Europe/Berlin" }}
+      />,
+    );
+    expect(screen.getByText("1.234,50 €")).toBeVisible();
   });
 });

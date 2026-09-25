@@ -15,7 +15,7 @@ Use this workflow when another system owns a small table, such as a menu or bell
 
 Send a `PUT` to `/api/v1/integration/data-sources/{id}/rows`. Each row has a `values` object keyed by the column keys configured in Studio. Values are strings.
 
-```sh
+```sh title="Replace Manual Table rows" "Authorization: Bearer $TILECAST_INTEGRATION_TOKEN"
 curl --fail-with-body -X PUT "$TILECAST_URL/api/v1/integration/data-sources/$TILECAST_DATA_SOURCE_ID/rows" \
   -H "Authorization: Bearer $TILECAST_INTEGRATION_TOKEN" \
   -H "Content-Type: application/json" \
@@ -26,7 +26,7 @@ Replace the example keys with the keys in your Data Source. A request can contai
 
 Send an empty array to clear the table:
 
-```json
+```json title="Clear every row"
 { "rows": [] }
 ```
 

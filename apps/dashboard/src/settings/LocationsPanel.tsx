@@ -52,7 +52,8 @@ export function formatLocationAddress(location?: Partial<Location>) {
   return [
     location.addressLine1,
     location.addressLine2,
-    [location.city, location.state].filter(Boolean).join(", "),
+    location.city,
+    location.state,
     location.postalCode,
     location.country,
   ]

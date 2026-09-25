@@ -6,10 +6,11 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
-    "check": "astro check",
-    "build": "astro build && node scripts/check-links.mjs",
+    "check": "node scripts/generate-content-reference.mjs --check && astro check",
+    "build": "node scripts/generate-content-reference.mjs --check && astro build && node scripts/check-links.mjs",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "generate:content-reference": "node scripts/generate-content-reference.mjs"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",

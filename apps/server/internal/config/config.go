@@ -28,6 +28,7 @@ type Config struct {
 	Backup        BackupConfig
 	WebAuthn      WebAuthnConfig
 	Notifications NotificationsConfig
+	Demo          DemoConfig
 	// PresentationNetworkKey seals Wi-Fi credentials for Presentation Networks.
 	// Empty is a supported state: the server starts normally and every other
 	// feature works, but creating or provisioning a Presentation Network
@@ -155,7 +156,7 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("parse TILECAST_COOKIE_SECURE: %w", err)
 	}
 	cfg.CookieSecure = secure
-	mdnsEnabled, err := strconv.ParseBool(get("TILECAST_MDNS_ENABLED", "true"))
+	mdnsEnabled, err := strconv.ParseBool(get("TILECAST_MDNS_ENABLED", mdnsDefault()))
 	if err != nil {
 		return Config{}, fmt.Errorf("parse TILECAST_MDNS_ENABLED: %w", err)
 	}
@@ -325,6 +326,12 @@ func Load() (Config, error) {
 		return Config{}, errors.New("TILECAST_SESSION_TTL must be a duration of at least 15m")
 	}
 	cfg.SessionTTL = ttl
+
+	if cfg.DemoMode() {
+		if err := loadDemo(&cfg); err != nil {
+			return Config{}, err
+		}
+	}
 
 	return cfg, nil
 }
