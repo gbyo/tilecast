@@ -39,6 +39,11 @@ cmake -S "$edge/renderer-wpe" -B /cache/renderer -G Ninja -DCMAKE_BUILD_TYPE=Rel
 cmake --build /cache/renderer
 ctest --test-dir /cache/renderer --output-on-failure
 
+# 2b. The session bridge (system GStreamer and WirePlumber).
+cmake -S "$edge/session-bridge" -B /cache/bridge -G Ninja -DCMAKE_BUILD_TYPE=Release >/dev/null
+cmake --build /cache/bridge
+ctest --test-dir /cache/bridge --output-on-failure
+
 # 3. The Rust binaries, without the integration-test feature.
 export CARGO_TARGET_DIR=/cache/cargo RUSTFLAGS="--remap-path-prefix=/src=. --remap-path-prefix=/opt/cargo=cargo"
 (cd "$edge" && cargo build --release --locked -p tilecastd -p tilecastctl -p tilecast-edge-migrate)
@@ -54,6 +59,7 @@ fi
 stage() {
   python3 "$release/stage-release.py" --out /out/tree --version "$version" \
     --bin-dir "$CARGO_TARGET_DIR/release" --renderer /cache/renderer/tilecast-renderer-wpe \
+    --session-bridge /cache/bridge/tilecast-session-bridge \
     --gst-plugin-dir /cache/renderer/gstreamer-1.0 --runtime-dir /cache/runtime --sbom "$1" \
     --wpe-version "$wpe_version" --base-distribution "debian-13-snapshot-$snapshot" --wpe-lib-dir "$wpe_prefix"
 }

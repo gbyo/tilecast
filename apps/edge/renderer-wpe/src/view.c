@@ -14,6 +14,7 @@
  *     body; nothing is concatenated into JavaScript source.
  */
 #include "host.h"
+#include "noise.h"
 
 #include <string.h>
 
@@ -136,8 +137,26 @@ forward_page_message (TcHost *host, JsonObject *message)
     return;
   }
 
+  if (g_strcmp0 (type, "noise.diagnostic") == 0) {
+    /* A microphone problem is a diagnostic for the journal, not an event. */
+    const char *text = json_object_get_string_member_with_default (message, "message", "");
+    g_autofree char *bounded = g_utf8_validate (text, -1, NULL) ? g_utf8_substring (text, 0, MIN (g_utf8_strlen (text, -1), MAX_TEXT)) : g_strdup ("");
+    g_message ("view: noise meter: %s", bounded);
+    return;
+  }
+
   g_autoptr (JsonBuilder) builder = json_builder_new ();
   json_builder_begin_object (builder);
+  if (g_strcmp0 (type, "noise.report") == 0) {
+    gboolean copied = tc_noise_report_copy (message, builder);
+    json_builder_end_object (builder);
+    if (!copied) {
+      g_warning ("view: dropping a malformed noise meter report");
+      return;
+    }
+    tc_ipc_send_event (host, "noise.report", json_builder_get_root (builder));
+    return;
+  }
   const char *event = NULL;
   gboolean ok = copy_activation (builder, message);
   if (g_strcmp0 (type, "presentation.accepted") == 0) {

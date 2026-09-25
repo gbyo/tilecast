@@ -155,12 +155,6 @@ async fn unsupported_version_and_malformed_hello_are_rejected() {
     stream.write_all(&u32::MAX.to_be_bytes()).await.unwrap();
     assert!(edge_ipc::io::read_frame(&mut stream).await.is_err());
 
-    // Reserved role.
-    let options = ClientOptions::new(Role::SessionBridge, "bridge", "0");
-    assert!(matches!(
-        IpcClient::connect(&harness.path, options).await,
-        Err(ClientError::Rejected(r)) if r.code == RejectCode::RoleNotEnabled
-    ));
     harness.shutdown.cancel();
 }
 
@@ -324,6 +318,51 @@ async fn second_renderer_supersedes_first_and_disconnect_is_reported() {
     eventually(|| harness.handler.events.lock().unwrap().len() == 1).await;
     drop(second);
     eventually(|| harness.handler.closed.lock().unwrap().contains(&"peer_closed".to_owned())).await;
+    harness.shutdown.cancel();
+}
+
+#[tokio::test]
+async fn the_session_bridge_sends_only_its_own_events_and_one_bridge_is_live() {
+    use edge_protocol::ipc::event::{AudioInventory, AudioLevel, CaptureSet, CaptureState, PipewireState};
+    let harness = start(PeerPolicy::for_daemon_uid(uid())).await;
+    let bridge = || ClientOptions::new(Role::SessionBridge, "tilecast-session-bridge", "0.1.0");
+    let first = IpcClient::connect(&harness.path, bridge()).await.unwrap();
+    assert_eq!(first.welcome().role, Role::SessionBridge);
+    first
+        .send_event(Event::AudioInventory(AudioInventory {
+            pipewire: PipewireState::Available,
+            sources: 1,
+            sinks: 1,
+            default_source: true,
+            default_sink: true,
+        }))
+        .await
+        .unwrap();
+    first.send_event(Event::AudioLevel(AudioLevel { rms: Some(0.2), state: CaptureState::Capturing })).await.unwrap();
+    eventually(|| harness.handler.events.lock().unwrap().len() == 2).await;
+    // The daemon may ask the bridge to capture, but never send it renderer events.
+    let session = harness.handler.sessions.lock().unwrap()[0].clone();
+    assert!(session.send_event(Event::CaptureSet(CaptureSet { enabled: true })).is_ok());
+    assert!(matches!(
+        first.next_incoming(Duration::from_secs(2)).await.unwrap(),
+        Incoming::Event(_, Event::CaptureSet(_))
+    ));
+    assert!(session.send_event(Event::NoiseLevel(edge_protocol::ipc::event::NoiseLevel { rms: None })).is_err());
+
+    // A second bridge replaces the first, as a second renderer does.
+    let second = IpcClient::connect(&harness.path, bridge()).await.unwrap();
+    assert_eq!(first.next_incoming(Duration::from_secs(2)).await.unwrap(), Incoming::Goodbye("superseded".into()));
+    // A bridge may not report renderer evidence.
+    second
+        .send_event(Event::RendererProgress(RendererProgress {
+            activation: ActivationRef { activation_id: ActivationId::new_random(), generation: 1 },
+            item_id: None,
+            kind: EvidenceKind::SurfaceShown,
+            zone_id: None,
+        }))
+        .await
+        .unwrap();
+    eventually(|| harness.handler.closed.lock().unwrap().contains(&"event_not_permitted".to_owned())).await;
     harness.shutdown.cancel();
 }
 

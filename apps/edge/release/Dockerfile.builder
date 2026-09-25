@@ -30,7 +30,7 @@ RUN rm -f /etc/apt/sources.list.d/debian.sources \
       libgstreamer1.0-dev libharfbuzz-dev libhyphen-dev libicu-dev libinput-dev libudev-dev libjpeg-dev libjxl-dev \
       liblcms2-dev libopenjp2-7-dev libsoup-3.0-dev libsqlite3-dev libsystemd-dev libtasn1-6-dev libwayland-dev \
       libwebp-dev libwpe-1.0-dev libwpebackend-fdo-1.0-dev libxkbcommon-dev libxml2-utils libxslt1-dev \
-      wayland-protocols libjson-glib-dev libglib2.0-dev ffmpeg openssl jq \
+      wayland-protocols libjson-glib-dev libglib2.0-dev libwireplumber-0.5-dev ffmpeg openssl jq \
     && rm -rf /var/lib/apt/lists/*
 # The Rust toolchain named by apps/edge/rust-toolchain.toml.
 ENV RUSTUP_HOME=/opt/rustup CARGO_HOME=/opt/cargo PATH=/opt/cargo/bin:$PATH

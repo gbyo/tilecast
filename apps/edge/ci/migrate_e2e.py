@@ -40,6 +40,7 @@ LEGACY_DIR = f"/home/{KIOSK}/.local/share/tilecast-player"
 MIGRATE = "/opt/tilecast-edge/current/bin/tilecast-edge-migrate"
 TARGET = "/target/cargo-qual"
 RENDERER_BUILD = "/target/renderer"
+BRIDGE_BUILD = "/target/bridge"
 RUNTIME = "/target/runtime"
 DROPINS = "/etc/systemd/system"
 
@@ -149,6 +150,9 @@ def setup():
     run("cmake", "-S", os.path.join(EDGE, "renderer-wpe"), "-B", RENDERER_BUILD, "-G", "Ninja",
         stdout=subprocess.DEVNULL)
     run("cmake", "--build", RENDERER_BUILD)
+    run("cmake", "-S", os.path.join(EDGE, "session-bridge"), "-B", BRIDGE_BUILD, "-G", "Ninja",
+        stdout=subprocess.DEVNULL)
+    run("cmake", "--build", BRIDGE_BUILD)
     run(os.path.join(EDGE, "renderer-wpe", "assemble-runtime.sh"), RUNTIME)
 
     # A release signed with a throwaway key that the machine is told to trust.
@@ -158,6 +162,7 @@ def setup():
     wpe = output("pkg-config", "--modversion", "wpe-webkit-2.0").strip()
     run(os.path.join(EDGE, "release", "stage-release.py"), "--out", RELEASE, "--version", "0.1.0",
         "--bin-dir", os.path.join(TARGET, "debug"), "--renderer", os.path.join(RENDERER_BUILD, "tilecast-renderer-wpe"),
+        "--session-bridge", os.path.join(BRIDGE_BUILD, "tilecast-session-bridge"),
         "--gst-plugin-dir", os.path.join(RENDERER_BUILD, "gstreamer-1.0"), "--runtime-dir", RUNTIME,
         "--sbom", sbom, "--wpe-version", wpe, "--base-distribution", "debian-sid-ci")
     key = os.path.join(WORK, "release-key.pem")
@@ -417,10 +422,46 @@ def accept():
     assert legacy_digests() == load("legacy-digests.json"), "legacy files are left intact"
     status = json.loads(output("/opt/tilecast-edge/current/bin/tilecastctl", "--json", "status"))
     assert status["server"]["screenId"] == screen["screenId"] and status["link"]["state"] == "connected", status
+    check_hardware_packaging()
     rollback = subprocess.run([MIGRATE, "rollback"], capture_output=True, text=True)
     assert rollback.returncode != 0 and "rollback window has ended" in rollback.stderr, rollback.stderr
     print(f"accept: accepted after {elapsed:.0f} s of migration; Edge plays the server presentation, the legacy "
           "player is disabled and its files are unchanged, and rollback is refused")
+
+
+def tilecast_systemctl(*argv):
+    return subprocess.run(["systemctl", "--user", "--machine=tilecast@.host", *argv], capture_output=True, text=True)
+
+
+def check_hardware_packaging():
+    """M9 packaging on a real systemd: the display group and device policy of
+    the daemon, and the session bridge in the lingering tilecast session with
+    its sandbox."""
+    shown = output("systemctl", "show", "--property=SupplementaryGroups,DevicePolicy,DeviceAllow",
+                   "tilecast-edge.service")
+    assert "SupplementaryGroups=tilecast-display" in shown and "DevicePolicy=closed" in shown, shown
+    assert "char-cec rw" in shown and "char-i2c rw" in shown, shown
+    groups = output("id", "-nG", "tilecast").split()
+    assert "tilecast-display" not in groups, "the account itself never joins tilecast-display"
+    assert os.path.exists("/usr/lib/udev/rules.d/70-tilecast-display.rules")
+    assert os.path.exists("/usr/lib/modules-load.d/tilecast-edge.conf")
+    assert os.path.exists("/var/lib/systemd/linger/tilecast"), "tilecast lingers so its session starts at boot"
+    e2e.wait_for(lambda: tilecast_systemctl("is-active", "tilecast-session-bridge.service").stdout.strip() == "active",
+                 "the session bridge started by its path unit", 90)
+    sandbox = tilecast_systemctl("show", "--property=RestrictAddressFamilies,PrivateDevices,ProtectHome,"
+                                 "NoNewPrivileges,MemoryDenyWriteExecute", "tilecast-session-bridge.service").stdout
+    for expected in ("RestrictAddressFamilies=AF_UNIX", "PrivateDevices=yes", "ProtectHome=tmpfs",
+                     "NoNewPrivileges=yes", "MemoryDenyWriteExecute=yes"):
+        assert expected in sandbox, (expected, sandbox)
+
+    def bridge_connected():
+        capabilities = json.loads(output("/opt/tilecast-edge/current/bin/tilecastctl", "--json", "capabilities"))
+        noise = next((c for c in capabilities["capabilities"] if c["id"] == "audio.noise_meter"), None)
+        return noise if noise and noise.get("reasonCode") != "session_bridge_not_connected" else None
+
+    noise = e2e.wait_for(bridge_connected, "the session bridge connected to tilecastd", 90)
+    print(f"accept: the session bridge runs sandboxed in the tilecast session; audio.noise_meter is "
+          f"{noise['state']} ({noise.get('reasonCode', 'no reason')})")
 
 
 PHASES = {"setup": setup, "import-failure": import_failure, "crash": crash, "start-settling": start_settling,

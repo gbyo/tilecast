@@ -80,7 +80,21 @@ trait Manager {
         force: bool,
     ) -> zbus::Result<Vec<(String, String, String)>>;
     fn reload(&self) -> zbus::Result<()>;
+    fn restart_unit(&self, name: &str, mode: &str) -> zbus::Result<OwnedObjectPath>;
 }
+
+#[zbus::proxy(
+    interface = "org.freedesktop.login1.Manager",
+    default_service = "org.freedesktop.login1",
+    default_path = "/org/freedesktop/login1"
+)]
+trait Login {
+    fn set_user_linger(&self, uid: u32, enable: bool, interactive: bool) -> zbus::Result<()>;
+}
+
+/// The tilecast account's user unit that the migrator may start
+/// (`packaging/systemd-user`).
+const BRIDGE_PATH_UNIT: &str = "tilecast-session-bridge.path";
 
 #[derive(Debug)]
 pub struct LinuxHost {
@@ -112,24 +126,66 @@ impl LinuxHost {
         })
     }
 
-    /// After `install`: creates the tilecast account and the state
-    /// directory from the release's configuration, and reloads systemd.
-    pub async fn install_system_configuration(&self) -> Result<(), HostError> {
-        for (program, args) in [
-            ("/usr/bin/systemd-sysusers", &["/usr/lib/sysusers.d/tilecast-edge.conf"][..]),
-            ("/usr/bin/systemd-tmpfiles", &["--create", "/usr/lib/tmpfiles.d/tilecast-edge.conf"][..]),
-        ] {
-            let mut command = tokio::process::Command::new(program);
-            command.env_clear().env("LANG", "C").args(args).stdin(std::process::Stdio::null()).kill_on_drop(true);
-            let status = tokio::time::timeout(Duration::from_secs(60), command.status())
-                .await
-                .map_err(|_| HostError::Timeout("system configuration"))?
-                .map_err(|e| failed(program, e))?;
-            if !status.success() {
-                return Err(HostError::failed(format!("{program} failed")));
+    /// After `install`: creates the tilecast account, its display group and
+    /// the state directory from the release's configuration, reloads
+    /// systemd, and turns lingering on for the account so that its user
+    /// manager (and with it the session bridge) runs at boot.
+    ///
+    /// Display device access is optional hardware (docs/tilecast-edge.md
+    /// §19 rule 7): applying the udev rule and loading `i2c-dev` now is best
+    /// effort, reported as a warning, and happens at the next boot anyway.
+    pub async fn install_system_configuration(&self) -> Result<Vec<String>, HostError> {
+        run_fixed("/usr/bin/systemd-sysusers", &["/usr/lib/sysusers.d/tilecast-edge.conf"]).await?;
+        run_fixed("/usr/bin/systemd-tmpfiles", &["--create", "/usr/lib/tmpfiles.d/tilecast-edge.conf"]).await?;
+        self.reload().await?;
+        let uid = passwd_entry("tilecast")?.ok_or_else(|| HostError::failed("sysusers did not create tilecast"))?.uid;
+        LoginProxy::new(&self.system)
+            .await
+            .map_err(|e| failed("logind", e))?
+            .set_user_linger(uid, true, false)
+            .await
+            .map_err(|e| failed("enabling lingering for tilecast", e))?;
+
+        let mut warnings = Vec::new();
+        if Path::new("/run/udev/control").exists() {
+            let reloaded = run_fixed("/usr/bin/udevadm", &["control", "--reload"]).await;
+            let triggered = match reloaded {
+                Ok(()) => {
+                    run_fixed(
+                        "/usr/bin/udevadm",
+                        &["trigger", "--action=change", "--subsystem-match=cec", "--subsystem-match=i2c-dev"],
+                    )
+                    .await
+                }
+                Err(error) => Err(error),
+            };
+            if let Err(error) = triggered {
+                warnings.push(format!("display device permissions apply after a reboot ({error})"));
+            }
+        } else {
+            warnings.push("udev is not running; display device permissions apply after a reboot".into());
+        }
+        if let Err(error) = self.restart_and_wait("systemd-modules-load.service").await {
+            warnings.push(format!("i2c-dev loads at the next boot ({error})"));
+        }
+        // A user manager that was already running needs to read the new user
+        // units; one that lingering just started reads them itself.
+        if self.unit(&format!("user@{uid}.service")).await.is_ok_and(|unit| unit.active) {
+            let machine = "--machine=tilecast@.host";
+            let started = match run_fixed(SYSTEMCTL, &["--user", machine, "daemon-reload"]).await {
+                Ok(()) => run_fixed(SYSTEMCTL, &["--user", machine, "start", BRIDGE_PATH_UNIT]).await,
+                Err(error) => Err(error),
+            };
+            if let Err(error) = started {
+                warnings.push(format!("the session bridge starts at the next boot ({error})"));
             }
         }
-        self.reload().await
+        Ok(warnings)
+    }
+
+    async fn restart_and_wait(&self, unit: &str) -> Result<(), HostError> {
+        let job = self.manager().await?.restart_unit(unit, "replace").await.map_err(|e| failed(unit, e))?;
+        self.wait_job(&job, JOB_TIMEOUT).await
     }
 
     async fn manager(&self) -> Result<ManagerProxy<'_>, HostError> {
@@ -327,6 +383,27 @@ fn parse_passwd(text: &str, name: &str) -> Option<PasswdEntry> {
 }
 
 /// A POSIX-style login name.
+/// Runs a fixed root-owned program with fixed arguments: no shell, a
+/// cleared environment, no input and a timeout.
+async fn run_fixed(program: &str, args: &[&str]) -> Result<(), HostError> {
+    let mut command = tokio::process::Command::new(program);
+    command
+        .env_clear()
+        .env("LANG", "C")
+        .args(args)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .kill_on_drop(true);
+    let status = tokio::time::timeout(Duration::from_secs(60), command.status())
+        .await
+        .map_err(|_| HostError::Timeout("system configuration"))?
+        .map_err(|e| failed(program, e))?;
+    if !status.success() {
+        return Err(HostError::failed(format!("{program} {} failed", args.first().unwrap_or(&""))));
+    }
+    Ok(())
+}
+
 pub fn is_account_name(value: &str) -> bool {
     let mut bytes = value.bytes();
     matches!(bytes.next(), Some(b'a'..=b'z' | b'_'))

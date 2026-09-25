@@ -71,6 +71,8 @@ pub mod profile {
         "plugin.brand_bug",
         "plugin.countdown_bar",
         "plugin.alert_ticker",
+        // Host-measured levels from the session bridge (docs/tilecast-edge.md §4.4).
+        "plugin.noise_meter",
     ];
 
     /// Declarative widget capabilities of the reference projection code the
@@ -1424,7 +1426,7 @@ mod tests {
             (Box::new(|v| v["viewport"] = serde_json::json!({"x": 0})), "presentation_incompatible_span"),
             (
                 Box::new(|v| {
-                    v["plugins"] = serde_json::json!([{"id": ITEM, "type": "noise_meter", "version": 1, "config": {}}])
+                    v["plugins"] = serde_json::json!([{"id": ITEM, "type": "air_quality", "version": 1, "config": {}}])
                 }),
                 "presentation_incompatible_plugin",
             ),

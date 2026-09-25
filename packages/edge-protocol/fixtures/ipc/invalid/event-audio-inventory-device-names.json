@@ -1,0 +1,15 @@
+{
+  "frame": {
+    "type": "event",
+    "seq": 1,
+    "event": "audio.inventory",
+    "data": {
+      "pipewire": "available",
+      "sources": 1,
+      "sinks": 1,
+      "names": ["USB Audio Device"],
+      "defaultSource": true,
+      "defaultSink": false
+    }
+  }
+}

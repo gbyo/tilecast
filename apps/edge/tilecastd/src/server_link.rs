@@ -509,15 +509,30 @@ async fn pass(context: &Arc<DaemonContext>, link: &mut Link) -> LinkState {
     }
     let status_due = context.status_due.swap(false, std::sync::atomic::Ordering::AcqRel);
     if status_due || link.next_heartbeat.is_none_or(|next| Instant::now() >= next) {
-        let heartbeat = build_heartbeat(context).await;
-        let socket_sent = match link.socket.as_mut() {
+        // Queued Noise Meter history takes the HTTP heartbeat, because only
+        // its answer acknowledges what the server stored (the reference
+        // player's rule); the cadence does not change.
+        let draining = crate::audio::history_pending(context).await;
+        let mut heartbeat = build_heartbeat(context).await;
+        let history = crate::audio::heartbeat(context, &mut heartbeat, draining).await;
+        let socket_sent = match link.socket.as_mut().filter(|_| !draining) {
             Some(socket) => socket.send_status(&heartbeat, VERSION).await.is_ok(),
             None => false,
         };
-        if !socket_sent && link.socket.is_some() {
+        if !socket_sent && !draining && link.socket.is_some() {
             link.socket_lost();
         }
-        let sent = if socket_sent { Ok(()) } else { server.player_heartbeat(&heartbeat).await };
+        let sent = if socket_sent {
+            Ok(())
+        } else {
+            match server.player_heartbeat(&heartbeat).await {
+                Ok(ack) => {
+                    crate::audio::acknowledge(context, history, ack.noise_history_accepted).await;
+                    Ok(())
+                }
+                Err(error) => Err(error),
+            }
+        };
         match sent {
             Ok(()) => {
                 link.next_heartbeat = Some(Instant::now() + crate::config_sync::effective(context).sync.status_report);

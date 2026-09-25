@@ -96,9 +96,11 @@ fn cec_feature(error: CecError) -> Feature {
 
 fn ddc_feature(error: DdcError) -> Feature {
     match error {
-        DdcError::NotResponding | DdcError::Unsupported => {
+        DdcError::NotResponding | DdcError::Unsupported | DdcError::AllZero => {
             Feature::new(CapabilityState::Unsupported, error.reason_code())
         }
+        // The display is there but answers only "busy".
+        DdcError::AllNull => Feature::new(CapabilityState::Degraded, error.reason_code()),
         DdcError::BadReply | DdcError::Bus => Feature::new(CapabilityState::Supported, error.reason_code()),
     }
 }

@@ -345,7 +345,10 @@ export class PluginOverlayController {
 
   private openCapture(source: NoiseMeterSource): { stop(): void } {
     if (source === "host-levels") {
-      // The host measures; levels arrive through hostNoiseLevel().
+      // The host measures; levels arrive through hostNoiseLevel(). Saying
+      // "active" is how the host learns to open its microphone, and the
+      // "inactive" report on stop is how it learns to close it again.
+      this.reportState("active", null);
       return { stop() {} };
     }
     const capture: TilecastNoiseMeterCapture = tilecastNoiseMeter.createCapture(

@@ -328,3 +328,76 @@ fn cached_manifest_is_bound_to_one_screen_server_and_version() {
     assert_eq!(db.run_blocking(|c| manifests::get_for(c, Stage::Active, &foreign)).unwrap(), None);
     assert_eq!(db.run_blocking(move |c| manifests::target(c, &foreign)).unwrap(), None);
 }
+
+#[test]
+fn noise_history_is_bounded_acknowledged_exactly_and_sanitized() {
+    use edge_state::repo::noise_history::{self, Bucket};
+    let dir = tempfile::tempdir().expect("tempdir");
+    let mut connection = open_connection(&dir.path().join("state.db"), OpenOptions::default()).expect("open");
+    let now = 1_790_000_000_000i64;
+    let bucket = |start: i64| Bucket {
+        started_at_ms: start,
+        average_level: 40.0,
+        peak_level: 60.0,
+        monitored_ms: 10_000,
+        warning_ms: 1_000,
+        loud_ms: 500,
+        trigger_count: 1,
+    };
+    // Sanitizing aligns to the grid, refuses the future and impossible sums.
+    let aligned = noise_history::sanitize(&bucket(now - 12_345), now, 7).expect("valid");
+    assert_eq!(aligned.started_at_ms % noise_history::BUCKET_MS, 0);
+    assert!(noise_history::sanitize(&bucket(now + 3_600_000), now, 7).is_none(), "from the future");
+    assert!(noise_history::sanitize(&bucket(now - 8 * 86_400_000), now, 7).is_none(), "past retention");
+    assert!(noise_history::sanitize(&Bucket { warning_ms: 9_000, loud_ms: 2_000, ..bucket(now) }, now, 7).is_none());
+    assert!(noise_history::sanitize(&Bucket { average_level: f64::NAN, ..bucket(now) }, now, 7).is_none());
+    let raised = noise_history::sanitize(&Bucket { peak_level: 10.0, ..bucket(now) }, now, 7).expect("valid");
+    assert_eq!(raised.peak_level, 40.0, "a peak is never below the average");
+
+    for index in 0..5 {
+        let start = (now / 10_000 - 10 + index) * 10_000;
+        noise_history::add(&mut connection, &bucket(start), now, 7).expect("add");
+    }
+    // A repeated slot replaces, never duplicates.
+    let first = (now / 10_000 - 10) * 10_000;
+    noise_history::add(&mut connection, &Bucket { average_level: 1.0, ..bucket(first) }, now, 7).expect("add");
+    assert_eq!(noise_history::count(&connection).expect("count"), 5);
+    let batch = noise_history::peek(&connection, 3).expect("peek");
+    assert_eq!(batch.len(), 3);
+    assert_eq!(batch[0].average_level, 1.0);
+    // Peeking removes nothing; a partial acknowledgement removes only that many.
+    let sent: Vec<i64> = batch.iter().map(|b| b.started_at_ms).collect();
+    assert_eq!(noise_history::acknowledge(&mut connection, &sent, 0).expect("ack"), 0);
+    assert_eq!(noise_history::acknowledge(&mut connection, &sent, 2).expect("ack"), 2);
+    assert_eq!(noise_history::count(&connection).expect("count"), 3);
+    assert_eq!(noise_history::peek(&connection, 120).expect("peek")[0].started_at_ms, sent[2]);
+
+    // Retention moves with the plugin's setting.
+    let later = now + 2 * 86_400_000;
+    noise_history::add(&mut connection, &bucket((later / 10_000) * 10_000), later, 1).expect("add");
+    assert_eq!(noise_history::count(&connection).expect("count"), 1, "a one-day window prunes the rest");
+}
+
+#[test]
+fn the_presentation_network_state_has_no_place_for_a_credential() {
+    use edge_state::repo::presentation_network::{self, NetworkState};
+    let dir = tempfile::tempdir().expect("tempdir");
+    let connection = open_connection(&dir.path().join("state.db"), OpenOptions::default()).expect("open");
+    let now = edge_protocol::Timestamp::parse("2026-09-25T12:00:00Z").expect("time");
+    assert_eq!(presentation_network::get(&connection).expect("get"), NetworkState::default());
+    assert!(NetworkState::default().radio_was_enabled, "the safe default never turns a radio off");
+    let state = NetworkState {
+        active_network_id: Some("6f0c2b1e-9d2a-4b7e-8f3a-2c1d0e9f8a7b".into()),
+        radio_was_enabled: false,
+    };
+    presentation_network::put(&connection, &state, now).expect("put");
+    assert_eq!(presentation_network::get(&connection).expect("get"), state);
+    let columns: Vec<String> = connection
+        .prepare("SELECT name FROM pragma_table_info('presentation_network_state')")
+        .expect("prepare")
+        .query_map([], |row| row.get(0))
+        .expect("query")
+        .collect::<Result<_, _>>()
+        .expect("columns");
+    assert_eq!(columns, ["singleton", "active_network_id", "radio_was_enabled", "updated_at_ms"]);
+}

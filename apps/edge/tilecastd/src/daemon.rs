@@ -128,6 +128,10 @@ pub struct DaemonContext {
     pub display_wake: tokio::sync::Notify,
     /// Send the next status report without waiting for its interval.
     pub status_due: std::sync::atomic::AtomicBool,
+    /// The session bridge and the Noise Meter (M9).
+    pub audio: crate::audio::Audio,
+    /// Wakes the audio task (a Noise Meter report or a bridge change).
+    pub audio_wake: tokio::sync::Notify,
 }
 
 impl DaemonContext {
@@ -346,6 +350,8 @@ impl Daemon {
             display: Arc::new(crate::display_control::DisplayControl::new(&config_for_display)),
             display_wake: tokio::sync::Notify::new(),
             status_due: std::sync::atomic::AtomicBool::new(false),
+            audio: crate::audio::Audio::default(),
+            audio_wake: tokio::sync::Notify::new(),
         });
 
         let bound_record = match context.db() {
@@ -434,6 +440,7 @@ impl Daemon {
         tasks.spawn(crate::telemetry::run(Arc::clone(&context)));
         tasks.spawn(crate::preview::run(Arc::clone(&context)));
         tasks.spawn(crate::display_control::run(Arc::clone(&context)));
+        tasks.spawn(crate::audio::run(Arc::clone(&context)));
 
         let status = ready_status(&context);
         context.notifier.ready(&status);

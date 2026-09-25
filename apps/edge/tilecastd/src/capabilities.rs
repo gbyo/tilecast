@@ -59,6 +59,7 @@ async fn daemon_capabilities(context: &DaemonContext) -> Vec<Capability> {
     };
     out.extend(live(ids::SYSTEM_STATE_STORE, state, "sqlite", reason, None, context));
     out.extend(context.display.capabilities(context.now()));
+    out.extend(context.audio.capabilities(context.now()));
     out
 }
 

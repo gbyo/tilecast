@@ -17,6 +17,9 @@ cargo build --locked -p tilecastd -p tilecastctl
 cmake -S renderer-wpe -B /target/renderer -G Ninja >/dev/null
 cmake --build /target/renderer
 ctest --test-dir /target/renderer --output-on-failure
+cmake -S session-bridge -B /target/bridge -G Ninja >/dev/null
+cmake --build /target/bridge
+ctest --test-dir /target/bridge --output-on-failure
 runtime=/target/runtime
 renderer-wpe/assemble-runtime.sh "$runtime"
 python3 renderer-wpe/tests/e2e_headless.py \

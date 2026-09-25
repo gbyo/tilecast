@@ -38,6 +38,7 @@
 
 pub mod activation;
 pub mod activity;
+pub mod audio;
 pub mod capabilities;
 pub mod command_handlers;
 pub mod commands;

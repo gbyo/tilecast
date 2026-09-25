@@ -591,6 +591,8 @@ fn detail(reason: &str) -> Option<&'static str> {
         "ddc_ci_not_responding" => "The display does not answer DDC/CI; it may be turned off in the display's menu.",
         "vcp_feature_unsupported" => "The display does not implement this DDC/CI feature.",
         "ddc_ci_invalid_reply" => "The display's DDC/CI replies are invalid.",
+        "ddc_ci_all_responses_null" => "The display answers every DDC/CI request as busy.",
+        "ddc_ci_all_responses_zero" => "The I2C bus returns only zeros; the display may not support DDC/CI.",
         "disabled_by_operator" => "Disabled in /etc/tilecast-edge/edge.toml.",
         _ => return None,
     })

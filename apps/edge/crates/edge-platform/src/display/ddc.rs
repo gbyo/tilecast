@@ -49,17 +49,30 @@ impl I2cBus for I2cDevice {
 }
 
 /// DDC/CI timing (MCCS 2.2a): wait after a Get VCP request before reading
-/// the reply, and after any write before the next request.
+/// the reply, and after any write before the next request. The defaults are
+/// ddcutil 3.0's (`src/base/parms.h`), the reference for monitor behavior
+/// (docs/tilecast-edge-m9-reuse-review.md §3.2).
 #[derive(Debug, Clone)]
 pub struct Timing {
     pub reply_delay: Duration,
     pub write_delay: Duration,
+    /// Get VCP (write, then read) attempts.
     pub attempts: u32,
+    /// Set VCP (write only) attempts.
+    pub write_attempts: u32,
+    /// Extra delay added after each null reply (a busy display).
+    pub null_backoff: Duration,
 }
 
 impl Default for Timing {
     fn default() -> Self {
-        Self { reply_delay: Duration::from_millis(40), write_delay: Duration::from_millis(50), attempts: 3 }
+        Self {
+            reply_delay: Duration::from_millis(40),
+            write_delay: Duration::from_millis(50),
+            attempts: 10,
+            write_attempts: 4,
+            null_backoff: Duration::from_millis(50),
+        }
     }
 }
 
@@ -75,6 +88,13 @@ pub enum DdcError {
     /// Replies arrived but were never valid (checksum, length or opcode).
     #[error("the display's DDC/CI replies are invalid")]
     BadReply,
+    /// Every reply was a null message: the display stayed busy, or it
+    /// answers an unsupported feature this way.
+    #[error("the display answered every DDC/CI request with a null message")]
+    AllNull,
+    /// Every read returned only zero bytes: usually no DDC/CI on this bus.
+    #[error("the display's DDC/CI replies were all zero")]
+    AllZero,
     #[error("the I2C bus failed")]
     Bus,
 }
@@ -85,6 +105,8 @@ impl DdcError {
             Self::NotResponding => "ddc_ci_not_responding",
             Self::Unsupported => "vcp_feature_unsupported",
             Self::BadReply => "ddc_ci_invalid_reply",
+            Self::AllNull => "ddc_ci_all_responses_null",
+            Self::AllZero => "ddc_ci_all_responses_zero",
             Self::Bus => "i2c_bus_error",
         }
     }
@@ -174,29 +196,47 @@ impl<'a, B: I2cBus + ?Sized> DdcController<'a, B> {
 
     pub fn get(&self, code: u8) -> Result<VcpValue, DdcError> {
         let packet = request(&[GET_VCP, code]);
+        let attempts = self.timing.attempts.max(1);
         let mut last = DdcError::BadReply;
-        for _ in 0..self.timing.attempts.max(1) {
+        let (mut nulls, mut zeros) = (0, 0);
+        let mut backoff = Duration::ZERO;
+        for _ in 0..attempts {
             if let Err(error) = self.bus.write(&packet) {
                 last = DdcError::from_io(&error);
                 std::thread::sleep(self.timing.write_delay);
                 continue;
             }
-            std::thread::sleep(self.timing.reply_delay);
+            std::thread::sleep(self.timing.reply_delay + backoff);
             let mut buffer = [0u8; GET_VCP_REPLY_LEN];
             match self.bus.read(&mut buffer) {
+                Ok(count) if count > 0 && buffer[..count].iter().all(|byte| *byte == 0) => {
+                    zeros += 1;
+                    last = DdcError::BadReply;
+                }
                 Ok(count) => match parse_reply(&buffer[..count]) {
                     Reply::Value { code: answered, unsupported, value } if answered == code => {
                         return if unsupported { Err(DdcError::Unsupported) } else { Ok(value) };
                     }
                     Reply::Value { .. } | Reply::Invalid => last = DdcError::BadReply,
-                    // Busy: ask again after the write delay.
-                    Reply::Null => last = DdcError::BadReply,
+                    // Busy: ask again, a little later each time (ddcutil's
+                    // null-response increment).
+                    Reply::Null => {
+                        nulls += 1;
+                        backoff += self.timing.null_backoff;
+                        last = DdcError::BadReply;
+                    }
                 },
                 Err(error) => last = DdcError::from_io(&error),
             }
             std::thread::sleep(self.timing.write_delay);
         }
-        Err(last)
+        Err(if nulls == attempts {
+            DdcError::AllNull
+        } else if zeros == attempts {
+            DdcError::AllZero
+        } else {
+            last
+        })
     }
 
     /// Writes `value` and reads the feature back. Returns what the display
@@ -205,7 +245,7 @@ impl<'a, B: I2cBus + ?Sized> DdcController<'a, B> {
         let [high, low] = value.to_be_bytes();
         let packet = request(&[SET_VCP, code, high, low]);
         let mut written = Err(DdcError::NotResponding);
-        for _ in 0..self.timing.attempts.max(1) {
+        for _ in 0..self.timing.write_attempts.max(1) {
             written = self.bus.write(&packet).map_err(|e| DdcError::from_io(&e));
             std::thread::sleep(self.timing.write_delay);
             if written.is_ok() {
@@ -249,6 +289,8 @@ pub(crate) mod fake {
         pub busy: RefCell<u32>,
         /// Corrupt every reply's checksum.
         pub corrupt: bool,
+        /// Answer every read with zero bytes, as a bus without DDC/CI can.
+        pub zeros: bool,
         pub pending: RefCell<Option<Vec<u8>>>,
         pub writes: RefCell<Vec<Vec<u8>>>,
     }
@@ -313,7 +355,9 @@ pub(crate) mod fake {
                 return Err(std::io::Error::from_raw_os_error(rustix::io::Errno::NXIO.raw_os_error()));
             }
             let mut busy = self.busy.borrow_mut();
-            let reply = if *busy > 0 {
+            let reply = if self.zeros {
+                vec![0; GET_VCP_REPLY_LEN]
+            } else if *busy > 0 {
                 *busy -= 1;
                 vec![DISPLAY_WRITE_ADDRESS, 0x80, checksum(REPLY_CHECKSUM_SEED, &[DISPLAY_WRITE_ADDRESS, 0x80])]
             } else {
@@ -332,7 +376,22 @@ mod tests {
     use super::*;
 
     fn instant() -> Timing {
-        Timing { reply_delay: Duration::ZERO, write_delay: Duration::ZERO, attempts: 3 }
+        Timing {
+            reply_delay: Duration::ZERO,
+            write_delay: Duration::ZERO,
+            attempts: 3,
+            write_attempts: 3,
+            null_backoff: Duration::ZERO,
+        }
+    }
+
+    #[test]
+    fn defaults_follow_ddcutil() {
+        let timing = Timing::default();
+        assert_eq!((timing.attempts, timing.write_attempts), (10, 4));
+        assert_eq!(timing.reply_delay, Duration::from_millis(40));
+        assert_eq!(timing.write_delay, Duration::from_millis(50));
+        assert_eq!(timing.null_backoff, Duration::from_millis(50));
     }
 
     #[test]
@@ -377,7 +436,17 @@ mod tests {
         *monitor.busy.borrow_mut() = 2;
         assert_eq!(DdcController::new(&monitor, instant()).get(VCP_BRIGHTNESS).map(|v| v.current), Ok(42));
         *monitor.busy.borrow_mut() = 5;
-        assert_eq!(DdcController::new(&monitor, instant()).get(VCP_BRIGHTNESS), Err(DdcError::BadReply));
+        assert_eq!(
+            DdcController::new(&monitor, instant()).get(VCP_BRIGHTNESS),
+            Err(DdcError::AllNull),
+            "a display that stays busy is named as such"
+        );
+    }
+
+    #[test]
+    fn a_bus_that_reads_only_zeros_is_named_as_such() {
+        let monitor = FakeMonitor { zeros: true, ..FakeMonitor::with(&[(VCP_BRIGHTNESS, 42, 100)]) };
+        assert_eq!(DdcController::new(&monitor, instant()).get(VCP_BRIGHTNESS), Err(DdcError::AllZero));
     }
 
     #[test]

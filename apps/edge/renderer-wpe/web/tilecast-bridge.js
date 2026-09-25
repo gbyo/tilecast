@@ -130,6 +130,15 @@
             durationSeconds: data.durationSeconds,
           });
           return true;
+        case "noise.level": {
+          // A derived level from the session bridge, never audio.
+          const rms =
+            typeof data.rms === "number" && Number.isFinite(data.rms)
+              ? Math.min(Math.max(data.rms, 0), 1)
+              : null;
+          emit({ type: "noise-level", rms });
+          return true;
+        }
         case "renderer.command":
           if (data.command === "retry_item")
             emit({ type: "command", command: "retry-item" });
@@ -167,9 +176,9 @@
       setup: !!handlers.tilecastRequest,
       // tilecastd browses Avahi; an empty list is a valid answer.
       discovery: !!handlers.tilecastRequest,
-      // Noise Meter capture moves to a PipeWire provider in tilecastd (M9);
-      // this renderer denies microphone access.
-      noiseMeter: null,
+      // The session bridge measures through PipeWire and tilecastd sends
+      // derived levels; this renderer still denies microphone access.
+      noiseMeter: "host-levels",
     }),
     subscribe(listener) {
       listeners.add(listener);
@@ -219,6 +228,36 @@
       if (report.itemId != null) message.itemId = text(report.itemId, 160);
       post(message);
     },
+    // The Noise Meter's whole outbound surface: a state token, a level and
+    // at most one ten-second aggregate. The host checks every field again.
+    noiseMeter: Object.freeze({
+      report(report) {
+        const finite = (value) =>
+          typeof value === "number" && Number.isFinite(value) ? value : null;
+        const message = {
+          type: "noise.report",
+          status: text(report && report.status, 16),
+        };
+        const level = finite(report && report.level);
+        if (level !== null) message.level = level;
+        const bucket = report && report.bucket;
+        if (bucket && typeof bucket === "object") {
+          message.bucket = {
+            startedAt: text(bucket.startedAt, 40),
+            averageLevel: finite(bucket.averageLevel),
+            peakLevel: finite(bucket.peakLevel),
+            monitoredMs: finite(bucket.monitoredMs),
+            warningMs: finite(bucket.warningMs),
+            loudMs: finite(bucket.loudMs),
+            triggerCount: finite(bucket.triggerCount),
+          };
+        }
+        post(message);
+      },
+      diagnostic(message) {
+        post({ type: "noise.diagnostic", message: text(message, 240) });
+      },
+    }),
     setup: Object.freeze({
       submitServerUrl(url) {
         if (!handlers.tilecastRequest) {

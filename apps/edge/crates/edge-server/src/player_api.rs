@@ -372,3 +372,124 @@ mod preview_tests {
         assert!(String::from_utf8_lossy(&unavailable).contains("unavailable"));
     }
 }
+
+// ------------------------------------------------------------ heartbeat ack
+
+/// What a `POST /player/heartbeat` answer acknowledges.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct HeartbeatAck {
+    /// How many of the heartbeat's Noise Meter history records the server
+    /// stored (`data.noiseHistory.accepted`); `None` when it said nothing.
+    pub noise_history_accepted: Option<u64>,
+}
+
+pub fn heartbeat_ack(data: &Value) -> HeartbeatAck {
+    HeartbeatAck {
+        noise_history_accepted: data
+            .get("noiseHistory")
+            .and_then(|history| history.get("accepted"))
+            .and_then(Value::as_u64),
+    }
+}
+
+// ------------------------------------------------------ Presentation Network
+
+/// Largest provisioning answer: the profile plus a CA certificate of at most
+/// 32 KiB (the server's own bound).
+pub const MAX_PROVISIONING_BYTES: usize = 64 * 1024;
+const MAX_CA_CERTIFICATE_BYTES: usize = 32 * 1024;
+
+/// The assigned Wi-Fi profile with its credential, from
+/// `GET /player/presentation-network`. It exists for one helper install call:
+/// it is never stored, never logged (its `Debug` omits the secret) and never
+/// sent over local IPC.
+#[derive(Clone, PartialEq, Eq)]
+pub struct NetworkProvisioning {
+    /// Lowercase canonical UUID.
+    pub network_id: String,
+    pub name: String,
+    pub ssid: String,
+    pub hidden: bool,
+    /// `wpa_psk` or `wpa_eap_peap_mschapv2`.
+    pub security: &'static str,
+    pub config_revision: i64,
+    pub identity: String,
+    pub anonymous_identity: String,
+    pub domain_suffix_match: String,
+    pub ca_certificate_pem: String,
+    secret: String,
+}
+
+impl std::fmt::Debug for NetworkProvisioning {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NetworkProvisioning")
+            .field("network_id", &self.network_id)
+            .field("config_revision", &self.config_revision)
+            .field("security", &self.security)
+            .field("secret", &"<redacted>")
+            .finish_non_exhaustive()
+    }
+}
+
+impl NetworkProvisioning {
+    /// The Wi-Fi credential, for the helper's install request only.
+    pub fn secret(&self) -> &str {
+        &self.secret
+    }
+}
+
+pub fn is_uuid(value: &str) -> bool {
+    value.len() == 36
+        && value.bytes().enumerate().all(|(index, byte)| match index {
+            8 | 13 | 18 | 23 => byte == b'-',
+            _ => byte.is_ascii_hexdigit(),
+        })
+}
+
+pub fn network_security(value: &str) -> Option<&'static str> {
+    match value {
+        "wpa_psk" => Some("wpa_psk"),
+        "wpa_eap_peap_mschapv2" => Some("wpa_eap_peap_mschapv2"),
+        _ => None,
+    }
+}
+
+fn bounded_text(value: Option<&Value>, max_chars: usize) -> Option<String> {
+    match value {
+        None | Some(Value::Null) => Some(String::new()),
+        Some(Value::String(text)) if text.chars().count() <= max_chars => Some(text.clone()),
+        _ => None,
+    }
+}
+
+/// The reference player's `parsePresentationNetworkProvisioning`: anything
+/// unexpected refuses the whole answer rather than being coerced.
+pub fn network_provisioning(data: &Value) -> Option<NetworkProvisioning> {
+    let id = data.get("presentationNetworkId")?.as_str().filter(|id| is_uuid(id))?.to_ascii_lowercase();
+    let ssid = data.get("ssid")?.as_str().filter(|ssid| !ssid.is_empty() && ssid.chars().count() <= 32)?;
+    let security = network_security(data.get("security")?.as_str()?)?;
+    let config_revision = data.get("configRevision")?.as_i64().filter(|revision| *revision >= 1)?;
+    let secret = data.get("secret")?.as_str().filter(|s| !s.is_empty() && s.chars().count() <= 128)?;
+    let auth = match data.get("auth") {
+        None | Some(Value::Null) => serde_json::Map::new(),
+        Some(Value::Object(auth)) => auth.clone(),
+        Some(_) => return None,
+    };
+    let certificate = bounded_text(auth.get("caCertificatePem"), MAX_CA_CERTIFICATE_BYTES)?;
+    if certificate.len() > MAX_CA_CERTIFICATE_BYTES {
+        return None;
+    }
+    Some(NetworkProvisioning {
+        network_id: id,
+        name: bounded_text(data.get("name"), 120)?,
+        ssid: ssid.to_owned(),
+        hidden: data.get("hidden").and_then(Value::as_bool).unwrap_or(false),
+        security,
+        config_revision,
+        identity: bounded_text(auth.get("identity"), 253)?,
+        anonymous_identity: bounded_text(auth.get("anonymousIdentity"), 253)?,
+        domain_suffix_match: bounded_text(auth.get("domainSuffixMatch"), 253)?,
+        ca_certificate_pem: certificate,
+        secret: secret.to_owned(),
+    })
+}

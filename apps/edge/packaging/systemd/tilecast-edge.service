@@ -13,6 +13,9 @@ Type=notify
 NotifyAccess=main
 User=tilecast
 Group=tilecast
+# HDMI-CEC and DDC/CI device nodes (udev/70-tilecast-display.rules). Only
+# this unit gets the group; the renderer and session bridge do not.
+SupplementaryGroups=tilecast-display
 ExecStartPre=/opt/tilecast-edge/current/bin/tilecastd check-config
 ExecStart=/opt/tilecast-edge/current/bin/tilecastd run
 Restart=always
@@ -30,11 +33,15 @@ RuntimeDirectoryMode=0750
 RuntimeDirectoryPreserve=restart
 UMask=0077
 
-# Hardening. The daemon needs no device access yet; CEC, DDC/I2C and input
-# providers will add explicit DeviceAllow= entries and groups when they land,
-# after a capability-matrix test (docs/tilecast-edge.md §4.3). The legacy home
-# directory is never visible here: tilecast-edge-migrate copies the legacy
-# state for tilecast-edge-import.service.
+# Hardening. The only devices the daemon may open are HDMI-CEC adapters and
+# I2C buses for DDC/CI (docs/tilecast-edge.md §4.3); udev gives the display
+# adapters' nodes to tilecast-display, and the device cgroup refuses every
+# other node. The legacy home directory is never visible here:
+# tilecast-edge-migrate copies the legacy state for
+# tilecast-edge-import.service.
+DevicePolicy=closed
+DeviceAllow=char-cec rw
+DeviceAllow=char-i2c rw
 NoNewPrivileges=yes
 CapabilityBoundingSet=
 AmbientCapabilities=

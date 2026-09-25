@@ -60,7 +60,13 @@ impl IpcHandler for DaemonIpc {
     }
 
     async fn session_opened(&self, session: SessionHandle) {
+        if session.role() == Role::SessionBridge {
+            self.context.audio.bridge_connected(session);
+            self.context.audio_wake.notify_one();
+            return;
+        }
         if session.role() == Role::Renderer {
+            self.context.audio.renderer_reset();
             let peer = session.peer();
             if let Some(pid) = peer.pid
                 && let Some(start_ticks) = process_start_ticks(pid)
@@ -80,6 +86,35 @@ impl IpcHandler for DaemonIpc {
 
     async fn event(&self, session: &SessionHandle, event: Event) {
         let now = self.context.now();
+        match event {
+            Event::AudioLevel(level) => {
+                match self.context.audio.level(level, std::time::Instant::now()) {
+                    crate::audio::LevelOutcome::Forward(rms) => {
+                        self.context.presentation.lock().await.send_noise_level(rms);
+                    }
+                    crate::audio::LevelOutcome::Dropped => {}
+                    crate::audio::LevelOutcome::Violation(reason) => {
+                        tracing::warn!(component = "audio", event = "bridge_violation", reason);
+                        session.close(reason);
+                    }
+                }
+                return;
+            }
+            Event::AudioInventory(inventory) => {
+                if self.context.audio.inventory(inventory) {
+                    self.context.audio_wake.notify_one();
+                }
+                return;
+            }
+            Event::NoiseReport(report) => {
+                if let Some(bucket) = self.context.audio.noise_report(report, std::time::Instant::now()) {
+                    crate::audio::store_bucket(&self.context, bucket).await;
+                }
+                self.context.audio_wake.notify_one();
+                return;
+            }
+            _ => {}
+        }
         let mut engine = self.context.presentation.lock().await;
         match event {
             Event::RendererReady(ready) => engine.renderer_ready(session, ready, now.unix_millis()),
@@ -193,7 +228,14 @@ impl IpcHandler for DaemonIpc {
     }
 
     async fn session_closed(&self, session: &SessionHandle, _reason: &str) {
+        if session.role() == Role::SessionBridge {
+            self.context.audio.bridge_disconnected(session);
+            self.context.audio_wake.notify_one();
+            return;
+        }
         if session.role() == Role::Renderer {
+            self.context.audio.renderer_reset();
+            self.context.audio_wake.notify_one();
             if let Ok(mut registry) = self.context.media_registry.lock() {
                 registry.unbind_renderer(session.id());
             }

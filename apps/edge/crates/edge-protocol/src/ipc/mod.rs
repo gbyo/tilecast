@@ -1,8 +1,8 @@
 //! Tilecast Edge local IPC, protocol version 1.
 //!
 //! This is the contract between `tilecastd` and local clients: the WPE
-//! renderer (`tilecast-renderer-wpe`), `tilecastctl`, and later a user-session
-//! bridge. It is renderer-engine neutral; nothing here is WPE-specific.
+//! renderer (`tilecast-renderer-wpe`), `tilecastctl`, and the user-session
+//! bridge (`tilecast-session-bridge`). It is renderer-engine neutral; nothing here is WPE-specific.
 //!
 //! # Transport
 //!
@@ -100,8 +100,9 @@ pub enum Role {
     Renderer,
     /// The local administration CLI.
     Tilecastctl,
-    /// Reserved for a future user-session bridge (PipeWire).
-    /// Rejected with `role_not_enabled` until implemented.
+    /// `tilecast-session-bridge`, the user-session PipeWire bridge: audio
+    /// inventory and derived Noise Meter levels, never audio. Only the
+    /// daemon's own account may take it.
     SessionBridge,
 }
 

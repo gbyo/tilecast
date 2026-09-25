@@ -9,7 +9,7 @@ with a throwaway key.
 
 Usage:
   stage-release.py --out DIR --version X.Y.Z --bin-dir DIR --renderer PATH
-                   --gst-plugin-dir DIR --runtime-dir DIR --sbom PATH
+                   --session-bridge PATH --gst-plugin-dir DIR --runtime-dir DIR --sbom PATH
                    --wpe-version V --base-distribution NAME
                    [--wpe-lib-dir DIR]
 """
@@ -34,6 +34,13 @@ UNITS = [
     "tilecast-renderer-probe.service",
     "tilecast-edge-compat.service",
     "tilecast-edge-import.service",
+]
+USER_UNITS = ["tilecast-session-bridge.service", "tilecast-session-bridge.path"]
+SYSTEM_FILES = [
+    ("sysusers.d/tilecast-edge.conf", "packaging/sysusers.d/tilecast-edge.conf"),
+    ("tmpfiles.d/tilecast-edge.conf", "packaging/tmpfiles.d/tilecast-edge.conf"),
+    ("udev/70-tilecast-display.rules", "packaging/udev/70-tilecast-display.rules"),
+    ("modules-load.d/tilecast-edge.conf", "packaging/modules-load.d/tilecast-edge.conf"),
 ]
 
 
@@ -103,7 +110,8 @@ def self_test_fixture(out):
 
 def main():
     parser = argparse.ArgumentParser()
-    for name in ("--out", "--version", "--bin-dir", "--renderer", "--gst-plugin-dir", "--runtime-dir", "--sbom",
+    for name in ("--out", "--version", "--bin-dir", "--renderer", "--session-bridge", "--gst-plugin-dir",
+                 "--runtime-dir", "--sbom",
                  "--wpe-version", "--base-distribution"):
         parser.add_argument(name, required=True)
     parser.add_argument("--wpe-lib-dir", help="a private WPE WebKit build to carry under lib/wpe")
@@ -116,6 +124,7 @@ def main():
     for name in ("tilecastd", "tilecastctl", "tilecast-edge-migrate"):
         copy(os.path.join(args.bin_dir, name), out, f"bin/{name}", 0o755)
     copy(args.renderer, out, "bin/tilecast-renderer-wpe", 0o755)
+    copy(args.session_bridge, out, "bin/tilecast-session-bridge", 0o755)
     copy(os.path.join(args.gst_plugin_dir, "libgsttcmedia.so"), out, "lib/gstreamer-1.0/libgsttcmedia.so", 0o644)
     for root, _, names in os.walk(args.runtime_dir):
         for name in names:
@@ -126,10 +135,10 @@ def main():
         copy_wpe(args.wpe_lib_dir, out)
     for unit in UNITS:
         copy(os.path.join(EDGE, "packaging", "systemd", unit), out, f"packaging/systemd/{unit}", 0o644)
-    copy(os.path.join(EDGE, "packaging", "sysusers.d", "tilecast-edge.conf"), out,
-         "packaging/sysusers.d/tilecast-edge.conf", 0o644)
-    copy(os.path.join(EDGE, "packaging", "tmpfiles.d", "tilecast-edge.conf"), out,
-         "packaging/tmpfiles.d/tilecast-edge.conf", 0o644)
+    for unit in USER_UNITS:
+        copy(os.path.join(EDGE, "packaging", "systemd-user", unit), out, f"packaging/systemd-user/{unit}", 0o644)
+    for source, target in SYSTEM_FILES:
+        copy(os.path.join(EDGE, "packaging", source), out, target, 0o644)
     copy(args.sbom, out, "share/doc/tilecast-edge/sbom.cdx.json", 0o644)
     self_test_fixture(out)
 

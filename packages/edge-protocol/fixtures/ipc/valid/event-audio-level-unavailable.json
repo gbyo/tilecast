@@ -1,0 +1,11 @@
+{
+  "frame": {
+    "type": "event",
+    "seq": 2,
+    "event": "audio.level",
+    "data": {
+      "rms": null,
+      "state": "pipewire_unavailable"
+    }
+  }
+}
