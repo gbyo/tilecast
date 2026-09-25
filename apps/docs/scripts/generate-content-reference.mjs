@@ -67,11 +67,11 @@ The detailed Widget and Data Source authoring guides are intentionally kept sepa
 | --- | --- | --- | --- | --- | --- |
 ${rows(widgets, [
   ["Name", (d) => d.name],
-  ["ID", (d) => \`\`\${d.id}\`\`],
+  ["ID", (d) => "`" + d.id + "`"],
   ["Kind", (d) => d.kind || "widget"],
   ["Category", (d) => d.category],
   ["Runtime", (d) => d.runtime],
-  ["Source", (d) => \`\`\${d.source}\`\`],
+  ["Source", (d) => "`" + d.source + "`"],
 ])}
 
 ## Data Source definitions
@@ -80,11 +80,11 @@ ${rows(widgets, [
 | --- | --- | --- | --- | --- | --- |
 ${rows(dataSources, [
   ["Name", (d) => d.name],
-  ["ID", (d) => \`\`\${d.id}\`\`],
+  ["ID", (d) => "`" + d.id + "`"],
   ["Category", (d) => d.category],
   ["Output", (d) => d.outputSchema?.kind || ""],
   ["Adapter", (d) => d.adapterId || "legacy"],
-  ["Source", (d) => \`\`\${d.source}\`\`],
+  ["Source", (d) => "`" + d.source + "`"],
 ])}
 
 ## Keep this page current
