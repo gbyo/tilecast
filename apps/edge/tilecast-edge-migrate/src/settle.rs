@@ -167,6 +167,7 @@ pub(crate) mod tests {
             systemd_watchdog: true,
             last_legacy_import: ShortToken::new("completed").ok(),
             pairing: None,
+            outbox: None,
             presentation: Some(PresentationStatus {
                 source: ShortToken::new("server_manifest").unwrap(),
                 generation: 3,

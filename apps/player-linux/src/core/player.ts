@@ -27,7 +27,11 @@ import { ApiClient, ApiError, NetworkError } from "./api";
 import { ActivityReporter } from "./activity";
 import {
   PlaybackSessionTracker,
-  type TerminalReason,
+  applyRendererEvent,
+  playbackFailureEvent,
+  presentationContextFor,
+  replacementReasonFor,
+  stopForState,
 } from "./activity-sessions";
 import {
   TelemetryReporter,
@@ -1529,16 +1533,18 @@ export class PlayerRuntime {
             });
         }
       }
-      if (itemId) this.sessions?.startContent(this.contentContextFor(itemId));
+      if (this.sessions) {
+        applyRendererEvent(this.sessions, kind, itemId, this.presentedItems);
+      }
       return;
     }
     this.currentItemId = itemId;
-    if (kind === "widget-empty") {
-      this.sessions?.finishContent("skipped", "empty_content");
-      return;
+    if (kind === "widget-empty" || kind === "item-transition") {
+      if (this.sessions) {
+        applyRendererEvent(this.sessions, kind, itemId, this.presentedItems);
+      }
     }
     if (kind === "item-transition") {
-      this.sessions?.finishContent("completed", "expected_item_boundary");
       this.onItemBoundary();
     }
   }
@@ -1678,19 +1684,6 @@ export class PlayerRuntime {
     };
   }
 
-  /** Describes the item now rendering, so its session carries its identity. */
-  private contentContextFor(itemId: string) {
-    const item = this.presentedItems.find(
-      (candidate) => candidate.id === itemId,
-    );
-    return {
-      contentId: itemId,
-      contentType: item?.kind ?? "media",
-      playlistItemId: itemId,
-      expectedDurationMs: item?.durationMs ?? undefined,
-    };
-  }
-
   onPlaybackError(itemId: string | null, message: string): void {
     this.lastPlaybackError = message.slice(0, 240);
     log.warn("playback error reported", { itemId, message });
@@ -1700,16 +1693,13 @@ export class PlayerRuntime {
       code: "renderer_failure",
       message,
     });
-    void this.activity?.record({
-      eventType: "renderer.failure",
-      category: "playback",
-      severity: "error",
-      result: "failed",
-      contentId: itemId ?? undefined,
-      failureCode: "renderer_failure",
-      failureMessage: message,
-      manifestVersion: this.activeManifest?.manifestVersion,
-    });
+    void this.activity?.record(
+      playbackFailureEvent(
+        itemId,
+        message,
+        this.activeManifest?.manifestVersion,
+      ),
+    );
   }
 
   onWebsiteRecovered(): void {
@@ -1747,10 +1737,8 @@ export class PlayerRuntime {
       this.renderProgress = onPlaybackIdle(this.renderProgress, Date.now());
       // Nothing is playing any more, so the root session ends here rather than
       // being left open for the server's bounded timeout to guess at.
-      this.sessions?.stopPresentation(
-        next.state === "safe-mode" ? "recovery_action" : "schedule_transition",
-        next.state === "safe-mode" ? "failed" : "partial",
-      );
+      const stop = stopForState(next.state);
+      this.sessions?.stopPresentation(stop.reason, stop.result);
       this.host.present(next);
     }
   }
@@ -1762,29 +1750,14 @@ export class PlayerRuntime {
    * and truncate its measured duration.
    */
   private openPresentationSession(next: Presentation & { state: "playing" }) {
-    const selection = this.selection;
-    const presentationId =
-      selection?.layoutId ?? selection?.playlistId ?? next.items[0]?.id ?? "";
     this.sessions?.startPresentation(
-      {
-        key: `${selection?.source ?? ""}:${presentationId}:${this.activeManifest?.manifestVersion ?? ""}`,
-        presentationType: selection?.layoutId ? "layout" : "playlist",
-        presentationId,
-        trigger: selection?.source,
-        scheduleId: selection?.scheduleId ?? undefined,
-        takeoverId: selection?.takeoverId ?? undefined,
-        manifestVersion: this.activeManifest?.manifestVersion,
-      },
-      this.replacementReason(),
+      presentationContextFor(
+        this.selection,
+        this.activeManifest?.manifestVersion,
+        next.items[0]?.id,
+      ),
+      replacementReasonFor(this.selection),
     );
-  }
-
-  /** Why the outgoing presentation is being replaced, from what selected it. */
-  private replacementReason(): TerminalReason {
-    if (this.selection?.takeoverId) return "takeover";
-    if (this.selection?.scheduleId) return "schedule_transition";
-    if (this.selection?.source === "direct") return "direct_assignment_change";
-    return "manifest_replacement";
   }
   private lastPresentedKey = "";
 

@@ -116,6 +116,10 @@ pub struct DaemonContext {
     /// Set by `restart_player_process` before it cancels the daemon.
     pub restart_requested: std::sync::atomic::AtomicBool,
     pub shutdown: CancellationToken,
+    /// Activity signals for the activity task (M8).
+    pub activity: crate::activity::Handle,
+    /// Asks the activity task to flush the outbox now.
+    pub report_wake: tokio::sync::Notify,
 }
 
 impl DaemonContext {
@@ -192,6 +196,7 @@ pub struct Daemon {
     context: Arc<DaemonContext>,
     ipc: IpcServer,
     media: Option<MediaChannel>,
+    activity_signals: tokio::sync::mpsc::Receiver<crate::activity::Signal>,
 }
 
 impl std::fmt::Debug for Daemon {
@@ -233,13 +238,15 @@ impl Daemon {
             ..SupervisorConfig::default()
         };
         let media_registry = Arc::new(std::sync::Mutex::new(MediaRegistry::new()));
-        let presentation = PresentationEngine::new(
+        let (activity, activity_signals) = crate::activity::Handle::channel();
+        let mut presentation = PresentationEngine::new(
             &media_channel::socket_path(&paths.runtime_dir),
             media_registry.clone(),
             kiosk,
             supervisor,
             now.unix_millis(),
         );
+        presentation.set_activity(activity.clone());
 
         let mut registry = CapabilityRegistry::new();
         registry.register(Arc::new(SystemdProvider {
@@ -317,6 +324,8 @@ impl Daemon {
             pairing_renewal: std::sync::Mutex::new(None),
             restart_requested: std::sync::atomic::AtomicBool::new(false),
             shutdown: CancellationToken::new(),
+            activity,
+            report_wake: tokio::sync::Notify::new(),
         });
 
         let bound_record = match context.db() {
@@ -365,7 +374,7 @@ impl Daemon {
                 .with_context(|| format!("binding {}", path.display()))
             })
             .transpose()?;
-        Ok(Self { context, ipc, media })
+        Ok(Self { context, ipc, media, activity_signals })
     }
 
     pub fn context(&self) -> &Arc<DaemonContext> {
@@ -401,6 +410,8 @@ impl Daemon {
         tasks.spawn(server_link::run(Arc::clone(&context)));
         tasks.spawn(crate::commands::run(Arc::clone(&context)));
         tasks.spawn(crate::pairing::run(Arc::clone(&context)));
+        tasks.spawn(crate::activity::run(Arc::clone(&context), self.activity_signals));
+        tasks.spawn(crate::telemetry::run(Arc::clone(&context)));
 
         let status = ready_status(&context);
         context.notifier.ready(&status);

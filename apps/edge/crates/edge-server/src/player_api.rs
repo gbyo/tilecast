@@ -196,3 +196,71 @@ mod tests {
         );
     }
 }
+
+/// The server's Activity batch bound (`activity_ingest.go`).
+pub const MAX_ACTIVITY_BATCH: usize = 200;
+
+/// What the server did with an Activity batch.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ActivityBatchOutcome {
+    /// Every event was taken (accepted or a duplicate of one already held).
+    Taken { acknowledged: Vec<uuid::Uuid> },
+    /// The event at this index (0-based) is invalid; the server took nothing.
+    InvalidEvent(usize),
+    /// The batch was refused without naming an event.
+    Refused,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TelemetryOutcome {
+    Accepted,
+    /// The sample is outside the server's window or invalid; never resend it.
+    Refused,
+}
+
+pub(crate) fn activity_acknowledgement(data: &Value) -> Option<ActivityBatchOutcome> {
+    let ids = data.get("acknowledgedEventIds")?.as_array()?;
+    let acknowledged = ids.iter().take(MAX_ACTIVITY_BATCH).filter_map(|v| v.as_str()?.parse().ok()).collect();
+    Some(ActivityBatchOutcome::Taken { acknowledged })
+}
+
+/// The server names an invalid event as `Event N: ...` (1-based).
+pub(crate) fn activity_refusal(error: &crate::client::ServerError) -> ActivityBatchOutcome {
+    if let crate::client::ServerError::Api { code, message, .. } = error
+        && code == "player_activity_event_invalid"
+        && let Some(index) = message
+            .strip_prefix("Event ")
+            .and_then(|rest| rest.split(':').next())
+            .and_then(|n| n.parse::<usize>().ok())
+            .filter(|n| (1..=MAX_ACTIVITY_BATCH).contains(n))
+    {
+        return ActivityBatchOutcome::InvalidEvent(index - 1);
+    }
+    ActivityBatchOutcome::Refused
+}
+
+#[cfg(test)]
+mod activity_tests {
+    use super::*;
+    use crate::client::ServerError;
+
+    #[test]
+    fn a_refusal_names_the_invalid_event() {
+        let api =
+            |code: &str, message: &str| ServerError::Api { status: 422, code: code.into(), message: message.into() };
+        assert_eq!(
+            activity_refusal(&api("player_activity_event_invalid", "Event 3: eventType is invalid")),
+            ActivityBatchOutcome::InvalidEvent(2)
+        );
+        assert_eq!(
+            activity_refusal(&api("player_activity_event_invalid", "Event 0: x")),
+            ActivityBatchOutcome::Refused
+        );
+        assert_eq!(activity_refusal(&api("player_activity_batch_invalid", "")), ActivityBatchOutcome::Refused);
+        let id = uuid::Uuid::new_v4();
+        assert_eq!(
+            activity_acknowledgement(&serde_json::json!({"accepted": 1, "acknowledgedEventIds": [id.to_string()]})),
+            Some(ActivityBatchOutcome::Taken { acknowledged: vec![id] })
+        );
+    }
+}

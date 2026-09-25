@@ -25,6 +25,8 @@
 //!   projection into the renderer contract.
 //! * [`schedule`] — offline schedule and availability selection.
 //! * [`activation`] — what the renderer shows, and evidence-gated promotion.
+//! * [`activity`], [`telemetry`] — proof of play and telemetry through the
+//!   bounded outbox.
 //! * [`media`], [`media_channel`] — renderer media capabilities.
 //! * [`pairing`], [`discovery`] — pairing a fresh installation and finding
 //!   servers on the LAN through Avahi.
@@ -33,6 +35,7 @@
 //! * [`self_test`] — the release self-test host.
 
 pub mod activation;
+pub mod activity;
 pub mod capabilities;
 pub mod command_handlers;
 pub mod commands;
@@ -56,3 +59,4 @@ pub mod schedule;
 pub mod self_test;
 pub mod server_link;
 pub mod supervisor;
+pub mod telemetry;

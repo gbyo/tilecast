@@ -101,6 +101,24 @@ pub struct DaemonStatus {
     /// migrator's settlement reads this; systemd unit states never replace it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub presentation: Option<PresentationStatus>,
+    /// Activity and telemetry reports waiting for the server (M8).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outbox: Option<OutboxStatus>,
+}
+
+/// The bounded report outbox: what waits, and what was lost and why.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct OutboxStatus {
+    pub queued_activity: u64,
+    pub queued_telemetry: u64,
+    /// Dropped oldest-first because the outbox was full.
+    pub dropped_activity: u64,
+    pub dropped_telemetry: u64,
+    /// Refused by the server as invalid; never retried.
+    pub rejected: u64,
+    /// Telemetry older than the server's reporting window.
+    pub expired: u64,
 }
 
 /// What the screen shows now, and the evidence for it.

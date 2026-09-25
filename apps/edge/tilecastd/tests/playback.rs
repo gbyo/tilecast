@@ -125,6 +125,14 @@ struct FakeServer {
     /// Keep offering a command after its result, as when a result report
     /// never reached the server.
     lose_results: AtomicBool,
+    /// Activity events the server took, once each (deduplicated by `id`).
+    activity: Mutex<Vec<Value>>,
+    /// Batches that repeated an event the server already held.
+    activity_duplicates: AtomicUsize,
+    /// Refuse any batch holding an event of this type, as the server
+    /// refuses an invalid event.
+    refuse_event_type: Mutex<Option<String>>,
+    telemetry: Mutex<Vec<Value>>,
 }
 
 impl FakeServer {
@@ -150,7 +158,15 @@ impl FakeServer {
             commands: Mutex::new(Vec::new()),
             command_results: Mutex::new(Vec::new()),
             lose_results: AtomicBool::new(false),
+            activity: Mutex::new(Vec::new()),
+            activity_duplicates: AtomicUsize::new(0),
+            refuse_event_type: Mutex::new(None),
+            telemetry: Mutex::new(Vec::new()),
         })
+    }
+
+    fn events_of(&self, event_type: &str) -> Vec<Value> {
+        self.activity.lock().unwrap().iter().filter(|e| e["eventType"] == event_type).cloned().collect()
     }
 
     fn set_config(&self, config: Value) {
@@ -222,6 +238,46 @@ async fn handle(fake: Arc<FakeServer>, request: Request<Body>) -> Result<Out, st
         return Ok(status(StatusCode::UNAUTHORIZED, "device_credential_invalid"));
     }
     match path.as_str() {
+        "/api/v1/player/activity-events" => {
+            let bytes = request.into_body().collect().await.map_err(std::io::Error::other)?.to_bytes();
+            let batch: Value = serde_json::from_slice(&bytes).map_err(std::io::Error::other)?;
+            let events = batch["events"].as_array().cloned().unwrap_or_default();
+            if events.is_empty() || events.len() > 200 {
+                return Ok(status(StatusCode::UNPROCESSABLE_ENTITY, "player_activity_batch_invalid"));
+            }
+            let refused = fake.refuse_event_type.lock().unwrap().clone();
+            for (index, event) in events.iter().enumerate() {
+                let valid = event["id"].as_str().is_some_and(|id| id.parse::<uuid::Uuid>().is_ok())
+                    && event["sequence"].as_i64().is_some_and(|s| s > 0)
+                    && event["occurredAt"].is_string()
+                    && event["eventType"].is_string()
+                    && refused.as_deref() != event["eventType"].as_str();
+                if !valid {
+                    let text = json!({"error": {"code": "player_activity_event_invalid",
+                        "message": format!("Event {}: eventType is invalid", index + 1)}});
+                    let mut response = Response::new(body(Bytes::from(text.to_string())));
+                    *response.status_mut() = StatusCode::UNPROCESSABLE_ENTITY;
+                    return Ok(response);
+                }
+            }
+            let mut held = fake.activity.lock().unwrap();
+            let mut acknowledged = vec![];
+            for event in events {
+                acknowledged.push(event["id"].clone());
+                if held.iter().any(|e| e["id"] == event["id"]) {
+                    fake.activity_duplicates.fetch_add(1, Ordering::SeqCst);
+                } else {
+                    held.push(event);
+                }
+            }
+            Ok(data(json!({"accepted": acknowledged.len(), "acknowledgedEventIds": acknowledged})))
+        }
+        "/api/v1/player/telemetry" => {
+            let bytes = request.into_body().collect().await.map_err(std::io::Error::other)?.to_bytes();
+            let sample: Value = serde_json::from_slice(&bytes).map_err(std::io::Error::other)?;
+            fake.telemetry.lock().unwrap().push(sample);
+            Ok(data(json!({"accepted": true})))
+        }
         "/api/v1/player/heartbeat" => {
             let body = request.into_body().collect().await.unwrap().to_bytes();
             fake.heartbeats.lock().unwrap().push(serde_json::from_slice(&body).unwrap());
@@ -2038,8 +2094,9 @@ async fn a_stale_persisted_server_offset_gives_way_to_the_next_sample() {
     let sampled = offset().await;
     assert!(sampled.server_clock_synchronized_at.unwrap().unix_millis() > now_ms() - 60_000);
 
-    // Samples within 250 ms of a fresh offset are not written again.
-    harness.fake.server_clock_ahead_ms.store(1_600, Ordering::SeqCst);
+    // Repeated samples of an unchanged server clock are not written again.
+    // (The exact 250 ms rule is `server_link`'s unit test; a scripted small
+    // change here would be at the mercy of round-trip jitter under load.)
     tokio::time::sleep(Duration::from_secs(2)).await;
     assert_eq!(offset().await.server_clock_synchronized_at, sampled.server_clock_synchronized_at);
     renderer.stop();
@@ -2217,6 +2274,159 @@ async fn quick_present_replaces_and_then_restores_the_assignment() {
     assert_eq!(heartbeat(&player.context).await["selectionSource"], "quick_present");
     wait_long("the assignment to return", 30, async || renderer.last().is_some_and(|a| shows(&a, &first))).await;
     assert_eq!(heartbeat(&player.context).await["selectionSource"], "direct_fallback");
+    renderer.stop();
+    player.stop().await;
+}
+
+// ------------------------------------------------------------ M8 activity
+
+/// Flushes the outbox until `check` holds.
+async fn reported(player: &Player, what: &str, check: impl Fn() -> bool) {
+    wait_long(what, 30, async || {
+        player.context.report_wake.notify_one();
+        tokio::time::sleep(Duration::from_millis(150)).await;
+        check()
+    })
+    .await;
+}
+
+async fn outbox(player: &Player) -> edge_protocol::ipc::status::OutboxStatus {
+    tilecastd::ipc_handler::DaemonIpc::new(Arc::clone(&player.context)).status().await.outbox.expect("outbox status")
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn proof_of_play_is_queued_through_an_outage_and_sent_once() {
+    let harness = Harness::new().await;
+    let image = Asset::new("pop", "image/png");
+    let (player, renderer) = harness.committed(&image, 3).await;
+    let fake = &harness.fake;
+    reported(&player, "the presentation and item starts", || {
+        !fake.events_of("presentation.started").is_empty() && !fake.events_of("content.started").is_empty()
+    })
+    .await;
+    let started = &fake.events_of("presentation.started")[0];
+    assert_eq!(started["sessionType"], "presentation");
+    assert_eq!(started["trigger"], "direct");
+    assert_eq!(started["manifestVersion"], 3);
+    assert_eq!(started["presentationType"], "playlist");
+    let content = &fake.events_of("content.started")[0];
+    assert_eq!(content["parentActivitySessionId"], started["activitySessionId"]);
+    assert_eq!(content["contentType"], "image");
+    assert!(content["occurredAt"].is_string() && content["playerTimezone"].is_string());
+
+    // An outage: the item boundary and the next start wait in the outbox.
+    fake.link.store(LINK_REFUSED, Ordering::SeqCst);
+    let activation = renderer.last().unwrap();
+    let (item, _) = first_item(&activation).unwrap();
+    renderer.evidence(&activation, EvidenceKind::ItemTransition, Some(&item)).await;
+    renderer.evidence(&activation, EvidenceKind::ItemStarted, Some(&item)).await;
+    let before = fake.activity.lock().unwrap().len();
+    wait_long("the outbox to hold the boundary", 10, async || {
+        player.context.report_wake.notify_one();
+        tokio::time::sleep(Duration::from_millis(150)).await;
+        outbox(&player).await.queued_activity >= 2
+    })
+    .await;
+    assert_eq!(fake.activity.lock().unwrap().len(), before, "nothing reached the server");
+
+    // The server comes back: the queued events arrive once, in order.
+    fake.link.store(LINK_UP, Ordering::SeqCst);
+    reported(&player, "the queued boundary", || {
+        fake.events_of("content.completed").iter().any(|e| e["terminalReason"] == "expected_item_boundary")
+    })
+    .await;
+    let events = fake.activity.lock().unwrap().clone();
+    let sequences: Vec<i64> = events.iter().map(|e| e["sequence"].as_i64().unwrap()).collect();
+    assert!(sequences.windows(2).all(|w| w[0] < w[1]), "sequences ascend: {sequences:?}");
+    let completed = fake.events_of("content.completed");
+    assert_eq!(completed[0]["activitySessionId"], content["activitySessionId"], "the end repeats the start's session");
+    assert_eq!(outbox(&player).await.queued_activity, 0);
+
+    // An event the server refuses is dropped and counted; the rest still
+    // arrive, so one bad event can never block the outbox.
+    *fake.refuse_event_type.lock().unwrap() = Some("content.started".into());
+    renderer.evidence(&activation, EvidenceKind::ItemTransition, Some(&item)).await;
+    renderer.evidence(&activation, EvidenceKind::ItemStarted, Some(&item)).await;
+    renderer.evidence(&activation, EvidenceKind::WidgetEmpty, Some(&item)).await;
+    reported(&player, "the events around a refused one", || fake.events_of("content.skipped").len() == 1).await;
+    assert_eq!(outbox(&player).await.rejected, 1);
+    *fake.refuse_event_type.lock().unwrap() = None;
+
+    // A clean stop closes what is on screen and flushes.
+    renderer.stop();
+    player.stop().await;
+    let stopped = fake.events_of("presentation.stopped");
+    assert_eq!(stopped.last().unwrap()["terminalReason"], "process_exit");
+    assert_eq!(fake.activity_duplicates.load(Ordering::SeqCst), 0, "no event was sent twice");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn sessions_open_at_a_crash_are_closed_as_player_restart_at_the_next_start() {
+    let harness = Harness::new().await;
+    let image = Asset::new("crash", "image/png");
+    let (player, renderer) = committed_killable(&harness, &image, 5, Environment::default()).await;
+    let fake = &harness.fake;
+    reported(&player, "the open sessions", || !fake.events_of("content.started").is_empty()).await;
+    let root = fake.events_of("presentation.started")[0]["activitySessionId"].clone();
+    // Let the activity task record that the daemon is alive, then crash.
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    renderer.stop();
+    player.kill();
+
+    let player = harness.start().await;
+    let renderer = FakeRenderer::connect(&player.socket, Evidence::Auto).await;
+    reported(&player, "the sessions the crash left open", || {
+        fake.events_of("presentation.stopped").iter().any(|e| e["activitySessionId"] == root)
+    })
+    .await;
+    let closed = fake.events_of("presentation.stopped");
+    let closed = closed.iter().find(|e| e["activitySessionId"] == root).unwrap();
+    assert_eq!(closed["terminalReason"], "player_restart");
+    assert!(closed["durationMs"].as_i64().unwrap() >= 0);
+    assert!(fake.events_of("content.completed").iter().any(|e| e["terminalReason"] == "player_restart"));
+    // Playback resumes with a new root session.
+    reported(&player, "the new root session", || fake.events_of("presentation.started").len() >= 2).await;
+    renderer.stop();
+    player.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_long_outage_keeps_the_newest_500_events_and_reports_the_dropped_count() {
+    let harness = Harness::new().await;
+    let image = Asset::new("bound", "image/png");
+    let (player, renderer) = harness.committed(&image, 3).await;
+    let fake = &harness.fake;
+    reported(&player, "the first events", || !fake.events_of("content.started").is_empty()).await;
+    fake.link.store(LINK_REFUSED, Ordering::SeqCst);
+    let activation = renderer.last().unwrap();
+    let (item, _) = first_item(&activation).unwrap();
+    // Each restart of the item ends one session and opens the next: two
+    // events apiece, 700 in all.
+    for _ in 0..350 {
+        renderer.evidence(&activation, EvidenceKind::ItemStarted, Some(&item)).await;
+    }
+    wait_long("the outbox to reach its bound", 30, async || {
+        let status = outbox(&player).await;
+        status.queued_activity == 500 && status.dropped_activity >= 200
+    })
+    .await;
+    let dropped = outbox(&player).await.dropped_activity;
+
+    fake.link.store(LINK_UP, Ordering::SeqCst);
+    reported(&player, "the overflow report", || !fake.events_of("outbox.overflow").is_empty()).await;
+    let overflow = &fake.events_of("outbox.overflow")[0];
+    assert_eq!(overflow["metadata"]["droppedEvents"], dropped, "the server learns exactly how many were lost");
+    assert_eq!(overflow["category"], "system");
+    wait_long("the kept events", 30, async || {
+        player.context.report_wake.notify_one();
+        tokio::time::sleep(Duration::from_millis(150)).await;
+        outbox(&player).await.queued_activity == 0
+    })
+    .await;
+    // What arrived is the newest part, in order, with no gap after the drop.
+    let events = fake.activity.lock().unwrap().clone();
+    let sequences: Vec<i64> = events.iter().map(|e| e["sequence"].as_i64().unwrap()).collect();
+    assert!(sequences.windows(2).all(|w| w[0] < w[1]));
     renderer.stop();
     player.stop().await;
 }

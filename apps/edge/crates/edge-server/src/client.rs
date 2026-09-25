@@ -546,6 +546,50 @@ impl AuthenticatedServer {
         }
     }
 
+    /// `POST /player/activity-events` with at most
+    /// [`crate::player_api::MAX_ACTIVITY_BATCH`] events, each an already
+    /// serialized event object from the outbox.
+    pub async fn post_activity_events(
+        &self,
+        events: &[&str],
+    ) -> Result<crate::player_api::ActivityBatchOutcome, ServerError> {
+        if events.is_empty() || events.len() > crate::player_api::MAX_ACTIVITY_BATCH {
+            return Err(ServerError::Decode);
+        }
+        let body = format!("{{\"events\":[{}]}}", events.join(","));
+        let response = self
+            .request(reqwest::Method::POST, "/api/v1/player/activity-events")
+            .header(reqwest::header::CONTENT_TYPE, "application/json")
+            .body(body)
+            .send()
+            .await
+            .map_err(|_| ServerError::Network)?;
+        let status = response.status();
+        if status == reqwest::StatusCode::UNPROCESSABLE_ENTITY || status == reqwest::StatusCode::BAD_REQUEST {
+            return Ok(crate::player_api::activity_refusal(&error_from(response).await));
+        }
+        let data: serde_json::Value = decode(response, MAX_SMALL_JSON_BYTES).await?;
+        crate::player_api::activity_acknowledgement(&data).ok_or(ServerError::Decode)
+    }
+
+    /// `POST /player/telemetry` with one serialized sample.
+    pub async fn post_telemetry(&self, sample: &str) -> Result<crate::player_api::TelemetryOutcome, ServerError> {
+        let response = self
+            .request(reqwest::Method::POST, "/api/v1/player/telemetry")
+            .header(reqwest::header::CONTENT_TYPE, "application/json")
+            .body(sample.to_owned())
+            .send()
+            .await
+            .map_err(|_| ServerError::Network)?;
+        let status = response.status();
+        if status == reqwest::StatusCode::UNPROCESSABLE_ENTITY || status == reqwest::StatusCode::BAD_REQUEST {
+            let _ = error_from(response).await;
+            return Ok(crate::player_api::TelemetryOutcome::Refused);
+        }
+        let _: serde_json::Value = decode(response, MAX_SMALL_JSON_BYTES).await?;
+        Ok(crate::player_api::TelemetryOutcome::Accepted)
+    }
+
     /// Opens an authenticated download (for the origin blob source).
     pub(crate) async fn get_range(
         &self,
