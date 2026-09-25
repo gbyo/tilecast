@@ -118,6 +118,7 @@ func (s *server) routes() http.Handler {
 		api.Group(func(dashboard chi.Router) {
 			dashboard.Use(s.requireSession)
 			dashboard.Use(s.requireEnrollment)
+			s.demoRoutes(dashboard)
 			dashboard.Get("/screens", s.listScreens)
 			dashboard.Get("/screens/archive", s.listArchivedScreens)
 			dashboard.With(s.requireScreenScope).Get("/screens/{id}", s.getScreen)

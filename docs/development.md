@@ -18,6 +18,10 @@ Run `make check` to do these checks:
 
 Run `make build` to create the dashboard bundle and the server binary. The command copies the bundle into the server embed directory.
 
+## Demo Mode
+
+Run `make demo` to start a disposable installation with sample data and simulated players. Studio opens signed in. Run `npm run test:e2e` to run the browser smoke tests against it. Refer to [`demo-mode.md`](demo-mode.md).
+
 Android player requirements and commands are documented in [`android-development.md`](android-development.md).
 
 ## Migration changes

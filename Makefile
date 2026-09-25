@@ -1,4 +1,4 @@
-.PHONY: android-build android-check bootstrap build check dev-dashboard dev-server docs-check format helper-check test
+.PHONY: android-build android-check bootstrap build check demo demo-down demo-logs demo-reset dev-dashboard dev-server docs-check e2e format helper-check test
 
 bootstrap:
 	npm install
@@ -50,3 +50,25 @@ test:
 
 docs-check:
 	bash scripts/check-docs-ste.sh
+
+# Demo Mode: a disposable, pre-seeded installation for development, browser
+# tests, and screenshots. See docs/demo-mode.md.
+DEMO_COMPOSE = docker compose -f deploy/docker/compose.demo.yml
+TILECAST_DEMO_PORT ?= 18080
+
+demo:
+	$(DEMO_COMPOSE) up -d --build --wait
+	@echo "Tilecast demo is ready at http://localhost:$(TILECAST_DEMO_PORT)"
+
+demo-reset:
+	scripts/demo-reset.sh $(SCENARIO)
+
+demo-logs:
+	$(DEMO_COMPOSE) logs -f server
+
+demo-down:
+	$(DEMO_COMPOSE) down -v --remove-orphans
+
+# Browser smoke tests against a running demo (make demo first).
+e2e:
+	npm run test:e2e

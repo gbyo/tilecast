@@ -18,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
+	"github.com/tilecast/tilecast/apps/server/internal/ids"
 	"github.com/tilecast/tilecast/apps/server/internal/manifestchanges"
 )
 
@@ -252,7 +253,7 @@ func (s *Service) FinalizeUpload(ctx context.Context, id, userID uuid.UUID) (Ass
 	if status != UploadFinalizing && offset != expected {
 		return Asset{}, ErrUploadIncomplete
 	}
-	assetID, variantID := uuid.New(), uuid.New()
+	assetID, variantID := ids.New(ctx), uuid.New()
 	if preparedAssetID != nil {
 		assetID = *preparedAssetID
 	}

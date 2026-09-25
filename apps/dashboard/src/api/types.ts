@@ -22,9 +22,15 @@ export type AuthStatus = {
    */
   passkeysAvailable?: boolean;
   passkeysUnavailableReason?: string;
+  /**
+   * The server runs the disposable Demo Mode installation. Every visitor is
+   * signed in as the sample Owner.
+   */
+  demoMode?: boolean;
 };
 
-export type AuthMethod = "password" | "totp" | "passkey" | "recovery_code";
+export type AuthMethod =
+  "password" | "totp" | "passkey" | "recovery_code" | "demo";
 
 export type MFAMethod = "totp" | "passkey" | "recovery_code";
 
