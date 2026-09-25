@@ -164,9 +164,14 @@ export default defineConfig({
               ],
             },
             {
-              label: "Review content",
+              label: "Review and collect",
               collapsed: true,
-              items: [{ slug: "studio/content-review" }],
+              items: [
+                { slug: "studio/content-review" },
+                { slug: "studio/content-submissions" },
+                { slug: "studio/forms" },
+                { slug: "studio/forms-approvals" },
+              ],
             },
           ],
         },
@@ -186,11 +191,28 @@ export default defineConfig({
               ],
             },
             {
+              label: "Manage screens",
+              collapsed: true,
+              items: [
+                { slug: "screens/archive" },
+                { slug: "screens/bulk-changes" },
+              ],
+            },
+            {
               label: "Groups and walls",
               collapsed: true,
               items: [
                 { slug: "screens/display-groups" },
                 { slug: "screens/span-video-walls" },
+              ],
+            },
+            {
+              label: "Reliability and behavior",
+              collapsed: true,
+              items: [
+                { slug: "players/reliability-kiosk" },
+                { slug: "players/active-hours-power" },
+                { slug: "players/accessibility" },
               ],
             },
             { slug: "players/update-a-player" },
@@ -239,11 +261,21 @@ export default defineConfig({
           items: [
             { slug: "administration" },
             {
+              label: "Organization",
+              collapsed: true,
+              items: [
+                { slug: "administration/organization" },
+                { slug: "administration/branding" },
+                { slug: "administration/locations" },
+              ],
+            },
+            {
               label: "Accounts and access",
               collapsed: true,
               items: [
                 { slug: "administration/users-and-roles" },
                 { slug: "administration/sign-in-security" },
+                { slug: "administration/account" },
               ],
             },
             {
@@ -251,9 +283,21 @@ export default defineConfig({
               collapsed: true,
               items: [
                 { slug: "administration/player-policies" },
+                { slug: "administration/content-settings" },
                 { slug: "administration/presentation-networks" },
                 { slug: "administration/player-updates" },
                 { slug: "administration/backups" },
+              ],
+            },
+            {
+              label: "System and data",
+              collapsed: true,
+              items: [
+                { slug: "operations/data-retention" },
+                { slug: "operations/snapshot-history" },
+                { slug: "administration/system" },
+                { slug: "administration/import-export" },
+                { slug: "administration/dependency-graph" },
               ],
             },
           ],
@@ -294,6 +338,9 @@ export default defineConfig({
               collapsed: true,
               items: [
                 { slug: "operations/plugins" },
+                { slug: "operations/plugins/countdown-bar" },
+                { slug: "operations/plugins/brand-bug" },
+                { slug: "operations/plugins/noise-meter" },
                 {
                   slug: "operations/emergency-alerts",
                   badge: { text: "US", variant: "note" },

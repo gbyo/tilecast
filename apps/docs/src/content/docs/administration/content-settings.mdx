@@ -1,0 +1,31 @@
+---
+title: Content and playback settings
+description: Set organization defaults for playback, media, websites, and scheduling.
+---
+
+Tilecast keeps organization-wide content defaults under **Settings**. These defaults do not replace the values authored directly on a Playlist item or Website; they provide the effective Player policy when content delegates to Player defaults.
+
+## Playback
+
+Playback defaults include volume, fit mode, default image duration, transition, audio enabled, and whether supported content resumes after a Player restart.
+
+A Playlist item with **Use Player defaults** delegates those values to the effective Player policy. An item with its own authored values keeps them.
+
+## Websites
+
+Website policy controls the runtime behavior Tilecast applies around remote content, including timeout and cookie/storage behavior. A startup-only clear setting is evaluated when the Player process starts; changing that setting later does not unexpectedly erase a currently playing website mid-session.
+
+## Media and scheduling
+
+Media settings control organization defaults and bounds around stored or prepared media. Scheduling behavior continues to come from each Schedule's typed dates, times, timezone, priority, and targets; Tilecast does not expose hidden scheduling switches that have no runtime effect.
+
+## Overrides
+
+Player-related values follow Tilecast's policy order:
+
+1. screen override;
+2. Display Group policy;
+3. organization default;
+4. built-in default.
+
+See [Set Player policies](../player-policies/) for group and screen overrides.

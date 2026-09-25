@@ -1,0 +1,32 @@
+---
+title: Reliability and kiosk
+description: Configure Player recovery, safe mode, fullscreen behavior, and platform-specific kiosk capabilities.
+---
+
+Open **Settings** > **Reliability and kiosk** for organization defaults. A Display Group or screen can override supported values through its Player policy.
+
+## Health means playback progress
+
+Tilecast distinguishes:
+
+1. the Player process is alive;
+2. the renderer responds;
+3. playback is meaningfully progressing.
+
+Only the third is enough to call playback healthy. A frozen video can have a responsive process, while a long-lived still image can be perfectly healthy without changing pixels.
+
+Players use content-aware progress evidence and a bounded recovery ladder. Repeated failure enters safe mode instead of restart-looping.
+
+## Platform behavior
+
+Android offers **Standard Reliability** on a normally installed Player and can use **Managed Kiosk** only when Android confirms the required device-owner/lock-task capability. Selecting the policy is not proof that the device is provisioned.
+
+Linux exposes its own kiosk/fullscreen and display-sleep behavior. Boot startup, desktop/session lockdown, and process lifecycle still depend on the installed Linux service and host environment.
+
+Platform-specific Android controls do not become active on Linux simply because they share a policy document.
+
+## Recovery
+
+Recovery can retry content, recreate rendering state, restart bounded Player components, and finally enter safe mode. Cached playback and the server relationship are preserved where possible.
+
+Use [Activity](../../operations/activity/) to see the evidence and recovery events a Player actually reported.

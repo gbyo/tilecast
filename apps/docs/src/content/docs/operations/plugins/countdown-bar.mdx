@@ -1,0 +1,24 @@
+---
+title: Countdown Bar
+description: Show a targeted countdown over normal playback without replacing the presentation.
+---
+
+Install **Countdown Bar** from **Operations** > **Plugins**, then create one or more instances from its plugin page.
+
+Each instance can define its message, target time or weekly recurrence, lead time, completion behavior, display mode, size, priority, and target scope.
+
+Targets can be all active screens, selected screens, Display Groups, or Locations.
+
+## Timing and overlap
+
+A bar becomes active when its lead window opens and counts down to the configured target. Optional completion text can keep the bar visible briefly after zero; otherwise it disappears at the target.
+
+When several active Countdown Bars target the same screen, the Player chooses the highest priority, then the earliest target, then a stable instance order.
+
+## Progress and urgency
+
+The optional background progress fill represents the share of the configured lead window that remains. It is not a separate timer.
+
+Urgency stages can change the presentation as the target approaches. Reduced-motion preferences suppress motion effects where the Player exposes that preference.
+
+Changing an enabled instance revises the manifests for affected screens. A Player receives only instances that are installed, enabled, and targeted to it.

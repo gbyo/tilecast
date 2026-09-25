@@ -1,0 +1,26 @@
+---
+title: Forms
+description: Build forms, collect submissions, and make approved records available to signage.
+---
+
+Forms is an installable Tilecast plugin. An Owner or Administrator first installs **Forms** from **Operations** > **Plugins**. Operators with content-management permission then create and manage forms under **Plugins** > **Forms**.
+
+Forms are not shown in the normal external **Data Sources** library even though their approved records use Tilecast's typed data pipeline internally.
+
+## Build a form
+
+A form has a published schema and a workflow. The default workflow includes draft, submitted, changes requested, approved, rejected, and expired states.
+
+Publishing a new form revision preserves the immutable schema that existing records were created against. Tilecast does not silently reinterpret an old submission with a later draft schema.
+
+## Submitters
+
+People use **My Forms** to see forms they can access and their own submissions. A submitter can edit their own record while its workflow state allows submission, then submit or resubmit it.
+
+When a reviewer requests changes, the note is visible to the submitter and the record can be edited and sent again.
+
+## Use approved data on signage
+
+A Form View chooses which eligible workflow states and fields are exposed as reusable records. Approved records can then feed Widgets and Layout bindings through the normal authenticated Tilecast data projection.
+
+For review work, see [Form approvals](../forms-approvals/).

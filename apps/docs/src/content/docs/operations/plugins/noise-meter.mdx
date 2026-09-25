@@ -1,0 +1,26 @@
+---
+title: Noise Meter
+description: Show a bar when a Linux Player's local microphone reports sustained room noise above configured thresholds.
+---
+
+**Noise Meter** is a built-in plugin for supported Linux Players. Install it from **Operations** > **Plugins**, then create a meter and choose its targets.
+
+Each meter can define a message, warning level, too-loud level, sensitivity, show and hide delays, display mode, height, optional display window, priority, and target scope.
+
+## Relative level, not dB
+
+Noise Meter reports a relative **Noise Level** from 0 to 100 for the microphone attached to that Player. It is not dB, dBA, SPL, or a calibrated physical measurement. Different microphones can produce different values in the same room.
+
+Sensitivity adjusts the relative reading; it is not a calibration procedure.
+
+## Audio privacy
+
+The microphone is measured locally. The Player reduces the running signal to level information; Tilecast does not need a microphone recording for the feature and should not upload raw microphone audio to the server.
+
+Website content cannot use the Noise Meter's microphone permission.
+
+## History and Edge
+
+Use the plugin's history view to review the bounded level history that the Player reports for that meter.
+
+The current stable Linux Player implements Noise Meter today. Tilecast Edge is porting the host-audio path through its M9 session-bridge work; check the [Edge capability matrix](../../../edge/capabilities/) before migrating a screen that depends on it.

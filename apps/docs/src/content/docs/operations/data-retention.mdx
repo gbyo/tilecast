@@ -1,0 +1,14 @@
+---
+title: Data retention
+description: Control how long Tilecast keeps Activity, diagnostic, audit, and telemetry history.
+---
+
+Open **Settings** > **Data retention** to choose bounded retention windows for operational history.
+
+Retention covers data such as raw Player events, proof-of-play sessions, screen-state intervals, audit records, detailed diagnostic metadata, and telemetry rollups. Tilecast applies hard bounds so an administrator cannot accidentally configure unbounded operational history.
+
+Telemetry is intentionally split between latest-state snapshots and accumulated rollups. The latest snapshot is updated in place; raw high-frequency telemetry samples are not stored as a history. Rollups are the accumulating telemetry dataset and therefore have their own retention window.
+
+Changing retention does not rewrite what a Player reports. It controls how long the server keeps eligible historical records.
+
+Snapshot images have their own independent limits under [Snapshot history](../snapshot-history/). Full backups follow the backup retention policy described in [Backup and restore](../../administration/backups/).

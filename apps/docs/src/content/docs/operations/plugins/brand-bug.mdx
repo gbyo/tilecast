@@ -1,0 +1,20 @@
+---
+title: Brand Bug / Watermark
+description: Place a persistent logo, legal notice, sponsor mark, or location label over normal playback.
+---
+
+Install **Brand Bug / Watermark** from **Operations** > **Plugins**, then create marks from its plugin page.
+
+A mark can contain a ready Media-library logo, text, or both. Configure its corner, screen-relative size, opacity, margin, text treatment, optional backing, date window, enabled state, priority, and targets.
+
+Targets can be all active screens, selected screens, Display Groups, or Locations.
+
+## Corner priority
+
+Different corners can show different active marks at the same time. When two active marks compete for the same corner, the higher priority wins, followed by a stable instance order.
+
+Using percentages rather than fixed pixels keeps a mark visually similar across different display resolutions.
+
+A logo must be a ready image asset. Tilecast projects it into the Player manifest as normal verified media rather than handing the Player an arbitrary file path.
+
+For organization identity on Tilecast's own system surfaces, use [Branding](../../../administration/branding/) instead.
