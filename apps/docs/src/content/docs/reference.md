@@ -8,6 +8,7 @@ Use these pages when you need exact request conventions or a technical contract 
 ## API and integrations
 
 - [HTTP API overview](./api/) covers API paths, response envelopes, authentication boundaries, and the OpenAPI definition.
+- [Content definition reference](./content-definitions/) is generated from the release-owned content-definition JSON and stays source-linked rather than becoming a hand-maintained catalog.
 - [Integration tokens](../integrations/tokens/) describes token capabilities and lifecycle.
 - [Manual Table integration](../integrations/manual-table/) and [fleet health](../integrations/fleet-health/) document supported integration requests.
 

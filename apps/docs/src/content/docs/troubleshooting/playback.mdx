@@ -1,0 +1,40 @@
+---
+title: Playback and schedules
+description: Diagnose connected Players that show the wrong content, no content, stale content, or a schedule at the wrong time.
+---
+
+## The Player is online but content is wrong
+
+Start with the screen detail page and **Activity**. Compare what Tilecast selected with what the Player reported as playing.
+
+Tilecast can select temporary content ahead of the normal assignment. The order is:
+
+1. active Takeover;
+2. on stable Linux, active AirPlay;
+3. Quick Present;
+4. the highest-priority active Schedule;
+5. the normal screen or Display Group assignment.
+
+When the temporary item ends, Tilecast evaluates the current schedule and fallback again.
+
+## The screen shows no content
+
+Check whether the screen actually has an assignment and whether every referenced item is currently playable.
+
+A connected Player can keep the previous committed presentation when a newer one cannot be prepared. Media that is not Ready, expired content, an unavailable Website, a missing capability, or an incompatible Layout can prevent part or all of a presentation from becoming active.
+
+Use the [Dependency Graph](../../administration/dependency-graph/) when you need to trace the assets and Data Sources behind the presentation.
+
+## A schedule changes at the wrong time
+
+Check the Schedule's IANA timezone and the Player clock warning. Tilecast uses server-corrected Player time for schedules, availability windows, temporary presentations, and offline evaluation.
+
+Around daylight-saving changes, calendar rules are evaluated in the configured timezone rather than assuming every day has 24 hours.
+
+A future one-time Schedule created after a Player goes offline cannot activate until that Player receives a newer manifest. Recurring rules already present in the committed manifest can continue to evaluate offline when their required content is cached.
+
+## Cached content disappeared
+
+Player cache and prepared state are bound to the Tilecast installation and logical screen. A confirmed server change, pairing replacement, or other identity change can invalidate state that no longer belongs to that relationship.
+
+Do not copy another screen's cache or Player state directory as a recovery method.

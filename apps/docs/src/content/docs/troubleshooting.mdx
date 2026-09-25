@@ -1,0 +1,32 @@
+---
+title: Troubleshooting
+description: Find the right Tilecast check when the server, Studio, a Player, or content is not behaving as expected.
+---
+
+Start with the surface that is failing. Tilecast separates server readiness, Player connectivity, playback health, media processing, website loading, device capabilities, and account security so one failure does not need to look like another.
+
+## Choose the problem
+
+- [Server and Studio](./server/) when Tilecast does not start, readiness fails, or Studio cannot reach the server.
+- [Pairing and connectivity](./pairing-connectivity/) when a Player cannot find, reach, or enroll with the server.
+- [Playback and schedules](./playback/) when the Player is connected but the expected content is not on screen.
+- [Media uploads and processing](./media/) when an upload, thumbnail, or playback variant is not ready.
+- [Websites](./websites/) when remote web content is blank, blocked, stale, or unavailable.
+- [Player updates](./player-updates/) when an update cannot deploy or finish.
+- [Display Control](./display-control/) when power, input, brightness, volume, or mute is unavailable.
+- [AirPlay and Presentation Networks](./airplay-networks/) when senders cannot discover or reach a Linux AirPlay gateway.
+- [Sign-in and passkeys](./sign-in/) when an account cannot complete sign-in or multi-factor authentication.
+
+For Tilecast Edge preview problems, use the separate [Edge troubleshooting guide](../edge/troubleshooting/).
+
+## Check evidence before changing state
+
+When a screen is involved, check these in order:
+
+1. The screen's current status and last contact.
+2. **Activity** for Player-confirmed playback, incidents, and technical events.
+3. **Live preview** or **Watch live** when the Player is online.
+4. The screen's reported capabilities when the problem involves hardware or a platform-specific feature.
+5. Local Player or server logs only when Studio does not explain the failure.
+
+Avoid clearing caches, deleting Player state, or recreating a screen as a first troubleshooting step. Those actions can remove evidence or turn a narrow fault into a new pairing or content problem.

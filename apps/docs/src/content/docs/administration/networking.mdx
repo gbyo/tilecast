@@ -1,0 +1,52 @@
+---
+title: Networking and remote access
+description: Choose a Tilecast Server address and understand HTTPS, reverse proxies, tunnels, mDNS, VLANs, and Player connectivity.
+---
+
+`TILECAST_PUBLIC_URL` is the canonical address that Studio and Players should use for the installation. Choose it before pairing a fleet.
+
+## LAN-only installation
+
+A trusted LAN can use a private HTTP address when you also set `TILECAST_COOKIE_SECURE=false`. Restrict the Tilecast port to that trusted network with the host firewall.
+
+Public hostnames require HTTPS for Players. Plain HTTP is not appropriate across an untrusted network.
+
+## HTTPS reverse proxy or tunnel
+
+When a proxy, ingress service, or Cloudflare Tunnel provides HTTPS:
+
+- set `TILECAST_PUBLIC_URL` to the external HTTPS address;
+- keep `TILECAST_COOKIE_SECURE=true`;
+- forward normal HTTP requests and WebSocket upgrades to Tilecast Server;
+- keep PostgreSQL private.
+
+The repository includes a reverse-proxy Compose example and an optional Cloudflare Tunnel profile. A tunnel hostname is not discovered through LAN mDNS; enter it manually on the Player.
+
+Passkeys depend on the browser-visible HTTPS hostname. See [Sign-in and passkeys](../../troubleshooting/sign-in/) when WebAuthn is unavailable behind a proxy.
+
+## LAN discovery
+
+Tilecast can advertise `_tilecast._tcp.local` when mDNS is enabled. Android uses normal DNS-SD discovery.
+
+Discovery is convenience, not a requirement. It can fail across:
+
+- VLAN boundaries;
+- guest Wi-Fi or client isolation;
+- multicast filters;
+- container networking that does not expose multicast correctly.
+
+Enter the server URL manually when discovery is unavailable.
+
+## VLANs and firewalls
+
+A Player needs a route to Tilecast Server for pairing, manifests, commands, status, and downloads. Website content can need a separate route from the Player to its own origin.
+
+Presentation Networks and AirPlay have additional local-network requirements. Tilecast does not bridge VLANs or provide an mDNS reflector.
+
+Before placing Players on a restricted network, test DNS, HTTPS/TLS, WebSocket connectivity, media downloads, and any external Website or AirPlay traffic the deployment needs.
+
+## Moving the server address
+
+Changing the hostname or installation behind a saved Player address is not a transparent DNS change from the Player's perspective when the installation identity changes.
+
+Confirm the intended installation before resetting a Player relationship. Do not reuse an old device credential against a different Tilecast installation.

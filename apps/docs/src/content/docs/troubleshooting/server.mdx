@@ -1,0 +1,38 @@
+---
+title: Server and Studio
+description: Diagnose Tilecast Server startup, readiness, reverse-proxy, and Studio connection problems.
+---
+
+## Check the process and readiness separately
+
+Use `/healthz` to confirm that the Tilecast Server process answers. Use `/readyz` to confirm that its required dependencies are ready.
+
+```sh
+curl --fail http://tilecast.local:8080/healthz
+curl --fail http://tilecast.local:8080/readyz
+```
+
+A readiness failure can point to PostgreSQL, media storage, FFmpeg, or FFprobe even when the server process itself is alive.
+
+With Docker Compose, inspect the current services and server log:
+
+```sh
+docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml ps
+docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml logs server
+```
+
+## Studio cannot connect
+
+Confirm that `TILECAST_PUBLIC_URL` is the address browsers and Players actually use. When a reverse proxy or tunnel provides HTTPS, keep the public HTTPS address in that setting and forward requests to the private Tilecast service.
+
+The proxy must preserve WebSocket upgrade traffic for connected Players and normal browser session headers for Studio. Do not publish PostgreSQL to the internet.
+
+If the external hostname differs from what the server sees, passkey configuration can need explicit WebAuthn relying-party values. See [Sign-in and passkeys](../sign-in/).
+
+## A migration or restart fails
+
+Tilecast applies database migrations during server startup. Read the server log before retrying repeatedly.
+
+Do not delete PostgreSQL data or `/data` to make the service start. Keep the database and media volume together, and use [Backup and restore](../../administration/backups/) when recovery requires returning to an earlier installation state.
+
+For a planned version change, follow [Update Tilecast Server](../../administration/server-updates/) rather than rebuilding an unknown revision in place.

@@ -1,0 +1,32 @@
+---
+title: Display Control
+description: Diagnose power, input, brightness, volume, and mute capabilities on supported Linux displays.
+---
+
+Display Control is capability-based. Studio does not assume that every Linux host, adapter, and panel supports the same actions.
+
+## Probe the stable Linux Player
+
+The current Electron Linux Player uses HDMI-CEC for supported power/input actions and DDC/CI for supported brightness and volume actions.
+
+Check:
+
+- the CEC adapter or `/dev/cec*` device exists for CEC actions;
+- the Player account can access the CEC device;
+- the display's I²C/DDC path is visible for DDC/CI;
+- `cec-ctl` and `ddcutil` are installed for the stable Player;
+- the panel actually advertises the requested DDC/CI feature.
+
+A missing capability should be reported without interrupting normal playback.
+
+## Sent is not confirmed
+
+A successful request can mean Tilecast sent the command. It does not guarantee that the physical TV changed state unless the provider can read the resulting state back.
+
+Treat power and input control as something to qualify on the exact adapter, cable path, panel model, and firmware before relying on it unattended.
+
+## Tilecast Edge differs
+
+The Edge M9 preview is replacing the stable subprocess providers with direct bounded Linux device access. Do not remove the stable Player's `cec-ctl` or `ddcutil` dependencies because of the preview implementation.
+
+See [Display Control](../../screens/display-control/) and [Edge hardware integrations](../../edge/hardware/) for the two runtime models.

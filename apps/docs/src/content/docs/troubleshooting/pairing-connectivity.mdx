@@ -1,0 +1,36 @@
+---
+title: Pairing and connectivity
+description: Diagnose server discovery, pairing-code, identity, credential, and Player connection problems.
+---
+
+## No server appears on the Player
+
+LAN discovery is optional. Tilecast advertises `_tilecast._tcp.local` only when mDNS is enabled, and discovery can fail across VLANs, guest networks, access-point isolation, multicast filters, or Docker networking.
+
+Enter the server address manually when discovery is unavailable. A public hostname requires HTTPS. Local HTTP is accepted only for the local address forms the Player permits.
+
+See [Networking and remote access](../../administration/networking/) for the server-address and mDNS model.
+
+## The pairing code expired
+
+A pairing code lasts ten minutes. Request a new code on the Player and approve that new request in Studio.
+
+If a pairing request is repeatedly rejected, confirm that the Player is talking to the intended Tilecast installation. The Player checks the installation identity before it trusts or sends a stored credential.
+
+## The installation identity changed
+
+An identity mismatch means the saved address now points at a different Tilecast installation. Do not send the old Player credential to the new installation.
+
+Confirm the address first. When the move was intentional, reset the saved relationship on the Player and pair it to the intended installation.
+
+## The screen is paired but offline
+
+Check the screen's last contact and connection state in Studio, then verify:
+
+- the Player can resolve and reach `TILECAST_PUBLIC_URL`;
+- the reverse proxy or tunnel accepts the Player WebSocket;
+- the device clock is reasonably accurate for TLS;
+- the screen was not disabled or its pairing revoked;
+- the host firewall permits the intended path.
+
+A temporary network outage should not require pairing again. The Player keeps its credential unless the server explicitly rejects or revokes it.

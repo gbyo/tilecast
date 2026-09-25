@@ -8,6 +8,7 @@ Use these pages to manage Studio accounts and installation-wide settings. Organi
 ## Organization and settings
 
 - [Organization settings](./organization/) for regional formatting and installation identity.
+- [Language and regional settings](./language-regional/) to separate personal Studio language from shared signage formatting.
 - [Branding](./branding/) for Tilecast-owned status surfaces.
 - [Locations](./locations/) for reusable place metadata and targeting.
 - [Content and playback settings](./content-settings/) for organization defaults.
@@ -24,6 +25,8 @@ Use these pages to manage Studio accounts and installation-wide settings. Organi
 ## Player behavior and recovery
 
 - [Set Player policies](./player-policies/) to set organization defaults or override them for a Display Group or screen.
+- [Networking and remote access](./networking/) for server addresses, HTTPS, proxies, tunnels, mDNS, and VLAN boundaries.
+- [Update Tilecast Server](./server-updates/) for a guarded Docker Compose upgrade.
 - [Set up a Presentation Network](./presentation-networks/) to prepare a Linux Player for AirPlay when the sender cannot reach it over Ethernet.
 - [Back up and restore an installation](./backups/) to protect database, media, and cached Player releases.
 - [Update Tilecast Player](./player-updates/) to verify signed releases and deploy them to selected screens.
