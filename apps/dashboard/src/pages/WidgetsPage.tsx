@@ -225,11 +225,7 @@ export function WidgetEditorPage() {
   const search = new URLSearchParams(location.search);
   const presetId = search.get("preset") as
     import("../api/types").WidgetPreset | null;
-  // A Layout links here with returnTo so closing the Widget lands back on the Layout the author
-  // was building, rather than on the Widget list.
   const returnTo = inAppPath(search.get("returnTo"));
-  // Saving a new Widget replaces the route, so "was this Widget just created here?"
-  // has to live in the URL rather than component state to survive the remount.
   const createdHere = search.get("created") === "1";
   const close = () =>
     void navigate(
@@ -240,10 +236,8 @@ export function WidgetEditorPage() {
         : "/widgets",
     );
   const saved = (value: Asset) => {
-    // Preserve returnTo across the save so a Widget opened from a Layout still returns there.
     const query = new URLSearchParams();
     if (returnTo) query.set("returnTo", returnTo);
-    // Editing an existing Widget must not report it as newly created on return.
     if (createdHere || !id) query.set("created", "1");
     const suffix = query.size ? `?${query.toString()}` : "";
     void navigate(`/widgets/${value.id}${suffix}`, { replace: true });
@@ -259,8 +253,6 @@ export function WidgetEditorPage() {
           page
           onClose={close}
           onChoose={(choice, preset) => {
-            // Picking a provider is a step inside the create flow, so returnTo has
-            // to survive it or the author never gets back to what they came from.
             const query = new URLSearchParams();
             if (preset) query.set("preset", preset);
             if (returnTo) query.set("returnTo", returnTo);
@@ -286,6 +278,23 @@ export function WidgetEditorPage() {
         aria-label={t("widgets.detail.loadingDefinition")}
       />
     );
+  if ((id && widget.isError) || definitions.isError) {
+    const error = id && widget.isError ? widget.error : definitions.error;
+    return (
+      <section className="w-full min-w-0 space-y-5">
+        <Alert variant="destructive">
+          <AlertDescription>
+            {error instanceof ApiError
+              ? apiErrorMessage(error)
+              : t("widgets.list.loadError")}
+          </AlertDescription>
+        </Alert>
+        <Button type="button" variant="outline" onClick={close}>
+          {t("widgets.detail.backToWidgets")}
+        </Button>
+      </section>
+    );
+  }
   if ((id && !asset) || !provider || !definition) {
     return (
       <section className="w-full min-w-0 space-y-5">
@@ -328,8 +337,6 @@ export function WidgetEditorPage() {
           presetId={asset?.widget?.presetId ?? presetId ?? undefined}
         />
       )}
-      {/* Rendered here rather than inside each provider editor so every Widget reports its
-          consumers, and so editing a shared Widget shows what else it would change. */}
       {asset && (
         <UsedByPanel
           emptyMessage={t("widgets.detail.noUsage")}
