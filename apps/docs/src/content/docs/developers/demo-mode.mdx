@@ -23,7 +23,7 @@ You need Docker. From the repository root:
 
 1. Build and start the demo:
 
-   ```sh
+   ```sh title="Repository root · Start Demo Mode"
    make demo
    ```
 
@@ -55,7 +55,7 @@ Seven screens have simulated players that stay connected. They react like real p
 
 Anything you change in Studio is kept until you reset:
 
-```sh
+```sh title="Reset the demo"
 make demo-reset
 ```
 
@@ -63,7 +63,7 @@ A reset restores the same records with the same IDs. To switch datasets, run `ma
 
 When you're done, stop the demo and delete its data:
 
-```sh
+```sh title="Stop and remove the demo"
 make demo-down
 ```
 
@@ -73,7 +73,7 @@ The demo uses its own Docker project and volumes, so it never touches an install
 
 The Playwright smoke tests run against a running demo, with no mocked responses:
 
-```sh
+```sh title="Run the browser smoke tests"
 npx playwright install chromium
 make demo
 npm run test:e2e
