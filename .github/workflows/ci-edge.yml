@@ -81,6 +81,12 @@ jobs:
           mkdir -p "$RUNNER_TEMP/edge-target"
           docker run --rm -v "$PWD:/src" -v "$RUNNER_TEMP/edge-target:/target" \
             tilecast-edge-dev /src/apps/edge/renderer-wpe/ci/run-e2e.sh all
+      - name: Session bridge against PipeWire and WirePlumber
+        # Independent of the renderer scenarios: it runs even when they failed.
+        if: ${{ !cancelled() }}
+        run: |
+          docker run --rm -v "$PWD:/src" -v "$RUNNER_TEMP/edge-target:/target" \
+            tilecast-edge-dev /src/apps/edge/session-bridge/ci/run-e2e.sh
       - uses: actions/upload-artifact@v6
         if: ${{ !cancelled() }}
         with:

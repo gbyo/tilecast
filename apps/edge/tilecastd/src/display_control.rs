@@ -655,7 +655,12 @@ pub async fn run(context: Arc<DaemonContext>) {
             display.probe(context.now()).await;
             last_probe = Some(Instant::now());
             last_power = Instant::now();
-            changed |= materially_changed(&before, &display.capabilities(context.now()));
+            if materially_changed(&before, &display.capabilities(context.now())) {
+                changed = true;
+                // Hardware appeared or went: an action it could not take is
+                // tried again.
+                applied = None;
+            }
         } else if last_power.elapsed() >= POWER_INTERVAL {
             display.refresh_power(context.now()).await;
             last_power = Instant::now();
@@ -723,7 +728,10 @@ async fn apply(context: &DaemonContext, display: &DisplayControl, action: Option
         success = result.success,
         code = result.code.as_str()
     );
-    result.success || result.code == "display_invalid_payload"
+    // Settled: done, never valid, or impossible on this hardware until a
+    // re-probe finds something new. Anything else (a TV that did not answer)
+    // is tried again on the next pass.
+    result.success || matches!(result.code.as_str(), "display_invalid_payload" | "display_unsupported")
 }
 
 fn materially_changed(before: &[Capability], after: &[Capability]) -> bool {

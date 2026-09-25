@@ -433,6 +433,26 @@ def tilecast_systemctl(*argv):
     return subprocess.run(["systemctl", "--user", "--machine=tilecast@.host", *argv], capture_output=True, text=True)
 
 
+def print_bridge_diagnostics():
+    """What the tilecast session, the bridge and tilecastd saw."""
+    uid = pwd.getpwnam("tilecast").pw_uid
+    for argv in (["systemctl", "status", "--no-pager", f"user@{uid}.service"],
+                 ["systemctl", "--user", "--machine=tilecast@.host", "status", "--no-pager",
+                  "tilecast-session-bridge.path", "tilecast-session-bridge.service",
+                  "pipewire.service", "wireplumber.service"],
+                 ["systemctl", "--user", "--machine=tilecast@.host", "show", "--property=ActiveState,SubState,"
+                  "NRestarts,ExecMainStatus,ExecMainCode,Result", "tilecast-session-bridge.service"],
+                 ["ls", "-la", "/run/tilecast-edge", f"/run/user/{uid}", "/etc/systemd/user",
+                  "/etc/systemd/user/default.target.wants"],
+                 ["journalctl", "--no-pager", "-o", "cat", "-n", "150", f"_UID={uid}"],
+                 ["journalctl", "--no-pager", "-o", "cat", "-n", "80", "-u", "tilecast-edge.service",
+                  "--grep", "audio|ipc|session"],
+                 ["/opt/tilecast-edge/current/bin/tilecastctl", "--json", "capabilities"]):
+        result = subprocess.run(argv, capture_output=True, text=True)
+        print(f"$ {' '.join(argv)}  (exit {result.returncode})\n{result.stdout[-8000:]}{result.stderr[-2000:]}",
+              flush=True)
+
+
 def check_hardware_packaging():
     """M9 packaging on a real systemd: the display group and device policy of
     the daemon, and the session bridge in the lingering tilecast session with
@@ -453,15 +473,7 @@ def check_hardware_packaging():
             lambda: tilecast_systemctl("is-active", "tilecast-session-bridge.service").stdout.strip() == "active",
             "the session bridge started by its path unit", 90)
     except AssertionError:
-        uid = pwd.getpwnam("tilecast").pw_uid
-        for argv in (["systemctl", "status", "--no-pager", f"user@{uid}.service"],
-                     ["systemctl", "--user", "--machine=tilecast@.host", "status", "--no-pager",
-                      "tilecast-session-bridge.path", "tilecast-session-bridge.service"],
-                     ["ls", "-l", "/run/tilecast-edge", "/etc/systemd/user", "/etc/systemd/user/default.target.wants"],
-                     ["journalctl", "--no-pager", "-n", "80", f"_UID={uid}"],
-                     ["journalctl", "--no-pager", "-n", "40", "-u", f"user@{uid}.service"]):
-            print("$", " ".join(argv))
-            print(subprocess.run(argv, capture_output=True, text=True).stdout[-6000:])
+        print_bridge_diagnostics()
         raise
     sandbox = tilecast_systemctl("show", "--property=RestrictAddressFamilies,PrivateDevices,ProtectHome,"
                                  "NoNewPrivileges,MemoryDenyWriteExecute", "tilecast-session-bridge.service").stdout
@@ -474,7 +486,11 @@ def check_hardware_packaging():
         noise = next((c for c in capabilities["capabilities"] if c["id"] == "audio.noise_meter"), None)
         return noise if noise and noise.get("reasonCode") != "session_bridge_not_connected" else None
 
-    noise = e2e.wait_for(bridge_connected, "the session bridge connected to tilecastd", 90)
+    try:
+        noise = e2e.wait_for(bridge_connected, "the session bridge connected to tilecastd", 90)
+    except AssertionError:
+        print_bridge_diagnostics()
+        raise
     print(f"accept: the session bridge runs sandboxed in the tilecast session; audio.noise_meter is "
           f"{noise['state']} ({noise.get('reasonCode', 'no reason')})")
 
