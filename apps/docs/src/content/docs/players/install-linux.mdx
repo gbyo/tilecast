@@ -3,6 +3,10 @@ title: Install Tilecast Player on Linux
 description: Install the verified Linux AppImage from Tilecast Server and pair the display.
 ---
 
+:::note[Current stable Linux Player]
+This page documents the Electron/AppImage Linux Player that Tilecast currently releases. **Tilecast Edge** is the replacement Linux runtime under active development, but it is not the production install path yet. See the [Tilecast Edge preview](../../edge/) for its requirements, migration model, and current capability status.
+:::
+
 The Tilecast Server installer uses the newest stable Linux AppImage cached and verified on the server. It creates a systemd user service for the kiosk account and configures the Player to connect to that server. The installer chooses the newest cached release automatically; it does not ask for a version.
 
 ## Before you start
@@ -58,3 +62,10 @@ The Player opens with a pairing code. Continue with [Pair a display](../pair-a-d
 The published Linux AppImage is x86_64. The bundled AirPlay provisioning script uses `apt-get` and supports Debian-family systems; this optional setup does not determine whether the Player itself can pair. The installer does not configure the host to start a graphical desktop, enable automatic login, or install a kiosk compositor. Set up those host features separately if the display must start without an operator login.
 
 A local HTTP server address is not encrypted. Use it only on a trusted LAN. Public hostnames require HTTPS.
+
+
+## Planning for Tilecast Edge
+
+Do not manually convert this AppImage installation into Edge by swapping binaries or systemd units. Edge uses a different daemon/WPE service model and a guarded migration that validates the current presentation and can roll back before accepting the cutover.
+
+When Edge becomes supported for your hardware, follow [Migrate from the legacy Linux Player](../../edge/migrate/) instead of performing an in-place AppImage replacement.

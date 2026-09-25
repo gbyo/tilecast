@@ -1,0 +1,32 @@
+---
+title: Troubleshoot Tilecast Edge
+description: Diagnose pairing, playback, renderer, storage, and Linux hardware problems on an Edge node.
+---
+
+:::caution[Preview]
+Service and command names here describe the current Edge development stack.
+:::
+
+Start with Studio. Edge reports through the ordinary Screens and Activity surfaces, so local shell access should be the second step.
+
+## Local status and logs
+
+```sh
+tilecastctl status
+journalctl -u tilecast-edge.service
+journalctl -u tilecast-renderer.service
+```
+
+Use status to confirm pairing, server connection, rendering, and safe mode. Read daemon and renderer logs separately so a WPE crash is not confused with loss of durable Player state.
+
+## Common paths
+
+- **No discovered server:** enter the URL manually; Avahi/mDNS is optional.
+- **Presentation unavailable:** check [content compatibility](../compatibility/) and the [capability matrix](../capabilities/).
+- **Repeated renderer recovery:** inspect Activity and safe-mode state before deleting anything.
+- **Display Control unavailable:** treat typed reasons such as no adapter, permission denied, disconnected display, no DDC response, or unsupported VCP as capability evidence.
+- **Migration refused or rolled back:** read the migrator reason and fix the failed qualification/compatibility condition before retrying.
+
+Do not make `tilecastd` root to bypass one device permission, and do not delete `/var/lib/tilecast-edge` as a routine recovery step.
+
+Never paste credentials, pairing secrets, or private state files into an issue.

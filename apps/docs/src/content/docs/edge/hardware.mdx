@@ -1,0 +1,24 @@
+---
+title: Hardware and host integrations
+description: Understand the Linux capabilities Tilecast Edge discovers and exposes to Studio.
+---
+
+:::caution[Preview and hardware qualification]
+The M9 hardware work is still a draft and has not completed physical qualification for a production support claim.
+:::
+
+Edge treats host features as capabilities. A missing microphone, unavailable DDC bus, unsupported CEC adapter, or unavailable Presentation Network helper should disable that capability without breaking ordinary playback.
+
+## Display Control
+
+The M9 branch replaces `cec-ctl` and `ddcutil` subprocesses inside Edge with bounded Linux CEC and I²C/DDC device access. The preview covers HDMI-CEC power/active-source behavior, DDC/CI brightness and volume, DDC/CI mute when the display exposes that VCP feature, capability discovery, and typed hardware/permission/readback results.
+
+The current stable Electron Linux Player still uses the provider behavior documented in [Display Control](../../screens/display-control/).
+
+## Presentation Network and audio
+
+Edge keeps the existing narrow Presentation Network helper boundary rather than granting `tilecastd` arbitrary root network control.
+
+Noise Meter requires host audio input. The Edge design uses a narrow user-session bridge for PipeWire/GStreamer level information; microphone recordings are not sent to the server. See [Noise Meter](../../operations/plugins/noise-meter/).
+
+Hardware permissions should come from the release's udev/groups/systemd setup, not by running the entire Player as root.

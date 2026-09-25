@@ -1,0 +1,30 @@
+---
+title: Edge capability matrix
+description: Compare the current Edge preview with the stable Linux Player and identify work that is still gated.
+---
+
+:::caution[Development status]
+"Preview" means implemented or being validated in the stacked Edge pull requests. It does not mean the feature is supported in a stable Tilecast release.
+:::
+
+| Capability | Stable Linux Player | Edge preview |
+| --- | --- | --- |
+| Images and downloaded video | Supported | Preview |
+| Native Widgets | Supported | Preview |
+| Layouts and playlist zones | Supported | Preview |
+| Schedules, Quick Present, Takeover | Supported | Preview |
+| Synchronized Display Groups | Supported | Preview |
+| Span images/Layout/video | Supported with current limits | Preview; rotation/frame alignment still need qualification |
+| Brand Bug / Countdown Bar / alert ticker | Supported where advertised | Preview |
+| Offline restart from prepared content | Supported | Preview with daemon-owned state |
+| Activity / proof of play | Supported | Preview |
+| Live preview | Supported | Preview in M8 |
+| Remote Websites and YouTube | Supported by Electron webviews | Not yet Edge-qualified |
+| Display Control | Supported through current Linux providers | Preview in M9; hardware qualification required |
+| Presentation Network | Supported | Preview in M9 |
+| Noise Meter | Supported on Linux | Preview in M9 host-audio work |
+| Player self-update | Supported | Not yet Edge-qualified |
+| AirPlay receiver | Supported | Not in the current Edge 1 plan |
+| Android Managed Kiosk / Power Assist / Accessibility Control | Android-only | Not applicable |
+
+Once Edge ships, normal tasks should continue to use shared docs such as [Activity](../../operations/activity/), [Live preview](../../operations/live-preview/), [Player commands](../../operations/player-commands/), [Display Control](../../screens/display-control/), [Schedules](../../schedules/), and [Display Groups](../../screens/display-groups/).

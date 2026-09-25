@@ -1,0 +1,25 @@
+---
+title: Pair and commission Edge
+description: Connect a fresh Tilecast Edge installation to the correct Tilecast Server and approve its pairing request.
+---
+
+:::caution[Preview]
+Edge pairing is implemented in the development stack but has not replaced the stable Linux Player pairing flow.
+:::
+
+A fresh Edge node can get its server address from the setup surface, a server discovered through Avahi/mDNS, or the local `tilecastctl pair <server-url>` command. Discovery is advisory; Edge still verifies the Tilecast installation identity before trusting the relationship or sending a saved credential.
+
+For a headless setup, the preview CLI supports:
+
+```sh
+tilecastctl pair https://signage.example.org
+tilecastctl status
+```
+
+`status` can show the visible pairing code for an unpaired node. It does not expose the private poll secret or device credential.
+
+Approve the request in Studio using the same workflow described in [Pair a display](../../players/pair-a-display/).
+
+The pairing session is persisted so a daemon restart does not automatically create a second request. Expired or rejected sessions can be replaced; a paired screen refuses to start another pairing flow until its existing relationship is removed or rejected.
+
+If discovery is unavailable, enter the server address directly. Multicast is never required for pairing.

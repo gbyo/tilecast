@@ -18,13 +18,17 @@ import { Steps } from "@astrojs/starlight/components";
 
 </Steps>
 
-The built-in Linux providers use HDMI-CEC for power and input, and DDC/CI for brightness and volume. The Linux host needs `cec-ctl` for HDMI-CEC or `ddcutil` for DDC/CI, access to the connected device, and a compatible display or adapter. Android Players do not provide Display Control.
+The current stable Electron Linux Player uses HDMI-CEC for power and input and DDC/CI for brightness and volume through its existing providers. That Player needs `cec-ctl` for HDMI-CEC or `ddcutil` for DDC/CI, access to the connected device, and a compatible display or adapter.
+
+The Tilecast Edge M9 preview is replacing those subprocess providers with direct, bounded Linux CEC and I²C/DDC device access. Edge can also probe DDC/CI mute when a display exposes that feature. This is still preview behavior and is not a reason to remove `cec-ctl` or `ddcutil` from a stable Linux Player installation.
+
+Android Players do not provide Display Control.
 
 ## Apply a group action
 
 Open a Display Group and select **Display Control**. Review the capability counts, choose **Power on all**, **Power off all**, **Mute all**, or **Unmute all**, then select **Send to supported displays**. Tilecast sends the action only to screens that report the required capability. Offline screens may receive a queued command after they reconnect, before it expires.
 
-The group page offers Mute actions, but the current built-in Linux providers do not report mute capability. A screen without a reported capability is listed as unsupported.
+The group page offers Mute actions, but the current stable Linux providers do not report mute capability. The Edge M9 preview can report mute only when the connected display exposes the corresponding DDC/CI feature. A screen without a reported capability is listed as unsupported.
 
 ## Understand the result
 

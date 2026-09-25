@@ -197,6 +197,43 @@ export default defineConfig({
           ],
         },
         {
+          label: "Tilecast Edge",
+          badge: { text: "Preview", variant: "caution" },
+          collapsed: true,
+          items: [
+            { label: "Overview", slug: "edge" },
+            {
+              label: "Get Edge running",
+              collapsed: true,
+              items: [
+                { slug: "edge/requirements" },
+                { slug: "edge/install" },
+                { slug: "edge/migrate" },
+                { slug: "edge/pairing" },
+              ],
+            },
+            {
+              label: "Operate Edge",
+              collapsed: true,
+              items: [
+                { slug: "edge/compatibility" },
+                { slug: "edge/offline-resilience" },
+                { slug: "edge/hardware" },
+                { slug: "edge/monitoring" },
+                { slug: "edge/troubleshooting" },
+              ],
+            },
+            {
+              label: "Understand Edge",
+              collapsed: true,
+              items: [
+                { slug: "edge/security" },
+                { slug: "edge/capabilities" },
+              ],
+            },
+          ],
+        },
+        {
           label: "Administration",
           collapsed: true,
           items: [

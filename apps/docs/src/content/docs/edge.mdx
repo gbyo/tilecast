@@ -1,0 +1,77 @@
+---
+title: Tilecast Edge
+description: Understand Tilecast's next-generation Linux player platform and its current preview status.
+---
+
+Tilecast Edge is the next-generation Linux Player platform under active development. It moves Linux playback out of the legacy Electron application and into a supervised Linux service with a small WPE WebKit renderer.
+
+:::caution[Preview]
+Tilecast Edge is not the stable Linux Player yet. The Edge implementation is still being developed and qualified in draft pull requests. For a production Linux screen today, use the [current Linux Player](./players/install-linux/). Do not migrate a production screen to Edge until a Tilecast release explicitly marks your hardware class as supported.
+:::
+
+## What changes with Edge
+
+The central Tilecast Server stays the authority for screens, assignments, schedules, configuration, users, and publication. Edge changes the Linux execution model:
+
+```text
+Tilecast Server
+      |
+HTTPS / WebSocket
+      |
+  tilecastd
+  |   |   |
+SQLite  verified content store  Linux integrations
+      |
+local IPC
+      |
+WPE WebKit renderer
+      |
+   display
+```
+
+`tilecastd` owns the server relationship, durable local state, verified content, commands, configuration, scheduling, recovery, hardware capabilities, and renderer supervision. The WPE renderer is disposable: it receives only the prepared presentation it needs and reports what actually happened on screen.
+
+Edge and the legacy Electron Linux Player use the same shared Tilecast Player Runtime as the migration work progresses. The goal is playback parity without keeping Electron as the long-term Linux runtime.
+
+## Why Edge exists
+
+Edge is designed to make a Linux signage player easier to operate unattended:
+
+- keep prepared playback available during a server or network interruption;
+- survive a renderer crash without dropping the Player's durable state;
+- keep commands and configuration durable across restarts;
+- expose Linux hardware capabilities explicitly instead of assuming every Linux host is identical;
+- use system services and narrow privilege boundaries instead of giving the renderer broad machine access;
+- verify downloaded content before it becomes active;
+- make health depend on meaningful playback evidence rather than only process liveness.
+
+The first Edge release is deliberately **not** the earlier peer-to-peer "Edge Fabric" design. Peer content delivery and broader local-fabric work are deferred until the base Linux runtime is proven.
+
+## Current development track
+
+| Area | Development milestone |
+| --- | --- |
+| Daemon, WPE renderer, SQLite state, verified content store | M1 |
+| Server presence, manifests, offline content playback | M2/M3 |
+| Durable commands and Player configuration | M4 |
+| Fresh-install pairing and Avahi discovery | M5 |
+| Resilience, synchronized playback, Span parity | M6 |
+| Installer and one-way Electron migration with rollback | M7 |
+| Proof of play, telemetry, and live preview | M8 |
+| Linux hardware parity such as CEC/DDC, Presentation Network, and host audio integration | M9 |
+
+Track the active work in the [Tilecast Edge milestone](https://github.com/gbyo/tilecast/milestone/2) and its stacked pull requests.
+
+## Read next
+
+- [Requirements and qualification](./edge/requirements/)
+- [Install Edge](./edge/install/)
+- [Migrate from the legacy Linux Player](./edge/migrate/)
+- [Pair and commission an Edge screen](./edge/pairing/)
+- [Content and capability compatibility](./edge/compatibility/)
+- [Offline playback and recovery](./edge/offline-resilience/)
+- [Hardware and host integrations](./edge/hardware/)
+- [Monitoring Edge](./edge/monitoring/)
+- [Troubleshoot Edge](./edge/troubleshooting/)
+- [Security model](./edge/security/)
+- [Capability matrix](./edge/capabilities/)
