@@ -1,0 +1,86 @@
+---
+title: Run a demo installation
+description: Start a disposable Tilecast with sample screens, content, and simulated players, for development, screenshots, and browser tests.
+---
+
+import { Aside, Steps } from "@astrojs/starlight/components";
+
+Demo Mode starts a complete Tilecast installation that's already full of realistic sample data: a school district with buildings, screens in every status, playlists, Layouts, schedules, and players that stay online. Studio opens signed in, so you can explore, test a change, or take screenshots without setting anything up.
+
+Everything in a demo is real Tilecast: the same server, Studio, database schema, and API you'd deploy. Only the data and the players are simulated.
+
+<Aside type="caution">
+  Demo Mode signs in everyone who opens it as the Owner, and a reset deletes all
+  of its data. Use it only on your own computer or in CI, never for an
+  installation that holds real content.
+</Aside>
+
+## Start the demo
+
+You need Docker. From the repository root:
+
+<Steps>
+
+1. Build and start the demo:
+
+   ```sh
+   make demo
+   ```
+
+   The first run builds the server image, so it takes a few minutes.
+
+2. Open [http://localhost:18080](http://localhost:18080).
+
+   Studio opens as the demo Owner, Dana Whitfield. A **Demo mode** banner stays at the top of every page.
+
+</Steps>
+
+To use a different port, set `TILECAST_DEMO_PORT`, for example `TILECAST_DEMO_PORT=19000 make demo`.
+
+## What's in the demo
+
+The default `kitchen-sink` dataset is a district with a high school, a middle school, a main office, and an athletic complex. It includes:
+
+- 13 screens, showing every status Studio computes: online, recent, stale, offline, and disabled
+- Fire TV, Android TV, and Linux players on different Player versions, in 1080p, 4K, and portrait
+- display groups, a screen with no content, and a player waiting for pairing approval
+- processed images, a website, tags, playlists, and Layouts, including unpublished drafts
+- schedules, a draft campaign, Countdown Bar and Brand Bug plugins, and four user accounts
+
+A smaller `basic` dataset has four screens and two playlists.
+
+Seven screens have simulated players that stay connected. They react like real players: assign new content and the screen picks it up, or send **Identify** and the command completes. Stale and offline screens age from the moment the demo starts, so reset the demo to bring them back.
+
+## Reset or stop the demo
+
+Anything you change in Studio is kept until you reset:
+
+```sh
+make demo-reset
+```
+
+A reset restores the same records with the same IDs. To switch datasets, run `make demo-reset SCENARIO=basic`.
+
+When you're done, stop the demo and delete its data:
+
+```sh
+make demo-down
+```
+
+The demo uses its own Docker project and volumes, so it never touches an installation you run with the regular Compose file.
+
+## Run the browser tests
+
+The Playwright smoke tests run against a running demo, with no mocked responses:
+
+```sh
+npx playwright install chromium
+make demo
+npm run test:e2e
+```
+
+Each test resets the demo first, and the suite refuses to run against a server that isn't in Demo Mode. When a test fails, Playwright saves a trace and a screenshot in `e2e/test-results`.
+
+## Learn more
+
+The [Demo Mode reference](https://github.com/gbyo/tilecast/blob/main/docs/demo-mode.md) covers the reset API, the stable record IDs, how the simulated players work, the configuration variables, and the safety checks that keep Demo Mode off real installations.

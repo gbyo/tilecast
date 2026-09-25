@@ -276,7 +276,11 @@ export default defineConfig({
             { slug: "integrations/notifications" },
           ],
         },
-        { slug: "developers" },
+        {
+          label: "Developers",
+          collapsed: true,
+          items: [{ slug: "developers" }, { slug: "developers/demo-mode" }],
+        },
         {
           label: "Reference",
           collapsed: true,

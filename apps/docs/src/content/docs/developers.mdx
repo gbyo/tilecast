@@ -56,6 +56,8 @@ You need Go (use the version in `apps/server/go.mod`), Node.js with npm, and a P
 
 </Steps>
 
+To explore Studio with sample data instead of an empty database, [run a demo installation](demo-mode/).
+
 The Go server applies pending migrations during startup. Complete the one-time Owner setup in Studio when using a new database. Vite reloads dashboard changes; restart the Go server after changing server code. Server settings are read from `TILECAST_*` environment variables; [`deploy/docker/.env.example`](https://github.com/gbyo/tilecast/blob/main/deploy/docker/.env.example) lists the deployment settings.
 
 ## Check and build changes
