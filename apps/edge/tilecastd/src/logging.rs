@@ -12,7 +12,13 @@ use crate::config::{LogConfig, LogFormat};
 
 pub fn init(config: &LogConfig) {
     let filter = EnvFilter::try_from_env("TILECAST_LOG").unwrap_or_else(|_| EnvFilter::new(&config.level));
-    let builder = tracing_subscriber::fmt().with_env_filter(filter).with_writer(std::io::stderr).with_target(false);
+    // Colors only on a terminal: a log file or the journal gets plain text.
+    let ansi = std::io::IsTerminal::is_terminal(&std::io::stderr());
+    let builder = tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_writer(std::io::stderr)
+        .with_target(false)
+        .with_ansi(ansi);
     let result = match config.format {
         LogFormat::Json => builder.json().flatten_event(true).with_current_span(false).try_init(),
         LogFormat::Text => builder.try_init(),
