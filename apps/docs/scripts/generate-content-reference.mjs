@@ -39,15 +39,47 @@ for (const name of names) {
   }
 }
 
-const rows = (definitions, columns) =>
-  definitions
-    .map(
-      (definition) =>
-        "| " +
-        columns.map(([, value]) => escapeCell(value(definition))).join(" | ") +
-        " |",
-    )
-    .join("\n");
+function markdownTable(headers, records) {
+  const rows = records.map((record) => record.map(escapeCell));
+  const widths = headers.map((header, index) =>
+    Math.max(
+      3,
+      header.length,
+      ...rows.map((row) => row[index]?.length ?? 0),
+    ),
+  );
+  const line = (row) =>
+    `| ${row.map((cell, index) => cell.padEnd(widths[index])).join(" | ")} |`;
+  return [
+    line(headers),
+    `| ${widths.map((width) => "-".repeat(width)).join(" | ")} |`,
+    ...rows.map(line),
+  ].join("\n");
+}
+
+const widgetTable = markdownTable(
+  ["Name", "ID", "Kind", "Category", "Runtime", "Source"],
+  widgets.map((definition) => [
+    definition.name,
+    "`" + definition.id + "`",
+    definition.kind || "widget",
+    definition.category,
+    definition.runtime,
+    "`" + definition.source + "`",
+  ]),
+);
+
+const dataSourceTable = markdownTable(
+  ["Name", "ID", "Category", "Output", "Adapter", "Source"],
+  dataSources.map((definition) => [
+    definition.name,
+    "`" + definition.id + "`",
+    definition.category,
+    definition.outputSchema?.kind || "",
+    definition.adapterId || "legacy",
+    "`" + definition.source + "`",
+  ]),
+);
 
 const content = `---
 title: Content definition reference
@@ -62,29 +94,11 @@ The detailed Widget and Data Source authoring guides are intentionally kept sepa
 
 ## Widget and App definitions
 
-| Name | ID | Kind | Category | Runtime | Source |
-| --- | --- | --- | --- | --- | --- |
-${rows(widgets, [
-  ["Name", (d) => d.name],
-  ["ID", (d) => "`" + d.id + "`"],
-  ["Kind", (d) => d.kind || "widget"],
-  ["Category", (d) => d.category],
-  ["Runtime", (d) => d.runtime],
-  ["Source", (d) => "`" + d.source + "`"],
-])}
+${widgetTable}
 
 ## Data Source definitions
 
-| Name | ID | Category | Output | Adapter | Source |
-| --- | --- | --- | --- | --- | --- |
-${rows(dataSources, [
-  ["Name", (d) => d.name],
-  ["ID", (d) => "`" + d.id + "`"],
-  ["Category", (d) => d.category],
-  ["Output", (d) => d.outputSchema?.kind || ""],
-  ["Adapter", (d) => d.adapterId || "legacy"],
-  ["Source", (d) => "`" + d.source + "`"],
-])}
+${dataSourceTable}
 
 ## Keep this page current
 
