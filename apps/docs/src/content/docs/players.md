@@ -7,11 +7,11 @@ Tilecast Player runs on each display. Choose the Android APK for Android TV, Goo
 
 Tilecast Edge is the next-generation Linux Player platform under active development. It replaces the Electron/AppImage runtime with `tilecastd` and a WPE WebKit renderer, but it is not the stable Linux install path yet. See [Tilecast Edge](../edge/) for the preview architecture and qualification status.
 
-| Player  | Install format                    | Notes                                                                                       |
-| ------- | --------------------------------- | ------------------------------------------------------------------------------------------- |
-| Android | Signed APK, `tilecast-player.apk` | For Android TV, Google TV, and Fire TV devices that allow APK installation.                 |
+| Player  | Install format                    | Notes                                                                                                            |
+| ------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Android | Signed APK, `tilecast-player.apk` | For Android TV, Google TV, and Fire TV devices that allow APK installation.                                      |
 | Linux   | AppImage                          | Current stable path. The server-provided installer targets x86_64 Linux with a graphical X11 or Wayland session. |
-| Edge    | Signed Linux release tree          | Preview only. System-service + WPE design; use only when a release explicitly qualifies the host. |
+| Edge    | Signed Linux release tree         | Preview only. System-service + WPE design; use only when a release explicitly qualifies the host.                |
 
 Find the Android APK on the [Tilecast releases page](https://github.com/gbyo/tilecast/releases). The Linux installer downloads a signed, verified release cached on your Tilecast Server. See [Install the Linux Player](./install-linux/).
 

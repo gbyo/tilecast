@@ -248,10 +248,7 @@ export default defineConfig({
             {
               label: "Understand Edge",
               collapsed: true,
-              items: [
-                { slug: "edge/security" },
-                { slug: "edge/capabilities" },
-              ],
+              items: [{ slug: "edge/security" }, { slug: "edge/capabilities" }],
             },
           ],
         },
