@@ -105,7 +105,9 @@ def summarize(records):
     outgoing item a few milliseconds before the switch. The Electron player
     attributes that restart to the incoming presentation (as content type
     `media`, because the item is not in it); Edge ignores evidence for an
-    activation it has replaced. Neither is a play anyone saw.
+    activation it has replaced. Neither is a play anyone saw. A takeover can
+    interrupt a real item just after it starts, so retain that terminal reason
+    even when its short session is excluded from play counts.
     """
     roots = Counter()
     items = Counter()
@@ -118,6 +120,8 @@ def summarize(records):
             continue
         duration = record.get("actualDurationMs")
         if duration is not None and duration < BOUNDARY_STUB_MS:
+            if reason == "takeover":
+                reasons.add((record.get("trigger"), reason))
             continue
         items[(record.get("trigger"), record.get("contentType"), record.get("playlistItemId"))] += 1
         reasons.add((record.get("trigger"), reason))
