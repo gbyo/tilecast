@@ -15,6 +15,7 @@ use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU8, AtomicU64, AtomicUsize,
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use base64::Engine as _;
 use bytes::Bytes;
 use edge_ipc::client::{ClientOptions, Incoming, IpcClient};
 use edge_platform::systemd::Notifier;
@@ -133,6 +134,11 @@ struct FakeServer {
     /// refuses an invalid event.
     refuse_event_type: Mutex<Option<String>>,
     telemetry: Mutex<Vec<Value>>,
+    /// A Studio preview lease is open.
+    preview_active: AtomicBool,
+    /// Uploaded preview forms, as text (the JPEG bytes are replaced by their
+    /// length).
+    previews: Mutex<Vec<String>>,
 }
 
 impl FakeServer {
@@ -162,6 +168,8 @@ impl FakeServer {
             activity_duplicates: AtomicUsize::new(0),
             refuse_event_type: Mutex::new(None),
             telemetry: Mutex::new(Vec::new()),
+            preview_active: AtomicBool::new(false),
+            previews: Mutex::new(Vec::new()),
         })
     }
 
@@ -271,6 +279,17 @@ async fn handle(fake: Arc<FakeServer>, request: Request<Body>) -> Result<Out, st
                 }
             }
             Ok(data(json!({"accepted": acknowledged.len(), "acknowledgedEventIds": acknowledged})))
+        }
+        "/api/v1/player/preview-session" => Ok(data(json!({
+            "active": fake.preview_active.load(Ordering::SeqCst), "captureIntervalSeconds": 20, "captureNow": true,
+        }))),
+        "/api/v1/player/preview" => {
+            let bytes = request.into_body().collect().await.map_err(std::io::Error::other)?.to_bytes();
+            let text = String::from_utf8_lossy(&bytes).into_owned();
+            fake.previews.lock().unwrap().push(text);
+            let mut response = Response::new(body(Bytes::new()));
+            *response.status_mut() = StatusCode::NO_CONTENT;
+            Ok(response)
         }
         "/api/v1/player/telemetry" => {
             let bytes = request.into_body().collect().await.map_err(std::io::Error::other)?.to_bytes();
@@ -637,6 +656,21 @@ impl FakeRenderer {
                             .identify
                             .push((identify.name.as_str().to_owned(), identify.duration_seconds)),
                         Event::RendererCommand(command) => log.lock().unwrap().commands.push(command.command),
+                        Event::PreviewRequest(request) => {
+                            // A tiny JPEG: the signature and a few bytes.
+                            let jpeg =
+                                base64::engine::general_purpose::STANDARD.encode([0xFF, 0xD8, 0xFF, 0xE0, 0, 16]);
+                            let _ = client
+                                .send_event(Event::PreviewResult(edge_protocol::ipc::event::PreviewResult {
+                                    request_id: request.request_id,
+                                    result: edge_protocol::ipc::event::PreviewOutcome::Captured {
+                                        jpeg_base64: jpeg,
+                                        width: request.max_width.min(640),
+                                        height: request.max_height.min(360),
+                                    },
+                                }))
+                                .await;
+                        }
                         _ => {}
                     }
                 }
@@ -2427,6 +2461,21 @@ async fn a_long_outage_keeps_the_newest_500_events_and_reports_the_dropped_count
     let events = fake.activity.lock().unwrap().clone();
     let sequences: Vec<i64> = events.iter().map(|e| e["sequence"].as_i64().unwrap()).collect();
     assert!(sequences.windows(2).all(|w| w[0] < w[1]));
+    renderer.stop();
+    player.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_studio_preview_lease_uploads_the_renderer_capture() {
+    let harness = Harness::new().await;
+    let image = Asset::new("preview", "image/png");
+    let (player, renderer) = harness.committed(&image, 3).await;
+    harness.fake.preview_active.store(true, Ordering::SeqCst);
+    wait_long("a preview upload", 40, async || !harness.fake.previews.lock().unwrap().is_empty()).await;
+    let form = harness.fake.previews.lock().unwrap()[0].clone();
+    assert!(form.contains("name=\"preview\"; filename=\"preview.jpg\""), "{form}");
+    assert!(form.contains("name=\"width\"\r\n\r\n640\r\n") && form.contains("name=\"height\"\r\n\r\n360\r\n"));
+    assert!(!form.contains("unavailable"));
     renderer.stop();
     player.stop().await;
 }

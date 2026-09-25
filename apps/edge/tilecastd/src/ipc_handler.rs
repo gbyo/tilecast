@@ -119,7 +119,12 @@ impl IpcHandler for DaemonIpc {
             Event::RendererHealth(health) => {
                 tracing::debug!(component = "renderer", event = "health", state = ?health.state, terminations = health.web_process_terminations);
             }
-            Event::PreviewResult(_) | Event::ShutdownAck(_) => {}
+            Event::PreviewResult(result) => {
+                if result.within_limits() {
+                    self.context.preview_waiters.complete(result.request_id, result.result);
+                }
+            }
+            Event::ShutdownAck(_) => {}
             // Daemon → client events never arrive here: the transport rejects
             // them by direction before dispatch.
             _ => {}

@@ -819,6 +819,19 @@ impl PresentationEngine {
         }
     }
 
+    /// Asks the connected renderer for a preview. False without a renderer.
+    pub fn request_preview(&self, request_id: uuid::Uuid, max_width: u32, max_height: u32, max_bytes: u32) -> bool {
+        let Some(link) = self.renderer.as_ref().filter(|link| link.ready.is_some()) else { return false };
+        link.session
+            .send_event(Event::PreviewRequest(edge_protocol::ipc::event::PreviewRequest {
+                request_id,
+                max_width,
+                max_height,
+                max_bytes,
+            }))
+            .is_ok()
+    }
+
     pub fn ready_info(&self) -> Option<&RendererReady> {
         self.renderer.as_ref().and_then(|link| link.ready.as_ref())
     }

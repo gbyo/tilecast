@@ -56,9 +56,7 @@ A screen migrated with `tilecast-edge-migrate migrate`:
 
 It also runs server commands at most once with durable non-replay and applies player configuration, live and offline (M4). A clean installation pairs without legacy state (M5).
 
-It does **not** yet:
-
-- report proof of play or telemetry (M8).
+It reports proof of play, playback failures and bounded telemetry with the Activity Event Contract v2, and answers the Studio live preview (M8). Activity waits in a bounded SQLite outbox through an outage and is delivered once; see §8.
 
 Do not migrate a production screen before physical qualification of its hardware class (M11).
 
@@ -103,7 +101,10 @@ Each later milestone uses the same three headings in its pull request descriptio
 - **Remote web content** is not shown: websites, YouTube and web Widgets are typed incompatibilities until WPE website isolation is qualified (M11). The heartbeat reports `webRuntimeVersion: 0`, so the server refuses such assignments up front where it can.
 
 - **Rotated Span panels:** the players do not agree on rotation (see [`tilecast-edge-capabilities.md`](tilecast-edge-capabilities.md)). Edge follows the shared runtime, as Electron does, until a rotated physical panel (M11) settles the correct result.
-- **Open capability decisions:** AirPlay and the Studio live preview are listed as "Needs a decision" and "Planned (M8)" in the capability matrix.
+- **Open capability decisions:** AirPlay is listed as "Needs a decision" in the capability matrix.
+- **Activity outbox bound:** the outbox keeps the newest 500 rows (at most 120 telemetry samples). A longer outage drops the oldest activity first and reports how many were dropped in an `outbox.overflow` event; the server then sees a gap, not invented playback.
+- **Proof-of-play boundaries:** a session shorter than a frame at an activation boundary is reported differently by the two players: Electron attributes the restart of the outgoing item to the new presentation, Edge ignores renderer evidence for an activation it has already replaced. The side-by-side parity test ignores sessions under 250 ms for this reason.
+- **Compliance after an outage (server):** the trigger `tilecast_close_sessions_after_player_restart` (server migration 00033) closes every open playback session as `unknown` on `connection.restored`, although a player that only lost the network keeps playing. The Electron player and Edge are affected alike, so compliance after any outage is understated for both until the server changes. The side-by-side test compares per-window missed time, which this affects equally, and not compliance percentages, which also depend on each player's 60 s heartbeat phase.
 - **DRM output before the cutover:** the legacy display session holds DRM master, so the release self-test renders off screen (headless WPE, with the real renderer, GStreamer and runtime) and `--probe-drm` only reads the outputs. The on-screen DRM proof is the migration's settlement, and a failure rolls back. Physical DRM qualification is M11.
 - **Migration output:** the migrator uses the DRM backend. A machine that must keep its desktop compositor (Edge on Wayland) cannot migrate with M7.
 - **Release build:** the release workflow, the pinned builder and the WPE WebKit source build are written but have not run yet; their first run is the first release. The migration integration test uses the CI image's WPE WebKit.
@@ -111,19 +112,22 @@ Each later milestone uses the same three headings in its pull request descriptio
 
 ## 5. Test map
 
-| Command                                                            | Covers                                                                                                                                                     |
-| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `cd apps/edge && cargo test --workspace`                           | All Rust unit and integration tests.                                                                                                                       |
-| `apps/edge/ci/test-linux.sh` (in `tilecast-edge-dev`)              | The same on Linux, with fmt and clippy.                                                                                                                    |
-| `apps/edge/renderer-wpe/ci/run-e2e.sh` (in `tilecast-edge-dev`)    | Daemon plus real WPE renderer scenarios.                                                                                                                   |
-| `apps/edge/ci/e2e_server.py`                                       | Real server pairing, legacy import, identity gate, heartbeat, configuration, commands, fresh-installation pairing, revocation.                             |
-| `apps/edge/ci/run-e2e-server.sh` (in `tilecast-edge-e2e`)          | The same plus uploaded image and video, a Layout, offline restart, and two Edge players in one synchronized group, with the real WPE renderer.             |
-| `apps/edge/renderer-wpe/ci/run-conformance.sh`                     | Player Runtime conformance fixtures under WPE WebKit headless.                                                                                             |
-| `packages/player-runtime/conformance/compare.mjs`                  | Electron against WPE: semantic state, evidence and screenshots.                                                                                            |
-| `cd apps/edge && cargo test -p tilecast-edge-migrate`              | Release verification and install, settlement rules, and the crash matrix: every durable transition, with and without a reboot.                             |
-| `apps/edge/ci/run-migrate-e2e.sh` (in `tilecast-edge-migrate-e2e`) | The migrator under systemd with a real server and a lingering kiosk account: install, import failure, a crash, a power loss during settlement, acceptance. |
-| `.github/workflows/edge-release.yml`                               | Manual: builds, signs and packages a release, and rebuilds it to compare every file digest.                                                                |
-| `.github/workflows/ci-edge.yml`                                    | All of the above on every Edge pull request, for any base branch.                                                                                          |
+| Command                                                            | Covers                                                                                                                                                                |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cd apps/edge && cargo test --workspace`                           | All Rust unit and integration tests.                                                                                                                                  |
+| `apps/edge/ci/test-linux.sh` (in `tilecast-edge-dev`)              | The same on Linux, with fmt and clippy.                                                                                                                               |
+| `apps/edge/renderer-wpe/ci/run-e2e.sh` (in `tilecast-edge-dev`)    | Daemon plus real WPE renderer scenarios.                                                                                                                              |
+| `apps/edge/ci/e2e_server.py`                                       | Real server pairing, legacy import, identity gate, heartbeat, configuration, commands, fresh-installation pairing, revocation.                                        |
+| `apps/edge/ci/run-e2e-server.sh` (in `tilecast-edge-e2e`)          | The same plus uploaded image and video, a Layout, offline restart, and two Edge players in one synchronized group, with the real WPE renderer.                        |
+| `apps/edge/renderer-wpe/ci/run-conformance.sh`                     | Player Runtime conformance fixtures under WPE WebKit headless.                                                                                                        |
+| `packages/player-runtime/conformance/compare.mjs`                  | Electron against WPE: semantic state, evidence and screenshots.                                                                                                       |
+| `cd apps/edge && cargo test -p tilecast-edge-migrate`              | Release verification and install, settlement rules, and the crash matrix: every durable transition, with and without a reboot.                                        |
+| `apps/edge/ci/run-migrate-e2e.sh` (in `tilecast-edge-migrate-e2e`) | The migrator under systemd with a real server and a lingering kiosk account: install, import failure, a crash, a power loss during settlement, acceptance.            |
+| `cd apps/edge && cargo test -p tilecastd --test activity_parity`   | Edge's session tracker against the Electron player's events for every scenario in `packages/api-schema/activity/player-parity.json`.                                  |
+| `npm test --workspace @gibsonmb71/tilecast-player-linux`           | The Electron side of the same file (`player-parity.test.ts`).                                                                                                         |
+| `apps/edge/ci/run-activity-parity.sh` (in `tilecast-edge-parity`)  | The real Electron player and Edge side by side on one real server: a loop, a takeover, a server outage; the same proof-of-play sessions, outage flush and compliance. |
+| `.github/workflows/edge-release.yml`                               | Manual: builds, signs and packages a release, and rebuilds it to compare every file digest.                                                                           |
+| `.github/workflows/ci-edge.yml`                                    | All of the above on every Edge pull request, for any base branch.                                                                                                     |
 
 An IPC protocol change needs fixtures in `packages/edge-protocol/fixtures` and tests on the Rust and C sides.
 
@@ -176,3 +180,22 @@ The handoff requires tests for a clean install, the migration, every cutover fai
 | Healthy migration                                                                       | Accepted after a full stable window; rollback then refused                            | `a_healthy_migration_is_accepted_only_after_settlement`; systemd test (`accept`)      |
 | Migration after a rollback                                                              | Imports again with `--refresh`; no command runs twice                                 | `a_second_migration_after_a_rollback_imports_again`; `server.rs` refresh test         |
 | Commands during settlement                                                              | Held on the server until acceptance or rollback                                       | `a_migration_probation_leaves_commands_on_the_server_until_it_ends`                   |
+
+## 8. M8 proof of play, telemetry and live preview
+
+Edge reports with the ordinary player endpoints and the [Activity Event Contract v2](activity-event-contract.md); the server has no Edge-specific route. `tilecastd/src/activity.rs` is a port of the Electron player's `PlaybackSessionTracker` and its mapping (`apps/player-linux/src/core/activity-sessions.ts`): a root presentation session per `source:presentationId:manifestVersion`, a child session per item, and the same terminal reasons. Both players run the scenarios in `packages/api-schema/activity/player-parity.json` and must produce its `expected` events exactly.
+
+Every event and telemetry sample is written to the SQLite outbox (`edge-state` migration 0004) in the transaction that allocates its `sequence`, before anything is sent. The outbox is flushed every 30 s, when the server connection returns and at once for reliability events; a batch holds at most 200 events, and the server's per-event refusal (`Event N:`) drops only that event. Sessions still open at a crash are closed as `player_restart` at the last time the daemon was known alive. Telemetry is a 60 s sample of connection, playback, renderer, cache, storage, uptime, clock offset and display gauges.
+
+The live preview is driven by `GET /api/v1/player/preview-session`, polled every 15 s. While a lease is active the daemon asks the renderer for a snapshot every 20 s, or at once on `captureNow`, and uploads it. Setup, pairing and safe mode are never captured.
+
+| Scenario                                        | Expected                                                              | Test                                                                             |
+| ----------------------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Loop, takeover, schedule, safe mode, errors     | Edge emits the Electron player's events                               | `tests/activity_parity.rs`; `player-parity.test.ts`                              |
+| Server outage                                   | Proof of play is queued and delivered once when the server returns    | `proof_of_play_is_queued_through_an_outage_and_sent_once`; side-by-side parity   |
+| Crash with open sessions                        | Closed as `player_restart` at the next start                          | `sessions_open_at_a_crash_are_closed_as_player_restart_at_the_next_start`        |
+| Outage longer than the bound                    | The newest 500 events are kept and the drop is reported               | `a_long_outage_keeps_the_newest_500_events_and_reports_the_dropped_count`        |
+| The real Electron player and Edge on one server | The same root and item sessions, endings, outage flush and compliance | `ci/run-activity-parity.sh`                                                      |
+| Studio preview lease                            | A renderer JPEG within 960×540 and 500 KiB reaches Studio             | `a_studio_preview_lease_uploads_the_renderer_capture`; real-server e2e `preview` |
+
+Fixed while building the parity test, and not Edge-specific: every takeover returned 500 because `takeoverScreens` bound an unused `$1` (`apps/server/internal/httpapi/operations.go`, `takeover_targets_integration_test.go`), and the Electron player sent fractional values in integer telemetry fields, which the server rejects (`apps/player-linux/src/core/telemetry.ts`).

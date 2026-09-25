@@ -120,6 +120,8 @@ pub struct DaemonContext {
     pub activity: crate::activity::Handle,
     /// Asks the activity task to flush the outbox now.
     pub report_wake: tokio::sync::Notify,
+    /// Live-preview requests waiting for the renderer.
+    pub preview_waiters: crate::preview::Waiters,
 }
 
 impl DaemonContext {
@@ -326,6 +328,7 @@ impl Daemon {
             shutdown: CancellationToken::new(),
             activity,
             report_wake: tokio::sync::Notify::new(),
+            preview_waiters: crate::preview::Waiters::default(),
         });
 
         let bound_record = match context.db() {
@@ -412,6 +415,7 @@ impl Daemon {
         tasks.spawn(crate::pairing::run(Arc::clone(&context)));
         tasks.spawn(crate::activity::run(Arc::clone(&context), self.activity_signals));
         tasks.spawn(crate::telemetry::run(Arc::clone(&context)));
+        tasks.spawn(crate::preview::run(Arc::clone(&context)));
 
         let status = ready_status(&context);
         context.notifier.ready(&status);

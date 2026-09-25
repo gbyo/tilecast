@@ -590,6 +590,35 @@ impl AuthenticatedServer {
         Ok(crate::player_api::TelemetryOutcome::Accepted)
     }
 
+    /// `GET /player/preview-session`: whether Studio holds a preview lease.
+    pub async fn preview_session(&self) -> Result<crate::player_api::PreviewSession, ServerError> {
+        let response = self
+            .request(reqwest::Method::GET, "/api/v1/player/preview-session")
+            .send()
+            .await
+            .map_err(|_| ServerError::Network)?;
+        let data: serde_json::Value = decode(response, MAX_SMALL_JSON_BYTES).await?;
+        Ok(crate::player_api::preview_session(&data))
+    }
+
+    /// `POST /player/preview`: one bounded JPEG, or an unavailable status
+    /// (a protected state or a failed capture), as multipart form data.
+    pub async fn post_preview(&self, upload: &crate::player_api::PreviewUpload<'_>) -> Result<(), ServerError> {
+        let boundary = format!("tilecast-{}", uuid::Uuid::new_v4().simple());
+        let body = crate::player_api::preview_form(&boundary, upload).ok_or(ServerError::Decode)?;
+        let response = self
+            .request(reqwest::Method::POST, "/api/v1/player/preview")
+            .header(reqwest::header::CONTENT_TYPE, format!("multipart/form-data; boundary={boundary}"))
+            .body(body)
+            .send()
+            .await
+            .map_err(|_| ServerError::Network)?;
+        if response.status().is_success() {
+            return Ok(());
+        }
+        Err(error_from(response).await)
+    }
+
     /// Opens an authenticated download (for the origin blob source).
     pub(crate) async fn get_range(
         &self,

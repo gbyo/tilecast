@@ -212,23 +212,8 @@ func (s *server) activateTakeover(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	rows, err := tx.Query(r.Context(), `SELECT DISTINCT s.id FROM screens s WHERE s.organization_id=$2 AND s.deleted_at IS NULL AND (s.id=ANY($3) OR EXISTS(SELECT 1 FROM screen_group_memberships m WHERE m.screen_id=s.id AND m.screen_group_id=ANY($4)))`, id, org, input.ScreenIDs, input.GroupIDs)
+	screens, err := takeoverScreens(r.Context(), tx, org, input.ScreenIDs, input.GroupIDs)
 	if err != nil {
-		s.internalError(w, r, err)
-		return
-	}
-	screens := []uuid.UUID{}
-	for rows.Next() {
-		var screen uuid.UUID
-		if err = rows.Scan(&screen); err != nil {
-			rows.Close()
-			s.internalError(w, r, err)
-			return
-		}
-		screens = append(screens, screen)
-	}
-	rows.Close()
-	if err = rows.Err(); err != nil {
 		s.internalError(w, r, err)
 		return
 	}
@@ -797,4 +782,25 @@ func (s *server) EnqueueCommand(ctx context.Context, screenID, userID uuid.UUID,
 	}
 	_, _, err = s.queueCommand(ctx, screenID, userID, commandType, validated, uuid.New())
 	return err
+}
+
+// takeoverScreens resolves a takeover's screen and group targets to the
+// organization's live screens. Every parameter is referenced: PostgreSQL
+// cannot type a parameter that the statement never uses, and the pool
+// prepares statements, so an unused argument fails the whole activation.
+func takeoverScreens(ctx context.Context, tx pgx.Tx, org uuid.UUID, screenIDs, groupIDs []uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := tx.Query(ctx, `SELECT DISTINCT s.id FROM screens s WHERE s.organization_id=$1 AND s.deleted_at IS NULL AND (s.id=ANY($2) OR EXISTS(SELECT 1 FROM screen_group_memberships m WHERE m.screen_id=s.id AND m.screen_group_id=ANY($3)))`, org, screenIDs, groupIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	screens := []uuid.UUID{}
+	for rows.Next() {
+		var screen uuid.UUID
+		if err := rows.Scan(&screen); err != nil {
+			return nil, err
+		}
+		screens = append(screens, screen)
+	}
+	return screens, rows.Err()
 }

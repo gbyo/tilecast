@@ -264,3 +264,111 @@ mod activity_tests {
         );
     }
 }
+
+/// The server's preview image bound (`internal/previews`).
+pub const MAX_PREVIEW_BYTES: usize = 500 * 1024;
+
+/// A Studio live-preview lease, as the player sees it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct PreviewSession {
+    pub active: bool,
+    pub capture_now: bool,
+    pub capture_interval_seconds: u32,
+}
+
+pub(crate) fn preview_session(data: &Value) -> PreviewSession {
+    PreviewSession {
+        active: data.get("active").and_then(Value::as_bool).unwrap_or(false),
+        capture_now: data.get("captureNow").and_then(Value::as_bool).unwrap_or(false),
+        capture_interval_seconds: data
+            .get("captureIntervalSeconds")
+            .and_then(Value::as_u64)
+            .map_or(0, |seconds| seconds.min(3_600) as u32),
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PreviewUpload<'a> {
+    Image { jpeg: &'a [u8], width: u32, height: u32, captured_at: &'a str, player_version: &'a str },
+    Unavailable { player_version: &'a str },
+}
+
+/// The multipart body the Electron player sends (`preview.ts`). Values are
+/// plain tokens and numbers; anything else is refused, so no field can break
+/// the form.
+pub(crate) fn preview_form(boundary: &str, upload: &PreviewUpload<'_>) -> Option<Vec<u8>> {
+    let plain = |value: &str| value.len() <= 64 && value.bytes().all(|b| b.is_ascii_graphic());
+    let mut body = Vec::new();
+    let field = |body: &mut Vec<u8>, name: &str, value: &str| {
+        body.extend_from_slice(
+            format!("--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n{value}\r\n").as_bytes(),
+        );
+    };
+    match upload {
+        PreviewUpload::Image { jpeg, width, height, captured_at, player_version } => {
+            if jpeg.len() > MAX_PREVIEW_BYTES
+                || !jpeg.starts_with(&[0xFF, 0xD8])
+                || !plain(captured_at)
+                || !plain(player_version)
+            {
+                return None;
+            }
+            field(&mut body, "capturedAt", captured_at);
+            field(&mut body, "width", &width.to_string());
+            field(&mut body, "height", &height.to_string());
+            field(&mut body, "fileSize", &jpeg.len().to_string());
+            field(&mut body, "playerVersion", player_version);
+            body.extend_from_slice(
+                format!(
+                    "--{boundary}\r\nContent-Disposition: form-data; name=\"preview\"; filename=\"preview.jpg\"\r\n\
+                     Content-Type: image/jpeg\r\n\r\n"
+                )
+                .as_bytes(),
+            );
+            body.extend_from_slice(jpeg);
+            body.extend_from_slice(b"\r\n");
+        }
+        PreviewUpload::Unavailable { player_version } => {
+            if !plain(player_version) {
+                return None;
+            }
+            field(&mut body, "failureStatus", "unavailable");
+            field(&mut body, "playerVersion", player_version);
+        }
+    }
+    body.extend_from_slice(format!("--{boundary}--\r\n").as_bytes());
+    Some(body)
+}
+
+#[cfg(test)]
+mod preview_tests {
+    use super::*;
+
+    #[test]
+    fn the_preview_form_carries_only_bounded_fields() {
+        let jpeg = [0xFF, 0xD8, 0xFF, 0xE0, 1, 2, 3];
+        let upload = PreviewUpload::Image {
+            jpeg: &jpeg,
+            width: 960,
+            height: 540,
+            captured_at: "2026-09-25T00:00:00Z",
+            player_version: "0.1.0",
+        };
+        let body = preview_form("b", &upload).unwrap();
+        let text = String::from_utf8_lossy(&body);
+        assert!(text.contains("name=\"width\"\r\n\r\n960\r\n") && text.contains("filename=\"preview.jpg\""));
+        assert!(text.ends_with("--b--\r\n"));
+        let not_jpeg = PreviewUpload::Image {
+            jpeg: b"GIF89a",
+            width: 960,
+            height: 540,
+            captured_at: "2026-09-25T00:00:00Z",
+            player_version: "0.1.0",
+        };
+        assert!(preview_form("b", &not_jpeg).is_none());
+        let injected = PreviewUpload::Unavailable { player_version: "0.1\r\n--b" };
+        assert!(preview_form("b", &injected).is_none());
+        let unavailable = preview_form("b", &PreviewUpload::Unavailable { player_version: "0.1.0" }).unwrap();
+        assert!(String::from_utf8_lossy(&unavailable).contains("unavailable"));
+    }
+}

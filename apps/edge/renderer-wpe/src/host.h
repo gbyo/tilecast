@@ -102,6 +102,9 @@ void tc_protocol_handle_frame (TcHost *host, JsonObject *frame);
 void tc_protocol_send_ready (TcHost *host);
 void tc_protocol_send_health (TcHost *host, const char *state, const char *reason);
 
+/* preview.c: answers preview.request with a bounded JPEG of the view. */
+void tc_preview_capture (TcHost *host, JsonObject *data);
+
 /* drm-probe.c: --probe-drm. Prints one JSON object; returns the exit status. */
 int tc_drm_probe (const char *dri_dir);
 

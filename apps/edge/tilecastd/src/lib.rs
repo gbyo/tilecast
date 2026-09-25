@@ -26,7 +26,7 @@
 //! * [`schedule`] — offline schedule and availability selection.
 //! * [`activation`] — what the renderer shows, and evidence-gated promotion.
 //! * [`activity`], [`telemetry`] — proof of play and telemetry through the
-//!   bounded outbox.
+//!   bounded outbox; [`preview`] — the Studio live preview.
 //! * [`media`], [`media_channel`] — renderer media capabilities.
 //! * [`pairing`], [`discovery`] — pairing a fresh installation and finding
 //!   servers on the LAN through Avahi.
@@ -55,6 +55,7 @@ pub mod media_channel;
 pub mod pairing;
 pub mod player_config;
 pub mod presentation;
+pub mod preview;
 pub mod schedule;
 pub mod self_test;
 pub mod server_link;
