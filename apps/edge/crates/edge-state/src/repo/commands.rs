@@ -299,11 +299,16 @@ pub fn recover_interrupted(connection: &Connection, now: Timestamp) -> Result<us
 /// again.
 pub fn import_completed(connection: &Connection, idempotency_key: &str, now: Timestamp) -> Result<()> {
     connection.execute(
-        "INSERT OR IGNORE INTO player_commands (idempotency_key, command_id, command_type, state, success,
-                                                result_code, result_message, report_state, received_at_ms,
-                                                completed_at_ms)
+        "INSERT INTO player_commands (idempotency_key, command_id, command_type, state, success,
+                                      result_code, result_message, report_state, received_at_ms,
+                                      completed_at_ms)
          VALUES (?1, NULL, 'legacy_import', 'completed', 1, 'already_executed',
-                 'The command was already executed by this player.', 'not_required', ?2, ?2)",
+                 'The command was already executed by this player.', 'not_required', ?2, ?2)
+         ON CONFLICT (idempotency_key) DO UPDATE SET
+             state = 'completed', success = 1, result_code = 'already_executed',
+             result_message = 'The command was already executed by this player.',
+             report_state = 'not_required', completed_at_ms = ?2
+         WHERE state <> 'completed'",
         params![idempotency_key, ms(now)],
     )?;
     Ok(())

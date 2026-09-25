@@ -32,6 +32,12 @@
 //!   `initiated` result and tries to report it, bounded in time, before the
 //!   disruption starts; the next process resends it if the report was lost.
 //!
+//! * While a migration settles (M7), the migrator holds a probation marker
+//!   and no pass runs: commands stay on the server. If the migration rolls
+//!   back, the legacy player receives them; if it is accepted, Edge does.
+//!   Either way one stack runs each command, and a rollback can never leave
+//!   a command that Edge started for the legacy player to run again.
+//!
 //! Commands whose feature belongs to a later milestone are answered with a
 //! typed `unsupported_command` result, never silently ignored. There is no
 //! generic command: every supported type has a fixed handler.
@@ -127,6 +133,8 @@ pub enum PassOutcome {
     Interrupted(&'static str),
     /// A disruptive command started; the coordinator stops.
     Disrupted,
+    /// The migration probation marker is present; nothing was fetched.
+    Held,
 }
 
 enum Step {
@@ -141,16 +149,29 @@ fn server_step(error: &ServerError) -> Step {
     }
 }
 
-#[derive(Debug)]
 pub struct Coordinator<H> {
     db: StateDb,
     clock: SharedClock,
     handlers: H,
+    hold: Box<dyn Fn() -> bool + Send + Sync>,
+}
+
+impl<H> std::fmt::Debug for Coordinator<H> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Coordinator").finish_non_exhaustive()
+    }
 }
 
 impl<H: Handlers> Coordinator<H> {
     pub fn new(db: StateDb, clock: SharedClock, handlers: H) -> Self {
-        Self { db, clock, handlers }
+        Self { db, clock, handlers, hold: Box::new(|| false) }
+    }
+
+    /// Passes are skipped while `hold` returns true (the migration
+    /// probation marker).
+    pub fn with_hold(mut self, hold: impl Fn() -> bool + Send + Sync + 'static) -> Self {
+        self.hold = Box::new(hold);
+        self
     }
 
     pub fn handlers(&self) -> &H {
@@ -171,6 +192,9 @@ impl<H: Handlers> Coordinator<H> {
 
     /// One pass: resend stored results, then fetch and handle deliveries.
     pub async fn pass<A: CommandApi + ?Sized>(&self, api: &A) -> PassOutcome {
+        if (self.hold)() {
+            return PassOutcome::Held;
+        }
         if let Step::Stop(outcome) = self.flush_reports(api).await {
             return outcome;
         }
@@ -414,13 +438,19 @@ pub async fn drive<H, A>(
 pub async fn run(context: Arc<crate::daemon::DaemonContext>) {
     let Some(db) = context.db().cloned() else { return };
     let coordinator =
-        Coordinator::new(db, context.clock.clone(), crate::command_handlers::DaemonHandlers::new(&context));
+        Coordinator::new(db, context.clock.clone(), crate::command_handlers::DaemonHandlers::new(&context))
+            .with_hold(|| std::path::Path::new(edge_platform::paths::MIGRATION_PROBATION_FILE).exists());
     if let Err(error) = coordinator.recover().await {
         tracing::error!(component = "commands", event = "recovery_failed", reason = error.reason_code());
         return;
     }
     let server = context.command_server.subscribe();
+    let mut held = false;
     drive(&coordinator, server, &context.command_wake, &context.shutdown, |outcome| {
+        if (outcome == PassOutcome::Held) != held {
+            held = !held;
+            tracing::info!(component = "commands", event = if held { "held_for_migration" } else { "released" });
+        }
         if outcome == PassOutcome::CredentialRejected {
             // The server link owns the credential and deletes it only on its
             // own explicit rejection; wake it to confirm.

@@ -92,6 +92,27 @@ pub struct DaemonStatus {
     /// private poll secret never appears here.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pairing: Option<PairingStatus>,
+    /// The current activation and whether the renderer proved it. The
+    /// migrator's settlement reads this; systemd unit states never replace it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub presentation: Option<PresentationStatus>,
+}
+
+/// What the screen shows now, and the evidence for it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PresentationStatus {
+    /// `status_surface`, `fixture`, `server_manifest`, `safe_mode` or `policy`.
+    pub source: ShortToken,
+    pub generation: u64,
+    /// The prepared manifest that the activation shows, if any.
+    pub manifest_sha256: Option<Sha256Digest>,
+    /// The manifest the server last selected for this screen, if any.
+    pub target_manifest_sha256: Option<Sha256Digest>,
+    /// The renderer accepted exactly this activation.
+    pub accepted: bool,
+    /// The renderer reported meaningful content evidence for it.
+    pub evidence: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -15,11 +15,19 @@
 //!   (size and SHA-256 against the saved manifest).
 //! * **Idempotent and crash-safe.** Every step is an upsert or
 //!   content-addressed; a crash at any point is repaired by running the
-//!   import again. A completed import is not repeated.
+//!   import again. A completed import is not repeated, except by
+//!   [`ImportMode::Refresh`].
+//! * **Refresh after a rollback.** When a migration rolls back, the legacy
+//!   player runs again and can execute more commands and receive a newer
+//!   manifest. The next migration imports again with
+//!   [`ImportMode::Refresh`]. Executed command keys are added to the ones
+//!   already recorded and never removed, so a command that either player
+//!   ran never runs again.
 //! * **Not imported:** pairing sessions (temporary), the AppImage updater
 //!   stage, AirPlay session files, Presentation Network radio state, and
 //!   website storage.
 
+use std::io::{Read as _, Seek as _};
 use std::path::{Path, PathBuf};
 
 use edge_cas::{ContentStore, IngestMeta};
@@ -75,6 +83,8 @@ impl ImportError {
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ImportSummary {
+    /// The import replaced the state of an earlier completed import.
+    pub refreshed: bool,
     pub player_id: PlayerId,
     pub server_url: String,
     pub installation_id: InstallationId,
@@ -92,6 +102,15 @@ pub struct ImportSummary {
 pub enum ImportOutcome {
     Imported(ImportSummary),
     AlreadyComplete,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ImportMode {
+    /// Import unless an import already completed.
+    Once,
+    /// Import even if an import already completed (a migration after a
+    /// rollback).
+    Refresh,
 }
 
 #[derive(Deserialize)]
@@ -160,16 +179,10 @@ pub fn default_legacy_dir() -> Option<PathBuf> {
     std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/share/tilecast-player"))
 }
 
+/// Reads a legacy state file: a regular file, never through a symbolic
+/// link, and at most [`MAX_STATE_FILE_BYTES`].
 fn read_regular(path: &Path) -> Result<Option<Vec<u8>>, ImportError> {
-    let metadata = match std::fs::symlink_metadata(path) {
-        Ok(metadata) => metadata,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(error) => return Err(ImportError::Identity(error.to_string())),
-    };
-    if !metadata.file_type().is_file() || metadata.len() > MAX_STATE_FILE_BYTES {
-        return Ok(None);
-    }
-    std::fs::read(path).map(Some).map_err(|e| ImportError::Identity(e.to_string()))
+    edge_platform::fs::read_regular(path, MAX_STATE_FILE_BYTES).map_err(|e| ImportError::Identity(e.to_string()))
 }
 
 fn read_json<T: serde::de::DeserializeOwned>(dir: &Path, name: &'static str) -> Result<Option<T>, ImportError> {
@@ -193,15 +206,16 @@ pub async fn import_legacy(
     db: &StateDb,
     cas: &ContentStore,
     now: Timestamp,
+    mode: ImportMode,
 ) -> Result<ImportOutcome, ImportError> {
-    if let Some(record) = db.run(|c| legacy::get(c)).await?
-        && record.state == legacy::ImportState::Completed
-    {
+    let completed =
+        db.run(|c| legacy::get(c)).await?.is_some_and(|record| record.state == legacy::ImportState::Completed);
+    if completed && mode == ImportMode::Once {
         return Ok(ImportOutcome::AlreadyComplete);
     }
     let source = legacy_dir.to_string_lossy().into_owned();
     db.run(move |c| legacy::begin(c, IMPORTER_VERSION, &source, now)).await?;
-    match run(legacy_dir, identity_dir, db, cas, now).await {
+    match run(legacy_dir, identity_dir, db, cas, now, completed).await {
         Ok(summary) => {
             let value = serde_json::to_value(&summary).unwrap_or_default();
             db.run(move |c| legacy::complete(c, &value, now)).await?;
@@ -221,6 +235,7 @@ async fn run(
     db: &StateDb,
     cas: &ContentStore,
     now: Timestamp,
+    refreshed: bool,
 ) -> Result<ImportSummary, ImportError> {
     let installation: InstallationRecord =
         read_json(legacy_dir, "installation.json")?.ok_or(ImportError::Missing("installation.json"))?;
@@ -278,7 +293,17 @@ async fn run(
     let mut clock_offset = None;
     let (mut imported, mut missing, mut rejected) = (0, 0, 0);
     let manifest_path = legacy_dir.join("manifest-active.json");
-    if let Some(bytes) = read_regular(&manifest_path)? {
+    let manifest = edge_platform::fs::open_regular(&manifest_path, MAX_STATE_FILE_BYTES)
+        .map_err(|e| ImportError::Identity(e.to_string()))?;
+    if let Some((mut manifest_file, _)) = manifest {
+        // One open file for the parse and the import, so the bytes that
+        // were checked are the bytes that are stored.
+        let mut bytes = Vec::new();
+        (&mut manifest_file)
+            .take(MAX_STATE_FILE_BYTES)
+            .read_to_end(&mut bytes)
+            .and_then(|_| manifest_file.rewind())
+            .map_err(|e| ImportError::Identity(e.to_string()))?;
         let stored: StoredManifest =
             serde_json::from_slice(&bytes).map_err(|_| ImportError::Invalid("manifest-active.json"))?;
         // The legacy player's own cache-identity rule (`cacheIdentityMatches`).
@@ -292,7 +317,7 @@ async fn run(
                 content_type: Some("application/json".into()),
                 source: SourceKind::LegacyImport,
             };
-            cas.import_file(&manifest_path, digest, bytes.len() as u64, meta).await?;
+            cas.import_open_file(manifest_file, digest, bytes.len() as u64, meta).await?;
             manifest_sha256 = Some(digest);
             clock_offset = stored.clock_offset_ms.filter(|v| v.is_finite()).map(|v| v.round() as i64);
             let media_dir = legacy_dir.join("cache").join("media");
@@ -307,21 +332,25 @@ async fn run(
                     continue;
                 }
                 let file = media_dir.join(format!("{}-{}", asset.asset_id, asset.variant_id));
-                let Ok(metadata) = std::fs::symlink_metadata(&file) else {
-                    missing += 1;
-                    continue;
+                let opened = match edge_platform::fs::open_regular(&file, asset.file_size) {
+                    Ok(Some((opened, len))) if len == asset.file_size => opened,
+                    Ok(_) | Err(_) if std::fs::symlink_metadata(&file).is_err() => {
+                        missing += 1;
+                        continue;
+                    }
+                    _ => {
+                        // A link, a special file, the wrong size or unreadable.
+                        rejected += 1;
+                        continue;
+                    }
                 };
-                if !metadata.file_type().is_file() || metadata.len() != asset.file_size {
-                    rejected += 1;
-                    continue;
-                }
                 let meta = IngestMeta {
                     domain: Domain::Media,
                     content_type: Some(asset.mime_type.chars().take(127).collect()),
                     // Manifest media is already eligible for this player.
                     source: SourceKind::LegacyImport,
                 };
-                match cas.import_file(&file, expected, asset.file_size, meta).await {
+                match cas.import_open_file(opened, expected, asset.file_size, meta).await {
                     Ok(_) => {
                         imported += 1;
                         pinned.push(expected);
@@ -349,6 +378,7 @@ async fn run(
     .await?;
 
     Ok(ImportSummary {
+        refreshed,
         player_id,
         server_url,
         installation_id,

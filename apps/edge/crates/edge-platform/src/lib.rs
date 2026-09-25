@@ -5,6 +5,7 @@
 //!   systemd-managed directories.
 //! * [`systemd`]: `sd_notify` readiness, status, stopping and watchdog.
 //! * [`disk`]: free-space measurement for CAS reserve enforcement.
+//! * [`fs`]: opening files that another account may control.
 //! * [`capabilities`]: the capability registry and the provider trait every
 //!   machine integration implements (§12).
 //! * [`providers`]: providers that need only filesystem/environment probes.
@@ -23,6 +24,7 @@
 
 pub mod capabilities;
 pub mod disk;
+pub mod fs;
 pub mod paths;
 pub mod providers;
 pub mod systemd;

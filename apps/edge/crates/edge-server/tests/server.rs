@@ -15,7 +15,7 @@ use edge_platform::disk::FixedSpace;
 use edge_protocol::time::system_clock;
 use edge_protocol::{InstallationId, PlayerId, ScreenId, Sha256Digest, Timestamp};
 use edge_server::client::{MAX_MANIFEST_BYTES, ManifestFetch, ServerClient};
-use edge_server::legacy::{ImportError, ImportOutcome, import_legacy};
+use edge_server::legacy::{ImportError, ImportMode, ImportOutcome, import_legacy};
 use edge_server::origin::OriginBlobSource;
 use edge_server::{DeviceCredential, ServerError};
 use edge_state::repo::{binding, commands, legacy, playback};
@@ -307,7 +307,8 @@ async fn legacy_import_then_player_contact() {
     let before = tree_snapshot(&env.legacy());
     let started = now();
 
-    let outcome = import_legacy(&env.legacy(), &env.identity(), &env.db, &env.cas, started).await.unwrap();
+    let outcome =
+        import_legacy(&env.legacy(), &env.identity(), &env.db, &env.cas, started, ImportMode::Once).await.unwrap();
     let ImportOutcome::Imported(summary) = outcome else { panic!("expected an import") };
     assert_eq!(summary.player_id, player);
     assert_eq!(summary.server_url, url);
@@ -336,8 +337,22 @@ async fn legacy_import_then_player_contact() {
     assert_eq!(tree_snapshot(&env.legacy()), before, "legacy state must be untouched");
 
     // Idempotent.
-    let again = import_legacy(&env.legacy(), &env.identity(), &env.db, &env.cas, started).await.unwrap();
+    let again =
+        import_legacy(&env.legacy(), &env.identity(), &env.db, &env.cas, started, ImportMode::Once).await.unwrap();
     assert!(matches!(again, ImportOutcome::AlreadyComplete));
+
+    // A migration after a rollback: the legacy player ran another command
+    // and forgot an old key. The refresh adds the new key and keeps every
+    // key either player recorded.
+    std::fs::write(env.legacy().join("executed-commands.json"), br#"{"keys": ["cmd-2", "cmd-3"]}"#).unwrap();
+    let refreshed =
+        import_legacy(&env.legacy(), &env.identity(), &env.db, &env.cas, started, ImportMode::Refresh).await.unwrap();
+    let ImportOutcome::Imported(summary) = refreshed else { panic!("expected a refresh") };
+    assert!(summary.refreshed);
+    for key in ["cmd-1", "cmd-2", "cmd-3"] {
+        let record = env.db.run(move |c| commands::get(c, key)).await.unwrap().expect("key kept");
+        assert_eq!(record.state, commands::CommandState::Completed, "{key}");
+    }
 
     // Ordinary player contact with the imported credential.
     let credential = DeviceCredential::load(&env.identity()).unwrap().unwrap();
@@ -368,7 +383,8 @@ async fn import_refuses_a_different_installation_without_sending_the_credential(
     let env = Env::new().await;
     env.write_legacy(&url, installation, ScreenId::new_random(), PlayerId::new_random());
 
-    let error = import_legacy(&env.legacy(), &env.identity(), &env.db, &env.cas, now()).await.unwrap_err();
+    let error =
+        import_legacy(&env.legacy(), &env.identity(), &env.db, &env.cas, now(), ImportMode::Once).await.unwrap_err();
     assert!(matches!(error, ImportError::Server(ServerError::IdentityMismatch { .. })), "{error:?}");
     assert!(fake.authenticated_paths().is_empty());
     assert!(DeviceCredential::load(&env.identity()).unwrap().is_none());
@@ -383,7 +399,8 @@ async fn import_refuses_a_public_http_server_address() {
     let env = Env::new().await;
     let installation = InstallationId::new_random();
     env.write_legacy("http://signage.example.org", installation, ScreenId::new_random(), PlayerId::new_random());
-    let error = import_legacy(&env.legacy(), &env.identity(), &env.db, &env.cas, now()).await.unwrap_err();
+    let error =
+        import_legacy(&env.legacy(), &env.identity(), &env.db, &env.cas, now(), ImportMode::Once).await.unwrap_err();
     assert!(matches!(error, ImportError::ServerUrl(_)), "{error:?}");
 }
 
@@ -465,4 +482,32 @@ async fn commands_are_acknowledged_and_reported_by_delivery_id() {
         ReportOutcome::NotAccepted
     );
     assert_eq!(fake.results.lock().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn import_never_follows_a_link_in_the_legacy_directory() {
+    let installation = InstallationId::new_random();
+    let fake = Fake::new(installation);
+    let url = serve(Arc::clone(&fake)).await;
+    let env = Env::new().await;
+    env.write_legacy(&url, installation, ScreenId::new_random(), PlayerId::new_random());
+    // A cached media file replaced by a link to its correct bytes elsewhere.
+    let outside = env.dir.path().join("outside");
+    std::fs::write(&outside, MEDIA).unwrap();
+    std::fs::remove_file(env.legacy().join("cache/media/a1-v1")).unwrap();
+    std::os::unix::fs::symlink(&outside, env.legacy().join("cache/media/a1-v1")).unwrap();
+    let outcome = import_legacy(&env.legacy(), &env.identity(), &env.db, &env.cas, now(), ImportMode::Once).await;
+    let ImportOutcome::Imported(summary) = outcome.unwrap() else { panic!("expected an import") };
+    assert_eq!((summary.media_imported, summary.media_rejected), (0, 2), "the link is rejected, not followed");
+    assert!(env.cas.stat(&Sha256Digest::of(MEDIA)).await.unwrap().is_none());
+
+    // A linked credential file is missing, not read.
+    let env = Env::new().await;
+    env.write_legacy(&url, installation, ScreenId::new_random(), PlayerId::new_random());
+    let credential = env.dir.path().join("credential.json");
+    std::fs::rename(env.legacy().join("credential.json"), &credential).unwrap();
+    std::os::unix::fs::symlink(&credential, env.legacy().join("credential.json")).unwrap();
+    let error =
+        import_legacy(&env.legacy(), &env.identity(), &env.db, &env.cas, now(), ImportMode::Once).await.unwrap_err();
+    assert!(matches!(error, ImportError::Missing("credential.json")), "{error:?}");
 }
