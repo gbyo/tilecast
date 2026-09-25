@@ -386,8 +386,11 @@ def main():
         result = command("enable_playback")
         assert (result["state"], result["resultCode"]) == ("succeeded", "playback_enabled"), result
         wait_for(lambda: playback_disabled() == "f", "playback enabled in status")
+        # The e2e host has no CEC adapter: a typed Display Control refusal
+        # that names the reason, never a silent success.
         result = command("display_power_on")
-        assert (result["state"], result["resultCode"]) == ("failed", "unsupported_command"), result
+        assert (result["state"], result["resultCode"]) == ("failed", "display_unsupported"), result
+        assert "cec_adapter_absent" in result["resultMessage"], result
         # The legacy player already ran this key: it is answered, never run.
         result = command("disable_playback", LEGACY_COMMAND_KEY)
         assert (result["state"], result["resultCode"]) == ("succeeded", "already_executed"), result

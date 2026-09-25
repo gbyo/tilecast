@@ -467,6 +467,20 @@ async fn settle() {
     }
 }
 
+/// [`settle`] for work whose length depends on the machine: waits, in real
+/// time and for at most ten seconds, until `done` holds, then settles once
+/// more so that anything that should not happen has had its chance.
+async fn settle_until(done: impl Fn() -> bool) {
+    for _ in 0..5_000 {
+        if done() {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(2));
+        tokio::task::yield_now().await;
+    }
+    settle().await;
+}
+
 #[tokio::test(start_paused = true)]
 async fn polling_starts_with_the_relationship_then_follows_the_timer_and_pushes() {
     let h = Harness::new();
@@ -525,7 +539,7 @@ async fn pushes_during_a_pass_cause_exactly_one_more_pass_never_a_concurrent_one
     settle().await;
     assert_eq!(h.api.in_flight.load(Ordering::SeqCst), 1);
     gate.add_permits(10);
-    settle().await;
+    settle_until(|| h.api.fetches.load(Ordering::SeqCst) >= 2 && h.runs.load(Ordering::SeqCst) >= 1).await;
     assert_eq!(h.api.max_in_flight.load(Ordering::SeqCst), 1, "passes never overlap");
     assert_eq!(h.api.fetches.load(Ordering::SeqCst), 2, "the queued pushes collapse into one pass");
     assert_eq!(h.runs.load(Ordering::SeqCst), 1);
