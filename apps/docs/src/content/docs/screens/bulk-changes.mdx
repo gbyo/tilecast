@@ -3,6 +3,8 @@ title: Bulk screen changes
 description: Preview a supported change across several screens before applying it.
 ---
 
+import { Steps } from "@astrojs/starlight/components";
+
 Open **Screens** > **Bulk changes** when you need to make the same supported change to several screens.
 
 Choose the target screens and an available action, then review the preview before applying it.
@@ -13,11 +15,15 @@ For Player commands, the preview also shows screens that cannot receive the comm
 
 ## Apply a bulk change
 
+<Steps>
+
 1. Select the screens or scope.
 2. Choose the action.
 3. Generate the preview.
 4. Check the final target list, unsupported screens, and resulting change.
 5. Apply the change only when the preview is correct.
+
+</Steps>
 
 A Player command that has already been collected by a Player cannot be cancelled just by changing the fleet selection afterward.
 
