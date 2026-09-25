@@ -113,6 +113,11 @@ Login body:
 { "username": "owner@example.org", "password": "a long unique password" }
 ```
 
+In Demo Mode (`TILECAST_ENV=demo`), the status response also contains `"demoMode": true`, and a request with no valid session receives a new session for the demo Owner with `authMethod` `demo`. Two Demo Mode endpoints exist only on such an installation:
+
+- `GET /api/v1/demo` — returns the scenario and the state of each simulated player.
+- `POST /api/v1/demo/reset` — replaces all data with a scenario, for example `{ "scenario": "basic" }`. Requires the Owner role and `X-CSRF-Token`. Refer to [`demo-mode.md`](demo-mode.md).
+
 Authentication and setup are rate-limited per directly connected client address. When a reverse proxy is introduced, keep it on a trusted network; configurable trusted-proxy address handling will be added before internet-facing player APIs.
 
 ## Multi-factor authentication

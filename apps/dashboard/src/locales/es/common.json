@@ -45,5 +45,9 @@
     "title": "{{feature}} aún no están disponibles.",
     "body": "Esta instalación incluye actualmente la base del Hito 1. {{feature}} se implementará y se probará en el Hito {{milestone}}.",
     "backLink": "Volver al estado de la instalación"
+  },
+  "demo": {
+    "title": "Modo de demostración",
+    "description": "Esta instalación contiene datos de ejemplo y puede restablecerse automáticamente."
   }
 }

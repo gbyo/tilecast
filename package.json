@@ -24,9 +24,11 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "npm run lint --workspace @tilecast/dashboard",
-    "test": "npm run test --workspace @tilecast/dashboard"
+    "test": "npm run test --workspace @tilecast/dashboard",
+    "test:e2e": "playwright test -c e2e/playwright.config.ts"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "prettier": "^3.9.6"
   }
 }
