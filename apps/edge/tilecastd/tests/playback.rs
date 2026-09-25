@@ -400,6 +400,8 @@ async fn player_socket(fake: Arc<FakeServer>, stream: tokio::net::TcpStream) {
     use futures_util::{SinkExt as _, StreamExt as _};
     use tokio_tungstenite::tungstenite::Message;
     use tokio_tungstenite::tungstenite::handshake::server::{ErrorResponse, Request as Upgrade, Response as Accepted};
+    // The error type is tungstenite's handshake callback contract.
+    #[allow(clippy::result_large_err)]
     let authorize = |request: &Upgrade, response: Accepted| -> Result<Accepted, ErrorResponse> {
         let expected = format!("Bearer {CREDENTIAL}");
         if request.headers().get("authorization").and_then(|v| v.to_str().ok()) == Some(expected.as_str()) {
