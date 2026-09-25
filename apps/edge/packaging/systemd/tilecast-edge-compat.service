@@ -1,0 +1,28 @@
+# Checks the legacy player's cached presentation against the installed
+# capability profile, offline (M7 migration step 4). Started by the migrator
+# after it copies manifest-active.json; never enabled.
+[Unit]
+Description=Tilecast Edge legacy presentation check
+Documentation=https://github.com/gbyo/tilecast/blob/main/apps/edge/packaging/README.md
+
+[Service]
+Type=oneshot
+User=tilecast
+Group=tilecast
+ExecStart=/opt/tilecast-edge/current/bin/tilecastd check-legacy-compat --from /run/tilecast-edge-migrate/compat
+StandardOutput=truncate:/run/tilecast-edge-migrate/compat.json
+# Only the JSON result goes to the file; diagnostics go to the journal.
+StandardError=journal
+# Exit 3 means incompatible; the migrator reads it as a refusal.
+SuccessExitStatus=3
+TimeoutStartSec=60s
+PrivateNetwork=yes
+ProtectHome=yes
+ProtectSystem=strict
+InaccessiblePaths=-/var/lib/tilecast-edge
+PrivateTmp=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX
+SystemCallArchitectures=native
+MemoryDenyWriteExecute=yes

@@ -1757,6 +1757,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "tilecast-edge-migrate"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "base64",
+ "clap",
+ "edge-ipc",
+ "edge-platform",
+ "edge-protocol",
+ "ring",
+ "rustix",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+ "zbus",
+]
+
+[[package]]
 name = "tilecastctl"
 version = "0.1.0"
 dependencies = [

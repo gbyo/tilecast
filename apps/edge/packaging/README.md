@@ -1,163 +1,128 @@
-# Tilecast Edge packaging and migration
+# Tilecast Edge packaging, installation and migration
 
-This directory has the system integration files for Tilecast Edge:
+This directory has the system integration files for Tilecast Edge. `tilecast-edge-migrate` installs them from a signed release and runs the one-way migration from the Electron Linux Player. The design and its guarantees are in [`docs/tilecast-edge-next.md`](../../../docs/tilecast-edge-next.md) (M7), and the root-operation review is [`docs/tilecast-edge-migration-threat-review.md`](../../../docs/tilecast-edge-migration-threat-review.md).
 
-| File                                | Installed as                                    |
-| ----------------------------------- | ----------------------------------------------- |
-| `systemd/tilecast-edge.service`     | `/etc/systemd/system/tilecast-edge.service`     |
-| `systemd/tilecast-renderer.service` | `/etc/systemd/system/tilecast-renderer.service` |
-| `sysusers.d/tilecast-edge.conf`     | `/usr/lib/sysusers.d/tilecast-edge.conf`        |
-| `tmpfiles.d/tilecast-edge.conf`     | `/usr/lib/tmpfiles.d/tilecast-edge.conf`        |
+> **Status.** Edge plays server content, including synchronized groups (M6). It is qualified on the headless WPE platform only. Physical DRM and Wayland hardware qualification is M11. Do not migrate a production screen before the release notes say that its hardware class is qualified.
 
-Binaries and the renderer runtime go under
-`/opt/tilecast-edge/<version>/`, with `/opt/tilecast-edge/current` as a
-symbolic link to the active version. The previous version directory stays in
-place for rollback.
+## Files
 
-> **Status.** Edge verifies installation identity and sends the ordinary
-> player heartbeat. It does not yet hold the player WebSocket, fetch the
-> server manifest or run commands, so the screen does not play server
-> content. Do not migrate a production screen until the milestones named in
-> [`docs/tilecast-edge-next.md`](../../../docs/tilecast-edge-next.md) are
-> complete.
+| File                                            | Installed as                             | Enabled                         |
+| ----------------------------------------------- | ---------------------------------------- | ------------------------------- |
+| `systemd/tilecast-edge.service`                 | `/etc/systemd/system/`                   | by the migrator, at the cutover |
+| `systemd/tilecast-renderer.service`             | `/etc/systemd/system/`                   | by the migrator, at the cutover |
+| `systemd/tilecast-edge-migrate.service`         | `/etc/systemd/system/`                   | never (started by `migrate`)    |
+| `systemd/tilecast-edge-migrate-recover.service` | `/etc/systemd/system/`                   | only during a cutover           |
+| `systemd/tilecast-edge-selftest.service`        | `/etc/systemd/system/`                   | never (a migration task)        |
+| `systemd/tilecast-renderer-selftest.service`    | `/etc/systemd/system/`                   | never (a migration task)        |
+| `systemd/tilecast-renderer-probe.service`       | `/etc/systemd/system/`                   | never (a migration task)        |
+| `systemd/tilecast-edge-compat.service`          | `/etc/systemd/system/`                   | never (a migration task)        |
+| `systemd/tilecast-edge-import.service`          | `/etc/systemd/system/`                   | never (a migration task)        |
+| `sysusers.d/tilecast-edge.conf`                 | `/usr/lib/sysusers.d/tilecast-edge.conf` |                                 |
+| `tmpfiles.d/tilecast-edge.conf`                 | `/usr/lib/tmpfiles.d/tilecast-edge.conf` |                                 |
+
+A release is installed under `/opt/tilecast-edge/<version>/`, and `/opt/tilecast-edge/current` is a symbolic link to the active version. The previous version directory stays in place. `tilecastd` never replaces its own binaries.
+
+## Requirements
+
+- Linux 5.6 or later (`openat2`), systemd 248 or later (`systemctl --machine=<user>@.host` and `StandardOutput=truncate:`). Debian 12 and later meet both.
+- On a machine with the Electron player: the kiosk account's user manager runs at boot. The Electron player's installer turns on lingering for the account; if it is off, run `loginctl enable-linger <account>`.
+- The screen's Tilecast Server is reachable during the migration. The import checks the installation identity before it keeps the credential.
 
 ## Accounts and boundaries
 
-- `tilecastd` runs as the fixed `tilecast` account (`sysusers.d`). On a
-  machine migrated from the Electron player this account usually exists
-  already as the kiosk login; `systemd-sysusers` leaves it unchanged.
-- The renderer runs as the same account in its own unit, which makes all of
-  `/var/lib/tilecast-edge` inaccessible to it: it cannot read `identity/`,
-  the state database or the content store. It reads media only through
-  daemon-granted capabilities on `/run/tilecast-edge/media.sock`, and loads
-  its `tcmediasrc` GStreamer element from the release's
-  `lib/gstreamer-1.0`.
-- Installation is a one-time privileged step. After it, nothing runs as root.
-  `tilecastd` never replaces its own binaries.
+- `tilecastd` runs as the fixed `tilecast` account (`sysusers.d`). On a machine migrated from the Electron player the account can already exist as the kiosk login; `systemd-sysusers` leaves an existing account unchanged.
+- The renderer runs as the same account in its own unit, which makes all of `/var/lib/tilecast-edge` inaccessible to it. It reads media only through daemon-granted capabilities on `/run/tilecast-edge/media.sock`.
+- Only `tilecast-edge-migrate` runs as root, and only when an operator starts it or at boot to finish an interrupted attempt. It has no listener, sends nothing to the network and never reads the device credential. The migration tasks (self-test, output probe, compatibility check, import) run as `tilecast` in their own units.
 
-## Clean installation (no legacy player)
+## 1. Verify and install the release
 
-1. Install the files, run step 1 of the migration below, and optionally write
-   `/etc/tilecast-edge/edge.toml`.
-2. Enable both units:
+A release is a directory tree with `tilecast-edge-release.json` (every file with its size, SHA-256 and mode) and `tilecast-edge-release.json.sig` (an Ed25519 signature with the Tilecast update key, the same key that signs Linux Player updates). Unpack it anywhere.
 
-   ```sh
-   systemctl enable --now tilecast-edge.service tilecast-renderer.service
-   ```
-
-3. Pair the screen. On a screen with a keyboard, type the server address on
-   the setup surface or choose a server that LAN discovery found. Without a
-   keyboard, as root or the `tilecast` account:
-
-   ```sh
-   /opt/tilecast-edge/current/bin/tilecastctl pair https://signs.example.org
-   /opt/tilecast-edge/current/bin/tilecastctl status   # shows the code to approve
-   ```
-
-   Approve the code in Studio. The daemon enrolls, stores the device
-   credential in `identity/device-credential` and starts playing.
-   `tilecastctl pairing-reset` abandons a pairing in progress.
-
-LAN discovery browses `_tilecast._tcp` through the Avahi daemon over the
-system D-Bus. It is advisory: without Avahi the setup surface still accepts a
-typed address, and every address passes the player URL policy and the
-installation identity check before pairing starts.
-
-## One-time installation and migration
-
-Run these steps as root. The order is important: only one process may own the
-device credential at a time.
-
-1. Install the files in the table above and the version directory. Then run:
-
-   ```sh
-   systemd-sysusers
-   systemd-tmpfiles --create /usr/lib/tmpfiles.d/tilecast-edge.conf
-   systemctl daemon-reload
-   ```
-
-2. Optional: write `/etc/tilecast-edge/edge.toml` (root-owned). Check it:
-
-   ```sh
-   /opt/tilecast-edge/current/bin/tilecastd check-config
-   ```
-
-3. Stop and disable the legacy player. It is a systemd user unit of the kiosk
-   account (`KIOSK` below):
-
-   ```sh
-   systemctl --user --machine="$KIOSK@" disable --now tilecast-player.service
-   ```
-
-4. Import the legacy state once. The command runs as `tilecast`. It refuses
-   to run while `tilecast-edge.service` runs.
-
-   - If `KIOSK` is `tilecast`:
-
-     ```sh
-     runuser -u tilecast -- /opt/tilecast-edge/current/bin/tilecastd import-legacy \
-       --from /home/tilecast/.local/share/tilecast-player
-     ```
-
-   - If `KIOSK` is another account, copy the directory first. The copy keeps
-     the original unchanged:
-
-     ```sh
-     install -d -o tilecast -g tilecast -m 0700 /var/lib/tilecast-edge/legacy-copy
-     cp -a "/home/$KIOSK/.local/share/tilecast-player/." /var/lib/tilecast-edge/legacy-copy/
-     chown -R tilecast:tilecast /var/lib/tilecast-edge/legacy-copy
-     runuser -u tilecast -- /opt/tilecast-edge/current/bin/tilecastd import-legacy \
-       --from /var/lib/tilecast-edge/legacy-copy
-     ```
-
-   The import normalizes the saved server address with the player's rules,
-   reads `/api/v1/system/identity`, and requires the saved installation ID.
-   Only then does it store the device credential. It copies verified cached
-   media into the content store. It never changes, moves or deletes legacy
-   files. Exit code 0 means imported or already imported; the summary is
-   printed as JSON. Exit code 1 means nothing was bound; go to
-   [Rollback](#rollback).
-
-   The server must be reachable for this step. A server that reports a
-   different installation ID stops the import before the credential is sent.
-
-5. Start Edge:
-
-   ```sh
-   systemctl enable --now tilecast-edge.service tilecast-renderer.service
-   ```
-
-6. Verify:
-
-   ```sh
-   runuser -u tilecast -- /opt/tilecast-edge/current/bin/tilecastctl status
-   ```
-
-   Expect `server link` to become `connected` after the first server pass.
-   The daemon uses the imported device credential for ordinary player
-   contact; there is no separate Edge enrollment.
-
-Running the import again is safe. A completed import is not repeated.
-
-## Rollback
-
-The legacy state is never modified, so rollback does not need a backup.
+The first installation cannot verify the migrator with itself, so verify the manifest first with OpenSSL and the published public key, [`apps/edge/release/tilecast-update-key.pem`](../release/tilecast-update-key.pem) (the same key as the server's `DefaultUpdateManifestPublicKey`):
 
 ```sh
-systemctl disable --now tilecast-edge.service tilecast-renderer.service
-systemctl --user --machine="$KIOSK@" enable --now tilecast-player.service
+openssl pkeyutl -verify -rawin -pubin -inkey tilecast-update-key.pem \
+  -in tilecast-edge-release.json \
+  -sigfile <(openssl base64 -d -A -in tilecast-edge-release.json.sig)
 ```
 
-The legacy player uses its own saved credential, which is the same device
-credential that Edge imported. Keep `/var/lib/tilecast-edge` until the Edge
-installation is accepted; it holds the imported state and content. Delete it
-only when the machine returns to the legacy player permanently.
+Then, as root:
 
-A revoked credential stays revoked for both. Re-pair the screen in Studio in
-that case.
+```sh
+./bin/tilecast-edge-migrate install --from .
+```
+
+`install` verifies the signature again, copies exactly the signed files (each one hashed while it is copied, never through a link), switches `current`, installs the units and system configuration, and runs `systemd-sysusers` and `systemd-tmpfiles`. It enables nothing. A changed or missing file stops it before `current` changes. Installing the same release again changes nothing.
+
+For a custom build signed with your own key, put the base64 public key in `/etc/tilecast-edge/release-signing-key` (owned by root, not writable by group or others).
+
+## 2a. Migrate from the Electron player
+
+As root:
+
+```sh
+/opt/tilecast-edge/current/bin/tilecast-edge-migrate migrate --kiosk KIOSK
+```
+
+`KIOSK` is the account that runs the Electron player (its `tilecast-player.service` user unit). The command starts `tilecast-edge-migrate.service` and prints its progress. An SSH disconnect stops only the progress output; the migration continues.
+
+The migration follows the binding sequence. It stops at the first failure:
+
+| Step | What happens                                                                                                                               | On failure  |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------ | ----------- |
+| 1    | Verify the installed release again: the signature, every file, nothing extra.                                                              | refused     |
+| 2    | Check that the kiosk account, its user manager and the legacy unit exist, and that Edge is not enabled.                                    | refused     |
+| 3    | Self-test: read the DRM outputs as `tilecast`, and run the real daemon and renderer on the built-in fixture until each item is proven.     | refused     |
+| 4    | Check the legacy player's cached presentation against the installed capability profile, offline.                                           | refused     |
+| 5    | Hold the migration lock. Hold Edge's commands (probation). Enable the boot recovery.                                                       | rolled back |
+| 6    | Disable and stop the legacy unit, the display manager and the console on tty1. Confirm that no legacy process runs.                        | rolled back |
+| 7    | Leave the legacy AppImage, data and unit files where they are. Record their digests.                                                       |             |
+| 8    | Copy the legacy state for the `tilecast` account and run `tilecastd import-legacy --refresh`. Remove the copy.                             | rolled back |
+| 9    | Enable and start Edge.                                                                                                                     | rolled back |
+| 10   | Settle: the server link, the renderer on DRM, the current presentation accepted with playback evidence and fresh progress, for 60 seconds. | rolled back |
+| 11   | Accept: release Edge's commands, disable the boot recovery.                                                                                |             |
+
+"Refused" means nothing was changed. "Rolled back" means: Edge is disabled and confirmed stopped, then the display session and the legacy unit are restored exactly as they were, and the legacy files are compared with their digests. The attempt's record, with the reason, is in `tilecast-edge-migrate status`.
+
+Settlement has a deadline (`--settle-seconds`, default 600, from 120 to 3600). Some conditions roll back at once because waiting cannot help: a rejected credential, a presentation that the renderer cannot show, safe mode, or the legacy player running again.
+
+A crash or power loss never accepts. After a crash of the migration service, its `ExecStopPost=` recovery rolls back at once. After a power loss during the cutover or settlement, `tilecast-edge-migrate-recover.service` rolls back at boot, before Edge or the display manager starts.
+
+Exit code: 0 accepted, 1 refused or rolled back.
+
+## 2b. Clean installation (no Electron player)
+
+```sh
+/opt/tilecast-edge/current/bin/tilecast-edge-migrate clean-install
+```
+
+The same self-test, then Edge is enabled and settles on its setup surface. If it cannot, Edge is disabled again and the display session is restored. Then pair the screen: type the server address on the setup surface, choose a server that LAN discovery found, or without a keyboard:
+
+```sh
+/opt/tilecast-edge/current/bin/tilecastctl pair https://signs.example.org
+/opt/tilecast-edge/current/bin/tilecastctl status   # shows the code to approve
+```
+
+Approve the code in Studio.
+
+## 3. The rollback window
+
+Until the migration is accepted, an operator can roll back:
+
+```sh
+/opt/tilecast-edge/current/bin/tilecast-edge-migrate rollback
+```
+
+Acceptance ends the rollback window: `rollback` then refuses. The legacy player stays on disk, disabled. Removing it is a later maintenance action, not part of the cutover.
+
+To migrate again after a rollback, run `migrate` again. The import runs with `--refresh`: executed command keys are only ever added, so a command that either player ran never runs again. While a migration settles, Edge runs no commands; they wait on the server for whichever player the migration leaves running.
+
+## Output
+
+The migrator uses the DRM backend: the renderer owns the display on tty1 without a desktop session. A machine that must keep its desktop compositor cannot migrate with this release.
 
 ## Removing Edge
 
-1. Stop and disable both units.
-2. Delete `/var/lib/tilecast-edge` and `/opt/tilecast-edge`.
+1. `systemctl disable --now tilecast-edge.service tilecast-renderer.service`.
+2. Delete `/var/lib/tilecast-edge`, `/var/lib/tilecast-edge-migrate` and `/opt/tilecast-edge`, and the unit files listed above.
 3. Revoke or delete the screen in Studio if the machine will not play again.

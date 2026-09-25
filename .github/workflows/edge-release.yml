@@ -1,0 +1,116 @@
+name: Tilecast Edge Release
+
+# Builds a signed Tilecast Edge release: the private WPE WebKit build, the
+# renderer, the Rust binaries and the Player Runtime, on the pinned Debian 13
+# builder (apps/edge/release/Dockerfile.builder). It uploads the artifacts
+# and their build provenance attestation. Publishing a GitHub release is a
+# separate, human step.
+on:
+  workflow_dispatch:
+    inputs:
+      verify_reproducible:
+        description: Build the tree a second time and require identical file digests
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: edge-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build --workspace @tilecast/player-runtime
+
+      - name: Require signing secrets
+        env:
+          UPDATE_PRIVATE_KEY: ${{ secrets.TILECAST_UPDATE_MANIFEST_PRIVATE_KEY_PEM }}
+          UPDATE_PUBLIC_KEY: ${{ secrets.TILECAST_UPDATE_MANIFEST_PUBLIC_KEY_PEM }}
+        run: |
+          set -euo pipefail
+          for name in UPDATE_PRIVATE_KEY UPDATE_PUBLIC_KEY; do
+            if [ -z "${!name}" ]; then
+              echo "Required signing secret for $name is missing." >&2
+              exit 1
+            fi
+          done
+
+      - name: Materialize ephemeral signing files
+        env:
+          UPDATE_PRIVATE_KEY: ${{ secrets.TILECAST_UPDATE_MANIFEST_PRIVATE_KEY_PEM }}
+          UPDATE_PUBLIC_KEY: ${{ secrets.TILECAST_UPDATE_MANIFEST_PUBLIC_KEY_PEM }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 "$RUNNER_TEMP/tilecast-signing"
+          printf '%s' "$UPDATE_PRIVATE_KEY" > "$RUNNER_TEMP/tilecast-signing/update-private.pem"
+          printf '%s' "$UPDATE_PUBLIC_KEY" > "$RUNNER_TEMP/tilecast-signing/update-public.pem"
+          chmod 600 "$RUNNER_TEMP/tilecast-signing/"*
+          # The public key the screens trust must be the one in the repository.
+          test "$(openssl pkey -pubin -in "$RUNNER_TEMP/tilecast-signing/update-public.pem" -outform DER | base64 -w0)" = \
+               "$(openssl pkey -pubin -in apps/edge/release/tilecast-update-key.pem -outform DER | base64 -w0)"
+
+      - name: Build the release builder image
+        run: docker build -t tilecast-edge-release-builder -f apps/edge/release/Dockerfile.builder apps/edge/release
+
+      - uses: actions/cache@v5
+        with:
+          path: ${{ runner.temp }}/edge-release-cache/wpe-*.tar
+          key: edge-wpe-${{ hashFiles('apps/edge/release/Dockerfile.builder', 'apps/edge/release/build-wpe.sh') }}
+
+      - name: Build, sign and package
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/edge-release-cache" "$RUNNER_TEMP/edge-release"
+          docker run --rm -v "$PWD:/src" -v "$RUNNER_TEMP/edge-release-cache:/cache" \
+            -v "$RUNNER_TEMP/edge-release:/out" -v "$RUNNER_TEMP/tilecast-signing:/keys:ro" \
+            -e TILECAST_UPDATE_MANIFEST_PRIVATE_KEY=/keys/update-private.pem \
+            -e TILECAST_UPDATE_MANIFEST_PUBLIC_KEY_FILE=/keys/update-public.pem \
+            tilecast-edge-release-builder /src/apps/edge/release/build-edge-release.sh
+
+      - name: Rebuild and compare every file digest
+        if: ${{ inputs.verify_reproducible }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/edge-release-again"
+          docker run --rm -v "$PWD:/src" -v "$RUNNER_TEMP/edge-release-cache:/cache" \
+            -v "$RUNNER_TEMP/edge-release-again:/out" \
+            tilecast-edge-release-builder bash -c 'rm -rf /cache/cargo /cache/renderer && /src/apps/edge/release/build-edge-release.sh'
+          jq -S '.files' "$RUNNER_TEMP/edge-release/tree/tilecast-edge-release.json" > "$RUNNER_TEMP/first.json"
+          jq -S '.files' "$RUNNER_TEMP/edge-release-again/tree/tilecast-edge-release.json" > "$RUNNER_TEMP/second.json"
+          diff -u "$RUNNER_TEMP/first.json" "$RUNNER_TEMP/second.json"
+
+      - name: Remove ephemeral signing files
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/tilecast-signing"
+
+      - uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: |
+            ${{ runner.temp }}/edge-release/tilecast-edge-*.tar.zst
+            ${{ runner.temp }}/edge-release/tilecast-edge-*.json
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: tilecast-edge-release
+          path: |
+            ${{ runner.temp }}/edge-release/tilecast-edge-*
+            ${{ runner.temp }}/edge-release/SHA256SUMS
+          if-no-files-found: error

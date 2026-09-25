@@ -9,6 +9,7 @@ members = [
     "crates/edge-server",
     "tilecastd",
     "tilecastctl",
+    "tilecast-edge-migrate",
 ]
 
 [workspace.package]
@@ -33,6 +34,7 @@ anyhow = "1"
 jiff = "0.2"
 ring = "0.17"
 async-trait = "0.1"
+base64 = "0.22"
 bytes = "1"
 clap = { version = "4.6", features = ["derive"] }
 futures-util = { version = "0.3", default-features = false, features = ["std", "sink"] }

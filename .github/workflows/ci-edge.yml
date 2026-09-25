@@ -172,10 +172,33 @@ jobs:
           docker run --rm -v "$PWD:/src" -v "$RUNNER_TEMP/edge-target:/target" \
             tilecast-edge-e2e /src/apps/edge/ci/run-e2e-server.sh
 
+  migration:
+    name: Migration under systemd
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build --workspace @tilecast/player-runtime
+      - name: Build the systemd migration image
+        run: |
+          set -euo pipefail
+          docker build -t tilecast-wpe-dev -f apps/edge/renderer-wpe/ci/Dockerfile apps/edge/renderer-wpe/ci
+          docker build -t tilecast-edge-dev -f apps/edge/renderer-wpe/ci/Dockerfile.edge apps/edge/renderer-wpe/ci
+          docker build -t tilecast-edge-e2e -f apps/edge/ci/Dockerfile.e2e apps/edge/ci
+          docker build -t tilecast-edge-migrate-e2e -f apps/edge/ci/Dockerfile.migrate apps/edge/ci
+      - name: Install, import failure, crash, power loss and acceptance
+        run: |
+          mkdir -p "$RUNNER_TEMP/edge-target"
+          apps/edge/ci/run-migrate-e2e.sh "$RUNNER_TEMP/edge-target"
+
   required:
     name: Required Edge validation
     if: always()
-    needs: [rust, wpe, runtime, conformance, server_e2e]
+    needs: [rust, wpe, runtime, conformance, server_e2e, migration]
     runs-on: ubuntu-latest
     env:
       RESULTS: ${{ join(needs.*.result, ',') }}
