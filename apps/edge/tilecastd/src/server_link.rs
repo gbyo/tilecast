@@ -730,11 +730,13 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
         if let Some(next) = identity.next_transition_ms.and_then(iso) {
             heartbeat["nextTransitionAt"] = serde_json::json!(next);
         }
-        if let Some((item, started_at)) = current_item.as_ref()
+        if let Some((item, _)) = current_item.as_ref()
             && let Some(item) = heartbeat_item_id(item)
         {
+            // The item's start time is not a heartbeat field: the server's
+            // strict HTTP heartbeat decoding refuses the whole message for
+            // it. It travels in the telemetry sample (`itemStartedAt`).
             heartbeat["currentItemId"] = serde_json::json!(item);
-            heartbeat["currentItemStartedAt"] = serde_json::json!(started_at.to_string());
         }
     }
     if let Ok(available) = context.space.available_bytes(&context.paths.state_dir) {

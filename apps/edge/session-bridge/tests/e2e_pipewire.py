@@ -254,6 +254,11 @@ def main():
             raise daemon.errors[0]
         print("session-bridge e2e: all scenarios passed")
     except Exception:
+        # How PipeWire routed the streams: which ports are linked to which.
+        for argv in (["pw-link", "--links"], ["wpctl", "status"]):
+            if shutil.which(argv[0]):
+                result = subprocess.run(argv, env=env, capture_output=True, text=True)
+                print(f"----- {' '.join(argv)} -----\n{result.stdout[-6000:]}{result.stderr[-2000:]}")
         for name in ("bridge.log", "session.log"):
             path = os.path.join(work, name)
             if os.path.exists(path):

@@ -38,13 +38,21 @@ Environment=GST_REGISTRY=/tmp/gstreamer-registry.bin
 # Sandbox. The bridge talks to PipeWire and tilecastd over Unix sockets only,
 # reads no files of the daemon and writes nothing.
 RestrictAddressFamilies=AF_UNIX
-# A user manager has no capabilities of its own (no CAP_SETPCAP, no
-# CAP_SYS_ADMIN), so the sandbox below works only inside the unit's own user
-# namespace. Without PrivateUsers= set explicitly, the options that shrink
-# the capability bounding set (PrivateDevices=, ProtectKernelModules=,
-# ProtectKernelLogs=, ProtectClock=) fail every start with 218/CAPABILITIES.
-# CapabilityBoundingSet= is not set for the same reason; the bridge has no
-# capabilities outside its namespace and NoNewPrivileges= keeps it so.
+# A user manager has no capabilities (no CAP_SETPCAP, no CAP_SYS_ADMIN).
+# Nothing here may shrink the capability bounding set, or every start fails
+# with 218/CAPABILITIES: that rules out CapabilityBoundingSet= and the
+# options that set it implicitly (PrivateDevices=, ProtectKernelModules=,
+# ProtectKernelLogs=, ProtectClock=). The bridge has no capabilities and
+# NoNewPrivileges= keeps it so.
+#
+# Two layers:
+# - seccomp (RestrictAddressFamilies=, SystemCallFilter=,
+#   MemoryDenyWriteExecute=, RestrictNamespaces= and the rest) applies on
+#   every host;
+# - the mount options (ProtectSystem=, ProtectHome=, PrivateTmp=,
+#   InaccessiblePaths=) need the unit's own user namespace (PrivateUsers=).
+#   systemd skips them where unprivileged user namespaces are restricted
+#   (Ubuntu 24.04's AppArmor default), and the bridge still starts.
 PrivateUsers=yes
 NoNewPrivileges=yes
 ProtectSystem=strict
@@ -53,13 +61,11 @@ ProtectSystem=strict
 ProtectHome=tmpfs
 BindReadOnlyPaths=%t
 PrivateTmp=yes
-PrivateDevices=yes
-InaccessiblePaths=-/var/lib/tilecast-edge -/run/tilecast
+# Audio goes through the PipeWire socket only; the account's display, input
+# and sound device nodes stay hidden.
+InaccessiblePaths=-/var/lib/tilecast-edge -/run/tilecast -/dev/snd -/dev/dri -/dev/input -/dev/bus/usb
 ProtectKernelTunables=yes
-ProtectKernelModules=yes
-ProtectKernelLogs=yes
 ProtectControlGroups=yes
-ProtectClock=yes
 ProtectHostname=yes
 LockPersonality=yes
 MemoryDenyWriteExecute=yes

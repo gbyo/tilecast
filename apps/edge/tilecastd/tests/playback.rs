@@ -1074,7 +1074,9 @@ async fn assignment_prepares_activates_and_promotes_only_after_evidence() {
     assert_eq!(heartbeat["activeManifestVersion"], 3);
     assert!(heartbeat.get("pendingManifestVersion").is_none());
     assert_eq!(heartbeat["currentItemId"], item);
-    assert!(heartbeat["currentItemStartedAt"].is_string());
+    // Not a heartbeat field: the server's strict HTTP decoding would refuse
+    // the whole heartbeat. The start time travels in telemetry.
+    assert!(heartbeat.get("currentItemStartedAt").is_none());
     assert_eq!(heartbeat["selectionSource"], "direct_fallback");
     assert_eq!(heartbeat["currentPlaylistId"], harness.fake.manifest.lock().unwrap()["playlist"]["id"]);
     assert!(heartbeat["lastMeaningfulProgressAt"].is_string());

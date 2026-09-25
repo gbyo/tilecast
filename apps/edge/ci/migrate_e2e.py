@@ -491,11 +491,18 @@ def check_hardware_packaging():
     except AssertionError:
         print_bridge_diagnostics()
         raise
-    sandbox = tilecast_systemctl("show", "--property=RestrictAddressFamilies,PrivateDevices,ProtectHome,"
-                                 "NoNewPrivileges,MemoryDenyWriteExecute", "tilecast-session-bridge.service").stdout
-    for expected in ("RestrictAddressFamilies=AF_UNIX", "PrivateDevices=yes", "ProtectHome=tmpfs",
-                     "NoNewPrivileges=yes", "MemoryDenyWriteExecute=yes"):
+    sandbox = tilecast_systemctl("show", "--property=RestrictAddressFamilies,PrivateUsers,ProtectHome,"
+                                 "NoNewPrivileges,MemoryDenyWriteExecute,SystemCallFilter,InaccessiblePaths",
+                                 "tilecast-session-bridge.service").stdout
+    for expected in ("RestrictAddressFamilies=AF_UNIX", "PrivateUsers=yes", "ProtectHome=tmpfs",
+                     "NoNewPrivileges=yes", "MemoryDenyWriteExecute=yes", "/dev/snd"):
         assert expected in sandbox, (expected, sandbox)
+    assert "SystemCallFilter=" in sandbox and "SystemCallFilter=\n" not in sandbox, sandbox
+    # The seccomp layer holds on every host, even where systemd could not
+    # give the unit a user namespace for the mount options.
+    status = subprocess.run(["grep", "-E", "^(Seccomp|NoNewPrivs):", f"/proc/{bridge_pid()}/status"],
+                            capture_output=True, text=True).stdout
+    assert "Seccomp:\t2" in status and "NoNewPrivs:\t1" in status, status
     effective = subprocess.run(["grep", "-E", "^Cap(Eff|Prm|Bnd)", f"/proc/{bridge_pid()}/status"],
                                capture_output=True, text=True).stdout
     assert "CapEff:\t0000000000000000" in effective and "CapPrm:\t0000000000000000" in effective, effective

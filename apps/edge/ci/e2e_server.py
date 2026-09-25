@@ -862,6 +862,10 @@ def main():
         credential_path = os.path.join(state, "identity", "device-credential")
         wait_for(lambda: not os.path.exists(credential_path), "credential removal after revocation")
         assert tree(legacy) == legacy_before, "legacy state changed"
+        # Every heartbeat the daemon sent passed the server's strict decoding.
+        with open(os.path.join(work, "server.log")) as handle:
+            refused = [line for line in handle if "request JSON rejected" in line and "/player/heartbeat" in line]
+        assert not refused, f"the server refused {len(refused)} heartbeats: {refused[:2]}"
         print("PASS: import, identity gate, player contact, configuration, commands, "
               + ("content, offline cache, " if args.renderer else "") + "fresh pairing, "
               + ("synchronized group, " if args.renderer else "") + "revocation")
