@@ -507,7 +507,8 @@ async fn pass(context: &Arc<DaemonContext>, link: &mut Link) -> LinkState {
             }
         }
     }
-    if link.next_heartbeat.is_none_or(|next| Instant::now() >= next) {
+    let status_due = context.status_due.swap(false, std::sync::atomic::Ordering::AcqRel);
+    if status_due || link.next_heartbeat.is_none_or(|next| Instant::now() >= next) {
         let heartbeat = build_heartbeat(context).await;
         let socket_sent = match link.socket.as_mut() {
             Some(socket) => socket.send_status(&heartbeat, VERSION).await.is_ok(),
@@ -714,6 +715,7 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
     {
         heartbeat["lastSynchronizationError"] = serde_json::json!(reason.chars().take(240).collect::<String>());
     }
+    context.display.heartbeat(&mut heartbeat);
     heartbeat
 }
 

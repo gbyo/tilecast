@@ -31,15 +31,12 @@ pub fn unsupported_reason(command_type: &str) -> Option<&'static str> {
     Some(match command_type {
         "install_player_update" => "Signed Tilecast Edge updates arrive in milestone M10.",
         "clear_website_data" => "Website playback on Tilecast Edge arrives with website isolation (M11).",
-        "power_assist_sleep" | "power_assist_wake" => "Display power assist on Tilecast Edge arrives in M9.",
-        "display_power_on"
-        | "display_power_off"
-        | "display_set_input"
-        | "display_set_volume"
-        | "display_mute"
-        | "display_unmute"
-        | "display_set_brightness"
-        | "display_probe" => "Display Control on Tilecast Edge arrives in M9.",
+        // Power Assist is the Android player's device sleep; the reference
+        // Linux player answers it the same way. Linux players control the
+        // display through Display Control.
+        "power_assist_sleep" | "power_assist_wake" => {
+            "Power Assist is an Android feature. Tilecast Edge controls the display through Display Control."
+        }
         "provision_presentation_network" | "test_presentation_network" => {
             "Presentation Networks on Tilecast Edge arrive in M9."
         }
@@ -153,6 +150,23 @@ impl DaemonHandlers {
         }
     }
 
+    /// A Display Control command: validated here, run by the display
+    /// provider, and reported with the next heartbeat.
+    async fn display(&self, command: &ServerCommand) -> CommandResult {
+        let result = match crate::display_control::parse(&command.command_type, &command.payload) {
+            Ok(action) => self.context.display.execute(&action, self.context.now()).await,
+            Err(crate::display_control::Invalid::Payload) => {
+                CommandResult::failed("display_invalid_payload", "Display command payload is invalid.")
+            }
+            Err(crate::display_control::Invalid::Input) => CommandResult::failed(
+                "display_invalid_payload",
+                "HDMI-CEC inputs are physical addresses such as 1.0.0.0.",
+            ),
+        };
+        self.context.report_status_soon();
+        result
+    }
+
     async fn self_test(&self) -> CommandResult {
         let mut results = Vec::new();
         let state_ok = match self.context.db() {
@@ -203,6 +217,7 @@ impl Handlers for DaemonHandlers {
             | "retry_player_recovery"
             | "exit_safe_mode"
             | "run_player_self_test" => Plan::Run,
+            kind if crate::display_control::COMMANDS.contains(&kind) => Plan::Run,
             other => Plan::Settle(CommandResult::failed(
                 "unsupported_command",
                 unsupported_reason(other).unwrap_or("This command type is not supported by Tilecast Edge."),
@@ -253,6 +268,7 @@ impl Handlers for DaemonHandlers {
                 CommandResult::ok("safe_mode_cleared", if was { "" } else { "Safe mode was not active." })
             }
             "run_player_self_test" => self.self_test().await,
+            kind if crate::display_control::COMMANDS.contains(&kind) => self.display(command).await,
             other => CommandResult::failed(
                 "unsupported_command",
                 unsupported_reason(other).unwrap_or("This command type is not supported by Tilecast Edge."),

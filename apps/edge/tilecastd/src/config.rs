@@ -18,6 +18,7 @@ pub struct EdgeConfig {
     pub ipc: IpcConfig,
     pub cas: CasConfig,
     pub renderer: RendererConfig,
+    pub display: DisplayConfig,
     pub log: LogConfig,
     pub legacy: LegacyConfig,
     pub dev: DevConfig,
@@ -90,6 +91,36 @@ impl Default for RendererConfig {
     }
 }
 
+/// Display control (HDMI-CEC and DDC/CI). Both are on by default and are
+/// used only when the hardware and the udev grant exist; a display that
+/// misbehaves under DDC/CI polling can be excluded here.
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields, default)]
+pub struct DisplayConfig {
+    pub cec_enabled: bool,
+    pub ddc_enabled: bool,
+    /// Use only this CEC adapter (`cec0` … `cec31`) instead of the first one
+    /// with a connected display.
+    pub cec_adapter: Option<String>,
+}
+
+impl Default for DisplayConfig {
+    fn default() -> Self {
+        Self { cec_enabled: true, ddc_enabled: true, cec_adapter: None }
+    }
+}
+
+impl DisplayConfig {
+    /// The adapter number of `cec_adapter`, when it is set and valid.
+    pub fn cec_adapter_number(&self) -> Option<u8> {
+        let digits = self.cec_adapter.as_deref()?.strip_prefix("cec")?;
+        if digits.is_empty() || digits.len() > 2 || !digits.bytes().all(|b| b.is_ascii_digit()) {
+            return None;
+        }
+        digits.parse::<u8>().ok().filter(|n| *n < 32)
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields, default)]
 pub struct LogConfig {
@@ -129,6 +160,13 @@ pub struct DevConfig {
     /// surface. Its media files are imported into the CAS and verified before
     /// activation. Operator-configured only; never reachable through IPC.
     pub fixture: Option<PathBuf>,
+    /// Device and sysfs roots for display control, so tests can use a
+    /// temporary tree. Default `/dev` and `/sys`.
+    pub hardware_dev_dir: Option<PathBuf>,
+    pub hardware_sys_dir: Option<PathBuf>,
+    /// The Presentation Network helper's socket. Default
+    /// `/run/tilecast/networkd.sock`.
+    pub networkd_socket: Option<PathBuf>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -164,6 +202,9 @@ impl EdgeConfig {
             ("paths.runtime_dir", self.paths.runtime_dir.as_ref()),
             ("legacy.data_dir", self.legacy.data_dir.as_ref()),
             ("dev.fixture", self.dev.fixture.as_ref()),
+            ("dev.hardware_dev_dir", self.dev.hardware_dev_dir.as_ref()),
+            ("dev.hardware_sys_dir", self.dev.hardware_sys_dir.as_ref()),
+            ("dev.networkd_socket", self.dev.networkd_socket.as_ref()),
         ] {
             if let Some(path) = path
                 && !path.is_absolute()
@@ -176,6 +217,9 @@ impl EdgeConfig {
         }
         if !(1..=16).contains(&self.cas.max_concurrent_downloads) {
             return Err("cas.max_concurrent_downloads must be between 1 and 16".into());
+        }
+        if self.display.cec_adapter.is_some() && self.display.cec_adapter_number().is_none() {
+            return Err("display.cec_adapter must name an adapter such as cec0".into());
         }
         if !(30..=3_600).contains(&self.renderer.stall_threshold_seconds) {
             return Err("renderer.stall_threshold_seconds must be between 30 and 3600".into());
@@ -207,6 +251,13 @@ mod tests {
         assert!(EdgeConfig::load(&path, true).is_err());
         std::fs::write(&path, "[cas]\nmax_concurrent_downloads = 0\n").expect("write");
         assert!(EdgeConfig::load(&path, true).is_err());
+        std::fs::write(&path, "[display]\ncec_adapter = \"cec1\"\nddc_enabled = false\n").expect("write");
+        let display = EdgeConfig::load(&path, true).expect("valid").display;
+        assert_eq!((display.cec_adapter_number(), display.ddc_enabled), (Some(1), false));
+        for bad in ["/dev/cec1", "cec", "cec99", "i2c-1"] {
+            std::fs::write(&path, format!("[display]\ncec_adapter = \"{bad}\"\n")).expect("write");
+            assert!(EdgeConfig::load(&path, true).is_err(), "{bad}");
+        }
         // Peer delivery is not part of Edge 1; a leftover section is an error.
         std::fs::write(&path, "[mesh]\nenabled = true\n").expect("write");
         assert!(EdgeConfig::load(&path, true).is_err());

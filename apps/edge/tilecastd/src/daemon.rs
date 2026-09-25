@@ -122,6 +122,12 @@ pub struct DaemonContext {
     pub report_wake: tokio::sync::Notify,
     /// Live-preview requests waiting for the renderer.
     pub preview_waiters: crate::preview::Waiters,
+    /// Display Control (M9).
+    pub display: Arc<crate::display_control::DisplayControl>,
+    /// Wakes the display task (a manifest was committed).
+    pub display_wake: tokio::sync::Notify,
+    /// Send the next status report without waiting for its interval.
+    pub status_due: std::sync::atomic::AtomicBool,
 }
 
 impl DaemonContext {
@@ -134,6 +140,13 @@ impl DaemonContext {
 
     pub fn now(&self) -> Timestamp {
         self.clock.now()
+    }
+
+    /// Asks the server link to report status on its next pass, as the
+    /// reference player does after a hardware state change.
+    pub fn report_status_soon(&self) {
+        self.status_due.store(true, std::sync::atomic::Ordering::Release);
+        self.server_wake.notify_one();
     }
 }
 
@@ -295,6 +308,7 @@ impl Daemon {
         policy.renderer_uids = config.ipc.renderer_uids.clone();
         policy.observer_uids = config.ipc.observer_uids.clone();
 
+        let config_for_display = config.clone();
         let context = Arc::new(DaemonContext {
             config,
             paths,
@@ -329,6 +343,9 @@ impl Daemon {
             activity,
             report_wake: tokio::sync::Notify::new(),
             preview_waiters: crate::preview::Waiters::default(),
+            display: Arc::new(crate::display_control::DisplayControl::new(&config_for_display)),
+            display_wake: tokio::sync::Notify::new(),
+            status_due: std::sync::atomic::AtomicBool::new(false),
         });
 
         let bound_record = match context.db() {
@@ -416,6 +433,7 @@ impl Daemon {
         tasks.spawn(crate::activity::run(Arc::clone(&context), self.activity_signals));
         tasks.spawn(crate::telemetry::run(Arc::clone(&context)));
         tasks.spawn(crate::preview::run(Arc::clone(&context)));
+        tasks.spawn(crate::display_control::run(Arc::clone(&context)));
 
         let status = ready_status(&context);
         context.notifier.ready(&status);

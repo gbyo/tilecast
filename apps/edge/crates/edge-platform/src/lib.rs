@@ -9,12 +9,14 @@
 //! * [`capabilities`]: the capability registry and the provider trait every
 //!   machine integration implements (§12).
 //! * [`providers`]: providers that need only filesystem/environment probes.
+//! * [`display`]: HDMI-CEC and DDC/CI display control (M9).
 //!
 //! Rules for providers (§19):
 //!
-//! * A provider never runs a shell and never interpolates values into
-//!   commands. Subprocess providers (CEC, DDC, PipeWire tools) use fixed argv,
-//!   bounded time and bounded output.
+//! * A provider never runs a shell or another program: `tilecastd` starts no
+//!   processes (docs/tilecast-edge.md §4.1). Display control uses the kernel
+//!   CEC and i2c-dev interfaces directly ([`display`]); PipeWire is reached
+//!   through the user-session bridge, never from the daemon.
 //! * A provider failure degrades its own capabilities; it can never stop the
 //!   daemon, playback or another provider.
 //! * `detail` text is safe for administrators: no command output, addresses,
@@ -24,6 +26,7 @@
 
 pub mod capabilities;
 pub mod disk;
+pub mod display;
 pub mod fs;
 pub mod paths;
 pub mod providers;

@@ -261,7 +261,10 @@ pub mod ids {
     pub const TIME_SERVER_OFFSET: &str = "time.server_offset";
     pub const TIME_HOST_SYNC: &str = "time.host_sync";
     pub const DISPLAY_CEC_POWER: &str = "display.cec.power";
+    pub const DISPLAY_CEC_INPUT: &str = "display.cec.input";
     pub const DISPLAY_DDC_BRIGHTNESS: &str = "display.ddc.brightness";
+    pub const DISPLAY_DDC_VOLUME: &str = "display.ddc.volume";
+    pub const DISPLAY_DDC_MUTE: &str = "display.ddc.mute";
     pub const AUDIO_PIPEWIRE: &str = "audio.pipewire";
     pub const NETWORK_PRESENTATION_NETWORK: &str = "network.presentation_network";
     pub const SYSTEM_SYSTEMD_WATCHDOG: &str = "system.systemd_watchdog";
