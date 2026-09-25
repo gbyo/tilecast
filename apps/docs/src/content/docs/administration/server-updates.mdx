@@ -1,0 +1,67 @@
+---
+title: Update Tilecast Server
+description: Update a Docker Compose Tilecast installation without losing the database, media, or rollback point.
+---
+
+A Tilecast Server update can include database migrations, Studio changes, server code, and deployment changes. Back up the installation before changing versions.
+
+import { Steps } from "@astrojs/starlight/components";
+
+## Before you update
+
+- Read the release notes for the version you plan to run.
+- Create and verify a [Tilecast backup](../backups/).
+- Preserve your deployment configuration and external secrets separately.
+- Record the currently running Git tag or commit so you know which source produced the old container.
+
+A full recovery needs the PostgreSQL data and Tilecast media from the same point in time.
+
+## Update a source-based Compose installation
+
+<Steps>
+
+1. From the repository clone, fetch the version you intend to run.
+
+   ```sh
+   git fetch --tags origin
+   ```
+
+2. Check out the release tag or reviewed commit. Do not update a production server to an unreviewed working tree.
+
+   ```sh
+   git checkout <release-tag>
+   ```
+
+3. Rebuild and recreate the services without deleting their volumes.
+
+   ```sh
+   docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml up -d --build
+   ```
+
+4. Wait for Tilecast Server to finish startup and migrations, then check readiness.
+
+   ```sh
+   curl --fail https://signage.example.org/readyz
+   ```
+
+5. Open Studio and verify the fleet, Activity, media library, and a representative Player before ending the maintenance window.
+
+</Steps>
+
+Do not use `docker compose down --volumes` during an update. That removes the named data volumes.
+
+## If the new version does not become ready
+
+Read the server log before changing anything:
+
+```sh
+docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml logs server
+```
+
+A database migration can make an older application binary incompatible with the upgraded database. Do not assume that checking out the previous source and starting it against the migrated database is a safe rollback.
+
+When release notes do not explicitly support an application-only rollback, restore the verified pre-update backup so the database and media return to the same point in time.
+
+## Player versions are separate
+
+Updating Tilecast Server does not update Android, stable Linux, or Edge Players. Use [Player updates](../player-updates/) for Player releases and follow any server/Player ordering requirement in the release notes.

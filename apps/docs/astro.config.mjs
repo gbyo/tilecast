@@ -216,6 +216,7 @@ export default defineConfig({
               ],
             },
             { slug: "players/update-a-player" },
+            { slug: "players/capabilities" },
           ],
         },
         {
@@ -262,6 +263,7 @@ export default defineConfig({
               collapsed: true,
               items: [
                 { slug: "administration/organization" },
+                { slug: "administration/language-regional" },
                 { slug: "administration/branding" },
                 { slug: "administration/locations" },
               ],
@@ -281,6 +283,8 @@ export default defineConfig({
               items: [
                 { slug: "administration/player-policies" },
                 { slug: "administration/content-settings" },
+                { slug: "administration/networking" },
+                { slug: "administration/server-updates" },
                 { slug: "administration/presentation-networks" },
                 { slug: "administration/player-updates" },
                 { slug: "administration/backups" },
@@ -347,6 +351,22 @@ export default defineConfig({
           ],
         },
         {
+          label: "Troubleshooting",
+          collapsed: true,
+          items: [
+            { slug: "troubleshooting" },
+            { slug: "troubleshooting/server" },
+            { slug: "troubleshooting/pairing-connectivity" },
+            { slug: "troubleshooting/playback" },
+            { slug: "troubleshooting/media" },
+            { slug: "troubleshooting/websites" },
+            { slug: "troubleshooting/player-updates" },
+            { slug: "troubleshooting/display-control" },
+            { slug: "troubleshooting/airplay-networks" },
+            { slug: "troubleshooting/sign-in" },
+          ],
+        },
+        {
           label: "Integrations",
           collapsed: true,
           items: [
@@ -368,6 +388,7 @@ export default defineConfig({
           items: [
             { slug: "reference" },
             { slug: "reference/api" },
+            { slug: "reference/content-definitions" },
             // Generated OpenAPI endpoint pages were already on main. Keep
             // them under Reference without adding or editing their content.
             createOpenAPISidebarGroup(),

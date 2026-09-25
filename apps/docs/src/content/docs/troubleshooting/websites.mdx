@@ -1,0 +1,26 @@
+---
+title: Websites
+description: Diagnose Website Apps that are blank, blocked, stale, or unavailable on a Player.
+---
+
+Website Apps load on the Player. A page that works in the administrator's browser can still fail on the display because the Player has a different DNS, network path, certificate environment, or embedded-browser behavior.
+
+## Check the address
+
+Public Website Apps require HTTPS. Private HTTP works only when the server deployment and **Settings** > **Websites** both allow it for a private-network destination.
+
+Confirm that redirects stay on hosts you intentionally allow. Tilecast does not bypass certificate errors or import browser login cookies, OAuth sessions, or Tilecast credentials into a Website App.
+
+## Check the Player network
+
+The Player, not Tilecast Server, must be able to reach the website. Test DNS, routing, filtering, and TLS from the display network.
+
+Website content is not an offline copy. If the origin is unavailable, the configured Website failure behavior decides whether Tilecast keeps the last rendered page, shows a fallback image, shows a placeholder, or skips the item.
+
+## Clear site data only when needed
+
+For persistent website state problems, use the supported screen action to clear Website data. The Player must collect that command before it expires.
+
+Do not clear Player media/cache state simply because one website is stale. The Website runtime has a separate storage and failure boundary.
+
+See [Add website content](../../website-content/) for host restrictions, timeout, reload, and fallback settings.

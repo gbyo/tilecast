@@ -37,3 +37,4 @@ Pairing does not prove that a TV will launch Tilecast after a power cut or retur
 - [Install Tilecast Player on Linux](./install-linux/).
 - [Pair a display](./pair-a-display/).
 - [Update a Player](./update-a-player/).
+- [Compare Player capabilities](./capabilities/) before choosing hardware or relying on a platform-specific feature.

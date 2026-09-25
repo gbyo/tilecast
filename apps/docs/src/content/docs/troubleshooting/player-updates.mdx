@@ -1,0 +1,30 @@
+---
+title: Player updates
+description: Diagnose Android or Linux Player releases that cannot verify, deploy, download, or install.
+---
+
+## A release is unavailable
+
+A Player release must be published, verified, and cached before Studio can deploy it. Check the expected release files in **Settings** > **Player updates** and review any verification error.
+
+GitHub synchronization can stop at the API rate limit. When that happens, connect the configured GitHub account or provide the deployment's supported GitHub token configuration.
+
+## Android waits for approval
+
+Android or Fire OS can require local permission to install apps or a confirmation prompt for an update. Commissioning checks the install permission, but firmware can still require a person at the display.
+
+A certificate mismatch means the installed Player and the new release were signed with different Android keys. Android cannot update one over the other. Install the production-signed Player and keep the same production signing key for later releases.
+
+## Linux does not restart into the update
+
+The stable Linux update path applies to the managed AppImage installation. Current Tilecast-generated services are systemd **user** units, so manage them with `systemctl --user`, not the system manager.
+
+If an older installation has a hand-written service or an obsolete AppImage startup path, use the current Linux setup/autostart flow before expecting Studio-driven replacement to work.
+
+## Canary deployment paused
+
+A canary deployment waits for its canary screens to finish and reconnect. An explicit failure, safe mode, or missed reconnect can pause the rest of the deployment.
+
+Review the failed screen rather than bypassing the canary and pushing the same release to the remaining fleet.
+
+See [Update Tilecast Player](../../administration/player-updates/) for the deployment workflow.

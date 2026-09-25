@@ -19,7 +19,7 @@ Use this section to monitor screens after setup and handle problems without losi
 - [Review Snapshot history](./snapshot-history/) when you need bounded visual history rather than a current preview.
 - [Set data retention](./data-retention/) for Activity, audit, diagnostics, and telemetry history.
 
-For timed playback, see [Schedules](../schedules/). To send notifications to people or another system, see [Integrations](../integrations/).
+For timed playback, see [Schedules](../schedules/). To send notifications to people or another system, see [Integrations](../integrations/). For a symptom-first path when something is wrong, start with [Troubleshooting](../troubleshooting/).
 
 ## What plays first
 
