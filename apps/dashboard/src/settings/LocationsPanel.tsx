@@ -162,7 +162,7 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
             </AlertDescription>
           </Alert>
         )}
-        {query.isLoading ? (
+        {query.isError ? null : query.isLoading ? (
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
             <Spinner aria-hidden="true" />
             {t("locations.loading")}
@@ -171,17 +171,13 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
           <ItemGroup className="gap-2">
             {matches.map((location) => (
               <Item key={location.id} variant="outline">
-                <ItemMedia
-                  variant="icon"
-                  className="size-8 rounded-lg bg-muted"
-                >
+                <ItemMedia variant="icon" className="size-8 rounded-lg bg-muted">
                   <MapPin size={17} aria-hidden="true" />
                 </ItemMedia>
                 <ItemContent>
                   <ItemTitle>{location.name}</ItemTitle>
                   <ItemDescription>
-                    {formatLocationAddress(location) ||
-                      t("locations.noAddress")}
+                    {formatLocationAddress(location) || t("locations.noAddress")}
                   </ItemDescription>
                 </ItemContent>
                 <ItemActions className="flex-wrap">
@@ -194,9 +190,7 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
                         type="button"
                         variant="ghost"
                         size="icon"
-                        aria-label={t("locations.editLocation", {
-                          name: location.name,
-                        })}
+                        aria-label={t("locations.editLocation", { name: location.name })}
                         onClick={() => open(location)}
                       >
                         <Pencil size={16} aria-hidden="true" />
@@ -205,24 +199,18 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
                         type="button"
                         variant="ghost"
                         size="icon"
-                        aria-label={t("locations.deleteLocation", {
-                          name: location.name,
-                        })}
+                        aria-label={t("locations.deleteLocation", { name: location.name })}
                         disabled={remove.isPending}
                         onClick={() => {
                           if (location.screenCount > 0) {
                             void confirm({
-                              title: t("locations.blockedTitle", {
-                                name: location.name,
-                              }),
+                              title: t("locations.blockedTitle", { name: location.name }),
                               action: t("locations.confirmOk"),
                             });
                             return;
                           }
                           void confirm({
-                            title: t("locations.deleteTitle", {
-                              name: location.name,
-                            }),
+                            title: t("locations.deleteTitle", { name: location.name }),
                             action: t("common:actions.delete"),
                             destructive: true,
                           }).then((ok) => {
@@ -247,9 +235,7 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
                     {search ? t("locations.emptySearch") : t("locations.empty")}
                   </EmptyTitle>
                   <EmptyDescription>
-                    {search
-                      ? t("locations.emptySearchHint")
-                      : t("locations.emptyHint")}
+                    {search ? t("locations.emptySearchHint") : t("locations.emptyHint")}
                   </EmptyDescription>
                 </EmptyHeader>
               </Empty>
@@ -265,9 +251,7 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
           <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>
-                {editing === "new"
-                  ? t("locations.addTitle")
-                  : t("locations.editTitle")}
+                {editing === "new" ? t("locations.addTitle") : t("locations.editTitle")}
               </DialogTitle>
             </DialogHeader>
             <form
@@ -297,55 +281,25 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
                 onChange={(addressLine2) => setForm({ ...form, addressLine2 })}
               />
               <div className="grid gap-4 sm:grid-cols-3">
-                <LocationField
-                  id="location-city"
-                  labelKey="locations.fields.city"
-                  value={form.city}
-                  onChange={(city) => setForm({ ...form, city })}
-                />
-                <LocationField
-                  id="location-state"
-                  labelKey="locations.fields.state"
-                  value={form.state}
-                  onChange={(state) => setForm({ ...form, state })}
-                />
-                <LocationField
-                  id="location-postal-code"
-                  labelKey="locations.fields.postal"
-                  value={form.postalCode}
-                  onChange={(postalCode) => setForm({ ...form, postalCode })}
-                />
+                <LocationField id="location-city" labelKey="locations.fields.city" value={form.city} onChange={(city) => setForm({ ...form, city })} />
+                <LocationField id="location-state" labelKey="locations.fields.state" value={form.state} onChange={(state) => setForm({ ...form, state })} />
+                <LocationField id="location-postal-code" labelKey="locations.fields.postal" value={form.postalCode} onChange={(postalCode) => setForm({ ...form, postalCode })} />
               </div>
-              <LocationField
-                id="location-country"
-                labelKey="locations.fields.country"
-                value={form.country}
-                onChange={(country) => setForm({ ...form, country })}
-              />
+              <LocationField id="location-country" labelKey="locations.fields.country" value={form.country} onChange={(country) => setForm({ ...form, country })} />
               <div className="grid gap-4 sm:grid-cols-2">
                 <LocationField
                   id="location-latitude"
                   labelKey="locations.fields.latitude"
                   type="number"
                   value={form.latitude ?? ""}
-                  onChange={(value) =>
-                    setForm({
-                      ...form,
-                      latitude: value === "" ? undefined : Number(value),
-                    })
-                  }
+                  onChange={(value) => setForm({ ...form, latitude: value === "" ? undefined : Number(value) })}
                 />
                 <LocationField
                   id="location-longitude"
                   labelKey="locations.fields.longitude"
                   type="number"
                   value={form.longitude ?? ""}
-                  onChange={(value) =>
-                    setForm({
-                      ...form,
-                      longitude: value === "" ? undefined : Number(value),
-                    })
-                  }
+                  onChange={(value) => setForm({ ...form, longitude: value === "" ? undefined : Number(value) })}
                 />
               </div>
               {save.error && (
@@ -354,21 +308,11 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
                 </Alert>
               )}
               <DialogFooter>
-                <Button
-                  variant="ghost"
-                  type="button"
-                  onClick={() => setEditing(undefined)}
-                >
+                <Button variant="ghost" type="button" onClick={() => setEditing(undefined)}>
                   {t("common:actions.cancel")}
                 </Button>
-                <Button
-                  variant="default"
-                  type="submit"
-                  disabled={!form.name.trim() || save.isPending}
-                >
-                  {save.isPending
-                    ? t("common:actions.saving")
-                    : t("locations.save")}
+                <Button variant="default" type="submit" disabled={!form.name.trim() || save.isPending}>
+                  {save.isPending ? t("common:actions.saving") : t("locations.save")}
                 </Button>
               </DialogFooter>
             </form>
