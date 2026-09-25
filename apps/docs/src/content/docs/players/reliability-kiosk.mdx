@@ -1,0 +1,42 @@
+---
+title: Reliability and kiosk
+description: Configure Player recovery, safe mode, fullscreen behavior, and kiosk features.
+---
+
+import { TabItem, Tabs } from "@astrojs/starlight/components";
+
+Open **Settings** > **Reliability and kiosk** for organization defaults. A Display Group or screen can override supported settings through its Player policy.
+
+## How Tilecast decides playback is healthy
+
+A running Player process is not enough on its own. Tilecast also checks whether the renderer responds and whether playback is actually moving forward when it should.
+
+For example, a frozen video can still have a responsive process, while a still image can be healthy even though the picture is not changing.
+
+If playback repeatedly fails, the Player works through its recovery steps and can enter safe mode instead of restarting forever.
+
+## Platform behavior
+
+<Tabs syncKey="player-platform">
+
+<TabItem label="Android TV">
+
+Android supports **Standard Reliability** on a normal Player install. **Managed Kiosk** only works when Android reports that the device has the required device-owner and lock-task setup.
+
+</TabItem>
+
+<TabItem label="Linux">
+
+Linux has its own fullscreen, kiosk, display-sleep, and startup behavior. The exact result depends on the Linux session and service setup. Android-only controls are ignored.
+
+</TabItem>
+
+</Tabs>
+
+## Recovery
+
+Recovery can retry the current content, rebuild rendering state, restart Player components, and enter safe mode when needed.
+
+Where possible, cached content and the Player's connection to Tilecast Server are kept through those recovery steps.
+
+Use [Activity](../../operations/activity/) to see recovery events reported by the Player.

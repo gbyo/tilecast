@@ -1,0 +1,28 @@
+---
+title: Offline playback and recovery
+description: See what Tilecast Edge keeps working when the network or renderer fails.
+---
+
+Edge keeps Player state and downloaded content outside the renderer. That means the renderer can restart without throwing away the screen's cached presentation or server connection details.
+
+## Offline playback
+
+After Edge downloads and prepares a presentation, it keeps the required files and settings locally. If the Player restarts before the server is reachable, it can start from that saved presentation first and reconnect afterward.
+
+While the Tilecast Server is unavailable, Edge can keep using content and schedules it already has. It cannot receive a new assignment or download files it never received.
+
+## Updating content safely
+
+Edge prepares a new presentation before replacing the one that is already playing. If the new content cannot be downloaded, verified, or started, the previous presentation stays available.
+
+## Commands and settings
+
+Commands are saved before Edge runs them. If the Player crashes while a command is running, Edge reports that interruption after restart instead of running the same command again.
+
+Player settings are also stored locally with a revision number. A bad or older settings revision does not replace the last one Edge accepted.
+
+## Recovery
+
+`tilecastd` can restart the WPE renderer without restarting the whole Player. If playback repeatedly fails, Edge can enter safe mode instead of getting stuck in a restart loop.
+
+When the server becomes reachable again, Edge reconnects and gets back in sync with the current Tilecast state.

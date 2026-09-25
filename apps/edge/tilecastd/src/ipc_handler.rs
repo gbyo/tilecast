@@ -89,6 +89,7 @@ impl IpcHandler for DaemonIpc {
             }
             Event::PresentationRejected(rejected) => {
                 engine.rejected(session, rejected.activation, rejected.code.as_str());
+                self.context.manifest_wake.notify_one();
             }
             Event::RendererProgress(progress) => {
                 let is_boundary = progress.kind == EvidenceKind::ItemTransition;
@@ -109,6 +110,7 @@ impl IpcHandler for DaemonIpc {
                     message = item.message.as_str()
                 );
                 engine.item_error(session, item.activation, item.code.as_str());
+                self.context.manifest_wake.notify_one();
             }
             Event::RendererHealth(health) => {
                 tracing::debug!(component = "renderer", event = "health", state = ?health.state, terminations = health.web_process_terminations);

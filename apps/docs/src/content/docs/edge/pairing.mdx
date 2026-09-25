@@ -1,0 +1,25 @@
+---
+title: Pair an Edge screen
+description: Connect a new Edge Player to Tilecast Server and approve it in Studio.
+---
+
+:::caution[Pairing preview]
+The current Linux Player still uses the stable pairing flow. This page describes Edge pairing only.
+:::
+
+A new Edge Player can use the setup screen, discover a nearby server with Avahi/mDNS, or be pointed at a server from the command line.
+
+For a headless setup:
+
+```sh title="Headless Edge pairing"
+tilecastctl pair https://signage.example.org
+tilecastctl status
+```
+
+`tilecastctl status` can show the pairing code before the Player is enrolled. It does not show the private pairing secret or the Player credential.
+
+Approve the request in Studio using the normal [Pair a display](../../players/pair-a-display/) flow.
+
+The Player keeps its current pairing request through a daemon restart, so restarting Edge does not create a new request every time. If the request expires or is rejected, start a new one.
+
+Server discovery is optional. If multicast is blocked on the network, enter the server address directly.

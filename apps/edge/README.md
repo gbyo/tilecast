@@ -84,7 +84,9 @@ End-to-end checks:
 - `ci/e2e_server.py` runs a real Tilecast Server against PostgreSQL, pairs a
   screen through the HTTP API, then runs `tilecastd import-legacy`, the
   identity gate, the ordinary heartbeat and revocation with the real binaries.
-  Run it from the repository root: `apps/edge/ci/e2e_server.py`.
+  Run it from the repository root: `apps/edge/ci/e2e_server.py`. WPE content
+  activation is exercised only when `--renderer`, `--runtime-dir`, and
+  `--gst-plugin-dir` are supplied together.
 - `ci/run-e2e-server.sh` runs the same script with a real WPE renderer in the
   `tilecast-edge-e2e` image (`ci/Dockerfile.e2e`: Go, PostgreSQL and FFmpeg
   added to `tilecast-edge-dev`). It adds the content phase: an uploaded image

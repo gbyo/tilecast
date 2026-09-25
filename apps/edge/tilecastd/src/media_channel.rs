@@ -155,7 +155,14 @@ impl MediaChannel {
             tokio::select! {
                 _ = shutdown.cancelled() => return Ok(()),
                 accepted = self.listener.accept() => {
-                    let (stream, _) = accepted?;
+                    let (stream, _) = match accepted {
+                        Ok(value) => value,
+                        Err(error) => {
+                            tracing::warn!(component = "media", event = "accept_failed", error = %error);
+                            tokio::time::sleep(Duration::from_millis(100)).await;
+                            continue;
+                        }
+                    };
                     let Ok(permit) = permits.clone().try_acquire_owned() else { continue };
                     let registry = self.registry.clone();
                     let cas = self.cas.clone();

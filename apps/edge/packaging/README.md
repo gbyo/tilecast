@@ -14,10 +14,10 @@ Binaries and the renderer runtime go under
 symbolic link to the active version. The previous version directory stays in
 place for rollback.
 
-> **Status.** Edge verifies installation identity and sends the ordinary
-> player heartbeat. It does not yet hold the player WebSocket, fetch the
-> server manifest or run commands, so the screen does not play server
-> content. Do not migrate a production screen until the milestones named in
+> **Status.** Edge verifies installation identity, holds the player WebSocket,
+> and activates assigned images, videos, layouts, and supported native
+> widgets from the server manifest. Websites and commands remain unsupported.
+> Do not migrate a production screen until the milestones named in
 > [`docs/tilecast-edge-next.md`](../../../docs/tilecast-edge-next.md) are
 > complete.
 

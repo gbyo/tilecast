@@ -72,6 +72,7 @@ function playlist(): Playlist {
     revision: 3,
     draftRevision: 3,
     publishedRevision: 2,
+    hasUnpublishedChanges: true,
     createdAt: "2026-01-01T00:00:00Z",
     updatedAt: "2026-01-01T00:00:00Z",
     items,

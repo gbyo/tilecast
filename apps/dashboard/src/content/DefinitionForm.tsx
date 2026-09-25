@@ -351,6 +351,25 @@ function DefinitionControl({
   };
   const requiredMark = field.required ? " *" : "";
   const labelText = `${field.label}${requiredMark}`;
+  if (field.control === "currency_code")
+    return (
+      <Field>
+        <FieldLabel htmlFor={`definition-${field.key}`}>
+          {t("dataSources.manual.currency")}
+        </FieldLabel>
+        <Input
+          id={`definition-${field.key}`}
+          {...common}
+          value={fieldText(value).toUpperCase()}
+          maxLength={3}
+          autoCapitalize="characters"
+          onChange={(event) => setValue(event.target.value.toUpperCase())}
+        />
+        <FieldDescription>
+          {t("dataSources.manual.currencyHint")}
+        </FieldDescription>
+      </Field>
+    );
   if (field.control === "data_source")
     return (
       <DataSourcePicker
