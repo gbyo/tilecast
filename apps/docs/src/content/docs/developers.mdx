@@ -81,7 +81,7 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
 
-The renderer and the session bridge are C projects built with CMake on Linux. The session bridge needs GLib, json-glib, GStreamer, and WirePlumber 0.5 development packages. Hardware tests never touch a real TV or monitor: test daemons use empty device directories, and the HDMI-CEC test in CI uses the kernel's `vivid` virtual driver. The [hardware capability matrix](https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-capabilities.md) says what each feature needs and how it is tested.
+The renderer and the session bridge are C projects built with CMake on Linux. The session bridge needs GLib, json-glib, GStreamer, and WirePlumber 0.5 development packages. Hardware tests never touch a real TV or monitor: test daemons use empty device directories, the HDMI-CEC test in CI uses the kernel's `vivid` virtual driver, and the session bridge test uses a real PipeWire with a virtual microphone. The [hardware capability matrix](https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-capabilities.md) says what each feature needs and how it is tested.
 
 ## Work on the public docs
 

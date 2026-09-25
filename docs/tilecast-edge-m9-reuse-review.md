@@ -82,8 +82,6 @@ No kernel module emulates a DDC/CI display, so CI cannot compare Tilecast with d
 
 ## 4. Noise Meter and audio inventory
 
-The Noise Meter integration is paused (2026-09-25). The design below stays the plan; the plugin is not advertised until it is qualified.
-
 `tilecast-session-bridge` runs in the tilecast account's user session because PipeWire is a per-user service.
 
 - Capture: `pipewiresrc ! audioconvert ! level interval=60000000 ! fakesink`. The bridge reads the `rms` field of each `level` element message (decibels per channel) and converts it to one linear value. No sample leaves the GStreamer pipeline.
@@ -100,7 +98,7 @@ The Edge client is a port of the typed client layer only (`apps/player-linux/src
 
 `linuxKiosk.preventDisplaySleep` takes a systemd-logind `idle` inhibitor lock (`org.freedesktop.login1.Manager.Inhibit`, mode `block`) and holds its file descriptor. Clearing the setting closes the descriptor. The default polkit policy lets any process take an `idle` lock. A `sleep` lock needs `org.freedesktop.login1.inhibit-block-sleep`, which is not granted to a system service without a session, so Tilecast does not request one.
 
-Tilecast adds no `xset` call, no input simulation and no idle timer. The capability `system.idle_inhibit` reports `available`, or `blocked` with `logind_unavailable` or `inhibit_denied`.
+Tilecast adds no `xset` call, no input simulation and no idle timer. The capability `system.idle_inhibit` reports `available`, or `blocked` with `logind_unavailable` or `inhibit_denied`. Test harnesses set `[dev] idle_inhibit = false` in the operator file so that a test does not change the host; the server and IPC cannot set it, and the packaged configuration does not.
 
 ## 7. Dependencies
 

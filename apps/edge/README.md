@@ -13,8 +13,8 @@ Player. It has three processes:
   and [`docs/player-runtime.md`](../../docs/player-runtime.md).
 - `tilecast-session-bridge` is a small user-session process for what only
   the tilecast account's session can see: the PipeWire audio inventory
-  through WirePlumber, and (when the Noise Meter integration resumes)
-  derived microphone levels. See
+  through WirePlumber, and derived microphone levels for the Noise Meter.
+  See
   [`docs/tilecast-edge.md`](../../docs/tilecast-edge.md) §4.4 and
   [`session-bridge/`](session-bridge/).
 
