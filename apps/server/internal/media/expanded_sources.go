@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	currencydata "golang.org/x/text/currency"
 )
 
 var typedFieldTypes = map[string]bool{
@@ -49,8 +50,11 @@ func (manualSourceProvider) Normalize(_ context.Context, raw json.RawMessage) (a
 		if _, exists := columns[column.Key]; exists {
 			return nil, errors.New("manual data column keys must be unique")
 		}
-		if column.Type == "currency" && (len(column.Currency) != 3 || !regexpASCIILetters(column.Currency)) {
-			return nil, errors.New("currency columns require a three-letter currency code")
+		if column.Type == "currency" {
+			currency, err := currencydata.ParseISO(column.Currency)
+			if column.Currency != "" && (err != nil || currency == currencydata.XXX) {
+				return nil, errors.New("currency columns require a recognized ISO 4217 currency code")
+			}
 		}
 		columns[column.Key] = *column
 	}
@@ -109,15 +113,6 @@ func sanitizeFieldKey(value string) string {
 		}
 	}
 	return result.String()
-}
-
-func regexpASCIILetters(value string) bool {
-	for _, r := range value {
-		if r < 'A' || r > 'Z' {
-			return false
-		}
-	}
-	return true
 }
 
 func normalizeTypedValue(value string, column ManualColumn) (string, error) {

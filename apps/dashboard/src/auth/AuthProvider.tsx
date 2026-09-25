@@ -233,6 +233,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
         csrfToken: undefined,
         mfaEnrollmentRequired: false,
       });
+      // Demo Mode signs every visitor in again, so signing out returns to a
+      // fresh demo session instead of a sign-in form nobody can complete.
+      if (query.data?.demoMode)
+        void queryClient.invalidateQueries({ queryKey: authKey });
     },
   });
 

@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import { toast } from "../../components/ui/toast";
@@ -25,6 +25,10 @@ import type {
   AirQualitySourceConfig,
   TypedDatasetPayload,
 } from "../../api/types";
+import {
+  defaultAirQualityStandard,
+  useOrganizationRegionalProfile,
+} from "../../settings/regionalProfile";
 import { providerLabel } from "../dataSourceProviderMeta";
 import { EditorFrame, optionLabel } from "./shared";
 
@@ -43,6 +47,10 @@ const severityOptions = [
 ] as const;
 
 const aqiStandardOptions = [
+  {
+    value: "",
+    labelKey: "dataSources.live.selectAqiStandard",
+  },
   { value: "us", labelKey: "dataSources.options.usAqi" },
   { value: "european", labelKey: "dataSources.options.europeanAqi" },
 ] as const;
@@ -63,7 +71,7 @@ type LiveConfiguration =
   TransitSourceConfig | CAPAlertsSourceConfig | AirQualitySourceConfig;
 
 function defaultLiveConfiguration(provider: LiveProvider): LiveConfiguration {
-  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  const timezone = "UTC";
   if (provider === "transit")
     return {
       staticUrl: "https://",
@@ -94,7 +102,7 @@ function defaultLiveConfiguration(provider: LiveProvider): LiveConfiguration {
     latitude: 0,
     longitude: 0,
     timezone,
-    aqiStandard: "us",
+    aqiStandard: undefined,
     pollutants: ["pm2_5", "pm10", "ozone", "nitrogen_dioxide"],
     forecastHours: 48,
     nonCommercialAccepted: false,
@@ -122,12 +130,44 @@ export function LiveDataSourceEditor({
 }) {
   const { t } = useTranslation(["content", "common"]);
   const queryClient = useQueryClient();
+  const regional = useOrganizationRegionalProfile();
+  const touched = useRef(new Set<string>());
   const [name, setName] = useState(dataSource?.name ?? "");
   const [description, setDescription] = useState(dataSource?.description ?? "");
   const [configuration, setConfiguration] = useState<LiveConfiguration>(
     (dataSource?.configuration as LiveConfiguration | undefined) ??
       defaultLiveConfiguration(provider),
   );
+  useEffect(() => {
+    if (dataSource || !regional.ready) return;
+    setConfiguration((current) => {
+      if (provider === "transit") {
+        const transit = current as TransitSourceConfig;
+        return touched.current.has("timezone")
+          ? transit
+          : { ...transit, timezone: regional.timezone };
+      }
+      if (provider === "air_quality") {
+        const airQuality = current as AirQualitySourceConfig;
+        return {
+          ...airQuality,
+          ...(touched.current.has("timezone")
+            ? {}
+            : { timezone: regional.timezone }),
+          ...(touched.current.has("aqiStandard")
+            ? {}
+            : { aqiStandard: defaultAirQualityStandard(regional.region) }),
+        };
+      }
+      return current;
+    });
+  }, [
+    dataSource,
+    provider,
+    regional.ready,
+    regional.region,
+    regional.timezone,
+  ]);
   const [preview, setPreview] = useState<TypedDatasetPayload>();
   const previewMutation = useMutation({
     mutationFn: () =>
@@ -154,8 +194,13 @@ export function LiveDataSourceEditor({
       onSaved(saved);
     },
   });
-  const patch = (values: Partial<LiveConfiguration>) =>
+  const patch = (values: Partial<LiveConfiguration>) => {
+    Object.keys(values).forEach((key) => touched.current.add(key));
     setConfiguration((current) => ({ ...current, ...values }));
+  };
+  const missingAqiStandard =
+    provider === "air_quality" &&
+    !(configuration as AirQualitySourceConfig).aqiStandard;
   return (
     <EditorFrame
       title={t(
@@ -177,7 +222,7 @@ export function LiveDataSourceEditor({
         !readOnly && (
           <Button
             type="button"
-            disabled={save.isPending || !name.trim()}
+            disabled={save.isPending || !name.trim() || missingAqiStandard}
             onClick={() => save.mutate()}
           >
             {save.isPending
@@ -509,11 +554,14 @@ export function LiveDataSourceEditor({
                 {t("dataSources.live.aqiStandard")}
               </FieldLabel>
               <Select
-                value={(configuration as AirQualitySourceConfig).aqiStandard}
+                value={
+                  (configuration as AirQualitySourceConfig).aqiStandard ?? ""
+                }
                 disabled={readOnly}
                 onValueChange={(next) =>
                   patch({
-                    aqiStandard: next as AirQualitySourceConfig["aqiStandard"],
+                    aqiStandard:
+                      next === "us" || next === "european" ? next : undefined,
                   })
                 }
                 items={aqiStandardOptions.map((option) => ({
@@ -531,7 +579,8 @@ export function LiveDataSourceEditor({
                         value: option.value,
                         label: t(option.labelKey),
                       })),
-                      (configuration as AirQualitySourceConfig).aqiStandard,
+                      (configuration as AirQualitySourceConfig).aqiStandard ??
+                        "",
                     )}
                   </SelectValue>
                 </SelectTrigger>
@@ -543,6 +592,9 @@ export function LiveDataSourceEditor({
                   ))}
                 </SelectContent>
               </Select>
+              <FieldDescription>
+                {t("dataSources.live.aqiStandardHint")}
+              </FieldDescription>
             </Field>
           </div>
           <fieldset className="grid gap-2">

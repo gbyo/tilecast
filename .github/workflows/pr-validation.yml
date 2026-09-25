@@ -23,6 +23,7 @@ jobs:
       dashboard: ${{ steps.paths.outputs.dashboard }}
       container: ${{ steps.paths.outputs.container }}
       docs: ${{ steps.paths.outputs.docs }}
+      e2e: ${{ steps.paths.outputs.e2e }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -41,6 +42,7 @@ jobs:
           dashboard=false
           container=false
           docs=false
+          e2e=false
 
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             android=true
@@ -49,6 +51,7 @@ jobs:
             dashboard=true
             container=true
             docs=true
+            e2e=true
           else
             while IFS= read -r path; do
               case "$path" in
@@ -61,6 +64,7 @@ jobs:
                 apps/server/*)
                   server=true
                   container=true
+                  e2e=true
                   ;;
                 apps/docs/*|.github/logos/*)
                   docs=true
@@ -73,15 +77,21 @@ jobs:
                 apps/dashboard/*|packages/*)
                   dashboard=true
                   container=true
+                  e2e=true
                   ;;
                 package.json|package-lock.json)
                   dashboard=true
                   linux=true
                   container=true
                   docs=true
+                  e2e=true
                   ;;
                 deploy/docker/*)
                   container=true
+                  e2e=true
+                  ;;
+                e2e/*|scripts/demo-reset.sh)
+                  e2e=true
                   ;;
                 docs/*|wiki/*|README.md|*/README.md|scripts/check-docs-ste.sh|Makefile)
                   docs=true
@@ -93,6 +103,7 @@ jobs:
                   dashboard=true
                   container=true
                   docs=true
+                  e2e=true
                   ;;
               esac
             done < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
@@ -105,6 +116,7 @@ jobs:
             echo "dashboard=$dashboard"
             echo "container=$container"
             echo "docs=$docs"
+            echo "e2e=$e2e"
           } >> "$GITHUB_OUTPUT"
 
   android_ci:
@@ -266,6 +278,47 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  # Browser smoke tests against a real Demo Mode stack: the production image,
+  # PostgreSQL, and simulated players. A separate job, so the unit-test jobs
+  # keep their feedback time.
+  e2e_ci:
+    name: E2E smoke (Demo Mode)
+    needs: changes
+    if: needs.changes.outputs.e2e == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TILECAST_DEMO_PORT: "18080"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Start the demo stack
+        run: make demo
+      - name: Run the smoke suite
+        run: npm run test:e2e
+      - name: Server and database logs
+        if: ${{ failure() }}
+        run: docker compose -f deploy/docker/compose.demo.yml logs --no-color --timestamps > demo-stack.log || true
+      - name: Keep failure artifacts
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-failure
+          path: |
+            e2e/test-results
+            e2e/playwright-report
+            demo-stack.log
+          retention-days: 14
+      - name: Remove the demo stack
+        if: ${{ always() }}
+        run: make demo-down
+
   docs_ci:
     name: Documentation
     needs: changes
@@ -300,6 +353,7 @@ jobs:
       - server_ci
       - dashboard_ci
       - container_ci
+      - e2e_ci
       - docs_ci
     runs-on: ubuntu-latest
     env:

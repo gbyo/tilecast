@@ -26,6 +26,14 @@ Date-aware selection accepts ISO dates, RFC 3339 and supported date-time values,
 
 Manual Table supports up to twelve typed columns and two hundred rows. Supported types are text, number, integer, percent, currency, boolean, date, datetime, and URL. Manual data is immediately ready after saving and does not run through the background refresh worker.
 
+Currency is semantic field data, not a locale default. Currency columns use explicit ISO 4217 codes, which stay attached to the field through preview and playback. New Menu Items sources ask for a price currency; Tilecast does not infer it from the organization's locale. Existing sources keep their saved configuration. A legacy currency field with no code remains readable and renders as a localized number without a currency symbol.
+
+New Weather sources use metric units except when the organization locale explicitly resolves to the United States; the provider's binary unit choice makes metric the safer general default, including for the UK. Existing Weather source units are not rewritten. Air Quality selects the US AQI for US regional settings and the European AQI for EU/EEA regional settings. Other regions have no assumed standard and must select one before saving. New Public Holidays sources use the current year and the country in the organization locale when one is available; otherwise the author must choose a country. Saved source configurations remain unchanged.
+
+## Regional addresses
+
+Location address components are optional and stored as separate values. Studio uses neutral labels for locality, administrative area, and postal code, accepts Unicode, and presents available parts without imposing a postal order. The persisted `state` field remains for compatibility. This follows W3C international address guidance: address structure and order vary by country, postal codes are not universal, and forms should not force one country's pattern. Tilecast does not maintain a country-by-country address database.
+
 ## Release-defined structured Sources
 
 Beyond the providers above, a Tilecast release can ship a structured Data Source as a catalog definition bound to one of three generic adapters. They accept no new code from an operator and are validated at server startup.

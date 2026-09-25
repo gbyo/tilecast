@@ -70,6 +70,7 @@ packages/design-tokens/      shared Studio visual tokens
 deploy/docker/               multi-stage image and Compose setup
 deploy/cloudflare/           optional Tunnel guidance
 docs/                        architecture, API, pairing, deployment, TV setup
+apps/docs/                   public documentation site (Astro Starlight)
 ```
 
 The server is a modular monolith. Preserve small domain packages and thin HTTP handlers. Do not scatter SQL through React code or unrelated handler files.
@@ -342,6 +343,13 @@ Update documentation with the implementation, not afterward as an approximation.
 - `docs/deployment.md`
 - `docs/troubleshooting.md`
 - `docs/localization.md`
+
+Tilecast has two documentation sets, and a change must update both where it applies:
+
+- **Engineering docs** in `docs/` are the specifications and contracts listed above. They follow the ASD-STE100 rules in `docs/documentation-style.md`, checked by `make docs-check`.
+- **The public docs site** in `apps/docs/src/content/docs/` is what installers, operators, and contributors read. Update it in the same change whenever you add or change something a user can see or do: a Studio feature, a setting, an install or upgrade step, a Player behavior, or a contributor workflow. It follows `apps/docs/STYLE.md`, not the ASD-STE100 rules. Register a new page in the sidebar in `apps/docs/astro.config.mjs`, link to the engineering doc for the exact contract instead of restating it, and run `npm run docs:build`, which also checks internal links.
+
+A change that only touches internals with no user-visible effect does not need a public docs page.
 
 For Milestone 3 also document media storage, upload limits, FFmpeg inspection/transcoding behavior, range requests, cleanup semantics, and backup implications.
 

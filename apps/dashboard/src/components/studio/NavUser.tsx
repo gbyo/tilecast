@@ -49,7 +49,7 @@ export function NavUser({
             <Avatar className="size-8 rounded-md">
               <AvatarFallback className="rounded-md">{initial}</AvatarFallback>
             </Avatar>
-            <span className="grid min-w-0 flex-1 text-left text-sm leading-tight">
+            <span className="grid min-w-0 flex-1 text-start text-sm leading-tight">
               <span className="truncate font-medium">{user.name}</span>
               <span className="truncate text-xs text-muted-foreground">
                 {user.role}

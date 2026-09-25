@@ -118,10 +118,7 @@ func (s *Service) refreshHTTPRecords(ctx context.Context, definition contentdefs
 		return TypedDatasetPayload{}, diagnostics, err
 	}
 	now := time.Now().UTC()
-	fields := make([]DataSourceField, 0, len(definition.OutputSchema.Fields))
-	for _, field := range definition.OutputSchema.Fields {
-		fields = append(fields, DataSourceField{Key: field.Key, Label: field.Label, Type: field.Type})
-	}
+	fields := outputDataSourceFields(definition.OutputSchema, configuration)
 	records := make([]TypedRecord, 0, len(rows))
 	for index, row := range rows {
 		values := make(map[string]string, len(definition.OutputSchema.Fields))

@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, AudioLines, Plus, Trash2 } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router";
@@ -44,6 +44,7 @@ import {
 } from "../components/ui/select";
 import { ResourceTabs } from "../components/ResourceTabs";
 import { apiErrorMessage } from "../i18n";
+import { useOrganizationRegionalProfile } from "../settings/regionalProfile";
 import {
   RegisterCheckbox,
   TargetFields,
@@ -179,7 +180,10 @@ type NoiseMeterFormInput = z.input<ReturnType<typeof makeNoiseMeterSchema>>;
 
 // New-instance defaults, including the suggested message callers see
 // prefilled in the form. Built from `t` like the schema above.
-function makeNoiseMeterDefaults(t: PluginsT): NoiseMeterFormValues {
+function makeNoiseMeterDefaults(
+  t: PluginsT,
+  timezone: string,
+): NoiseMeterFormValues {
   return {
     name: "Noise Meter",
     message: t("noiseMeter.editor.messagePlaceholder"),
@@ -198,7 +202,7 @@ function makeNoiseMeterDefaults(t: PluginsT): NoiseMeterFormValues {
     scheduleDaysOfWeek: [1, 2, 3, 4, 5],
     scheduleStartTime: "08:00",
     scheduleEndTime: "15:30",
-    scheduleTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+    scheduleTimezone: timezone,
     enabled: true,
     targetScope: "all",
     targetIds: [],
@@ -255,7 +259,7 @@ export function NoiseMetersPage() {
     mutationFn: (id: string) =>
       api.deleteNoiseMeter(id, auth.status?.csrfToken ?? ""),
     onSuccess: () => {
-      toast.add({ title: "Noise Meter removed.", type: "success" });
+      toast.add({ title: t("noiseMeter.removedToast"), type: "success" });
       void queryClient.invalidateQueries({ queryKey: ["noise-meters"] });
       void queryClient.invalidateQueries({ queryKey: ["plugins"] });
     },
@@ -413,10 +417,15 @@ export function NoiseMeterEditorPage() {
   const { id } = useParams();
   const editing = Boolean(id);
   const auth = useAuth();
+  const regional = useOrganizationRegionalProfile();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const schema = useMemo(() => makeNoiseMeterSchema(t), [t]);
-  const defaults = useMemo(() => makeNoiseMeterDefaults(t), [t]);
+  const defaults = useMemo(
+    () => makeNoiseMeterDefaults(t, regional.timezone),
+    [t, regional.timezone],
+  );
+  const timezoneTouched = useRef(false);
   const instance = useQuery({
     queryKey: ["noise-meter", id],
     queryFn: () => api.noiseMeter(id ?? ""),
@@ -434,6 +443,10 @@ export function NoiseMeterEditorPage() {
     resolver: zodResolver(schema),
     defaultValues: defaults,
   });
+  useEffect(() => {
+    if (!editing && !timezoneTouched.current)
+      setValue("scheduleTimezone", regional.timezone);
+  }, [editing, regional.timezone, setValue]);
   useEffect(() => {
     if (!instance.data) return;
     const value = instance.data;
@@ -467,7 +480,9 @@ export function NoiseMeterEditorPage() {
         : api.createNoiseMeter(input, auth.status?.csrfToken ?? ""),
     onSuccess: () => {
       toast.add({
-        title: editing ? "Noise Meter updated." : "Noise Meter created.",
+        title: editing
+          ? t("noiseMeter.updatedToast")
+          : t("noiseMeter.createdToast"),
         type: "success",
       });
       void queryClient.invalidateQueries({ queryKey: ["noise-meters"] });
@@ -755,7 +770,11 @@ export function NoiseMeterEditorPage() {
                   // i18n-ignore: IANA timezone example, not translatable text
                   placeholder="America/Chicago"
                   error={errors.scheduleTimezone?.message}
-                  {...register("scheduleTimezone")}
+                  {...register("scheduleTimezone", {
+                    onChange: () => {
+                      timezoneTouched.current = true;
+                    },
+                  })}
                 />
               </div>
               <div className="grid gap-2">

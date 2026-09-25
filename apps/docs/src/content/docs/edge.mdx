@@ -1,0 +1,75 @@
+---
+title: Tilecast Edge
+description: Learn what Tilecast Edge changes on Linux and what is available in the preview.
+---
+
+Tilecast Edge is the new Linux Player platform that is being built to replace the current Electron-based Linux Player. It runs the Player as a Linux service and uses WPE WebKit to draw content on screen.
+
+For a production Linux screen, use the [current Linux Player](../players/install-linux/) until a Tilecast release says Edge is supported on your hardware.
+
+## What changes
+
+The Tilecast Server and Studio work the same way. The main change is on the Linux Player itself:
+
+```text
+Tilecast Server
+      |
+HTTPS / WebSocket
+      |
+  tilecastd
+  |   |   |
+SQLite  content cache  Linux integrations
+      |
+local IPC
+      |
+WPE WebKit renderer
+      |
+   display
+```
+
+**tilecastd** handles the server connection, local Player state, downloaded content, commands, configuration, schedules, hardware features, and renderer restarts. WPE WebKit is the renderer that actually draws the current presentation.
+
+Edge and the current Electron Linux Player share more of the same playback runtime as the migration work progresses. The goal is for content to behave the same while Linux moves to the new service-based Player.
+
+## Why Edge exists
+
+Edge is meant to make unattended Linux screens more reliable and easier to manage:
+
+- keep downloaded content playing when the server or network is unavailable;
+- restart the renderer without losing the Player's local state;
+- keep commands and settings through restarts;
+- report which hardware features are actually available on each Player;
+- keep system-level access out of the renderer where possible;
+- verify downloaded files before using them for playback;
+- use real playback progress, not just a running process, when checking health.
+
+The first Edge release does not include the older peer-to-peer "Edge Fabric" idea. Peer content delivery and other local-fabric work can come later.
+
+## Current work
+
+| Area                                                                          | Milestone |
+| ----------------------------------------------------------------------------- | --------- |
+| Daemon, WPE renderer, SQLite state, verified content store                    | M1        |
+| Server presence, manifests, offline content playback                          | M2/M3     |
+| Commands and Player configuration                                             | M4        |
+| Fresh-install pairing and Avahi discovery                                     | M5        |
+| Resilience, synchronized playback, Span parity                                | M6        |
+| Installer and Electron-to-Edge migration with rollback                        | M7        |
+| Proof of play, telemetry, and live preview                                    | M8        |
+| Linux hardware features such as CEC/DDC, Presentation Network, and host audio | M9        |
+
+Follow the [Tilecast Edge milestone](https://github.com/gbyo/tilecast/milestone/2) to see the active work.
+
+## Read next
+
+- [Requirements](./requirements/)
+- [Install Edge](./install/)
+- [Migrate from the current Linux Player](./migrate/)
+- [Pair an Edge screen](./pairing/)
+- [Content compatibility](./compatibility/)
+- [Offline playback and recovery](./offline-resilience/)
+- [Hardware and host integrations](./hardware/)
+- [Monitoring Edge](./monitoring/)
+- [Troubleshooting](./troubleshooting/)
+- [Security](./security/)
+- [Capability matrix](./capabilities/)

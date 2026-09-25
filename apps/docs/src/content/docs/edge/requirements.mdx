@@ -1,0 +1,38 @@
+---
+title: Edge requirements
+description: Check the current Linux and display requirements for the Tilecast Edge preview.
+---
+
+:::caution[Preview requirements]
+These are the requirements for the current Edge development work, not a final support list.
+:::
+
+## Linux host
+
+The current packaging work expects:
+
+- Linux kernel 5.6 or later;
+- systemd 248 or later;
+- a 64-bit Linux environment supported by the release;
+- enough local storage for Edge, its local database, and downloaded content;
+- network access to the Tilecast Server.
+
+Debian 12 meets the documented kernel and systemd minimums. Other distributions should only be treated as supported when Tilecast release notes list their required WPE, GStreamer, graphics, and systemd versions.
+
+## Display support
+
+Edge uses WPE WebKit instead of Electron. Development currently covers headless, Wayland, and DRM/KMS renderer paths.
+
+Passing automated tests is not the same as testing a real display. Hardware decoding, rotation, connectors, CEC/DDC, display ownership, restart behavior, and long-running playback still need testing on physical hardware.
+
+## Before using a real screen
+
+Check the release notes for the supported architecture, Linux distribution, WPE/GStreamer versions, renderer backend, codecs, and display-control hardware.
+
+If your machine is not listed as supported, keep using the [current Linux Player](../../players/install-linux/).
+
+## Network
+
+Edge uses the normal Tilecast Player HTTPS and WebSocket APIs. Avahi/mDNS discovery is optional, so manual server entry still works on networks where multicast is blocked.
+
+Use HTTPS for public hostnames. Local HTTP is only for the same trusted-LAN cases supported by the current Tilecast Player.
