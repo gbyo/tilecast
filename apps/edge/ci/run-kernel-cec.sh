@@ -40,6 +40,28 @@ if [ -z "$tv" ] || [ -z "$player" ]; then
 fi
 echo "vivid TV adapter $tv, player adapter $player"
 sudo chmod 0666 "$tv" "$player"
+# On current kernels a vivid HDMI input is connected to the test pattern
+# generator by default, and the output adapter has no physical address (as
+# with an unplugged cable) until the input is connected to vivid's HDMI
+# output. Menu item 2 is "Output HDMI 000-0". Older kernels connect them
+# implicitly and have no such control.
+for video in /dev/video*; do
+  controls=$(sudo v4l2-ctl -d "$video" --list-ctrls 2>/dev/null || true)
+  if [[ "$controls" == *hdmi_000_0_is_connected_to* ]]; then
+    sudo v4l2-ctl -d "$video" --set-ctrl hdmi_000_0_is_connected_to=2
+    echo "connected vivid HDMI input 000-0 ($video) to HDMI output 000-0"
+  fi
+done
+has_address() { [[ "$(sudo cec-ctl -d "$player" 2>/dev/null)" =~ Physical\ Address\ +:\ [0-9a-e]\. ]]; }
+for _ in $(seq 1 50); do
+  if has_address; then break; fi
+  sleep 0.1
+done
+if ! has_address; then
+  echo "::error title=Kernel CEC test not run::the vivid HDMI output adapter never received a physical address"
+  sudo cec-ctl -d "$player" || true
+  exit 1
+fi
 # The TV side: logical address 0, answered by cec-follower.
 cec-ctl -d "$tv" --tv >/dev/null
 cec-follower -d "$tv" > /tmp/cec-follower.log 2>&1 &
