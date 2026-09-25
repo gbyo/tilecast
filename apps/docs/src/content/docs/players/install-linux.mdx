@@ -4,7 +4,7 @@ description: Install the verified Linux AppImage from Tilecast Server and pair t
 ---
 
 :::note[Current stable Linux Player]
-This page documents the Electron/AppImage Linux Player that Tilecast currently releases. **Tilecast Edge** is the replacement Linux runtime under active development, but it is not the production install path yet. See the [Tilecast Edge preview](../../edge/) for its requirements, migration model, and current capability status.
+This page is for the Linux Player Tilecast currently releases. **Tilecast Edge** is its replacement, but Edge is still in preview. See [Tilecast Edge](../../edge/) for the current requirements and supported features.
 :::
 
 The Tilecast Server installer uses the newest stable Linux AppImage cached and verified on the server. It creates a systemd user service for the kiosk account and configures the Player to connect to that server. The installer chooses the newest cached release automatically; it does not ask for a version.
@@ -65,6 +65,6 @@ A local HTTP server address is not encrypted. Use it only on a trusted LAN. Publ
 
 ## Planning for Tilecast Edge
 
-Do not manually convert this AppImage installation into Edge by swapping binaries or systemd units. Edge uses a different daemon/WPE service model and a guarded migration that validates the current presentation and can roll back before accepting the cutover.
+Do not turn an AppImage installation into Edge by swapping files or services yourself. Edge uses a different install layout, and its migration checks the current screen before switching over so it can roll back if something fails.
 
-When Edge becomes supported for your hardware, follow [Migrate from the legacy Linux Player](../../edge/migrate/) instead of performing an in-place AppImage replacement.
+When Edge is supported on your hardware, follow [Migrate from the current Linux Player](../../edge/migrate/) instead of replacing the AppImage in place.

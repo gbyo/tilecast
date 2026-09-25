@@ -1,24 +1,24 @@
 ---
 title: Form approvals
-description: Review submitted Form records, request changes, and approve records for signage workflows.
+description: Review Form submissions, request changes, approve them, or reject them.
 ---
 
-The central **Approvals** inbox is for Form records. It is separate from the presentation-content submission inbox used by Playlists, Layouts, and Campaigns.
+Use the **Approvals** inbox for Form submissions. This is separate from the content-review inbox for Playlists, Layouts, and Campaigns.
 
-An account sees review work only for Forms where its granted capabilities allow it.
+You only see Forms that your account is allowed to review.
 
-## Review a record
+## Review a submission
 
-Open a submitted record and use the transitions the server returns for your account and that record's current state.
+Open the submitted record. Tilecast shows the actions available for your account and the record's current state.
 
 The default workflow includes:
 
-- **Approve**: move the record to the approved state.
-- **Request changes**: return it to the submitter with a required review note.
-- **Reject**: move it to the final rejected state.
+- **Approve** to mark the record approved.
+- **Request changes** to send it back with a required note.
+- **Reject** to move it to the rejected state.
 
-A submitter can edit and resubmit a record after changes are requested. The server validates permissions and workflow transitions; the browser does not invent which actions are allowed.
+After changes are requested, the submitter can edit the record and send it again.
 
-A Form View that feeds signage must include an output-eligible state such as approved before the record can appear in that view.
+A Form View must include an approved or otherwise allowed output state before that record can appear in signage.
 
 For Playlist, Layout, and Campaign review, use [Content submissions](../content-submissions/).

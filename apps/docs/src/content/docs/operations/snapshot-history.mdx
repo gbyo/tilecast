@@ -1,11 +1,11 @@
 ---
 title: Snapshot history
-description: Keep bounded periodic Player screenshots so you can look back at what a screen showed.
+description: Save occasional Player screenshots so you can look back at what a screen was showing.
 ---
 
-Live preview answers **What is on the screen now?** Snapshot history helps answer **What was on it earlier?**
+Live preview answers **What is on the screen now?** Snapshot history helps with **What was on it earlier?**
 
-Snapshot history is off by default. Open **Settings** > **Snapshot history** to enable it.
+Snapshot history is off by default. Open **Settings** > **Snapshot history** to turn it on.
 
 | Setting                      |    Default |
 | ---------------------------- | ---------: |
@@ -13,18 +13,20 @@ Snapshot history is off by default. Open **Settings** > **Snapshot history** to 
 | Keep snapshots for           |     7 days |
 | Snapshots to keep per screen |         48 |
 
-The interval, age, and per-screen count are independent caps. The oldest snapshots are removed when a screen reaches its count limit even if they are younger than the age limit.
+These limits work independently. If a screen reaches its snapshot-count limit, the oldest image is removed even if it is still within the age limit.
 
 ## Storage
 
-Snapshots are stored in the Tilecast database and are included in database backups, so enabling history can make backups larger. Studio reports the current snapshot total so the cost is visible.
+Snapshots are stored in the Tilecast database and are included in database backups. Turning the feature on can therefore make backups larger.
 
-Scheduled snapshots use the same Player capture path as live preview. A manual preview capture kept in history is marked as manual.
+Studio shows the current snapshot count so you can see how much history is being kept.
 
-Only screens that are currently reporting are asked to capture. A missing image is not evidence that the display was wrong; the screen may simply have been offline or unable to capture at that time.
+Scheduled snapshots use the same capture path as live preview. A manual preview that is saved to history is marked as manual.
 
-Snapshot history follows the same screen-scope permissions as the screen itself.
+Only screens that are currently reporting are asked to take a snapshot. A missing snapshot does not mean the display showed the wrong content; the Player may simply have been offline or unable to capture at that time.
+
+Users can only see snapshots for screens they are allowed to access.
 
 :::note
-Snapshots are not proof of play. Use [Activity](../activity/) for Player-confirmed playback.
+Snapshots are not proof of play. Use [Activity](../activity/) for Player-confirmed playback history.
 :::

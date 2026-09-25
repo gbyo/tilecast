@@ -1,22 +1,24 @@
 ---
 title: Active hours and power
-description: Define when normal signage should run and understand Android Power Assist versus Linux Display Control.
+description: Choose when normal signage should run and configure supported power behavior.
 ---
 
 Open **Settings** > **Active hours and power** for organization defaults, or override them for a Display Group or screen.
 
 ## Active hours
 
-Active hours use an IANA timezone, selected weekdays, and local start/end times. An end time at or before the start creates an overnight window that belongs to the selected start day.
+Choose a timezone, weekdays, start time, and end time.
 
-Tilecast evaluates timezone rules rather than assuming every day is exactly 24 hours, so daylight-saving gaps and overlaps are handled as calendar boundaries.
+If the end time is the same as or earlier than the start time, Tilecast treats it as an overnight window that started on the selected day.
 
-Outside active hours, ordinary playback can move to the configured off-hours state. A Takeover can still outrank that state when urgent content must be shown.
+Tilecast uses the selected timezone when evaluating the schedule, including daylight-saving changes.
 
-## Power is platform-specific
+Outside active hours, normal playback moves to the configured off-hours state. A Takeover can still appear when higher-priority content needs to be shown.
 
-Android **Power Assist** uses bounded Android sleep/wake capabilities where the device supports them. A policy request is not proof that the connected TV physically changed power state.
+## Power controls
 
-Linux uses separate capability-reported [Display Control](../../screens/display-control/) for HDMI-CEC/DDC actions. Linux does not reinterpret Android-only power-assist settings such as sleep outside active hours as an operating-system sleep command.
+Android **Power Assist** uses the Android sleep and wake features available on that device. A command being accepted by the Player does not guarantee that the connected TV physically changed power state.
 
-Test the exact Player and panel combination before relying on unattended power behavior.
+Linux uses [Display Control](../../screens/display-control/) for supported HDMI-CEC and DDC actions. Android-only Power Assist settings do not turn into Linux operating-system sleep commands.
+
+Test the exact Player and display combination before depending on automatic power behavior.

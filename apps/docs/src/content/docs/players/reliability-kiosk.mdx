@@ -1,32 +1,30 @@
 ---
 title: Reliability and kiosk
-description: Configure Player recovery, safe mode, fullscreen behavior, and platform-specific kiosk capabilities.
+description: Configure Player recovery, safe mode, fullscreen behavior, and kiosk features.
 ---
 
-Open **Settings** > **Reliability and kiosk** for organization defaults. A Display Group or screen can override supported values through its Player policy.
+Open **Settings** > **Reliability and kiosk** for organization defaults. A Display Group or screen can override supported settings through its Player policy.
 
-## Health means playback progress
+## How Tilecast decides playback is healthy
 
-Tilecast distinguishes:
+A running Player process is not enough on its own. Tilecast also checks whether the renderer responds and whether playback is actually moving forward when it should.
 
-1. the Player process is alive;
-2. the renderer responds;
-3. playback is meaningfully progressing.
+For example, a frozen video can still have a responsive process, while a still image can be healthy even though the picture is not changing.
 
-Only the third is enough to call playback healthy. A frozen video can have a responsive process, while a long-lived still image can be perfectly healthy without changing pixels.
+If playback repeatedly fails, the Player works through its recovery steps and can enter safe mode instead of restarting forever.
 
-Players use content-aware progress evidence and a bounded recovery ladder. Repeated failure enters safe mode instead of restart-looping.
+## Android and Linux
 
-## Platform behavior
+Android supports **Standard Reliability** on a normal Player install. **Managed Kiosk** only works when Android reports that the device has the required device-owner and lock-task setup.
 
-Android offers **Standard Reliability** on a normally installed Player and can use **Managed Kiosk** only when Android confirms the required device-owner/lock-task capability. Selecting the policy is not proof that the device is provisioned.
+Linux has its own fullscreen, kiosk, display-sleep, and startup behavior. The exact result depends on the Linux session and service setup.
 
-Linux exposes its own kiosk/fullscreen and display-sleep behavior. Boot startup, desktop/session lockdown, and process lifecycle still depend on the installed Linux service and host environment.
-
-Platform-specific Android controls do not become active on Linux simply because they share a policy document.
+Android-only controls are ignored on Linux.
 
 ## Recovery
 
-Recovery can retry content, recreate rendering state, restart bounded Player components, and finally enter safe mode. Cached playback and the server relationship are preserved where possible.
+Recovery can retry the current content, rebuild rendering state, restart Player components, and enter safe mode when needed.
 
-Use [Activity](../../operations/activity/) to see the evidence and recovery events a Player actually reported.
+Where possible, cached content and the Player's connection to Tilecast Server are kept through those recovery steps.
+
+Use [Activity](../../operations/activity/) to see recovery events reported by the Player.

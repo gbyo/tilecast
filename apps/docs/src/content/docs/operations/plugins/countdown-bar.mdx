@@ -1,24 +1,26 @@
 ---
 title: Countdown Bar
-description: Show a targeted countdown over normal playback without replacing the presentation.
+description: Show a countdown over normal playback without replacing the current presentation.
 ---
 
-Install **Countdown Bar** from **Operations** > **Plugins**, then create one or more instances from its plugin page.
+Install **Countdown Bar** from **Operations** > **Plugins**, then create a countdown from the plugin page.
 
-Each instance can define its message, target time or weekly recurrence, lead time, completion behavior, display mode, size, priority, and target scope.
+Choose the message, target time or weekly repeat, how early the bar should appear, what happens at zero, size, priority, and target screens.
 
-Targets can be all active screens, selected screens, Display Groups, or Locations.
+Targets can include all active screens, selected screens, Display Groups, or Locations.
 
-## Timing and overlap
+## Timing
 
-A bar becomes active when its lead window opens and counts down to the configured target. Optional completion text can keep the bar visible briefly after zero; otherwise it disappears at the target.
+The bar appears when its lead time begins and counts down to the target.
 
-When several active Countdown Bars target the same screen, the Player chooses the highest priority, then the earliest target, then a stable instance order.
+You can show completion text for a short time after zero, or have the bar disappear immediately.
+
+If more than one Countdown Bar is active on a screen, Tilecast uses priority first and then the nearest target time.
 
 ## Progress and urgency
 
-The optional background progress fill represents the share of the configured lead window that remains. It is not a separate timer.
+The optional progress fill shows how much of the configured countdown window remains.
 
-Urgency stages can change the presentation as the target approaches. Reduced-motion preferences suppress motion effects where the Player exposes that preference.
+Urgency settings can change the appearance as the target gets closer. Motion effects are reduced when the Player exposes a reduced-motion preference.
 
-Changing an enabled instance revises the manifests for affected screens. A Player receives only instances that are installed, enabled, and targeted to it.
+Editing an enabled countdown updates the affected screens after their Player configuration refreshes.

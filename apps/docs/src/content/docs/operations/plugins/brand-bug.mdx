@@ -1,20 +1,20 @@
 ---
 title: Brand Bug / Watermark
-description: Place a persistent logo, legal notice, sponsor mark, or location label over normal playback.
+description: Keep a logo, notice, sponsor mark, or label over normal playback.
 ---
 
-Install **Brand Bug / Watermark** from **Operations** > **Plugins**, then create marks from its plugin page.
+Install **Brand Bug / Watermark** from **Operations** > **Plugins**, then create a mark from the plugin page.
 
-A mark can contain a ready Media-library logo, text, or both. Configure its corner, screen-relative size, opacity, margin, text treatment, optional backing, date window, enabled state, priority, and targets.
+A mark can use a Ready image from the Media library, text, or both. You can set its corner, size, opacity, margin, text style, optional background, date range, priority, and targets.
 
-Targets can be all active screens, selected screens, Display Groups, or Locations.
+Targets can include all active screens, selected screens, Display Groups, or Locations.
 
-## Corner priority
+## When marks overlap
 
-Different corners can show different active marks at the same time. When two active marks compete for the same corner, the higher priority wins, followed by a stable instance order.
+Different corners can show different marks at the same time.
 
-Using percentages rather than fixed pixels keeps a mark visually similar across different display resolutions.
+If two active marks use the same corner, the one with the higher priority is shown. If their priorities match, Tilecast uses a consistent order.
 
-A logo must be a ready image asset. Tilecast projects it into the Player manifest as normal verified media rather than handing the Player an arbitrary file path.
+Sizes are based on the screen instead of fixed pixels, which helps the mark look similar on displays with different resolutions.
 
-For organization identity on Tilecast's own system surfaces, use [Branding](../../../administration/branding/) instead.
+For branding on Tilecast's own setup, idle, or unavailable screens, use [Branding](../../../administration/branding/) instead.

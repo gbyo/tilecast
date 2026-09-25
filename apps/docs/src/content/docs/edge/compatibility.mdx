@@ -1,24 +1,33 @@
 ---
 title: Content compatibility
-description: Check which presentation features the Tilecast Edge preview can render before moving a Linux screen.
+description: Check whether a screen's content can run on the Tilecast Edge preview.
 ---
 
-Edge rejects a presentation it cannot safely render instead of partially playing it. The already committed presentation remains available when a newer manifest has an unsupported requirement.
+Edge keeps the last working presentation if a newer one needs a feature it cannot render yet.
 
-:::caution[Preview matrix]
-This page summarizes the current development stack, not a stable release support promise.
+:::caution[Preview]
+This page describes the current development stack, not a final Edge support promise.
 :::
 
-## Implemented in the draft stack
+## Working in the current preview
 
-Automated coverage currently includes images, downloaded video, native Widgets, time-bound Clock/Date/World Clock/Countdown Widgets, Layouts and playlist zones, transitions, direct assignments, schedules, Takeovers, Quick Present, synchronized Display Groups, unrotated Span content, status surfaces, and the Brand Bug, Countdown Bar, and alert ticker plugin surfaces.
+Current automated coverage includes images, downloaded video, native Widgets, Clock/Date/World Clock/Countdown Widgets, Layouts and playlist zones, transitions, direct assignments, schedules, Takeovers, Quick Present, synchronized Display Groups, unrotated Span content, status screens, and the Brand Bug, Countdown Bar, and alert ticker plugin surfaces.
 
-Large or stream-marked video is deliberately prepared differently from the legacy Electron Player: Edge downloads and verifies the complete object before playback so partial or corrupt bytes are never promoted into its content store.
+For large or stream-marked videos, Edge downloads and verifies the complete file before playback instead of promoting a partial download.
 
-## Still gated
+## Still being worked on
 
-Remote Website content and YouTube need the WPE website-isolation work. Rotated Span behavior, frame alignment, real graphics output, codecs, and hardware decode need physical qualification. Edge self-updates are also a later milestone.
+Remote Website content and YouTube still need the WPE website-isolation work. Rotated Span playback, frame alignment, graphics output, codecs, hardware decoding, and Player self-updates also need more work or hardware testing.
 
-A missing requirement is reported as a typed incompatibility; it should not silently fall back to a weaker renderer.
+Before moving a screen to Edge, check:
 
-Before moving a screen, review its direct assignment, active and near-horizon schedules, Layout zones and Widgets, group synchronization/Span requirements, plugins, Website/YouTube use, and hardware controls. The migration preflight also performs its own compatibility check before it stops the legacy Player.
+- its direct assignment and upcoming schedules;
+- Layout zones and Widgets;
+- synchronization or Span requirements;
+- installed plugins;
+- Website or YouTube content;
+- Display Control and other hardware features.
+
+The migration check also reviews compatibility before it stops the current Linux Player.
+
+See the [capability matrix](../capabilities/) for a quick comparison with the stable Linux Player.

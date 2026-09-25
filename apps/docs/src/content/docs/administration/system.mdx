@@ -1,12 +1,14 @@
 ---
 title: System settings and health
-description: Review installation-level system information and use Tilecast's bounded maintenance actions.
+description: Check installation information and use the maintenance actions available in Studio.
 ---
 
-Open **Settings** > **System** for installation-level status and maintenance information that does not belong to content authoring or Player policy.
+Open **Settings** > **System** for server and installation information that does not belong to content or Player settings.
 
-Tilecast maintenance operations are deliberately fixed actions. The settings API does not accept arbitrary shell commands, user-supplied SQL, executable names, or unrestricted file operations.
+The maintenance actions on this page are fixed Tilecast actions. Studio does not provide a field for running arbitrary shell commands, SQL, programs, or file operations on the server.
 
-Use the page to understand the state Tilecast actually reports rather than treating a successful browser request as proof that every dependency is healthy. For server process and dependency readiness outside Studio, see the [installation readiness checks](../../installation/#check-server-readiness).
+Use the information Tilecast reports here to check server state. A browser request succeeding does not by itself prove that every server dependency is healthy.
 
-For Player-specific recovery, use [Player commands](../../operations/player-commands/) and the screen's Activity evidence instead of server maintenance controls.
+For checks outside Studio, see the [installation readiness checks](../../installation/#check-server-readiness).
+
+For a Player problem, use [Player commands](../../operations/player-commands/) and the screen's Activity page instead of server maintenance controls.
