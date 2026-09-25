@@ -33,13 +33,13 @@ import { Steps } from "@astrojs/starlight/components";
 
 Run this command on the Linux computer. Replace the example hostname with the same server address you set in `TILECAST_PUBLIC_URL`.
 
-```sh
+```sh title="Install with the current user"
 curl -fsSL https://signage.example.org/install.sh | sudo bash
 ```
 
 To create and use a separate kiosk account, pass its name and `--create-user`.
 
-```sh
+```sh title="Create a dedicated kiosk user"
 curl -fsSL https://signage.example.org/install.sh | sudo bash -s -- --user signage --create-user
 ```
 
@@ -47,7 +47,7 @@ The installer checks the downloaded release checksum, installs the AppImage and 
 
 If you do not need these capabilities, skip them when running the installer.
 
-```sh
+```sh title="Install without optional presentation features"
 curl -fsSL https://signage.example.org/install.sh | sudo bash -s -- --without-airplay --without-presentation-network
 ```
 

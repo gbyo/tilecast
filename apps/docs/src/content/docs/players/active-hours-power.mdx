@@ -3,6 +3,8 @@ title: Active hours and power
 description: Choose when normal signage should run and configure supported power behavior.
 ---
 
+import { TabItem, Tabs } from "@astrojs/starlight/components";
+
 Open **Settings** > **Active hours and power** for organization defaults, or override them for a Display Group or screen.
 
 ## Active hours
@@ -17,8 +19,20 @@ Outside active hours, normal playback moves to the configured off-hours state. A
 
 ## Power controls
 
-Android **Power Assist** uses the Android sleep and wake features available on that device. A command being accepted by the Player does not guarantee that the connected TV physically changed power state.
+<Tabs syncKey="player-platform">
+
+<TabItem label="Android TV">
+
+**Power Assist** uses the Android sleep and wake features available on that device. A command being accepted by the Player does not guarantee that the connected TV physically changed power state.
+
+</TabItem>
+
+<TabItem label="Linux">
 
 Linux uses [Display Control](../../screens/display-control/) for supported HDMI-CEC and DDC actions. Android-only Power Assist settings do not turn into Linux operating-system sleep commands.
+
+</TabItem>
+
+</Tabs>
 
 Test the exact Player and display combination before depending on automatic power behavior.

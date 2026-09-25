@@ -5,7 +5,7 @@ description: Add a verified Android or Linux Player release and deploy it to sel
 
 Use **Settings** > **Player updates** to deploy signed Tilecast Player releases. This updates Player apps; it does not update Tilecast Server, containers, or the host operating system. Owners manage releases. Owners and Administrators can create deployments.
 
-import { Steps } from "@astrojs/starlight/components";
+import { Steps, TabItem, Tabs } from "@astrojs/starlight/components";
 
 ## Add a release
 
@@ -42,5 +42,18 @@ Offline Players begin after they reconnect. Canceling a deployment stops screens
 
 ## Platform limits
 
-- **Android:** the operating system may require local installation permission or approval on each TV. Plan for someone to handle the prompt at the display.
-- **Linux:** this update path applies to Players running as a managed AppImage. Each Linux Player restarts into the new version.
+<Tabs syncKey="player-platform">
+
+<TabItem label="Android TV">
+
+The operating system may require local installation permission or approval on each TV. Plan for someone to handle the prompt at the display.
+
+</TabItem>
+
+<TabItem label="Linux">
+
+This update path applies to Players running as a managed AppImage. Each Linux Player restarts into the new version.
+
+</TabItem>
+
+</Tabs>
