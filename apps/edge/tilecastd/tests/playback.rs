@@ -759,7 +759,23 @@ async fn report_content(client: &IpcClient, activation: &PresentationActivate) {
 
 // ------------------------------------------------------------ harness
 
+/// How many scenarios run at once. Each one is a whole daemon (its own
+/// four-worker runtime and blocking pool), a fake server and a scripted
+/// renderer, and many of them wait on 30 s deadlines. Run all 31 at once on
+/// a 4-vCPU CI runner and CPU and fsync contention time out a different
+/// handful on every run. One slot per available core keeps those deadlines
+/// meaningful without serializing the suite.
+fn scenario_slots() -> &'static Arc<tokio::sync::Semaphore> {
+    static SLOTS: std::sync::OnceLock<Arc<tokio::sync::Semaphore>> = std::sync::OnceLock::new();
+    SLOTS.get_or_init(|| {
+        let cores = std::thread::available_parallelism().map_or(2, std::num::NonZeroUsize::get);
+        Arc::new(tokio::sync::Semaphore::new(cores.max(2)))
+    })
+}
+
 struct Harness {
+    /// Held for the whole scenario (see [`scenario_slots`]).
+    _slot: tokio::sync::OwnedSemaphorePermit,
     dir: tempfile::TempDir,
     fake: Arc<FakeServer>,
     url: String,
@@ -805,6 +821,7 @@ impl edge_platform::disk::SpaceProbe for Space {
 
 impl Harness {
     async fn new() -> Self {
+        let slot = Arc::clone(scenario_slots()).acquire_owned().await.unwrap();
         let installation = InstallationId::new_random();
         let fake = FakeServer::new(installation);
         let url = serve(Arc::clone(&fake)).await;
@@ -827,7 +844,7 @@ impl Harness {
         db.run_blocking(move |c| binding::put(c, &bound, now)).unwrap();
         drop(db);
         DeviceCredential::parse(CREDENTIAL).unwrap().save(&state.join("identity")).unwrap();
-        Self { dir, fake, url, screen, installation }
+        Self { _slot: slot, dir, fake, url, screen, installation }
     }
 
     fn binding(&self) -> Binding {

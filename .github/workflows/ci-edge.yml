@@ -224,7 +224,8 @@ jobs:
   required:
     name: Required Edge validation
     if: always()
-    needs: [rust, wpe, runtime, conformance, server_e2e, migration, activity_parity]
+    needs:
+      [rust, wpe, runtime, conformance, server_e2e, migration, activity_parity]
     runs-on: ubuntu-latest
     env:
       RESULTS: ${{ join(needs.*.result, ',') }}

@@ -276,7 +276,11 @@ describe("integer telemetry fields", () => {
       observedAt: "2026-09-25T00:00:00Z",
       serverRoundTripMs: 12.6,
       displayRefreshHz: 59.94,
-      interval: { averageThroughputBytesPerSecond: 105136.23, averageCpuPercent: 3.5, frameTimeP95Ms: 16.7 },
+      interval: {
+        averageThroughputBytesPerSecond: 105136.23,
+        averageCpuPercent: 3.5,
+        frameTimeP95Ms: 16.7,
+      },
     });
     expect(sample.serverRoundTripMs).toBe(13);
     expect(sample.displayRefreshHz).toBe(59.94);
