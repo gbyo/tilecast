@@ -108,9 +108,26 @@ It receives a complete, validated, prepared presentation and returns evidence. I
 
 ### 4.3 Privileged helpers
 
-Edge 1 adds no general root daemon. Operations that need root keep the existing narrow-helper model: the Presentation Network helper (`tilecast-networkd`) stays a root-owned process with a fixed NetworkManager allowlist, and `tilecastd` talks to it over a Unix socket. Display control and input use udev rules and group membership, not root.
+Edge 1 adds no general root daemon. Operations that need root keep the existing narrow-helper model: the Presentation Network helper (`tilecast-networkd`) stays a root-owned process with a fixed NetworkManager allowlist, and `tilecastd` talks to it over a Unix socket. Edge uses the helper without changes and adds no privileged network code.
+
+Display control and input use udev rules and group membership, not root. The udev rule gives HDMI-CEC adapters and the I2C buses of display adapters to the `tilecast-display` group. Only `tilecast-edge.service` joins that group (`SupplementaryGroups=`), and `DevicePolicy=closed` with `DeviceAllow=char-cec rw` and `DeviceAllow=char-i2c rw` limits the daemon to those device classes. The `tilecast` account is not a member, so the renderer and the session bridge do not get the group.
 
 A new root operation needs a written threat-boundary review before it is added.
+
+### 4.4 Session bridge (amendment, M9)
+
+This amendment adds a third Edge process. PipeWire and WirePlumber are per-user services, so a system service cannot read the audio graph or open a microphone without a user session.
+
+`tilecast-session-bridge` is a small C11 program (GIO, json-glib, GStreamer, libwireplumber). It runs as the systemd user unit `tilecast-session-bridge.service` in the `tilecast` account's session, with `ConditionUser=tilecast`. A user path unit starts it while `/run/tilecast-edge/edge.sock` exists, so it runs only while Edge runs. The migrator turns lingering on for the account, so the session exists at boot.
+
+The bridge:
+
+- connects to `tilecastd` with the IPC role `session_bridge`, which only the daemon's own UID may take;
+- sends `audio.inventory`: whether PipeWire is reachable, the number of audio sources and sinks, and whether WirePlumber names a default source and sink. PipeWire object IDs and device names stay in the bridge;
+- opens the microphone only after `capture.set {enabled: true}`, through `pipewiresrc ! audioconvert ! level`, and sends one RMS value per level interval as `audio.level`. Samples never leave the GStreamer pipeline;
+- runs with `RestrictAddressFamilies=AF_UNIX`, `PrivateDevices=yes`, `ProtectSystem=strict`, `ProtectHome=tmpfs` with only its runtime directory visible, `MemoryDenyWriteExecute=yes` and no capabilities.
+
+A missing bridge, PipeWire or microphone blocks only the audio capabilities. It never stops playback. The Noise Meter integration that uses the level events is paused (see [`tilecast-edge-next.md`](tilecast-edge-next.md)).
 
 ## 5. Filesystem layout
 
@@ -163,7 +180,7 @@ The IPC contract is `edge_protocol::ipc`, protocol version 1. It is renderer-neu
 
 - **Transport:** an `AF_UNIX` stream socket at `/run/tilecast-edge/edge.sock`, mode `0660`. The daemon checks the client UID with `SO_PEERCRED` against its allowlist.
 - **Framing:** a big-endian `u32` length, then one UTF-8 JSON object. A length of zero or more than 4 MiB closes the connection.
-- **Handshake:** the client sends `hello` with a role and a version range. The daemon picks the highest common version or rejects. Roles are `renderer` and `tilecastctl`; administrative methods also need the daemon's own UID or root.
+- **Handshake:** the client sends `hello` with a role and a version range. The daemon picks the highest common version or rejects. Roles are `renderer`, `tilecastctl` and `session_bridge` (§4.4); administrative methods also need the daemon's own UID or root, and only the daemon's UID may take `session_bridge`.
 - **Messages:** requests and responses (client to daemon only), events in either direction with a per-direction sequence, and `goodbye`.
 - **Strictness:** every frame rejects unknown members; every string and list has an explicit bound.
 - **Reconnect:** the daemon is the source of truth. On connect it sends `renderer.configure`. After `renderer.ready` it sends the current activation, with its original identifier, only when the renderer supports every feature it needs.
@@ -294,7 +311,7 @@ A capability describes one thing the device can or cannot do, with a state and a
 
 Providers probe the machine independently, each with a timeout. A provider that fails keeps its last known capabilities, marked `degraded` with `provider_probe_failed`. The daemon adds capabilities it knows from live state: the renderer and the state store. Only the current snapshot is stored; its revision moves only on a material change.
 
-Edge 1 providers: systemd notify and watchdog, host time synchronization, the WPE platform backends, the renderer, and the state store. Display control (CEC and DDC), audio and input providers are added with their features (§18).
+Edge 1 providers: systemd notify and watchdog, host time synchronization, the WPE platform backends, the renderer, and the state store. M9 adds display control (kernel HDMI-CEC and DDC/CI), the Presentation Network helper, the systemd-logind idle inhibitor, and audio from the session bridge (§4.4). [`tilecast-edge-capabilities.md`](tilecast-edge-capabilities.md) lists each hardware capability with its reasons.
 
 ## 13. Time
 
@@ -363,6 +380,8 @@ Release authorization stays on the server, as for the Android and Electron playe
 - the state schema migration of a new version runs only after activation, and a downgraded daemon refuses a newer schema (§6.1) instead of writing to it.
 
 `tilecastd` never replaces its own binaries in place. The privileged activation step is a narrow, separately reviewed helper (§4.3).
+
+M10 must first prototype `systemd-sysupdate` (transfer definitions, verified downloads, versioned installs under `/opt/tilecast-edge/<version>/`) and use it where it meets these rules. Custom update code is written only for a gap that the prototype shows. Mender is not a candidate.
 
 ## 16. Local administration and observability
 

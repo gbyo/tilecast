@@ -449,21 +449,19 @@ def check_hardware_packaging():
     assert os.path.exists("/usr/lib/modules-load.d/tilecast-edge.conf")
     assert os.path.exists("/var/lib/systemd/linger/tilecast"), "tilecast lingers so its session starts at boot"
     try:
-        e2e.wait_for(lambda: tilecast_systemctl("is-active", "tilecast-session-bridge.service").stdout.strip() == "active",
-                     "the session bridge started by its path unit", 90)
+        e2e.wait_for(
+            lambda: tilecast_systemctl("is-active", "tilecast-session-bridge.service").stdout.strip() == "active",
+            "the session bridge started by its path unit", 90)
     except AssertionError:
         uid = pwd.getpwnam("tilecast").pw_uid
-        for label, command in (
-            ("user manager", ["systemctl", "status", f"user@{uid}.service", "--no-pager"]),
-            ("path unit", ["systemctl", "--user", "--machine=tilecast@.host", "status",
-                           "tilecast-session-bridge.path", "--no-pager"]),
-            ("bridge service", ["systemctl", "--user", "--machine=tilecast@.host", "status",
-                                 "tilecast-session-bridge.service", "--no-pager"]),
-            ("user journal", ["journalctl", f"_UID={uid}", "-n", "120", "--no-pager"]),
-        ):
-            result = subprocess.run(command, capture_output=True, text=True)
-            print(f"session bridge diagnostics ({label}, exit {result.returncode}):\n"
-                  f"{result.stdout[-12000:]}\n{result.stderr[-4000:]}", flush=True)
+        for argv in (["systemctl", "status", "--no-pager", f"user@{uid}.service"],
+                     ["systemctl", "--user", "--machine=tilecast@.host", "status", "--no-pager",
+                      "tilecast-session-bridge.path", "tilecast-session-bridge.service"],
+                     ["ls", "-l", "/run/tilecast-edge", "/etc/systemd/user", "/etc/systemd/user/default.target.wants"],
+                     ["journalctl", "--no-pager", "-n", "80", f"_UID={uid}"],
+                     ["journalctl", "--no-pager", "-n", "40", "-u", f"user@{uid}.service"]):
+            print("$", " ".join(argv))
+            print(subprocess.run(argv, capture_output=True, text=True).stdout[-6000:])
         raise
     sandbox = tilecast_systemctl("show", "--property=RestrictAddressFamilies,PrivateDevices,ProtectHome,"
                                  "NoNewPrivileges,MemoryDenyWriteExecute", "tilecast-session-bridge.service").stdout

@@ -82,6 +82,8 @@ No kernel module emulates a DDC/CI display, so CI cannot compare Tilecast with d
 
 ## 4. Noise Meter and audio inventory
 
+The Noise Meter integration is paused (2026-09-25). The design below stays the plan; the plugin is not advertised until it is qualified.
+
 `tilecast-session-bridge` runs in the tilecast account's user session because PipeWire is a per-user service.
 
 - Capture: `pipewiresrc ! audioconvert ! level interval=60000000 ! fakesink`. The bridge reads the `rms` field of each `level` element message (decibels per channel) and converts it to one linear value. No sample leaves the GStreamer pipeline.

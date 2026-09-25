@@ -167,7 +167,8 @@ pub struct DevConfig {
     /// The Presentation Network helper's socket. Default
     /// `/run/tilecast/networkd.sock`.
     pub networkd_socket: Option<PathBuf>,
-    /// CI and local test daemons must not acquire a host logind idle lock.
+    /// `false` keeps the daemon from taking a systemd-logind idle inhibitor
+    /// lock, so a test never changes the host it runs on.
     pub idle_inhibit: Option<bool>,
 }
 

@@ -1,7 +1,7 @@
 # Tilecast Edge
 
 Tilecast Edge is the Linux player platform that replaces the Electron Linux
-Player. It has two processes:
+Player. It has three processes:
 
 - `tilecastd` is the unprivileged daemon. It owns the server relationship,
   the device credential, state, the content store, supervision and machine
@@ -11,6 +11,12 @@ Player. It has two processes:
   runtime the Electron player hosts). It shows what `tilecastd` sends and
   reports what happened. See [`renderer-wpe/README.md`](renderer-wpe/README.md)
   and [`docs/player-runtime.md`](../../docs/player-runtime.md).
+- `tilecast-session-bridge` is a small user-session process for what only
+  the tilecast account's session can see: the PipeWire audio inventory
+  through WirePlumber, and (when the Noise Meter integration resumes)
+  derived microphone levels. See
+  [`docs/tilecast-edge.md`](../../docs/tilecast-edge.md) §4.4 and
+  [`session-bridge/`](session-bridge/).
 
 The Tilecast Server is the only authority. `tilecastd` reconciles directly
 from it and keeps playing from local state when it is unreachable.
@@ -22,16 +28,16 @@ for this directory are in [`AGENTS.md`](AGENTS.md).
 
 ## Crates
 
-| Crate           | Responsibility                                                                                                                             |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `edge-protocol` | Contracts only: IDs, digests, time, bounded text, capabilities, the IPC v1 messages. No I/O.                                               |
-| `edge-state`    | SQLite state with embedded migrations and typed repositories.                                                                              |
-| `edge-platform` | Paths, systemd notify and watchdog, disk probes, capability providers.                                                                     |
-| `edge-cas`      | The content-addressed store: verified commit, crash reconciliation, pins, eviction, the `BlobSource` trait and the multi-source `Fetcher`. |
-| `edge-ipc`      | The versioned Unix socket server and client (length-prefixed frames, handshake, peer UID policy).                                          |
-| `edge-server`   | The Tilecast Server client: URL policy, identity gate, device credential, heartbeat, one-time legacy import, origin `BlobSource`.          |
-| `tilecastd`     | The daemon: lifecycle, IPC handler, presentation engine, supervisor, server link, `import-legacy`.                                         |
-| `tilecastctl`   | The operator command line over IPC.                                                                                                        |
+| Crate           | Responsibility                                                                                                                                                          |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `edge-protocol` | Contracts only: IDs, digests, time, bounded text, capabilities, the IPC v1 messages. No I/O.                                                                            |
+| `edge-state`    | SQLite state with embedded migrations and typed repositories.                                                                                                           |
+| `edge-platform` | Paths, systemd notify and watchdog, disk probes, capability providers, display control (kernel CEC and DDC/CI; `display/kernel.rs` is the one audited `unsafe` module). |
+| `edge-cas`      | The content-addressed store: verified commit, crash reconciliation, pins, eviction, the `BlobSource` trait and the multi-source `Fetcher`.                              |
+| `edge-ipc`      | The versioned Unix socket server and client (length-prefixed frames, handshake, peer UID policy).                                                                       |
+| `edge-server`   | The Tilecast Server client: URL policy, identity gate, device credential, heartbeat, one-time legacy import, origin `BlobSource`.                                       |
+| `tilecastd`     | The daemon: lifecycle, IPC handler, presentation engine, supervisor, server link, `import-legacy`.                                                                      |
+| `tilecastctl`   | The operator command line over IPC.                                                                                                                                     |
 
 ### Dependency direction
 
@@ -91,6 +97,20 @@ End-to-end checks:
   and video in a playlist, a Clock layout (time-bound widgets tick in place),
   a QR Code layout, and offline restart from the cache.
 
+M9 hardware checks:
+
+- `ci/run-kernel-cec.sh` (Linux host with sudo) loads the `vivid` driver,
+  runs `cec-follower` as the TV and drives the player adapter through the
+  kernel CEC UAPI, with `cec-ctl` as the reference.
+- `cargo test -p tilecastd --test presentation_network` runs the Presentation
+  Network client against the real `tilecast-networkd` script with a fake
+  `nmcli` (needs `python3`).
+- `session-bridge` builds with CMake (`gio`, `json-glib`, `gstreamer-1.0`,
+  `wireplumber-0.5`); `ctest` checks its frames against the IPC fixtures.
+
+Every test daemon uses empty `dev.hardware_dev_dir` and
+`dev.hardware_sys_dir` roots, so no test reaches a real display.
+
 `tilecastd/tests/playback.rs` (Linux) runs a real daemon against a fake
 server and a scripted renderer for the manifest races: supersession, stale
 evidence, restarts during a trial, failed and corrupt downloads, and typed
@@ -101,5 +121,6 @@ The repository `Makefile` has `edge-check`, `edge-test`, `edge-linux` and
 
 ## Packaging
 
-[`packaging/`](packaging/) has the systemd units, the `sysusers.d` file and
-the installation and migration procedure.
+[`packaging/`](packaging/) has the systemd units, the user units of the
+session bridge, the `sysusers.d`, `tmpfiles.d`, `modules-load.d` and udev
+files, and the installation and migration procedure.

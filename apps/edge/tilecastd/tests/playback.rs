@@ -451,9 +451,15 @@ async fn serve(fake: Arc<FakeServer>) -> String {
                 _ => {}
             }
             let fake = Arc::clone(&fake);
+            // Classify each connection in its own task: waiting here for a
+            // connection's first bytes would stop the server accepting any
+            // other connection until they arrived.
             tokio::spawn(async move {
                 let mut head = [0_u8; 32];
-                let upgrade = matches!(stream.peek(&mut head).await, Ok(n) if head[..n].starts_with(b"GET /api/v1/player/socket"));
+                let upgrade = matches!(
+                    tokio::time::timeout(Duration::from_secs(10), stream.peek(&mut head)).await,
+                    Ok(Ok(n)) if head[..n].starts_with(b"GET /api/v1/player/socket")
+                );
                 if upgrade && fake.socket_enabled.load(Ordering::SeqCst) {
                     player_socket(fake, stream).await;
                     return;
