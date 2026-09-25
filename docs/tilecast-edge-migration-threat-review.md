@@ -64,6 +64,18 @@ The compatibility input is copied into `/run/tilecast-edge-migrate/compat` (root
 - **Recovery dependency.** While an attempt is in its cutover, the migrator adds `Requires=` links from the Edge units to `tilecast-edge-migrate-recover.service` through systemd (`AddDependencyUnitFiles`), not by writing unit files. Disabling the recovery unit removes them.
 - **Task units.** The self-test, the DRM probe, the compatibility check and the import are static unit files that are part of the signed release, not transient units. Their command lines are fixed. Each runs as `tilecast`, with no capabilities, and all but the import have no network. Their output goes to fixed files in `/run/tilecast-edge-migrate`, which root reads with a 256 KiB bound.
 
+### 3.4.1 Hardware configuration at install (M9)
+
+After `install` has verified and copied the release, it also does the following as root. Each program is a fixed absolute path with fixed arguments, a cleared environment, no input and a 60 second timeout. No argument comes from the release, the server or the kiosk account.
+
+- It copies `udev/70-tilecast-display.rules` to `/usr/lib/udev/rules.d`, `modules-load.d/tilecast-edge.conf` to `/usr/lib/modules-load.d`, and the session bridge's user units to `/etc/systemd/user`, and it links the bridge's path unit into `/etc/systemd/user/default.target.wants`. These are files of the signed release, written with mode 0644.
+- It runs `systemd-sysusers`, which creates the `tilecast-display` group. The account does not join the group.
+- It turns lingering on for `tilecast` through logind (`SetUserLinger`), so the account's user manager starts at boot. That user manager runs only units that name `ConditionUser=tilecast`.
+- If udev runs, it runs `/usr/bin/udevadm control --reload` and `/usr/bin/udevadm trigger --action=change --subsystem-match=cec --subsystem-match=i2c-dev`. It restarts `systemd-modules-load.service` over D-Bus to load `i2c-dev`.
+- If the account's user manager already runs, it runs `/usr/bin/systemctl --user --machine=tilecast@.host daemon-reload` and `start tilecast-session-bridge.path`.
+
+The udev, module and user-manager steps are best effort. A failure prints a warning and takes effect at the next boot; display control and audio are optional hardware and never block playback. The udev rule gives only CEC adapters and I2C buses whose parent is a PCI display adapter (class `0x03*`) to the group, never the SMBus or other I2C devices.
+
 ### 3.5 Status from the daemon
 
 Settlement reads `status.get` over the Edge socket. A compromised `tilecast` account can fake a good status. The only effect it can reach is the accept or rollback decision for its own stack, which that account already controls; it cannot make root run anything. The status is parsed with the bounded IPC types.

@@ -7,16 +7,16 @@ The rule for M9: Tilecast writes only the adapter between a system facility and 
 
 ## 1. Summary
 
-| Area | Decision | Tilecast code |
-| --- | --- | --- |
-| HDMI-CEC | Keep the kernel CEC provider (`/dev/cecN`, CEC UAPI). Use v4l-utils (`cec-follower`, `cec-ctl`, `cec-compliance`) as the test endpoint and the reference. | `edge-platform::display::{kernel,cec}` (about 840 lines with tests) |
-| DDC/CI | Keep the narrow provider. Do not link libddcutil into `tilecastd` (§3). Adopt the ddcutil timing, retry, null-reply and udev behavior. Use `ddcutil` as the qualification reference. | `edge-platform::display::ddc` (about 400 lines with tests) |
-| Noise Meter capture | `tilecast-session-bridge` runs `pipewiresrc ! audioconvert ! level`. The GStreamer `level` element computes RMS. Tilecast has no DSP code. | Bridge message handling only |
-| Audio inventory | libwireplumber in the bridge: nodes, default source and default sink, node state. No `wpctl` output parsing. No GstDeviceMonitor. | A WirePlumber object manager and a count |
-| Presentation Network | Reuse the root helper `tilecast-networkd` and its socket protocol without changes. Edge adds a typed client only. | Client, parser and reconciliation (about 500 lines) |
-| Display sleep | A systemd-logind `idle` inhibitor lock over D-Bus. | About 120 lines |
-| Device access | udev rules, a sysusers group, `modules-load.d`, systemd `DevicePolicy=closed`. | Packaging files |
-| M10 updates | Prototype `systemd-sysupdate` before any custom updater code. | None in M9 |
+| Area                 | Decision                                                                                                                                                                             | Tilecast code                                                       |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------- |
+| HDMI-CEC             | Keep the kernel CEC provider (`/dev/cecN`, CEC UAPI). Use v4l-utils (`cec-follower`, `cec-ctl`, `cec-compliance`) as the test endpoint and the reference.                            | `edge-platform::display::{kernel,cec}` (about 840 lines with tests) |
+| DDC/CI               | Keep the narrow provider. Do not link libddcutil into `tilecastd` (§3). Adopt the ddcutil timing, retry, null-reply and udev behavior. Use `ddcutil` as the qualification reference. | `edge-platform::display::ddc` (about 400 lines with tests)          |
+| Noise Meter capture  | `tilecast-session-bridge` runs `pipewiresrc ! audioconvert ! level`. The GStreamer `level` element computes RMS. Tilecast has no DSP code.                                           | Bridge message handling only                                        |
+| Audio inventory      | libwireplumber in the bridge: nodes, default source and default sink, node state. No `wpctl` output parsing. No GstDeviceMonitor.                                                    | A WirePlumber object manager and a count                            |
+| Presentation Network | Reuse the root helper `tilecast-networkd` and its socket protocol without changes. Edge adds a typed client only.                                                                    | Client, parser and reconciliation (about 500 lines)                 |
+| Display sleep        | A systemd-logind `idle` inhibitor lock over D-Bus.                                                                                                                                   | About 120 lines                                                     |
+| Device access        | udev rules, a sysusers group, `modules-load.d`, systemd `DevicePolicy=closed`.                                                                                                       | Packaging files                                                     |
+| M10 updates          | Prototype `systemd-sysupdate` before any custom updater code.                                                                                                                        | None in M9                                                          |
 
 ## 2. HDMI-CEC
 
@@ -54,17 +54,17 @@ Decision: keep the narrow provider. Record the libddcutil helper as an option in
 
 The narrow provider adopts the ddcutil 3.0.2 defaults (`src/base/parms.h`, `src/ddc/ddc_packet_io.c`):
 
-| Behavior | ddcutil | Tilecast before | Tilecast after |
-| --- | --- | --- | --- |
-| Delay between Get VCP request and reply read | 40 ms | 40 ms | 40 ms |
-| Delay after Set VCP | 50 ms | 50 ms | 50 ms |
-| Write-read attempts | 10 | 3 | 10 |
-| Write-only attempts | 4 | 3 | 4 |
-| Null reply | retry with 50 ms more delay each time | retry, no extra delay | retry with 50 ms more delay each time |
-| All replies null | `DDCRC_ALL_RESPONSES_NULL` | `ddc_ci_invalid_reply` | `ddc_ci_all_responses_null` |
-| All reads zero | `DDCRC_ALL_TRIES_ZERO` | `ddc_ci_invalid_reply` | `ddc_ci_all_responses_zero` |
-| Set VCP verification | one Get VCP after the write | one Get VCP after the write | unchanged |
-| I/O method | file I/O after `I2C_SLAVE` (default) | file I/O after `I2C_SLAVE` | unchanged |
+| Behavior                                     | ddcutil                               | Tilecast before             | Tilecast after                        |
+| -------------------------------------------- | ------------------------------------- | --------------------------- | ------------------------------------- |
+| Delay between Get VCP request and reply read | 40 ms                                 | 40 ms                       | 40 ms                                 |
+| Delay after Set VCP                          | 50 ms                                 | 50 ms                       | 50 ms                                 |
+| Write-read attempts                          | 10                                    | 3                           | 10                                    |
+| Write-only attempts                          | 4                                     | 3                           | 4                                     |
+| Null reply                                   | retry with 50 ms more delay each time | retry, no extra delay       | retry with 50 ms more delay each time |
+| All replies null                             | `DDCRC_ALL_RESPONSES_NULL`            | `ddc_ci_invalid_reply`      | `ddc_ci_all_responses_null`           |
+| All reads zero                               | `DDCRC_ALL_TRIES_ZERO`                | `ddc_ci_invalid_reply`      | `ddc_ci_all_responses_zero`           |
+| Set VCP verification                         | one Get VCP after the write           | one Get VCP after the write | unchanged                             |
+| I/O method                                   | file I/O after `I2C_SLAVE` (default)  | file I/O after `I2C_SLAVE`  | unchanged                             |
 
 ### 3.3 Packaging taken from ddcutil
 
@@ -81,6 +81,8 @@ ddcutil also ships an NVIDIA proprietary driver option (`RMUseSwI2c`). Tilecast 
 No kernel module emulates a DDC/CI display, so CI cannot compare Tilecast with ddcutil. The M11 qualification script compares them on each reference display: for each feature, it reads the value with `ddcutil --terse getvcp`, reads it with Tilecast, sets it with Tilecast and reads it again with ddcutil. `--terse` is the ddcutil output format for scripts. Production code never runs or parses ddcutil.
 
 ## 4. Noise Meter and audio inventory
+
+The Noise Meter integration is paused (2026-09-25). The design below stays the plan; the plugin is not advertised until it is qualified.
 
 `tilecast-session-bridge` runs in the tilecast account's user session because PipeWire is a per-user service.
 
@@ -102,14 +104,14 @@ Tilecast adds no `xset` call, no input simulation and no idle timer. The capabil
 
 ## 7. Dependencies
 
-| Component | Package (Debian 13) | License | Used by |
-| --- | --- | --- | --- |
-| GStreamer core, `level`, `audioconvert` | `libgstreamer1.0-0`, `gstreamer1.0-plugins-base`, `gstreamer1.0-plugins-good` | LGPL-2.1-or-later | bridge |
-| `pipewiresrc` | `gstreamer1.0-pipewire` | MIT | bridge |
-| libwireplumber 0.5 | `libwireplumber-0.5-0` | MIT | bridge |
-| json-glib, GIO | `libjson-glib-1.0-0`, `libglib2.0-0` | LGPL-2.1-or-later | bridge, renderer |
-| v4l-utils | `v4l-utils` | GPL-2.0 (tools), LGPL-2.1 (libraries) | CI and M11 qualification only |
-| ddcutil | `ddcutil` | GPL-2.0-or-later | M11 qualification only |
+| Component                               | Package (Debian 13)                                                           | License                               | Used by                       |
+| --------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------- | ----------------------------- |
+| GStreamer core, `level`, `audioconvert` | `libgstreamer1.0-0`, `gstreamer1.0-plugins-base`, `gstreamer1.0-plugins-good` | LGPL-2.1-or-later                     | bridge                        |
+| `pipewiresrc`                           | `gstreamer1.0-pipewire`                                                       | MIT                                   | bridge                        |
+| libwireplumber 0.5                      | `libwireplumber-0.5-0`                                                        | MIT                                   | bridge                        |
+| json-glib, GIO                          | `libjson-glib-1.0-0`, `libglib2.0-0`                                          | LGPL-2.1-or-later                     | bridge, renderer              |
+| v4l-utils                               | `v4l-utils`                                                                   | GPL-2.0 (tools), LGPL-2.1 (libraries) | CI and M11 qualification only |
+| ddcutil                                 | `ddcutil`                                                                     | GPL-2.0-or-later                      | M11 qualification only        |
 
 `tilecastd` gets no new crate. The bridge links only LGPL and MIT libraries.
 
