@@ -1212,9 +1212,9 @@
       "name": "Location name",
       "address1": "Address line 1",
       "address2": "Address line 2",
-      "city": "City",
-      "state": "State",
-      "postal": "ZIP / postal code",
+      "city": "City / locality",
+      "state": "State / province / region",
+      "postal": "Postal code",
       "country": "Country",
       "latitude": "Latitude",
       "longitude": "Longitude"

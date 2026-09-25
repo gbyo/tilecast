@@ -1,0 +1,33 @@
+---
+title: Import and export settings
+description: Export portable Tilecast settings or preview an import before applying it.
+---
+
+import { Steps } from "@astrojs/starlight/components";
+
+Only an Owner can import or export installation settings.
+
+## Export settings
+
+Open **Settings** > **Import and export** and choose the settings export.
+
+The export includes portable organization settings and Display Group policy information. It does not include passwords, sessions, Player credentials, signing keys, connection secrets, website browser state, media files, or personal user preferences.
+
+For a full backup that includes PostgreSQL and media, use [Backup and restore](../backups/).
+
+## Import settings
+
+Tilecast shows a preview before it changes anything:
+
+<Steps>
+
+1. Choose the settings file.
+2. Let Tilecast check the file and its values.
+3. Review the settings that would change.
+4. Confirm the import only when the preview looks correct.
+
+</Steps>
+
+If another settings change happens between the preview and the import, Tilecast stops instead of overwriting it without warning.
+
+Successful imports are recorded in the audit log.

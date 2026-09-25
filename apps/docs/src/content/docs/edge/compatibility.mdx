@@ -1,0 +1,33 @@
+---
+title: Content compatibility
+description: Check whether a screen's content can run on the Tilecast Edge preview.
+---
+
+Edge keeps the last working presentation if a newer one needs a feature it cannot render yet.
+
+:::caution[Preview]
+This page describes the current development stack, not a final Edge support promise.
+:::
+
+## Working in the current preview
+
+Current automated coverage includes images, downloaded video, native Widgets, Clock/Date/World Clock/Countdown Widgets, Layouts and playlist zones, transitions, direct assignments, schedules, Takeovers, Quick Present, synchronized Display Groups, unrotated Span content, status screens, and the Brand Bug, Countdown Bar, and alert ticker plugin surfaces.
+
+For large or stream-marked videos, Edge downloads and verifies the complete file before playback instead of promoting a partial download.
+
+## Still being worked on
+
+Remote Website content and YouTube still need the WPE website-isolation work. Rotated Span playback, frame alignment, graphics output, codecs, hardware decoding, and Player self-updates also need more work or hardware testing.
+
+Before moving a screen to Edge, check:
+
+- its direct assignment and upcoming schedules;
+- Layout zones and Widgets;
+- synchronization or Span requirements;
+- installed plugins;
+- Website or YouTube content;
+- Display Control and other hardware features.
+
+The migration check also reviews compatibility before it stops the current Linux Player.
+
+See the [capability matrix](../capabilities/) for a quick comparison with the stable Linux Player.
