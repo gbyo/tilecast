@@ -1,0 +1,25 @@
+---
+title: Import and export settings
+description: Move non-secret Tilecast organization settings and policy metadata with a required preview.
+---
+
+Only an Owner can import or export installation settings.
+
+## Export
+
+Open **Settings** > **Import and export** and choose the settings export. The document contains portable configuration such as its schema version, export time, Tilecast version, organization settings, and Display Group policy metadata.
+
+The export deliberately excludes secrets and large application data. It does not contain passwords, sessions, Player credentials, connection strings, signing keys, website state, media files, or individual user preferences.
+
+## Import safely
+
+Tilecast does not apply an uploaded document immediately.
+
+1. Choose the settings file.
+2. Let Tilecast validate its schema and values.
+3. Review the preview of keys that would change.
+4. Confirm the import only when the preview is expected.
+
+Import uses revision checking so another settings change cannot be silently overwritten between preview and apply. A successful import is recorded in the audit log.
+
+For a full installation recovery that includes PostgreSQL and media, use [Backup and restore](../backups/) instead.

@@ -1,0 +1,30 @@
+---
+title: Migrate from the legacy Linux Player
+description: Understand the guarded one-way migration from the Electron Linux Player to Tilecast Edge.
+---
+
+:::caution[Preview]
+The migration implementation is still in a draft Edge pull request. Do not migrate a production screen until release notes explicitly enable Edge for that hardware.
+:::
+
+Edge is designed to replace the Electron Linux Player without creating a period where two Players independently own the same screen credential. Migration therefore behaves like a guarded cutover, not an in-place executable swap.
+
+## Preflight
+
+Before stopping the legacy Player, the preview migration verifies the signed Edge release, the kiosk account and legacy service, the real daemon/WPE self-test, display access, and compatibility of the legacy screen's cached presentation with the Edge capability profile.
+
+A preflight failure is a refusal: the legacy Player keeps running.
+
+## Cutover and settlement
+
+After preflight, the migrator records durable intent, holds a lock, stops the legacy Player, imports bounded state, and starts Edge. Settlement requires the server relationship, intended renderer backend, an accepted current presentation, meaningful playback evidence, and continuing progress.
+
+A rejected credential, incompatible presentation, safe mode, or a legacy Player that reappears can trigger rollback.
+
+## Rollback
+
+During the migration window, failure stops and disables Edge and restores the previous display session and legacy Player. A crash or power loss never counts as acceptance; recovery at boot is designed to roll an interrupted cutover back.
+
+After acceptance, the old Player can remain on disk but disabled. Removing it is a later maintenance action, not part of the safety-critical cutover.
+
+Before migrating, review [requirements](../requirements/), [content compatibility](../compatibility/), current [Activity](../../operations/activity/), and a recent [server backup](../../administration/backups/).

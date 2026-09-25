@@ -1,0 +1,22 @@
+---
+title: Monitor Tilecast Edge
+description: Use ordinary Tilecast screen status, Activity, telemetry, and live preview with Edge.
+---
+
+Edge is designed to use the same Studio operational surfaces as other Players rather than creating an Edge-only monitoring system.
+
+## Status and proof of play
+
+Edge sends ordinary Player heartbeat fields for connection, current presentation/item, selection source, schedules, Takeovers, synchronization, meaningful progress, and capabilities. Use [screen status](../../operations/screen-status/) for the shared state meanings.
+
+The M8 stack ports the existing Activity session contract to Edge. Root presentation and item sessions use the same server-side proof-of-play model, and locally queued Activity events are retried after a temporary outage. See [Activity](../../operations/activity/).
+
+## Telemetry
+
+Edge samples bounded operational measurements including connection/playback state, renderer state, content-store use, storage, uptime, clock offset, and available display measurements. The Player reports evidence; the server derives incidents and fleet-health conclusions.
+
+## Live preview
+
+M8 captures the visible WPE view through the ordinary preview lease. It does not add an Edge-specific preview API. Setup, pairing, and safe-mode surfaces do not produce a normal content preview. Use the shared [Live preview](../../operations/live-preview/) workflow.
+
+When an Edge screen needs attention, check Fleet, Activity, and preview first; use local status and system logs when Studio evidence is not enough.

@@ -3,12 +3,15 @@ title: Players
 description: Install, pair, and update Tilecast Player on Android TV devices and Linux computers.
 ---
 
-Tilecast Player runs on each display. Choose the Android APK for Android TV, Google TV, or Fire TV, or install the Linux AppImage on a 64-bit x86_64 computer with a graphical desktop session.
+Tilecast Player runs on each display. Choose the Android APK for Android TV, Google TV, or Fire TV, or use the current Linux AppImage on a 64-bit x86_64 computer with a graphical desktop session.
 
-| Player  | Install format                    | Notes                                                                                       |
-| ------- | --------------------------------- | ------------------------------------------------------------------------------------------- |
-| Android | Signed APK, `tilecast-player.apk` | For Android TV, Google TV, and Fire TV devices that allow APK installation.                 |
-| Linux   | AppImage                          | The server-provided installer targets x86_64 Linux. Use a graphical X11 or Wayland session. |
+Tilecast Edge is the next-generation Linux Player platform under active development. It replaces the Electron/AppImage runtime with `tilecastd` and a WPE WebKit renderer, but it is not the stable Linux install path yet. See [Tilecast Edge](../edge/) for the preview architecture and qualification status.
+
+| Player  | Install format                    | Notes                                                                                                            |
+| ------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Android | Signed APK, `tilecast-player.apk` | For Android TV, Google TV, and Fire TV devices that allow APK installation.                                      |
+| Linux   | AppImage                          | Current stable path. The server-provided installer targets x86_64 Linux with a graphical X11 or Wayland session. |
+| Edge    | Signed Linux release tree         | Preview only. System-service + WPE design; use only when a release explicitly qualifies the host.                |
 
 Find the Android APK on the [Tilecast releases page](https://github.com/gbyo/tilecast/releases). The Linux installer downloads a signed, verified release cached on your Tilecast Server. See [Install the Linux Player](./install-linux/).
 

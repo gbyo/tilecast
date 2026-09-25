@@ -1,0 +1,28 @@
+---
+title: Offline playback and recovery
+description: Learn how Tilecast Edge keeps prepared signage running through network and renderer failures.
+---
+
+Edge separates durable Player state from the renderer so a browser-engine failure does not have to tear down the server relationship or prepared content.
+
+## Cached-first playback
+
+After Edge accepts and prepares a presentation, it stores the required state and verified media locally. A restart can reconstruct the committed presentation before network reconciliation completes.
+
+While Tilecast Server is unreachable, Edge can continue with state it already has, including local schedule evaluation and previously prepared content. It cannot invent a new server assignment or download content it never received.
+
+## Safe activation
+
+Target, pending, and active presentation state stay separate. New content is prepared and verified before replacing the committed presentation, and renderer evidence gates promotion. A newer target can supersede an older preparation; a failed preparation preserves the previous active presentation.
+
+## Durable commands and configuration
+
+Commands are stored before local execution. The design provides at-most-once local execution with durable non-replay: a command found in the executing state after a crash is reported as interrupted instead of blindly run again.
+
+Player configuration is revisioned, cached, and applied at boot. Invalid or stale configuration does not replace the last accepted revision.
+
+## Recovery
+
+`tilecastd` supervises WPE separately from the server link and content store. Recovery can recreate the renderer or playback session while keeping durable state alive. Health is based on meaningful playback evidence, not merely a responsive process.
+
+Repeated failure enters safe mode instead of restart-looping. Reconnection then reconciles with the server again; offline operation provides continuity, not a second control plane.

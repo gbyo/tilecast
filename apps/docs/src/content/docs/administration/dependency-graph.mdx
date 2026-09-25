@@ -1,0 +1,25 @@
+---
+title: Dependency Graph
+description: Trace what feeds Tilecast content and where a change can appear before you edit or remove it.
+---
+
+The Dependency Graph is a **system tool**, not a plugin. Open **Settings** > **System tools** > **Dependency Graph**.
+
+It maps the relationships between Data Sources, media, Widgets, Layouts, Playlists, Campaigns, Schedules, Display Groups, and screens.
+
+## Read a relationship
+
+Edges point from a dependency to its consumer.
+
+- Follow an edge forward to answer **Where can this change appear?**
+- Follow relationships backward to answer **What feeds this presentation or screen?**
+
+The explorer separates direct relationships from the complete upstream and downstream impact so a heavily reused asset does not turn into an unreadable all-at-once graph.
+
+Each node links back to its canonical Studio page. Deleted content, deleted groups and schedules, and archived screens are excluded.
+
+## Permissions
+
+A screen-scoped account sees only the screen nodes and screen-targeting relationships allowed by the same screen scope used by the Screens list. Shared organization content remains organization-wide.
+
+Use the graph before deleting or substantially changing a reused resource, then use the resource's own **Used by** information for the final edit.

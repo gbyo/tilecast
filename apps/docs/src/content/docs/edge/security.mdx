@@ -1,0 +1,26 @@
+---
+title: Edge security model
+description: Understand the trust, credential, renderer, content, and privilege boundaries in Tilecast Edge.
+---
+
+Tilecast Edge keeps Tilecast Server as the only authority. A node can continue executing already accepted state while disconnected, but local state cannot become new organization policy.
+
+## Server and credentials
+
+Edge verifies the Tilecast installation relationship before sending a stored device credential. A saved credential is removed only after explicit rejection or revocation, not because of a transient network failure.
+
+Fresh pairing keeps the visible code separate from the private poll secret and one-time enrollment token.
+
+## Renderer isolation
+
+WPE is not the credential owner. The renderer should not receive the device bearer credential, pairing secrets, arbitrary filesystem paths, the state database, the content-store root, or generic host-operation access.
+
+The daemon grants prepared presentation state and media through bounded local IPC. Stale renderer traffic can be rejected by the supervised process/IPC generation.
+
+## Verified content and narrow privilege
+
+Media is verified by hash and byte size before promotion. Partial or corrupt bytes cannot become the committed object merely because a transfer ended.
+
+`tilecastd` is designed to run unprivileged. Root-only work stays in narrow install/migration or helper boundaries. Tilecast does not expose a generic remote shell, arbitrary executable command, unrestricted D-Bus call, or arbitrary file-write API.
+
+Commands are a closed typed set and persist idempotency state before execution so a restart does not blindly repeat a disruptive action.

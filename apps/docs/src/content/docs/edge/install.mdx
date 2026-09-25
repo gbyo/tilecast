@@ -1,0 +1,32 @@
+---
+title: Install Tilecast Edge
+description: Understand the clean-install flow for the Tilecast Edge preview.
+---
+
+:::caution[Not a production install path yet]
+Tilecast does not currently publish Edge as the stable Linux Player. This page documents the preview installation model. Use [Install Tilecast Player on Linux](../../players/install-linux/) for production until Edge is released.
+:::
+
+Edge releases are designed as signed release trees rather than an AppImage started from a desktop session. The installer verifies the release, installs system services, and enables Edge only after its self-test succeeds.
+
+## Clean-install flow
+
+A clean Edge installation is intended to:
+
+1. verify the signed release manifest and every file named by it;
+2. install the release under `/opt/tilecast-edge/`;
+3. create the required system users, runtime directories, and systemd units;
+4. run the daemon and WPE renderer self-tests;
+5. probe the selected display backend;
+6. enable Edge only after those checks succeed;
+7. show the setup surface and wait for pairing.
+
+The preview migrator exposes a `clean-install` operation for this path. A failed self-test leaves Edge disabled instead of turning an unqualified machine into a blank signage endpoint.
+
+## Files and services
+
+The preview packaging uses `tilecast-edge.service` for `tilecastd`, `tilecast-renderer.service` for WPE, `/var/lib/tilecast-edge/` for durable state and verified content, `/run/tilecast-edge/` for local IPC, and `/opt/tilecast-edge/` for release files.
+
+The renderer does not receive broad access to the durable state directory. Media is granted through the daemon's local media channel.
+
+If an existing host already runs the AppImage, use the [migration flow](../migrate/) instead of combining the two install models.
