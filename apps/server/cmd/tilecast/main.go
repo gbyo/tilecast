@@ -23,6 +23,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
 	"github.com/tilecast/tilecast/apps/server/internal/contenthealth"
 	"github.com/tilecast/tilecast/apps/server/internal/database"
+	"github.com/tilecast/tilecast/apps/server/internal/demo"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/discovery"
 	"github.com/tilecast/tilecast/apps/server/internal/fleetops"
@@ -285,6 +286,15 @@ func serve() {
 			}
 		}
 	}
+	var demoRuntime *demo.Runtime
+	if cfg.DemoMode() {
+		demoRuntime = startDemo(ctx, cfg, logger, demo.Services{
+			DB: db, Auth: authService, Devices: deviceService, Presence: presence, Media: mediaService,
+			Playlists: playlistService, Layouts: layoutService, Scheduling: schedulingService, Approvals: approvalService,
+			Plugins: pluginService, Campaigns: campaignService, Settings: settingsService,
+		})
+		defer demoRuntime.Stop()
+	}
 	handler := httpapi.New(httpapi.Dependencies{
 		Auth:                 authService,
 		PublicURL:            cfg.PublicURL,
@@ -324,6 +334,7 @@ func serve() {
 			MaxIdentifySeconds:          cfg.Operations.MaxIdentifySeconds,
 			CommandRetentionDays:        cfg.Operations.CommandRetentionDays,
 		},
+		Demo: demoRuntime,
 	})
 
 	server := &http.Server{
@@ -391,6 +402,28 @@ func serve() {
 	if err := server.Shutdown(ctx); err != nil {
 		logger.Error("graceful shutdown failed", "error", err)
 	}
+}
+
+// startDemo seeds the disposable demo installation before the server accepts
+// traffic. Demo Mode is logged loudly because it signs every visitor in as the
+// Owner.
+func startDemo(ctx context.Context, cfg config.Config, logger *slog.Logger, services demo.Services) *demo.Runtime {
+	logger.Warn("DEMO MODE IS ENABLED: every visitor is signed in as the Owner and the database is disposable sample data",
+		"scenario", cfg.Demo.Scenario, "reset_on_start", cfg.Demo.ResetOnStart, "public_url", cfg.PublicURL)
+	baseURL, err := demo.LoopbackURL(cfg.HTTPAddr)
+	if err != nil {
+		fail("configure Demo Mode", err)
+	}
+	runtime, err := demo.NewRuntime(services, demo.Options{
+		Scenario: cfg.Demo.Scenario, ResetOnStart: cfg.Demo.ResetOnStart, Players: cfg.Demo.Players, BaseURL: baseURL,
+	}, logger)
+	if err != nil {
+		fail("configure Demo Mode", err)
+	}
+	if err = runtime.Start(ctx); err != nil {
+		fail("seed Demo Mode", err)
+	}
+	return runtime
 }
 
 func newLogger(level string) *slog.Logger {

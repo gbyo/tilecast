@@ -3,6 +3,10 @@ title: Install Tilecast Player on Linux
 description: Install the verified Linux AppImage from Tilecast Server and pair the display.
 ---
 
+:::note[Current stable Linux Player]
+This page is for the Linux Player Tilecast currently releases. **Tilecast Edge** is its replacement, but Edge is still in preview. See [Tilecast Edge](../../edge/) for the current requirements and supported features.
+:::
+
 The Tilecast Server installer uses the newest stable Linux AppImage cached and verified on the server. It creates a systemd user service for the kiosk account and configures the Player to connect to that server. The installer chooses the newest cached release automatically; it does not ask for a version.
 
 ## Before you start
@@ -29,13 +33,13 @@ import { Steps } from "@astrojs/starlight/components";
 
 Run this command on the Linux computer. Replace the example hostname with the same server address you set in `TILECAST_PUBLIC_URL`.
 
-```sh
+```sh title="Install with the current user"
 curl -fsSL https://signage.example.org/install.sh | sudo bash
 ```
 
 To create and use a separate kiosk account, pass its name and `--create-user`.
 
-```sh
+```sh title="Create a dedicated kiosk user"
 curl -fsSL https://signage.example.org/install.sh | sudo bash -s -- --user signage --create-user
 ```
 
@@ -43,7 +47,7 @@ The installer checks the downloaded release checksum, installs the AppImage and 
 
 If you do not need these capabilities, skip them when running the installer.
 
-```sh
+```sh title="Install without optional presentation features"
 curl -fsSL https://signage.example.org/install.sh | sudo bash -s -- --without-airplay --without-presentation-network
 ```
 
@@ -58,3 +62,9 @@ The Player opens with a pairing code. Continue with [Pair a display](../pair-a-d
 The published Linux AppImage is x86_64. The bundled AirPlay provisioning script uses `apt-get` and supports Debian-family systems; this optional setup does not determine whether the Player itself can pair. The installer does not configure the host to start a graphical desktop, enable automatic login, or install a kiosk compositor. Set up those host features separately if the display must start without an operator login.
 
 A local HTTP server address is not encrypted. Use it only on a trusted LAN. Public hostnames require HTTPS.
+
+## Planning for Tilecast Edge
+
+Do not turn an AppImage installation into Edge by swapping files or services yourself. Edge uses a different install layout, and its migration checks the current screen before switching over so it can roll back if something fails.
+
+When Edge is supported on your hardware, follow [Migrate from the current Linux Player](../../edge/migrate/) instead of replacing the AppImage in place.

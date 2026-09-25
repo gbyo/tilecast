@@ -146,7 +146,7 @@ a {
   padding: 0;
   overflow: hidden;
   color: var(--tc-ink);
-  text-align: left;
+  text-align: start;
   background: var(--tc-surface);
   border: 1px solid var(--tc-border);
   border-radius: var(--tc-radius-md);
@@ -315,80 +315,6 @@ a {
   border: 1px solid var(--tc-border);
   border-radius: var(--tc-radius-md);
 }
-.pair-card,
-.approval-card {
-  width: min(710px, 100%);
-  padding: 30px;
-  background: var(--tc-surface);
-  border: 1px solid var(--tc-border);
-  border-radius: var(--tc-radius-md);
-}
-.pair-card > header {
-  display: flex;
-  gap: 15px;
-  align-items: center;
-  margin-bottom: 27px;
-}
-.pair-card h2,
-.pair-card p,
-.approval-card h2,
-.approval-card p {
-  margin: 0;
-}
-.pair-card h2,
-.approval-card h2 {
-  font-size: 23px;
-  letter-spacing: -0.025em;
-}
-.pair-card > header p,
-.approval-card header p:last-child {
-  color: var(--tc-ink-muted);
-}
-.pair-card form {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 9px;
-  align-items: end;
-}
-.pair-card form .button {
-  margin: 0;
-  text-decoration: none;
-}
-.pair-code-input {
-  height: 58px !important;
-  font-size: 25px !important;
-  font-weight: 750;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
-.pair-help {
-  padding: 15px;
-  margin-top: 25px;
-  background: var(--tc-surface-muted);
-  border: 1px solid var(--tc-border);
-  border-radius: var(--tc-radius-sm);
-}
-.pair-help p {
-  margin-top: 3px;
-  color: var(--tc-ink-muted);
-}
-.approval-card > header {
-  display: flex;
-  justify-content: space-between;
-  gap: 20px;
-  margin-bottom: 22px;
-}
-.expiry-label {
-  height: fit-content;
-  padding: 5px 8px;
-  color: var(--tc-warning);
-  background: var(--tc-status-warning-bg);
-  border: 1px solid var(--tc-status-warning-border);
-  border-radius: var(--tc-radius-sm);
-  font-size: 11px;
-  font-weight: 700;
-  white-space: nowrap;
-}
 .device-facts {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -404,7 +330,7 @@ a {
   border-bottom: 1px solid var(--tc-border);
 }
 .device-facts div:nth-child(odd) {
-  border-right: 1px solid var(--tc-border);
+  border-inline-end: 1px solid var(--tc-border);
 }
 .device-facts dt {
   color: var(--tc-ink-muted);
@@ -415,19 +341,12 @@ a {
   font-size: 12px;
   font-weight: 650;
 }
-.approval-card form {
-  display: grid;
-  gap: 16px;
-}
 @media (max-width: 620px) {
-  .pair-card form {
-    grid-template-columns: 1fr;
-  }
   .device-facts {
     grid-template-columns: 1fr;
   }
   .device-facts div:nth-child(odd) {
-    border-right: 0;
+    border-inline-end: 0;
   }
 }
 .schedule-card {

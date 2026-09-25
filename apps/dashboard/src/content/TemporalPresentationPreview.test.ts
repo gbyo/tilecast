@@ -124,4 +124,85 @@ describe("temporal presentation preview", () => {
       ),
     ).toBe("1,200.00");
   });
+
+  it("formats explicit EUR with organization separators and keeps its currency", () => {
+    const rendered = formatPresentationValue(
+      "1234.5",
+      { source: "repeat", format: "currency", precision: 2 },
+      now,
+      "EUR",
+      "de-DE",
+    );
+    expect(rendered.replace(/[\u00a0\u202f]/g, " ")).toBe("1.234,50 €");
+  });
+
+  it.each([
+    ["JPY", 0],
+    ["KWD", 3],
+  ])(
+    "uses %s minor-unit precision from the explicit currency metadata",
+    (currency, fractionDigits) => {
+      const regional = {
+        locale: "en-US",
+        timezone: "America/New_York",
+        dateFormat: "locale",
+        timeFormat: "locale",
+      };
+      const rendered = formatPresentationValue(
+        "1234.5",
+        { source: "repeat", format: "currency" },
+        now,
+        currency,
+        undefined,
+        undefined,
+        regional,
+      );
+      // Compare to the platform's ISO currency metadata, allowing only
+      // inconsequential ICU spacing differences.
+      const platformExpected = new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency,
+      })
+        .format(1234.5)
+        .replace(/[\u00a0\u202f]/g, " ");
+      expect(
+        new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency,
+        }).resolvedOptions().maximumFractionDigits,
+      ).toBe(fractionDigits);
+      expect(rendered.replace(/[\u00a0\u202f]/g, " ")).toBe(platformExpected);
+    },
+  );
+
+  it("uses organization number separators for plain numbers", () => {
+    expect(
+      formatPresentationValue(
+        "1234.5",
+        { source: "repeat", format: "number", precision: 2 },
+        now,
+        undefined,
+        "de-DE",
+      ),
+    ).toBe("1.234,50");
+  });
+
+  it("uses the regional profile locale when no Studio locale is supplied", () => {
+    expect(
+      formatPresentationValue(
+        "1234.5",
+        { source: "repeat", format: "number", precision: 2 },
+        now,
+        undefined,
+        undefined,
+        undefined,
+        {
+          locale: "de-DE",
+          timezone: "Europe/Berlin",
+          dateFormat: "locale",
+          timeFormat: "locale",
+        },
+      ),
+    ).toBe("1.234,50");
+  });
 });

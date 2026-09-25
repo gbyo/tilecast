@@ -73,6 +73,35 @@ paths:
       operationId: authStatus
       responses:
         "200": { description: Installation and session state }
+  /api/v1/demo:
+    get:
+      operationId: demoState
+      description: >-
+        Registered only when TILECAST_ENV is demo. Returns the seeded scenario
+        and the state of each simulated player.
+      responses:
+        "200": { description: Demo scenario and simulated player state }
+        "401": { description: Authentication required }
+  /api/v1/demo/reset:
+    post:
+      operationId: resetDemo
+      description: >-
+        Registered only when TILECAST_ENV is demo. Replaces all data with a
+        scenario and returns once its simulated players have connected.
+        Requires the Owner role and X-CSRF-Token.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                scenario: { type: string, enum: [basic, kitchen-sink] }
+      responses:
+        "200":
+          { description: Scenario restored, with the new session CSRF token }
+        "403": { description: Owner role or CSRF token missing }
+        "422": { description: Unknown scenario }
   /api/v1/auth/setup:
     post:
       operationId: initialSetup

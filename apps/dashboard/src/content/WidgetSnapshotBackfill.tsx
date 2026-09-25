@@ -4,7 +4,13 @@ import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { Asset, WidgetDefinition } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import { previewDatasetMaps, type PreviewDatasets } from "./previewRecords";
+import { useOrganizationRegionalProfile } from "../settings/regionalProfile";
+import {
+  previewDatasetCurrencies,
+  previewDatasetMaps,
+  type PreviewDatasetCurrencies,
+  type PreviewDatasets,
+} from "./previewRecords";
 import { DeclarativePresentationPreview } from "./SourceEditors";
 import { captureWidgetPreview } from "./widgetPreviewCapture";
 import {
@@ -75,6 +81,7 @@ function WidgetSnapshotCapture({
   onSettled: () => void;
 }) {
   const { t } = useTranslation(["content"]);
+  const regional = useOrganizationRegionalProfile();
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
   const queryClient = useQueryClient();
@@ -140,6 +147,13 @@ function WidgetSnapshotCapture({
     }),
     {},
   );
+  const previewCurrencies = declaredSources.reduce<PreviewDatasetCurrencies>(
+    (all, id, index) => ({
+      ...all,
+      ...previewDatasetCurrencies(id, sourcePreviews[index]?.data),
+    }),
+    {},
+  );
   const ready = Boolean(compiled.data) && sourcesSettled;
   const failed = compiled.isError || (definitions.isError && !definition);
 
@@ -189,6 +203,8 @@ function WidgetSnapshotCapture({
             presentation={compiled.data}
             source={sourcePreviews[0]?.data}
             datasets={previewDatasets}
+            datasetCurrencies={previewCurrencies}
+            regional={regional}
             assetImageUrl={
               typeof authorConfiguration.imageAssetId === "string" &&
               authorConfiguration.imageAssetId
