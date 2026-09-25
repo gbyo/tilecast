@@ -745,6 +745,8 @@ impl PresentationEngine {
             incompatible_reason: self.incompatible_reason.as_deref().map(SafeText::lossy),
             current_item_id: link.and_then(|l| l.current_item.as_ref()).map(|(id, _)| ShortText::lossy(id)),
             current_item_started_at: link.and_then(|l| l.current_item.as_ref()).map(|(_, at)| *at),
+            engine_version: ready.map(|r| r.renderer.engine_version.clone()),
+            gstreamer_version: ready.and_then(|r| r.renderer.gstreamer_version.clone()),
         }
     }
 

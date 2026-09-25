@@ -55,6 +55,7 @@ pub struct SelfTestReport {
 pub struct RendererReport {
     pub version: String,
     pub engine_version: String,
+    pub gstreamer_version: Option<String>,
     pub platform: &'static str,
     pub features: Vec<String>,
     pub display_connected: Option<bool>,
@@ -145,6 +146,7 @@ fn observe(engine: &crate::presentation::PresentationEngine) -> Observation {
     let renderer = engine.ready_info().map(|ready| RendererReport {
         version: ready.renderer.version.as_str().to_owned(),
         engine_version: ready.renderer.engine_version.as_str().to_owned(),
+        gstreamer_version: ready.renderer.gstreamer_version.as_ref().map(|v| v.as_str().to_owned()),
         platform: match ready.renderer.platform {
             edge_protocol::ipc::event::RendererPlatform::Drm => "drm",
             edge_protocol::ipc::event::RendererPlatform::Wayland => "wayland",

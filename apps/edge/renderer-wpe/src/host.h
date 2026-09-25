@@ -102,6 +102,9 @@ void tc_protocol_handle_frame (TcHost *host, JsonObject *frame);
 void tc_protocol_send_ready (TcHost *host);
 void tc_protocol_send_health (TcHost *host, const char *state, const char *reason);
 
+/* drm-probe.c: --probe-drm. Prints one JSON object; returns the exit status. */
+int tc_drm_probe (const char *dri_dir);
+
 /* view.c */
 gboolean tc_view_create (TcHost *host, GError **error);
 void tc_view_deliver (TcHost *host, const char *name, const char *json);

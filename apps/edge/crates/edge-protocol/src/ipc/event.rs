@@ -268,6 +268,9 @@ pub struct RendererInfo {
     pub kind: RendererKind,
     pub version: ShortText,
     pub engine_version: ShortText,
+    /// The GStreamer library the renderer runs with (release diagnostics).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gstreamer_version: Option<ShortText>,
     pub platform: RendererPlatform,
 }
 

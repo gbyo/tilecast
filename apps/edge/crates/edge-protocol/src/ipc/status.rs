@@ -71,6 +71,11 @@ pub struct RendererStatus {
     pub current_item_id: Option<ShortText>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub current_item_started_at: Option<Timestamp>,
+    /// WPE WebKit and GStreamer versions the connected renderer reported.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub engine_version: Option<ShortText>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gstreamer_version: Option<ShortText>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

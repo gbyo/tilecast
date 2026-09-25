@@ -10,6 +10,9 @@ exactly as an operator would. Scenarios:
            activates, and the renderer reports item evidence for each kind
   reconnect  killing the renderer does not disturb the daemon; a new
              renderer receives the same activation (generation unchanged)
+  selftest   `tilecastd self-test` (the migration's release self-test) passes
+             only after the renderer proves every fixture item, and fails
+             with a typed reason when no renderer connects
 
 Usage: e2e_headless.py --bin-dir DIR --renderer PATH --runtime-dir DIR
                        [--scenario status|fixture|reconnect|all]
@@ -72,7 +75,8 @@ class Stack:
         )
         wait_for("daemon socket", lambda: os.path.exists(self.socket), timeout=30)
 
-    def start_renderer(self):
+    def start_renderer(self, run_dir=None):
+        run_dir = run_dir or os.path.join(self.workdir, "run")
         log = open(os.path.join(self.workdir, "renderer.log"), "a", encoding="utf-8")
         self.logs.append(log.name)
         env = dict(os.environ)
@@ -83,8 +87,8 @@ class Stack:
             [
                 self.args.renderer,
                 "--platform=headless",
-                f"--socket={self.socket}",
-                f"--media-socket={os.path.join(self.workdir, 'run', 'media.sock')}",
+                f"--socket={os.path.join(run_dir, 'edge.sock')}",
+                f"--media-socket={os.path.join(run_dir, 'media.sock')}",
                 f"--runtime-dir={self.args.runtime_dir}",
                 f"--gst-plugin-dir={self.args.gst_plugin_dir}",
                 "--headless-size=1280x720",
@@ -214,12 +218,68 @@ def scenario_fixture(args):
                 timeout=120,
                 interval=1.0,
             )
+            presentation = wait_for(
+                "the fixture accepted with evidence in status",
+                lambda: (lambda p: p if p and p["accepted"] and p["evidence"] else None)(
+                    stack.status().get("presentation")
+                ),
+            )
+            assert presentation["source"] == "fixture", presentation
+            assert presentation["generation"] == status["renderer"]["currentActivationGeneration"], presentation
+            assert status["renderer"].get("engineVersion") and status["renderer"].get("gstreamerVersion"), status
             print(f"fixture: generation {status['renderer']['currentActivationGeneration']}, evidence {sorted(evidence)}")
         except Exception:
             stack.dump_logs()
             raise
         finally:
             stack.stop()
+
+
+def run_self_test(args, workdir, fixture, timeout, with_renderer):
+    stack = Stack(args, workdir)
+    run_dir = os.path.join(workdir, "selftest")
+    os.makedirs(run_dir, mode=0o750)
+    log = open(os.path.join(workdir, "selftest.log"), "w", encoding="utf-8")
+    stack.logs.append(log.name)
+    host = subprocess.Popen(
+        [os.path.join(args.bin_dir, "tilecastd"), "--config", stack.config, "self-test",
+         f"--fixture={fixture}", f"--runtime-dir={run_dir}", f"--timeout-seconds={timeout}"],
+        stdout=subprocess.PIPE, stderr=log, text=True,
+    )
+    try:
+        if with_renderer:
+            wait_for("self-test socket", lambda: os.path.exists(os.path.join(run_dir, "edge.sock")), timeout=30)
+            stack.start_renderer(run_dir)
+        output, _ = host.communicate(timeout=timeout + 30)
+        report = json.loads(output.strip().splitlines()[-1])
+        return host.returncode, report, stack
+    except Exception:
+        host.kill()
+        stack.dump_logs()
+        raise
+    finally:
+        stack.stop()
+
+
+def scenario_selftest(args):
+    with tempfile.TemporaryDirectory() as workdir:
+        fixture = build_fixture(workdir)
+        code, report, stack = run_self_test(args, workdir, fixture, 120, with_renderer=True)
+        if code != 0 or report["outcome"] != "passed":
+            stack.dump_logs()
+            raise AssertionError(f"self-test failed: {report}")
+        assert report["expectedItems"] == report["provenItems"] and len(report["expectedItems"]) == 4, report
+        renderer = report["renderer"]
+        assert renderer["platform"] == "headless" and "video" in renderer["features"], renderer
+        assert renderer["engineVersion"] and renderer["gstreamerVersion"], renderer
+        assert not os.path.exists(os.path.join(workdir, "state")), "the self-test never touches installation state"
+        print(f"selftest: passed in {report['elapsedMs']} ms, items {report['provenItems']}, "
+              f"WPE {renderer['engineVersion']}, GStreamer {renderer['gstreamerVersion']}")
+    with tempfile.TemporaryDirectory() as workdir:
+        fixture = build_fixture(workdir)
+        code, report, _ = run_self_test(args, workdir, fixture, 10, with_renderer=False)
+        assert code == 1 and report["outcome"] == "failed" and report["reason"] == "renderer_not_ready", report
+        print("selftest: without a renderer it fails with renderer_not_ready")
 
 
 def fixture_evidence(stack):
@@ -243,7 +303,12 @@ def main():
     parser.add_argument("--gst-plugin-dir", required=True)
     parser.add_argument("--scenario", default="all")
     args = parser.parse_args()
-    scenarios = {"status": scenario_status, "reconnect": scenario_reconnect, "fixture": scenario_fixture}
+    scenarios = {
+        "status": scenario_status,
+        "reconnect": scenario_reconnect,
+        "fixture": scenario_fixture,
+        "selftest": scenario_selftest,
+    }
     selected = scenarios.values() if args.scenario == "all" else [scenarios[args.scenario]]
     for scenario in selected:
         scenario(args)

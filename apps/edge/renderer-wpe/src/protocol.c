@@ -10,6 +10,7 @@
 #include "host.h"
 #include "validate.h"
 
+#include <gst/gst.h>
 #include <string.h>
 
 /* Presentation features the trusted DOM runtime implements under WPE.
@@ -49,6 +50,11 @@ tc_protocol_send_ready (TcHost *host)
   g_autofree char *engine = g_strdup_printf ("%u.%u.%u", webkit_get_major_version (), webkit_get_minor_version (),
                                              webkit_get_micro_version ());
   json_builder_add_string_value (builder, engine);
+  guint gst_major, gst_minor, gst_micro, gst_nano;
+  gst_version (&gst_major, &gst_minor, &gst_micro, &gst_nano);
+  json_builder_set_member_name (builder, "gstreamerVersion");
+  g_autofree char *gstreamer = g_strdup_printf ("%u.%u.%u", gst_major, gst_minor, gst_micro);
+  json_builder_add_string_value (builder, gstreamer);
   json_builder_set_member_name (builder, "platform");
   json_builder_add_string_value (builder, platform_name (host->platform));
   json_builder_end_object (builder);
