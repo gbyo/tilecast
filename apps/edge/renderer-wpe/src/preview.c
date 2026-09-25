@@ -300,6 +300,21 @@ tc_preview_capture (TcHost *host, JsonObject *data)
     send_result (host, request_id, NULL, 0, 0, "renderer_not_ready");
     return;
   }
+  /* WebKit initializes GStreamer in its web processes, not in this one; the
+   * encoder needs it here. Without it gst_parse_launch() crashes. */
+  static gsize gst_ready = 0;
+  static gboolean gst_usable = FALSE;
+  if (g_once_init_enter (&gst_ready)) {
+    g_autoptr (GError) error = NULL;
+    gst_usable = gst_init_check (NULL, NULL, &error);
+    if (!gst_usable)
+      g_warning ("preview: GStreamer is unavailable: %s", error ? error->message : "unknown");
+    g_once_init_leave (&gst_ready, 1);
+  }
+  if (!gst_usable) {
+    send_result (host, request_id, NULL, 0, 0, "encoder_unavailable");
+    return;
+  }
   if (in_flight != NULL) {
     send_result (host, request_id, NULL, 0, 0, "preview_busy");
     return;
