@@ -579,7 +579,6 @@ export function ScreensWorkspacePage() {
 }
 
 export function ScreensPage() {
-  const { t } = useTranslation(["screens", "common"]);
   const auth = useAuth();
   const manageable = canManageScreens(auth.status?.user);
   const screens = useQuery({
@@ -599,29 +598,6 @@ export function ScreensPage() {
   });
   return (
     <div className="w-full min-w-0 space-y-5">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {t("page.title")}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {screens.isLoading
-              ? t("page.loadingInventory")
-              : screenInventorySummary(screens.data?.items ?? [], t)}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {manageable && (
-            <Link
-              className={buttonVariants({ variant: "default", size: "sm" })}
-              to="/screens/pair"
-            >
-              <Plus aria-hidden="true" /> {t("page.pairScreen")}
-            </Link>
-          )}
-          {manageable && <TakeoverAction screens={screens.data?.items ?? []} />}
-        </div>
-      </header>
       <ActiveTakeoverBanners canManage={manageable} />
       {screens.isError && (
         <Alert variant="destructive">
