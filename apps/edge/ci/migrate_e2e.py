@@ -452,7 +452,11 @@ def print_bridge_diagnostics():
                  ["journalctl", "--no-pager", "-o", "cat", "-n", "150", f"_UID={uid}"],
                  ["journalctl", "--no-pager", "-o", "cat", "-n", "80", "-u", "tilecast-edge.service",
                   "--grep", "audio|ipc|session"],
-                 ["/opt/tilecast-edge/current/bin/tilecastctl", "--json", "capabilities"]):
+                 ["/opt/tilecast-edge/current/bin/tilecastctl", "--json", "capabilities"],
+                 # The socket directory as the bridge's mount namespace sees it.
+                 ["sh", "-c", "pid=$(systemctl --user --machine=tilecast@.host show -P MainPID "
+                  "tilecast-session-bridge.service); ls -la /proc/$pid/root/run/tilecast-edge; "
+                  "cat /proc/$pid/uid_map /proc/$pid/gid_map; grep -E '^(Uid|Gid|Groups)' /proc/$pid/status"]):
         result = subprocess.run(argv, capture_output=True, text=True)
         print(f"$ {' '.join(argv)}  (exit {result.returncode})\n{result.stdout[-8000:]}{result.stderr[-2000:]}",
               flush=True)

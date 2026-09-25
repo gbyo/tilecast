@@ -707,11 +707,13 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
         "nativePresentationCapabilities": native,
         "webRuntimeVersion": crate::manifest::profile::WEB_RUNTIME_VERSION,
     });
-    if let Some(progress_at) = renderer.last_progress_at {
-        heartbeat["lastMeaningfulProgressAt"] = serde_json::Value::String(progress_at.to_string());
-        if healthy {
-            heartbeat["lastHealthyPlaybackAt"] = serde_json::Value::String(progress_at.to_string());
-        }
+    // `lastMeaningfulProgressAt` is a telemetry field, not a heartbeat one:
+    // the server's strict HTTP heartbeat decoding refuses the whole message
+    // for it (gbyo/tilecast#674).
+    if let Some(progress_at) = renderer.last_progress_at
+        && healthy
+    {
+        heartbeat["lastHealthyPlaybackAt"] = serde_json::Value::String(progress_at.to_string());
     }
     if let Some(identity) = current.as_ref().and_then(|activation| activation.identity.as_ref()) {
         if let Some(source) = heartbeat_selection_source(identity.selection_source) {

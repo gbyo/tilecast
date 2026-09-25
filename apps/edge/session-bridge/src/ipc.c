@@ -233,10 +233,16 @@ on_connected (GObject *source, GAsyncResult *result, gpointer user_data)
   GSocketConnection *connection = g_socket_client_connect_finish (G_SOCKET_CLIENT (source), result, &error);
   g_object_unref (source);
   if (connection == NULL) {
-    g_debug ("ipc: connect failed: %s", error->message);
+    /* Logged once per distinct reason, not on every retry. */
+    if (g_strcmp0 (bridge->last_connect_error, error->message) != 0) {
+      g_message ("ipc: cannot connect to %s: %s", bridge->socket_path, error->message);
+      g_free (bridge->last_connect_error);
+      bridge->last_connect_error = g_strdup (error->message);
+    }
     schedule_reconnect (bridge);
     return;
   }
+  g_clear_pointer (&bridge->last_connect_error, g_free);
   bridge->socket_missing_since = 0;
   bridge->connection = connection;
   bridge->io_cancellable = g_cancellable_new ();

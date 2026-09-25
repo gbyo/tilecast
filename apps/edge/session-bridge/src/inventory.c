@@ -4,7 +4,8 @@
  * WirePlumber owns the session's PipeWire object graph and its policy; the
  * bridge only counts what it offers:
  *
- *   - `Audio/Source` and `Audio/Sink` nodes, from an object manager;
+ *   - `Audio/Source` (and `Audio/Source/Virtual`) and `Audio/Sink` nodes,
+ *     from an object manager;
  *   - whether the default source and sink exist, from WirePlumber's
  *     `default-nodes-api` plugin (the same one `wpctl` uses).
  *
@@ -71,7 +72,13 @@ refresh (TbBridge *bridge)
   TbInventory next = { 0 };
   if (bridge->core != NULL && wp_core_is_connected (bridge->core) && bridge->nodes != NULL) {
     next.pipewire = TRUE;
-    next.sources = count_nodes (bridge, "Audio/Source", default_node (bridge, "Audio/Source"), &next.default_source);
+    /* A virtual source (echo cancellation, noise suppression, a loopback)
+     * is a microphone WirePlumber can make the default, so it counts. */
+    guint32 default_source = default_node (bridge, "Audio/Source");
+    gboolean physical_default = FALSE, virtual_default = FALSE;
+    next.sources = count_nodes (bridge, "Audio/Source", default_source, &physical_default)
+                   + count_nodes (bridge, "Audio/Source/Virtual", default_source, &virtual_default);
+    next.default_source = physical_default || virtual_default;
     next.sinks = count_nodes (bridge, "Audio/Sink", default_node (bridge, "Audio/Sink"), &next.default_sink);
   }
   if (same (&next, &bridge->inventory))

@@ -1079,7 +1079,8 @@ async fn assignment_prepares_activates_and_promotes_only_after_evidence() {
     assert!(heartbeat.get("currentItemStartedAt").is_none());
     assert_eq!(heartbeat["selectionSource"], "direct_fallback");
     assert_eq!(heartbeat["currentPlaylistId"], harness.fake.manifest.lock().unwrap()["playlist"]["id"]);
-    assert!(heartbeat["lastMeaningfulProgressAt"].is_string());
+    assert!(heartbeat.get("lastMeaningfulProgressAt").is_none(), "a telemetry field, not a heartbeat one");
+    assert!(heartbeat["lastHealthyPlaybackAt"].is_string());
     assert_eq!(heartbeat["webRuntimeVersion"], 0);
     assert!(heartbeat["nativePresentationCapabilities"].is_object());
     renderer.stop();

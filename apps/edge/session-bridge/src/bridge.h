@@ -43,6 +43,8 @@ typedef struct {
   guint64 expected_inbound_seq;
   guint reconnect_source;
   guint reconnect_delay_ms;
+  /* The last connect failure logged, so a retry loop logs it once. */
+  char *last_connect_error;
   /* When the daemon's socket went missing; the bridge exits after a while. */
   gint64 socket_missing_since;
 
