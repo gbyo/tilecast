@@ -282,9 +282,7 @@ function UptimeBody({ report }: { report: UptimeReport }) {
                     }}
                     formatter={(value, name) => {
                       const itemConfig =
-                        chartConfig[
-                          String(name) as keyof typeof chartConfig
-                        ];
+                        chartConfig[String(name) as keyof typeof chartConfig];
                       const Icon = itemConfig?.icon;
                       return (
                         <>
