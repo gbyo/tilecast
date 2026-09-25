@@ -269,7 +269,8 @@ def main():
         config = os.path.join(work, "edge.toml")
         with open(config, "w") as handle:
             handle.write(f'[paths]\nstate_dir = "{state}"\nruntime_dir = "{run_dir}"\n[log]\nformat = "text"\n'
-                         f'[renderer]\nbinary = "{renderer_bin}"\nstall_threshold_seconds = 60\n')
+                         f'[renderer]\nbinary = "{renderer_bin}"\nstall_threshold_seconds = 60\n'
+                         f'{e2e.hardware_roots(work)}')
         e2e.run(tilecastd, "--config", config, "import-legacy", "--from", edge_legacy, stdout=subprocess.DEVNULL)
         daemon_log = open(os.path.join(work, "tilecastd.log"), "w")
         processes.append(subprocess.Popen([tilecastd, "--config", config, "run"], stdout=daemon_log,

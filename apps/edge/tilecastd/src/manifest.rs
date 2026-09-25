@@ -71,8 +71,9 @@ pub mod profile {
         "plugin.brand_bug",
         "plugin.countdown_bar",
         "plugin.alert_ticker",
-        // Host-measured levels from the session bridge (docs/tilecast-edge.md §4.4).
-        "plugin.noise_meter",
+        // `plugin.noise_meter` waits for the Noise Meter integration: the
+        // session bridge and host-levels plumbing exist, but it is not
+        // qualified, so a Noise Meter stays a typed incompatibility.
     ];
 
     /// Declarative widget capabilities of the reference projection code the

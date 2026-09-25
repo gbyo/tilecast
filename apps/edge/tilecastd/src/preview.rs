@@ -65,27 +65,41 @@ fn protected(source: ActivationSource, document: &PresentationDocument) -> bool 
         )
 }
 
-/// A checked JPEG from the renderer, or `None` for "unavailable".
-async fn capture(context: &DaemonContext) -> Option<(Vec<u8>, u32, u32)> {
+/// A checked JPEG from the renderer, or why there is none.
+async fn capture(context: &DaemonContext) -> Result<(Vec<u8>, u32, u32), &'static str> {
     let id = uuid::Uuid::new_v4();
     let answer = context.preview_waiters.register(id);
     {
         let engine = context.presentation.lock().await;
-        let current = engine.current()?;
+        let current = engine.current().ok_or("nothing_shown")?;
         if protected(current.source, &current.document) {
-            return None;
+            return Err("protected_state");
         }
         if !engine.request_preview(id, MAX_WIDTH, MAX_HEIGHT, MAX_PREVIEW_BYTES as u32) {
-            return None;
+            return Err("renderer_not_ready");
         }
     }
-    let outcome = tokio::time::timeout(RENDERER_TIMEOUT, answer).await.ok()?.ok()?;
-    let PreviewOutcome::Captured { jpeg_base64, width, height } = outcome else { return None };
+    let outcome = match tokio::time::timeout(RENDERER_TIMEOUT, answer).await {
+        Err(_) => return Err("renderer_timeout"),
+        Ok(Err(_)) => return Err("renderer_disconnected"),
+        Ok(Ok(outcome)) => outcome,
+    };
+    let (jpeg_base64, width, height) = match outcome {
+        PreviewOutcome::Captured { jpeg_base64, width, height } => (jpeg_base64, width, height),
+        PreviewOutcome::Unavailable { code } => {
+            tracing::info!(component = "preview", event = "renderer_unavailable", code = code.as_str());
+            return Err("renderer_unavailable");
+        }
+    };
     if width == 0 || height == 0 || width > MAX_WIDTH || height > MAX_HEIGHT {
-        return None;
+        return Err("capture_out_of_bounds");
     }
-    let jpeg = base64::engine::general_purpose::STANDARD.decode(jpeg_base64).ok()?;
-    (jpeg.len() <= MAX_PREVIEW_BYTES && jpeg.starts_with(&[0xFF, 0xD8])).then_some((jpeg, width, height))
+    let jpeg = base64::engine::general_purpose::STANDARD.decode(jpeg_base64).map_err(|_| "capture_invalid")?;
+    if jpeg.len() <= MAX_PREVIEW_BYTES && jpeg.starts_with(&[0xFF, 0xD8]) {
+        Ok((jpeg, width, height))
+    } else {
+        Err("capture_invalid")
+    }
 }
 
 pub async fn run(context: Arc<DaemonContext>) {
@@ -111,8 +125,18 @@ pub async fn run(context: Arc<DaemonContext>) {
         }
         let version = env!("CARGO_PKG_VERSION");
         let captured_at = serde_json::to_value(context.now()).ok().and_then(|v| v.as_str().map(str::to_owned));
-        let result = match (capture(&context).await, captured_at) {
-            (Some((jpeg, width, height)), Some(captured_at)) => {
+        let started = Instant::now();
+        let captured = capture(&context).await;
+        if let Err(reason) = captured {
+            tracing::info!(
+                component = "preview",
+                event = "capture_unavailable",
+                reason,
+                elapsed_ms = started.elapsed().as_millis() as u64
+            );
+        }
+        let result = match (captured, captured_at) {
+            (Ok((jpeg, width, height)), Some(captured_at)) => {
                 let upload = PreviewUpload::Image {
                     jpeg: &jpeg,
                     width,

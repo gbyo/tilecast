@@ -87,6 +87,13 @@ class Client:
         return status, (json.loads(payload) if payload else None)
 
 
+def hardware_roots(work):
+    """Empty display and helper roots: no test daemon reaches a real TV,
+    monitor or Presentation Network helper."""
+    return (f'[dev]\nhardware_dev_dir = "{work}/hardware/dev"\nhardware_sys_dir = "{work}/hardware/sys"\n'
+            f'networkd_socket = "{work}/hardware/networkd.sock"\n')
+
+
 def wait_for(predicate, what, timeout=60):
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -324,7 +331,8 @@ def main():
         state, runtime = os.path.join(work, "state"), os.path.join(work, "run")
         config = os.path.join(work, "edge.toml")
         with open(config, "w") as handle:
-            handle.write(f'[paths]\nstate_dir = "{state}"\nruntime_dir = "{runtime}"\n[log]\nformat = "text"\n')
+            handle.write(f'[paths]\nstate_dir = "{state}"\nruntime_dir = "{runtime}"\n[log]\nformat = "text"\n'
+                         f'{hardware_roots(work)}')
             if args.renderer:
                 handle.write(f'[renderer]\nbinary = "{args.renderer}"\nstall_threshold_seconds = 60\n')
 
@@ -559,7 +567,8 @@ def main():
         fresh_state, fresh_runtime = os.path.join(work, "fresh-state"), os.path.join(work, "fresh-run")
         fresh_config = os.path.join(work, "fresh.toml")
         with open(fresh_config, "w") as handle:
-            handle.write(f'[paths]\nstate_dir = "{fresh_state}"\nruntime_dir = "{fresh_runtime}"\n[log]\nformat = "text"\n')
+            handle.write(f'[paths]\nstate_dir = "{fresh_state}"\nruntime_dir = "{fresh_runtime}"\n[log]\nformat = "text"\n'
+                         f'{hardware_roots(work)}')
         fresh_log = open(os.path.join(work, "fresh.log"), "w")
         fresh = subprocess.Popen([tilecastd, "--config", fresh_config, "run"], stdout=fresh_log, stderr=subprocess.STDOUT)
         processes.append(fresh)

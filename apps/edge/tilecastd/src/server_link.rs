@@ -731,6 +731,13 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
         heartbeat["lastSynchronizationError"] = serde_json::json!(reason.chars().take(240).collect::<String>());
     }
     context.display.heartbeat(&mut heartbeat);
+    let (helper, network) = context.network.status();
+    let helper_ok = helper.as_ref().is_some_and(|h| h.helper_state == "ok");
+    let wired = (!helper_ok).then(|| {
+        let sys = context.config.dev.hardware_sys_dir.clone().unwrap_or_else(|| std::path::PathBuf::from("/sys"));
+        crate::presentation_network::wired_interface_up(&sys)
+    });
+    crate::presentation_network::heartbeat(&mut heartbeat, helper.as_ref(), &network, wired);
     heartbeat
 }
 

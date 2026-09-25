@@ -132,6 +132,13 @@ pub struct DaemonContext {
     pub audio: crate::audio::Audio,
     /// Wakes the audio task (a Noise Meter report or a bridge change).
     pub audio_wake: tokio::sync::Notify,
+    /// The Presentation Network client of `tilecast-networkd` (M9).
+    pub network: crate::presentation_network::PresentationNetwork,
+    /// Wakes the Presentation Network task (configuration changed).
+    pub network_wake: tokio::sync::Notify,
+    /// The logind idle inhibitor's state, and its wake-up (M9).
+    pub idle_lock: std::sync::Mutex<crate::idle_inhibit::LockState>,
+    pub idle_wake: tokio::sync::Notify,
 }
 
 impl DaemonContext {
@@ -313,6 +320,10 @@ impl Daemon {
         policy.observer_uids = config.ipc.observer_uids.clone();
 
         let config_for_display = config.clone();
+        let network_db = match &state {
+            StateMode::Normal(db) => Some(db.clone()),
+            StateMode::Recovery { .. } => None,
+        };
         let context = Arc::new(DaemonContext {
             config,
             paths,
@@ -352,6 +363,19 @@ impl Daemon {
             status_due: std::sync::atomic::AtomicBool::new(false),
             audio: crate::audio::Audio::default(),
             audio_wake: tokio::sync::Notify::new(),
+            network: crate::presentation_network::PresentationNetwork::new(
+                crate::presentation_network::HelperClient::new(
+                    config_for_display
+                        .dev
+                        .networkd_socket
+                        .clone()
+                        .unwrap_or_else(|| PathBuf::from(crate::presentation_network::DEFAULT_HELPER_SOCKET)),
+                ),
+                network_db,
+            ),
+            network_wake: tokio::sync::Notify::new(),
+            idle_lock: std::sync::Mutex::new(crate::idle_inhibit::LockState::NotRequested),
+            idle_wake: tokio::sync::Notify::new(),
         });
 
         let bound_record = match context.db() {
@@ -441,6 +465,8 @@ impl Daemon {
         tasks.spawn(crate::preview::run(Arc::clone(&context)));
         tasks.spawn(crate::display_control::run(Arc::clone(&context)));
         tasks.spawn(crate::audio::run(Arc::clone(&context)));
+        tasks.spawn(crate::network_task::run(Arc::clone(&context)));
+        tasks.spawn(crate::idle_inhibit::run(Arc::clone(&context)));
 
         let status = ready_status(&context);
         context.notifier.ready(&status);

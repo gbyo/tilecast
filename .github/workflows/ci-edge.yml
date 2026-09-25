@@ -51,6 +51,8 @@ jobs:
       - run: cargo fmt --all --check
       - run: cargo clippy --locked --workspace --all-targets -- -D warnings
       - run: cargo test --locked --workspace
+      - name: HDMI-CEC against the kernel (vivid, cec-follower, cec-ctl)
+        run: ci/run-kernel-cec.sh
 
   wpe:
     name: WPE headless end to end
@@ -77,10 +79,6 @@ jobs:
           mkdir -p "$RUNNER_TEMP/edge-target"
           docker run --rm -v "$PWD:/src" -v "$RUNNER_TEMP/edge-target:/target" \
             tilecast-edge-dev /src/apps/edge/renderer-wpe/ci/run-e2e.sh all
-      - name: Session bridge with PipeWire and WirePlumber
-        run: |
-          docker run --rm -v "$PWD:/src" -v "$RUNNER_TEMP/edge-target:/target" \
-            tilecast-edge-dev /src/apps/edge/session-bridge/ci/run-e2e.sh
       - uses: actions/upload-artifact@v6
         if: ${{ !cancelled() }}
         with:

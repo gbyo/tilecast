@@ -187,7 +187,7 @@ connect_core (TbBridge *bridge)
   bridge->nodes = wp_object_manager_new ();
   wp_object_manager_add_interest (bridge->nodes, WP_TYPE_NODE, WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "media.class",
                                   "#s", "Audio/*", NULL);
-  wp_object_manager_request_object_features (bridge->nodes, WP_TYPE_NODE, WP_OBJECT_FEATURES_MINIMAL);
+  wp_object_manager_request_object_features (bridge->nodes, WP_TYPE_NODE, WP_PROXY_FEATURE_BOUND);
   g_signal_connect_swapped (bridge->nodes, "objects-changed", G_CALLBACK (on_changed), bridge);
   g_signal_connect_swapped (bridge->nodes, "installed", G_CALLBACK (on_changed), bridge);
   wp_core_install_object_manager (bridge->core, bridge->nodes);

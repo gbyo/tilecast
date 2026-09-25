@@ -60,6 +60,10 @@ async fn daemon_capabilities(context: &DaemonContext) -> Vec<Capability> {
     out.extend(live(ids::SYSTEM_STATE_STORE, state, "sqlite", reason, None, context));
     out.extend(context.display.capabilities(context.now()));
     out.extend(context.audio.capabilities(context.now()));
+    let idle = *context.idle_lock.lock().unwrap_or_else(|poison| poison.into_inner());
+    out.extend(crate::idle_inhibit::capability(idle, context.now()));
+    let (helper, network) = context.network.status();
+    out.extend(crate::presentation_network::capability(helper.as_ref(), &network, context.now()));
     out
 }
 

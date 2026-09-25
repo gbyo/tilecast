@@ -186,6 +186,10 @@ pub struct PlayerConfig {
     pub reliability: Option<Reliability>,
     pub power: Power,
     pub linux_kiosk: LinuxKiosk,
+    /// The `presentationNetwork` section as sent, for the Presentation
+    /// Network reconciliation to parse strictly. `None` when the server sent
+    /// none (a server older than the feature): nothing is removed then.
+    pub presentation_network: Option<Value>,
 }
 
 impl Default for PlayerConfig {
@@ -206,6 +210,7 @@ impl Default for PlayerConfig {
                 outside_text: "Powered by Tilecast".to_owned(),
             },
             linux_kiosk: LinuxKiosk::default(),
+            presentation_network: None,
         }
     }
 }
@@ -377,7 +382,20 @@ impl PlayerConfig {
             prevent_display_sleep: flag("preventDisplaySleep"),
         };
 
-        Ok(Self { schema_version, revision, branding, playback, cache, sync, reliability, power, linux_kiosk })
+        let presentation_network = object.get("presentationNetwork").filter(|value| value.is_object()).cloned();
+
+        Ok(Self {
+            schema_version,
+            revision,
+            branding,
+            playback,
+            cache,
+            sync,
+            reliability,
+            power,
+            linux_kiosk,
+            presentation_network,
+        })
     }
 
     /// The document without its per-response timestamp, for recognizing a

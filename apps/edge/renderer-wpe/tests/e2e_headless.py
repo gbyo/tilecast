@@ -56,9 +56,14 @@ class Stack:
             "[log]",
             'level = "info"',
             'format = "text"',
+            # Empty hardware roots: the test never reaches a real display.
+            "[dev]",
+            f'hardware_dev_dir = "{workdir}/hardware/dev"',
+            f'hardware_sys_dir = "{workdir}/hardware/sys"',
+            f'networkd_socket = "{workdir}/hardware/networkd.sock"',
         ]
         if fixture:
-            lines += ["[dev]", f'fixture = "{fixture}"']
+            lines += [f'fixture = "{fixture}"']
         with open(self.config, "w", encoding="utf-8") as handle:
             handle.write("\n".join(lines) + "\n")
         self.daemon = None

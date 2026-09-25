@@ -37,9 +37,6 @@ pub fn unsupported_reason(command_type: &str) -> Option<&'static str> {
         "power_assist_sleep" | "power_assist_wake" => {
             "Power Assist is an Android feature. Tilecast Edge controls the display through Display Control."
         }
-        "provision_presentation_network" | "test_presentation_network" => {
-            "Presentation Networks on Tilecast Edge arrive in M9."
-        }
         "prepare_airplay_session" | "stop_airplay_session" | "test_airplay_support" => {
             "AirPlay is not available on Tilecast Edge."
         }
@@ -216,7 +213,9 @@ impl Handlers for DaemonHandlers {
             | "restart_activity"
             | "retry_player_recovery"
             | "exit_safe_mode"
-            | "run_player_self_test" => Plan::Run,
+            | "run_player_self_test"
+            | "provision_presentation_network"
+            | "test_presentation_network" => Plan::Run,
             kind if crate::display_control::COMMANDS.contains(&kind) => Plan::Run,
             other => Plan::Settle(CommandResult::failed(
                 "unsupported_command",
@@ -268,6 +267,22 @@ impl Handlers for DaemonHandlers {
                 CommandResult::ok("safe_mode_cleared", if was { "" } else { "Safe mode was not active." })
             }
             "run_player_self_test" => self.self_test().await,
+            "provision_presentation_network" => {
+                let provisioner = crate::network_task::ServerProvisioner::new(&self.context);
+                let result = self.context.network.provision_command(&provisioner, self.context.now()).await;
+                crate::capabilities::refresh(&self.context).await;
+                self.context.report_status_soon();
+                result
+            }
+            "test_presentation_network" => {
+                let provisioner = crate::network_task::ServerProvisioner::new(&self.context);
+                let context = Arc::clone(&self.context);
+                let result =
+                    self.context.network.test_command(&command.payload, &provisioner, move || context.now()).await;
+                crate::capabilities::refresh(&self.context).await;
+                self.context.report_status_soon();
+                result
+            }
             kind if crate::display_control::COMMANDS.contains(&kind) => self.display(command).await,
             other => CommandResult::failed(
                 "unsupported_command",

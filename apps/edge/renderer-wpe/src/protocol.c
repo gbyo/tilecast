@@ -18,8 +18,7 @@
  * are not advertised and tilecastd will not send them. */
 static const char *const RENDERER_FEATURES[] = {
   "status-surfaces-v1", "image",           "video",           "render-tree-v1", "layout-v1", "synchronized-playback-v1",
-  "span-viewport-v1",   "plugin.brand_bug",   "plugin.countdown_bar", "plugin.alert_ticker", "plugin.noise_meter",
-  NULL,
+  "span-viewport-v1",   "plugin.brand_bug",   "plugin.countdown_bar", "plugin.alert_ticker", NULL,
 };
 
 static const char *

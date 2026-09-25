@@ -63,6 +63,10 @@ send_result (TcHost *host, const char *request_id, const char *jpeg_base64, guin
   }
   json_builder_end_object (builder);
   json_builder_end_object (builder);
+  if (unavailable_code != NULL)
+    g_message ("preview: unavailable (%s)", unavailable_code);
+  else
+    g_message ("preview: captured %ux%u", width, height);
   tc_ipc_send_event (host, "renderer.preview", json_builder_get_root (builder));
 }
 
@@ -203,6 +207,7 @@ tc_preview_capture (TcHost *host, JsonObject *data)
   request->max_width = (guint) max_width;
   request->max_height = (guint) max_height;
   request->max_bytes = (guint) max_bytes;
+  g_message ("preview: snapshot requested");
   webkit_web_view_get_snapshot (host->view, WEBKIT_SNAPSHOT_REGION_VISIBLE, WEBKIT_SNAPSHOT_OPTIONS_NONE, NULL,
                                 on_snapshot, request);
 }

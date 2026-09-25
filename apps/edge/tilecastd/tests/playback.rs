@@ -773,6 +773,19 @@ fn scenario_slots() -> &'static Arc<tokio::sync::Semaphore> {
     })
 }
 
+/// Sends daemon logs to the test harness's captured output, so a failed
+/// scenario shows what its daemon did. Runtime threads a test starts inherit
+/// its capture.
+fn capture_daemon_logs() {
+    static ONCE: std::sync::Once = std::sync::Once::new();
+    ONCE.call_once(|| {
+        let _ = tracing_subscriber::fmt()
+            .with_test_writer()
+            .with_env_filter(tracing_subscriber::EnvFilter::new("info"))
+            .try_init();
+    });
+}
+
 struct Harness {
     /// Held for the whole scenario (see [`scenario_slots`]).
     _slot: tokio::sync::OwnedSemaphorePermit,
@@ -821,6 +834,7 @@ impl edge_platform::disk::SpaceProbe for Space {
 
 impl Harness {
     async fn new() -> Self {
+        capture_daemon_logs();
         let slot = Arc::clone(scenario_slots()).acquire_owned().await.unwrap();
         let installation = InstallationId::new_random();
         let fake = FakeServer::new(installation);
@@ -857,6 +871,10 @@ impl Harness {
         config.paths.state_dir = Some(dir.join("state"));
         config.paths.runtime_dir = Some(dir.join("run"));
         config.renderer.binary = dir.join("no-renderer");
+        // Empty hardware roots: no test daemon may reach a real TV or monitor.
+        config.dev.hardware_dev_dir = Some(dir.join("hardware/dev"));
+        config.dev.hardware_sys_dir = Some(dir.join("hardware/sys"));
+        config.dev.networkd_socket = Some(dir.join("hardware/networkd.sock"));
         config
     }
 
@@ -1700,15 +1718,24 @@ async fn commands_run_at_most_once_across_redelivery_and_restart() {
     let generation = wait_for("content", || renderer.last().filter(|a| shows(a, &asset))).await.generation;
     let reload = harness.fake.offer("reload_playback", uuid::Uuid::new_v4(), json!({}));
     let skip = harness.fake.offer("skip_current_item", uuid::Uuid::new_v4(), json!({}));
-    let unsupported = harness.fake.offer("display_power_off", uuid::Uuid::new_v4(), json!({}));
+    let unsupported = harness.fake.offer("power_assist_sleep", uuid::Uuid::new_v4(), json!({}));
+    let display = harness.fake.offer("display_power_off", uuid::Uuid::new_v4(), json!({}));
     player.context.command_wake.notify_one();
     wait_for("reload", || renderer.last().filter(|a| a.generation > generation && shows(a, &asset))).await;
-    wait_for("all results", || (harness.fake.results_for(&unsupported).len() == 1).then_some(())).await;
+    wait_for("all results", || {
+        (harness.fake.results_for(&unsupported).len() == 1 && harness.fake.results_for(&display).len() == 1)
+            .then_some(())
+    })
+    .await;
     assert_eq!(harness.fake.results_for(&reload)[0]["code"], "playback_reloaded");
     assert_eq!(harness.fake.results_for(&skip)[0]["code"], "skipped");
     assert_eq!(renderer.log.lock().unwrap().commands, vec![edge_protocol::ipc::event::RendererCommandKind::SkipItem]);
     let refused = &harness.fake.results_for(&unsupported)[0];
     assert_eq!((refused["success"].clone(), refused["code"].clone()), (json!(false), json!("unsupported_command")));
+    // Display Control exists on Edge; without an adapter the refusal names why.
+    let display = &harness.fake.results_for(&display)[0];
+    assert_eq!((display["success"].clone(), display["code"].clone()), (json!(false), json!("display_unsupported")));
+    assert!(display["message"].as_str().unwrap().contains("cec_adapter_absent"), "{display}");
     renderer.stop();
     player.stop().await;
 }

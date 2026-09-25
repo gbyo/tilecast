@@ -176,9 +176,10 @@
       setup: !!handlers.tilecastRequest,
       // tilecastd browses Avahi; an empty list is a valid answer.
       discovery: !!handlers.tilecastRequest,
-      // The session bridge measures through PipeWire and tilecastd sends
-      // derived levels; this renderer still denies microphone access.
-      noiseMeter: "host-levels",
+      // "host-levels" once the Noise Meter integration is qualified: the
+      // session bridge measures through PipeWire and tilecastd sends derived
+      // levels. This renderer denies microphone access either way.
+      noiseMeter: null,
     }),
     subscribe(listener) {
       listeners.add(listener);
