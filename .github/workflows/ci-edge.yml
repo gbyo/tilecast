@@ -52,6 +52,8 @@ jobs:
       - run: cargo clippy --locked --workspace --all-targets -- -D warnings
       - run: cargo test --locked --workspace
       - name: HDMI-CEC against the kernel (vivid, cec-follower, cec-ctl)
+        # Independent evidence: it runs even when an earlier test step failed.
+        if: ${{ !cancelled() }}
         run: ci/run-kernel-cec.sh
 
   wpe:

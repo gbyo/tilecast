@@ -91,7 +91,7 @@ def hardware_roots(work):
     """Empty display and helper roots: no test daemon reaches a real TV,
     monitor or Presentation Network helper."""
     return (f'[dev]\nhardware_dev_dir = "{work}/hardware/dev"\nhardware_sys_dir = "{work}/hardware/sys"\n'
-            f'networkd_socket = "{work}/hardware/networkd.sock"\n')
+            f'networkd_socket = "{work}/hardware/networkd.sock"\nidle_inhibit = false\n')
 
 
 def wait_for(predicate, what, timeout=60):

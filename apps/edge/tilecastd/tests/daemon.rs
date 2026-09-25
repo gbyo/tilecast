@@ -37,6 +37,7 @@ fn config(dir: &std::path::Path) -> EdgeConfig {
     config.dev.hardware_dev_dir = Some(dir.join("hardware/dev"));
     config.dev.hardware_sys_dir = Some(dir.join("hardware/sys"));
     config.dev.networkd_socket = Some(dir.join("hardware/networkd.sock"));
+    config.dev.idle_inhibit = Some(false);
     config
 }
 

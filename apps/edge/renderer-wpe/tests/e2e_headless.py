@@ -61,6 +61,7 @@ class Stack:
             f'hardware_dev_dir = "{workdir}/hardware/dev"',
             f'hardware_sys_dir = "{workdir}/hardware/sys"',
             f'networkd_socket = "{workdir}/hardware/networkd.sock"',
+            "idle_inhibit = false",
         ]
         if fixture:
             lines += [f'fixture = "{fixture}"']
