@@ -526,9 +526,14 @@ def main():
             # Studio live preview: a lease makes Edge ask the renderer for a
             # snapshot and upload the bounded JPEG it encodes.
             client.call("POST", f"/api/v1/screens/{screen_id}/preview-session", {"forceCapture": True}, expect=200)
-            preview = wait_for(lambda: (lambda data: data if data.get("imageAvailable") else None)(
-                client.call("GET", f"/api/v1/screens/{screen_id}/preview", expect=200)[1]["data"]),
-                "a live preview from the renderer", timeout=90)
+            try:
+                preview = wait_for(lambda: (lambda data: data if data.get("imageAvailable") else None)(
+                    client.call("GET", f"/api/v1/screens/{screen_id}/preview", expect=200)[1]["data"]),
+                    "a live preview from the renderer", timeout=90)
+            except AssertionError:
+                status = client.call("GET", f"/api/v1/screens/{screen_id}/preview", expect=200)[1]["data"]
+                print("preview failure:", {"rendererExitCode": renderer.process.poll(), "preview": status}, flush=True)
+                raise
             assert not preview.get("captureFailureStatus"), preview
             assert 0 < preview["width"] <= 960 and 0 < preview["height"] <= 540, preview
             with client.opener.open(urllib.request.Request(

@@ -441,6 +441,8 @@ def check_hardware_packaging():
                    "tilecast-edge.service")
     assert "SupplementaryGroups=tilecast-display" in shown and "DevicePolicy=closed" in shown, shown
     assert "char-cec rw" in shown and "char-i2c rw" in shown, shown
+    renderer_mount = output("systemctl", "show", "--property=TemporaryFileSystem", "tilecast-renderer.service")
+    assert "/run/tilecast:ro,mode=0000" in renderer_mount, renderer_mount
     groups = output("id", "-nG", "tilecast").split()
     assert "tilecast-display" not in groups, "the account itself never joins tilecast-display"
     assert os.path.exists("/usr/lib/udev/rules.d/70-tilecast-display.rules")

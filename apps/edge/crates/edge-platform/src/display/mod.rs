@@ -115,9 +115,9 @@ fn numbered(name: &str, prefix: &str) -> Option<u16> {
     digits.parse().ok()
 }
 
-/// CEC adapters registered with the kernel (`/sys/class/cec/cecN`).
+/// CEC adapters registered with the kernel (`/sys/bus/cec/devices/cecN`).
 pub fn cec_adapters(roots: &Roots) -> Vec<u8> {
-    let mut adapters: Vec<u8> = std::fs::read_dir(roots.sys_dir.join("class/cec"))
+    let mut adapters: Vec<u8> = std::fs::read_dir(roots.sys_dir.join("bus/cec/devices"))
         .into_iter()
         .flatten()
         .flatten()
@@ -423,7 +423,7 @@ mod tests {
         let dir = tempfile::tempdir().expect("tempdir");
         let roots = Roots { dev_dir: dir.path().join("dev"), sys_dir: dir.path().join("sys") };
         std::fs::create_dir_all(&roots.dev_dir).expect("dev");
-        std::fs::create_dir_all(roots.sys_dir.join("class/cec")).expect("cec");
+        std::fs::create_dir_all(roots.sys_dir.join("bus/cec/devices")).expect("cec");
         std::fs::create_dir_all(roots.sys_dir.join("class/drm")).expect("drm");
         std::fs::create_dir_all(roots.sys_dir.join("devices/i2c-7")).expect("i2c");
         (dir, roots)
@@ -462,8 +462,8 @@ mod tests {
     #[test]
     fn adapters_without_nodes_or_permission_are_blocked() {
         let (_dir, roots) = tree();
-        std::fs::create_dir(roots.sys_dir.join("class/cec/cec0")).expect("adapter");
-        std::fs::create_dir(roots.sys_dir.join("class/cec/not-an-adapter")).expect("noise");
+        std::fs::create_dir(roots.sys_dir.join("bus/cec/devices/cec0")).expect("adapter");
+        std::fs::create_dir(roots.sys_dir.join("bus/cec/devices/not-an-adapter")).expect("noise");
         let hardware = DisplayHardware { roots: roots.clone(), settings: Settings::default() };
         assert_eq!(cec_adapters(&roots), vec![0]);
         assert_eq!(hardware.probe_cec().feature, Feature::new(CapabilityState::Blocked, "cec_device_node_missing"));
