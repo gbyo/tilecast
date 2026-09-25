@@ -447,7 +447,8 @@ impl DisplayControl {
                 )
             }
             None => {
-                snapshot.power = PowerView { state: "transitioning", confirmed: false, observed_at: None };
+                snapshot.power =
+                    PowerView { state: if on { "on" } else { "off" }, confirmed: false, observed_at: None };
                 CommandResult::ok(
                     "display_command_sent",
                     "The display acknowledged the request but does not report its power state.",
@@ -645,7 +646,8 @@ pub async fn run(context: Arc<DaemonContext>) {
     let display = Arc::clone(&context.display);
     let mut last_probe: Option<Instant> = None;
     let mut last_power = Instant::now();
-    let mut applied: Option<String> = None;
+    let mut applied: Option<Option<String>> = None;
+    let mut seen: Option<String> = None;
     loop {
         let mut changed = false;
         if last_probe.is_none_or(|at| at.elapsed() >= PROBE_INTERVAL) {
@@ -667,10 +669,14 @@ pub async fn run(context: Arc<DaemonContext>) {
                         wake_in = wake_in.min(Duration::from_millis((next - now_ms).clamp(50, i64::MAX) as u64 + 100));
                     }
                     let key = policy.action.as_ref().map(|action| format!("{:?}:{action}", policy.schedule_id));
-                    if key != applied {
-                        applied = key;
+                    if key != seen {
                         changed = true;
-                        apply(&context, &display, policy.action.as_ref()).await;
+                        seen = key.clone();
+                        applied = None;
+                    }
+                    if applied.as_ref() != Some(&key) && apply(&context, &display, policy.action.as_ref()).await {
+                        applied = Some(key);
+                        changed = true;
                     }
                 }
                 Err(error) => {
@@ -690,10 +696,10 @@ pub async fn run(context: Arc<DaemonContext>) {
     }
 }
 
-async fn apply(context: &DaemonContext, display: &DisplayControl, action: Option<&Value>) {
+async fn apply(context: &DaemonContext, display: &DisplayControl, action: Option<&Value>) -> bool {
     let Some(action) = action else {
         display.set_policy_state("normal");
-        return;
+        return true;
     };
     let parsed = parse_policy(action);
     let state = if parsed.as_ref().is_ok_and(|action| *action == Action::PowerOff) {
@@ -717,6 +723,7 @@ async fn apply(context: &DaemonContext, display: &DisplayControl, action: Option
         success = result.success,
         code = result.code.as_str()
     );
+    result.success || result.code == "display_invalid_payload"
 }
 
 fn materially_changed(before: &[Capability], after: &[Capability]) -> bool {
@@ -829,6 +836,7 @@ mod tests {
         let silent = display.power_result(false, None, now());
         assert_eq!(silent.code, "display_command_sent");
         assert_eq!(display.snapshot().power.observed_at, None, "nothing was observed");
+        assert_eq!(display.snapshot().power.state, "off", "requested state stays unconfirmed");
 
         let refused = display.power_result(false, Some(PowerStatus::On), now());
         assert_eq!((refused.success, refused.code.as_str()), (false, "display_state_mismatch"));

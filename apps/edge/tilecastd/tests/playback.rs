@@ -451,14 +451,13 @@ async fn serve(fake: Arc<FakeServer>) -> String {
                 _ => {}
             }
             let fake = Arc::clone(&fake);
-            let mut head = [0_u8; 32];
-            let upgrade =
-                matches!(stream.peek(&mut head).await, Ok(n) if head[..n].starts_with(b"GET /api/v1/player/socket"));
-            if upgrade && fake.socket_enabled.load(Ordering::SeqCst) {
-                tokio::spawn(player_socket(fake, stream));
-                continue;
-            }
             tokio::spawn(async move {
+                let mut head = [0_u8; 32];
+                let upgrade = matches!(stream.peek(&mut head).await, Ok(n) if head[..n].starts_with(b"GET /api/v1/player/socket"));
+                if upgrade && fake.socket_enabled.load(Ordering::SeqCst) {
+                    player_socket(fake, stream).await;
+                    return;
+                }
                 let service = hyper::service::service_fn(move |request| handle(Arc::clone(&fake), request));
                 let _ = hyper::server::conn::http1::Builder::new()
                     .serve_connection(hyper_util::rt::TokioIo::new(stream), service)
@@ -875,6 +874,7 @@ impl Harness {
         config.dev.hardware_dev_dir = Some(dir.join("hardware/dev"));
         config.dev.hardware_sys_dir = Some(dir.join("hardware/sys"));
         config.dev.networkd_socket = Some(dir.join("hardware/networkd.sock"));
+        config.dev.idle_inhibit = Some(false);
         config
     }
 

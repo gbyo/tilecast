@@ -647,6 +647,7 @@ impl Candidate {
             }
         }
         schedule::resolve(&document, 0).map_err(|_| ManifestError::Schedule)?;
+        schedule::resolve_display_policy(&document, 0).map_err(|_| ManifestError::Schedule)?;
         let required_downloads = assets.clone();
         Ok(Self {
             digest,
@@ -1558,6 +1559,15 @@ mod tests {
             "displayAction": {"type": "display_power_off"}}]);
         let candidate = parse(value).unwrap();
         assert!(incompatibilities(&candidate.document, &candidate.assets).is_empty());
+    }
+
+    #[test]
+    fn invalid_display_only_schedule_is_rejected_before_activation() {
+        let mut value = manifest();
+        value["schedules"] = serde_json::json!([{"id": ITEM, "type": "weekly", "timezone": "Mars/Base",
+            "priority": 1, "specificity": 1, "dailyStart": "22:00", "dailyEnd": "06:00", "daysOfWeek": [1],
+            "displayAction": {"type": "display_power_off"}}]);
+        assert_eq!(parse(value).unwrap_err(), ManifestError::Schedule);
     }
 
     #[test]

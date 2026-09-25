@@ -106,7 +106,8 @@ async fn take_lock() -> Result<zbus::zvariant::OwnedFd, LockState> {
 
 /// Whether the configuration in force asks the display to stay awake.
 fn wanted(context: &DaemonContext) -> bool {
-    context.config.renderer.prevent_display_sleep
+    context.config.dev.idle_inhibit.unwrap_or(true)
+        && context.config.renderer.prevent_display_sleep
         && crate::config_sync::effective(context).linux_kiosk.prevent_display_sleep
 }
 
