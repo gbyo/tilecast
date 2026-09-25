@@ -1,32 +1,36 @@
 ---
 title: Sign-in and passkeys
-description: Diagnose account sign-in, passkey availability, multi-factor enrollment, and recovery problems.
+description: Troubleshoot sign-in, passkeys, multi-factor enrollment, and account recovery.
 ---
 
 ## Passkeys are unavailable
 
-Passkeys need a secure browser context and a registrable hostname. A plain-HTTP LAN address such as an IP address cannot run the WebAuthn ceremony.
+Passkeys need a secure browser context and a normal hostname. A plain-HTTP LAN IP address cannot use the WebAuthn passkey flow.
 
-Use HTTPS at the hostname in `TILECAST_PUBLIC_URL`. When the external proxy hostname differs from the server's view, configure `TILECAST_WEBAUTHN_RP_ID` and `TILECAST_WEBAUTHN_ORIGINS` together.
+Use HTTPS at the hostname in `TILECAST_PUBLIC_URL`.
 
-An existing passkey is bound to the relying-party domain where it was created. If that domain changes, remove the old credential and enroll a new passkey on the new hostname.
+If the public proxy hostname is different from the hostname Tilecast sees internally, configure `TILECAST_WEBAUTHN_RP_ID` and `TILECAST_WEBAUTHN_ORIGINS` together.
+
+A passkey belongs to the site domain where it was created. If that domain changes, remove the old credential and enroll a new passkey on the new hostname.
 
 ## An account is stuck at MFA enrollment
 
-When the organization requires MFA for that role, the account can sign in far enough to enroll a factor but cannot use the rest of Studio until enrollment is complete.
+If the organization requires MFA for that role, the account can sign in far enough to enroll a factor but cannot use the rest of Studio until enrollment is finished.
 
-Authenticator apps and recovery codes work even when passkeys are unavailable.
+Authenticator apps and recovery codes still work when passkeys are unavailable.
 
-## A person lost every factor
+## Someone lost every factor
 
-Use recovery in this order:
+Try recovery in this order:
 
 1. Use an unused recovery code.
 2. Have an Owner or Administrator reset MFA for an account they are allowed to manage.
 3. If the only Owner is locked out, use the server's break-glass MFA reset command with direct server/database access.
 
-Resetting MFA signs the account out and removes its enrolled factors. If policy still requires MFA, the person enrolls again at the next sign-in.
+Resetting MFA signs the account out and removes its enrolled factors.
 
-Protect database backups: authenticator-app secrets must be recoverable by the server and therefore are sensitive backup material. Passkeys store public keys instead.
+If organization policy still requires MFA, the person will be asked to enroll again at the next sign-in.
+
+Protect database backups. Authenticator-app secrets are sensitive backup data because the server must be able to recover them. Passkeys store public keys instead.
 
 See [Protect Studio accounts](../../administration/sign-in-security/) for setup and policy.

@@ -26,7 +26,7 @@ Use these pages to manage Studio accounts and installation-wide settings. Organi
 
 - [Set Player policies](./player-policies/) to set organization defaults or override them for a Display Group or screen.
 - [Networking and remote access](./networking/) for server addresses, HTTPS, proxies, tunnels, mDNS, and VLAN boundaries.
-- [Update Tilecast Server](./server-updates/) for a guarded Docker Compose upgrade.
+- [Update Tilecast Server](./server-updates/) to update a Docker Compose installation safely.
 - [Set up a Presentation Network](./presentation-networks/) to prepare a Linux Player for AirPlay when the sender cannot reach it over Ethernet.
 - [Back up and restore an installation](./backups/) to protect database, media, and cached Player releases.
 - [Update Tilecast Player](./player-updates/) to verify signed releases and deploy them to selected screens.

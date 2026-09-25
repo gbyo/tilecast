@@ -1,30 +1,34 @@
 ---
 title: Media uploads and processing
-description: Diagnose media uploads, processing, storage, and playback-variant failures.
+description: Troubleshoot uploads, media processing, storage, and playback-file problems.
 ---
 
 ## An upload will not resume
 
 If an upload was interrupted, select the original file again. It must have the same name and size as the file that started the upload.
 
-Tilecast's resumable upload API tracks the accepted offset. A client that has lost that state must use the server's current offset rather than assuming where the transfer stopped.
+Tilecast resumes from the upload position saved by the server instead of starting from a guessed position.
 
 ## An item stays in processing
 
-Open the asset and read the safe processing error. Tilecast Server needs writable media storage plus working FFmpeg and FFprobe executables.
+Open the asset and read the processing error.
 
-Check `/readyz` when media infrastructure itself is unavailable. The production container includes the media tools and runs as an unprivileged user, so changing the whole server to root is not the normal repair.
+Tilecast Server needs writable media storage and working FFmpeg and FFprobe tools. Check `/readyz` if the media-processing dependencies themselves are unavailable.
 
-Finalization is journaled. Keep the temporary/media volume and database row in place while Tilecast reconciles an interrupted move. Do not delete rows marked as finalizing while recovery is running.
+The production container already includes the media tools and runs without root privileges. Running the entire server as root is not the normal fix for a media-processing problem.
+
+If processing was interrupted while Tilecast was finishing a file move, leave the database record and media/temp storage in place so recovery can finish. Do not manually delete an item that is still marked as finalizing.
 
 ## Storage is full
 
-Tilecast reserves free space around media work. Free storage or reduce the upload size before retrying.
+Free some storage or reduce the upload size before retrying.
 
-Preserve the database and `tilecast_data` media volume from the same point in time. Restoring only one can leave database records without files or unreferenced files without records.
+Keep the database and `tilecast_data` media volume from the same point in time when restoring a backup. Restoring only one can leave database records without files, or files without matching records.
 
 ## A Player cannot use a media item
 
-The asset must be Ready and have a Player-compatible variant. A missing or corrupt downloaded object is rejected rather than promoted into playback.
+The asset must be **Ready** and have a playback file the Player can use.
 
-Use [Activity](../../operations/activity/) to separate a server-side processing failure from a Player download or playback failure.
+A Player rejects an incomplete or corrupt download instead of using it for playback.
+
+Use [Activity](../../operations/activity/) to tell the difference between a server-side processing problem and a Player download or playback problem.

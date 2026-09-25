@@ -1,46 +1,46 @@
 ---
 title: Language and regional settings
-description: Understand the difference between each person's Studio language and the organization's signage formatting.
+description: Change your Studio language separately from the date, time, and regional settings used across Tilecast.
 ---
 
-Tilecast has two separate settings that are easy to confuse:
+Tilecast keeps personal Studio language separate from organization-wide regional settings.
 
-- **Studio language** belongs to one person.
-- **Organization regional settings** control shared signage formatting and calendar semantics.
+- **Studio language** changes the interface for one person.
+- **Organization regional settings** control shared date, time, timezone, and week formatting.
 
-Changing one does not silently change the other.
+Changing one does not change the other.
 
 ## Studio language
 
-Each person chooses **System**, **English**, **Spanish**, or **Russian** under **My Account** > **Preferences**.
+Open **My Account** > **Preferences** and choose **System**, **English**, **Spanish**, or **Russian**.
 
-**System** follows the first browser language that Tilecast Studio ships and falls back to English. A saved account preference wins over the browser choice on later loads.
+**System** uses the first language from your browser that Tilecast supports. If none match, Studio uses English. A saved account preference takes priority over the browser setting the next time you sign in.
 
-The interface language also sets the document language and text direction. Content that people enter, such as screen names, Playlist names, Form responses, and Widget text, is not translated automatically.
+Changing the Studio language also changes the interface text direction when needed. It does not translate names, Form responses, Widget text, or other content that people entered themselves.
 
 ## Organization locale and timezone
 
-Open **Settings** > **General** to choose the organization's locale, timezone, date/time formats, and first day of week.
+Open **Settings** > **General** to choose the organization's locale, timezone, date and time formats, and first day of the week.
 
-These values can affect signage and organization-owned date semantics. For example:
+These settings are used when content does not choose its own format. For example:
 
-- a Widget can inherit organization date/time formatting;
-- calendar and scheduling behavior uses explicit IANA timezones;
-- the first day of week can follow the locale's CLDR convention or an explicit choice;
-- new region-sensitive Data Sources can use the organization locale for a default when the source has a safe regional default.
+- Clock, Date, and World Clock Widgets can use the organization date and time format.
+- Schedules use their selected IANA timezone.
+- The first day of the week can follow the locale or use a specific weekday.
+- Region-aware Data Sources can use the organization locale as their default when supported.
 
-An explicit content or field choice wins over the organization default.
+A setting chosen directly on the content takes priority over the organization default.
 
-## Currency is explicit
+## Currency
 
-Locale changes how a value is formatted; it does not decide what currency the value means.
+Locale changes how a currency value is displayed; it does not change which currency the value represents.
 
-A currency field carries its ISO 4217 currency code. Tilecast formats that currency for the active locale without changing the underlying currency.
+Currency fields keep their ISO 4217 code, such as USD or EUR. Tilecast formats that currency for the selected locale without converting it to another currency.
 
-## Addresses are region-neutral
+## Addresses
 
-Locations store optional address components such as locality, administrative area, and postal code without forcing a U.S. city/state/ZIP shape.
+Locations use optional address fields such as locality, administrative area, and postal code. They do not require a U.S.-style city, state, and ZIP format.
 
-## Public documentation language
+## Documentation language
 
-Tilecast Studio currently ships English, Spanish, and Russian interface catalogs. The public Starlight documentation site remains English-only until translated documentation pages are maintained with the same accuracy as the canonical English pages.
+Tilecast Studio currently includes English, Spanish, and Russian interface translations. The public documentation remains English-only until translated pages can be maintained with the same accuracy as the English docs.

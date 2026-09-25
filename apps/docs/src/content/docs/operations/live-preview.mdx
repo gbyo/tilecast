@@ -1,20 +1,22 @@
 ---
 title: View a live preview or stream
-description: Check a Player's current image or watch its output while the stream window is open.
+description: Check a recent Player screenshot or watch the screen while the live stream is open.
 ---
 
-Open a screen's **Overview** tab to use **Live preview**. Tilecast requests a still image from the Player and refreshes it about every 20 seconds while the page is open. Select **Refresh** to request another image.
+Open a screen's **Overview** tab to use **Live preview**. Tilecast asks the Player for a still image and refreshes it about every 20 seconds while the page is open. Select **Refresh** to request another image.
 
-## Choose the right evidence
+## Choose the right view
 
-| Feature                      | Best for                                                    | Stored?                                                                         | What it proves                                   |
-| ---------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------ |
-| **Live preview**             | A recent still image from the Player                        | The current preview can be retained as part of normal preview/snapshot behavior | What the Player captured recently                |
-| **Watch live**               | Watching the visible Player output while the dialog is open | No; stream frames stay in memory only                                           | What the Player is capturing during that session |
-| **Snapshot history**         | Looking back at bounded periodic screenshots                | Yes, according to Snapshot history limits                                       | What the Player captured at those snapshot times |
-| **Activity / Proof of Play** | Playback history and compliance                             | Yes, according to Activity retention                                            | What the Player reported as playing              |
+| Feature                      | Best for                                             | Stored?                                              | What it tells you                                  |
+| ---------------------------- | ---------------------------------------------------- | ---------------------------------------------------- | -------------------------------------------------- |
+| **Live preview**             | Checking a recent screenshot from the Player         | May be kept through preview or Snapshot history      | What the Player captured recently                  |
+| **Watch live**               | Watching the Player while the live window is open    | No                                                   | What the Player is capturing during that session   |
+| **Snapshot history**         | Looking back at saved screenshots                    | Yes, according to Snapshot history limits            | What the Player captured at those snapshot times   |
+| **Activity / Proof of Play** | Checking playback history and what Tilecast reported | Yes, according to Activity retention                 | What the Player reported as playing                |
 
-A screenshot or stream is visual evidence, not proof that the correct content played for the full scheduled window. Proof of Play is Player-reported playback evidence, not a recording of the display.
+A screenshot or stream only shows what the Player captured at that moment. It does not prove that the correct content played for an entire scheduled window.
+
+Activity / Proof of Play records what the Player reported as playing; it is not a recording of the screen.
 
 import { Steps } from "@astrojs/starlight/components";
 
@@ -29,14 +31,16 @@ import { Steps } from "@astrojs/starlight/components";
 
 </Steps>
 
-The stream is separate from the periodic preview. It relays Player output only while the window is open; closing the window stops renewing the session. Tilecast does not save the stream frames to previews, Activity, or backups. Actual frame updates depend on the Player and network.
+Watch live is separate from the periodic preview. The stream runs only while the window is open, and closing it ends the session. Tilecast does not save the stream frames to previews, Activity, or backups.
 
-## When a view is unavailable
+Frame rate and update speed depend on the Player and network.
 
-- **Watch live** is available only while the screen is online.
-- A protected Player screen is not captured. AirPlay-mirrored output is also excluded.
-- An offline Player cannot send a fresh image. The preview may be stale until it reconnects.
-- Some Player or device states do not allow capture. Studio reports the preview as unavailable or shows a capture error.
+## When preview is unavailable
+
+- **Watch live** works only while the screen is online.
+- Protected Player screens are not captured. AirPlay-mirrored output is also excluded.
+- An offline Player cannot send a new screenshot, so the last preview may be stale.
+- Some Player or device states do not allow capture. Studio shows the preview as unavailable or reports a capture error.
 
 Live preview shows a recent image; it does not prove that scheduled content played.
 

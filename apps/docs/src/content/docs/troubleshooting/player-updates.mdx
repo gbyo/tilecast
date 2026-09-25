@@ -1,30 +1,38 @@
 ---
 title: Player updates
-description: Diagnose Android or Linux Player releases that cannot verify, deploy, download, or install.
+description: Troubleshoot Android or Linux Player releases that cannot verify, download, install, or finish deploying.
 ---
 
 ## A release is unavailable
 
-A Player release must be published, verified, and cached before Studio can deploy it. Check the expected release files in **Settings** > **Player updates** and review any verification error.
+A Player release must be published, verified, and cached before Studio can deploy it.
 
-GitHub synchronization can stop at the API rate limit. When that happens, connect the configured GitHub account or provide the deployment's supported GitHub token configuration.
+Open **Settings** > **Player updates**, check the expected release files, and review any verification error.
+
+GitHub synchronization can stop when the API rate limit is reached. If that happens, connect the configured GitHub account or use the supported GitHub token configuration for your deployment.
 
 ## Android waits for approval
 
-Android or Fire OS can require local permission to install apps or a confirmation prompt for an update. Commissioning checks the install permission, but firmware can still require a person at the display.
+Android or Fire OS may require local permission to install apps or may show a confirmation prompt for an update.
 
-A certificate mismatch means the installed Player and the new release were signed with different Android keys. Android cannot update one over the other. Install the production-signed Player and keep the same production signing key for later releases.
+Commissioning checks the install permission, but the device firmware can still require someone at the screen.
+
+If Android reports a signing-certificate mismatch, the installed Player and the new release were signed with different keys. Android cannot install one as an update over the other. Use the production-signed Player and keep the same production signing key for future releases.
 
 ## Linux does not restart into the update
 
-The stable Linux update path applies to the managed AppImage installation. Current Tilecast-generated services are systemd **user** units, so manage them with `systemctl --user`, not the system manager.
+The stable Linux update flow is for Tilecast's managed AppImage installation.
 
-If an older installation has a hand-written service or an obsolete AppImage startup path, use the current Linux setup/autostart flow before expecting Studio-driven replacement to work.
+Current Tilecast Linux installs use systemd **user** services, so manage them with `systemctl --user`, not the system service manager.
 
-## Canary deployment paused
+If an older Player uses a custom service or obsolete AppImage startup method, move it to the current Linux setup before expecting Studio-driven updates to work.
 
-A canary deployment waits for its canary screens to finish and reconnect. An explicit failure, safe mode, or missed reconnect can pause the rest of the deployment.
+## A canary deployment paused
 
-Review the failed screen rather than bypassing the canary and pushing the same release to the remaining fleet.
+A canary deployment waits for the selected canary screens to finish updating and reconnect.
+
+If one fails, enters safe mode, or never reconnects, Tilecast can pause the rest of the deployment.
+
+Check the failed screen before pushing the same release to the rest of the fleet.
 
 See [Update Tilecast Player](../../administration/player-updates/) for the deployment workflow.
