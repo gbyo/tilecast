@@ -32,7 +32,7 @@ use edge_server::updates::{UpdateMetadata, UpdateReport, UpdateReportOutcome};
 use edge_state::repo::updates::{self as jobs, JobState};
 use edge_state::{OpenOptions, StateDb};
 use futures_util::StreamExt as _;
-use tilecast_edge_update::host::{EDGE_DAEMON, EDGE_RENDERER, HostError, UpdateHost};
+use tilecast_edge_update::host::{EDGE_DAEMON, EDGE_RENDERER, HostError, UnitActivity, UpdateHost};
 use tilecast_edge_update::transaction::TransactionStore;
 use tilecast_edge_update::updater::{CrashPoint, HelperPaths, Timing, Updater};
 use tilecastd::update::{
@@ -157,6 +157,9 @@ impl UpdateHost for Host {
             }
         });
         Ok(())
+    }
+    async fn activity(&self, unit: &str) -> Result<UnitActivity, HostError> {
+        Ok(if self.with(|m| m.active.contains(unit)) { UnitActivity::Running } else { UnitActivity::Inactive })
     }
     async fn reload(&self) -> Result<(), HostError> {
         Ok(())

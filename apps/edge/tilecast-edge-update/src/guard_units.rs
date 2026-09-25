@@ -30,6 +30,11 @@ Type=oneshot
 ExecStart={helper} guard
 TimeoutStartSec=15min
 UMask=0077
+# The helper's sandbox (tilecast-edge-update.service).
+ProtectSystem=strict
+ReadWritePaths=/etc /opt/tilecast-edge /var/lib/tilecast-edge-update -/var/lib/tilecast-edge
+ReadWritePaths=-/usr/lib/sysusers.d -/usr/lib/tmpfiles.d -/usr/lib/udev/rules.d -/usr/lib/modules-load.d
+NoNewPrivileges=yes
 ProtectHome=yes
 PrivateTmp=yes
 PrivateDevices=yes
@@ -46,6 +51,7 @@ RestrictAddressFamilies=AF_UNIX
 SystemCallArchitectures=native
 MemoryDenyWriteExecute=yes
 IPAddressDeny=any
+CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH CAP_FOWNER CAP_FSETID
 
 [Install]
 WantedBy=multi-user.target
@@ -82,5 +88,12 @@ mod tests {
         assert!(!text.contains("/current/"), "never the candidate's helper");
         assert!(text.contains("Before=tilecast-edge.service tilecast-renderer.service"));
         assert!(timer().contains("OnUnitActiveSec=30s"));
+        let helper = include_str!("../../packaging/systemd/tilecast-edge-update.service");
+        for line in
+            ["CapabilityBoundingSet=", "ProtectSystem=strict", "NoNewPrivileges=yes", "RestrictAddressFamilies="]
+        {
+            let expected = helper.lines().find(|l| l.starts_with(line)).unwrap();
+            assert!(text.lines().any(|l| l == expected), "the guard shares the helper's {line}");
+        }
     }
 }

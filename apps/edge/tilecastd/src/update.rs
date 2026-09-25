@@ -748,6 +748,8 @@ fn safe_code(code: &str) -> &'static str {
         "rebooted_while_provisional",
         "candidate_daemon_restarting",
         "candidate_renderer_restarting",
+        "candidate_daemon_failed",
+        "candidate_renderer_failed",
         "candidate_safe_mode",
         "activation_interrupted",
         "operator_requested",

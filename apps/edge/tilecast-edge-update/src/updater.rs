@@ -35,7 +35,7 @@ use edge_release::manifest::{ReleaseError, hex, is_version_name, verify_manifest
 use edge_release::protocol::{HelperStatus, MAX_LISTED_VERSIONS, Phase, ReleaseRef};
 use sha2::{Digest as _, Sha256};
 
-use crate::host::{EDGE_DAEMON, EDGE_RENDERER, HostError, UpdateHost};
+use crate::host::{EDGE_DAEMON, EDGE_RENDERER, HostError, UnitActivity, UpdateHost};
 use crate::transaction::{SCHEMA_VERSION, StateError, Transaction, TransactionStore};
 
 /// Free space kept on the helper's filesystem after the private archive copy.
@@ -67,6 +67,20 @@ impl Default for Timing {
             poll: Duration::from_secs(2),
         }
     }
+}
+
+/// Whether a rollback waits to see the previous daemon come up, to record a
+/// refused newer state schema.
+///
+/// The guard never waits: its unit is ordered before the Edge units, so the
+/// previous daemon's start job waits for the guard to exit, and waiting for
+/// that daemon here would only hold the screen dark for
+/// [`Timing::after_rollback_wait`]. After a guard rollback the refusal is
+/// reported by the previous daemon's own status (`recovery_reason`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Watch {
+    Previous,
+    No,
 }
 
 /// The fixed roots the helper reads from.
@@ -375,7 +389,7 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
             Err(error) => {
                 let reason = format!("activation_failed_{}", error.reason_code());
                 tracing::error!(component = "update", event = "activation_failed", error = %error);
-                self.rollback_transaction(&mut transaction, &reason).await?;
+                self.rollback_transaction(&mut transaction, &reason, Watch::Previous).await?;
                 Ok(transaction)
             }
         }
@@ -402,6 +416,7 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
         install_system_files(&candidate_dir, &self.layout)?;
         self.crash(CrashPoint::AfterSystemFiles)?;
         switch_current(&self.layout, &transaction.candidate.version_name)?;
+        tracing::info!(component = "update", event = "current_switched", version = %transaction.candidate.version_name);
         self.crash(CrashPoint::AfterCurrentSwitched)?;
         self.host.reload().await?;
         self.host.apply_system_configuration().await?;
@@ -410,8 +425,11 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
         transaction.boot_id = Some(self.host.boot_id());
         transaction.provisional_since_ms = Some(now);
         transaction.deadline_ms = Some(now + self.timing.provisional.as_millis() as i64);
-        transaction.daemon_restarts_base = self.host.restarts(EDGE_DAEMON).await.ok();
-        transaction.renderer_restarts_base = self.host.restarts(EDGE_RENDERER).await.ok();
+        // `start` resets systemd's restart counters, so the candidate's
+        // restarts count from zero whoever starts it: this activation, or the
+        // guard after an interruption.
+        transaction.daemon_restarts_base = Some(0);
+        transaction.renderer_restarts_base = Some(0);
         self.save(transaction, Phase::Provisional, "candidate is current; waiting for confirmation")?;
         self.crash(CrashPoint::AfterProvisionalSaved)?;
         self.host.start(EDGE_DAEMON).await?;
@@ -448,7 +466,7 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
             _ => return Err(UpdateError::Refused("not_provisional")),
         }
         if let Some(reason) = self.expired(&transaction) {
-            self.rollback_transaction(&mut transaction, reason).await?;
+            self.rollback_transaction(&mut transaction, reason, Watch::Previous).await?;
             return Err(UpdateError::Refused(reason));
         }
         let status = self.host.daemon_status().await;
@@ -506,14 +524,19 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
             Phase::Confirmed | Phase::ConfirmIntent => Err(UpdateError::Refused("already_confirmed")),
             Phase::RolledBack => Ok(transaction),
             Phase::ActivateIntent | Phase::Provisional | Phase::RollbackIntent => {
-                self.rollback_transaction(&mut transaction, reason).await?;
+                self.rollback_transaction(&mut transaction, reason, Watch::Previous).await?;
                 Ok(transaction)
             }
         }
     }
 
     /// Idempotent: a crash at any point is finished by running it again.
-    async fn rollback_transaction(&self, transaction: &mut Transaction, reason: &str) -> Result<(), UpdateError> {
+    async fn rollback_transaction(
+        &self,
+        transaction: &mut Transaction,
+        reason: &str,
+        watch: Watch,
+    ) -> Result<(), UpdateError> {
         if transaction.phase != Phase::RollbackIntent {
             transaction.reason = Some(reason.chars().take(64).collect());
             self.save(transaction, Phase::RollbackIntent, reason)?;
@@ -538,6 +561,7 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
         install_system_files(&previous_dir, &self.layout)?;
         self.crash(CrashPoint::AfterRollbackSystemFiles)?;
         switch_current(&self.layout, &transaction.previous.version_name)?;
+        tracing::info!(component = "update", event = "current_switched", version = %transaction.previous.version_name);
         self.crash(CrashPoint::AfterRollbackCurrent)?;
         self.host.reload().await?;
         self.host.apply_system_configuration().await?;
@@ -549,7 +573,9 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
         self.crash(CrashPoint::AfterRollbackGuardDisarmed)?;
         let detail = format!("rolled back to {}", transaction.previous.version_name);
         self.save(transaction, Phase::RolledBack, &detail)?;
-        self.watch_previous(transaction).await?;
+        if watch == Watch::Previous {
+            self.watch_previous(transaction).await?;
+        }
         self.store.archive(transaction)?;
         Ok(())
     }
@@ -606,16 +632,20 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
                 self.host.disarm_guard().await?;
                 self.store.archive(&transaction)?;
             }
-            Phase::ActivateIntent => self.rollback_transaction(&mut transaction, "activation_interrupted").await?,
+            Phase::ActivateIntent => {
+                self.rollback_transaction(&mut transaction, "activation_interrupted", Watch::No).await?;
+            }
             Phase::RollbackIntent => {
                 let reason = transaction.reason.clone().unwrap_or_else(|| "rollback_interrupted".into());
-                self.rollback_transaction(&mut transaction, &reason).await?;
+                self.rollback_transaction(&mut transaction, &reason, Watch::No).await?;
             }
             Phase::ConfirmIntent => self.finish_confirm(&mut transaction).await?,
             Phase::Provisional => {
                 let restarted = |now: Result<u64, HostError>, base: Option<u64>, limit: u64| {
                     now.ok().zip(base).is_some_and(|(now, base)| now.saturating_sub(base) > limit)
                 };
+                let daemon = self.host.activity(EDGE_DAEMON).await.ok();
+                let renderer = self.host.activity(EDGE_RENDERER).await.ok();
                 let reason = if let Some(reason) = self.expired(&transaction) {
                     Some(reason)
                 } else if restarted(
@@ -630,17 +660,26 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
                     self.timing.renderer_restart_limit,
                 ) {
                     Some("candidate_renderer_restarting")
+                } else if daemon == Some(UnitActivity::Failed) {
+                    // systemd stopped restarting it (its start limit).
+                    Some("candidate_daemon_failed")
+                } else if renderer == Some(UnitActivity::Failed) {
+                    Some("candidate_renderer_failed")
                 } else {
                     None
                 };
                 if let Some(reason) = reason {
-                    self.rollback_transaction(&mut transaction, reason).await?;
+                    self.rollback_transaction(&mut transaction, reason, Watch::No).await?;
                 } else {
                     // An activation interrupted after `Provisional` may not
-                    // have started the candidate; starting a running unit
-                    // changes nothing.
-                    let _ = self.host.start(EDGE_DAEMON).await;
-                    let _ = self.host.start(EDGE_RENDERER).await;
+                    // have started the candidate. Only a stopped unit is
+                    // started: `start` resets the restart counter, and a
+                    // crashing candidate's restarts are the evidence above.
+                    for (unit, activity) in [(EDGE_DAEMON, daemon), (EDGE_RENDERER, renderer)] {
+                        if activity == Some(UnitActivity::Inactive) {
+                            let _ = self.host.start(unit).await;
+                        }
+                    }
                 }
             }
         }

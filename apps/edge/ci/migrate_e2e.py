@@ -144,7 +144,9 @@ def migrate(expect_code, settle=120):
 def setup():
     os.makedirs(WORK, exist_ok=True)
     environment = env()
-    run("cargo", "build", "-q", "--locked", "-p", "tilecastd", "-p", "tilecastctl", cwd=EDGE, env=environment)
+    # The update helper as it ships, without the integration-test feature.
+    run("cargo", "build", "-q", "--locked", "-p", "tilecastd", "-p", "tilecastctl", "-p", "tilecast-edge-update",
+        cwd=EDGE, env=environment)
     run("cargo", "build", "-q", "--locked", "-p", "tilecast-edge-migrate", "--features", "integration-test",
         cwd=EDGE, env=environment)
     run("cmake", "-S", os.path.join(EDGE, "renderer-wpe"), "-B", RENDERER_BUILD, "-G", "Ninja",
@@ -226,6 +228,9 @@ def setup():
         "TILECAST_UPDATE_ROOT": os.path.join(WORK, "server-updates"),
         "TILECAST_BACKUP_ROOT": os.path.join(WORK, "server-backups"),
         "TILECAST_FFMPEG_PATH": shutil.which("ffmpeg"), "TILECAST_FFPROBE_PATH": shutil.which("ffprobe"),
+        # The server trusts the same throwaway key for Player releases
+        # (update_e2e.py uploads Edge releases signed with it).
+        "TILECAST_UPDATE_MANIFEST_PUBLIC_KEY": base64.b64encode(public).decode(),
     })
     start_server()
     client = e2e.Client()

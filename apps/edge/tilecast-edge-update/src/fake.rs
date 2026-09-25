@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use edge_protocol::bounded::ShortToken;
 use edge_protocol::ipc::status::{DaemonMode, DaemonStatus};
 
-use crate::host::{EDGE_DAEMON, EDGE_RENDERER, HostError, UpdateHost};
+use crate::host::{EDGE_DAEMON, EDGE_RENDERER, HostError, UnitActivity, UpdateHost};
 
 /// How the daemon of a version behaves once it runs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -36,6 +36,8 @@ pub struct FakeState {
     pub reloads: u32,
     pub configuration_runs: u32,
     pub restarts: HashMap<String, u64>,
+    /// Units systemd gave up on.
+    pub failed: BTreeSet<String>,
     pub boot_id: String,
     pub boottime_ms: i64,
     /// The version whose daemon runs (what `current` named at its start).
@@ -59,6 +61,7 @@ impl FakeHost {
                 reloads: 0,
                 configuration_runs: 0,
                 restarts: HashMap::new(),
+                failed: BTreeSet::new(),
                 boot_id: "boot-1".into(),
                 boottime_ms: 1_000_000,
                 running_version: None,
@@ -140,12 +143,27 @@ impl UpdateHost for FakeHost {
     async fn start(&self, unit: &str) -> Result<(), HostError> {
         let version = self.current();
         self.with(|s| {
+            // As systemd's reset-failed and start: the counter restarts.
+            s.restarts.remove(unit);
+            s.failed.remove(unit);
             if s.active.insert(unit.to_owned()) && unit == EDGE_DAEMON {
                 s.running_version = version;
             }
             s.log.push(format!("start {unit}"));
         });
         Ok(())
+    }
+
+    async fn activity(&self, unit: &str) -> Result<UnitActivity, HostError> {
+        Ok(self.with(|s| {
+            if s.failed.contains(unit) {
+                UnitActivity::Failed
+            } else if s.active.contains(unit) {
+                UnitActivity::Running
+            } else {
+                UnitActivity::Inactive
+            }
+        }))
     }
 
     async fn reload(&self) -> Result<(), HostError> {

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# M7 migration integration test: tilecast-edge-migrate against real systemd,
-# a real Tilecast Server and a lingering kiosk account with a legacy player
-# user unit, including a power loss during settlement. Run from the
+# M7 migration and M10 update integration test: tilecast-edge-migrate and
+# tilecast-edge-update against real systemd, a real Tilecast Server and a
+# lingering kiosk account with a legacy player user unit, including a power
+# loss during settlement and a power loss while an update is provisional. Run from the
 # repository root after building the images and the Player Runtime:
 #
 #   docker build -t tilecast-edge-migrate-e2e -f apps/edge/ci/Dockerfile.migrate apps/edge/ci
@@ -40,4 +41,17 @@ docker kill "$name" >/dev/null
 start
 inside after-reboot
 inside accept
+# M10: updates of the accepted Edge through the real helper (update_e2e.py).
+update() {
+  echo "== $1"
+  docker exec "$name" python3 /src/apps/edge/ci/update_e2e.py "$1"
+}
+update update-releases
+update update-success
+update update-provisional
+echo "== power loss while provisional"
+docker kill "$name" >/dev/null
+start
+update update-after-reboot
+update update-broken
 echo "migrate-e2e: all phases passed"

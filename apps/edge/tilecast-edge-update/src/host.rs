@@ -35,13 +35,29 @@ impl HostError {
     }
 }
 
+/// What systemd reports for a unit (`ActiveState`), reduced to what the
+/// guard decides on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UnitActivity {
+    /// Active, activating, reloading or deactivating, including a service
+    /// waiting for its automatic restart.
+    Running,
+    /// Stopped, or never started.
+    Inactive,
+    /// systemd gave up on it, for example after its start limit.
+    Failed,
+}
+
 #[async_trait]
 pub trait UpdateHost: Send + Sync {
     /// Stops a unit and waits for its stop job.
     async fn stop(&self, unit: &str) -> Result<(), HostError>;
-    /// Queues a start job and returns: the candidate may take a while, and
-    /// the guard, not this call, decides whether it came up.
+    /// Clears the unit's failed state, which also sets systemd's restart
+    /// counter (`NRestarts`) to zero, queues a start job and returns: the
+    /// candidate may take a while, and the guard, not this call, decides
+    /// whether it came up.
     async fn start(&self, unit: &str) -> Result<(), HostError>;
+    async fn activity(&self, unit: &str) -> Result<UnitActivity, HostError>;
     /// `systemctl daemon-reload`.
     async fn reload(&self) -> Result<(), HostError>;
     /// `systemd-sysusers` and `systemd-tmpfiles --create` for the Edge
@@ -52,7 +68,8 @@ pub trait UpdateHost: Send + Sync {
     async fn arm_guard(&self, previous_version: &str) -> Result<(), HostError>;
     /// Stops, disables and removes the guard units. Idempotent.
     async fn disarm_guard(&self) -> Result<(), HostError>;
-    /// systemd's `NRestarts` for a unit.
+    /// systemd's `NRestarts` for a unit: automatic restarts since the last
+    /// [`UpdateHost::start`].
     async fn restarts(&self, unit: &str) -> Result<u64, HostError>;
     /// The daemon's status over its socket, or `None` if it does not answer.
     async fn daemon_status(&self) -> Option<DaemonStatus>;

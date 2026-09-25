@@ -24,9 +24,15 @@ UMask=0077
 # writes /opt/tilecast-edge, the unit and system configuration directories,
 # its own state directory, and (through systemd-sysusers and
 # systemd-tmpfiles) the account databases and Edge's directories. It reads
-# tilecastd's content store to copy a verified archive.
+# tilecastd's content store to copy a verified archive. Everything else is
+# read-only to it: /usr outside the four Edge configuration directories,
+# /boot and /efi. The guard units (guard_units.rs) use the same sandbox.
 StateDirectory=tilecast-edge-update
 StateDirectoryMode=0700
+ProtectSystem=strict
+ReadWritePaths=/etc /opt/tilecast-edge -/var/lib/tilecast-edge
+ReadWritePaths=-/usr/lib/sysusers.d -/usr/lib/tmpfiles.d -/usr/lib/udev/rules.d -/usr/lib/modules-load.d
+NoNewPrivileges=yes
 ProtectHome=yes
 PrivateTmp=yes
 PrivateDevices=yes

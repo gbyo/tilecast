@@ -19,7 +19,7 @@ use edge_protocol::ipc::method::{Empty, Method};
 use edge_protocol::ipc::status::DaemonStatus;
 use zbus::zvariant::OwnedObjectPath;
 
-use crate::host::{GUARD_SERVICE, GUARD_TIMER, HostError, UpdateHost};
+use crate::host::{GUARD_SERVICE, GUARD_TIMER, HostError, UnitActivity, UpdateHost};
 
 const EDGE_SOCKET: &str = "/run/tilecast-edge/edge.sock";
 const JOB_TIMEOUT: Duration = Duration::from_secs(90);
@@ -131,6 +131,16 @@ impl UpdateHost for LinuxHost {
         let _ = manager.reset_failed_unit(unit).await;
         manager.start_unit(unit, "replace").await.map_err(|e| failed(unit, e))?;
         Ok(())
+    }
+
+    async fn activity(&self, unit: &str) -> Result<UnitActivity, HostError> {
+        let path = self.manager().await?.load_unit(unit).await.map_err(|e| failed(unit, e))?;
+        let state: String = self.property(&path, "org.freedesktop.systemd1.Unit", "ActiveState").await?;
+        Ok(match state.as_str() {
+            "inactive" => UnitActivity::Inactive,
+            "failed" => UnitActivity::Failed,
+            _ => UnitActivity::Running,
+        })
     }
 
     async fn reload(&self) -> Result<(), HostError> {

@@ -477,3 +477,60 @@ async fn the_socket_serves_one_request_per_connection_and_refuses_disallowed_pee
         assert_eq!(response.code, expected);
     }
 }
+
+#[tokio::test]
+async fn restarts_of_the_previous_daemon_do_not_raise_the_candidates_limit() {
+    let world = World::new();
+    world.staged("0.2.0").await;
+    // The previous daemon crashed and was restarted before this update.
+    world.host.with(|s| s.restarts.insert(EDGE_DAEMON.into(), 7));
+    world.updater(None).activate("0.2.0").await.unwrap();
+    world.host.with(|s| s.restarts.insert(EDGE_DAEMON.into(), 4));
+    world.updater(None).guard().await.unwrap();
+    world.assert_consistent(Phase::RolledBack);
+    assert_eq!(world.latest().reason.as_deref(), Some("candidate_daemon_restarting"));
+}
+
+#[tokio::test]
+async fn a_guard_tick_keeps_the_candidates_restart_count() {
+    let world = World::new();
+    world.staged("0.2.0").await;
+    world.updater(None).activate("0.2.0").await.unwrap();
+    world.host.with(|s| s.restarts.insert(EDGE_DAEMON.into(), 2));
+    world.updater(None).guard().await.unwrap();
+    assert_eq!(world.store.load().unwrap().unwrap().phase, Phase::Provisional);
+    assert_eq!(world.host.with(|s| s.restarts.get(EDGE_DAEMON).copied()), Some(2), "the guard did not restart it");
+    world.host.with(|s| s.restarts.insert(EDGE_DAEMON.into(), 4));
+    world.updater(None).guard().await.unwrap();
+    world.assert_consistent(Phase::RolledBack);
+}
+
+#[tokio::test]
+async fn a_candidate_unit_that_systemd_gave_up_on_is_rolled_back() {
+    for (unit, reason) in [(EDGE_DAEMON, "candidate_daemon_failed"), (EDGE_RENDERER, "candidate_renderer_failed")] {
+        let world = World::new();
+        world.staged("0.2.0").await;
+        world.updater(None).activate("0.2.0").await.unwrap();
+        world.host.with(|s| {
+            s.active.remove(unit);
+            s.failed.insert(unit.into());
+        });
+        world.updater(None).guard().await.unwrap();
+        world.assert_consistent(Phase::RolledBack);
+        assert_eq!(world.latest().reason.as_deref(), Some(reason));
+    }
+}
+
+#[tokio::test]
+async fn a_guard_rollback_never_waits_for_the_previous_daemon() {
+    let world = World::new();
+    world.staged("0.2.0").await;
+    world.host.with(|s| s.behavior.insert("0.1.0".into(), Behavior::Silent));
+    world.updater(None).activate("0.2.0").await.unwrap();
+    world.host.power_loss();
+    let before = world.host.with(|s| s.boottime_ms);
+    world.updater(None).guard().await.unwrap();
+    assert_eq!(world.host.with(|s| s.boottime_ms), before, "the Edge units wait for the guard to exit");
+    world.host.boot_edge();
+    world.assert_consistent(Phase::RolledBack);
+}
