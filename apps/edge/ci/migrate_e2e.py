@@ -433,6 +433,11 @@ def tilecast_systemctl(*argv):
     return subprocess.run(["systemctl", "--user", "--machine=tilecast@.host", *argv], capture_output=True, text=True)
 
 
+def bridge_pid():
+    shown = tilecast_systemctl("show", "--property=MainPID", "tilecast-session-bridge.service").stdout.strip()
+    return int(shown.split("=", 1)[1])
+
+
 def print_bridge_diagnostics():
     """What the tilecast session, the bridge and tilecastd saw."""
     uid = pwd.getpwnam("tilecast").pw_uid
@@ -468,10 +473,21 @@ def check_hardware_packaging():
     assert os.path.exists("/usr/lib/udev/rules.d/70-tilecast-display.rules")
     assert os.path.exists("/usr/lib/modules-load.d/tilecast-edge.conf")
     assert os.path.exists("/var/lib/systemd/linger/tilecast"), "tilecast lingers so its session starts at boot"
+    # The packaged configuration asks logind for the idle lock (test harnesses
+    # alone turn it off); whether logind grants it depends on the host.
+    listed = json.loads(output("/opt/tilecast-edge/current/bin/tilecastctl", "--json", "capabilities"))
+    idle = next(c for c in listed["capabilities"] if c["id"] == "system.idle_inhibit")
+    assert idle.get("reasonCode") != "not_requested", idle
+    print(f"accept: system.idle_inhibit is {idle['state']} ({idle.get('reasonCode', 'lock held')})")
+    def bridge_running():
+        # Running, and not crash-looping: `is-active` alone is true for the
+        # moment between each failed start and its restart.
+        shown = tilecast_systemctl("show", "--property=SubState,NRestarts,ExecMainStatus",
+                                   "tilecast-session-bridge.service").stdout
+        return "SubState=running" in shown and "NRestarts=0" in shown
+
     try:
-        e2e.wait_for(
-            lambda: tilecast_systemctl("is-active", "tilecast-session-bridge.service").stdout.strip() == "active",
-            "the session bridge started by its path unit", 90)
+        e2e.wait_for(bridge_running, "the session bridge started by its path unit and still running", 90)
     except AssertionError:
         print_bridge_diagnostics()
         raise
@@ -480,6 +496,9 @@ def check_hardware_packaging():
     for expected in ("RestrictAddressFamilies=AF_UNIX", "PrivateDevices=yes", "ProtectHome=tmpfs",
                      "NoNewPrivileges=yes", "MemoryDenyWriteExecute=yes"):
         assert expected in sandbox, (expected, sandbox)
+    effective = subprocess.run(["grep", "-E", "^Cap(Eff|Prm|Bnd)", f"/proc/{bridge_pid()}/status"],
+                               capture_output=True, text=True).stdout
+    assert "CapEff:\t0000000000000000" in effective and "CapPrm:\t0000000000000000" in effective, effective
 
     def bridge_connected():
         capabilities = json.loads(output("/opt/tilecast-edge/current/bin/tilecastctl", "--json", "capabilities"))
