@@ -462,6 +462,36 @@ def print_bridge_diagnostics():
               flush=True)
 
 
+BRIDGE_SANDBOX_VARIANTS = (
+    ("none", []),
+    ("PrivateUsers", ["PrivateUsers=yes"]),
+    ("PrivateUsers+ProtectSystem", ["PrivateUsers=yes", "ProtectSystem=strict"]),
+    ("PrivateUsers+ProtectHome", ["PrivateUsers=yes", "ProtectHome=tmpfs", "BindReadOnlyPaths=%t"]),
+    ("PrivateUsers+PrivateTmp", ["PrivateUsers=yes", "PrivateTmp=yes"]),
+    ("PrivateUsers+InaccessiblePaths", ["PrivateUsers=yes",
+                                        "InaccessiblePaths=-/var/lib/tilecast-edge -/run/tilecast -/dev/snd"]),
+    ("PrivateUsers+ProtectKernelTunables+ControlGroups", ["PrivateUsers=yes", "ProtectKernelTunables=yes",
+                                                          "ProtectControlGroups=yes"]),
+    ("seccomp", ["NoNewPrivileges=yes", "RestrictAddressFamilies=AF_UNIX", "SystemCallFilter=@system-service",
+                 "MemoryDenyWriteExecute=yes", "RestrictNamespaces=yes", "LockPersonality=yes"]),
+)
+
+
+def probe_bridge_sandbox():
+    """Which sandbox option keeps the bridge's account from connecting to
+    tilecastd's socket: the same connect() under each subset."""
+    connect = ("import socket; s = socket.socket(socket.AF_UNIX); "
+               "s.connect('/run/tilecast-edge/edge.sock'); print('connected')")
+    for label, properties in BRIDGE_SANDBOX_VARIANTS:
+        argv = ["systemd-run", "--user", "--machine=tilecast@.host", "--wait", "--pipe", "--quiet"]
+        for prop in properties:
+            argv += ["-p", prop]
+        result = subprocess.run(argv + ["/usr/bin/python3", "-c", connect], capture_output=True, text=True,
+                                timeout=60)
+        outcome = result.stdout.strip() or result.stderr.strip().splitlines()[-1:]
+        print(f"bridge sandbox probe [{label}]: exit {result.returncode}: {outcome}", flush=True)
+
+
 def check_hardware_packaging():
     """M9 packaging on a real systemd: the display group and device policy of
     the daemon, and the session bridge in the lingering tilecast session with
@@ -520,6 +550,7 @@ def check_hardware_packaging():
         noise = e2e.wait_for(bridge_connected, "the session bridge connected to tilecastd", 90)
     except AssertionError:
         print_bridge_diagnostics()
+        probe_bridge_sandbox()
         raise
     print(f"accept: the session bridge runs sandboxed in the tilecast session; audio.noise_meter is "
           f"{noise['state']} ({noise.get('reasonCode', 'no reason')})")
