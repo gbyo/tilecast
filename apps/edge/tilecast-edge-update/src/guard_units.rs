@@ -34,6 +34,7 @@ UMask=0077
 ProtectSystem=strict
 ReadWritePaths=/etc /opt/tilecast-edge /var/lib/tilecast-edge-update -/var/lib/tilecast-edge
 ReadWritePaths=-/usr/lib/sysusers.d -/usr/lib/tmpfiles.d -/usr/lib/udev/rules.d -/usr/lib/modules-load.d
+InaccessiblePaths=-/var/lib/tilecast-edge/identity
 NoNewPrivileges=yes
 ProtectHome=yes
 PrivateTmp=yes
@@ -89,9 +90,13 @@ mod tests {
         assert!(text.contains("Before=tilecast-edge.service tilecast-renderer.service"));
         assert!(timer().contains("OnUnitActiveSec=30s"));
         let helper = include_str!("../../packaging/systemd/tilecast-edge-update.service");
-        for line in
-            ["CapabilityBoundingSet=", "ProtectSystem=strict", "NoNewPrivileges=yes", "RestrictAddressFamilies="]
-        {
+        for line in [
+            "CapabilityBoundingSet=",
+            "ProtectSystem=strict",
+            "InaccessiblePaths=",
+            "NoNewPrivileges=yes",
+            "RestrictAddressFamilies=",
+        ] {
             let expected = helper.lines().find(|l| l.starts_with(line)).unwrap();
             assert!(text.lines().any(|l| l == expected), "the guard shares the helper's {line}");
         }

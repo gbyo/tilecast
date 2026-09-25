@@ -94,7 +94,7 @@ It owns:
 - SQLite state and crash recovery;
 - the renderer relationship: what to show, whether it is shown, and recovery;
 - capability probing;
-- update staging;
+- update jobs: verifying, downloading and asking the update helper (§15) to stage, activate and confirm;
 - the bounded telemetry and Activity outbox;
 - local administration over IPC (`tilecastctl`).
 
@@ -113,6 +113,8 @@ Edge 1 adds no general root daemon. Operations that need root keep the existing 
 Display control and input use udev rules and group membership, not root. The udev rule gives HDMI-CEC adapters and the I2C buses of display adapters to the `tilecast-display` group. Only `tilecast-edge.service` joins that group (`SupplementaryGroups=`), and `DevicePolicy=closed` with `DeviceAllow=char-cec rw` and `DeviceAllow=char-i2c rw` limits the daemon to those device classes. The `tilecast` account is not a member, so the renderer and the session bridge do not get the group.
 
 A new root operation needs a written threat-boundary review before it is added.
+
+M10 adds one root helper, `tilecast-edge-update`, with a written review in [`tilecast-edge-update-threat-review.md`](tilecast-edge-update-threat-review.md). It has five fixed operations (`stage`, `activate`, `confirm`, `rollback`, `status`) on a socket that only `tilecast-edge.service` may use, no network, no device credential, and no path, unit or command input. §15 describes it.
 
 ### 4.4 Session bridge (amendment, M9)
 
@@ -156,12 +158,17 @@ The bridge is optional. A missing user session, bridge, PipeWire or microphone n
     state.db                          SQLite metadata
     identity/                         0700: device-credential (0600)
     cas/sha256/<ab>/<64 hex>          verified immutable objects
-    partial/<64 hex>.part             resumable downloads
-    updates/                          staged release artifacts
+    partial/<64 hex>.part             resumable downloads (update archives too)
     diagnostics/                      bounded local diagnostics
 /run/tilecast-edge/                   RuntimeDirectory, 0750
     edge.sock                         IPC socket, 0660 tilecast:tilecast
-/opt/tilecast-edge/<version>/         installed release
+/var/lib/tilecast-edge-update/        the update helper's state, 0700 root
+    transaction.json                  open update transaction, 0600
+    previous.json                     last finished transaction, 0600
+    work/                             private archive copy while staging
+/run/tilecast-edge-update/
+    update.sock                       update helper socket, 0660 root:tilecast
+/opt/tilecast-edge/<version>/         installed release, root-owned, immutable
 /opt/tilecast-edge/current            symbolic link to the active release
 ```
 
@@ -171,7 +178,8 @@ Rules:
 - `cas/` and `partial/` are on the state directory's filesystem, so promotion is an atomic `rename(2)` followed by a directory `fsync`.
 - The device credential is a file, never a database value.
 - The state database is never served to any client.
-- The renderer unit cannot read `identity/`, `state.db` or `partial/`.
+- The renderer unit cannot read `identity/`, `state.db` or `partial/`, and cannot reach the update helper's socket.
+- An update archive is a content-store object like any other; there is no separate download directory.
 
 ## 6. Local state
 
@@ -390,17 +398,47 @@ A server-side migration session with a separate candidate credential is not part
 
 ## 15. Updates
 
-Release authorization stays on the server, as for the Android and Electron players. Edge 1 update basics:
+Tilecast Edge updates are Player updates. The Tilecast Server authorizes every deployment with the existing Player Updates model (releases, deployments, canary, maintenance windows, cancel and retry), and a screen installs only what a deployment names. `systemd-sysupdate` was prototyped and is not used ([`tilecast-edge-m10-sysupdate-evaluation.md`](tilecast-edge-m10-sysupdate-evaluation.md)): on the tested systemd versions it did not unpack the Tilecast `.tar.zst` archive, it verifies no local source, it cannot send the device credential, and it has no install-without-activation or rollback step. Debian 12 does not ship it. Mender is not a candidate.
 
-- releases are signed artifacts published from the fixed release workflow; the player verifies the signature and digest before staging;
-- artifacts are downloaded through the CAS like any other object and pinned while staged;
-- a release is installed into a new `/opt/tilecast-edge/<version>/` directory; activation switches the `current` link atomically; the previous version stays for rollback;
-- success is provisional until the new version reconnects and reports meaningful playback; otherwise the previous version is restored;
-- the state schema migration of a new version runs only after activation, and a downgraded daemon refuses a newer schema (§6.1) instead of writing to it.
+```text
+ Tilecast Server
+   |  install_player_update, update metadata and archive (device credential)
+   v
+ tilecastd --- durable update job (state.db), archive in the content store
+   |
+   |  /run/tilecast-edge-update/update.sock
+   v
+ tilecast-edge-update (root)
+   |- stage      verify, unpack into /opt/tilecast-edge/<version>/
+   |- activate   switch current, provisional
+   |- confirm    end the provisional window
+   '- rollback   return to the previous release
+          ^
+          |  tilecast-edge-update-guard (the previous release's binary):
+          |  at boot before Edge, and every 30 s while provisional
+```
 
-`tilecastd` never replaces its own binaries in place. The privileged activation step is a narrow, separately reviewed helper (§4.3).
+### 15.1 Releases and targeting
 
-M10 must first prototype `systemd-sysupdate` (transfer definitions, verified downloads, versioned installs under `/opt/tilecast-edge/<version>/`) and use it where it meets these rules. Custom update code is written only for a gap that the prototype shows. Mender is not a candidate.
+- A release is a Player release of the `edge` family with an architecture (`x86_64` or `aarch64`). Android releases are the `android` family and the Electron Linux Player's are `electron-linux`. The server targets an Edge release only at screens whose heartbeat reports `playerFamily: "edge"` and that architecture; an Electron release never reaches an Edge screen, and Electron refuses an Edge release.
+- A release is the M7 release tree (every file listed with size, SHA-256 and mode in `tilecast-edge-release.json`, signed with the Tilecast Ed25519 update key), packed as `tilecast-edge-<version>-<arch>.tar.zst`, and a signed update envelope (`tilecast-edge-update.json`) that binds the archive's name, size and SHA-256 to the release manifest's and the SBOM's digests, the version and the state schema. The same key signs both, in the same way. The server, `tilecastd` and the helper each verify the envelope.
+
+### 15.2 Download and staging
+
+- `install_player_update` only writes a durable job and answers `update_accepted`. The update coordinator in `tilecastd` then moves the job through `accepted`, `verified`, `downloaded`, `staged`, `activating`, `provisional` and a terminal state, one saved step per pass, and reports each state to the server. A restart resumes the job at its saved state.
+- The coordinator verifies the envelope against the metadata and the command, then downloads the archive through the content store with range resume, pinned while the job needs it. The bytes are trusted only after the store verifies size and SHA-256.
+- The helper copies the content-store object into a private root-owned file while it hashes it, verifies the archive, the release manifest and every file, and stages the tree in `/opt/tilecast-edge/<version>.staging`, renamed to `/opt/tilecast-edge/<version>/`. Staging activates nothing. `download_only` deployments end here.
+
+### 15.3 Activation, confirmation and rollback
+
+- Activation waits for the deployment's maintenance window, for no takeover, and for a live server link. The helper writes a root transaction record first, arms the guard, stops the renderer and then the daemon (WPE WebKit finds its helper processes under `current/lib/wpe`), installs the candidate's units and system files, switches `current` with one `rename(2)`, reloads systemd and starts the candidate. `tilecastd` never replaces its own binaries.
+- The candidate is provisional. The candidate `tilecastd` asks for confirmation only after 120 s without a break of: a connected server link with fresh contact since it started, a ready renderer that is not in safe mode, and the current presentation accepted with meaningful evidence (and fresh progress for content that plays). The helper checks the running daemon's own status again before it confirms. Only then does the screen report `succeeded`; the server never settles an Edge target from a heartbeat version.
+- The guard runs the previous release's helper, so a candidate that cannot run cannot stop its own rollback. It rolls back a candidate that did not confirm within 600 s, that restarts repeatedly or that systemd gave up on, and, at boot, any candidate that was still provisional when the machine stopped, before the Edge units start. The screen reports `failed` with `installerStatus: "rolled_back"` and the reason.
+- The previous release stays installed through the provisional window. A confirmation keeps the confirmed and the previous release (and anything newer that is staged) and removes older ones.
+
+### 15.4 State schema
+
+The candidate migrates `state.db` after activation. An older daemon refuses a newer schema (§6.1) and runs in recovery mode instead of changing it. A rollback after such a migration restores the previous release but not a working screen; the helper never changes the database, and there is no reverse migration. `tilecastd` refuses a release whose state schema is older than its database before it downloads it. The threat review records the recovery steps.
 
 ## 16. Local administration and observability
 
@@ -429,20 +467,20 @@ Telemetry and Activity events use a bounded outbox in SQLite (at most 500 rows, 
 
 Edge 1 ships as a sequence of reviewable milestones. Each one keeps the tree releasable.
 
-| Milestone                      | Scope                                                                                                                                                                                                                                                                                                                                           | Exit criteria                                                                                                                                             |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| M1 Foundation                  | Rust workspace, `tilecastd` lifecycle under systemd, SQLite state and recovery mode, local IPC, `tilecastctl`, WPE renderer on drm, wayland and headless, renderer supervision, CAS with origin downloads, identity gate, device credential, minimal heartbeat, legacy import, capability registry, Linux CI and WPE headless end-to-end tests. | Workspace checks and Linux image checks pass; the headless scenarios pass; the real-server script passes import, identity gate, heartbeat and revocation. |
-| M2 Server presence             | Player WebSocket with fallback heartbeat, server clock sampling, full heartbeat fields.                                                                                                                                                                                                                                                         | Studio shows a migrated screen as online; socket loss falls back to heartbeat; reconnect after server restart.                                            |
-| M3 Manifests and content       | Manifest fetch and validation, CAS preparation from the origin, atomic activation, pinning, daemon-owned media capability channel, local schedule selection.                                                                                                                                                                                    | Downloaded image and video playback; restart offline from cached state; a failed preparation keeps the previous manifest.                                 |
-| M4 Configuration and commands  | Player configuration synchronization; durable commands with idempotency; restart, reload and display commands.                                                                                                                                                                                                                                  | A command runs at most once across daemon restarts and redelivery.                                                                                        |
-| M5 Pairing                     | Pairing sessions and setup surface for a new installation; manual URL entry; LAN discovery through Avahi.                                                                                                                                                                                                                                       | A clean machine pairs, is approved and plays without legacy state.                                                                                        |
-| M6 Offline resilience          | Server outage, WAN outage, power-loss and clock-change qualification.                                                                                                                                                                                                                                                                           | Documented crash-point and outage tests pass.                                                                                                             |
-| M7 Migration installer         | Preflight, cutover, settlement window, automatic rollback, acceptance.                                                                                                                                                                                                                                                                          | Migration and rollback tested on each supported host type.                                                                                                |
-| M8 Proof of play and telemetry | Activity events through the outbox, bounded player telemetry.                                                                                                                                                                                                                                                                                   | Activity compliance matches an Electron player on the same schedule.                                                                                      |
-| M9 Hardware parity             | CEC and DDC display control, Presentation Network helper client, audio output, Noise Meter capture through PipeWire.                                                                                                                                                                                                                            | Capability matrix on reference hardware.                                                                                                                  |
-| M10 Updates                    | Signed Edge releases, server-authorized deployment, atomic switch, provisional success and rollback.                                                                                                                                                                                                                                            | An update and a forced rollback on reference hardware.                                                                                                    |
-| M11 WPE qualification          | DRM/KMS on reference hardware, Wayland kiosks, website isolation.                                                                                                                                                                                                                                                                               | Physical-device validation recorded in the ledger.                                                                                                        |
-| M12 Production rollout         | Pilot, staged migration, Electron retirement plan.                                                                                                                                                                                                                                                                                              | Pilot fleet stable for an agreed period.                                                                                                                  |
+| Milestone                      | Scope                                                                                                                                                                                                                                                                                                                                           | Exit criteria                                                                                                                                                  |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M1 Foundation                  | Rust workspace, `tilecastd` lifecycle under systemd, SQLite state and recovery mode, local IPC, `tilecastctl`, WPE renderer on drm, wayland and headless, renderer supervision, CAS with origin downloads, identity gate, device credential, minimal heartbeat, legacy import, capability registry, Linux CI and WPE headless end-to-end tests. | Workspace checks and Linux image checks pass; the headless scenarios pass; the real-server script passes import, identity gate, heartbeat and revocation.      |
+| M2 Server presence             | Player WebSocket with fallback heartbeat, server clock sampling, full heartbeat fields.                                                                                                                                                                                                                                                         | Studio shows a migrated screen as online; socket loss falls back to heartbeat; reconnect after server restart.                                                 |
+| M3 Manifests and content       | Manifest fetch and validation, CAS preparation from the origin, atomic activation, pinning, daemon-owned media capability channel, local schedule selection.                                                                                                                                                                                    | Downloaded image and video playback; restart offline from cached state; a failed preparation keeps the previous manifest.                                      |
+| M4 Configuration and commands  | Player configuration synchronization; durable commands with idempotency; restart, reload and display commands.                                                                                                                                                                                                                                  | A command runs at most once across daemon restarts and redelivery.                                                                                             |
+| M5 Pairing                     | Pairing sessions and setup surface for a new installation; manual URL entry; LAN discovery through Avahi.                                                                                                                                                                                                                                       | A clean machine pairs, is approved and plays without legacy state.                                                                                             |
+| M6 Offline resilience          | Server outage, WAN outage, power-loss and clock-change qualification.                                                                                                                                                                                                                                                                           | Documented crash-point and outage tests pass.                                                                                                                  |
+| M7 Migration installer         | Preflight, cutover, settlement window, automatic rollback, acceptance.                                                                                                                                                                                                                                                                          | Migration and rollback tested on each supported host type.                                                                                                     |
+| M8 Proof of play and telemetry | Activity events through the outbox, bounded player telemetry.                                                                                                                                                                                                                                                                                   | Activity compliance matches an Electron player on the same schedule.                                                                                           |
+| M9 Hardware parity             | CEC and DDC display control, Presentation Network helper client, audio output, Noise Meter capture through PipeWire.                                                                                                                                                                                                                            | Capability matrix on reference hardware.                                                                                                                       |
+| M10 Updates                    | Signed Edge releases in the Player Updates model, resumable verified download, the root update helper, atomic switch, provisional confirmation and automatic rollback.                                                                                                                                                                          | Software: an update, a power loss while provisional and a broken candidate under real systemd. Hardware: an update and a rollback on reference hardware (M11). |
+| M11 WPE qualification          | DRM/KMS on reference hardware, Wayland kiosks, website isolation.                                                                                                                                                                                                                                                                               | Physical-device validation recorded in the ledger.                                                                                                             |
+| M12 Production rollout         | Pilot, staged migration, Electron retirement plan.                                                                                                                                                                                                                                                                                              | Pilot fleet stable for an agreed period.                                                                                                                       |
 
 ### 18.2 Edge 1.5 and Edge 2
 

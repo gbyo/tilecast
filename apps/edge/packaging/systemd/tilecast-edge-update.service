@@ -32,6 +32,8 @@ StateDirectoryMode=0700
 ProtectSystem=strict
 ReadWritePaths=/etc /opt/tilecast-edge -/var/lib/tilecast-edge
 ReadWritePaths=-/usr/lib/sysusers.d -/usr/lib/tmpfiles.d -/usr/lib/udev/rules.d -/usr/lib/modules-load.d
+# The device credential stays out of reach even of this root process.
+InaccessiblePaths=-/var/lib/tilecast-edge/identity
 NoNewPrivileges=yes
 ProtectHome=yes
 PrivateTmp=yes

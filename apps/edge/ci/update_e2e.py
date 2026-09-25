@@ -321,6 +321,11 @@ def assert_helper_boundary(context):
     probe = subprocess.run(["nsenter", "-t", str(pid), "-m", "touch", "/usr/bin/tilecast-e2e-probe"],
                            capture_output=True, text=True)
     assert probe.returncode != 0 and "Read-only" in probe.stderr, f"{context}: /usr is writable: {probe.stderr}"
+    # Root as it is, the helper cannot even list the credential's directory.
+    hidden = subprocess.run(["nsenter", "-t", str(pid), "-m", "ls", "/var/lib/tilecast-edge/identity"],
+                            capture_output=True, text=True)
+    assert hidden.returncode != 0, f"{context}: the helper can read the identity directory: {hidden.stdout}"
+    assert os.listdir("/var/lib/tilecast-edge/identity"), "the credential exists outside the helper's namespace"
     print(f"{context}: helper pid {pid} runs as root with bounding set {status['CapBnd']}, NoNewPrivs, seccomp, "
           "Unix sockets only; the socket refuses root and the tilecast account outside tilecastd's unit")
 
