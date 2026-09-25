@@ -319,7 +319,7 @@ def main():
             with open(os.path.join(legacy, name), "w") as handle:
                 json.dump(value, handle, indent=2)
             os.chmod(os.path.join(legacy, name), 0o600)
-        before = tree(legacy)
+        legacy_before = tree(legacy)
 
         state, runtime = os.path.join(work, "state"), os.path.join(work, "run")
         config = os.path.join(work, "edge.toml")
@@ -332,7 +332,7 @@ def main():
         again = subprocess.run([tilecastd, "--config", config, "import-legacy", "--from", legacy],
                                check=True, capture_output=True, text=True)
         assert "already imported" in again.stdout, again.stdout
-        assert tree(legacy) == before, "legacy state changed"
+        assert tree(legacy) == legacy_before, "legacy state changed"
         assert oct(os.stat(os.path.join(state, "identity", "device-credential")).st_mode & 0o777) == "0o600"
 
         daemon_log = open(os.path.join(work, "tilecastd.log"), "w")
@@ -663,12 +663,12 @@ def main():
                 return [client.call("GET", f"/api/v1/screens/{member}/playlist-assignment", expect=200)[1]["data"]
                         ["manifestVersion"] for member in (screen_id, fresh_screen)]
 
-            before = versions()
+            versions_before = versions()
             _, loop = client.call("POST", f"/api/v1/playlists/{loop_id}/items", item(wall["id"], 2000),
                                   expect=(200, 201))
             client.call("POST", f"/api/v1/playlists/{loop_id}/publish",
                         {"expectedDraftRevision": loop["data"]["draftRevision"]}, expect=(200, 201))
-            grown = wait_for(lambda: (lambda now: now if all(a > b for a, b in zip(now, before)) else None)(versions()),
+            grown = wait_for(lambda: (lambda now: now if all(a > b for a, b in zip(now, versions_before)) else None)(versions()),
                              "the grown loop's manifests")
 
             def activated_on_boundary(path, mark, version):
@@ -699,7 +699,7 @@ def main():
         processes.append(daemon)
         credential_path = os.path.join(state, "identity", "device-credential")
         wait_for(lambda: not os.path.exists(credential_path), "credential removal after revocation")
-        assert tree(legacy) == before, "legacy state changed"
+        assert tree(legacy) == legacy_before, "legacy state changed"
         print("PASS: import, identity gate, player contact, configuration, commands, "
               + ("content, offline cache, " if args.renderer else "") + "fresh pairing, "
               + ("synchronized group, " if args.renderer else "") + "revocation")
