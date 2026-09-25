@@ -203,4 +203,109 @@ describe("Player update deployment history", () => {
     ).toBeTruthy();
     expect(screen.getByText("Needs approval on the TV")).toBeTruthy();
   });
+
+  it("keeps Tilecast Edge releases and screens apart from the Electron player", async () => {
+    const base = {
+      source: "upload",
+      channel: "stable",
+      minimumSdk: null,
+      releaseNotes: "",
+      publishedAt: "2026-09-25T11:00:00Z",
+      apkSizeBytes: 1024,
+      downloadedBytes: 1024,
+      apkSha256: "a".repeat(64),
+      signingCertificateSha256: "",
+      manifestSignature: "signature",
+      cacheStatus: "cached",
+      verificationStatus: "verified",
+      deploymentCount: 0,
+      activeDeploymentCount: 0,
+    } as const;
+    const edgeRelease: PlayerRelease = {
+      ...base,
+      id: "edge",
+      tag: "",
+      platform: "linux",
+      playerFamily: "edge",
+      architecture: "x86_64",
+      versionCode: 2000,
+      versionName: "0.2.0",
+    };
+    const appImage: PlayerRelease = {
+      ...base,
+      id: "electron",
+      tag: "",
+      platform: "linux",
+      playerFamily: "electron-linux",
+      architecture: "",
+      versionCode: 9000,
+      versionName: "0.9.0",
+    };
+    vi.mocked(api.playerReleases).mockResolvedValue({
+      repository: "Gibsonmb71/tilecast",
+      manifestKeyConfigured: true,
+      githubAuth: {
+        available: false,
+        connected: false,
+        source: "anonymous",
+        canDisconnect: false,
+      },
+      items: [edgeRelease, appImage],
+    });
+    const screenBase = {
+      description: "",
+      location: "",
+      roomName: "",
+      roomNumber: "",
+      deviceManufacturer: "",
+      deviceModel: "",
+      androidVersion: "",
+      playerVersion: "0.1.0",
+      screenWidth: 1920,
+      screenHeight: 1080,
+      density: 1,
+      locale: "en-US",
+      timezone: "UTC",
+      enabled: true,
+      pairedAt: "2026-09-01T00:00:00Z",
+      status: "online",
+      hasActiveCredential: true,
+    };
+    vi.mocked(api.screens).mockResolvedValue(
+      widen<Awaited<ReturnType<typeof api.screens>>>({
+        items: [
+          {
+            ...screenBase,
+            id: "e1",
+            name: "Edge Lobby",
+            platform: "linux",
+            playerFamily: "edge",
+            playerArchitecture: "x86_64",
+          },
+          {
+            ...screenBase,
+            id: "l1",
+            name: "Electron Lobby",
+            platform: "linux",
+          },
+        ],
+        total: 2,
+      }),
+    );
+    renderPanel("/settings/player/updates?platform=edge");
+    expect(
+      await screen.findByText("Available Tilecast Edge releases"),
+    ).toBeTruthy();
+    expect(await screen.findByText("0.2.0")).toBeTruthy();
+    expect(screen.getByText("x86_64")).toBeTruthy();
+    expect(screen.queryByText("0.9.0")).toBeNull();
+    expect(await screen.findByText("Edge Lobby")).toBeTruthy();
+    expect(screen.queryByText("Electron Lobby")).toBeNull();
+
+    await userEvent.click(screen.getByRole("tab", { name: "Linux" }));
+    expect(await screen.findByText("0.9.0")).toBeTruthy();
+    expect(screen.queryByText("0.2.0")).toBeNull();
+    expect(await screen.findByText("Electron Lobby")).toBeTruthy();
+    expect(screen.queryByText("Edge Lobby")).toBeNull();
+  });
 });

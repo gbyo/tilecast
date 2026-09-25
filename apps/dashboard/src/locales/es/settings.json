@@ -1515,7 +1515,11 @@
       "uploadedVersion": "Versión {{version}} · {{channel}} · {{size}}",
       "importing": "Importando versión…",
       "uploadVerify": "Subir y verificar",
-      "clearFiles": "Limpiar archivos"
+      "clearFiles": "Limpiar archivos",
+      "edgeNote": "Cada pantalla de Tilecast Edge descarga y verifica la versión, se reinicia con ella y la confirma cuando se vuelve a conectar y muestra contenido. Una pantalla que no puede confirmarla vuelve sola a su versión anterior.",
+      "verifyingEdge": "Verificando el sobre firmado y el hash del archivo de la versión…",
+      "architectureUnknown": "arquitectura no informada",
+      "edgeArchive": "archivo de la versión"
     },
     "setup": {
       "connect": "Conectar GitHub",

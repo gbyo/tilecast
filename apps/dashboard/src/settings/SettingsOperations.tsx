@@ -61,10 +61,13 @@ import {
 } from "lucide-react";
 import { api } from "../api/client";
 import { apiErrorMessage } from "../i18n";
-import { screenPlatformFamily } from "../playerPlatform";
+import {
+  releaseUpdateTab,
+  screenUpdateTab,
+  type UpdateFamilyTab,
+} from "../playerPlatform";
 import type {
   GitHubDeviceStart,
-  PlayerPlatform,
   PlayerRelease,
   UpdateDeployment,
 } from "../api/types";
@@ -487,8 +490,11 @@ export function PlayerUpdatesPanel({
   // a bookmark, or the back button all keep the fleet the operator was looking
   // at instead of silently returning to Android.
   const [searchParams, setSearchParams] = useSearchParams();
-  const platform: PlayerPlatform =
-    searchParams.get("platform") === "linux" ? "linux" : "android";
+  const platformParam = searchParams.get("platform");
+  const platform: UpdateFamilyTab =
+    platformParam === "linux" || platformParam === "edge"
+      ? platformParam
+      : "android";
   const [releaseId, setReleaseId] = useState("");
   const [screenIds, setScreenIds] = useState<string[]>([]);
   const [groupIds, setGroupIds] = useState<string[]>([]);
@@ -674,11 +680,10 @@ export function PlayerUpdatesPanel({
       for (const screen of group.screens) targetSet.add(screen.id);
   const selectedScreens = (screens.data?.items ?? []).filter(
     (screen) =>
-      targetSet.has(screen.id) &&
-      screenPlatformFamily(screen.platform) === platform,
+      targetSet.has(screen.id) && screenUpdateTab(screen) === platform,
   );
   const releaseItems = [...(releases.data?.items ?? [])]
-    .filter((item) => item.platform === platform)
+    .filter((item) => releaseUpdateTab(item) === platform)
     .sort(
       (left, right) =>
         Date.parse(right.publishedAt) - Date.parse(left.publishedAt) ||
@@ -691,7 +696,7 @@ export function PlayerUpdatesPanel({
     (item) =>
       item.verificationStatus === "verified" && item.cacheStatus === "cached",
   );
-  const platformLabel = platform === "android" ? "Android" : "Linux";
+  const platformLabel = updateTabLabel(platform);
   // Deployment modes read from the server as slugs; known slugs resolve to
   // translated names and anything unknown falls back to a readable form.
   const modeName = (value: string) =>
@@ -705,7 +710,7 @@ export function PlayerUpdatesPanel({
   const modeDisplayName = modeName(mode);
   const query = targetSearch.toLowerCase();
   const platformScreens = (screens.data?.items ?? []).filter(
-    (item) => screenPlatformFamily(item.platform) === platform,
+    (item) => screenUpdateTab(item) === platform,
   );
   const matchingScreens = platformScreens.filter((item) =>
     item.name.toLowerCase().includes(query),
@@ -714,7 +719,7 @@ export function PlayerUpdatesPanel({
     item.name.toLowerCase().includes(query),
   );
   const platformDeployments = (deployments.data?.items ?? []).filter(
-    (item) => item.platform === platform,
+    (item) => releaseUpdateTab(item) === platform,
   );
   const offlineTargets = selectedScreens.filter(
     (screen) => screen.status === "offline",
@@ -747,6 +752,8 @@ export function PlayerUpdatesPanel({
           <TabsTrigger value="android">Android</TabsTrigger>
           {/* i18n-ignore: Android and Linux are platform names, not language text */}
           <TabsTrigger value="linux">Linux</TabsTrigger>
+          {/* i18n-ignore: Tilecast Edge is a product name, not language text */}
+          <TabsTrigger value="edge">Tilecast Edge</TabsTrigger>
         </TabsList>
         <TabsContent value={platform} className="grid gap-4">
           <section className="grid gap-3 rounded-xl border border-border p-4">
@@ -1053,6 +1060,11 @@ export function PlayerUpdatesPanel({
                                 <strong className="font-semibold">
                                   {release.versionName}
                                 </strong>
+                                {release.architecture && (
+                                  <Badge variant="outline">
+                                    {release.architecture}
+                                  </Badge>
+                                )}
                                 <Badge variant="secondary">
                                   {release.channel === "beta"
                                     ? t("updates.panel.channelBeta")
@@ -1468,7 +1480,11 @@ export function PlayerUpdatesPanel({
                           key={screen.id}
                           checked={screenIds.includes(screen.id)}
                           label={screen.name}
-                          detail={`${screen.playerVersion} · ${screen.status}`}
+                          detail={
+                            platform === "edge"
+                              ? `${screen.playerVersion} · ${screen.playerArchitecture ?? t("updates.panel.architectureUnknown")} · ${screen.status}`
+                              : `${screen.playerVersion} · ${screen.status}`
+                          }
                           onChange={(checked) =>
                             setScreenIds(
                               checked
@@ -1623,7 +1639,9 @@ export function PlayerUpdatesPanel({
                     <p>
                       {platform === "android"
                         ? t("updates.panel.androidNote")
-                        : t("updates.panel.linuxNote")}
+                        : platform === "edge"
+                          ? t("updates.panel.edgeNote")
+                          : t("updates.panel.linuxNote")}
                     </p>
                     {offlineTargets > 0 && (
                       <p>
@@ -1959,16 +1977,74 @@ function outstandingSummary(
   });
 }
 
-const RELEASE_FILE_NAMES: Record<PlayerPlatform, readonly string[]> = {
+function updateTabLabel(tab: UpdateFamilyTab) {
+  // i18n-ignore: platform and product names, not language text
+  return tab === "android"
+    ? "Android"
+    : tab === "edge"
+      ? "Tilecast Edge"
+      : "Linux";
+}
+
+// The three signed files of a release. An Edge archive is named by version and
+// architecture (tilecast-edge-<version>-<arch>.tar.zst), so it is matched by
+// pattern; the server checks that the signed envelope names it exactly.
+type ReleaseFileSlot = {
+  label: string;
+  matches: (name: string) => boolean;
+  maxBytes?: number;
+};
+const RELEASE_FILES: Record<UpdateFamilyTab, readonly ReleaseFileSlot[]> = {
   android: [
-    "tilecast-player.apk",
-    "tilecast-player-update.json",
-    "tilecast-player-update.json.sig",
+    {
+      label: "tilecast-player.apk",
+      matches: (name) => name === "tilecast-player.apk",
+    },
+    {
+      label: "tilecast-player-update.json",
+      matches: (name) => name === "tilecast-player-update.json",
+      maxBytes: 128 * 1024,
+    },
+    {
+      label: "tilecast-player-update.json.sig",
+      matches: (name) => name === "tilecast-player-update.json.sig",
+      maxBytes: 4 * 1024,
+    },
   ],
   linux: [
-    "tilecast-player.AppImage",
-    "tilecast-player-update-linux.json",
-    "tilecast-player-update-linux.json.sig",
+    {
+      label: "tilecast-player.AppImage",
+      matches: (name) => name === "tilecast-player.AppImage",
+    },
+    {
+      label: "tilecast-player-update-linux.json",
+      matches: (name) => name === "tilecast-player-update-linux.json",
+      maxBytes: 128 * 1024,
+    },
+    {
+      label: "tilecast-player-update-linux.json.sig",
+      matches: (name) => name === "tilecast-player-update-linux.json.sig",
+      maxBytes: 4 * 1024,
+    },
+  ],
+  edge: [
+    {
+      label: "tilecast-edge-<version>-<arch>.tar.zst",
+      matches: (name) =>
+        /^tilecast-edge-\d{1,9}\.\d{1,9}\.\d{1,9}(-[0-9A-Za-z.]+)?-(x86_64|aarch64)\.tar\.zst$/.test(
+          name,
+        ),
+    },
+    {
+      label: "tilecast-edge-update.json",
+      matches: (name) => name === "tilecast-edge-update.json",
+      maxBytes: 16 * 1024,
+    },
+    {
+      label: "tilecast-edge-update.json.sig",
+      matches: (name) => name === "tilecast-edge-update.json.sig",
+      maxBytes: 4 * 1024,
+    },
   ],
 };
 
@@ -1977,14 +2053,19 @@ function PlayerReleaseUpload({
   csrfToken,
   onImported,
 }: {
-  platform: PlayerPlatform;
+  platform: UpdateFamilyTab;
   csrfToken: string;
   onImported: () => void;
 }) {
   const { t } = useTranslation(["settings", "common"]);
-  const releaseFileNames = RELEASE_FILE_NAMES[platform];
-  const manifestName = releaseFileNames[1];
-  const artifactLabel = platform === "android" ? "APK" : "AppImage";
+  const slots = RELEASE_FILES[platform];
+  const artifactLabel =
+    platform === "edge"
+      ? t("updates.panel.edgeArchive")
+      : // i18n-ignore: file format names
+        platform === "android"
+        ? "APK"
+        : "AppImage";
   const [files, setFiles] = useState<Record<string, File>>({});
   const [progress, setProgress] = useState(0);
   const [phase, setPhase] = useState<
@@ -1994,8 +2075,8 @@ function PlayerReleaseUpload({
   const upload = useMutation({
     mutationFn: () =>
       api.uploadPlayerRelease(
-        releaseFileNames
-          .map((name) => files[name])
+        slots
+          .map((slot) => files[slot.label])
           .filter((file): file is File => Boolean(file)),
         csrfToken,
         (value) => {
@@ -2021,28 +2102,29 @@ function PlayerReleaseUpload({
     const next = { ...files };
     let error = "";
     for (const file of Array.from(selected)) {
-      if (!releaseFileNames.includes(file.name)) {
+      const slot = slots.find((candidate) => candidate.matches(file.name));
+      if (!slot) {
         error = t("updates.panel.unexpectedFile", { name: file.name });
         continue;
       }
-      if (file.name === manifestName && file.size > 128 * 1024)
-        error = t("updates.panel.manifestTooBig");
-      else if (file.name.endsWith(".sig") && file.size > 4 * 1024)
-        error = t("updates.panel.sigTooBig");
-      else next[file.name] = file;
+      if (slot.maxBytes && file.size > slot.maxBytes)
+        error = file.name.endsWith(".sig")
+          ? t("updates.panel.sigTooBig")
+          : t("updates.panel.manifestTooBig");
+      else next[slot.label] = file;
     }
     setClientError(error);
     setFiles(next);
     setPhase("selecting");
     upload.reset();
   };
-  const ready = releaseFileNames.every((name) => files[name]) && !clientError;
+  const ready = slots.every((slot) => files[slot.label]) && !clientError;
   return (
     <div className="grid gap-3 rounded-xl border border-border p-4">
       <div className="grid gap-1">
         <h4 className="text-sm font-semibold">
           {t("updates.panel.uploadTitle", {
-            platform: platform === "android" ? "Android" : "Linux",
+            platform: updateTabLabel(platform),
           })}
         </h4>
         <p className="text-sm text-muted-foreground">
@@ -2077,13 +2159,18 @@ function PlayerReleaseUpload({
         className="grid gap-1"
         aria-label={t("updates.panel.validationLabel")}
       >
-        {releaseFileNames.map((name) => (
-          <div key={name} className="flex flex-wrap items-center gap-2 text-sm">
-            <span aria-hidden="true">{files[name] ? "✓" : "○"}</span>
-            <strong className="font-mono text-xs">{name}</strong>
+        {slots.map(({ label }) => (
+          <div
+            key={label}
+            className="flex flex-wrap items-center gap-2 text-sm"
+          >
+            <span aria-hidden="true">{files[label] ? "✓" : "○"}</span>
+            <strong className="font-mono text-xs">
+              {files[label]?.name ?? label}
+            </strong>
             <small className="text-xs text-muted-foreground">
-              {files[name]
-                ? formatBytes(files[name].size)
+              {files[label]
+                ? formatBytes(files[label].size)
                 : t("updates.panel.fileRequired")}
             </small>
           </div>
@@ -2105,7 +2192,9 @@ function PlayerReleaseUpload({
                 : phase === "verifying"
                   ? platform === "android"
                     ? t("updates.panel.verifyingAndroid")
-                    : t("updates.panel.verifyingLinux")
+                    : platform === "edge"
+                      ? t("updates.panel.verifyingEdge")
+                      : t("updates.panel.verifyingLinux")
                   : t("updates.panel.uploadComplete")}
             </strong>
             {upload.data && (

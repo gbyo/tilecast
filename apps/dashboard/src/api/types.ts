@@ -268,6 +268,9 @@ export type Screen = {
   updateDownloadedBytes?: number;
   updateExpectedBytes?: number;
   updateError?: string;
+  /** What the running player reported; absent for players that do not. */
+  playerFamily?: PlayerFamily;
+  playerArchitecture?: string;
   screenWidth: number;
   screenHeight: number;
   density: number;
@@ -1438,10 +1441,19 @@ export type SchedulePreview = {
 };
 
 export type PlayerPlatform = "android" | "linux";
+/**
+ * Which player installs a release. `linux` is the operating system of both
+ * the Electron Linux Player (`electron-linux`) and Tilecast Edge (`edge`); a
+ * deployment reaches only screens of its release's family.
+ */
+export type PlayerFamily = "android" | "electron-linux" | "edge";
 export type PlayerRelease = {
   id: string;
   tag: string;
   platform: PlayerPlatform;
+  playerFamily?: PlayerFamily;
+  /** The CPU architecture of an Edge release; empty for the other families. */
+  architecture?: string;
   source: "github" | "upload";
   channel: "stable" | "beta";
   versionCode: number;
@@ -1466,6 +1478,8 @@ export type PlayerReleaseImport = Pick<
   PlayerRelease,
   | "id"
   | "platform"
+  | "playerFamily"
+  | "architecture"
   | "source"
   | "versionCode"
   | "versionName"
@@ -1509,6 +1523,8 @@ export type UpdateDeployment = {
   status: string;
   createdAt: string;
   platform: PlayerPlatform;
+  playerFamily?: PlayerFamily;
+  architecture?: string;
   versionCode: number;
   versionName: string;
   targetCount: number;
@@ -1566,6 +1582,8 @@ export type UpdateDeploymentDetail = {
   createdAt: string;
   completedAt?: string;
   platform: PlayerPlatform;
+  playerFamily?: PlayerFamily;
+  architecture?: string;
   versionCode: number;
   versionName: string;
   artifactSizeBytes: number;
