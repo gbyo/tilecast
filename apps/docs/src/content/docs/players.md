@@ -3,12 +3,15 @@ title: Players
 description: Install, pair, and update Tilecast Player on Android TV devices and Linux computers.
 ---
 
-Tilecast Player runs on each display. Choose the Android APK for Android TV, Google TV, or Fire TV, or install the Linux AppImage on a 64-bit x86_64 computer with a graphical desktop session.
+Tilecast Player runs on each display. Choose the Android APK for Android TV, Google TV, or Fire TV, or use the current Linux AppImage on a 64-bit x86_64 computer with a graphical desktop session.
 
-| Player  | Install format                    | Notes                                                                                       |
-| ------- | --------------------------------- | ------------------------------------------------------------------------------------------- |
-| Android | Signed APK, `tilecast-player.apk` | For Android TV, Google TV, and Fire TV devices that allow APK installation.                 |
-| Linux   | AppImage                          | The server-provided installer targets x86_64 Linux. Use a graphical X11 or Wayland session. |
+Tilecast Edge is the new Linux Player that is still being developed. It replaces the current Electron/AppImage Player with a Linux service and WPE WebKit renderer. It is not the production Linux install yet; see [Tilecast Edge](../edge/) for the current preview.
+
+| Player  | Install format                    | Notes                                                                                                            |
+| ------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Android | Signed APK, `tilecast-player.apk` | For Android TV, Google TV, and Fire TV devices that allow APK installation.                                      |
+| Linux   | AppImage                          | Current stable path. The server-provided installer targets x86_64 Linux with a graphical X11 or Wayland session. |
+| Edge    | Signed Linux release tree         | Preview only. Use it only when a Tilecast release lists your hardware as supported.                              |
 
 Find the Android APK on the [Tilecast releases page](https://github.com/gbyo/tilecast/releases). The Linux installer downloads a signed, verified release cached on your Tilecast Server. See [Install the Linux Player](./install-linux/).
 
@@ -34,3 +37,4 @@ Pairing does not prove that a TV will launch Tilecast after a power cut or retur
 - [Install Tilecast Player on Linux](./install-linux/).
 - [Pair a display](./pair-a-display/).
 - [Update a Player](./update-a-player/).
+- [Compare Player capabilities](./capabilities/) before choosing hardware or depending on a platform-specific feature.

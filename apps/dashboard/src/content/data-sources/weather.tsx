@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import { toast } from "../../components/ui/toast";
@@ -20,6 +20,10 @@ import type {
   TypedRecordData,
   WeatherSourceConfig,
 } from "../../api/types";
+import {
+  defaultWeatherUnits,
+  useOrganizationRegionalProfile,
+} from "../../settings/regionalProfile";
 import { EditorFrame, optionLabel } from "./shared";
 
 const weatherUnitOptions = [
@@ -44,6 +48,8 @@ export function WeatherDataSourceEditor({
 }) {
   const { t } = useTranslation(["content", "common"]);
   const queryClient = useQueryClient();
+  const regional = useOrganizationRegionalProfile();
+  const touched = useRef(new Set<keyof WeatherSourceConfig>());
   const [name, setName] = useState(dataSource?.name ?? "");
   const [description, setDescription] = useState(dataSource?.description ?? "");
   const [configuration, setConfiguration] = useState<WeatherSourceConfig>(
@@ -51,14 +57,26 @@ export function WeatherDataSourceEditor({
       locationLabel: "",
       latitude: 0,
       longitude: 0,
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-      units: "imperial",
+      timezone: "UTC",
+      units: "metric",
       forecastDays: 5,
       contact: "",
       refreshIntervalSeconds: 1800,
       stalenessLimitHours: 24,
     },
   );
+  useEffect(() => {
+    if (dataSource || !regional.ready) return;
+    setConfiguration((current) => ({
+      ...current,
+      timezone: touched.current.has("timezone")
+        ? current.timezone
+        : regional.timezone,
+      units: touched.current.has("units")
+        ? current.units
+        : defaultWeatherUnits(regional.region),
+    }));
+  }, [dataSource, regional.ready, regional.region, regional.timezone]);
   const [preview, setPreview] = useState<TypedRecordData>();
   const previewMutation = useMutation({
     mutationFn: () =>
@@ -93,7 +111,10 @@ export function WeatherDataSourceEditor({
   const set = <K extends keyof WeatherSourceConfig>(
     key: K,
     value: WeatherSourceConfig[K],
-  ) => setConfiguration((current) => ({ ...current, [key]: value }));
+  ) => {
+    touched.current.add(key);
+    setConfiguration((current) => ({ ...current, [key]: value }));
+  };
   return (
     <EditorFrame
       title={

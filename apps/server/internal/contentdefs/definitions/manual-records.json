@@ -369,13 +369,21 @@
     },
     {
       "id": "menu-items",
-      "version": 1,
+      "version": 2,
       "name": "Menu Items",
       "description": "Maintain menu or price-board rows with optional daily windows.",
       "category": "Structured",
       "icon": "menu",
       "configurationSchema": {
         "fields": [
+          {
+            "key": "priceCurrency",
+            "label": "Price currency",
+            "description": "ISO 4217 code for every price, such as EUR, GBP, or JPY.",
+            "control": "currency_code",
+            "maxLength": 3,
+            "default": ""
+          },
           {
             "key": "records",
             "label": "Items",
@@ -437,7 +445,7 @@
           }
         ]
       },
-      "defaultConfiguration": { "records": [] },
+      "defaultConfiguration": { "priceCurrency": "", "records": [] },
       "outputSchema": {
         "kind": "records",
         "fields": [
@@ -452,6 +460,7 @@
             "key": "price",
             "label": "Price",
             "type": "currency",
+            "currencyConfigKey": "priceCurrency",
             "required": true
           },
           { "key": "category", "label": "Section", "type": "text" },

@@ -6,7 +6,7 @@ import { settingsItems } from "./settings/settingsNavigation";
 import { AuthPage } from "./pages/AuthPage";
 import { DashboardShell, FoundationPage } from "./pages/Dashboard";
 import {
-  PairScreenPage,
+  ScreensPairRoute,
   ScreensPage,
   ScreensWorkspacePage,
 } from "./pages/ScreensPage";
@@ -134,6 +134,21 @@ export const studioRoutes: RouteObject[] = [
                   ),
                 },
               },
+              {
+                path: "pair",
+                element: <ScreensPairRoute />,
+                handle: { breadcrumb: "Pair screen" },
+              },
+              {
+                path: "pair/:code",
+                element: <ScreensPairRoute />,
+                handle: { breadcrumb: "Pair screen" },
+              },
+              {
+                path: "pair/request/:requestId",
+                element: <ScreensPairRoute />,
+                handle: { breadcrumb: "Pair screen" },
+              },
             ],
           },
           {
@@ -148,21 +163,6 @@ export const studioRoutes: RouteObject[] = [
                 ["fleet", "bulk", "assign"],
               ),
             },
-          },
-          {
-            path: "pair",
-            element: <PairScreenPage />,
-            handle: { breadcrumb: "Pair screen" },
-          },
-          {
-            path: "pair/:code",
-            element: <PairScreenPage />,
-            handle: { breadcrumb: "Pair screen" },
-          },
-          {
-            path: "pair/request/:requestId",
-            element: <PairScreenPage />,
-            handle: { breadcrumb: "Pair screen" },
           },
           {
             path: ":id",

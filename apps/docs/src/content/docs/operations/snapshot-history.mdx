@@ -1,0 +1,32 @@
+---
+title: Snapshot history
+description: Save occasional Player screenshots so you can look back at what a screen was showing.
+---
+
+Live preview answers **What is on the screen now?** Snapshot history helps with **What was on it earlier?**
+
+Snapshot history is off by default. Open **Settings** > **Snapshot history** to turn it on.
+
+| Setting                      |    Default |
+| ---------------------------- | ---------: |
+| Capture every                | 60 minutes |
+| Keep snapshots for           |     7 days |
+| Snapshots to keep per screen |         48 |
+
+These limits work independently. If a screen reaches its snapshot-count limit, the oldest image is removed even if it is still within the age limit.
+
+## Storage
+
+Snapshots are stored in the Tilecast database and are included in database backups. Turning the feature on can therefore make backups larger.
+
+Studio shows the current snapshot count so you can see how much history is being kept.
+
+Scheduled snapshots use the same capture path as live preview. A manual preview that is saved to history is marked as manual.
+
+Only screens that are currently reporting are asked to take a snapshot. A missing snapshot does not mean the display showed the wrong content; the Player may simply have been offline or unable to capture at that time.
+
+Users can only see snapshots for screens they are allowed to access.
+
+:::note
+Snapshots are not proof of play. Use [Activity](../activity/) for Player-confirmed playback history.
+:::

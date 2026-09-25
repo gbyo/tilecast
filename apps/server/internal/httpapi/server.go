@@ -20,6 +20,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/backup"
 	"github.com/tilecast/tilecast/apps/server/internal/campaigns"
 	"github.com/tilecast/tilecast/apps/server/internal/contenthealth"
+	"github.com/tilecast/tilecast/apps/server/internal/demo"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/fleetops"
 	"github.com/tilecast/tilecast/apps/server/internal/forms"
@@ -71,6 +72,9 @@ type Dependencies struct {
 	Backups              *backup.Service
 	BackupWorker         *backup.Worker
 	BackupLimits         backup.Limits
+	// Demo is set only when TILECAST_ENV is demo. It is the single switch for
+	// every Demo Mode behavior in the request layer.
+	Demo *demo.Runtime
 }
 
 type OperationsConfig struct {
@@ -122,6 +126,7 @@ type server struct {
 	backupLimits                  backup.Limits
 	publicURL                     string
 	installLimiter                *rateLimiter
+	demo                          *demo.Runtime
 }
 
 type contextKey string
@@ -185,6 +190,7 @@ func New(deps Dependencies) *API {
 		backups:              deps.Backups,
 		backupWorker:         deps.BackupWorker,
 		backupLimits:         deps.BackupLimits,
+		demo:                 deps.Demo,
 	}
 	if s.fleet != nil {
 		// The command path lives on the server, so bulk sending and single
@@ -261,15 +267,26 @@ func (s *server) authStatus(w http.ResponseWriter, r *http.Request) {
 		"passkeysAvailable":         passkeysAvailable,
 		"passkeysUnavailableReason": passkeyReason,
 	}
+	if s.demo != nil {
+		result["demoMode"] = true
+	}
 	if !required {
+		var session auth.Session
+		authenticated := false
 		if cookie, err := r.Cookie(s.cookieName); err == nil {
-			if session, err := s.auth.Authenticate(r.Context(), cookie.Value); err == nil {
-				result["authenticated"] = true
-				result["user"] = session.User
-				result["csrfToken"] = session.CSRFToken
-				result["authMethod"] = session.AuthMethod
-				result["mfaEnrollmentRequired"] = session.EnrollmentPending
+			if session, err = s.auth.Authenticate(r.Context(), cookie.Value); err == nil {
+				authenticated = true
 			}
+		}
+		if !authenticated {
+			session, authenticated = s.demoSession(r.Context(), w)
+		}
+		if authenticated {
+			result["authenticated"] = true
+			result["user"] = session.User
+			result["csrfToken"] = session.CSRFToken
+			result["authMethod"] = session.AuthMethod
+			result["mfaEnrollmentRequired"] = session.EnrollmentPending
 		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": result})

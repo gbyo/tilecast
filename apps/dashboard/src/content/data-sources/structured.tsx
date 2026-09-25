@@ -32,6 +32,8 @@ import type {
   StructuredPreview,
   StructuredSourceConfig,
 } from "../../api/types";
+import { useOrganizationRegionalProfile } from "../../settings/regionalProfile";
+import { formatRegionalDateTimeValue } from "../../settings/regionalFormatting";
 import { CsvSourceInput } from "../CsvSourceInput";
 import { optionLabel } from "./shared";
 
@@ -81,7 +83,7 @@ const defaultStructured = (
   dateSelection: {
     enabled: false,
     dateFormat: "auto",
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+    timezone: "UTC",
     mode: "today",
     excludePast: false,
     noMatchBehavior: "empty",
@@ -474,6 +476,8 @@ export function StructuredDataSourceEditor({
 }) {
   const { t } = useTranslation(["content", "common"]);
   const locale = useFormatLocale();
+  const regional = useOrganizationRegionalProfile();
+  const touchedTimezone = useRef(false);
   const queryClient = useQueryClient();
   const [name, setName] = useState(dataSource?.name ?? "");
   const [description, setDescription] = useState(dataSource?.description ?? "");
@@ -488,6 +492,16 @@ export function StructuredDataSourceEditor({
       ...configured?.dateSelection,
     },
   });
+  useEffect(() => {
+    if (dataSource || !regional.ready || touchedTimezone.current) return;
+    setConfiguration((current) => ({
+      ...current,
+      dateSelection: {
+        ...current.dateSelection,
+        timezone: regional.timezone,
+      },
+    }));
+  }, [dataSource, regional.ready, regional.timezone]);
   const [preview, setPreview] = useState<StructuredPreview>();
   const [previewDate, setPreviewDate] = useState(
     new Date().toISOString().slice(0, 10),
@@ -1273,15 +1287,16 @@ export function StructuredDataSourceEditor({
                           id="date-timezone"
                           value={configuration.dateSelection.timezone}
                           disabled={readOnly}
-                          onChange={(event) =>
+                          onChange={(event) => {
+                            touchedTimezone.current = true;
                             setConfiguration((current) => ({
                               ...current,
                               dateSelection: {
                                 ...current.dateSelection,
                                 timezone: event.target.value,
                               },
-                            }))
-                          }
+                            }));
+                          }}
                         />
                       </Field>
                       <Field>
@@ -1723,7 +1738,16 @@ export function StructuredDataSourceEditor({
                   )}
                   {record.date && (
                     <small className="text-xs text-muted-foreground">
-                      {record.date}
+                      {formatRegionalDateTimeValue(
+                        record.date,
+                        record.date.includes("T") ? "datetime" : "date",
+                        {
+                          ...regional,
+                          timezone:
+                            configuration.dateSelection.timezone ||
+                            regional.timezone,
+                        },
+                      )}
                     </small>
                   )}
                 </article>

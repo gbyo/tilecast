@@ -49,6 +49,7 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { apiErrorMessage } from "../i18n";
+import { useOrganizationRegionalProfile } from "../settings/regionalProfile";
 import {
   RegisterCheckbox,
   TargetFields,
@@ -188,7 +189,7 @@ function urgencyDefaults(leadMinutes: number) {
 
 // New-instance defaults, including the suggested message callers see
 // prefilled in the form. Built from `t` like the schema above.
-function makeCountdownDefaults(t: PluginsT): FormValues {
+function makeCountdownDefaults(t: PluginsT, timezone: string): FormValues {
   return {
     name: "",
     message: t("countdown.editor.defaults.message"),
@@ -196,7 +197,7 @@ function makeCountdownDefaults(t: PluginsT): FormValues {
     targetTime: "12:00",
     daysOfWeek: [1, 2, 3, 4, 5],
     oneTimeAt: "",
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+    timezone,
     leadMinutes: 15,
     completionText: "",
     showConfetti: false,
@@ -244,7 +245,7 @@ export function CountdownBarsPage() {
     mutationFn: (id: string) =>
       api.deleteCountdownBar(id, auth.status?.csrfToken ?? ""),
     onSuccess: () => {
-      toast.add({ title: "Countdown Bar removed.", type: "success" });
+      toast.add({ title: t("countdown.removedToast"), type: "success" });
       void queryClient.invalidateQueries({ queryKey: ["countdown-bars"] });
       void queryClient.invalidateQueries({ queryKey: ["plugins"] });
     },
@@ -397,16 +398,21 @@ export function CountdownBarEditorPage() {
   const { id } = useParams();
   const editing = Boolean(id);
   const auth = useAuth();
+  const regional = useOrganizationRegionalProfile();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const schema = useMemo(() => makeCountdownSchema(t), [t]);
-  const defaults = useMemo(() => makeCountdownDefaults(t), [t]);
+  const defaults = useMemo(
+    () => makeCountdownDefaults(t, regional.timezone),
+    [t, regional.timezone],
+  );
   const instance = useQuery({
     queryKey: ["countdown-bar", id],
     queryFn: () => api.countdownBar(id ?? ""),
     enabled: editing,
   });
   const previousLeadMinutes = useRef(defaults.leadMinutes);
+  const timezoneTouched = useRef(false);
   // Numeric urgency fallbacks are identical in every language; destructuring
   // keeps the reset effect below from re-running on a language change.
   const defaultStartingSoon = defaults.startingSoonMinutes;
@@ -429,6 +435,10 @@ export function CountdownBarEditorPage() {
     resolver: zodResolver(schema),
     defaultValues: defaults,
   });
+  useEffect(() => {
+    if (!editing && !timezoneTouched.current)
+      setValue("timezone", regional.timezone);
+  }, [editing, regional.timezone, setValue]);
   useEffect(() => {
     if (!instance.data) return;
     const value = instance.data;
@@ -481,7 +491,9 @@ export function CountdownBarEditorPage() {
         : api.createCountdownBar(input, auth.status?.csrfToken ?? ""),
     onSuccess: () => {
       toast.add({
-        title: editing ? "Countdown Bar updated." : "Countdown Bar created.",
+        title: editing
+          ? t("countdown.updatedToast")
+          : t("countdown.createdToast"),
         type: "success",
       });
       void queryClient.invalidateQueries({ queryKey: ["countdown-bars"] });
@@ -761,7 +773,11 @@ export function CountdownBarEditorPage() {
               label={t("countdown.editor.timezoneLabel")}
               aria-required="true"
               error={errors.timezone?.message}
-              {...register("timezone")}
+              {...register("timezone", {
+                onChange: () => {
+                  timezoneTouched.current = true;
+                },
+              })}
             />
             <FormField
               id="countdown-lead"

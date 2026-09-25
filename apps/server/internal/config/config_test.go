@@ -110,3 +110,74 @@ func TestPositiveIntParsingEnforcesMaximum(t *testing.T) {
 		t.Fatal("expected configured upper bound to fail")
 	}
 }
+
+func TestDevelopmentIsNotDemoMode(t *testing.T) {
+	t.Setenv("TILECAST_DATABASE_URL", "postgres://example")
+	t.Setenv("TILECAST_ENV", "development")
+	t.Setenv("TILECAST_DEMO_SCENARIO", "basic")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.DemoMode() || cfg.Demo != (DemoConfig{}) {
+		t.Fatalf("development must not enable Demo Mode: %#v", cfg.Demo)
+	}
+	if !cfg.MDNSEnabled {
+		t.Fatal("development must keep the mDNS default")
+	}
+}
+
+func TestDemoDefaults(t *testing.T) {
+	t.Setenv("TILECAST_DATABASE_URL", "postgres://example")
+	t.Setenv("TILECAST_ENV", "demo")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if !cfg.DemoMode() || cfg.Demo.Scenario != "kitchen-sink" || !cfg.Demo.ResetOnStart || !cfg.Demo.Players || cfg.Demo.AllowRemote {
+		t.Fatalf("unexpected demo defaults: %#v", cfg.Demo)
+	}
+	if cfg.MDNSEnabled {
+		t.Fatal("Demo Mode must not advertise itself by default")
+	}
+}
+
+func TestDemoRefusesUnsafeCombinations(t *testing.T) {
+	cases := map[string]map[string]string{
+		"public URL":     {"TILECAST_PUBLIC_URL": "https://signage.example.org"},
+		"LAN address":    {"TILECAST_PUBLIC_URL": "http://192.168.1.20:8080"},
+		"mDNS":           {"TILECAST_MDNS_ENABLED": "true"},
+		"email":          {"TILECAST_SMTP_HOST": "smtp.example.org"},
+		"update token":   {"TILECAST_GITHUB_TOKEN": "ghp_example"},
+		"publish token":  {"TILECAST_RELEASE_PUBLISH_TOKEN": "publish"},
+		"empty scenario": {"TILECAST_DEMO_SCENARIO": " "},
+	}
+	for name, values := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Setenv("TILECAST_DATABASE_URL", "postgres://example")
+			t.Setenv("TILECAST_ENV", "demo")
+			for key, value := range values {
+				t.Setenv(key, value)
+			}
+			if _, err := Load(); err == nil {
+				t.Fatalf("expected %s to be refused in Demo Mode", name)
+			}
+		})
+	}
+}
+
+func TestDemoAllowsLoopbackAndExplicitRemote(t *testing.T) {
+	for _, publicURL := range []string{"http://localhost:8080", "http://127.0.0.1:18080", "http://[::1]:8080"} {
+		t.Setenv("TILECAST_DATABASE_URL", "postgres://example")
+		t.Setenv("TILECAST_ENV", "demo")
+		t.Setenv("TILECAST_PUBLIC_URL", publicURL)
+		if _, err := Load(); err != nil {
+			t.Fatalf("%s: %v", publicURL, err)
+		}
+	}
+	t.Setenv("TILECAST_PUBLIC_URL", "https://demo.example.org")
+	t.Setenv("TILECAST_DEMO_ALLOW_REMOTE", "true")
+	if _, err := Load(); err != nil {
+		t.Fatalf("explicit remote demo host: %v", err)
+	}
+}
