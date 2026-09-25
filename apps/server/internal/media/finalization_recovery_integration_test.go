@@ -53,10 +53,10 @@ func TestUploadFinalizationRecoveryAcrossFailureBoundaries(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer lock.Release()
-	if _, err := lock.Exec(ctx, `SELECT pg_advisory_lock(7422001)`); err != nil {
+	if _, err := lock.Exec(ctx, `SELECT pg_advisory_lock(7421999)`); err != nil {
 		t.Fatal(err)
 	}
-	defer lock.Exec(ctx, `SELECT pg_advisory_unlock(7422001)`) //nolint:errcheck
+	defer lock.Exec(ctx, `SELECT pg_advisory_unlock(7421999)`) //nolint:errcheck
 	if err := database.Migrate(ctx, databaseURL); err != nil {
 		t.Fatal(err)
 	}
