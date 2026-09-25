@@ -999,6 +999,7 @@
     },
     "live": {
       "aqiStandard": "Estándar AQI",
+      "aqiStandardHint": "Selecciona el índice de calidad del aire que usa tu público; ninguna escala es universal.",
       "capUrl": "URL de CAP o índice de fuente",
       "commercialHint": "Las instalaciones comerciales deben configurar un endpoint de calidad del aire autoalojado al momento del despliegue. Tilecast no almacena claves de API.",
       "descriptionAirQuality": "Almacena en caché los valores de calidad del aire actuales y por hora desde el endpoint de la instalación.",
@@ -1009,6 +1010,7 @@
       "feedModeAuto": "Detectar automáticamente",
       "feedModeCap": "XML CAP directo",
       "feedModeIndex": "Índice Atom/RSS",
+      "selectAqiStandard": "Elige un estándar",
       "includeAreas": "Incluir palabras clave de área",
       "measurements": "Mediciones",
       "minimumSeverity": "Severidad mínima",
@@ -1047,6 +1049,7 @@
       "columnsLegend": "Columnas",
       "columnType": "Tipo",
       "currency": "Moneda",
+      "currencyHint": "Introduce un código ISO 4217 de tres letras, como EUR, GBP o JPY.",
       "dateAware": "Selección por fecha",
       "dateField": "Campo de fecha",
       "description": "Mantén un pequeño conjunto de datos tipado directamente en Tilecast Studio.",

@@ -1,0 +1,46 @@
+---
+title: Protect Studio accounts
+description: Set up an authenticator app or passkey, save recovery codes, and require multi-factor authentication.
+---
+
+Tilecast Studio supports an authenticator app, passkeys, and single-use recovery codes. Each person manages their factors under **My Account** > **Sign-in security**. An Owner or Administrator can require multi-factor authentication for the installation under **Settings** > **Sign-in security**.
+
+import { Steps } from "@astrojs/starlight/components";
+
+## Enroll a factor
+
+### Use an authenticator app
+
+<Steps>
+
+1. Open **My Account** > **Sign-in security**.
+2. Under **Authenticator app**, select **Set up**.
+3. Scan the QR code with an authenticator app, or enter the displayed key by hand.
+4. Enter the app's six-digit code to confirm enrollment.
+
+</Steps>
+
+### Add a passkey
+
+Under **Passkeys**, select **Add a passkey** and follow the browser prompt. The passkey uses a fingerprint, face, screen lock, or security key, depending on the device.
+
+Passkeys need a secure browser context. Use Studio over HTTPS with a hostname. The local development address `http://localhost` is also supported, but passkeys are unavailable over plain HTTP from another host or on a non-local IP address. Tilecast explains when the installation URL cannot support passkeys. Authenticator apps and recovery codes remain available.
+
+### Save recovery codes
+
+Under **Recovery codes**, select **Generate** or **Regenerate**, then confirm your account password. Save the codes before closing the dialog; Tilecast shows them once and cannot display them again. Each code works once. Regenerating codes invalidates the previous set.
+
+## Require multi-factor authentication
+
+1. Open **Settings** > **Sign-in security**.
+2. Set **Require multi-factor authentication** to **Off**, **Administrators**, or **All**.
+
+**Administrators** includes Owners and Administrators. **All** includes every account. A person in scope must enroll an authenticator app or a passkey before using the rest of Studio.
+
+Changing the policy doesn't sign anyone out. An account in scope that hasn't enrolled is prompted to set up a factor at its next sign-in, then can continue into Studio after enrollment. If someone loses every factor, an Owner or Administrator can reset an account they can manage from [Manage users and roles](../users-and-roles/). Only an Owner can reset an Owner or Administrator account. The reset signs the person out everywhere and they must enroll again.
+
+## Remove a factor
+
+Removing an authenticator or passkey, or generating new recovery codes, requires the account password. If the organization requires multi-factor authentication for your role, Tilecast prevents you from removing your last authenticator or passkey; add another before removing one.
+
+For account roles and recovery by an administrator, see [Manage users and roles](../users-and-roles/).

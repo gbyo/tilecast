@@ -27,3 +27,24 @@ func TestNormalizeLocationInputRejectsInvalidCoordinates(t *testing.T) {
 		t.Fatal("expected invalid longitude to be rejected")
 	}
 }
+
+func TestNormalizeLocationInputAcceptsInternationalOptionalAddressParts(t *testing.T) {
+	input, err := normalizeLocationInput(LocationInput{
+		Name:         "Tokyo library",
+		AddressLine1: "1-2-3 神宮前",
+		City:         "渋谷区",
+		State:        "東京都",
+		PostalCode:   "150-0001",
+		Country:      "日本",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if input.AddressLine1 != "1-2-3 神宮前" || input.City != "渋谷区" || input.PostalCode != "150-0001" {
+		t.Fatalf("international address text did not survive normalization: %#v", input)
+	}
+	withoutPostalOrRegion, err := normalizeLocationInput(LocationInput{Name: "Paris library", City: "Paris"})
+	if err != nil || withoutPostalOrRegion.PostalCode != "" || withoutPostalOrRegion.State != "" {
+		t.Fatalf("optional address parts were not preserved: %#v err=%v", withoutPostalOrRegion, err)
+	}
+}

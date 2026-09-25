@@ -66,6 +66,14 @@ jobs:
                   container=true
                   e2e=true
                   ;;
+                apps/docs/*|.github/logos/*)
+                  docs=true
+                  ;;
+                packages/design-tokens/*)
+                  dashboard=true
+                  container=true
+                  docs=true
+                  ;;
                 apps/dashboard/*|packages/*)
                   dashboard=true
                   container=true
@@ -75,6 +83,7 @@ jobs:
                   dashboard=true
                   linux=true
                   container=true
+                  docs=true
                   e2e=true
                   ;;
                 deploy/docker/*)
@@ -93,6 +102,7 @@ jobs:
                   server=true
                   dashboard=true
                   container=true
+                  docs=true
                   e2e=true
                   ;;
               esac
@@ -307,7 +317,7 @@ jobs:
         run: make demo-down
 
   docs_ci:
-    name: Documentation style
+    name: Documentation
     needs: changes
     if: needs.changes.outputs.docs == 'true'
     runs-on: ubuntu-latest
@@ -320,11 +330,15 @@ jobs:
       - run: npm ci
       - name: Check ASD-STE100 hard rules
         run: bash scripts/check-docs-ste.sh
-      - name: Check Markdown formatting
+      - name: Check documentation formatting
         run: |
-          mapfile -t markdown_files < <(rg --files -g '*.md' docs wiki apps packages deploy | sort)
-          markdown_files+=(README.md)
-          npx prettier --check "${markdown_files[@]}"
+          mapfile -t doc_files < <(rg --files -g '*.md' -g '*.mdx' docs wiki apps packages deploy | sort)
+          doc_files+=(README.md apps/docs)
+          npx prettier --check "${doc_files[@]}"
+      - name: Check the docs site
+        run: npm run docs:check
+      - name: Build the docs site and check its links
+        run: npm run docs:build
 
   required:
     name: Required PR validation

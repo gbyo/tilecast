@@ -2,6 +2,8 @@
 
 ## Canonical Architecture and Implementation Plan
 
+We are pausing Fabric development until base Edge/WPE work is done.
+
 **Status:** Proposed implementation RFC
 **Product:** Tilecast
 **Subsystem:** Tilecast Edge (Fabric)

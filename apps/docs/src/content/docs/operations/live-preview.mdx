@@ -1,0 +1,35 @@
+---
+title: View a live preview or stream
+description: Check a Player's current image or watch its output while the stream window is open.
+---
+
+Open a screen's **Overview** tab to use **Live preview**. Tilecast requests a still image from the Player and refreshes it about every 20 seconds while the page is open. Select **Refresh** to request another image.
+
+import { Steps } from "@astrojs/starlight/components";
+
+## Watch the screen live
+
+<Steps>
+
+1. Open **Screens** > **Fleet** and select an online screen.
+2. On **Overview**, select **Watch live** in **Live preview**.
+3. Keep the **Live stream** window open while you watch.
+4. Select **Stop watching** when you are finished.
+
+</Steps>
+
+The stream is separate from the periodic preview. It relays Player output only while the window is open; closing the window stops renewing the session. Tilecast does not save the stream frames to previews, Activity, or backups. Actual frame updates depend on the Player and network.
+
+## When a view is unavailable
+
+- **Watch live** is available only while the screen is online.
+- A protected Player screen is not captured. AirPlay-mirrored output is also excluded.
+- An offline Player cannot send a fresh image. The preview may be stale until it reconnects.
+- Some Player or device states do not allow capture. Studio reports the preview as unavailable or shows a capture error.
+
+Live preview shows a recent image; it does not prove that scheduled content played.
+
+## Next steps
+
+- Use [Activity](../activity/) to check Player-confirmed playback.
+- Check [screen status](../screen-status/) when the image is stale or unavailable.

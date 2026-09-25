@@ -109,7 +109,7 @@ export function SiteHeader({
         onClick={onSearch}
       >
         <Search aria-hidden="true" />
-        <span className="sr-only sm:not-sr-only sm:flex-1 sm:text-left">
+        <span className="sr-only sm:not-sr-only sm:flex-1 sm:text-start">
           {t("header.search")}
         </span>
         {/* i18n-ignore: keyboard shortcut glyphs, not language text */}
@@ -140,7 +140,7 @@ export function SiteHeader({
                   ? "destructive"
                   : "secondary"
               }
-              className="absolute -top-1 -right-1 h-4 min-w-4 justify-center px-1 text-[10px]"
+              className="absolute -top-1 -end-1 h-4 min-w-4 justify-center px-1 text-[10px]"
               aria-hidden="true"
             >
               {/* i18n-ignore: badge overflow marker, not language text */}

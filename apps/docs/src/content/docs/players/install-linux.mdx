@@ -1,0 +1,60 @@
+---
+title: Install Tilecast Player on Linux
+description: Install the verified Linux AppImage from Tilecast Server and pair the display.
+---
+
+The Tilecast Server installer uses the newest stable Linux AppImage cached and verified on the server. It creates a systemd user service for the kiosk account and configures the Player to connect to that server. The installer chooses the newest cached release automatically; it does not ask for a version.
+
+## Before you start
+
+- Use a 64-bit x86_64 Linux computer with a graphical desktop session on X11 or Wayland.
+- Make sure the computer can reach Tilecast Server at the address in `TILECAST_PUBLIC_URL`.
+- Sign in to Studio as an Owner to prepare the Linux release.
+
+The server-provided installer requires root for installation. It installs the AppImage under an unprivileged kiosk account. The default account is the one that invoked `sudo`; pass `--user` to select another account.
+
+import { Steps } from "@astrojs/starlight/components";
+
+## Prepare a Linux release
+
+<Steps>
+
+1. In Studio, open **Settings** > **Player updates** and select **Linux**.
+2. If the release you want is not listed, select **Sync from GitHub**.
+3. Select **Download** beside the release and wait until Studio shows **Ready to deploy**. The installer cannot proceed until the server has a cached, verified Linux release.
+
+</Steps>
+
+## Install the Player
+
+Run this command on the Linux computer. Replace the example hostname with the same server address you set in `TILECAST_PUBLIC_URL`.
+
+```sh
+curl -fsSL https://signage.example.org/install.sh | sudo bash
+```
+
+To create and use a separate kiosk account, pass its name and `--create-user`.
+
+```sh
+curl -fsSL https://signage.example.org/install.sh | sudo bash -s -- --user signage --create-user
+```
+
+The installer checks the downloaded release checksum, installs the AppImage and user service, and sets the server address in the service. By default, it also tries optional AirPlay and Presentation Network setup. A failed optional setup does not prevent the Player from pairing.
+
+If you do not need these capabilities, skip them when running the installer.
+
+```sh
+curl -fsSL https://signage.example.org/install.sh | sudo bash -s -- --without-airplay --without-presentation-network
+```
+
+Use the matching address from `TILECAST_PUBLIC_URL`. If it uses HTTP, run the command only over a trusted LAN.
+
+If the installer prints `systemctl --user start tilecast-player`, run that command from the kiosk account. If the user service manager is not available yet, the service starts with the account’s next graphical session.
+
+The Player opens with a pairing code. Continue with [Pair a display](../pair-a-display/).
+
+## Host limits
+
+The published Linux AppImage is x86_64. The bundled AirPlay provisioning script uses `apt-get` and supports Debian-family systems; this optional setup does not determine whether the Player itself can pair. The installer does not configure the host to start a graphical desktop, enable automatic login, or install a kiosk compositor. Set up those host features separately if the display must start without an operator login.
+
+A local HTTP server address is not encrypted. Use it only on a trusted LAN. Public hostnames require HTTPS.

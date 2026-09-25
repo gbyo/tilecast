@@ -1,0 +1,42 @@
+---
+title: Back up and restore Tilecast
+description: Create, verify, download, schedule, or restore a full installation backup.
+---
+
+Tilecast backups include the database, media originals and processed files, thumbnails, and cached Player updates. Only the **Owner** can manage backups. Open **Settings** > **Backup and restore**.
+
+import { Steps } from "@astrojs/starlight/components";
+
+## Create and protect a backup
+
+<Steps>
+
+1. Select **Create backup**. Tilecast queues the backup and shows its progress under **Recent backup activity**.
+2. When the archive appears under **Available backups**, select **Verify** before relying on it.
+3. Select **Download** and copy the file to storage outside the Tilecast host.
+
+</Steps>
+
+The Studio panel restores archives already stored by this installation. Downloading an archive gives you an off-host copy; it doesn't add that file back to **Available backups**.
+
+:::caution
+An archive includes the full database, including each enrolled user's authenticator secret. Protect backups like credentials. With Docker Compose, backups are stored under `/data/backups` in the `tilecast_data` volume; a copy on that volume won't protect you if its storage is lost.
+:::
+
+If you use Presentation Networks, keep `TILECAST_PRESENTATION_NETWORK_KEY` with your deployment secrets. This environment variable is not included in the backup.
+
+## Schedule backups
+
+Under **Automatic backup schedule**, enable scheduled backups and choose daily or weekly runs, a time, and a time zone. Retention settings apply only to scheduled backups. Manually created backups remain until an Owner deletes them.
+
+## Restore an archive
+
+<Steps>
+
+1. Select **Verify** for the archive you plan to restore.
+2. Select **Restore** and review the confirmation. Tilecast creates a pre-restore backup, then replaces the current database and media state. Studio is temporarily unavailable during the restore.
+3. If Studio warns that the archive belongs to a different installation, continue only if that is intentional. Players enrolled with the current installation must be reset and paired again after restoring a backup from another installation.
+
+</Steps>
+
+Deleting an archive can't be undone. Tilecast asks for an extra confirmation before deleting the last complete backup because no known-good restore point would remain.

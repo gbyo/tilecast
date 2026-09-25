@@ -1,13 +1,13 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import { toast } from "../../components/ui/toast";
 import { apiErrorMessage } from "../../i18n";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
-import { Field, FieldLabel } from "../../components/ui/field";
+import { Field, FieldDescription, FieldLabel } from "../../components/ui/field";
 import { Input } from "../../components/ui/input";
 import {
   Select,
@@ -23,6 +23,10 @@ import type {
   ManualColumn,
   ManualSourceConfig,
 } from "../../api/types";
+import {
+  isISO4217CurrencyCode,
+  useOrganizationRegionalProfile,
+} from "../../settings/regionalProfile";
 import { EditorFrame, optionLabel } from "./shared";
 
 const manualColumnTypes: ManualColumn["type"][] = [
@@ -67,6 +71,12 @@ export function ManualDataSourceEditor({
 }) {
   const { t } = useTranslation(["content", "common"]);
   const queryClient = useQueryClient();
+  const regional = useOrganizationRegionalProfile();
+  const touchedTimezone = useRef(false);
+  const originalColumns = useRef(
+    (dataSource?.configuration as ManualSourceConfig | undefined)?.columns ??
+      [],
+  );
   const [name, setName] = useState(dataSource?.name ?? "");
   const [description, setDescription] = useState(dataSource?.description ?? "");
   const [configuration, setConfiguration] = useState<ManualSourceConfig>(
@@ -77,13 +87,23 @@ export function ManualDataSourceEditor({
       dateSelection: {
         enabled: false,
         dateFormat: "auto",
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+        timezone: "UTC",
         mode: "today",
         excludePast: false,
         noMatchBehavior: "empty",
       },
     },
   );
+  useEffect(() => {
+    if (dataSource || !regional.ready || touchedTimezone.current) return;
+    setConfiguration((current) => ({
+      ...current,
+      dateSelection: {
+        ...current.dateSelection,
+        timezone: regional.timezone,
+      },
+    }));
+  }, [dataSource, regional.ready, regional.timezone]);
   const save = useMutation({
     mutationFn: () => {
       const input = {
@@ -112,6 +132,13 @@ export function ManualDataSourceEditor({
         columnIndex === index ? { ...column, ...patch } : column,
       ),
     }));
+  const isUnspecifiedLegacyCurrency = (column: ManualColumn) =>
+    originalColumns.current.some(
+      (original) =>
+        original.key === column.key &&
+        original.type === "currency" &&
+        !original.currency,
+    );
   // Column type labels are translated at render; the stored values stay API tokens.
   const columnTypeLabels: Record<ManualColumn["type"], string> = {
     text: t("dataSources.columnTypes.text"),
@@ -138,7 +165,16 @@ export function ManualDataSourceEditor({
         !readOnly && (
           <Button
             type="button"
-            disabled={save.isPending || !name.trim()}
+            disabled={
+              save.isPending ||
+              !name.trim() ||
+              configuration.columns.some(
+                (column) =>
+                  column.type === "currency" &&
+                  !isISO4217CurrencyCode(column.currency ?? "") &&
+                  !isUnspecifiedLegacyCurrency(column),
+              )
+            }
             onClick={() => save.mutate()}
           >
             {save.isPending
@@ -252,7 +288,8 @@ export function ManualDataSourceEditor({
                 </FieldLabel>
                 <Input
                   id={`manual-column-currency-${index}`}
-                  value={column.currency ?? "USD"}
+                  value={column.currency ?? ""}
+                  required={!isUnspecifiedLegacyCurrency(column)}
                   maxLength={3}
                   disabled={readOnly}
                   onChange={(event) =>
@@ -261,6 +298,9 @@ export function ManualDataSourceEditor({
                     })
                   }
                 />
+                <FieldDescription>
+                  {t("dataSources.manual.currencyHint")}
+                </FieldDescription>
               </Field>
             )}
             {!readOnly && configuration.columns.length > 1 && (
@@ -555,15 +595,16 @@ export function ManualDataSourceEditor({
                 id="manual-timezone"
                 value={configuration.dateSelection.timezone}
                 disabled={readOnly}
-                onChange={(event) =>
+                onChange={(event) => {
+                  touchedTimezone.current = true;
                   setConfiguration((current) => ({
                     ...current,
                     dateSelection: {
                       ...current.dateSelection,
                       timezone: event.target.value,
                     },
-                  }))
-                }
+                  }));
+                }}
               />
             </Field>
             <Field>

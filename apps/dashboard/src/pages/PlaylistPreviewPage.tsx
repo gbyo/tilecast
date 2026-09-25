@@ -20,9 +20,11 @@ import { useTranslation } from "react-i18next";
 import { Navigate, useLocation, useParams } from "react-router";
 import { api } from "../api/client";
 import type { PlaylistItem } from "../api/types";
+import type { OrganizationRegionalProfile } from "../settings/regionalProfile";
 import { useAuth } from "../auth/AuthProvider";
 import { DeclarativePresentationPreview } from "../content/SourceEditors";
 import { Button } from "../components/ui/button";
+import { useOrganizationRegionalProfile } from "../settings/regionalProfile";
 
 export function nextPlaylistPreviewItem(
   index: number,
@@ -84,6 +86,7 @@ function PreviewMedia({
   paused,
   muted,
   csrfToken,
+  regional,
   className,
   onReady,
   onDone,
@@ -94,6 +97,7 @@ function PreviewMedia({
   paused: boolean;
   muted: boolean;
   csrfToken: string;
+  regional: OrganizationRegionalProfile;
   className: string;
   onReady: () => void;
   onDone: () => void;
@@ -210,6 +214,7 @@ function PreviewMedia({
           <DeclarativePresentationPreview
             presentation={presentationQuery.data}
             source={sourceQuery.data}
+            regional={regional}
             assetImageUrl={
               imageAssetId ? api.assetPreviewUrl(imageAssetId) : undefined
             }
@@ -240,6 +245,7 @@ function PreviewMedia({
 
 export function PlaylistPreviewPage() {
   const { t } = useTranslation("playlists");
+  const regional = useOrganizationRegionalProfile();
   const { id = "" } = useParams();
   const location = useLocation();
   const auth = useAuth();
@@ -428,6 +434,7 @@ export function PlaylistPreviewPage() {
               paused={paused}
               muted={muted}
               csrfToken={auth.status.csrfToken ?? ""}
+              regional={regional}
               className={`${MEDIA_BASE} ${crossfade ? "playlist-preview-page__media--incoming" : `playlist-preview-page__media--${current.transition}`}`}
               onReady={() =>
                 setCrossfade((value) =>
@@ -452,6 +459,7 @@ export function PlaylistPreviewPage() {
                 paused={paused}
                 muted
                 csrfToken={auth.status.csrfToken ?? ""}
+                regional={regional}
                 className={`${MEDIA_BASE} playlist-preview-page__media--outgoing${crossfade.ready ? " playlist-preview-page__media--outgoing-active" : ""}`}
                 onReady={() => undefined}
                 onDone={() => undefined}
