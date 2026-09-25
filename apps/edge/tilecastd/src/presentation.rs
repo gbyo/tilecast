@@ -457,6 +457,10 @@ impl PresentationEngine {
         self.renderer.as_ref().is_some_and(|link| link.accepted == Some(current))
     }
 
+    pub fn current_has_renderer_error(&self) -> bool {
+        self.renderer.as_ref().is_some_and(|link| link.last_error_code.is_some())
+    }
+
     /// Digests the current activation needs pinned.
     pub fn pinned_content(&self) -> BTreeSet<edge_protocol::Sha256Digest> {
         self.current.iter().flat_map(|a| a.content.iter().map(|c| c.sha256)).collect()

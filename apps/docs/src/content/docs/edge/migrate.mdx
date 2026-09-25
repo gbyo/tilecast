@@ -1,0 +1,32 @@
+---
+title: Migrate from the current Linux Player
+description: See how the Edge preview moves a screen from Electron to Tilecast Edge and rolls back if needed.
+---
+
+:::caution[Preview]
+Do not migrate a production screen until a Tilecast release says Edge is supported on that hardware.
+:::
+
+The Edge migration is designed to avoid having the current Linux Player and Edge both control the same Tilecast screen at the same time.
+
+## Before the switch
+
+The migration checks the Edge release, the current Player service, the Edge daemon and renderer, display access, and whether the screen's current content can run on Edge.
+
+If one of those checks fails, the current Linux Player keeps running.
+
+## Switching to Edge
+
+After the checks pass, the migrator stops the current Player, moves the small amount of state Edge needs, and starts Edge.
+
+Edge must then connect to the server, start the expected renderer, load the current presentation, and keep playback moving before the migration is accepted.
+
+If the credential is rejected, the presentation cannot run, Edge enters safe mode, or the old Player comes back unexpectedly, the migration can roll back.
+
+## Rollback
+
+During the migration window, rollback stops Edge and restores the previous Player setup. A crash or power loss during migration does not count as a successful switch.
+
+After Edge has been accepted, the old Player can remain installed but disabled until you choose to remove it later.
+
+Before migrating, check [requirements](../requirements/), [content compatibility](../compatibility/), recent [Activity](../../operations/activity/), and your latest [server backup](../../administration/backups/).

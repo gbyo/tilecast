@@ -50,10 +50,9 @@ type manualRecordsProjection struct {
 // record dataset the Player receives.
 func manualRecordsPayload(definition contentdefs.DataSourceDefinition, configuration map[string]any, now time.Time) manualRecordsProjection {
 	now = now.UTC()
-	fields := make([]DataSourceField, 0, len(definition.OutputSchema.Fields))
+	fields := outputDataSourceFields(definition.OutputSchema, configuration)
 	declared := make(map[string]bool, len(definition.OutputSchema.Fields))
 	for _, field := range definition.OutputSchema.Fields {
-		fields = append(fields, DataSourceField{Key: field.Key, Label: field.Label, Type: field.Type})
 		declared[field.Key] = true
 	}
 

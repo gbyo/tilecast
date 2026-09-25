@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tilecast/tilecast/apps/server/internal/ids"
 )
 
 type Service struct {
@@ -308,7 +309,7 @@ func (s *Service) ApprovePairingWithOptions(ctx context.Context, id, userID uuid
 		return Screen{}, fmt.Errorf("read organization: %w", err)
 	}
 
-	screenID := uuid.New()
+	screenID := ids.New(ctx)
 	var existingID uuid.UUID
 	var activeCredential bool
 	pairingMode := "new_screen"

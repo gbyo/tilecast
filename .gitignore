@@ -22,6 +22,7 @@ tilecast-player.apk
 tilecast-player-update.json
 tilecast-player-update.json.sig
 release-secrets/
-
 # Python bytecode from the Edge CI scripts
 __pycache__/
+e2e/test-results/
+e2e/playwright-report/

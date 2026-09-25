@@ -16,8 +16,10 @@ Use this section to monitor screens after setup and handle problems without losi
 - [Use Display Control](../screens/display-control/) to request a power, input, volume, or brightness action.
 - [Send a Player command](./player-commands/) to request a sync, playback reload, cache clear, or restart.
 - [Install a built-in plugin](./plugins/) for an optional Tilecast capability.
+- [Review Snapshot history](./snapshot-history/) when you need to look back at earlier screen captures instead of only the current preview.
+- [Set data retention](./data-retention/) for Activity, audit, diagnostics, and telemetry history.
 
-For timed playback, see [Schedules](../schedules/). To send notifications to people or another system, see [Integrations](../integrations/).
+For timed playback, see [Schedules](../schedules/). To send notifications to people or another system, see [Integrations](../integrations/). If something is not working, start with [Troubleshooting](../troubleshooting/).
 
 ## What plays first
 
