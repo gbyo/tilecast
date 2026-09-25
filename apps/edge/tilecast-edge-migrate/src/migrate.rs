@@ -37,8 +37,8 @@ use serde_json::Value;
 
 use crate::host::{
     COMPAT_OUTPUT, COMPAT_UNIT, CONSOLE_UNIT, DISPLAY_MANAGER_UNIT, DRM_PROBE_OUTPUT, DRM_PROBE_UNIT, EDGE_DAEMON,
-    EDGE_RENDERER, EDGE_UNITS, Host, HostError, IMPORT_OUTPUT, IMPORT_UNIT, SELFTEST_HOST_UNIT, SELFTEST_OUTPUT,
-    SELFTEST_RENDERER_UNIT,
+    EDGE_ENABLED_UNITS, EDGE_RENDERER, EDGE_UNITS, Host, HostError, IMPORT_OUTPUT, IMPORT_UNIT, SELFTEST_HOST_UNIT,
+    SELFTEST_OUTPUT, SELFTEST_RENDERER_UNIT, UPDATE_SOCKET,
 };
 use crate::settle::{Expectation, Verdict, evaluate, summary};
 use crate::state::{Attempt, Backend, Kind, Phase, SCHEMA_VERSION, StateError, StateStore, UnitRecord};
@@ -524,8 +524,11 @@ impl<'a, H: Host> Migrator<'a, H> {
     async fn start_edge(&self, attempt: &mut Attempt) -> Result<(), Stop> {
         self.save(attempt, Phase::EdgeStartIntent, "enabling Edge")?;
         self.crash(CrashPoint::AfterEdgeStartIntent)?;
-        self.host.enable(&EDGE_UNITS).await.map_err(|e| roll_back(host_reason("edge_enable", &e)))?;
+        self.host.enable(&EDGE_ENABLED_UNITS).await.map_err(|e| roll_back(host_reason("edge_enable", &e)))?;
         self.crash(CrashPoint::AfterEdgeEnabled)?;
+        // The update helper's socket: tilecastd can ask for updates from its
+        // first start. Only a request ever starts the helper itself.
+        let _ = self.host.start_detached(UPDATE_SOCKET).await;
         attempt.edge_started_at_ms = Some(self.host.now_ms());
         self.host.start(EDGE_DAEMON).await.map_err(|e| roll_back(host_reason("edge_start_failed", &e)))?;
         self.crash(CrashPoint::AfterDaemonStarted)?;
@@ -649,9 +652,9 @@ impl<'a, H: Host> Migrator<'a, H> {
             self.crash(CrashPoint::AfterRollbackIntent)?;
         }
         // Edge first: disabled on disk, then stopped, then confirmed.
-        self.host.disable(&EDGE_UNITS).await.map_err(|e| MigrateError::RollbackIncomplete(e.to_string()))?;
+        self.host.disable(&EDGE_ENABLED_UNITS).await.map_err(|e| MigrateError::RollbackIncomplete(e.to_string()))?;
         self.crash(CrashPoint::AfterEdgeDisabled)?;
-        for unit in [EDGE_RENDERER, EDGE_DAEMON] {
+        for unit in [EDGE_RENDERER, EDGE_DAEMON, UPDATE_SOCKET] {
             let _ = self.host.stop(unit).await;
         }
         for unit in EDGE_UNITS {

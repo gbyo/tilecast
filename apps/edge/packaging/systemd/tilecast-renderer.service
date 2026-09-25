@@ -43,6 +43,9 @@ InaccessiblePaths=-/var/lib/tilecast-edge
 # tilecast-network group, and the renderer inherits the account's groups.
 # An empty private mount hides a helper started after this renderer starts.
 TemporaryFileSystem=/run/tilecast:ro,mode=0000
+# The update helper's socket: only tilecastd may ask for an update operation
+# (docs/tilecast-edge-update-threat-review.md).
+InaccessiblePaths=-/run/tilecast-edge-update
 PrivateTmp=yes
 NoNewPrivileges=yes
 CapabilityBoundingSet=

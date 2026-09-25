@@ -1,1 +1,6 @@
-{"op":"stage","artifactSha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","envelope":"eyJ9","signature":"c2ln"}
+{
+  "op": "stage",
+  "artifactSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "envelope": "eyJ9",
+  "signature": "c2ln"
+}

@@ -34,6 +34,8 @@ UNITS = [
     "tilecast-renderer-probe.service",
     "tilecast-edge-compat.service",
     "tilecast-edge-import.service",
+    "tilecast-edge-update.service",
+    "tilecast-edge-update.socket",
 ]
 USER_UNITS = ["tilecast-session-bridge.service", "tilecast-session-bridge.path"]
 SYSTEM_FILES = [
@@ -121,7 +123,7 @@ def main():
         shutil.rmtree(out)
     os.makedirs(out)
 
-    for name in ("tilecastd", "tilecastctl", "tilecast-edge-migrate"):
+    for name in ("tilecastd", "tilecastctl", "tilecast-edge-migrate", "tilecast-edge-update"):
         copy(os.path.join(args.bin_dir, name), out, f"bin/{name}", 0o755)
     copy(args.renderer, out, "bin/tilecast-renderer-wpe", 0o755)
     copy(args.session_bridge, out, "bin/tilecast-session-bridge", 0o755)

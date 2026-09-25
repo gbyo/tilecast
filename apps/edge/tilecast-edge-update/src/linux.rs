@@ -196,10 +196,20 @@ impl UpdateHost for LinuxHost {
         tokio::time::timeout(Duration::from_secs(5), request).await.ok().flatten()
     }
 
+    /// The kernel's boot ID and the start time of PID 1. On a machine both
+    /// change only at boot; in a container the boot ID survives a restart of
+    /// the container, and PID 1's start time does not.
     fn boot_id(&self) -> String {
-        std::fs::read_to_string("/proc/sys/kernel/random/boot_id")
+        let boot: String = std::fs::read_to_string("/proc/sys/kernel/random/boot_id")
             .map(|text| text.trim().chars().take(64).collect())
-            .unwrap_or_default()
+            .unwrap_or_default();
+        let init = std::fs::read_to_string("/proc/1/stat")
+            .ok()
+            .and_then(|stat| {
+                stat.rsplit_once(')').and_then(|(_, rest)| rest.split_whitespace().nth(19).map(str::to_owned))
+            })
+            .unwrap_or_default();
+        format!("{boot}:{init}")
     }
 
     fn boottime_ms(&self) -> i64 {

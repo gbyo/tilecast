@@ -5,6 +5,8 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"os"
+	"strings"
 	"testing"
 )
 
@@ -164,5 +166,29 @@ func TestEdgeVersionCodeMatchesTheReleaseBuild(t *testing.T) {
 		if _, ok := EdgeVersionCode(bad); ok {
 			t.Fatalf("%s accepted", bad)
 		}
+	}
+}
+
+// The contract with the release build and the players: an envelope that
+// apps/edge/release/envelope.py wrote and OpenSSL signed is accepted here,
+// as edge_release::envelope accepts it.
+func TestEdgeEnvelopeFromTheReleaseBuild(t *testing.T) {
+	dir := "../../../../packages/edge-protocol/fixtures/update-envelope/"
+	raw, err := os.ReadFile(dir + "envelope.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	signature, _ := os.ReadFile(dir + "envelope.json.sig")
+	encodedKey, _ := os.ReadFile(dir + "public-key")
+	key, err := base64.StdEncoding.DecodeString(strings.TrimSpace(string(encodedKey)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := ParseAndVerifyManifest(raw, signature, ed25519.PublicKey(key))
+	if err != nil {
+		t.Fatalf("release-build envelope rejected: %v", err)
+	}
+	if manifest.NormalizedFamily() != FamilyEdge || manifest.Architecture() != "x86_64" || manifest.StateSchemaVersion != 6 {
+		t.Fatalf("unexpected envelope: %+v", manifest)
 	}
 }

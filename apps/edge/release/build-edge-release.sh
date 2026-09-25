@@ -46,9 +46,10 @@ ctest --test-dir /cache/bridge --output-on-failure
 
 # 3. The Rust binaries, without the integration-test feature.
 export CARGO_TARGET_DIR=/cache/cargo RUSTFLAGS="--remap-path-prefix=/src=. --remap-path-prefix=/opt/cargo=cargo"
-(cd "$edge" && cargo build --release --locked -p tilecastd -p tilecastctl -p tilecast-edge-migrate)
-if grep -q TILECAST_MIGRATE_CRASH_AT "$CARGO_TARGET_DIR/release/tilecast-edge-migrate"; then
-  echo "the release migrator was built with the integration-test feature" >&2
+(cd "$edge" && cargo build --release --locked -p tilecastd -p tilecastctl -p tilecast-edge-migrate -p tilecast-edge-update)
+if grep -q TILECAST_MIGRATE_CRASH_AT "$CARGO_TARGET_DIR/release/tilecast-edge-migrate" ||
+  grep -q TILECAST_UPDATE_CRASH_AT "$CARGO_TARGET_DIR/release/tilecast-edge-update"; then
+  echo "a release root tool was built with the integration-test feature" >&2
   exit 1
 fi
 
@@ -89,6 +90,20 @@ tar --sort=name --numeric-owner --owner=0 --group=0 --mtime="@$SOURCE_DATE_EPOCH
   zstd -19 -T1 -q > "/out/$archive"
 cp "$manifest" "/out/tilecast-edge-$version-$arch.json"
 [ -f "$manifest.sig" ] && cp "$manifest.sig" "/out/tilecast-edge-$version-$arch.json.sig"
+# 7. The update envelope (M10): binds the archive to the manifest inside it,
+# signed with the same key and in the same way.
+state_schema=$(find "$edge/crates/edge-state/migrations" -name '[0-9][0-9][0-9][0-9]_*.sql' | sed 's#.*/0*\([0-9]*\)_.*#\1#' | sort -n | tail -1)
+envelope="/out/tilecast-edge-update-$arch.json"
+python3 "$release/envelope.py" --tree /out/tree --archive "/out/$archive" --arch "$arch" \
+  --state-schema "$state_schema" --channel "${TILECAST_EDGE_CHANNEL:-stable}" --out "$envelope"
+if [ -n "${TILECAST_UPDATE_MANIFEST_PRIVATE_KEY:-}" ]; then
+  openssl pkeyutl -sign -rawin -inkey "$TILECAST_UPDATE_MANIFEST_PRIVATE_KEY" -in "$envelope" |
+    openssl base64 -A > "$envelope.sig"
+  openssl pkeyutl -verify -rawin -pubin -inkey "$TILECAST_UPDATE_MANIFEST_PUBLIC_KEY_FILE" -in "$envelope" \
+    -sigfile <(openssl base64 -d -A -in "$envelope.sig")
+fi
 (cd /out && sha256sum "$archive" "tilecast-edge-$version-$arch.json" "tilecast-edge-$version-$arch.sbom.cdx.json" \
-  $( [ -f "tilecast-edge-$version-$arch.json.sig" ] && echo "tilecast-edge-$version-$arch.json.sig") > SHA256SUMS)
+  "tilecast-edge-update-$arch.json" \
+  $( [ -f "tilecast-edge-$version-$arch.json.sig" ] && echo "tilecast-edge-$version-$arch.json.sig") \
+  $( [ -f "tilecast-edge-update-$arch.json.sig" ] && echo "tilecast-edge-update-$arch.json.sig") > SHA256SUMS)
 echo "build-edge-release: Tilecast Edge $version ($arch) with WPE WebKit $wpe_version in /out"

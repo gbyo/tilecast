@@ -198,6 +198,21 @@ mod tests {
         ));
     }
 
+    /// The contract with the release build and the server: an envelope that
+    /// `apps/edge/release/envelope.py` wrote and OpenSSL signed verifies here,
+    /// and in the server's `TestEdgeEnvelopeFromTheReleaseBuild`.
+    #[test]
+    fn the_release_build_envelope_verifies() {
+        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../../packages/edge-protocol/fixtures/update-envelope");
+        let bytes = std::fs::read(format!("{dir}/envelope.json")).unwrap();
+        let signature = std::fs::read(format!("{dir}/envelope.json.sig")).unwrap();
+        let key =
+            crate::manifest::decode_key(std::fs::read_to_string(format!("{dir}/public-key")).unwrap().trim()).unwrap();
+        let verified = verify_envelope(&bytes, &signature, &key).unwrap();
+        assert_eq!(verified.envelope.artifact_asset_name, "tilecast-edge-0.2.0-x86_64.tar.zst");
+        assert_eq!(verified.envelope.state_schema_version, 6);
+    }
+
     #[test]
     fn signed_but_wrong_envelopes_are_refused() {
         let signer = Signer::new();

@@ -4,3 +4,5 @@
 apps/edge/target/
 # Exact media-channel wire frames; the Rust and C contract tests compare bytes.
 packages/edge-protocol/fixtures/media/
+# Signed bytes: the signature covers the exact file.
+packages/edge-protocol/fixtures/update-envelope/

@@ -1,1 +1,1 @@
-{"op":"rollback","reason":"candidate_safe_mode"}
+{ "op": "rollback", "reason": "candidate_safe_mode" }
