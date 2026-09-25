@@ -478,7 +478,11 @@ function UptimeTrend({ report }: { report: UptimeReport }) {
   const Icon = delta > 0 ? TrendingUp : TrendingDown;
   return (
     <span
-      className={`inline-flex items-center gap-1 text-xs ${delta > 0 ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"}`}
+      className={`inline-flex items-center gap-1 text-xs ${
+        delta > 0
+          ? "text-emerald-700 dark:text-emerald-400"
+          : "text-red-700 dark:text-red-400"
+      }`}
     >
       <Icon className="size-3.5" aria-hidden="true" />
       {t("uptime.trendDelta", {
@@ -512,7 +516,11 @@ function formatRange(start: string | undefined, bucketSeconds: number) {
   if (!start) return "";
   const from = new Date(start);
   const to = new Date(from.getTime() + bucketSeconds * 1000);
-  return `${from.toLocaleString([], { month: "short", day: "numeric", hour: "numeric" })}–${to.toLocaleTimeString([], { hour: "numeric" })}`;
+  return `${from.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+  })}–${to.toLocaleTimeString([], { hour: "numeric" })}`;
 }
 
 function formatAxis(start: string, window: UptimeWindow) {
