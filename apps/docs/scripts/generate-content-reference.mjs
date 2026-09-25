@@ -42,11 +42,7 @@ for (const name of names) {
 function markdownTable(headers, records) {
   const rows = records.map((record) => record.map(escapeCell));
   const widths = headers.map((header, index) =>
-    Math.max(
-      3,
-      header.length,
-      ...rows.map((row) => row[index]?.length ?? 0),
-    ),
+    Math.max(3, header.length, ...rows.map((row) => row[index]?.length ?? 0)),
   );
   const line = (row) =>
     `| ${row.map((cell, index) => cell.padEnd(widths[index])).join(" | ")} |`;
