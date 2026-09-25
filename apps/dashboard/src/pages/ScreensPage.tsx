@@ -2936,10 +2936,13 @@ function ApprovalPanel({
           </div>
           <Badge variant="outline" className="shrink-0">
             {t("approval.expires", {
-              time: new Date(request.expiresAt).toLocaleTimeString(formatLocale, {
-                hour: "numeric",
-                minute: "2-digit",
-              }),
+              time: new Date(request.expiresAt).toLocaleTimeString(
+                formatLocale,
+                {
+                  hour: "numeric",
+                  minute: "2-digit",
+                },
+              ),
             })}
           </Badge>
         </div>
