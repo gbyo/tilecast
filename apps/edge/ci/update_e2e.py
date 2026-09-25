@@ -665,10 +665,31 @@ def update_broken():
           f"({finished['reason']}) and nothing activated it again")
 
 
+def print_diagnostics():
+    """What the helper, its socket, the guard and tilecastd saw."""
+    for argv in (["/opt/tilecast-edge/current/bin/tilecastctl", "--json", "status"],
+                 ["systemctl", "status", "--no-pager", "tilecast-edge-update.socket", "tilecast-edge-update.service",
+                  "tilecast-edge-update-guard.service", "tilecast-edge-update-guard.timer", "tilecast-edge.service",
+                  "tilecast-renderer.service"],
+                 ["journalctl", "--no-pager", "-o", "cat", "-n", "200", "-u", "tilecast-edge-update.service",
+                  "-u", "tilecast-edge-update.socket", "-u", "tilecast-edge-update-guard.service"],
+                 ["journalctl", "--no-pager", "-o", "cat", "-n", "120", "-u", "tilecast-edge.service",
+                  "--grep", "update|helper"],
+                 ["ls", "-la", "/run/tilecast-edge-update", STATE, INSTALL],
+                 ["cat", f"{STATE}/transaction.json", f"{STATE}/previous.json"]):
+        result = subprocess.run(argv, capture_output=True, text=True)
+        print(f"$ {' '.join(argv)}  (exit {result.returncode})\n{result.stdout[-12000:]}{result.stderr[-2000:]}",
+              flush=True)
+
+
 PHASES = {"update-releases": update_releases, "update-success": update_success,
           "update-provisional": update_provisional, "update-after-reboot": update_after_reboot,
           "update-broken": update_broken}
 
 if __name__ == "__main__":
     sys.stdout.reconfigure(line_buffering=True)
-    PHASES[sys.argv[1]]()
+    try:
+        PHASES[sys.argv[1]]()
+    except BaseException:
+        print_diagnostics()
+        raise

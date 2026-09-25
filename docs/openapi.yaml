@@ -3235,7 +3235,15 @@ paths:
   /api/v1/player-releases/upload:
     post:
       summary: Upload and verify a signed Tilecast Player release bundle
-      description: Accepts the APK, signed update manifest, and manifest signature as multipart files. Owner session plus CSRF or a configured release-publishing bearer token is required.
+      description: >-
+        Accepts one release's three files as multipart files: the artifact, the
+        signed update manifest and its signature. The file names select the
+        family: `tilecast-player.apk` with `tilecast-player-update.json`
+        (Android), `tilecast-player.AppImage` with
+        `tilecast-player-update-linux.json` (Electron Linux), or
+        `tilecast-edge-<version>-<arch>.tar.zst` with the signed envelope
+        `tilecast-edge-update.json` (Tilecast Edge). Owner session plus CSRF or
+        a configured release-publishing bearer token is required.
       requestBody:
         required: true
         content:
@@ -3250,7 +3258,34 @@ paths:
                   maxItems: 3
                   items: { type: string, format: binary }
       responses:
-        "201": { description: Release fully verified and cached }
+        "201":
+          description: Release fully verified and cached
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id: { type: string, format: uuid }
+                      platform: { enum: [android, linux] }
+                      playerFamily:
+                        { $ref: "#/components/schemas/PlayerFamily" }
+                      architecture:
+                        type: string
+                        description: "`x86_64` or `aarch64` for Tilecast Edge; empty for the other families."
+                      source: { enum: [upload, github] }
+                      versionCode: { type: integer }
+                      versionName: { type: string }
+                      channel: { enum: [stable, beta] }
+                      apkSizeBytes:
+                        {
+                          type: integer,
+                          description: The artifact size,
+                          for every family.,
+                        }
+                      duplicate: { type: boolean }
         "401": { description: Invalid publishing token }
         "413": { description: Upload exceeds configured limits }
         "422": { description: Missing file or verification failure }
@@ -3316,9 +3351,30 @@ paths:
     get:
       summary: Get targeted verified Player update metadata
       responses:
+        "200":
+          description: Update metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/PlayerUpdateMetadata" }
+        "404": { description: Not targeted }
+  /api/v1/player/updates/{releaseId}/artifact:
+    get:
+      summary: Download or resume the authenticated cached release artifact
+      description: >-
+        The artifact of every family (the AppImage, the APK or the Tilecast
+        Edge archive), with `Accept-Ranges: bytes`, a strong `ETag` of its
+        SHA-256, and range requests. Only a screen targeted by an active
+        deployment of the release may read it.
+      responses:
         {
-          "200": { description: Update metadata },
-          "404": { description: Not targeted },
+          "200": { description: Complete artifact },
+          "206": { description: Artifact byte range },
+          "403": { description: Screen is not targeted },
+          "404": { description: Verified artifact unavailable },
+          "416": { description: Invalid range },
         }
   /api/v1/player/updates/{releaseId}/apk:
     head:
@@ -3339,10 +3395,57 @@ paths:
   /api/v1/player/update-deployments/{deploymentId}/status:
     post:
       summary: Report bounded Player update preparation and installer status
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [state]
+              properties:
+                state:
+                  enum:
+                    [
+                      downloading,
+                      downloaded,
+                      verifying,
+                      ready,
+                      waiting_for_permission,
+                      waiting_for_user,
+                      installing,
+                      reconnecting,
+                      failed,
+                      succeeded,
+                    ]
+                  description: >-
+                    `succeeded` is accepted only for a Tilecast Edge release: it
+                    is the screen's explicit confirmation that the provisional
+                    release passed its health checks, and the only way an Edge
+                    target settles. Other families settle from the heartbeat.
+                downloadedBytes: { type: integer, minimum: 0 }
+                permissionStatus: { type: string, maxLength: 64 }
+                installerStatus:
+                  type: string
+                  maxLength: 64
+                  description: >-
+                    Tilecast Edge sends `provisional` with `reconnecting`,
+                    `confirmed` with `succeeded`, and `rolled_back` with a
+                    `failed` report of a release that was activated and then
+                    rolled back.
+                error:
+                  type: string
+                  maxLength: 240
+                  description: A bounded reason code, never free text from a server response.
       responses:
         {
           "200": { description: Status accepted },
           "409": { description: Deployment cancelled or complete },
+          "422":
+            {
+              description: Invalid status,
+              or `succeeded` for a release that is not Tilecast Edge,
+            },
         }
 components:
   parameters:
@@ -4301,13 +4404,72 @@ components:
           uniqueItems: true
           maxItems: 250
           items: { type: string, format: uuid }
+    PlayerFamily:
+      enum: [android, electron-linux, edge]
+      description: >-
+        The Player release family. A deployment reaches only screens of its
+        release's family, and for `edge` only screens of its architecture.
+    PlayerUpdateMetadata:
+      type: object
+      required: [releaseId, platform, versionCode, versionName]
+      properties:
+        releaseId: { type: string, format: uuid }
+        artifactId: { type: string, description: The artifact's asset name. }
+        platform: { enum: [android, linux] }
+        versionCode: { type: integer }
+        versionName: { type: string }
+        playerFamily: { $ref: "#/components/schemas/PlayerFamily" }
+        architecture:
+          enum: [x86_64, aarch64]
+          description: Tilecast Edge only.
+        artifactSizeBytes: { type: integer, description: Linux families. }
+        artifactSha256:
+          {
+            type: string,
+            pattern: "^[a-f0-9]{64}$",
+            description: Linux families.,
+          }
+        artifactPath:
+          type: string
+          description: "`/api/v1/player/updates/{releaseId}/artifact` for the Linux families."
+        signedManifest:
+          type: string
+          format: byte
+          description: >-
+            Tilecast Edge only: the exact bytes of the signed update envelope,
+            base64. The screen verifies the signature and every field against
+            this answer and its `install_player_update` command before it
+            downloads.
+        manifestSignature:
+          type: string
+          description: Tilecast Edge only. The envelope's base64 Ed25519 signature text.
+        stateSchemaVersion:
+          type: integer
+          description: Tilecast Edge only. The state database schema the release migrates to.
+        applicationId: { type: string, description: Android only. }
+        minimumSdk: { type: integer, description: Android only. }
+        apkSizeBytes: { type: integer, description: Android only. }
+        apkSha256: { type: string, description: Android only. }
+        signingCertificateSha256: { type: string, description: Android only. }
+        apkPath: { type: string, description: Android only. }
     PlayerHeartbeat:
       type: object
       description: >-
-        The Player status document. Only the optional Noise Meter section is
-        described here; the remaining fields are the existing heartbeat contract
-        and are additive.
+        The Player status document. Only the optional Noise Meter section and
+        the release family fields are described here; the remaining fields are
+        the existing heartbeat contract and are additive.
       properties:
+        playerFamily:
+          type: string
+          description: >-
+            `android`, `electron-linux` or `edge`. The server keeps only these
+            values; another value is recorded as absent.
+        playerArchitecture:
+          type: string
+          description: >-
+            `x86_64` or `aarch64`, kept only with `playerFamily: edge`. An
+            Edge screen without a known architecture is `incompatible` for
+            Edge deployments.
         noiseMeter:
           type: object
           additionalProperties: false
