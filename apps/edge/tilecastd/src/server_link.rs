@@ -91,21 +91,68 @@ impl LinkState {
     }
 }
 
-/// 15 s, 30 s, 45 s, then doubling from one minute up to the ceiling.
-pub fn retry_delay(failures: u32) -> Duration {
-    if failures <= 3 {
-        return Duration::from_secs(15 * u64::from(failures.max(1)));
+/// The reference player's reconnect backoff
+/// (`apps/player-linux/src/core/backoff.ts`): the first retry after about
+/// 2 s, doubling to [`MAX_RETRY_INTERVAL`], with full jitter above half the
+/// base delay so a fleet does not retry in step. `unit` is a random number
+/// in `[0, 1)`.
+pub const RETRY_BASE: Duration = Duration::from_secs(2);
+
+pub fn retry_delay(failures: u32, unit: f64) -> Duration {
+    let base = RETRY_BASE.as_millis() as u64;
+    let exponent = failures.max(1).saturating_sub(1).min(16);
+    let ceiling = base.saturating_mul(1 << exponent).min(MAX_RETRY_INTERVAL.as_millis() as u64);
+    let floor = (base / 2).min(ceiling);
+    let jitter = ((ceiling - floor) as f64 * unit.clamp(0.0, 1.0)) as u64;
+    Duration::from_millis(floor + jitter.min(ceiling - floor))
+}
+
+/// A random number in `[0, 1)` for retry jitter.
+fn jitter_unit() -> f64 {
+    use ring::rand::SecureRandom as _;
+    let mut bytes = [0_u8; 4];
+    if ring::rand::SystemRandom::new().fill(&mut bytes).is_err() {
+        return 0.5;
     }
-    let doubled = 60u64.saturating_mul(1u64 << (failures - 4).min(8));
-    Duration::from_secs(doubled).min(MAX_RETRY_INTERVAL)
+    f64::from(u32::from_le_bytes(bytes)) / (f64::from(u32::MAX) + 1.0)
+}
+
+/// A connection must stay up this long before its next failure counts as a
+/// fresh outage rather than a continuation (the reference player's
+/// `healthyResetMs`), so a flapping server is not retried every 2 s.
+pub const HEALTHY_RESET: Duration = Duration::from_secs(120);
+
+/// The failure streak of one kind of connection.
+#[derive(Debug, Default)]
+struct Backoff {
+    failures: u32,
+    connected_at: Option<Instant>,
+}
+
+impl Backoff {
+    fn connected(&mut self, now: Instant) {
+        self.connected_at.get_or_insert(now);
+    }
+
+    /// Records a failure and returns the delay before the next attempt.
+    fn failed(&mut self, now: Instant) -> Duration {
+        if self.connected_at.take().is_some_and(|at| now.duration_since(at) >= HEALTHY_RESET) {
+            self.failures = 0;
+        }
+        self.failures = self.failures.saturating_add(1);
+        retry_delay(self.failures, jitter_unit())
+    }
 }
 
 #[derive(Debug, Default)]
 struct Link {
-    failures: u32,
+    backoff: Backoff,
     next_heartbeat: Option<Instant>,
     socket: Option<PlayerSocket>,
+    /// Socket attempts that failed since the last open (Activity's
+    /// `connection.restored`).
     socket_failures: u32,
+    socket_backoff: Backoff,
     next_socket_attempt: Option<Instant>,
     last_socket_activity: Option<Instant>,
     next_manifest_sync: Option<Instant>,
@@ -141,9 +188,9 @@ impl Link {
         }
         self.socket = None;
         self.last_socket_activity = None;
-        let exponent = self.socket_failures.min(5);
         self.socket_failures = self.socket_failures.saturating_add(1);
-        self.next_socket_attempt = Some(Instant::now() + Duration::from_secs((5_u64 << exponent).min(60)));
+        let now = Instant::now();
+        self.next_socket_attempt = Some(now + self.socket_backoff.failed(now));
     }
 
     fn abort_preparation(&mut self) {
@@ -176,13 +223,10 @@ pub async fn run(context: Arc<DaemonContext>) {
         let contact_interval = crate::config_sync::effective(&context).sync.status_report;
         let mut delay = match &state {
             LinkState::Connected => {
-                link.failures = 0;
+                link.backoff.connected(Instant::now());
                 contact_interval
             }
-            LinkState::Retrying(_) => {
-                link.failures = link.failures.saturating_add(1);
-                retry_delay(link.failures)
-            }
+            LinkState::Retrying(_) => link.backoff.failed(Instant::now()),
             _ => {
                 link.abort_preparation();
                 IDLE_INTERVAL
@@ -498,8 +542,16 @@ async fn pass(context: &Arc<DaemonContext>, link: &mut Link) -> LinkState {
                 }
                 link.socket = Some(socket);
                 link.socket_activity();
+                link.socket_backoff.connected(Instant::now());
                 link.socket_failures = 0;
                 link.next_socket_attempt = None;
+                // As the reference player does on every socket open: report
+                // status and reconcile now, so any push lost while the socket
+                // was down is recovered at once.
+                link.next_heartbeat = None;
+                link.manifest_dirty = true;
+                link.config_dirty = true;
+                context.command_wake.notify_one();
             }
             Err(error) => {
                 tracing::warn!(component = "server", event = "player_socket_failed", reason = error.reason_code());
@@ -762,12 +814,38 @@ mod tests {
     }
 
     #[test]
-    fn retry_delay_grows_to_the_ceiling() {
-        assert_eq!(retry_delay(1), Duration::from_secs(15));
-        assert_eq!(retry_delay(3), Duration::from_secs(45));
-        assert_eq!(retry_delay(4), Duration::from_secs(60));
-        assert_eq!(retry_delay(5), Duration::from_secs(120));
-        assert_eq!(retry_delay(40), MAX_RETRY_INTERVAL);
+    fn retry_delay_matches_the_reference_player_backoff() {
+        // backoff.ts: floor = base / 2, ceiling = base * 2^(failures - 1).
+        assert_eq!(retry_delay(1, 0.0), Duration::from_secs(1));
+        assert_eq!(retry_delay(1, 0.999_999), Duration::from_millis(1_999));
+        assert_eq!(retry_delay(3, 0.0), Duration::from_secs(1));
+        assert_eq!(retry_delay(3, 0.5), Duration::from_millis(4_500));
+        assert_eq!(retry_delay(9, 1.0), MAX_RETRY_INTERVAL);
+        assert_eq!(retry_delay(40, 1.0), MAX_RETRY_INTERVAL);
+        assert!(retry_delay(u32::MAX, 0.3) <= MAX_RETRY_INTERVAL);
+        for _ in 0..100 {
+            let unit = jitter_unit();
+            assert!((0.0..1.0).contains(&unit), "{unit}");
+        }
+    }
+
+    #[test]
+    fn a_streak_resets_only_after_a_healthy_connection() {
+        let start = Instant::now();
+        let mut backoff = Backoff::default();
+        for _ in 0..5 {
+            backoff.failed(start);
+        }
+        assert_eq!(backoff.failures, 5);
+        // A brief success does not forgive a flapping server.
+        backoff.connected(start);
+        backoff.failed(start + Duration::from_secs(10));
+        assert_eq!(backoff.failures, 6);
+        // Two healthy minutes do.
+        backoff.connected(start + Duration::from_secs(10));
+        backoff.connected(start + Duration::from_secs(60));
+        backoff.failed(start + Duration::from_secs(10) + HEALTHY_RESET);
+        assert_eq!(backoff.failures, 1);
     }
 
     #[test]
