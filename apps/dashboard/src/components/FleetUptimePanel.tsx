@@ -8,8 +8,12 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
   ChevronDown,
   CircleAlert,
+  CircleCheck,
+  CircleHelp,
+  CircleX,
   TrendingDown,
   TrendingUp,
+  TriangleAlert,
 } from "lucide-react";
 import { api } from "../api/client";
 import type {
@@ -178,15 +182,25 @@ function UptimeBody({ report }: { report: UptimeReport }) {
   const { t } = useTranslation("activity");
   const [screensOpen, setScreensOpen] = useState(false);
   const chartConfig = {
-    up: { label: t("uptime.states.up"), color: chartColors.up },
+    up: {
+      label: t("uptime.states.up"),
+      color: chartColors.up,
+      icon: CircleCheck,
+    },
     impaired: {
       label: t("uptime.states.impaired"),
       color: chartColors.impaired,
+      icon: TriangleAlert,
     },
-    down: { label: t("uptime.states.down"), color: chartColors.down },
+    down: {
+      label: t("uptime.states.down"),
+      color: chartColors.down,
+      icon: CircleX,
+    },
     unknown: {
       label: t("uptime.states.unknown"),
       color: chartColors.unknown,
+      icon: CircleHelp,
     },
   } satisfies ChartConfig;
   const chartData = report.buckets.map((bucket) => ({
@@ -266,17 +280,24 @@ function UptimeBody({ report }: { report: UptimeReport }) {
                         ? formatRange(start, report.bucketSeconds)
                         : report.windowLabel;
                     }}
-                    formatter={(value, name) => (
-                      <span className="flex items-center justify-between gap-4">
-                        <span>
-                          {chartConfig[String(name) as keyof typeof chartConfig]
-                            ?.label ?? String(name)}
-                        </span>
-                        <span className="font-mono font-medium tabular-nums">
-                          {formatTooltipPercent(value)}
-                        </span>
-                      </span>
-                    )}
+                    formatter={(value, name) => {
+                      const itemConfig =
+                        chartConfig[
+                          String(name) as keyof typeof chartConfig
+                        ];
+                      const Icon = itemConfig?.icon;
+                      return (
+                        <>
+                          {Icon ? <Icon aria-hidden="true" /> : null}
+                          <span className="flex flex-1 items-center justify-between gap-4">
+                            <span>{itemConfig?.label ?? String(name)}</span>
+                            <span className="font-mono font-medium tabular-nums">
+                              {formatTooltipPercent(value)}
+                            </span>
+                          </span>
+                        </>
+                      );
+                    }}
                   />
                 }
               />
