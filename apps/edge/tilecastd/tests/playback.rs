@@ -21,8 +21,8 @@ use edge_platform::systemd::Notifier;
 use edge_protocol::bounded::{SafeText, ShortText, ShortToken};
 use edge_protocol::ipc::Role;
 use edge_protocol::ipc::event::{
-    ActivationRef, Event, EvidenceKind, PluginState, PresentationAccepted, PresentationActivate, RendererInfo,
-    RendererKind, RendererPlatform, RendererProgress, RendererReady,
+    ActivationRef, Event, EvidenceKind, PluginState, PresentationAccepted, PresentationActivate, PresentationRejected,
+    RendererInfo, RendererKind, RendererPlatform, RendererProgress, RendererReady,
 };
 use edge_protocol::ipc::presentation::PresentationDocument;
 use edge_protocol::{InstallationId, ScreenId, Sha256Digest, Timestamp};
@@ -351,6 +351,18 @@ impl FakeRenderer {
             .unwrap();
     }
 
+    async fn reject(&self, activation: &PresentationActivate) {
+        let reference = ActivationRef { activation_id: activation.activation_id, generation: activation.generation };
+        self.client
+            .send_event(Event::PresentationRejected(PresentationRejected {
+                activation: reference,
+                code: ShortToken::new("render_failed").unwrap(),
+                message: SafeText::new("render failed".to_owned()).unwrap(),
+            }))
+            .await
+            .unwrap();
+    }
+
     async fn evidence(&self, activation: &PresentationActivate, kind: EvidenceKind, item: Option<&str>) {
         let reference = ActivationRef { activation_id: activation.activation_id, generation: activation.generation };
         self.client
@@ -663,6 +675,38 @@ async fn replacement_waits_for_an_item_boundary_then_commits() {
     wait_until("promotion", || async { player.stage(&binding, Stage::Active).await.is_some_and(|m| m.version == 4) })
         .await;
     assert_eq!(player.stage(&binding, Stage::Previous).await.unwrap().version, 3);
+    renderer.stop();
+    player.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn rejected_pending_trial_restores_active_without_retrying_failed_version() {
+    let harness = Harness::new().await;
+    let first = Asset::new("first", "image/png");
+    let (player, initial_renderer) = harness.committed(&first, 3).await;
+    initial_renderer.stop();
+    let renderer = FakeRenderer::connect(&player.socket, Evidence::AcceptOnly).await;
+    wait_for("the committed presentation after reconnect", || renderer.last().filter(|a| shows(a, &first))).await;
+
+    let second = Asset::new("second", "image/png");
+    harness.fake.add_asset(&second, AssetMode::Serve);
+    harness.fake.set_manifest(manifest(harness.screen, 4, &[&second]));
+    player.push();
+    let binding = harness.binding();
+    wait_until("the pending replacement", || async {
+        player.stage(&binding, Stage::Pending).await.is_some_and(|m| m.version == 4)
+    })
+    .await;
+    item_boundary(&renderer).await;
+    let trial = wait_for("the replacement trial", || renderer.last().filter(|a| shows(a, &second))).await;
+    renderer.reject(&trial).await;
+    wait_for("the committed presentation restored", || renderer.last().filter(|a| shows(a, &first))).await;
+    let count = renderer.activation_count();
+    item_boundary(&renderer).await;
+    settle().await;
+    assert_eq!(renderer.activation_count(), count, "the failed version is not retried");
+    assert_eq!(player.stage(&binding, Stage::Active).await.unwrap().version, 3);
+    assert_eq!(player.stage(&binding, Stage::Pending).await.unwrap().version, 4);
     renderer.stop();
     player.stop().await;
 }
