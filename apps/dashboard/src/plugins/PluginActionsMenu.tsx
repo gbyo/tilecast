@@ -156,25 +156,24 @@ export function blockerSentence(t: PluginsT, resources: PluginInUseResource[]) {
 }
 
 /**
- * What to do about each blocker. Monitoring is switched off rather than
- * deleted, and live alerts clear themselves once their rules are gone.
+ * What to do about each blocker. The server says how each one resolves:
+ * deleted through the plugin's page, switched off, or cleared by itself once
+ * the others are gone.
  */
 export function blockerInstruction(
   t: PluginsT,
   resources: PluginInUseResource[],
 ) {
-  const needsMonitor = resources.some(
-    (resource) => resource.kind === "alert_monitor",
-  );
-  const deletable = resources.filter(
-    (resource) =>
-      resource.kind !== "alert_monitor" && resource.kind !== "alert_activation",
-  );
-  if (!needsMonitor && deletable.length === 0)
-    return t("actionsMenu.blockedWait");
-  if (needsMonitor && deletable.length === 0)
-    return t("actionsMenu.blockedMonitor");
-  const labels = deletable.map((resource) => resource.label).join(" and ");
-  if (!needsMonitor) return t("actionsMenu.blockedDelete", { labels });
-  return t("actionsMenu.blockedMonitorDelete", { labels });
+  const labelsFor = (resolution: PluginInUseResource["resolution"]) =>
+    resources
+      .filter((resource) => resource.resolution === resolution)
+      .map((resource) => resource.label)
+      .join(" and ");
+  const disable = labelsFor("disable");
+  const labels = labelsFor("delete");
+  if (!disable && !labels)
+    return t("actionsMenu.blockedWait", { labels: labelsFor("wait") });
+  if (disable && !labels) return t("actionsMenu.blockedDisable", { disable });
+  if (!disable) return t("actionsMenu.blockedDelete", { labels });
+  return t("actionsMenu.blockedDisableDelete", { disable, labels });
 }

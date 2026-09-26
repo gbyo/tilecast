@@ -6,6 +6,7 @@ import starlightPageContextAction from "starlight-page-context-action";
 import starlightOpenAPIPlugin, {
   createOpenAPISidebarGroup,
 } from "starlight-openapi";
+import { pluginSidebarItems } from "./plugin-docs.mjs";
 
 const repository = "https://github.com/gbyo/tilecast";
 
@@ -171,6 +172,7 @@ export default defineConfig({
                 { slug: "studio/content-submissions" },
                 { slug: "studio/forms" },
                 { slug: "studio/forms-approvals" },
+                ...pluginSidebarItems("review-and-collect"),
               ],
             },
           ],
@@ -347,6 +349,8 @@ export default defineConfig({
                   slug: "operations/emergency-alerts",
                   badge: { text: "US", variant: "note" },
                 },
+                // Pages each plugin declares in its tilecast.plugin.json.
+                ...pluginSidebarItems("plugins"),
               ],
             },
           ],
@@ -381,7 +385,11 @@ export default defineConfig({
         {
           label: "Developers",
           collapsed: true,
-          items: [{ slug: "developers" }, { slug: "developers/demo-mode" }],
+          items: [
+            { slug: "developers" },
+            { slug: "developers/demo-mode" },
+            { slug: "developers/plugins" },
+          ],
         },
         {
           label: "Reference",

@@ -52,6 +52,7 @@ import { FormsPluginPage } from "./pages/FormsPluginPage";
 import { CreateFormDataSourcePage } from "./pages/CreateFormDataSourcePage";
 import { FormDataSourcePage } from "./pages/FormDataSourcePage";
 import { PluginRouteGate } from "./plugins/PluginRouteGate";
+import { pluginRouteObjects } from "./plugin-host/routes";
 import { CampaignsPage } from "./pages/CampaignsPage";
 
 const search = (
@@ -393,6 +394,8 @@ export const studioRoutes: RouteObject[] = [
             path: "dependency-graph",
             element: <Navigate to="/settings/dependency-graph" replace />,
           },
+          // Routes contributed by plugins/*/studio, discovered at build time.
+          ...pluginRouteObjects(),
           {
             path: "countdown-bar",
             handle: { breadcrumb: "Countdown Bar" },

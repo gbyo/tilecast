@@ -1,4 +1,4 @@
-.PHONY: android-build android-check bootstrap build check demo demo-down demo-logs demo-reset dev-dashboard dev-server docs-check e2e edge-check edge-e2e edge-linux edge-test format helper-check test
+.PHONY: android-build android-check bootstrap build check plugins-check plugins-generate demo demo-down demo-logs demo-reset dev-dashboard dev-server docs-check e2e edge-check edge-e2e edge-linux edge-test format helper-check test
 
 bootstrap:
 	npm install
@@ -14,12 +14,26 @@ build:
 
 check:
 	$(MAKE) docs-check
+	$(MAKE) plugins-check
 	npm run format:check
 	npm run lint
 	npm test
-	cd apps/server && test -z "$$(gofmt -l .)" && go vet ./... && go test ./...
+	cd apps/server && test -z "$$(gofmt -l . ../../plugins ../../packages/plugin-sdk/go)" && go vet ./... $(PLUGIN_GO_PACKAGES) && go test ./... $(PLUGIN_GO_PACKAGES)
 	$(MAKE) helper-check
 	cd apps/player-android && ./gradlew testDebugUnitTest lintDebug
+
+# Bundled plugins and the plugin SDK are separate Go modules in the go.work
+# workspace; the server's commands name them so one run covers all three.
+PLUGIN_GO_PACKAGES = github.com/tilecast/tilecast/plugins/... github.com/tilecast/tilecast/packages/plugin-sdk/go/...
+
+# The Official Tilecast Plugin Conformance checks that need no compiler:
+# manifests, generated files, boundaries, migrations, and OpenAPI fragments.
+plugins-check:
+	npm run plugins:check
+	npm test --workspace @tilecast/plugin-sdk
+
+plugins-generate:
+	npm run plugins:generate
 
 # The root-owned Presentation Network helper. Its nmcli and NetworkManager
 # interaction is mocked, so this needs neither a Wi-Fi adapter nor a running
@@ -56,11 +70,12 @@ dev-server:
 
 format:
 	npm run format
-	cd apps/server && gofmt -w $$(find . -name '*.go' -type f)
+	cd apps/server && gofmt -w $$(find . ../../plugins ../../packages/plugin-sdk/go -name '*.go' -type f)
 
 test:
 	npm test
-	cd apps/server && go test ./...
+	npm test --workspace @tilecast/plugin-sdk
+	cd apps/server && go test ./... $(PLUGIN_GO_PACKAGES)
 	python3 -m unittest discover -s apps/player-linux/helper
 
 docs-check:

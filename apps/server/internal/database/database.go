@@ -3,7 +3,6 @@ package database
 import (
 	"context"
 	"database/sql"
-	"embed"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -12,9 +11,6 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 )
-
-//go:embed migrations/*.sql
-var migrations embed.FS
 
 func Open(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
 	config, err := pgxpool.ParseConfig(databaseURL)
@@ -48,11 +44,10 @@ func Migrate(ctx context.Context, databaseURL string) error {
 	}
 	defer db.Close()
 
-	goose.SetBaseFS(migrations)
-	if err := goose.SetDialect("postgres"); err != nil {
-		return fmt.Errorf("set migration dialect: %w", err)
+	if err := useCatalog(); err != nil {
+		return err
 	}
-	if err := goose.UpContext(ctx, db, "migrations"); err != nil {
+	if err := goose.UpContext(ctx, db, migrationDir); err != nil {
 		return fmt.Errorf("apply migrations: %w", err)
 	}
 	return nil
@@ -68,24 +63,35 @@ func MigrateTo(ctx context.Context, databaseURL string, version int64) error {
 	}
 	defer db.Close()
 
-	goose.SetBaseFS(migrations)
-	if err := goose.SetDialect("postgres"); err != nil {
-		return fmt.Errorf("set migration dialect: %w", err)
+	if err := useCatalog(); err != nil {
+		return err
 	}
-	if err := goose.UpToContext(ctx, db, "migrations", version); err != nil {
+	if err := goose.UpToContext(ctx, db, migrationDir, version); err != nil {
 		return fmt.Errorf("apply migrations to version %d: %w", version, err)
 	}
 	return nil
 }
 
-// LatestMigrationVersion reports the newest migration version embedded in
-// this binary.
-func LatestMigrationVersion() (int64, error) {
-	goose.SetBaseFS(migrations)
-	if err := goose.SetDialect("postgres"); err != nil {
-		return 0, fmt.Errorf("set migration dialect: %w", err)
+// useCatalog points Goose at the combined core and plugin migrations.
+func useCatalog() error {
+	fsys, err := migrationFS()
+	if err != nil {
+		return fmt.Errorf("assemble migrations: %w", err)
 	}
-	files, err := goose.CollectMigrations("migrations", 0, goose.MaxVersion)
+	goose.SetBaseFS(fsys)
+	if err := goose.SetDialect("postgres"); err != nil {
+		return fmt.Errorf("set migration dialect: %w", err)
+	}
+	return nil
+}
+
+// LatestMigrationVersion reports the newest migration version embedded in
+// this binary, core and plugin migrations alike.
+func LatestMigrationVersion() (int64, error) {
+	if err := useCatalog(); err != nil {
+		return 0, err
+	}
+	files, err := goose.CollectMigrations(migrationDir, 0, goose.MaxVersion)
 	if err != nil {
 		return 0, fmt.Errorf("collect migrations: %w", err)
 	}

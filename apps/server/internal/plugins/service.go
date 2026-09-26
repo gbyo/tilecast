@@ -4,17 +4,22 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
+	bundled "github.com/tilecast/tilecast/plugins"
 )
 
+// The SDK's sentinel errors, so a plugin and the legacy built-ins in this
+// package answer with the same API errors.
 var (
-	ErrNotFound = errors.New("plugin instance not found")
-	ErrInvalid  = errors.New("invalid plugin configuration")
+	ErrNotFound = plugin.ErrNotFound
+	ErrInvalid  = plugin.ErrInvalid
 )
 
 type Notifier interface{ ManifestChanged(uuid.UUID, int64) }
@@ -30,10 +35,26 @@ type Service struct {
 	db          *pgxpool.Pool
 	notifier    Notifier
 	invalidator ManifestInvalidator
+	logger      *slog.Logger
+	clock       plugin.Clock
+
+	bundle      []plugin.Plugin
+	definitions []Definition
+	hosted      []hostedPlugin
 }
 
-func NewService(db *pgxpool.Pool, notifier Notifier) *Service {
-	return &Service{db: db, notifier: notifier}
+// NewService hosts the plugins bundled with this release, or the ones given
+// with WithPlugins, and initializes each of them.
+func NewService(db *pgxpool.Pool, notifier Notifier, options ...Option) *Service {
+	s := &Service{db: db, notifier: notifier, logger: slog.Default(), clock: systemClock{}}
+	for _, option := range options {
+		option(s)
+	}
+	if s.bundle == nil {
+		s.bundle = bundled.Bundled()
+	}
+	s.host()
+	return s
 }
 
 func (s *Service) SetManifestInvalidator(invalidator ManifestInvalidator) {
@@ -118,17 +139,11 @@ type CountdownBar struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
-// Config is the discriminated payload selected by Type rather than one plugin's
-// struct: the manifest carries a single `plugins` array, and a screen may be
-// delivered a Countdown Bar, an Emergency Alerts ticker, and a Brand Bug at the
-// same time. A later projection stage may fill in values the plugins package
-// cannot resolve on its own, such as the media variant behind a Brand Bug logo.
-type ManifestPlugin struct {
-	ID      uuid.UUID `json:"id"`
-	Type    string    `json:"type"`
-	Version int       `json:"version"`
-	Config  any       `json:"config"`
-}
+// ManifestPlugin is one entry of the manifest's discriminated `plugins`
+// array: a screen may be delivered a Countdown Bar, an Emergency Alerts
+// ticker, and a Brand Bug at the same time. It is the SDK's ManifestEntry,
+// so plugins in plugins/ and the remaining built-ins here share one shape.
+type ManifestPlugin = plugin.ManifestEntry
 
 type ManifestCountdownConfig struct {
 	Name                string     `json:"name"`
@@ -200,8 +215,15 @@ func (s *Service) Catalog(ctx context.Context) (Catalog, error) {
 		return Catalog{}, err
 	}
 	items := []CatalogPlugin{}
-	for _, definition := range registry {
-		items = append(items, catalogEntry(definition, installed[definition.ID], statuses[definition.ID]))
+	for _, hosted := range s.hosted {
+		status, reported, err := reportedStatus(ctx, hosted)
+		if err != nil {
+			return Catalog{}, err
+		}
+		if !reported {
+			status = statuses[hosted.manifest.ID]
+		}
+		items = append(items, catalogEntry(hosted.definition, installed[hosted.manifest.ID], status))
 	}
 	return Catalog{Items: items, UnsupportedInstallations: unsupported}, nil
 }
@@ -218,6 +240,23 @@ func (s *Service) CatalogItem(ctx context.Context, id string) (CatalogPlugin, er
 		}
 	}
 	return CatalogPlugin{}, ErrPluginNotFound
+}
+
+// reportedStatus asks a plugin that reports its own status.
+func reportedStatus(ctx context.Context, hosted hostedPlugin) (pluginStatus, bool, error) {
+	reporter, ok := hosted.plugin.(plugin.StatusReporter)
+	if !ok {
+		return pluginStatus{}, false, nil
+	}
+	reported, err := reporter.Status(ctx)
+	if err != nil {
+		return pluginStatus{}, true, fmt.Errorf("plugin %s: status: %w", hosted.manifest.ID, err)
+	}
+	status := pluginStatus{configured: reported.Configured, active: reported.Active, count: reported.InstanceCount}
+	for _, note := range reported.Attention {
+		status.attention = append(status.attention, PluginAttention{Code: note.Code, Message: note.Message})
+	}
+	return status, true, nil
 }
 
 func catalogEntry(d Definition, installed bool, status pluginStatus) CatalogPlugin {
@@ -739,27 +778,49 @@ func (s *Service) ManifestForScreen(ctx context.Context, screenID uuid.UUID) ([]
 	if err != nil {
 		return nil, err
 	}
-	projections := []struct {
-		id      string
-		project func(context.Context, uuid.UUID) ([]ManifestPlugin, error)
-	}{
-		{CountdownBarID, s.countdownBarsForScreen},
-		{EmergencyAlertsID, s.alertTickersForScreen},
-		{BrandBugID, s.brandBugsForScreen},
-		{NoiseMeterID, s.noiseMetersForScreen},
+	legacy := map[string]func(context.Context, uuid.UUID) ([]ManifestPlugin, error){
+		CountdownBarID:    s.countdownBarsForScreen,
+		EmergencyAlertsID: s.alertTickersForScreen,
+		BrandBugID:        s.brandBugsForScreen,
+		NoiseMeterID:      s.noiseMetersForScreen,
 	}
 	out := []ManifestPlugin{}
-	for _, projection := range projections {
-		if !installed[projection.id] {
+	for _, hosted := range s.hosted {
+		id := hosted.manifest.ID
+		if !installed[id] {
 			continue
 		}
-		items, err := projection.project(ctx, screenID)
+		var items []ManifestPlugin
+		if projector, ok := hosted.plugin.(plugin.ManifestProjector); ok {
+			items, err = projector.ProjectManifest(ctx, screenID)
+			if err == nil {
+				err = checkManifestTypes(hosted.manifest, items)
+			}
+		} else if project, ok := legacy[id]; ok {
+			items, err = project(ctx, screenID)
+		}
 		if err != nil {
 			return nil, err
 		}
 		out = append(out, items...)
 	}
 	return out, nil
+}
+
+// checkManifestTypes keeps a projector to the entry types its manifest
+// declares, so a Player's renderer registry and the server always agree on
+// which plugin a manifest entry belongs to.
+func checkManifestTypes(manifest plugin.Manifest, items []ManifestPlugin) error {
+	declared := map[string]bool{}
+	for _, kind := range manifest.ManifestTypes() {
+		declared[kind] = true
+	}
+	for _, item := range items {
+		if !declared[item.Type] || item.Version < 1 {
+			return fmt.Errorf("plugin %s projected undeclared manifest entry type %q version %d", manifest.ID, item.Type, item.Version)
+		}
+	}
+	return nil
 }
 
 // alertTickersForScreen projects live Emergency Alerts activations whose rule

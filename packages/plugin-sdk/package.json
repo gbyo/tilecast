@@ -1,0 +1,27 @@
+{
+  "name": "@tilecast/plugin-sdk",
+  "version": "1.0.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "description": "The Tilecast Plugin API v1: the manifest schema, the Studio and Player runtime contracts, and the Go SDK (go/).",
+  "type": "module",
+  "exports": {
+    "./manifest": "./src/manifest.ts",
+    "./schema/tilecast-plugin.schema.json": "./schema/tilecast-plugin.schema.json"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "zod": "^4.0.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "ajv": "^8.17.1",
+    "prettier": "^3.9.6",
+    "typescript": "~5.8.3",
+    "vitest": "^4.1.10",
+    "yaml": "^2.9.1"
+  }
+}

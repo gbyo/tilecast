@@ -63,10 +63,10 @@
     "blockedSentence_one": "{{list}} sigue usando este complemento.",
     "blockedSentence_many": "{{list}} siguen usando este complemento.",
     "blockedSentence_other": "{{list}} siguen usando este complemento.",
-    "blockedWait": "Espera a que se borren las alertas activas y quita el complemento.",
-    "blockedMonitor": "Desactiva la supervisión en esta página y quita el complemento.",
+    "blockedWait": "Espera a que se borren {{labels}} y quita el complemento.",
+    "blockedDisable": "Desactiva {{disable}} en esta página y quita el complemento.",
     "blockedDelete": "Elimina {{labels}} restantes en esta página y quita el complemento.",
-    "blockedMonitorDelete": "Desactiva la supervisión y elimina {{labels}} restantes en esta página, y luego quita el complemento."
+    "blockedDisableDelete": "Desactiva {{disable}} y elimina {{labels}} restantes en esta página, y luego quita el complemento."
   },
   "gate": {
     "notInstalled": "{{name}} no está instalado",
