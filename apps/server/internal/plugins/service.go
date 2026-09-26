@@ -217,10 +217,6 @@ func nounFor(d Definition, count int) string {
 func (s *Service) pluginStatuses(ctx context.Context) (map[string]pluginStatus, error) {
 	statuses := map[string]pluginStatus{}
 
-	// Emergency Alerts is active when its monitor is switched on, and its rules
-	// are its instances. A monitor with areas chosen but no rule is configured
-	// but will never respond, which is worth pointing out.
-
 	var forms pluginStatus
 	if err := s.db.QueryRow(ctx,
 		`SELECT count(*) FROM data_sources WHERE provider='form' AND deleted_at IS NULL`).
