@@ -231,7 +231,6 @@ type Route struct {
 // uninstalled plugin itself through Installation.
 func (s *Service) Routes() ([]Route, error) {
 	out := []Route{}
-	seen := map[string]string{}
 	for _, hosted := range s.hosted {
 		provider, ok := hosted.plugin.(plugin.RouteProvider)
 		if !ok {
@@ -242,11 +241,14 @@ func (s *Service) Routes() ([]Route, error) {
 			return nil, err
 		}
 		for _, route := range routes {
-			key := route.Method + " " + route.Pattern
-			if owner, dup := seen[key]; dup {
-				return nil, fmt.Errorf("plugin %s: route %s is also registered by %s", hosted.manifest.ID, key, owner)
+			// Two plugins must never answer one path: compare route shapes,
+			// not spellings, so /a/{id} also collides with /a/install.
+			for _, other := range out {
+				if other.Method == route.Method && plugin.RoutePatternsOverlap(other.Pattern, route.Pattern) {
+					return nil, fmt.Errorf("plugin %s: route %s %s overlaps %s %s of plugin %s",
+						hosted.manifest.ID, route.Method, route.Pattern, other.Method, other.Pattern, other.PluginID)
+				}
 			}
-			seen[key] = hosted.manifest.ID
 			out = append(out, Route{PluginID: hosted.manifest.ID, Method: route.Method, Pattern: route.Pattern, Access: route.Access, Handler: route.Handler})
 		}
 	}

@@ -128,7 +128,7 @@ func TestPluginRouteShadowingACoreRouteIsRefused(t *testing.T) {
 		defer func() {
 			recovered := recover()
 			err, _ := recovered.(error)
-			if err == nil || !strings.Contains(err.Error(), "already answered by a core route") {
+			if err == nil || !strings.Contains(err.Error(), "overlaps the core route") {
 				t.Fatalf("recovered %v", recovered)
 			}
 		}()

@@ -119,9 +119,12 @@ func (c *routeRecorder) Handle(method, pattern string, access Access, handler Ha
 		fail("outside api.basePaths")
 		return
 	}
+	// Within one plugin a literal may sit beside a parameter (the router
+	// prefers the literal, and the plugin owns both), but two patterns with
+	// one shape are the same route.
 	for _, existing := range c.routes {
-		if existing.Method == method && existing.Pattern == pattern {
-			fail("registered twice")
+		if existing.Method == method && RouteShape(existing.Pattern) == RouteShape(pattern) {
+			fail("registered twice (as %s)", existing.Pattern)
 			return
 		}
 	}
