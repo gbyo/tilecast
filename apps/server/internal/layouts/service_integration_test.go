@@ -304,7 +304,7 @@ func TestLayoutYouTubePlacementRules(t *testing.T) {
 	}
 	pair := sized
 	pair.Placements = append(pair.Placements, Placement{ID: uuid.New(), Type: "widget", Name: "Encore", X: 500, Y: 0, Width: 400, Height: 300, Layer: 3, Opacity: 1, Visible: true, WidgetID: &youtubeB})
-	layout, err = service.SaveDraft(ctx, layout.ID, owner.User.ID, layout.DraftRevision+1, pair)
+	layout, err = service.SaveDraft(ctx, layout.ID, owner.User.ID, layout.DraftRevision, pair)
 	if err != nil {
 		t.Fatal(err)
 	}

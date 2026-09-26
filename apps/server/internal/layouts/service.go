@@ -608,11 +608,11 @@ func (s *Service) validatePlaybackLimitsTx(ctx context.Context, tx pgx.Tx, docum
 			audioEmitting++
 		}
 	}
-	if videoCapable > 1 {
-		return errors.New("layout may contain only one visible video-capable placement or playlist zone")
-	}
 	if youtubePlacements > 1 {
 		return errors.New("layout may contain only one visible youtube placement")
+	}
+	if videoCapable > 1 {
+		return errors.New("layout may contain only one visible video-capable placement or playlist zone")
 	}
 	if audioEmitting > 1 {
 		return errors.New("layout may contain only one audio-emitting placement or playlist zone")
