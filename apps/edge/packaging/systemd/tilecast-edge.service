@@ -4,8 +4,9 @@ Description=Tilecast Edge daemon
 Documentation=https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge.md
 After=network-online.target time-sync.target
 Wants=network-online.target
-# One owner of the device credential: the legacy Electron player unit must be
-# disabled before this unit is enabled (the Edge installer does both).
+# One owner of the device credential: tilecast-edge-migrate disables the
+# legacy Electron player unit before it enables this unit, and disables this
+# unit before it enables the legacy unit again on a rollback.
 
 [Service]
 Type=notify
@@ -31,8 +32,9 @@ UMask=0077
 
 # Hardening. The daemon needs no device access yet; CEC, DDC/I2C and input
 # providers will add explicit DeviceAllow= entries and groups when they land,
-# after a capability-matrix test (docs/tilecast-edge.md §4.3). The legacy home directory is
-# read only by the one-time importer, which the installer runs separately.
+# after a capability-matrix test (docs/tilecast-edge.md §4.3). The legacy home
+# directory is never visible here: tilecast-edge-migrate copies the legacy
+# state for tilecast-edge-import.service.
 NoNewPrivileges=yes
 CapabilityBoundingSet=
 AmbientCapabilities=

@@ -10,6 +10,7 @@ rust-version.workspace = true
 [dependencies]
 async-trait.workspace = true
 edge-cas.workspace = true
+edge-platform.workspace = true
 edge-protocol.workspace = true
 edge-state.workspace = true
 futures-util.workspace = true
@@ -25,7 +26,6 @@ tracing.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
-edge-platform.workspace = true
 edge-protocol = { workspace = true, features = ["test-util"] }
 hyper.workspace = true
 hyper-util.workspace = true

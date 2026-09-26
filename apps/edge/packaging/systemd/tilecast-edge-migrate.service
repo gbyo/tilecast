@@ -1,0 +1,46 @@
+# Tilecast Edge migration (M7). Started by `tilecast-edge-migrate migrate`
+# or `clean-install`, which then follow its progress; never enabled. Running
+# it as a service means an SSH disconnect cannot interrupt a cutover.
+[Unit]
+Description=Tilecast Edge migration
+Documentation=https://github.com/gbyo/tilecast/blob/main/apps/edge/packaging/README.md
+After=dbus.service systemd-logind.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/tilecast-edge/current/bin/tilecast-edge-migrate run
+# Whatever ends the run (a result, a failure, a crash or a stop), recovery
+# finishes or undoes the attempt at once, not only at the next boot.
+ExecStopPost=/opt/tilecast-edge/current/bin/tilecast-edge-migrate recover
+TimeoutStartSec=90min
+TimeoutStopSec=5min
+UMask=0077
+
+# The migrator runs as root because it changes units and reads the kiosk
+# account's files. It writes only its own state, its runtime directory and
+# the Edge state directory (the legacy copy for the import).
+ProtectSystem=strict
+# systemd creates the runtime directory before it sets up the namespace:
+# after a reboot /run is empty.
+RuntimeDirectory=tilecast-edge-migrate
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=yes
+ReadWritePaths=-/var/lib/tilecast-edge-migrate -/var/lib/tilecast-edge
+StateDirectory=tilecast-edge-migrate
+StateDirectoryMode=0700
+ProtectHome=read-only
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+LockPersonality=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RestrictAddressFamilies=AF_UNIX
+SystemCallArchitectures=native
+MemoryDenyWriteExecute=yes
+IPAddressDeny=any

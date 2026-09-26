@@ -1,0 +1,27 @@
+# Reads the DRM/KMS outputs as the renderer's account, without becoming DRM
+# master (M7 migration step 3). Started by the migrator; never enabled.
+[Unit]
+Description=Tilecast Edge DRM output probe
+Documentation=https://github.com/gbyo/tilecast/blob/main/apps/edge/packaging/README.md
+
+[Service]
+Type=oneshot
+User=tilecast
+Group=tilecast
+SupplementaryGroups=video render
+ExecStart=/opt/tilecast-edge/current/bin/tilecast-renderer-wpe --probe-drm
+StandardOutput=truncate:/run/tilecast-edge-migrate/drm-probe.json
+# Only the JSON result goes to the file; diagnostics go to the journal.
+StandardError=journal
+# Exit 5 means no usable output; the migrator reads it as a refusal.
+SuccessExitStatus=5
+TimeoutStartSec=30s
+PrivateNetwork=yes
+ProtectHome=yes
+ProtectSystem=strict
+InaccessiblePaths=-/var/lib/tilecast-edge
+PrivateTmp=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX
+SystemCallArchitectures=native

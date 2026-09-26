@@ -232,7 +232,25 @@ impl DaemonIpc {
             Some(db) => db.run(|c| edge_state::repo::legacy::get(c)).await.ok().flatten(),
             None => None,
         };
-        let renderer = context.presentation.lock().await.status();
+        let (renderer, mut presentation) = {
+            let engine = context.presentation.lock().await;
+            (engine.status(), engine.presentation_status())
+        };
+        if let (Some(presentation), Some(db), Some(bound)) = (presentation.as_mut(), context.db(), binding.as_ref())
+            && let Some(screen_id) = bound.screen_id
+        {
+            let target_binding = edge_state::repo::manifests::Binding {
+                installation_id: bound.installation_id,
+                screen_id,
+                server_url: bound.server_url.clone(),
+            };
+            presentation.target_manifest_sha256 = db
+                .run(move |c| edge_state::repo::manifests::target(c, &target_binding))
+                .await
+                .ok()
+                .flatten()
+                .map(|target| target.digest);
+        }
         let player_id = match context.db() {
             Some(db) => db
                 .run(|c| edge_state::repo::daemon::player_identity(c))
@@ -283,6 +301,7 @@ impl DaemonIpc {
                 code: pairing.code.as_deref().map(ShortText::lossy),
                 reason: pairing.reason.as_deref().and_then(|reason| ShortToken::new(reason).ok()),
             }),
+            presentation,
         }
     }
 }

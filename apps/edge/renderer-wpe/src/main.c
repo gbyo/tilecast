@@ -59,6 +59,7 @@ main (int argc, char **argv)
   g_autofree char *media_socket = NULL;
   g_autofree char *gst_plugin_dir = NULL;
   gboolean console = FALSE;
+  gboolean probe_drm = FALSE;
   int exit_after = 0;
   GOptionEntry entries[] = {
     { "platform", 0, 0, G_OPTION_ARG_STRING, &platform, "drm, wayland or headless", "NAME" },
@@ -69,6 +70,7 @@ main (int argc, char **argv)
     { "headless-size", 0, 0, G_OPTION_ARG_STRING, &size, "Headless view size (default 1920x1080)", "WxH" },
     { "console", 0, 0, G_OPTION_ARG_NONE, &console, "Write page console messages to stderr (development)", NULL },
     { "exit-after", 0, 0, G_OPTION_ARG_INT, &exit_after, "Exit after N seconds (CI)", "N" },
+    { "probe-drm", 0, 0, G_OPTION_ARG_NONE, &probe_drm, "Print the DRM/KMS outputs as JSON and exit (read-only)", NULL },
     { NULL },
   };
   g_autoptr (GOptionContext) options = g_option_context_new ("- Tilecast WPE renderer");
@@ -78,6 +80,8 @@ main (int argc, char **argv)
     g_printerr ("tilecast-renderer-wpe: %s\n", error->message);
     return 2;
   }
+  if (probe_drm)
+    return tc_drm_probe ("/dev/dri");
 
   TcHost host = { 0 };
   host.headless_width = 1920;

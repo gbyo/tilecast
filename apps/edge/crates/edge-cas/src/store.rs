@@ -524,9 +524,28 @@ impl ContentStore {
         expected_size: u64,
         meta: IngestMeta,
     ) -> Result<ObjectRecord, CasError> {
+        // Never follow a symbolic link or block on a FIFO; an oversized or
+        // special file fails like a file of the wrong size.
+        let Some((file, actual)) = edge_platform::fs::open_regular(source, expected_size)? else {
+            return Err(CasError::SizeMismatch { expected: expected_size, actual: 0 });
+        };
+        if actual != expected_size {
+            return Err(CasError::SizeMismatch { expected: expected_size, actual });
+        }
+        self.import_open_file(file, digest, expected_size, meta).await
+    }
+
+    /// Copies an already opened file into the store through the verified
+    /// commit path. The caller has checked what the file is.
+    pub async fn import_open_file(
+        &self,
+        mut input: std::fs::File,
+        digest: Sha256Digest,
+        expected_size: u64,
+        meta: IngestMeta,
+    ) -> Result<ObjectRecord, CasError> {
         if let Some(mut session) = self.begin_write(digest, expected_size, meta).await? {
             session.restart()?;
-            let mut input = std::fs::File::open(source)?;
             let mut buffer = vec![0u8; 1024 * 1024];
             loop {
                 let read = input.read(&mut buffer)?;

@@ -331,7 +331,7 @@ def main():
         run(tilecastd, "--config", config, "import-legacy", "--from", legacy)
         again = subprocess.run([tilecastd, "--config", config, "import-legacy", "--from", legacy],
                                check=True, capture_output=True, text=True)
-        assert "already imported" in again.stdout, again.stdout
+        assert json.loads(again.stdout) == {"outcome": "already_complete"}, again.stdout
         assert tree(legacy) == legacy_before, "legacy state changed"
         assert oct(os.stat(os.path.join(state, "identity", "device-credential")).st_mode & 0o777) == "0o600"
 

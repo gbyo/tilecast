@@ -16,6 +16,7 @@ pkg_check_modules(WPE REQUIRED IMPORTED_TARGET
 pkg_check_modules(JSONGLIB REQUIRED IMPORTED_TARGET json-glib-1.0)
 pkg_check_modules(GIO REQUIRED IMPORTED_TARGET gio-2.0 gio-unix-2.0)
 pkg_check_modules(GST REQUIRED IMPORTED_TARGET gstreamer-1.0 gstreamer-base-1.0)
+pkg_check_modules(DRM REQUIRED IMPORTED_TARGET libdrm>=2.4.112)
 
 add_library(tilecast-validate STATIC src/validate.c)
 target_link_libraries(tilecast-validate PUBLIC PkgConfig::GIO)
@@ -28,11 +29,12 @@ set_target_properties(tilecast-media-client PROPERTIES POSITION_INDEPENDENT_CODE
 
 add_executable(tilecast-renderer-wpe
   src/main.c
+  src/drm-probe.c
   src/ipc.c
   src/protocol.c
   src/schemes.c
   src/view.c)
-target_link_libraries(tilecast-renderer-wpe PRIVATE tilecast-media-client PkgConfig::WPE PkgConfig::JSONGLIB PkgConfig::GIO)
+target_link_libraries(tilecast-renderer-wpe PRIVATE tilecast-media-client PkgConfig::WPE PkgConfig::JSONGLIB PkgConfig::GIO PkgConfig::GST PkgConfig::DRM)
 
 # GStreamer source for tcmedia:// loaded into the web process (see
 # src/gst-tcmedia.c). Installed to lib/gstreamer-1.0 of the Edge release.

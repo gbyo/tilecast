@@ -57,6 +57,18 @@ pub enum ActivationSource {
     Policy,
 }
 
+impl ActivationSource {
+    pub fn as_token(self) -> &'static str {
+        match self {
+            Self::StatusSurface => "status_surface",
+            Self::Fixture => "fixture",
+            Self::ServerManifest => "server_manifest",
+            Self::SafeMode => "safe_mode",
+            Self::Policy => "policy",
+        }
+    }
+}
+
 /// Which verified presentation an activation shows and what selected it:
 /// the same identifiers the reference player reports in its heartbeat.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -265,6 +277,8 @@ pub struct PresentationEngine {
     meaningful_current: bool,
     content_progress_current: bool,
     logged_evidence: std::collections::HashSet<(String, edge_protocol::ipc::event::EvidenceKind)>,
+    /// Items of the current activation with content evidence (bounded).
+    content_items: BTreeSet<String>,
     /// Corrected-minus-local wall offset handed to the runtime for
     /// time-dependent projection (countdowns, date-selected records).
     clock_offset_ms: i64,
@@ -298,6 +312,7 @@ impl PresentationEngine {
             meaningful_current: false,
             content_progress_current: false,
             logged_evidence: std::collections::HashSet::new(),
+            content_items: BTreeSet::new(),
             clock_offset_ms: 0,
         }
     }
@@ -374,6 +389,7 @@ impl PresentationEngine {
         self.meaningful_current = false;
         self.content_progress_current = false;
         self.logged_evidence.clear();
+        self.content_items.clear();
         if let Some(link) = self.renderer.as_mut() {
             link.accepted = None;
             link.last_error_code = None;
@@ -420,6 +436,12 @@ impl PresentationEngine {
             PresentationDocument::Playing { items, .. } if !items.is_empty() => self.content_progress_current,
             _ => self.meaningful_current,
         }
+    }
+
+    /// Items of the current activation that the renderer proved with
+    /// content evidence (an image shown, video progress, a layout rendered).
+    pub fn content_evidence_items(&self) -> &BTreeSet<String> {
+        &self.content_items
     }
 
     pub fn current_is_accepted(&self) -> bool {
@@ -535,6 +557,12 @@ impl PresentationEngine {
         }
         self.meaningful_current = true;
         self.content_progress_current |= content_evidence;
+        if content_evidence
+            && self.content_items.len() < 256
+            && let Some(item) = report.item_id.as_ref()
+        {
+            self.content_items.insert(item.as_str().to_owned());
+        }
         self.supervisor.on_progress(now.unix_millis(), &self.supervisor_config);
         true
     }
@@ -721,7 +749,27 @@ impl PresentationEngine {
             incompatible_reason: self.incompatible_reason.as_deref().map(SafeText::lossy),
             current_item_id: link.and_then(|l| l.current_item.as_ref()).map(|(id, _)| ShortText::lossy(id)),
             current_item_started_at: link.and_then(|l| l.current_item.as_ref()).map(|(_, at)| *at),
+            engine_version: ready.map(|r| r.renderer.engine_version.clone()),
+            gstreamer_version: ready.and_then(|r| r.renderer.gstreamer_version.clone()),
         }
+    }
+
+    /// The current activation for status, without the server target, which
+    /// the caller reads from state.
+    pub fn presentation_status(&self) -> Option<edge_protocol::ipc::status::PresentationStatus> {
+        let current = self.current.as_ref()?;
+        Some(edge_protocol::ipc::status::PresentationStatus {
+            source: ShortToken::new(current.source.as_token()).expect("literal token"),
+            generation: current.generation,
+            manifest_sha256: current.manifest(),
+            target_manifest_sha256: None,
+            accepted: self.current_is_accepted(),
+            evidence: self.current_has_activation_evidence(),
+        })
+    }
+
+    pub fn ready_info(&self) -> Option<&RendererReady> {
+        self.renderer.as_ref().and_then(|link| link.ready.as_ref())
     }
 
     pub fn renderer_version(&self) -> Option<ShortText> {

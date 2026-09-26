@@ -61,6 +61,7 @@ fn ready_event(features: &[&str]) -> Event {
             kind: RendererKind::Wpe,
             version: ShortText::new("0.1.0").unwrap(),
             engine_version: ShortText::new("2.54.0").unwrap(),
+            gstreamer_version: None,
             platform: RendererPlatform::Headless,
         },
         features: features.iter().map(|f| ShortToken::new(*f).unwrap()).collect(),

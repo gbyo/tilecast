@@ -28,7 +28,9 @@
 //! * [`media`], [`media_channel`] — renderer media capabilities.
 //! * [`pairing`], [`discovery`] — pairing a fresh installation and finding
 //!   servers on the LAN through Avahi.
-//! * [`legacy_import`] — the one-time `import-legacy` command.
+//! * [`legacy_import`], [`legacy_compat`] — the `import-legacy` and
+//!   `check-legacy-compat` migration steps.
+//! * [`self_test`] — the release self-test host.
 
 pub mod activation;
 pub mod capabilities;
@@ -40,6 +42,7 @@ pub mod daemon;
 pub mod discovery;
 pub mod fixture;
 pub mod ipc_handler;
+pub mod legacy_compat;
 pub mod legacy_import;
 pub mod logging;
 pub mod manifest;
@@ -50,5 +53,6 @@ pub mod pairing;
 pub mod player_config;
 pub mod presentation;
 pub mod schedule;
+pub mod self_test;
 pub mod server_link;
 pub mod supervisor;

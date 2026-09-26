@@ -23,6 +23,9 @@ pub const DEFAULT_STATE_DIR: &str = "/var/lib/tilecast-edge";
 pub const DEFAULT_RUNTIME_DIR: &str = "/run/tilecast-edge";
 pub const DEFAULT_CONFIG_FILE: &str = "/etc/tilecast-edge/edge.toml";
 pub const SOCKET_NAME: &str = "edge.sock";
+/// Present while the migrator settles a cutover. Root-owned, on tmpfs, so a
+/// reboot removes it; the migrator's boot recovery then rolls back.
+pub const MIGRATION_PROBATION_FILE: &str = "/run/tilecast-edge-migrate/probation";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EdgePaths {

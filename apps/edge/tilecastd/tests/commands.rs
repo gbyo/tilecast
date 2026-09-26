@@ -532,3 +532,19 @@ async fn pushes_during_a_pass_cause_exactly_one_more_pass_never_a_concurrent_one
     shutdown.cancel();
     driver.await.unwrap();
 }
+
+#[tokio::test]
+async fn a_migration_probation_leaves_commands_on_the_server_until_it_ends() {
+    let h = Harness::new();
+    h.deliver(command(id(1), "reload_playback"));
+    let probation = Arc::new(std::sync::atomic::AtomicBool::new(true));
+    let held = Arc::clone(&probation);
+    let coordinator = h.start().await.with_hold(move || held.load(Ordering::SeqCst));
+    assert_eq!(coordinator.pass(&h.api).await, PassOutcome::Held);
+    assert_eq!(h.api.fetches.load(Ordering::SeqCst), 0, "nothing is fetched, so nothing is acknowledged");
+    assert_eq!(h.runs.load(Ordering::SeqCst), 0);
+
+    probation.store(false, Ordering::SeqCst);
+    assert_eq!(coordinator.pass(&h.api).await, PassOutcome::Completed);
+    assert_eq!(h.runs.load(Ordering::SeqCst), 1, "after acceptance the command runs once");
+}

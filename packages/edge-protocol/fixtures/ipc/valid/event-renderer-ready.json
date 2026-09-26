@@ -8,6 +8,7 @@
         "kind": "wpe",
         "version": "0.1.0",
         "engineVersion": "2.54.0",
+        "gstreamerVersion": "1.26.2",
         "platform": "headless"
       },
       "features": ["status-surfaces-v1", "image", "video"],

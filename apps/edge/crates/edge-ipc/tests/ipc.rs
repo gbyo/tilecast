@@ -95,6 +95,7 @@ fn ready() -> Event {
             kind: RendererKind::Wpe,
             version: ShortText::new("0.0.1").unwrap(),
             engine_version: ShortText::new("2.54.0").unwrap(),
+            gstreamer_version: None,
             platform: RendererPlatform::Headless,
         },
         features: vec![ShortToken::new("image").unwrap()],
