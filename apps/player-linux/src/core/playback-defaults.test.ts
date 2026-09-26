@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolvePlaybackItemSettings } from "./player";
-import { fallbackDurationMsFor } from "./playback-defaults";
+import { fallbackDurationMsFor } from "@tilecast/player-runtime/projection";
 
 describe("fallback item durations", () => {
   it("leaves video without an invented duration", () => {

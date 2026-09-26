@@ -6,8 +6,11 @@ Player. It has two processes:
 - `tilecastd` is the unprivileged daemon. It owns the server relationship,
   the device credential, state, the content store, supervision and machine
   integration.
-- `tilecast-renderer-wpe` is the display engine. It shows what `tilecastd`
-  sends and reports what happened. See [`renderer-wpe/README.md`](renderer-wpe/README.md).
+- `tilecast-renderer-wpe` is the display engine: a small WPE WebKit host for
+  the shared Tilecast Player Runtime (`packages/player-runtime`, the same
+  runtime the Electron player hosts). It shows what `tilecastd` sends and
+  reports what happened. See [`renderer-wpe/README.md`](renderer-wpe/README.md)
+  and [`docs/player-runtime.md`](../../docs/player-runtime.md).
 
 The Tilecast Server is the only authority. `tilecastd` reconciles directly
 from it and keeps playing from local state when it is unreachable.

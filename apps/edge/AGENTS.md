@@ -20,6 +20,12 @@ it, stop and write the complete tradeoff first.
   same account in a separate, more restricted unit.
 - The Linux renderer is WPE WebKit 2.54+ on the WPEPlatform API. Do not add
   Cog, libwpe, WPEBackend-fdo or an Electron renderer bridge.
+- Electron and WPE host the shared Tilecast Player Runtime
+  (`packages/player-runtime`). Presentation behavior belongs in the runtime,
+  never in C. The WPE host stays boring: WPEPlatform and web view lifecycle,
+  URI schemes, the `TilecastRuntimeHostV1` adapter and output integration.
+  Decide behavior from runtime capabilities, never from a host name, and do
+  not add a second WPE-specific runtime.
 - The transition is one way: legacy Electron installation, one-time verified
   import (`tilecastd import-legacy`), Edge plus WPE. Do not add shadow modes,
   dual runtimes or a second credential.

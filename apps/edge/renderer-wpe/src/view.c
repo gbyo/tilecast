@@ -2,7 +2,8 @@
  * The web view and the native/JS bridge.
  *
  * Security model (docs/tilecast-edge.md §10.2–10.3, §17):
- *   - The view loads only tilecast://runtime/static/index.html. Every other
+ *   - The view loads only tilecast://runtime/index.html, the shared Tilecast
+ *     Player Runtime (packages/player-runtime) that Electron also hosts. Every other
  *     navigation, new window and permission request is refused.
  *   - The bridge script is injected only into the top frame of pages under
  *     tilecast://runtime/. Remote content never gets the bridge, and
@@ -16,7 +17,7 @@
 
 #include <string.h>
 
-#define RUNTIME_URI "tilecast://runtime/static/index.html"
+#define RUNTIME_URI "tilecast://runtime/index.html"
 #define MAX_TEXT 240
 
 static void

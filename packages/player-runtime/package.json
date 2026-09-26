@@ -1,0 +1,54 @@
+{
+  "name": "@tilecast/player-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "description": "The shared Tilecast Player Runtime: the trusted display DOM that the Electron and WPE hosts load from tilecast://runtime/.",
+  "exports": {
+    "./host-contract": {
+      "types": "./dist/node/host/contract.d.ts",
+      "default": "./dist/node/host/contract.js"
+    },
+    "./projection": {
+      "types": "./dist/node/compat/projection/index.d.ts",
+      "default": "./dist/node/compat/projection/index.js"
+    },
+    "./synchronized": {
+      "types": "./dist/node/clock/synchronized.d.ts",
+      "default": "./dist/node/clock/synchronized.js"
+    },
+    "./widgets": {
+      "types": "./dist/node/widgets/contract.d.ts",
+      "default": "./dist/node/widgets/contract.js"
+    },
+    "./runtime-dir": "./runtime-dir.cjs",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist/**",
+    "runtime-dir.cjs"
+  ],
+  "scripts": {
+    "build": "npm run build:node && npm run build:runtime && npm run build:conformance",
+    "build:node": "tsc -p tsconfig.node.json",
+    "build:runtime": "vite build && node scripts/finish-runtime.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "conformance": "node conformance/run.mjs",
+    "build:conformance": "vite build --config vite.conformance.config.ts"
+  },
+  "dependencies": {
+    "qrcode-generator": "^2.0.4"
+  },
+  "devDependencies": {
+    "@fontsource-variable/geist": "^5.3.0",
+    "jsdom": "^30.0.0",
+    "lit": "^3.3.3",
+    "pixelmatch": "^7.2.0",
+    "pngjs": "^7.0.0",
+    "typescript": "~5.8.3",
+    "vite": "^8.1.5",
+    "vitest": "^4.1.10",
+    "xstate": "^5.33.2"
+  }
+}

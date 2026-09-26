@@ -58,7 +58,7 @@ jobs:
                 apps/player-android/*|scripts/build-player-release.sh|scripts/extract-apksigner-sha256.sh)
                   android=true
                   ;;
-                apps/player-linux/*|scripts/build-linux-player-release.sh|scripts/verify-linux-player-release.mjs)
+                apps/player-linux/*|packages/player-runtime/*|scripts/build-linux-player-release.sh|scripts/verify-linux-player-release.mjs)
                   linux=true
                   ;;
                 apps/server/*)
@@ -159,6 +159,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm test --workspace @tilecast/player-runtime
+      # The Linux Player imports the runtime's compiled Node entry points.
+      - run: npm run build:node --workspace @tilecast/player-runtime
       - run: npm run player:linux:test
       - run: npm run player:linux:build
       - name: Create test-only release signing keys
