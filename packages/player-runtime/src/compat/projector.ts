@@ -16,6 +16,7 @@ import type {
 import { resolveRegionalFormatting } from "./projection/format";
 import { renderLayout, spanViewport } from "./projection/layout-render";
 import { renderWidget } from "./projection/widget-render";
+import { isRemoteWebWidget, remoteWebForWidget } from "./projection/web-widget";
 import type {
   LayoutDocument,
   ManifestDataSource,
@@ -160,6 +161,28 @@ export function createProjector(
         if (isWidgetReference(item)) {
           const id = (item.widget as { widgetAssetId: string }).widgetAssetId;
           const widget = widgets.get(id);
+          if (widget && isRemoteWebWidget(widget)) {
+            // A web or YouTube Widget plays as a remote web item; the same
+            // surface shows it at the root and inside a Layout zone.
+            const remoteWeb = remoteWebForWidget(widget, manifest.assets, at);
+            if (remoteWeb) {
+              const { widget: _reference, ...rest } = item;
+              void _reference;
+              items.push({
+                ...rest,
+                kind: widget.provider === "youtube" ? "youtube" : "website",
+                src:
+                  remoteWeb.content.kind === "page"
+                    ? remoteWeb.content.url
+                    : "",
+                remoteWeb: translateMedia(
+                  remoteWeb,
+                  media,
+                ) as RuntimeItem["remoteWeb"],
+              });
+            }
+            continue;
+          }
           const payload = widget
             ? renderWidget(widget, {
                 dataSources,

@@ -9,6 +9,7 @@
  * null so the previously active presentation stays up.
  */
 
+import { isRemoteWebWidget, remoteWebForWidget } from "./web-widget";
 import { formatValue, safeColor, type RegionalFormatting } from "./format";
 import { normalizeSource } from "./datasource";
 import { isAvailableAt } from "./content-availability";
@@ -209,6 +210,14 @@ function renderPlacement(
         : undefined;
       if (!widget) {
         return null;
+      }
+      if (isRemoteWebWidget(widget)) {
+        const remoteWeb = remoteWebForWidget(
+          widget,
+          ctx.manifest.assets,
+          ctx.at,
+        );
+        return remoteWeb ? { ...base, remoteWeb } : null;
       }
       const payload = renderWidget(widget, {
         dataSources: ctx.dataSources,

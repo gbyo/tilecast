@@ -12,6 +12,8 @@
  * Node without a DOM.
  */
 
+import type { RuntimeRemoteWebSpecV1 } from "../../host/contract";
+
 export interface BoxStyle {
   /** Absolute placement (layout zones); omitted for flow children. */
   x?: number;
@@ -139,6 +141,8 @@ export interface LayoutZone {
   render?: RenderNode; // widget or primitive
   image?: { src: string; fit: string }; // asset placement
   playlistItems?: LayoutPlaylistItem[]; // playlistZone: rotates locally
+  /** A web or YouTube Widget placement, shown by the host's remote web surface. */
+  remoteWeb?: RuntimeRemoteWebSpecV1;
 }
 
 export interface LayoutPlaylistItem {

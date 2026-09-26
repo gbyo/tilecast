@@ -4,7 +4,9 @@
  * distinguishable from one that is working.
  *
  * Zone content is compatibility rendering (RenderNode trees and media); the
- * zone playlists run on their own zone actors.
+ * zone playlists run on their own zone actors. A web or YouTube Widget zone
+ * is the same remote web surface a root item uses, created through the
+ * environment, so the Layout never knows how the host isolates the page.
  */
 import { createActor } from "xstate";
 import type {
@@ -16,13 +18,16 @@ import { TimerGroup } from "../clock/scheduler";
 import { layoutPayload, objectFit } from "../engine/model";
 import { zoneEntry, zoneMachine, type ZoneActor } from "../engine/zone-machine";
 import { applyAutoFit, buildRenderNode } from "../compat/render-tree-dom";
-import type { MediaSurface, SurfaceEnvironment } from "./surface";
+import type { MediaSurface, SurfaceEnvironment, SurfaceSink } from "./surface";
 
 export class LayoutSurface implements MediaSurface {
   readonly element: HTMLDivElement;
   private readonly timers: TimerGroup;
   private readonly zones: ZoneActor[] = [];
   private readonly zoneTeardowns: (() => void)[] = [];
+  private readonly nested: MediaSurface[] = [];
+  private youtubeZones = 0;
+  private active = false;
   private disposed = false;
 
   constructor(
@@ -70,12 +75,16 @@ export class LayoutSurface implements MediaSurface {
 
   activate(): Promise<void> {
     applyAutoFit(this.element);
+    this.active = true;
+    for (const surface of this.nested) void surface.activate();
     return Promise.resolve();
   }
 
   pause(): void {
+    this.active = false;
+    for (const surface of this.nested) surface.pause();
     for (const video of Array.from(this.element.querySelectorAll("video"))) {
-      video.pause();
+      if (!video.closest(".tc-remote-web")) video.pause();
     }
   }
 
@@ -87,6 +96,7 @@ export class LayoutSurface implements MediaSurface {
     if (this.disposed) return;
     this.disposed = true;
     this.timers.cancelAll();
+    for (const surface of this.nested) surface.dispose();
     for (const zone of this.zones) zone.stop();
     for (const teardown of this.zoneTeardowns) teardown();
   }
@@ -131,6 +141,8 @@ export class LayoutSurface implements MediaSurface {
       // that anything appeared in the zone.
       img.onload = rendered;
       el.appendChild(img);
+    } else if (zone.remoteWeb) {
+      this.startRemoteZone(el, zone, rendered);
     } else if (zone.playlistItems && zone.playlistItems.length > 0) {
       this.startZonePlaylist(el, zone.playlistItems, rendered);
     } else {
@@ -139,6 +151,70 @@ export class LayoutSurface implements MediaSurface {
       queueMicrotask(rendered);
     }
     return el;
+  }
+
+  private startRemoteZone(
+    container: HTMLElement,
+    zone: RuntimeLayoutZone,
+    rendered: () => void,
+  ): void {
+    const spec = zone.remoteWeb!;
+    const sink = this.env.sink;
+    const zoneFailed = (message: string) => {
+      if (!this.disposed) sink.zoneFailed(zone.id, message);
+    };
+    if (spec.content.kind === "youtube" && this.youtubeZones++ > 0) {
+      // One YouTube player plays at a time (YouTube Required Minimum
+      // Functionality). The server refuses such Layouts; an older one that
+      // still arrives shows the first player only.
+      queueMicrotask(() => zoneFailed("youtube_concurrent_player"));
+      return;
+    }
+    const zoneSink: SurfaceSink = {
+      ended: () => undefined,
+      failed: (message) => zoneFailed(message),
+      resumed: () => undefined,
+      evidence: (kind) => {
+        if (!this.disposed) sink.evidence(kind, zone.id);
+      },
+      websiteFailed: (reason) => zoneFailed("website failed: " + reason),
+      websiteRecovered: () => sink.websiteRecovered(),
+      fallbackShown: rendered,
+      zoneFailed: (id, message) => sink.zoneFailed(id, message),
+    };
+    const surface = this.env.remoteWeb?.(
+      {
+        id: zone.id,
+        kind: spec.content.kind === "youtube" ? "youtube" : "website",
+        src: spec.content.kind === "page" ? spec.content.url : "",
+        durationMs: null,
+        fitMode: "fill",
+        audioEnabled: false,
+        volume: 0,
+        videoStartOffsetMs: null,
+        videoEndOffsetMs: null,
+        remoteWeb: spec,
+      },
+      zoneSink,
+    );
+    if (!surface) {
+      queueMicrotask(() =>
+        zoneFailed("remote web is not available on this display"),
+      );
+      return;
+    }
+    this.nested.push(surface);
+    container.appendChild(surface.element);
+    surface.prepare().then(
+      () => {
+        if (this.disposed) return;
+        sink.evidence("website-loaded", zone.id);
+        rendered();
+        if (this.active) void surface.activate();
+      },
+      (error: unknown) =>
+        zoneFailed(String((error as Error)?.message ?? error)),
+    );
   }
 
   private startZonePlaylist(
