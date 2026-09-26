@@ -48,6 +48,7 @@ ProtectHostname=yes
 LockPersonality=yes
 RestrictRealtime=yes
 RestrictNamespaces=yes
+RestrictSUIDSGID=yes
 RestrictAddressFamilies=AF_UNIX
 SystemCallArchitectures=native
 MemoryDenyWriteExecute=yes
@@ -90,12 +91,31 @@ mod tests {
         assert!(text.contains("Before=tilecast-edge.service tilecast-renderer.service"));
         assert!(timer().contains("OnUnitActiveSec=30s"));
         let helper = include_str!("../../packaging/systemd/tilecast-edge-update.service");
+        // Every hardening line except ReadWritePaths=, which names the
+        // helper's state directory itself instead of StateDirectory=.
         for line in [
-            "CapabilityBoundingSet=",
-            "ProtectSystem=strict",
+            "UMask=",
+            "ProtectSystem=",
             "InaccessiblePaths=",
-            "NoNewPrivileges=yes",
+            "NoNewPrivileges=",
+            "ProtectHome=",
+            "PrivateTmp=",
+            "PrivateDevices=",
+            "ProtectKernelTunables=",
+            "ProtectKernelModules=",
+            "ProtectKernelLogs=",
+            "ProtectControlGroups=",
+            "ProtectClock=",
+            "ProtectHostname=",
+            "LockPersonality=",
+            "RestrictRealtime=",
+            "RestrictNamespaces=",
+            "RestrictSUIDSGID=",
             "RestrictAddressFamilies=",
+            "SystemCallArchitectures=",
+            "MemoryDenyWriteExecute=",
+            "IPAddressDeny=",
+            "CapabilityBoundingSet=",
         ] {
             let expected = helper.lines().find(|l| l.starts_with(line)).unwrap();
             assert!(text.lines().any(|l| l == expected), "the guard shares the helper's {line}");

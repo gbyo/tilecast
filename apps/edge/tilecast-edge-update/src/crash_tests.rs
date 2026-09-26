@@ -58,7 +58,9 @@ impl World {
         let host = FakeHost::new(layout.install_root.clone());
         host.with(|s| s.running_version = Some("0.1.0".into()));
         let store = TransactionStore::new(root.path().join("update-state"));
-        let cas_root = root.path().join("cas");
+        // The helper follows no link on the way to an object, and the
+        // temporary directory may sit behind one (/var on macOS).
+        let cas_root = root.path().canonicalize().unwrap().join("cas");
         Self { root, layout, store, host, signer, cas_root, reserve_bytes: 0 }
     }
 

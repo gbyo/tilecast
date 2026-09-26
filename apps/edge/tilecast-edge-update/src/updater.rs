@@ -721,23 +721,10 @@ fn open_cas_object(
     Ok(file)
 }
 
-#[cfg(target_os = "linux")]
+/// No component of the path may be a link. This is not `openat2`: the
+/// helper's `RestrictSUIDSGID=` makes that call fail with `ENOSYS`.
 fn open_no_links(path: &Path) -> Result<Option<std::fs::File>, UpdateError> {
-    use rustix::fs::{Mode, OFlags, ResolveFlags};
-    match rustix::fs::openat2(
-        rustix::fs::CWD,
-        path,
-        OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::NOCTTY | OFlags::CLOEXEC,
-        Mode::empty(),
-        ResolveFlags::NO_SYMLINKS | ResolveFlags::NO_MAGICLINKS,
-    ) {
-        Ok(fd) => Ok(Some(std::fs::File::from(fd))),
-        Err(rustix::io::Errno::NOENT | rustix::io::Errno::LOOP | rustix::io::Errno::XDEV) => Ok(None),
-        Err(error) => Err(std::io::Error::from(error).into()),
-    }
-}
-
-#[cfg(not(target_os = "linux"))]
-fn open_no_links(path: &Path) -> Result<Option<std::fs::File>, UpdateError> {
-    Ok(edge_platform::fs::open_regular(path, edge_release::envelope::MAX_ARTIFACT_BYTES)?.map(|(file, _)| file))
+    let opened = edge_platform::fs::open_regular_no_links(path, edge_release::envelope::MAX_ARTIFACT_BYTES)
+        .map_err(|error| std::io::Error::new(error.kind(), format!("open content-store object: {error}")))?;
+    Ok(opened.map(|(file, _)| file))
 }
