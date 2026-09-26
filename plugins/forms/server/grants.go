@@ -1,13 +1,14 @@
-package forms
+package server
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
+	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
 
 // GrantInput grants one capability to one user on one form.
@@ -18,43 +19,70 @@ type GrantInput struct {
 
 // ListGrants returns every per-form grant.
 func (s *Service) ListGrants(ctx context.Context, id uuid.UUID) ([]Grant, error) {
-	if _, err := s.ensureForm(ctx, s.db, id); err != nil {
+	if _, err := s.ensureForm(ctx, id); err != nil {
 		return nil, err
 	}
-	rows, err := s.db.Query(ctx, `SELECT g.id,g.user_id,COALESCE(u.name,''),g.capability
-		FROM form_grants g LEFT JOIN users u ON u.id=g.user_id
-		WHERE g.data_source_id=$1 ORDER BY u.name,g.capability`, id)
+	rows, err := s.db.Query(ctx, `SELECT id,user_id,capability FROM form_grants
+		WHERE data_source_id=$1`, id)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	grants := []Grant{}
+	type grantRow struct {
+		grant    Grant
+		dangling bool
+	}
+	listed := []grantRow{}
 	for rows.Next() {
-		var grant Grant
+		var item grantRow
 		var capability string
-		if err := rows.Scan(&grant.ID, &grant.UserID, &grant.UserName, &capability); err != nil {
+		if err := rows.Scan(&item.grant.ID, &item.grant.UserID, &capability); err != nil {
 			return nil, err
 		}
-		grant.Capability = Capability(capability)
-		grants = append(grants, grant)
+		item.grant.Capability = Capability(capability)
+		user, err := s.host.Users.Get(ctx, item.grant.UserID)
+		if errors.Is(err, plugin.ErrNotFound) {
+			item.dangling = true
+		} else if err != nil {
+			return nil, err
+		} else {
+			item.grant.UserName = user.Name
+		}
+		listed = append(listed, item)
 	}
-	return grants, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	// Preserve the historical order: grants whose user is gone sort last,
+	// then by user name, then by capability.
+	sort.SliceStable(listed, func(i, j int) bool {
+		if listed[i].dangling != listed[j].dangling {
+			return listed[j].dangling
+		}
+		if listed[i].grant.UserName != listed[j].grant.UserName {
+			return listed[i].grant.UserName < listed[j].grant.UserName
+		}
+		return listed[i].grant.Capability < listed[j].grant.Capability
+	})
+	grants := make([]Grant, 0, len(listed))
+	for _, item := range listed {
+		grants = append(grants, item.grant)
+	}
+	return grants, nil
 }
 
 // SetGrant adds a capability grant for a user (idempotent).
 func (s *Service) SetGrant(ctx context.Context, id, actor uuid.UUID, in GrantInput) (Grant, error) {
-	if _, err := s.ensureForm(ctx, s.db, id); err != nil {
+	if _, err := s.ensureForm(ctx, id); err != nil {
 		return Grant{}, err
 	}
 	if !validCapabilities[in.Capability] {
 		return Grant{}, fmt.Errorf("%w: unknown capability", ErrValidation)
 	}
-	var exists bool
-	if err := s.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM users WHERE id=$1)`, in.UserID).Scan(&exists); err != nil {
-		return Grant{}, err
-	}
-	if !exists {
+	if _, err := s.host.Users.Get(ctx, in.UserID); errors.Is(err, plugin.ErrNotFound) {
 		return Grant{}, fmt.Errorf("%w: user does not exist", ErrValidation)
+	} else if err != nil {
+		return Grant{}, err
 	}
 	grantID := uuid.New()
 	err := s.db.QueryRow(ctx, `INSERT INTO form_grants(id,data_source_id,user_id,capability,granted_by)
@@ -64,10 +92,9 @@ func (s *Service) SetGrant(ctx context.Context, id, actor uuid.UUID, in GrantInp
 	if err != nil {
 		return Grant{}, err
 	}
-	_, _ = s.db.Exec(ctx, `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,metadata)
-		VALUES($1,$2,'form.grant_set','data_source',$3,jsonb_build_object('user',$4::text,'capability',$5::text))`,
-		uuid.New(), actor, id.String(), in.UserID.String(), string(in.Capability))
-	return Grant{ID: grantID, UserID: in.UserID, UserName: s.userName(ctx, s.db, in.UserID), Capability: in.Capability}, nil
+	s.auditBestEffort(ctx, actor, "form.grant_set", id.String(),
+		map[string]any{"user": in.UserID.String(), "capability": string(in.Capability)})
+	return Grant{ID: grantID, UserID: in.UserID, UserName: s.userName(ctx, in.UserID), Capability: in.Capability}, nil
 }
 
 // SearchUsers returns a bounded, manager-safe directory of active users for granting form access. It
@@ -77,23 +104,15 @@ func (s *Service) SearchUsers(ctx context.Context, query string, limit int) ([]D
 	if limit <= 0 || limit > 100 {
 		limit = 50
 	}
-	query = strings.TrimSpace(query)
-	rows, err := s.db.Query(ctx, `SELECT id,name,username,role FROM users
-		WHERE active=TRUE AND ($1='' OR name ILIKE '%'||$1||'%' OR username ILIKE '%'||$1||'%')
-		ORDER BY lower(name),id LIMIT $2`, query, limit)
+	found, err := s.host.Users.SearchActive(ctx, query, limit)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	users := []DirectoryUser{}
-	for rows.Next() {
-		var user DirectoryUser
-		if err := rows.Scan(&user.ID, &user.Name, &user.Username, &user.Role); err != nil {
-			return nil, err
-		}
-		users = append(users, user)
+	users := make([]DirectoryUser, 0, len(found))
+	for _, user := range found {
+		users = append(users, DirectoryUser{ID: user.ID, Name: user.Name, Username: user.Username, Role: user.Role})
 	}
-	return users, rows.Err()
+	return users, nil
 }
 
 // collapseCapabilities reduces a requested capability set to its minimal generating set by dropping
@@ -140,20 +159,20 @@ func containsCap(caps []Capability, want Capability) bool {
 // implicit manager and cannot have grants edited here. A user cannot remove their own only path to
 // managing the form (unless they retain it as the creator or a global Owner).
 func (s *Service) ReplaceGrants(ctx context.Context, id, actor, targetUser uuid.UUID, caps []Capability) ([]AccessEntry, error) {
-	createdBy, err := s.ensureForm(ctx, s.db, id)
+	createdBy, err := s.ensureForm(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 	if createdBy != nil && *createdBy == targetUser {
 		return nil, fmt.Errorf("%w: the form creator is always a manager and cannot be changed here", ErrValidation)
 	}
-	var targetRole string
-	if err := s.db.QueryRow(ctx, `SELECT role FROM users WHERE id=$1`, targetUser).Scan(&targetRole); errors.Is(err, pgx.ErrNoRows) {
+	target, err := s.host.Users.Get(ctx, targetUser)
+	if errors.Is(err, plugin.ErrNotFound) {
 		return nil, fmt.Errorf("%w: user does not exist", ErrValidation)
 	} else if err != nil {
 		return nil, err
 	}
-	if targetRole == "owner" {
+	if target.Role == "owner" {
 		return nil, fmt.Errorf("%w: global Owners are always managers and cannot be changed here", ErrValidation)
 	}
 	for _, capability := range caps {
@@ -166,7 +185,7 @@ func (s *Service) ReplaceGrants(ctx context.Context, id, actor, targetUser uuid.
 	// Guard against a manager removing their own last management path.
 	if targetUser == actor && !containsCap(collapsed, CapManage) {
 		isCreator := createdBy != nil && *createdBy == actor
-		role, roleErr := s.userGlobalRole(ctx, s.db, actor)
+		role, roleErr := s.userGlobalRole(ctx, actor)
 		if roleErr != nil {
 			return nil, roleErr
 		}
@@ -189,9 +208,8 @@ func (s *Service) ReplaceGrants(ctx context.Context, id, actor, targetUser uuid.
 			return nil, err
 		}
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,metadata)
-		VALUES($1,$2,'form.grants_replaced','data_source',$3,jsonb_build_object('user',$4::text,'capabilities',$5::text))`,
-		uuid.New(), actor, id.String(), targetUser.String(), strings.Join(capabilityStrings(collapsed), ",")); err != nil {
+	if err := s.recordAudit(ctx, tx, actor, "form.grants_replaced", id.String(),
+		map[string]any{"user": targetUser.String(), "capabilities": strings.Join(capabilityStrings(collapsed), ",")}); err != nil {
 		return nil, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -211,7 +229,7 @@ func capabilityStrings(caps []Capability) []string {
 // ListAccess returns one row per user with effective access to the form: the creator and every
 // active global Owner as implicit managers, followed by granted users with collapsed capabilities.
 func (s *Service) ListAccess(ctx context.Context, id uuid.UUID) ([]AccessEntry, error) {
-	createdBy, err := s.ensureForm(ctx, s.db, id)
+	createdBy, err := s.ensureForm(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -220,8 +238,9 @@ func (s *Service) ListAccess(ctx context.Context, id uuid.UUID) ([]AccessEntry, 
 	if createdBy != nil {
 		var entry AccessEntry
 		entry.UserID = *createdBy
-		if err := s.db.QueryRow(ctx, `SELECT COALESCE(name,''),COALESCE(username,''),COALESCE(role,'') FROM users WHERE id=$1`, *createdBy).
-			Scan(&entry.Name, &entry.Username, &entry.Role); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		if user, err := s.host.Users.Get(ctx, *createdBy); err == nil {
+			entry.Name, entry.Username, entry.Role = user.Name, user.Username, user.Role
+		} else if !errors.Is(err, plugin.ErrNotFound) {
 			return nil, err
 		}
 		entry.Capabilities = []Capability{CapManage}
@@ -230,42 +249,37 @@ func (s *Service) ListAccess(ctx context.Context, id uuid.UUID) ([]AccessEntry, 
 		entries = append(entries, entry)
 		seen[*createdBy] = true
 	}
-	ownerRows, err := s.db.Query(ctx, `SELECT id,COALESCE(name,''),COALESCE(username,''),COALESCE(role,'')
-		FROM users WHERE role='owner' AND active ORDER BY lower(name),id`)
+	owners, err := s.host.Users.ListByRole(ctx, "owner")
 	if err != nil {
 		return nil, err
 	}
-	for ownerRows.Next() {
-		var entry AccessEntry
-		if err := ownerRows.Scan(&entry.UserID, &entry.Name, &entry.Username, &entry.Role); err != nil {
-			ownerRows.Close()
-			return nil, err
-		}
-		if seen[entry.UserID] {
+	for _, owner := range owners {
+		if seen[owner.ID] {
 			continue
 		}
-		entry.Capabilities = []Capability{CapManage}
-		entry.IsGlobalOwner = true
-		entries = append(entries, entry)
-		seen[entry.UserID] = true
+		entries = append(entries, AccessEntry{
+			UserID: owner.ID, Name: owner.Name, Username: owner.Username, Role: owner.Role,
+			Capabilities: []Capability{CapManage}, IsGlobalOwner: true,
+		})
+		seen[owner.ID] = true
 	}
-	ownerRows.Close()
-	if err := ownerRows.Err(); err != nil {
-		return nil, err
-	}
-	rows, err := s.db.Query(ctx, `SELECT g.user_id,COALESCE(u.name,''),COALESCE(u.username,''),COALESCE(u.role,''),g.capability
-		FROM form_grants g LEFT JOIN users u ON u.id=g.user_id
-		WHERE g.data_source_id=$1 ORDER BY u.name,g.user_id`, id)
+	rows, err := s.db.Query(ctx, `SELECT user_id,capability FROM form_grants
+		WHERE data_source_id=$1`, id)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
+	type grantName struct {
+		name, username, role string
+		dangling             bool
+	}
 	byUser := map[uuid.UUID]*AccessEntry{}
+	names := map[uuid.UUID]grantName{}
 	order := []uuid.UUID{}
 	for rows.Next() {
 		var userID uuid.UUID
-		var name, username, role, capability string
-		if err := rows.Scan(&userID, &name, &username, &role, &capability); err != nil {
+		var capability string
+		if err := rows.Scan(&userID, &capability); err != nil {
 			return nil, err
 		}
 		if seen[userID] {
@@ -273,26 +287,47 @@ func (s *Service) ListAccess(ctx context.Context, id uuid.UUID) ([]AccessEntry, 
 		}
 		entry, ok := byUser[userID]
 		if !ok {
-			entry = &AccessEntry{UserID: userID, Name: name, Username: username, Role: role, Capabilities: []Capability{}}
+			entry = &AccessEntry{UserID: userID, Capabilities: []Capability{}}
 			byUser[userID] = entry
 			order = append(order, userID)
+			if user, err := s.host.Users.Get(ctx, userID); err == nil {
+				names[userID] = grantName{name: user.Name, username: user.Username, role: user.Role}
+			} else if errors.Is(err, plugin.ErrNotFound) {
+				names[userID] = grantName{dangling: true}
+			} else {
+				return nil, err
+			}
 		}
 		entry.Capabilities = append(entry.Capabilities, Capability(capability))
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+	// Preserve the historical order: grants whose user is gone sort last,
+	// then by user name, then by user id. Capabilities collapse per user.
+	granted := make([]AccessEntry, 0, len(order))
 	for _, userID := range order {
 		entry := byUser[userID]
+		known := names[userID]
+		entry.Name, entry.Username, entry.Role = known.name, known.username, known.role
 		entry.Capabilities = collapseCapabilities(entry.Capabilities)
-		entries = append(entries, *entry)
+		granted = append(granted, *entry)
 	}
-	return entries, nil
+	sort.SliceStable(granted, func(i, j int) bool {
+		if names[granted[i].UserID].dangling != names[granted[j].UserID].dangling {
+			return names[granted[j].UserID].dangling
+		}
+		if granted[i].Name != granted[j].Name {
+			return granted[i].Name < granted[j].Name
+		}
+		return granted[i].UserID.String() < granted[j].UserID.String()
+	})
+	return append(entries, granted...), nil
 }
 
 // RevokeGrant removes one grant by id.
 func (s *Service) RevokeGrant(ctx context.Context, id, grantID, actor uuid.UUID) error {
-	if _, err := s.ensureForm(ctx, s.db, id); err != nil {
+	if _, err := s.ensureForm(ctx, id); err != nil {
 		return err
 	}
 	tag, err := s.db.Exec(ctx, `DELETE FROM form_grants WHERE id=$1 AND data_source_id=$2`, grantID, id)
@@ -302,7 +337,6 @@ func (s *Service) RevokeGrant(ctx context.Context, id, grantID, actor uuid.UUID)
 	if tag.RowsAffected() == 0 {
 		return ErrNotFound
 	}
-	_, _ = s.db.Exec(ctx, `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id)
-		VALUES($1,$2,'form.grant_revoked','data_source',$3)`, uuid.New(), actor, id.String())
+	s.auditBestEffort(ctx, actor, "form.grant_revoked", id.String(), nil)
 	return nil
 }

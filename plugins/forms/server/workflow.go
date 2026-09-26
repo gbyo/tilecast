@@ -1,4 +1,4 @@
-package forms
+package server
 
 import (
 	"context"
@@ -259,7 +259,7 @@ type WorkflowInput struct {
 // current initial state. Transitions are replaced wholesale. Eligibility changes are re-derived
 // immediately and the projection is rebuilt.
 func (s *Service) ConfigureWorkflow(ctx context.Context, id, actor uuid.UUID, in WorkflowInput) error {
-	if _, err := s.ensureForm(ctx, s.db, id); err != nil {
+	if _, err := s.ensureForm(ctx, id); err != nil {
 		return err
 	}
 	if err := validateWorkflow(in.Workflow); err != nil {
@@ -397,8 +397,7 @@ func (s *Service) ConfigureWorkflow(ctx context.Context, id, actor uuid.UUID, in
 		AND st.data_source_id=$1 AND st.state_key=r.state_key AND st.eligible_for_output`, id); err != nil {
 		return err
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id)
-		VALUES($1,$2,'form.workflow_configured','data_source',$3)`, uuid.New(), actor, id.String()); err != nil {
+	if err := s.recordAudit(ctx, tx, actor, "form.workflow_configured", id.String(), nil); err != nil {
 		return err
 	}
 	if err := tx.Commit(ctx); err != nil {

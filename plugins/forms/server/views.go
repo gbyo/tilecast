@@ -1,4 +1,4 @@
-package forms
+package server
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/tilecast/tilecast/apps/server/internal/media"
+	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
 
 var viewKeyPattern = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,79}$`)
@@ -72,7 +72,7 @@ func (s *Service) availableFieldKeys(ctx context.Context, q rowQuerier, id uuid.
 			fieldSpecs = append(fieldSpecs, spec.Key)
 		}
 	} else if errors.Is(err, ErrNotFound) {
-		draft, draftErr := s.loadDraftSchema(ctx, q, id)
+		draft, draftErr := s.loadDraftSchema(ctx, id)
 		if draftErr != nil {
 			return nil, draftErr
 		}
@@ -161,9 +161,9 @@ func viewFromInput(in ViewInput) View {
 // persisting anything or touching the cached projection. Only output-eligible records in the view's
 // included states reach the result (the same safety invariant as the real projection), so a preview
 // never exposes unapproved records. Manager-authorized.
-func (s *Service) PreviewView(ctx context.Context, id uuid.UUID, in ViewInput) (media.TypedDataset, error) {
-	if _, err := s.ensureForm(ctx, s.db, id); err != nil {
-		return media.TypedDataset{}, err
+func (s *Service) PreviewView(ctx context.Context, id uuid.UUID, in ViewInput) (plugin.TypedDataset, error) {
+	if _, err := s.ensureForm(ctx, id); err != nil {
+		return plugin.TypedDataset{}, err
 	}
 	if in.IncludedStates == nil {
 		in.IncludedStates = []string{}
@@ -181,11 +181,11 @@ func (s *Service) PreviewView(ctx context.Context, id uuid.UUID, in ViewInput) (
 		in.RecordLimit = 100
 	}
 	if err := s.validateView(ctx, s.db, id, in); err != nil {
-		return media.TypedDataset{}, err
+		return plugin.TypedDataset{}, err
 	}
 	fieldTypes, fieldLabels, err := s.outputFieldMaps(ctx, s.db, id)
 	if err != nil {
-		return media.TypedDataset{}, err
+		return plugin.TypedDataset{}, err
 	}
 	return s.projectView(ctx, s.db, id, viewFromInput(in), fieldTypes, fieldLabels, time.Now().UTC(), func(*time.Time) {})
 }
@@ -193,7 +193,7 @@ func (s *Service) PreviewView(ctx context.Context, id uuid.UUID, in ViewInput) (
 // UpsertView creates or replaces a saved view (identified by its key) and rebuilds the
 // projection so the named dataset reflects the change.
 func (s *Service) UpsertView(ctx context.Context, id, actor uuid.UUID, in ViewInput) (View, error) {
-	if _, err := s.ensureForm(ctx, s.db, id); err != nil {
+	if _, err := s.ensureForm(ctx, id); err != nil {
 		return View{}, err
 	}
 	if in.IncludedStates == nil {
@@ -244,8 +244,7 @@ func (s *Service) UpsertView(ctx context.Context, id, actor uuid.UUID, in ViewIn
 	if err := s.syncConfiguration(ctx, tx, id, nil); err != nil {
 		return View{}, err
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,metadata)
-		VALUES($1,$2,'form.view_saved','data_source',$3,jsonb_build_object('view',$4::text))`, uuid.New(), actor, id.String(), in.Key); err != nil {
+	if err := s.recordAudit(ctx, tx, actor, "form.view_saved", id.String(), map[string]any{"view": in.Key}); err != nil {
 		return View{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -263,7 +262,7 @@ func (s *Service) UpsertView(ctx context.Context, id, actor uuid.UUID, in ViewIn
 // DeleteView soft-deletes a saved view and rebuilds the projection. Deletion is blocked when the
 // view's dataset is still referenced by a Widget, so removing it cannot silently break signage.
 func (s *Service) DeleteView(ctx context.Context, id, viewID, actor uuid.UUID) error {
-	if _, err := s.ensureForm(ctx, s.db, id); err != nil {
+	if _, err := s.ensureForm(ctx, id); err != nil {
 		return err
 	}
 	// Resolve the view key and refuse deletion while its dataset is in use downstream.
@@ -297,8 +296,7 @@ func (s *Service) DeleteView(ctx context.Context, id, viewID, actor uuid.UUID) e
 	if err := s.syncConfiguration(ctx, tx, id, nil); err != nil {
 		return err
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id)
-		VALUES($1,$2,'form.view_deleted','data_source',$3)`, uuid.New(), actor, id.String()); err != nil {
+	if err := s.recordAudit(ctx, tx, actor, "form.view_deleted", id.String(), nil); err != nil {
 		return err
 	}
 	if err := tx.Commit(ctx); err != nil {

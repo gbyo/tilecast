@@ -168,7 +168,7 @@ func (p tickerWidgetProvider) Normalize(ctx context.Context, raw json.RawMessage
 	if err != nil {
 		return nil, errors.New("ticker data Source was not found")
 	}
-	if !dataSourceProviderAccepted("ticker", provider) {
+	if !p.service.dataSourceProviderAccepted("ticker", provider) {
 		return nil, errors.New("ticker requires a record-based data Source")
 	}
 	if len(c.Fields) == 0 && c.Field != "" {
@@ -234,7 +234,7 @@ func (p displayWidgetProvider) Normalize(ctx context.Context, raw json.RawMessag
 	if err != nil {
 		return nil, errors.New("data Source was not found")
 	}
-	if !dataSourceProviderAccepted(p.presentation, provider) {
+	if !p.service.dataSourceProviderAccepted(p.presentation, provider) {
 		return nil, errors.New(p.presentation + " widget is not compatible with the selected data Source")
 	}
 	if c.MaximumItems == 0 {
@@ -304,7 +304,7 @@ func (p metricWidgetProvider) Normalize(ctx context.Context, raw json.RawMessage
 		return nil, err
 	}
 	provider, fields, err := p.service.dataSourceProviderAndTypedFields(ctx, c.DataSourceID)
-	if err != nil || !dataSourceProviderAccepted("metric", provider) {
+	if err != nil || !p.service.dataSourceProviderAccepted("metric", provider) {
 		return nil, errors.New("metric requires a numeric record-based data Source")
 	}
 	numeric := map[string]bool{"number": true, "integer": true, "percent": true, "currency": true}
@@ -354,7 +354,7 @@ func (p cardsWidgetProvider) Normalize(ctx context.Context, raw json.RawMessage)
 		return nil, err
 	}
 	provider, fields, err := p.service.dataSourceProviderAndFields(ctx, c.DataSourceID)
-	if err != nil || !dataSourceProviderAccepted("cards", provider) {
+	if err != nil || !p.service.dataSourceProviderAccepted("cards", provider) {
 		return nil, errors.New("cards require a record-based data Source")
 	}
 	if c.TitleField == "" || !fields[c.TitleField] {
@@ -398,7 +398,7 @@ func (p weatherWidgetProvider) Normalize(ctx context.Context, raw json.RawMessag
 		return nil, err
 	}
 	provider, _, err := p.service.dataSourceProviderAndFields(ctx, c.DataSourceID)
-	if err != nil || !dataSourceProviderAccepted("weather", provider) {
+	if err != nil || !p.service.dataSourceProviderAccepted("weather", provider) {
 		return nil, errors.New("weather Widget requires a Weather Data Source")
 	}
 	if !c.ShowLocation && !c.ShowCurrent && !c.ShowHumidity && !c.ShowWind && !c.ShowPrecipitation {
@@ -424,7 +424,7 @@ func (p spotlightWidgetProvider) Normalize(ctx context.Context, raw json.RawMess
 		return nil, err
 	}
 	provider, fields, err := p.service.dataSourceProviderAndFields(ctx, c.DataSourceID)
-	if err != nil || !dataSourceProviderAccepted("spotlight", provider) {
+	if err != nil || !p.service.dataSourceProviderAccepted("spotlight", provider) {
 		return nil, errors.New("spotlight requires a record-based data Source")
 	}
 	if c.TitleField == "" || !fields[c.TitleField] {
@@ -456,7 +456,7 @@ func (p statGridWidgetProvider) Normalize(ctx context.Context, raw json.RawMessa
 		return nil, err
 	}
 	provider, fields, err := p.service.dataSourceProviderAndTypedFields(ctx, c.DataSourceID)
-	if err != nil || !dataSourceProviderAccepted("stat_grid", provider) {
+	if err != nil || !p.service.dataSourceProviderAccepted("stat_grid", provider) {
 		return nil, errors.New("stat grid requires a numeric data Source")
 	}
 	if len(c.Metrics) < 1 || len(c.Metrics) > 12 || c.Columns < 1 || c.Columns > 4 {
@@ -496,7 +496,7 @@ func (p chartWidgetProvider) Normalize(ctx context.Context, raw json.RawMessage)
 		return nil, err
 	}
 	provider, fields, err := p.service.dataSourceProviderAndTypedFields(ctx, c.DataSourceID)
-	if err != nil || !dataSourceProviderAccepted("chart", provider) {
+	if err != nil || !p.service.dataSourceProviderAccepted("chart", provider) {
 		return nil, errors.New("chart requires a numeric data Source")
 	}
 	if c.ChartType == "" {
@@ -544,7 +544,7 @@ func (p progressWidgetProvider) Normalize(ctx context.Context, raw json.RawMessa
 		return nil, err
 	}
 	provider, fields, err := p.service.dataSourceProviderAndTypedFields(ctx, c.DataSourceID)
-	if err != nil || !dataSourceProviderAccepted("progress", provider) || !isNumericField(fields[c.ValueField]) {
+	if err != nil || !p.service.dataSourceProviderAccepted("progress", provider) || !isNumericField(fields[c.ValueField]) {
 		return nil, errors.New("progress requires a numeric value field")
 	}
 	if c.TargetField != "" && !isNumericField(fields[c.TargetField]) {
@@ -574,7 +574,7 @@ func (p timelineWidgetProvider) Normalize(ctx context.Context, raw json.RawMessa
 		return nil, err
 	}
 	provider, fields, err := p.service.dataSourceProviderAndTypedFields(ctx, c.DataSourceID)
-	if err != nil || !dataSourceProviderAccepted("timeline", provider) {
+	if err != nil || !p.service.dataSourceProviderAccepted("timeline", provider) {
 		return nil, errors.New("timeline requires a temporal data Source")
 	}
 	if fields[c.DateField] != "date" && fields[c.DateField] != "datetime" {

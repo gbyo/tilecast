@@ -26,6 +26,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/database"
 	"github.com/tilecast/tilecast/apps/server/internal/managedpresentations"
+	"github.com/tilecast/tilecast/apps/server/internal/media"
 	"github.com/tilecast/tilecast/apps/server/internal/playlists"
 	"github.com/tilecast/tilecast/apps/server/internal/plugins"
 	"github.com/tilecast/tilecast/apps/server/internal/takeovers"
@@ -121,6 +122,11 @@ func New(t *testing.T, p plugin.Plugin, opts ...Option) *Harness {
 	h.exec(`INSERT INTO organization_settings(singleton,organization_name,id) VALUES(TRUE,'Plugin Harness',$1)`, h.OrgID)
 	h.exec(`INSERT INTO users(id,name,username,password_hash,role,active) VALUES($1,'Owner','harness-owner','unused','owner',TRUE)`, h.OwnerID)
 	playlistService := playlists.NewService(pool, nil)
+	storage, err := media.NewLocalStorage(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	mediaService := media.NewService(pool, storage, media.Config{})
 	jobsAllowed := true
 	if chosen.backgroundJobs != nil {
 		jobsAllowed = *chosen.backgroundJobs
@@ -129,6 +135,8 @@ func New(t *testing.T, p plugin.Plugin, opts ...Option) *Harness {
 		plugins.WithTakeovers(takeovers.NewService(pool, playlistService, nil, 24*time.Hour)),
 		plugins.WithManagedPresentations(managedpresentations.NewService(pool)),
 		plugins.WithBackgroundJobsAllowed(func() bool { return jobsAllowed }),
+		plugins.WithDataSourceInvalidator(playlistService),
+		plugins.WithAttachments(mediaService),
 		plugins.WithPublicURL("https://tilecast.example"))
 	h.Host, _ = h.service.Host(h.id)
 	return h
@@ -277,11 +285,19 @@ func (r Response) ErrorCode() string {
 	return code
 }
 
-// Serve calls one of the plugin's routes as a user with the given role. The
-// path is below /api/v1. Role checks follow the route's access level; the
-// session and CSRF checks are the router's and are covered by the server's
-// own tests.
+// Serve calls one of the plugin's routes as the harness owner with the given
+// role. The path is below /api/v1. Role checks follow the route's access
+// level; the session and CSRF checks are the router's and are covered by the
+// server's own tests.
 func (h *Harness) Serve(role, method, path, body string) Response {
+	h.t.Helper()
+	return h.ServeAs(h.OwnerID, role, method, path, body)
+}
+
+// ServeAs calls one of the plugin's routes as an arbitrary user, for
+// per-user authorization cases (a grantee without the manage capability)
+// that the owner principal cannot represent.
+func (h *Harness) ServeAs(userID uuid.UUID, role, method, path, body string) Response {
 	h.t.Helper()
 	routes, err := h.service.Routes()
 	if err != nil {
@@ -290,7 +306,7 @@ func (h *Harness) Serve(role, method, path, body string) Response {
 	mux := http.NewServeMux()
 	for _, route := range routes {
 		mux.HandleFunc(route.Method+" "+route.Pattern, func(w http.ResponseWriter, r *http.Request) {
-			principal := plugin.Principal{UserID: h.OwnerID, Role: role}
+			principal := plugin.Principal{UserID: userID, Role: role}
 			if route.Access == plugin.AccessManager && !principal.CanManage() {
 				plugins.WriteError(w, r, &plugin.APIError{Status: http.StatusForbidden, Code: "insufficient_role",
 					Message: "Owner or Administrator access is required."}, nil)

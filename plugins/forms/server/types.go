@@ -3,7 +3,7 @@
 // workflow, and published to Widgets as named saved views. The existing data_sources row is the
 // parent resource; this package owns the form-specific tables and the internally managed
 // projection of approved records into the cached typed-dataset payload the Player consumes.
-package forms
+package server
 
 import (
 	"errors"

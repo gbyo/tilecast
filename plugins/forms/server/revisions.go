@@ -1,4 +1,4 @@
-package forms
+package server
 
 import (
 	"context"
@@ -10,8 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/tilecast/tilecast/apps/server/internal/media"
-	"github.com/tilecast/tilecast/apps/server/internal/plugins"
+	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
 
 // FormInput creates a new Form Data Source.
@@ -51,19 +50,22 @@ func (s *Service) CreateForm(ctx context.Context, user uuid.UUID, in FormInput) 
 		return Form{}, err
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
-	if err := plugins.LockInstallation(ctx, tx, plugins.FormsID); err != nil {
+	if err := s.host.Installation.LockInTx(ctx, tx); err != nil {
 		return Form{}, err
 	}
 
-	var organizationID uuid.UUID
-	if err := tx.QueryRow(ctx, `SELECT id FROM organization_settings WHERE singleton`).Scan(&organizationID); err != nil {
+	created, err := s.host.DataSources.CreateInTx(ctx, tx, plugin.DataSourceCreate{
+		Provider: providerName, Name: name, Description: strings.TrimSpace(in.Description),
+		CreatedBy: user, Configuration: json.RawMessage(`{}`),
+		SeedRefresh: &plugin.RefreshSeed{
+			Payload:   plugin.TypedDatasetPayload{Datasets: []plugin.TypedDataset{}},
+			ItemCount: 0,
+		},
+	})
+	if err != nil {
 		return Form{}, err
 	}
-	id := uuid.New()
-	if _, err := tx.Exec(ctx, `INSERT INTO data_sources(id,organization_id,name,description,provider,config_version,configuration,created_by)
-		VALUES($1,$2,$3,$4,'form',1,'{}'::jsonb,$5)`, id, organizationID, name, strings.TrimSpace(in.Description), user); err != nil {
-		return Form{}, err
-	}
+	id := created.ID
 	if err := seedWorkflow(ctx, tx, id); err != nil {
 		return Form{}, err
 	}
@@ -80,15 +82,11 @@ func (s *Service) CreateForm(ctx context.Context, user uuid.UUID, in FormInput) 
 		uuid.New(), id, []string{"approved"}, outputKeys); err != nil {
 		return Form{}, err
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO data_source_refresh_states(data_source_id,next_refresh_at,last_attempt_at,last_success_at,http_result_category,parse_status,available_item_count,using_cached_data,cache_updated_at,cache_expires_at,cached_payload)
-		VALUES($1,now()+interval '100 years',now(),now(),'manual','success',0,FALSE,now(),now()+interval '100 years',$2::jsonb)`, id, emptyPayload); err != nil {
-		return Form{}, err
-	}
 	if err := s.syncConfiguration(ctx, tx, id, &in.DraftSchema); err != nil {
 		return Form{}, err
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,metadata)
-		VALUES($1,$2,'form.created','data_source',$3,jsonb_build_object('name',$4::text))`, uuid.New(), user, id.String(), name); err != nil {
+	if err := s.recordAudit(ctx, tx, user, "form.created", id.String(),
+		map[string]any{"name": name}); err != nil {
 		return Form{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -111,7 +109,7 @@ type MetadataInput struct {
 // UpdateMetadata edits only the parent data_sources name and (optionally) description for a form.
 // Provider and configuration are never touched here. The caller must hold the manage capability.
 func (s *Service) UpdateMetadata(ctx context.Context, id, user uuid.UUID, in MetadataInput) (Form, error) {
-	if _, err := s.ensureForm(ctx, s.db, id); err != nil {
+	if _, err := s.ensureForm(ctx, id); err != nil {
 		return Form{}, err
 	}
 	name := strings.TrimSpace(in.Name)
@@ -134,15 +132,13 @@ func (s *Service) UpdateMetadata(ctx context.Context, id, user uuid.UUID, in Met
 		return Form{}, err
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
-	tag, err := tx.Exec(ctx, `UPDATE data_sources SET name=$2,description=COALESCE($3,description),updated_at=now() WHERE id=$1 AND deleted_at IS NULL`, id, name, description)
-	if err != nil {
+	if err := s.host.DataSources.UpdateMetadataInTx(ctx, tx, id, providerName, name, description); errors.Is(err, plugin.ErrNotFound) {
+		return Form{}, ErrNotFound
+	} else if err != nil {
 		return Form{}, err
 	}
-	if tag.RowsAffected() == 0 {
-		return Form{}, ErrNotFound
-	}
-	if _, err := tx.Exec(ctx, `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,metadata)
-		VALUES($1,$2,'form.metadata_updated','data_source',$3,jsonb_build_object('name',$4::text))`, uuid.New(), user, id.String(), name); err != nil {
+	if err := s.recordAudit(ctx, tx, user, "form.metadata_updated", id.String(),
+		map[string]any{"name": name}); err != nil {
 		return Form{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -154,7 +150,7 @@ func (s *Service) UpdateMetadata(ctx context.Context, id, user uuid.UUID, in Met
 // UpdateDraft replaces the editable draft schema without publishing it, so existing submissions
 // are untouched until PublishRevision runs.
 func (s *Service) UpdateDraft(ctx context.Context, id, user uuid.UUID, in DraftInput) (Form, error) {
-	if _, err := s.ensureForm(ctx, s.db, id); err != nil {
+	if _, err := s.ensureForm(ctx, id); err != nil {
 		return Form{}, err
 	}
 	if in.Schema.Fields == nil {
@@ -171,8 +167,7 @@ func (s *Service) UpdateDraft(ctx context.Context, id, user uuid.UUID, in DraftI
 	if err := s.syncConfiguration(ctx, tx, id, &in.Schema); err != nil {
 		return Form{}, err
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id)
-		VALUES($1,$2,'form.draft_updated','data_source',$3)`, uuid.New(), user, id.String()); err != nil {
+	if err := s.recordAudit(ctx, tx, user, "form.draft_updated", id.String(), nil); err != nil {
 		return Form{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -184,10 +179,10 @@ func (s *Service) UpdateDraft(ctx context.Context, id, user uuid.UUID, in DraftI
 // PublishRevision snapshots the current draft into a new immutable revision and points the form
 // at it. Older submissions keep referencing the revision they were created against.
 func (s *Service) PublishRevision(ctx context.Context, id, user uuid.UUID) (Revision, error) {
-	if _, err := s.ensureForm(ctx, s.db, id); err != nil {
+	if _, err := s.ensureForm(ctx, id); err != nil {
 		return Revision{}, err
 	}
-	draft, err := s.loadDraftSchema(ctx, s.db, id)
+	draft, err := s.loadDraftSchema(ctx, id)
 	if err != nil {
 		return Revision{}, err
 	}
@@ -300,15 +295,15 @@ func (s *Service) publishRevisionTx(ctx context.Context, tx pgx.Tx, id, user uui
 }
 
 // loadDraftSchema reads the editable draft schema from the form configuration.
-func (s *Service) loadDraftSchema(ctx context.Context, q rowQuerier, id uuid.UUID) (FormSchema, error) {
-	var raw []byte
-	if err := q.QueryRow(ctx, `SELECT configuration FROM data_sources WHERE id=$1 AND deleted_at IS NULL`, id).Scan(&raw); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return FormSchema{}, ErrNotFound
-		}
+func (s *Service) loadDraftSchema(ctx context.Context, id uuid.UUID) (FormSchema, error) {
+	raw, err := s.host.DataSources.Configuration(ctx, id, providerName)
+	if errors.Is(err, plugin.ErrNotFound) {
+		return FormSchema{}, ErrNotFound
+	}
+	if err != nil {
 		return FormSchema{}, err
 	}
-	var config media.FormSourceConfig
+	var config FormSourceConfig
 	if len(raw) > 0 {
 		_ = json.Unmarshal(raw, &config)
 	}
@@ -382,16 +377,23 @@ func (s *Service) revisionSchema(ctx context.Context, q rowQuerier, revisionID u
 
 // GetForm returns the full form detail decorated with the caller's effective capabilities.
 func (s *Service) GetForm(ctx context.Context, id, viewer uuid.UUID) (Form, error) {
-	createdBy, err := s.ensureForm(ctx, s.db, id)
+	createdBy, err := s.ensureForm(ctx, id)
 	if err != nil {
 		return Form{}, err
 	}
-	form := Form{ID: id, CreatedBy: createdBy}
-	if err := s.db.QueryRow(ctx, `SELECT name,description,created_at,updated_at FROM data_sources WHERE id=$1`, id).
-		Scan(&form.Name, &form.Description, &form.CreatedAt, &form.UpdatedAt); err != nil {
+	record, err := s.host.DataSources.Get(ctx, id, providerName)
+	if errors.Is(err, plugin.ErrNotFound) {
+		return Form{}, ErrNotFound
+	}
+	if err != nil {
 		return Form{}, err
 	}
-	if form.DraftSchema, err = s.loadDraftSchema(ctx, s.db, id); err != nil {
+	form := Form{
+		ID: id, CreatedBy: createdBy,
+		Name: record.Name, Description: record.Description,
+		CreatedAt: record.CreatedAt, UpdatedAt: record.UpdatedAt,
+	}
+	if form.DraftSchema, err = s.loadDraftSchema(ctx, id); err != nil {
 		return Form{}, err
 	}
 	if published, err := s.loadPublishedRevision(ctx, s.db, id); err == nil {

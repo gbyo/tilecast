@@ -1,36 +1,40 @@
-package forms
+package server_test
 
 import (
 	"errors"
+	formserver "github.com/tilecast/tilecast/plugins/forms/server"
+	"net/http/httptest"
 	"testing"
+
+	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
 
 // TestListAccessibleFormsScopingAndCounts verifies that owners see all forms, granted users see
 // only their forms, and own-submission counts bucket by workflow meaning (draft / changes / submitted).
 func TestListAccessibleFormsScopingAndCounts(t *testing.T) {
 	e := setupForms(t)
-	formA, _ := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "Alpha", DraftSchema: announcementSchema()})
-	formB, _ := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "Beta", DraftSchema: announcementSchema()})
+	formA, _ := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "Alpha", DraftSchema: announcementSchema()})
+	formB, _ := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "Beta", DraftSchema: announcementSchema()})
 
 	alice := e.insertUser(t, "Alice", "alice", "viewer")
-	if _, err := e.service.SetGrant(e.ctx, formA.ID, e.owner, GrantInput{UserID: alice, Capability: CapSubmit}); err != nil {
+	if _, err := e.service.SetGrant(e.ctx, formA.ID, e.owner, formserver.GrantInput{UserID: alice, Capability: formserver.CapSubmit}); err != nil {
 		t.Fatal(err)
 	}
 
 	// Alice, submit-only on Alpha, submits three records covering each bucket.
-	draftRec, err := e.service.CreateRecord(e.ctx, formA.ID, alice, RecordInput{Values: map[string]any{"title": "Draft one"}})
+	draftRec, err := e.service.CreateRecord(e.ctx, formA.ID, alice, formserver.RecordInput{Values: map[string]any{"title": "Draft one"}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	_ = draftRec // stays a draft
-	submittedRec, err := e.service.CreateRecord(e.ctx, formA.ID, alice, RecordInput{Values: map[string]any{"title": "Submitted one"}})
+	submittedRec, err := e.service.CreateRecord(e.ctx, formA.ID, alice, formserver.RecordInput{Values: map[string]any{"title": "Submitted one"}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := e.service.Transition(e.ctx, formA.ID, submittedRec.ID, alice, "submitted", "", submittedRec.Version); err != nil {
 		t.Fatalf("submit: %v", err)
 	}
-	changesRec, err := e.service.CreateRecord(e.ctx, formA.ID, alice, RecordInput{Values: map[string]any{"title": "Changes one"}})
+	changesRec, err := e.service.CreateRecord(e.ctx, formA.ID, alice, formserver.RecordInput{Values: map[string]any{"title": "Changes one"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +55,7 @@ func TestListAccessibleFormsScopingAndCounts(t *testing.T) {
 	if len(aliceForms) != 1 || aliceForms[0].ID != formA.ID {
 		t.Fatalf("alice should see only Alpha, got %#v", aliceForms)
 	}
-	if len(aliceForms[0].Capabilities) != 1 || aliceForms[0].Capabilities[0] != CapSubmit {
+	if len(aliceForms[0].Capabilities) != 1 || aliceForms[0].Capabilities[0] != formserver.CapSubmit {
 		t.Fatalf("alice capabilities = %#v, want [submit]", aliceForms[0].Capabilities)
 	}
 	c := aliceForms[0].Counts
@@ -74,7 +78,7 @@ func TestListAccessibleFormsScopingAndCounts(t *testing.T) {
 		if f.Counts.Total != 0 {
 			t.Fatalf("owner has no own submissions, got %#v for %s", f.Counts, f.Name)
 		}
-		if len(f.Capabilities) != 1 || f.Capabilities[0] != CapManage {
+		if len(f.Capabilities) != 1 || f.Capabilities[0] != formserver.CapManage {
 			t.Fatalf("owner capabilities on %s = %#v, want [manage]", f.Name, f.Capabilities)
 		}
 	}
@@ -85,17 +89,17 @@ func TestListAccessibleFormsScopingAndCounts(t *testing.T) {
 // revision schema, the can* flags, and the available transitions per viewer role.
 func TestRecordDetailRevisionAndActions(t *testing.T) {
 	e := setupForms(t)
-	form, _ := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "Actions", DraftSchema: announcementSchema()})
+	form, _ := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "Actions", DraftSchema: announcementSchema()})
 	alice := e.insertUser(t, "Alice", "alice", "viewer")
 	approver := e.insertUser(t, "Ada", "ada", "viewer")
-	if _, err := e.service.SetGrant(e.ctx, form.ID, e.owner, GrantInput{UserID: alice, Capability: CapSubmit}); err != nil {
+	if _, err := e.service.SetGrant(e.ctx, form.ID, e.owner, formserver.GrantInput{UserID: alice, Capability: formserver.CapSubmit}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.service.SetGrant(e.ctx, form.ID, e.owner, GrantInput{UserID: approver, Capability: CapApprove}); err != nil {
+	if _, err := e.service.SetGrant(e.ctx, form.ID, e.owner, formserver.GrantInput{UserID: approver, Capability: formserver.CapApprove}); err != nil {
 		t.Fatal(err)
 	}
 
-	rec, err := e.service.CreateRecord(e.ctx, form.ID, alice, RecordInput{Values: map[string]any{"title": "Hi"}})
+	rec, err := e.service.CreateRecord(e.ctx, form.ID, alice, formserver.RecordInput{Values: map[string]any{"title": "Hi"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -164,8 +168,8 @@ func TestRecordDetailRevisionAndActions(t *testing.T) {
 // empty note through the workflow-derived requiresNote contract mirrored server-side.
 func TestChangesRequestedTransition(t *testing.T) {
 	e := setupForms(t)
-	form, _ := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "Notes", DraftSchema: announcementSchema()})
-	rec, _ := e.service.CreateRecord(e.ctx, form.ID, e.owner, RecordInput{Values: map[string]any{"title": "T"}})
+	form, _ := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "Notes", DraftSchema: announcementSchema()})
+	rec, _ := e.service.CreateRecord(e.ctx, form.ID, e.owner, formserver.RecordInput{Values: map[string]any{"title": "T"}})
 	rec, err := e.service.Transition(e.ctx, form.ID, rec.ID, e.owner, "submitted", "", rec.Version)
 	if err != nil {
 		t.Fatal(err)
@@ -188,21 +192,21 @@ func TestChangesRequestedTransition(t *testing.T) {
 // authorized preview, cross-user denial, replacement, and removal.
 func TestAttachmentPreviewReplacementAndRemoval(t *testing.T) {
 	e := setupForms(t)
-	form, _ := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "Photos", DraftSchema: imageSchema()})
+	form, _ := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "Photos", DraftSchema: imageSchema()})
 	alice := e.insertUser(t, "Alice", "alice", "viewer")
 	bob := e.insertUser(t, "Bob", "bob", "viewer")
-	if _, err := e.service.SetGrant(e.ctx, form.ID, e.owner, GrantInput{UserID: alice, Capability: CapSubmit}); err != nil {
+	if _, err := e.service.SetGrant(e.ctx, form.ID, e.owner, formserver.GrantInput{UserID: alice, Capability: formserver.CapSubmit}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.service.SetGrant(e.ctx, form.ID, e.owner, GrantInput{UserID: bob, Capability: CapSubmit}); err != nil {
+	if _, err := e.service.SetGrant(e.ctx, form.ID, e.owner, formserver.GrantInput{UserID: bob, Capability: formserver.CapSubmit}); err != nil {
 		t.Fatal(err)
 	}
-	rec, err := e.service.CreateRecord(e.ctx, form.ID, alice, RecordInput{Values: map[string]any{"title": "Mine"}})
+	rec, err := e.service.CreateRecord(e.ctx, form.ID, alice, formserver.RecordInput{Values: map[string]any{"title": "Mine"}})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	detail, err := e.attach(form.ID, rec.ID, alice, AttachmentUpload{FieldKey: "photo", FileName: "a.png", ContentType: "image/png", Data: pngBytes()})
+	detail, err := e.attach(form.ID, rec.ID, alice, formserver.AttachmentUpload{FieldKey: "photo", FileName: "a.png", ContentType: "image/png", Data: pngBytes()})
 	if err != nil {
 		t.Fatalf("upload: %v", err)
 	}
@@ -219,17 +223,17 @@ func TestAttachmentPreviewReplacementAndRemoval(t *testing.T) {
 	if assetID != firstAttachment.AssetID {
 		t.Fatalf("attachment asset mismatch")
 	}
-	if delivery, err := e.service.media.FormAttachmentDelivery(e.ctx, assetID); err != nil || delivery.Path == "" {
-		t.Fatalf("form attachment should be servable: %v path=%q", err, delivery.Path)
+	if err := e.harness.Host.PluginAssets.ServePrivate(httptest.NewRecorder(), httptest.NewRequest("GET", "/content", nil), assetID); err != nil {
+		t.Fatalf("form attachment should be servable: %v", err)
 	}
 
 	// Bob (not the owner, no view_all) cannot resolve the attachment; existence is hidden.
-	if _, err := e.service.AttachmentAsset(e.ctx, form.ID, rec.ID, firstAttachment.ID, bob); !errors.Is(err, ErrNotFound) {
+	if _, err := e.service.AttachmentAsset(e.ctx, form.ID, rec.ID, firstAttachment.ID, bob); !errors.Is(err, formserver.ErrNotFound) {
 		t.Fatalf("cross-user attachment access must be denied with NotFound, got %v", err)
 	}
 
 	// Uploading again to the single-valued image field replaces the attachment.
-	replaced, err := e.attach(form.ID, rec.ID, alice, AttachmentUpload{FieldKey: "photo", FileName: "b.png", ContentType: "image/png", Data: pngBytes()})
+	replaced, err := e.attach(form.ID, rec.ID, alice, formserver.AttachmentUpload{FieldKey: "photo", FileName: "b.png", ContentType: "image/png", Data: pngBytes()})
 	if err != nil {
 		t.Fatalf("replace: %v", err)
 	}
@@ -244,8 +248,8 @@ func TestAttachmentPreviewReplacementAndRemoval(t *testing.T) {
 		t.Fatalf("field value should point at the new asset, got %v", replaced.Values["photo"])
 	}
 	// The replaced asset is soft-deleted and no longer servable.
-	if _, err := e.service.media.FormAttachmentDelivery(e.ctx, firstAttachment.AssetID); err == nil {
-		t.Fatal("replaced attachment asset should no longer be servable")
+	if err := e.harness.Host.PluginAssets.ServePrivate(httptest.NewRecorder(), httptest.NewRequest("GET", "/content", nil), firstAttachment.AssetID); !errors.Is(err, plugin.ErrNotFound) {
+		t.Fatalf("replaced attachment asset should no longer be servable, got %v", err)
 	}
 
 	// Removal unbinds the attachment and clears the field.
@@ -264,10 +268,10 @@ func TestAttachmentPreviewReplacementAndRemoval(t *testing.T) {
 // TestApprovalsPagination verifies the central inbox paginates rather than silently capping.
 func TestApprovalsPagination(t *testing.T) {
 	e := setupForms(t)
-	form, _ := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "Inbox", DraftSchema: announcementSchema()})
+	form, _ := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "Inbox", DraftSchema: announcementSchema()})
 	// Five pending (submitted) records.
 	for i := 0; i < 5; i++ {
-		rec, err := e.service.CreateRecord(e.ctx, form.ID, e.owner, RecordInput{Values: map[string]any{"title": "R"}})
+		rec, err := e.service.CreateRecord(e.ctx, form.ID, e.owner, formserver.RecordInput{Values: map[string]any{"title": "R"}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -275,14 +279,14 @@ func TestApprovalsPagination(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	page1, err := e.service.PendingApprovals(e.ctx, e.owner, ApprovalFilter{Page: 1, PageSize: 2})
+	page1, err := e.service.PendingApprovals(e.ctx, e.owner, formserver.ApprovalFilter{Page: 1, PageSize: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if page1.Total != 5 || len(page1.Items) != 2 || page1.Page != 1 || page1.PageSize != 2 {
 		t.Fatalf("page1 = %#v, want total5 items2", page1)
 	}
-	page3, err := e.service.PendingApprovals(e.ctx, e.owner, ApprovalFilter{Page: 3, PageSize: 2})
+	page3, err := e.service.PendingApprovals(e.ctx, e.owner, formserver.ApprovalFilter{Page: 3, PageSize: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -294,7 +298,7 @@ func TestApprovalsPagination(t *testing.T) {
 	}
 }
 
-func hasTransition(transitions []AvailableTransition, to string) bool {
+func hasTransition(transitions []formserver.AvailableTransition, to string) bool {
 	for _, t := range transitions {
 		if t.To == to {
 			return true

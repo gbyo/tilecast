@@ -1,7 +1,8 @@
-package forms
+package server_test
 
 import (
 	"errors"
+	formserver "github.com/tilecast/tilecast/plugins/forms/server"
 	"testing"
 
 	"github.com/google/uuid"
@@ -13,10 +14,10 @@ func strptr(value string) *string { return &value }
 
 func TestUpdateMetadata(t *testing.T) {
 	e := setupForms(t)
-	form, _ := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "Original", Description: "d", DraftSchema: announcementSchema()})
+	form, _ := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "Original", Description: "d", DraftSchema: announcementSchema()})
 
 	// Success: name and description are updated on the parent Data Source row.
-	updated, err := e.service.UpdateMetadata(e.ctx, form.ID, e.owner, MetadataInput{Name: "Staff Announcements", Description: strptr("By staff.")})
+	updated, err := e.service.UpdateMetadata(e.ctx, form.ID, e.owner, formserver.MetadataInput{Name: "Staff Announcements", Description: strptr("By staff.")})
 	if err != nil {
 		t.Fatalf("update metadata: %v", err)
 	}
@@ -25,7 +26,7 @@ func TestUpdateMetadata(t *testing.T) {
 	}
 
 	// An omitted description (nil) preserves the stored value; the name still updates.
-	preserved, err := e.service.UpdateMetadata(e.ctx, form.ID, e.owner, MetadataInput{Name: "Renamed"})
+	preserved, err := e.service.UpdateMetadata(e.ctx, form.ID, e.owner, formserver.MetadataInput{Name: "Renamed"})
 	if err != nil {
 		t.Fatalf("update name only: %v", err)
 	}
@@ -34,7 +35,7 @@ func TestUpdateMetadata(t *testing.T) {
 	}
 
 	// An explicit empty description clears it.
-	cleared, err := e.service.UpdateMetadata(e.ctx, form.ID, e.owner, MetadataInput{Name: "Renamed", Description: strptr("")})
+	cleared, err := e.service.UpdateMetadata(e.ctx, form.ID, e.owner, formserver.MetadataInput{Name: "Renamed", Description: strptr("")})
 	if err != nil {
 		t.Fatalf("clear description: %v", err)
 	}
@@ -43,17 +44,17 @@ func TestUpdateMetadata(t *testing.T) {
 	}
 
 	// Validation: empty name is rejected.
-	if _, err := e.service.UpdateMetadata(e.ctx, form.ID, e.owner, MetadataInput{Name: "   "}); !errors.Is(err, ErrValidation) {
+	if _, err := e.service.UpdateMetadata(e.ctx, form.ID, e.owner, formserver.MetadataInput{Name: "   "}); !errors.Is(err, formserver.ErrValidation) {
 		t.Fatalf("expected validation error for empty name, got %v", err)
 	}
 
 	// Authorization: a submitter-only user cannot update metadata (enforced by the HTTP layer via
 	// Authorize; verify the capability check directly here).
 	viewer := e.insertUser(t, "Val", "val", "viewer")
-	if _, err := e.service.SetGrant(e.ctx, form.ID, e.owner, GrantInput{UserID: viewer, Capability: CapSubmit}); err != nil {
+	if _, err := e.service.SetGrant(e.ctx, form.ID, e.owner, formserver.GrantInput{UserID: viewer, Capability: formserver.CapSubmit}); err != nil {
 		t.Fatal(err)
 	}
-	allowed, err := e.service.Authorize(e.ctx, form.ID, viewer, CapManage)
+	allowed, err := e.service.Authorize(e.ctx, form.ID, viewer, formserver.CapManage)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,10 +63,10 @@ func TestUpdateMetadata(t *testing.T) {
 	}
 	// A viewer granted manage on this form may manage it even without a global editor role.
 	manager := e.insertUser(t, "Man", "man", "viewer")
-	if _, err := e.service.SetGrant(e.ctx, form.ID, e.owner, GrantInput{UserID: manager, Capability: CapManage}); err != nil {
+	if _, err := e.service.SetGrant(e.ctx, form.ID, e.owner, formserver.GrantInput{UserID: manager, Capability: formserver.CapManage}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.service.UpdateMetadata(e.ctx, form.ID, manager, MetadataInput{Name: "Managed", Description: strptr("")}); err != nil {
+	if _, err := e.service.UpdateMetadata(e.ctx, form.ID, manager, formserver.MetadataInput{Name: "Managed", Description: strptr("")}); err != nil {
 		t.Fatalf("granted manager should update metadata: %v", err)
 	}
 }
@@ -75,22 +76,22 @@ func TestUpdateMetadata(t *testing.T) {
 func TestPublishCompatibility(t *testing.T) {
 	e := setupForms(t)
 
-	base := func() FormSchema {
-		return FormSchema{Fields: []FormField{
-			{Key: "title", Label: "Title", Control: ControlShortText, Required: true},
-			{Key: "count", Label: "Count", Control: ControlInteger},
-			{Key: "intro", Label: "Intro", Control: ControlSection},
+	base := func() formserver.FormSchema {
+		return formserver.FormSchema{Fields: []formserver.FormField{
+			{Key: "title", Label: "Title", Control: formserver.ControlShortText, Required: true},
+			{Key: "count", Label: "Count", Control: formserver.ControlInteger},
+			{Key: "intro", Label: "Intro", Control: formserver.ControlSection},
 		}}
 	}
 	newForm := func(name string) uuid.UUID {
-		f, err := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: name, DraftSchema: base()})
+		f, err := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: name, DraftSchema: base()})
 		if err != nil {
 			t.Fatal(err)
 		}
 		return f.ID
 	}
-	publishDraft := func(id uuid.UUID, schema FormSchema) error {
-		if _, err := e.service.UpdateDraft(e.ctx, id, e.owner, DraftInput{Schema: schema}); err != nil {
+	publishDraft := func(id uuid.UUID, schema formserver.FormSchema) error {
+		if _, err := e.service.UpdateDraft(e.ctx, id, e.owner, formserver.DraftInput{Schema: schema}); err != nil {
 			t.Fatal(err)
 		}
 		_, err := e.service.PublishRevision(e.ctx, id, e.owner)
@@ -99,25 +100,25 @@ func TestPublishCompatibility(t *testing.T) {
 
 	// Removing a published output field is rejected.
 	id := newForm("remove")
-	removed := FormSchema{Fields: []FormField{{Key: "title", Label: "Title", Control: ControlShortText}}}
-	if err := publishDraft(id, removed); !errors.Is(err, ErrValidation) {
+	removed := formserver.FormSchema{Fields: []formserver.FormField{{Key: "title", Label: "Title", Control: formserver.ControlShortText}}}
+	if err := publishDraft(id, removed); !errors.Is(err, formserver.ErrValidation) {
 		t.Fatalf("removing a published field must fail, got %v", err)
 	}
 
 	// Changing a published field from text to number is rejected.
 	id = newForm("retype")
 	retyped := base()
-	retyped.Fields[0].Control = ControlNumber // title text -> number
-	if err := publishDraft(id, retyped); !errors.Is(err, ErrValidation) {
+	retyped.Fields[0].Control = formserver.ControlNumber // title text -> number
+	if err := publishDraft(id, retyped); !errors.Is(err, formserver.ErrValidation) {
 		t.Fatalf("changing output type must fail, got %v", err)
 	}
 
 	// Reordering fields is allowed.
 	id = newForm("reorder")
-	reordered := FormSchema{Fields: []FormField{
-		{Key: "count", Label: "Count", Control: ControlInteger},
-		{Key: "title", Label: "Title", Control: ControlShortText, Required: true},
-		{Key: "intro", Label: "Intro", Control: ControlSection},
+	reordered := formserver.FormSchema{Fields: []formserver.FormField{
+		{Key: "count", Label: "Count", Control: formserver.ControlInteger},
+		{Key: "title", Label: "Title", Control: formserver.ControlShortText, Required: true},
+		{Key: "intro", Label: "Intro", Control: formserver.ControlSection},
 	}}
 	if err := publishDraft(id, reordered); err != nil {
 		t.Fatalf("reordering must be allowed, got %v", err)
@@ -134,16 +135,16 @@ func TestPublishCompatibility(t *testing.T) {
 	// Adding a new field is allowed.
 	id = newForm("add")
 	added := base()
-	added.Fields = append(added.Fields, FormField{Key: "note", Label: "Note", Control: ControlLongText})
+	added.Fields = append(added.Fields, formserver.FormField{Key: "note", Label: "Note", Control: formserver.ControlLongText})
 	if err := publishDraft(id, added); err != nil {
 		t.Fatalf("adding a field must be allowed, got %v", err)
 	}
 
 	// Removing a presentation-only field is allowed.
 	id = newForm("drop_section")
-	withoutSection := FormSchema{Fields: []FormField{
-		{Key: "title", Label: "Title", Control: ControlShortText, Required: true},
-		{Key: "count", Label: "Count", Control: ControlInteger},
+	withoutSection := formserver.FormSchema{Fields: []formserver.FormField{
+		{Key: "title", Label: "Title", Control: formserver.ControlShortText, Required: true},
+		{Key: "count", Label: "Count", Control: formserver.ControlInteger},
 	}}
 	if err := publishDraft(id, withoutSection); err != nil {
 		t.Fatalf("removing a presentation-only field must be allowed, got %v", err)
@@ -151,7 +152,7 @@ func TestPublishCompatibility(t *testing.T) {
 
 	// Publishing a draft identical to the current published revision is a no-op and rejected.
 	id = newForm("noop")
-	if err := publishDraft(id, base()); !errors.Is(err, ErrValidation) {
+	if err := publishDraft(id, base()); !errors.Is(err, formserver.ErrValidation) {
 		t.Fatalf("publishing an identical revision must be rejected, got %v", err)
 	}
 }
@@ -160,21 +161,21 @@ func TestPublishCompatibility(t *testing.T) {
 
 func TestNonManagerSeesPublishedSchemaOnly(t *testing.T) {
 	e := setupForms(t)
-	form, _ := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "Shaped", DraftSchema: announcementSchema()})
+	form, _ := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "Shaped", DraftSchema: announcementSchema()})
 	// Add an unpublished draft-only field.
 	draft := announcementSchema()
-	draft.Fields = append(draft.Fields, FormField{Key: "secret", Label: "Draft only", Control: ControlShortText})
-	if _, err := e.service.UpdateDraft(e.ctx, form.ID, e.owner, DraftInput{Schema: draft}); err != nil {
+	draft.Fields = append(draft.Fields, formserver.FormField{Key: "secret", Label: "Draft only", Control: formserver.ControlShortText})
+	if _, err := e.service.UpdateDraft(e.ctx, form.ID, e.owner, formserver.DraftInput{Schema: draft}); err != nil {
 		t.Fatal(err)
 	}
 
 	// A submitter (non-manager) must not receive the draft-only field.
 	viewer := e.insertUser(t, "Vic", "vic", "viewer")
-	if _, err := e.service.SetGrant(e.ctx, form.ID, e.owner, GrantInput{UserID: viewer, Capability: CapSubmit}); err != nil {
+	if _, err := e.service.SetGrant(e.ctx, form.ID, e.owner, formserver.GrantInput{UserID: viewer, Capability: formserver.CapSubmit}); err != nil {
 		t.Fatal(err)
 	}
 	// Grant view access so GetForm succeeds for the viewer.
-	if _, err := e.service.SetGrant(e.ctx, form.ID, e.owner, GrantInput{UserID: viewer, Capability: CapViewOwn}); err != nil {
+	if _, err := e.service.SetGrant(e.ctx, form.ID, e.owner, formserver.GrantInput{UserID: viewer, Capability: formserver.CapViewOwn}); err != nil {
 		t.Fatal(err)
 	}
 	asViewer, err := e.service.GetForm(e.ctx, form.ID, viewer)
@@ -186,7 +187,7 @@ func TestNonManagerSeesPublishedSchemaOnly(t *testing.T) {
 			t.Fatal("non-manager must not see draft-only fields in the visible schema")
 		}
 	}
-	if containsCapability(asViewer.Capabilities, CapManage) {
+	if hasFormCap(asViewer.Capabilities, formserver.CapManage) {
 		t.Fatal("viewer must not report manage capability")
 	}
 
@@ -204,4 +205,13 @@ func TestNonManagerSeesPublishedSchemaOnly(t *testing.T) {
 	if !found {
 		t.Fatal("manager should see the full draft schema")
 	}
+}
+
+func hasFormCap(caps []formserver.Capability, want formserver.Capability) bool {
+	for _, c := range caps {
+		if c == want {
+			return true
+		}
+	}
+	return false
 }

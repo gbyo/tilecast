@@ -79,6 +79,9 @@ type APIEntry struct {
 type StudioEntry struct {
 	Route      string `json:"route"`
 	Entrypoint string `json:"entrypoint"`
+	// AdditionalRoutes are absolute Studio routes outside /plugins/<id> the
+	// plugin owns, such as a portal or inbox.
+	AdditionalRoutes []string `json:"additionalRoutes,omitempty"`
 }
 
 type RuntimeEntry struct {
@@ -301,6 +304,14 @@ func (m Manifest) Validate() error {
 		}
 		if err := conventional("studio.entrypoint", m.Studio.Entrypoint, StudioEntrypoint); err != nil {
 			return err
+		}
+		for _, route := range m.Studio.AdditionalRoutes {
+			if !routePattern.MatchString(route) || strings.Contains(route, "//") {
+				return fail("invalid studio additional route %q", route)
+			}
+			if route == "/plugins" || strings.HasPrefix(route, "/plugins/") {
+				return fail("studio additional route %q must not live below /plugins", route)
+			}
 		}
 	}
 	if m.Runtime != nil {

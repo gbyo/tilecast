@@ -1,4 +1,4 @@
-package forms
+package server
 
 import (
 	"fmt"
@@ -267,7 +267,7 @@ func asBool(raw any) (bool, bool) {
 }
 
 // stringifyValue coerces a normalized value into the string form the typed-dataset projection
-// uses (media.TypedRecord.Values is map[string]string).
+// uses (plugin.TypedRecord.Values is map[string]string).
 func stringifyValue(raw any) string {
 	switch v := raw.(type) {
 	case string:

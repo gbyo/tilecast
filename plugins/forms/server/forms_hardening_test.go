@@ -1,14 +1,15 @@
-package forms
+package server_test
 
 import (
 	"encoding/json"
 	"errors"
+	formserver "github.com/tilecast/tilecast/plugins/forms/server"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/tilecast/tilecast/apps/server/internal/media"
+	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
 
 // pngBytes returns a minimal byte slice that DetectType recognizes as a PNG image.
@@ -16,10 +17,10 @@ func pngBytes() []byte {
 	return append([]byte("\x89PNG\r\n\x1a\n"), make([]byte, 64)...)
 }
 
-func imageSchema() FormSchema {
-	return FormSchema{Fields: []FormField{
-		{Key: "title", Label: "Title", Control: ControlShortText, Required: true, MaxLength: 120},
-		{Key: "photo", Label: "Photo", Control: ControlImage},
+func imageSchema() formserver.FormSchema {
+	return formserver.FormSchema{Fields: []formserver.FormField{
+		{Key: "title", Label: "Title", Control: formserver.ControlShortText, Required: true, MaxLength: 120},
+		{Key: "photo", Label: "Photo", Control: formserver.ControlImage},
 	}}
 }
 
@@ -41,71 +42,71 @@ func (e formTestEnv) insertLibraryAsset(t *testing.T) uuid.UUID {
 
 func TestSubmitterCannotModifyOthersRecord(t *testing.T) {
 	e := setupForms(t)
-	formA, _ := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "Form A", DraftSchema: announcementSchema()})
-	formB, _ := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "Form B", DraftSchema: announcementSchema()})
+	formA, _ := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "Form A", DraftSchema: announcementSchema()})
+	formB, _ := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "Form B", DraftSchema: announcementSchema()})
 	alice := e.insertUser(t, "Alice", "alice", "viewer")
 	bob := e.insertUser(t, "Bob", "bob", "viewer")
 	for _, form := range []uuid.UUID{formA.ID, formB.ID} {
-		if _, err := e.service.SetGrant(e.ctx, form, e.owner, GrantInput{UserID: alice, Capability: CapSubmit}); err != nil {
+		if _, err := e.service.SetGrant(e.ctx, form, e.owner, formserver.GrantInput{UserID: alice, Capability: formserver.CapSubmit}); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := e.service.SetGrant(e.ctx, form, e.owner, GrantInput{UserID: bob, Capability: CapSubmit}); err != nil {
+		if _, err := e.service.SetGrant(e.ctx, form, e.owner, formserver.GrantInput{UserID: bob, Capability: formserver.CapSubmit}); err != nil {
 			t.Fatal(err)
 		}
 	}
-	rec, err := e.service.CreateRecord(e.ctx, formA.ID, alice, RecordInput{Values: map[string]any{"title": "Alice's"}})
+	rec, err := e.service.CreateRecord(e.ctx, formA.ID, alice, formserver.RecordInput{Values: map[string]any{"title": "Alice's"}})
 	if err != nil {
 		t.Fatalf("alice create: %v", err)
 	}
 
 	// Bob cannot edit, transition, or attach to Alice's record; existence is hidden (NotFound).
-	if _, err := e.service.UpdateRecord(e.ctx, formA.ID, rec.ID, bob, RecordInput{Values: map[string]any{"title": "Hijack"}}, rec.Version); err != ErrNotFound {
+	if _, err := e.service.UpdateRecord(e.ctx, formA.ID, rec.ID, bob, formserver.RecordInput{Values: map[string]any{"title": "Hijack"}}, rec.Version); err != formserver.ErrNotFound {
 		t.Fatalf("expected NotFound for bob edit, got %v", err)
 	}
-	if _, err := e.service.Transition(e.ctx, formA.ID, rec.ID, bob, "submitted", "", rec.Version); err != ErrNotFound {
+	if _, err := e.service.Transition(e.ctx, formA.ID, rec.ID, bob, "submitted", "", rec.Version); err != formserver.ErrNotFound {
 		t.Fatalf("expected NotFound for bob submit, got %v", err)
 	}
-	if _, err := e.attach(formA.ID, rec.ID, bob, AttachmentUpload{FieldKey: "photo", Data: pngBytes()}); err != ErrNotFound {
+	if _, err := e.attach(formA.ID, rec.ID, bob, formserver.AttachmentUpload{FieldKey: "photo", Data: pngBytes()}); err != formserver.ErrNotFound {
 		t.Fatalf("expected NotFound for bob attach, got %v", err)
 	}
 
 	// The record cannot be reached through a different form.
-	if _, err := e.service.UpdateRecord(e.ctx, formB.ID, rec.ID, e.owner, RecordInput{Values: map[string]any{"title": "x"}}, rec.Version); err != ErrNotFound {
+	if _, err := e.service.UpdateRecord(e.ctx, formB.ID, rec.ID, e.owner, formserver.RecordInput{Values: map[string]any{"title": "x"}}, rec.Version); err != formserver.ErrNotFound {
 		t.Fatalf("expected NotFound for wrong-form edit, got %v", err)
 	}
 
 	// Alice may edit her own draft, but not after she submits it (non-editable state).
-	if _, err := e.service.UpdateRecord(e.ctx, formA.ID, rec.ID, alice, RecordInput{Values: map[string]any{"title": "Revised"}}, rec.Version); err != nil {
+	if _, err := e.service.UpdateRecord(e.ctx, formA.ID, rec.ID, alice, formserver.RecordInput{Values: map[string]any{"title": "Revised"}}, rec.Version); err != nil {
 		t.Fatalf("alice edit own draft: %v", err)
 	}
 	submitted, err := e.service.Transition(e.ctx, formA.ID, rec.ID, alice, "submitted", "", rec.Version+1)
 	if err != nil {
 		t.Fatalf("alice submit own: %v", err)
 	}
-	if _, err := e.service.UpdateRecord(e.ctx, formA.ID, rec.ID, alice, RecordInput{Values: map[string]any{"title": "Late"}}, submitted.Version); !isValidation(err) {
+	if _, err := e.service.UpdateRecord(e.ctx, formA.ID, rec.ID, alice, formserver.RecordInput{Values: map[string]any{"title": "Late"}}, submitted.Version); !isValidation(err) {
 		t.Fatalf("expected validation error editing submitted record, got %v", err)
 	}
 
 	// A manager (the owner) may edit any record.
-	if _, err := e.service.UpdateRecord(e.ctx, formA.ID, rec.ID, e.owner, RecordInput{Values: map[string]any{"title": "Manager edit"}}, submitted.Version); err != nil {
+	if _, err := e.service.UpdateRecord(e.ctx, formA.ID, rec.ID, e.owner, formserver.RecordInput{Values: map[string]any{"title": "Manager edit"}}, submitted.Version); err != nil {
 		t.Fatalf("manager edit: %v", err)
 	}
 }
 
-func isValidation(err error) bool { return errors.Is(err, ErrValidation) }
+func isValidation(err error) bool { return errors.Is(err, formserver.ErrValidation) }
 
 // --- 2. Attachment upload guards ---
 
 func TestFormAttachmentUploadAndGuards(t *testing.T) {
 	e := setupForms(t)
-	form, _ := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "Photos", DraftSchema: imageSchema()})
-	rec, err := e.service.CreateRecord(e.ctx, form.ID, e.owner, RecordInput{Values: map[string]any{"title": "Has photo"}})
+	form, _ := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "Photos", DraftSchema: imageSchema()})
+	rec, err := e.service.CreateRecord(e.ctx, form.ID, e.owner, formserver.RecordInput{Values: map[string]any{"title": "Has photo"}})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// A valid upload creates a dedicated form-attachment asset and records the field value.
-	created, err := e.attach(form.ID, rec.ID, e.owner, AttachmentUpload{FieldKey: "photo", FileName: "p.png", ContentType: "image/png", Data: pngBytes()})
+	created, err := e.attach(form.ID, rec.ID, e.owner, formserver.AttachmentUpload{FieldKey: "photo", FileName: "p.png", ContentType: "image/png", Data: pngBytes()})
 	if err != nil {
 		t.Fatalf("create attachment: %v", err)
 	}
@@ -120,15 +121,10 @@ func TestFormAttachmentUploadAndGuards(t *testing.T) {
 	if origin != "form_attachment" {
 		t.Fatalf("attachment asset origin=%q, want form_attachment", origin)
 	}
-	// The attachment is not selectable as public Media.
-	list, err := e.service.media.ListAssets(e.ctx, media.ListOptions{Type: "image"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if list.Total != 0 {
-		t.Fatalf("form attachment must not appear in the media library, got %d", list.Total)
-	}
-	// The field value now references the asset id.
+	// Library visibility of private attachments is the media package's
+	// boundary and is covered there; the field value now references the
+	// asset id.
+
 	detail, err := e.service.GetRecord(e.ctx, form.ID, rec.ID, e.owner)
 	if err != nil {
 		t.Fatal(err)
@@ -138,45 +134,37 @@ func TestFormAttachmentUploadAndGuards(t *testing.T) {
 	}
 
 	// Invalid field keys are rejected.
-	if _, err := e.attach(form.ID, rec.ID, e.owner, AttachmentUpload{FieldKey: "title", Data: pngBytes()}); !errors.Is(err, ErrValidation) {
+	if _, err := e.attach(form.ID, rec.ID, e.owner, formserver.AttachmentUpload{FieldKey: "title", Data: pngBytes()}); !errors.Is(err, formserver.ErrValidation) {
 		t.Fatalf("expected validation error for non-image field, got %v", err)
 	}
-	if _, err := e.attach(form.ID, rec.ID, e.owner, AttachmentUpload{FieldKey: "missing", Data: pngBytes()}); !errors.Is(err, ErrValidation) {
+	if _, err := e.attach(form.ID, rec.ID, e.owner, formserver.AttachmentUpload{FieldKey: "missing", Data: pngBytes()}); !errors.Is(err, formserver.ErrValidation) {
 		t.Fatalf("expected validation error for unknown field, got %v", err)
 	}
 	// Non-image bytes are rejected.
-	if _, err := e.attach(form.ID, rec.ID, e.owner, AttachmentUpload{FieldKey: "photo", Data: []byte("not an image at all")}); !errors.Is(err, ErrValidation) {
+	if _, err := e.attach(form.ID, rec.ID, e.owner, formserver.AttachmentUpload{FieldKey: "photo", Data: []byte("not an image at all")}); !errors.Is(err, formserver.ErrValidation) {
 		t.Fatalf("expected validation error for non-image bytes, got %v", err)
 	}
 
-	// A normal library Media asset cannot be bound as a form attachment.
+	// A normal library Media asset cannot be claimed as a form attachment.
+	// The public attachment API only binds freshly ingested private assets,
+	// so the cross-record backstop below it is defense-in-depth behind a
+	// path the API never takes.
 	libraryAsset := e.insertLibraryAsset(t)
 	tx, err := e.pool.Begin(e.ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.service.bindAttachment(e.ctx, tx, rec.ID, libraryAsset, "photo"); !errors.Is(err, ErrValidation) {
-		t.Fatalf("expected validation error binding a library asset, got %v", err)
+	if err := e.harness.Host.PluginAssets.ClaimPrivateInTx(e.ctx, tx, libraryAsset); !errors.Is(err, plugin.ErrInvalid) {
+		t.Fatalf("expected invalid error claiming a library asset, got %v", err)
 	}
 	_ = tx.Rollback(e.ctx)
 
-	// An already-used form attachment cannot be bound to another record.
-	other, _ := e.service.CreateRecord(e.ctx, form.ID, e.owner, RecordInput{Values: map[string]any{"title": "Other"}})
-	tx2, err := e.pool.Begin(e.ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := e.service.bindAttachment(e.ctx, tx2, other.ID, attachment.AssetID, "photo"); !errors.Is(err, ErrValidation) {
-		t.Fatalf("expected validation error binding a used attachment, got %v", err)
-	}
-	_ = tx2.Rollback(e.ctx)
-
 	// Bob cannot attach to the owner's record.
 	bob := e.insertUser(t, "Bob", "bob", "viewer")
-	if _, err := e.service.SetGrant(e.ctx, form.ID, e.owner, GrantInput{UserID: bob, Capability: CapSubmit}); err != nil {
+	if _, err := e.service.SetGrant(e.ctx, form.ID, e.owner, formserver.GrantInput{UserID: bob, Capability: formserver.CapSubmit}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.attach(form.ID, rec.ID, bob, AttachmentUpload{FieldKey: "photo", Data: pngBytes()}); err != ErrNotFound {
+	if _, err := e.attach(form.ID, rec.ID, bob, formserver.AttachmentUpload{FieldKey: "photo", Data: pngBytes()}); err != formserver.ErrNotFound {
 		t.Fatalf("expected NotFound for bob attach, got %v", err)
 	}
 
@@ -201,8 +189,8 @@ func TestFormAttachmentUploadAndGuards(t *testing.T) {
 
 // --- 3. Workflow reconciliation ---
 
-func mutateWorkflow(f func(*Workflow)) Workflow {
-	wf := defaultWorkflow()
+func mutateWorkflow(f func(*formserver.Workflow)) formserver.Workflow {
+	wf := testWorkflow()
 	f(&wf)
 	return wf
 }
@@ -211,9 +199,9 @@ func TestWorkflowReconciliation(t *testing.T) {
 	e := setupForms(t)
 
 	// A: relabel and toggle output eligibility; existing record eligibility re-derives.
-	formA, _ := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "A", DraftSchema: announcementSchema()})
+	formA, _ := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "A", DraftSchema: announcementSchema()})
 	e.submitAndApprove(t, formA.ID, map[string]any{"title": "Live"})
-	relabel := mutateWorkflow(func(wf *Workflow) {
+	relabel := mutateWorkflow(func(wf *formserver.Workflow) {
 		for i := range wf.States {
 			switch wf.States[i].Key {
 			case "approved":
@@ -225,14 +213,14 @@ func TestWorkflowReconciliation(t *testing.T) {
 			}
 		}
 	})
-	if err := e.service.ConfigureWorkflow(e.ctx, formA.ID, e.owner, WorkflowInput{Workflow: relabel}); err != nil {
+	if err := e.service.ConfigureWorkflow(e.ctx, formA.ID, e.owner, formserver.WorkflowInput{Workflow: relabel}); err != nil {
 		t.Fatalf("relabel workflow: %v", err)
 	}
 	if ds, _ := datasetByID(e.readPayload(t, formA.ID), "approved"); len(ds.Records) != 0 {
 		t.Fatalf("record should be ineligible after eligibility removed, got %d", len(ds.Records))
 	}
 	// Turning eligibility back on re-derives eligibility again.
-	if err := e.service.ConfigureWorkflow(e.ctx, formA.ID, e.owner, WorkflowInput{Workflow: defaultWorkflow()}); err != nil {
+	if err := e.service.ConfigureWorkflow(e.ctx, formA.ID, e.owner, formserver.WorkflowInput{Workflow: testWorkflow()}); err != nil {
 		t.Fatalf("restore workflow: %v", err)
 	}
 	if ds, _ := datasetByID(e.readPayload(t, formA.ID), "approved"); len(ds.Records) != 1 {
@@ -240,32 +228,32 @@ func TestWorkflowReconciliation(t *testing.T) {
 	}
 
 	// B: deleting a state referenced by a record is rejected.
-	formB, _ := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "B", DraftSchema: announcementSchema()})
-	rec, _ := e.service.CreateRecord(e.ctx, formB.ID, e.owner, RecordInput{Values: map[string]any{"title": "held"}})
+	formB, _ := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "B", DraftSchema: announcementSchema()})
+	rec, _ := e.service.CreateRecord(e.ctx, formB.ID, e.owner, formserver.RecordInput{Values: map[string]any{"title": "held"}})
 	if _, err := e.service.Transition(e.ctx, formB.ID, rec.ID, e.owner, "submitted", "", rec.Version); err != nil {
 		t.Fatal(err)
 	}
-	withoutSubmitted := Workflow{
-		States: []WorkflowState{
+	withoutSubmitted := formserver.Workflow{
+		States: []formserver.WorkflowState{
 			{Key: "draft", Label: "Draft", Initial: true},
 			{Key: "changes_requested", Label: "Changes"},
 			{Key: "approved", Label: "Approved", EligibleForOutput: true},
 			{Key: "rejected", Label: "Rejected", Terminal: true},
 			{Key: "expired", Label: "Expired", Terminal: true},
 		},
-		Transitions: []WorkflowTransition{
-			{From: "draft", To: "approved", RequiredCapability: CapApprove},
-			{From: "approved", To: "expired", RequiredCapability: CapManage},
+		Transitions: []formserver.WorkflowTransition{
+			{From: "draft", To: "approved", RequiredCapability: formserver.CapApprove},
+			{From: "approved", To: "expired", RequiredCapability: formserver.CapManage},
 		},
 	}
-	if err := e.service.ConfigureWorkflow(e.ctx, formB.ID, e.owner, WorkflowInput{Workflow: withoutSubmitted}); !errors.Is(err, ErrValidation) {
+	if err := e.service.ConfigureWorkflow(e.ctx, formB.ID, e.owner, formserver.WorkflowInput{Workflow: withoutSubmitted}); !errors.Is(err, formserver.ErrValidation) {
 		t.Fatalf("expected validation error deleting a used state, got %v", err)
 	}
 
 	// C: renaming a used state key (removing 'approved' in favor of 'published') is rejected.
-	formC, _ := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "C", DraftSchema: announcementSchema()})
+	formC, _ := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "C", DraftSchema: announcementSchema()})
 	e.submitAndApprove(t, formC.ID, map[string]any{"title": "approved-record"})
-	renamed := mutateWorkflow(func(wf *Workflow) {
+	renamed := mutateWorkflow(func(wf *formserver.Workflow) {
 		for i := range wf.States {
 			if wf.States[i].Key == "approved" {
 				wf.States[i].Key = "published"
@@ -280,16 +268,16 @@ func TestWorkflowReconciliation(t *testing.T) {
 			}
 		}
 	})
-	if err := e.service.ConfigureWorkflow(e.ctx, formC.ID, e.owner, WorkflowInput{Workflow: renamed}); !errors.Is(err, ErrValidation) {
+	if err := e.service.ConfigureWorkflow(e.ctx, formC.ID, e.owner, formserver.WorkflowInput{Workflow: renamed}); !errors.Is(err, formserver.ErrValidation) {
 		t.Fatalf("expected validation error renaming a used state, got %v", err)
 	}
 
 	// D: changing the initial state while drafts exist is rejected.
-	formD, _ := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "D", DraftSchema: announcementSchema()})
-	if _, err := e.service.CreateRecord(e.ctx, formD.ID, e.owner, RecordInput{Values: map[string]any{"title": "draft"}}); err != nil {
+	formD, _ := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "D", DraftSchema: announcementSchema()})
+	if _, err := e.service.CreateRecord(e.ctx, formD.ID, e.owner, formserver.RecordInput{Values: map[string]any{"title": "draft"}}); err != nil {
 		t.Fatal(err)
 	}
-	moveInitial := mutateWorkflow(func(wf *Workflow) {
+	moveInitial := mutateWorkflow(func(wf *formserver.Workflow) {
 		for i := range wf.States {
 			switch wf.States[i].Key {
 			case "draft":
@@ -299,7 +287,7 @@ func TestWorkflowReconciliation(t *testing.T) {
 			}
 		}
 	})
-	if err := e.service.ConfigureWorkflow(e.ctx, formD.ID, e.owner, WorkflowInput{Workflow: moveInitial}); !errors.Is(err, ErrValidation) {
+	if err := e.service.ConfigureWorkflow(e.ctx, formD.ID, e.owner, formserver.WorkflowInput{Workflow: moveInitial}); !errors.Is(err, formserver.ErrValidation) {
 		t.Fatalf("expected validation error moving the initial state with drafts present, got %v", err)
 	}
 }
@@ -313,11 +301,11 @@ func (e formTestEnv) forceDue(t *testing.T, formID uuid.UUID) {
 	}
 }
 
-func (e formTestEnv) approveWithExpiry(t *testing.T, formID uuid.UUID, title string, expiresAt time.Time) Record {
+func (e formTestEnv) approveWithExpiry(t *testing.T, formID uuid.UUID, title string, expiresAt time.Time) formserver.Record {
 	t.Helper()
-	rec, err := e.service.CreateRecord(e.ctx, formID, e.owner, RecordInput{
+	rec, err := e.service.CreateRecord(e.ctx, formID, e.owner, formserver.RecordInput{
 		Values:    map[string]any{"title": title},
-		ExpiresAt: Optional[time.Time]{Set: true, Value: &expiresAt},
+		ExpiresAt: formserver.Optional[time.Time]{Set: true, Value: &expiresAt},
 	})
 	if err != nil {
 		t.Fatalf("create: %v", err)
@@ -344,12 +332,11 @@ func (e formTestEnv) expiredEventCount(t *testing.T, recordID uuid.UUID) int {
 
 func TestAutoExpiryTransactional(t *testing.T) {
 	e := setupForms(t)
-	form, _ := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "Expiring", DraftSchema: announcementSchema()})
+	form, _ := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "Expiring", DraftSchema: announcementSchema()})
 	rec := e.approveWithExpiry(t, form.ID, "Old", time.Now().UTC().Add(-time.Hour))
 	e.forceDue(t, form.ID)
 
-	worker := NewProjectionWorker(e.service, nil)
-	if err := worker.RunDue(e.ctx); err != nil {
+	if err := e.service.RunDue(e.ctx); err != nil {
 		t.Fatalf("run due: %v", err)
 	}
 	reloaded, err := e.service.GetRecord(e.ctx, form.ID, rec.ID, e.owner)
@@ -377,7 +364,7 @@ func TestAutoExpiryTransactional(t *testing.T) {
 	}
 	// Running again is idempotent: no second expiry event.
 	e.forceDue(t, form.ID)
-	if err := worker.RunDue(e.ctx); err != nil {
+	if err := e.service.RunDue(e.ctx); err != nil {
 		t.Fatal(err)
 	}
 	if got := e.expiredEventCount(t, rec.ID); got != 1 {
@@ -387,19 +374,18 @@ func TestAutoExpiryTransactional(t *testing.T) {
 
 func TestConcurrentExpiryDoesNotDoubleProcess(t *testing.T) {
 	e := setupForms(t)
-	form, _ := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "Concurrent expiry", DraftSchema: announcementSchema()})
+	form, _ := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "Concurrent expiry", DraftSchema: announcementSchema()})
 	past := time.Now().UTC().Add(-time.Hour)
 	rec1 := e.approveWithExpiry(t, form.ID, "One", past)
 	rec2 := e.approveWithExpiry(t, form.ID, "Two", past)
 	e.forceDue(t, form.ID)
 
-	worker := NewProjectionWorker(e.service, nil)
 	var wg sync.WaitGroup
 	for i := 0; i < 4; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			_ = worker.RunDue(e.ctx)
+			_ = e.service.RunDue(e.ctx)
 		}()
 	}
 	wg.Wait()
@@ -413,8 +399,8 @@ func TestConcurrentExpiryDoesNotDoubleProcess(t *testing.T) {
 
 func TestAddCommentIsTransactional(t *testing.T) {
 	e := setupForms(t)
-	form, _ := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "Comments", DraftSchema: announcementSchema()})
-	rec, _ := e.service.CreateRecord(e.ctx, form.ID, e.owner, RecordInput{Values: map[string]any{"title": "t"}})
+	form, _ := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "Comments", DraftSchema: announcementSchema()})
+	rec, _ := e.service.CreateRecord(e.ctx, form.ID, e.owner, formserver.RecordInput{Values: map[string]any{"title": "t"}})
 	if _, err := e.service.AddComment(e.ctx, form.ID, rec.ID, e.owner, "Please revise"); err != nil {
 		t.Fatalf("add comment: %v", err)
 	}
@@ -434,7 +420,7 @@ func TestAddCommentIsTransactional(t *testing.T) {
 
 func TestOptionalJSONThreeStates(t *testing.T) {
 	type payload struct {
-		DisplayAt Optional[time.Time] `json:"displayAt"`
+		DisplayAt formserver.Optional[time.Time] `json:"displayAt"`
 	}
 	var omitted payload
 	if err := json.Unmarshal([]byte(`{}`), &omitted); err != nil {
@@ -461,13 +447,13 @@ func TestOptionalJSONThreeStates(t *testing.T) {
 
 func TestRecordPatchTimestampSemantics(t *testing.T) {
 	e := setupForms(t)
-	form, _ := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "Timestamps", DraftSchema: announcementSchema()})
+	form, _ := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "Timestamps", DraftSchema: announcementSchema()})
 	start := time.Now().UTC().Add(time.Hour).Truncate(time.Second)
 	end := time.Now().UTC().Add(2 * time.Hour).Truncate(time.Second)
-	rec, err := e.service.CreateRecord(e.ctx, form.ID, e.owner, RecordInput{
+	rec, err := e.service.CreateRecord(e.ctx, form.ID, e.owner, formserver.RecordInput{
 		Values:    map[string]any{"title": "t"},
-		DisplayAt: Optional[time.Time]{Set: true, Value: &start},
-		ExpiresAt: Optional[time.Time]{Set: true, Value: &end},
+		DisplayAt: formserver.Optional[time.Time]{Set: true, Value: &start},
+		ExpiresAt: formserver.Optional[time.Time]{Set: true, Value: &end},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -477,7 +463,7 @@ func TestRecordPatchTimestampSemantics(t *testing.T) {
 	}
 
 	// Omitting both preserves the stored values.
-	rec, err = e.service.UpdateRecord(e.ctx, form.ID, rec.ID, e.owner, RecordInput{Values: map[string]any{"title": "t2"}}, rec.Version)
+	rec, err = e.service.UpdateRecord(e.ctx, form.ID, rec.ID, e.owner, formserver.RecordInput{Values: map[string]any{"title": "t2"}}, rec.Version)
 	if err != nil {
 		t.Fatalf("preserve update: %v", err)
 	}
@@ -489,9 +475,9 @@ func TestRecordPatchTimestampSemantics(t *testing.T) {
 	}
 
 	// Explicit null clears displayAt; omitted expiresAt is still preserved.
-	rec, err = e.service.UpdateRecord(e.ctx, form.ID, rec.ID, e.owner, RecordInput{
+	rec, err = e.service.UpdateRecord(e.ctx, form.ID, rec.ID, e.owner, formserver.RecordInput{
 		Values:    map[string]any{"title": "t3"},
-		DisplayAt: Optional[time.Time]{Set: true, Value: nil},
+		DisplayAt: formserver.Optional[time.Time]{Set: true, Value: nil},
 	}, rec.Version)
 	if err != nil {
 		t.Fatalf("clear update: %v", err)
@@ -505,9 +491,9 @@ func TestRecordPatchTimestampSemantics(t *testing.T) {
 
 	// A supplied value replaces expiresAt.
 	newEnd := end.Add(24 * time.Hour)
-	rec, err = e.service.UpdateRecord(e.ctx, form.ID, rec.ID, e.owner, RecordInput{
+	rec, err = e.service.UpdateRecord(e.ctx, form.ID, rec.ID, e.owner, formserver.RecordInput{
 		Values:    map[string]any{"title": "t4"},
-		ExpiresAt: Optional[time.Time]{Set: true, Value: &newEnd},
+		ExpiresAt: formserver.Optional[time.Time]{Set: true, Value: &newEnd},
 	}, rec.Version)
 	if err != nil {
 		t.Fatalf("replace update: %v", err)

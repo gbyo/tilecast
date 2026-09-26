@@ -22,7 +22,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/demo"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/fleetops"
-	"github.com/tilecast/tilecast/apps/server/internal/forms"
+
 	"github.com/tilecast/tilecast/apps/server/internal/integrations"
 	"github.com/tilecast/tilecast/apps/server/internal/layouts"
 	"github.com/tilecast/tilecast/apps/server/internal/livestream"
@@ -44,7 +44,6 @@ type Dependencies struct {
 	Auth                 *auth.Service
 	Devices              *devices.Service
 	Media                *media.Service
-	Forms                *forms.Service
 	Playlists            *playlists.Service
 	Campaigns            *campaigns.Service
 	Presentations        *presentations.Service
@@ -90,7 +89,6 @@ type server struct {
 	auth                          *auth.Service
 	devices                       *devices.Service
 	media                         *media.Service
-	forms                         *forms.Service
 	playlists                     *playlists.Service
 	campaigns                     *campaigns.Service
 	presentations                 *presentations.Service
@@ -153,7 +151,6 @@ func New(deps Dependencies) *API {
 		auth:              deps.Auth,
 		devices:           deps.Devices,
 		media:             deps.Media,
-		forms:             deps.Forms,
 		playlists:         deps.Playlists,
 		campaigns:         deps.Campaigns,
 		presentations:     deps.Presentations,

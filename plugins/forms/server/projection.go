@@ -1,4 +1,4 @@
-package forms
+package server
 
 import (
 	"context"
@@ -10,13 +10,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/tilecast/tilecast/apps/server/internal/manifestchanges"
-	"github.com/tilecast/tilecast/apps/server/internal/media"
+	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
-
-// farFuture keeps a form out of the media refresh worker; the forms worker reschedules to the
-// next time-window boundary instead.
-const farFuture = "now()+interval '100 years'"
 
 // RebuildProjection recomputes the cached typed-dataset payload for a form (one dataset per
 // saved view) and invalidates affected manifests. Only records that are both in a view's
@@ -52,7 +47,7 @@ func (s *Service) RebuildProjection(ctx context.Context, formID uuid.UUID) error
 		}
 	}
 
-	payload := media.TypedDatasetPayload{Datasets: []media.TypedDataset{}}
+	payload := plugin.TypedDatasetPayload{Datasets: []plugin.TypedDataset{}}
 	for _, view := range views {
 		dataset, err := s.projectView(ctx, tx, formID, view, fieldTypes, fieldLabels, now, noteBoundary)
 		if err != nil {
@@ -70,52 +65,23 @@ func (s *Service) RebuildProjection(ctx context.Context, formID uuid.UUID) error
 	}
 	noteBoundary(nextExpiry)
 
-	encoded, err := json.Marshal(payload)
-	if err != nil {
+	if err := s.host.DataSources.WriteProjectionInTx(ctx, tx, formID, plugin.ProjectionWrite{
+		Payload:      payload,
+		DatasetCount: len(payload.Datasets),
+		NextRefresh:  nextBoundary,
+	}); err != nil {
 		return err
 	}
-	nextRefresh := farFuture
-	args := []any{formID, string(encoded), len(payload.Datasets)}
-	if nextBoundary != nil {
-		nextRefresh = "$4"
-		args = append(args, *nextBoundary)
-	}
-	query := `UPDATE data_source_refresh_states SET next_refresh_at=` + nextRefresh + `,
-		last_attempt_at=now(),last_success_at=now(),http_result_category='manual',parse_status='success',
-		available_item_count=$3,using_cached_data=FALSE,cache_updated_at=now(),cache_expires_at=now()+interval '100 years',
-		cached_payload=$2::jsonb,error_code=NULL,locked_at=NULL,locked_by=NULL,updated_at=now()
-		WHERE data_source_id=$1`
-	tag, err := tx.Exec(ctx, query, args...)
+	// Invalidate through the normal Data Source revision path inside the
+	// same transaction; the notification runs after commit.
+	afterCommit, err := s.host.DataSources.InvalidateDataSourceInTx(ctx, tx, formID, "form.projected")
 	if err != nil {
 		return err
-	}
-	if tag.RowsAffected() == 0 {
-		// Seed the refresh row if it is somehow missing so the form still projects.
-		if _, err := tx.Exec(ctx, `INSERT INTO data_source_refresh_states(data_source_id,next_refresh_at,last_attempt_at,last_success_at,http_result_category,parse_status,available_item_count,using_cached_data,cache_updated_at,cache_expires_at,cached_payload)
-			VALUES($1,now()+interval '100 years',now(),now(),'manual','success',$2,FALSE,now(),now()+interval '100 years',$3::jsonb)
-			ON CONFLICT(data_source_id) DO NOTHING`, formID, len(payload.Datasets), string(encoded)); err != nil {
-			return err
-		}
-	}
-	var changes []manifestchanges.Change
-	transactionalUsed := false
-	if transactional, ok := s.invalidator.(media.TransactionalAssetInvalidator); ok {
-		transactionalUsed = true
-		changes, err = transactional.DataSourceChangedInTx(ctx, tx, formID, "form.projected")
-		if err != nil {
-			return err
-		}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return err
 	}
-	if transactionalUsed {
-		s.invalidator.(media.TransactionalAssetInvalidator).NotifyManifestChanges(changes)
-		return nil
-	}
-	if s.invalidator != nil {
-		return s.invalidator.DataSourceChanged(ctx, formID, "form.projected")
-	}
+	afterCommit()
 	return nil
 }
 
@@ -140,8 +106,8 @@ func (s *Service) outputFieldMaps(ctx context.Context, q rowQuerier, formID uuid
 
 // projectView builds one typed dataset for a saved view. noteBoundary is called with every future
 // display/expiry timestamp among candidate records so the caller can schedule the next rebuild.
-func (s *Service) projectView(ctx context.Context, q rowQuerier, formID uuid.UUID, view View, fieldTypes, fieldLabels map[string]string, now time.Time, noteBoundary func(*time.Time)) (media.TypedDataset, error) {
-	dataset := media.TypedDataset{ID: view.Key, Kind: "records", Records: []media.TypedRecord{}, Fields: []media.DataSourceField{}}
+func (s *Service) projectView(ctx context.Context, q rowQuerier, formID uuid.UUID, view View, fieldTypes, fieldLabels map[string]string, now time.Time, noteBoundary func(*time.Time)) (plugin.TypedDataset, error) {
+	dataset := plugin.TypedDataset{ID: view.Key, Kind: "records", Records: []plugin.TypedRecord{}, Fields: []plugin.DataSourceField{}}
 	outputFields := view.OutputFields
 	if len(outputFields) == 0 {
 		// Default to every available field, in a stable order.
@@ -153,7 +119,7 @@ func (s *Service) projectView(ctx context.Context, q rowQuerier, formID uuid.UUI
 		outputFields = keys
 	}
 	for _, key := range outputFields {
-		dataset.Fields = append(dataset.Fields, media.DataSourceField{Key: key, Label: fieldLabels[key], Type: fieldTypes[key]})
+		dataset.Fields = append(dataset.Fields, plugin.DataSourceField{Key: key, Label: fieldLabels[key], Type: fieldTypes[key]})
 	}
 
 	// Candidate records: in the view's included states AND output-eligible. This is the safety
@@ -163,7 +129,7 @@ func (s *Service) projectView(ctx context.Context, q rowQuerier, formID uuid.UUI
 		WHERE data_source_id=$1 AND deleted_at IS NULL AND eligible AND state_key = ANY($2)
 		ORDER BY priority DESC,created_at DESC`, formID, includedStates(view))
 	if err != nil {
-		return media.TypedDataset{}, err
+		return plugin.TypedDataset{}, err
 	}
 	defer rows.Close()
 
@@ -182,7 +148,7 @@ func (s *Service) projectView(ctx context.Context, q rowQuerier, formID uuid.UUI
 		var c candidate
 		var valuesRaw []byte
 		if err := rows.Scan(&c.id, &c.state, &valuesRaw, &c.displayText, &c.priority, &c.displayAt, &c.expiresAt, &c.createdAt); err != nil {
-			return media.TypedDataset{}, err
+			return plugin.TypedDataset{}, err
 		}
 		c.values = map[string]any{}
 		if len(valuesRaw) > 0 {
@@ -191,7 +157,7 @@ func (s *Service) projectView(ctx context.Context, q rowQuerier, formID uuid.UUI
 		candidates = append(candidates, c)
 	}
 	if err := rows.Err(); err != nil {
-		return media.TypedDataset{}, err
+		return plugin.TypedDataset{}, err
 	}
 
 	resolve := func(c candidate, field string) any {
@@ -267,7 +233,7 @@ func (s *Service) projectView(ctx context.Context, q rowQuerier, formID uuid.UUI
 		for _, key := range outputFields {
 			values[key] = stringifyValue(resolve(c, key))
 		}
-		dataset.Records = append(dataset.Records, media.TypedRecord{ID: c.id.String(), Values: values})
+		dataset.Records = append(dataset.Records, plugin.TypedRecord{ID: c.id.String(), Values: values})
 	}
 	return dataset, nil
 }

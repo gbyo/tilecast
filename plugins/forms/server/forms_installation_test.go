@@ -1,11 +1,12 @@
-package forms
+package server_test
 
 import (
 	"errors"
+	formserver "github.com/tilecast/tilecast/plugins/forms/server"
 	"testing"
 	"time"
 
-	"github.com/tilecast/tilecast/apps/server/internal/plugins"
+	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
 
 // Forms is an installable plugin. Creating a form requires the installation,
@@ -14,7 +15,7 @@ import (
 // restore or manual edit can.
 func TestFormsRequireInstallation(t *testing.T) {
 	e := setupForms(t)
-	form, err := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "Expiring", DraftSchema: announcementSchema()})
+	form, err := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "Expiring", DraftSchema: announcementSchema()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -22,11 +23,11 @@ func TestFormsRequireInstallation(t *testing.T) {
 	if _, err = e.pool.Exec(e.ctx, `DELETE FROM plugin_installations WHERE plugin_id='forms'`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "Another", DraftSchema: announcementSchema()}); !errors.Is(err, plugins.ErrPluginNotInstalled) {
+	if _, err = e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "Another", DraftSchema: announcementSchema()}); !errors.Is(err, plugin.ErrNotInstalled) {
 		t.Fatalf("create form without installation err = %v", err)
 	}
 	e.forceDue(t, form.ID)
-	if err = NewProjectionWorker(e.service, nil).RunDue(e.ctx); err != nil {
+	if err = e.service.RunDue(e.ctx); err != nil {
 		t.Fatal(err)
 	}
 	if got := e.expiredEventCount(t, rec.ID); got != 0 {
