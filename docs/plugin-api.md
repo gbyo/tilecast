@@ -299,6 +299,52 @@ no central icon map.
 plugins. It gives `PluginPage` (the shared page chrome), the install gate, the
 Remove menu, and the catalog hooks. Plugins can also give fully custom pages.
 
+## Player runtime
+
+This section is the accepted design for milestone 3. The contract is
+`@tilecast/plugin-sdk/runtime` (`packages/plugin-sdk/src/runtime.ts`). The
+host that implements it is not complete yet.
+
+A plugin owns what it draws. The runtime host owns everything around it.
+
+| The host owns                                                   | The plugin owns                                |
+| --------------------------------------------------------------- | ---------------------------------------------- |
+| Which plugin holds each slot (arbitration by tier and priority) | How it reads its manifest entries              |
+| Slot geometry, push and overlay, and the bottom-corner lift     | Its elements inside the host containers        |
+| The corrected clock, timers, reduced motion, and frozen frames  | Its own behavior and animation on those clocks |
+| Lifecycle: mount, update, render, sleep and wake, dispose       | The text that the conformance probe reports    |
+
+The host behavior is this:
+
+1. The runtime build finds `plugins/*/runtime/index.ts` with
+   `import.meta.glob`. It loads no code at run time.
+2. The host gives each plugin one container for each slot that its manifest
+   declares in `runtime.surfaces`. The plugin builds its elements once and
+   keeps them. Thus the host does not decode media again or restart an
+   animation between updates.
+3. After each manifest change, on each tick of about one second, and after
+   `invalidate()`, the host calls `update` with the entries of the plugin's
+   manifest types. The plugin returns its claims.
+4. The host compares claims for each slot. It compares the tier first
+   (`emergency`, then `live`, then `scheduled`, then `ambient`), then the
+   priority, then the plugin ID. A plugin cannot configure its way above a
+   higher tier.
+5. The host calls `render` with the slots that the plugin holds and the lift
+   for the bottom corners. The host sets the push geometry of the content
+   stage. A plugin never changes the content stage.
+
+A plugin stylesheet is `runtime/*.css`. The runtime build appends it to
+`runtime.css`, because the Player document policy refuses inline styles and
+this method works the same on Electron and WPE. A plugin sets dynamic
+properties through the CSSOM (`setStyles`).
+
+The Emergency Alerts ticker, the Noise Meter, and the Brand Bug move in
+milestones 4 and 5. Until then, they are ported to the same contract as
+modules inside the runtime. Thus the host is generic from milestone 3, and
+the later milestones only move files. The host contract between the runtime
+and Electron or WPE does not change. The microphone service maps to the
+existing `noiseMeter` host members.
+
 ## Documentation
 
 A plugin declares its public pages in `docs.pages`. The docs site reads the
@@ -396,8 +442,6 @@ Plugin API v1 does not load third-party code. The contract keeps a path open:
 
 ## Deviations from the plan
 
-- **Runtime contract.** Milestone 1 does not add a runtime contract. The
-  milestone 3 contract is derived from the runtime host code.
 - **Android Player.** The Android Player is native Kotlin and does not run the
   shared runtime. Its plugin code stays in the Android application. It
   ignores plugin types that it does not render.
@@ -408,15 +452,15 @@ Plugin API v1 does not load third-party code. The contract keeps a path open:
 
 ## Migration status
 
-| Milestone | Scope                                                            | Status  |
-| --------- | ---------------------------------------------------------------- | ------- |
-| 1         | Layout, manifest, SDKs, host, discovery, tooling, CODEOWNERS, CI | Done    |
-| 2         | Countdown Bar in `plugins/countdown-bar/`                        | Done    |
-| 3         | Generic runtime surface host                                     | Planned |
-| 4         | Brand Bug and Noise Meter                                        | Planned |
-| 5         | Emergency Alerts                                                 | Planned |
-| 6         | Forms                                                            | Planned |
-| 7         | Remove the remaining special cases                               | Planned |
+| Milestone | Scope                                                            | Status      |
+| --------- | ---------------------------------------------------------------- | ----------- |
+| 1         | Layout, manifest, SDKs, host, discovery, tooling, CODEOWNERS, CI | Done        |
+| 2         | Countdown Bar in `plugins/countdown-bar/`                        | Done        |
+| 3         | Generic runtime surface host                                     | In progress |
+| 4         | Brand Bug and Noise Meter                                        | Planned     |
+| 5         | Emergency Alerts                                                 | Planned     |
+| 6         | Forms                                                            | Planned     |
+| 7         | Remove the remaining special cases                               | Planned     |
 
 Until a plugin moves, `apps/server/internal/plugins` answers its status,
 removal blockers, and projection through the legacy functions in that
