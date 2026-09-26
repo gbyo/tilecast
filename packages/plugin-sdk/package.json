@@ -8,6 +8,7 @@
   "exports": {
     "./manifest": "./src/manifest.ts",
     "./runtime": "./src/runtime.ts",
+    "./runtime/testing": "./src/runtime-testing.ts",
     "./schema/tilecast-plugin.schema.json": "./schema/tilecast-plugin.schema.json"
   },
   "scripts": {

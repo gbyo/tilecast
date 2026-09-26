@@ -13,6 +13,7 @@
   },
   "runtime": {
     "entrypoint": "./runtime/index.ts",
-    "manifestTypes": []
+    "manifestTypes": [],
+    "tier": "scheduled"
   }
 }

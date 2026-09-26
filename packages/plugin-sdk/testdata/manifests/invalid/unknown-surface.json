@@ -14,6 +14,7 @@
   "runtime": {
     "entrypoint": "./runtime/index.ts",
     "manifestTypes": ["minimal"],
-    "surfaces": ["fullscreen"]
+    "surfaces": ["fullscreen"],
+    "tier": "scheduled"
   }
 }

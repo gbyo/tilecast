@@ -47,7 +47,8 @@
   "runtime": {
     "entrypoint": "./runtime/index.ts",
     "manifestTypes": ["transit_alert"],
-    "surfaces": ["strip.bottom"]
+    "surfaces": ["strip.bottom"],
+    "tier": "scheduled"
   },
   "docs": {
     "reference": "docs/plugins.md#transit-alerts",

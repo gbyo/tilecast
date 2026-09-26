@@ -1,0 +1,91 @@
+/* MIGRATION ONLY: moves to plugins/emergency-alerts in milestone 5.
+
+   The Emergency Alerts ticker takes the bottom strip like any bar, and differs in what it has to carry: alert text
+   far longer than a bar is wide. The severity stays fixed at the left edge
+   so it is readable at any moment, and the message scrolls past it. */
+.tc-emergency-alerts {
+  position: absolute;
+  display: flex;
+  visibility: hidden;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 100%;
+  box-sizing: border-box;
+  align-items: center;
+  overflow: hidden;
+  background: rgba(122, 31, 31, 0.97);
+  color: #fff;
+  border-top: 2px solid rgba(255, 214, 214, 0.65);
+  font-size: clamp(22px, calc(var(--tc-strip-height, 96px) * 0.4), 64px);
+  font-weight: 650;
+  line-height: 1;
+  transform: translateY(100%);
+  transition: transform 240ms ease;
+}
+.tc-emergency-alerts--visible {
+  visibility: visible;
+  transform: translateY(0);
+}
+.tc-emergency-alerts__severity {
+  flex: none;
+  z-index: 1;
+  margin: 0 1.5vw;
+  padding: 0.22em 0.6em;
+  border-radius: 0.25em;
+  background: #fff;
+  color: #7a1f1f;
+  font-size: 0.62em;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.tc-emergency-alerts__severity[hidden] {
+  display: none;
+}
+.tc-emergency-alerts__viewport {
+  position: relative;
+  flex: 1;
+  height: 100%;
+  overflow: hidden;
+}
+/* The track is positioned from the right edge of the viewport and travels
+   left by its own width plus the viewport's, which the renderer measures
+   and publishes as --tc-emergency-alerts-distance. */
+.tc-emergency-alerts__track {
+  position: absolute;
+  top: 0;
+  left: 100%;
+  display: flex;
+  align-items: center;
+  height: 100%;
+  white-space: nowrap;
+  will-change: transform;
+}
+@keyframes tc-emergency-alerts-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(
+      calc(var(--tc-emergency-alerts-distance, 100vw) * -1)
+    );
+  }
+}
+/* A reader who cannot follow motion still has to receive the alert, so the
+   message stops moving and is clipped at the bar's width instead. */
+@media (prefers-reduced-motion: reduce) {
+  .tc-emergency-alerts__track {
+    left: 0;
+    animation: none !important;
+    max-width: 100%;
+  }
+  /* Constrained by the track, not by the viewport: the severity chip takes
+     part of the bar, and the bar is not always the full screen width. */
+  .tc-emergency-alerts__message {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+}

@@ -11,7 +11,7 @@
 import type { RuntimeClock } from "../clock/scheduler";
 import type { TimerGroup } from "../clock/scheduler";
 import { FIT_MODES } from "../engine/model";
-import { tilecastCountdownDisplay } from "./plugins/countdown-display";
+import { compactDuration } from "@tilecast/plugin-sdk/runtime";
 
 export interface AnyNode {
   t: string;
@@ -183,7 +183,7 @@ function formatCountdown(node: AnyNode, now: number): string {
   );
   let remaining = target - now;
   if (node["compact"] === true) {
-    const body = tilecastCountdownDisplay.compact(remaining);
+    const body = compactDuration(remaining);
     return `${String(node["prefix"] ?? "")}${body}${String(node["suffix"] ?? "")}`;
   }
   const countUp = node["countUp"] === true;

@@ -11,14 +11,14 @@
 import type { TilecastRuntimeHostV1 } from "./host/contract";
 import type { ManualClock } from "./clock/scheduler";
 import type { PlaybackController } from "./engine/controller";
-import type { PluginOverlayController } from "./compat/plugins/overlay-controller";
+import type { RuntimeSurfaceHost } from "./plugins/host";
 import type { PlayerRoot } from "./views/player-root";
 
 export interface ProbeOptions {
   version: string;
   host: TilecastRuntimeHostV1;
   controller: PlaybackController;
-  overlay: PluginOverlayController;
+  surfaces: RuntimeSurfaceHost;
   view: PlayerRoot;
   manual: ManualClock | null;
 }
@@ -57,7 +57,7 @@ function describeLayer(layer: HTMLElement | null): Record<string, unknown> {
 }
 
 export function installProbe(options: ProbeOptions): void {
-  const { controller, overlay, view, manual } = options;
+  const { controller, surfaces, view, manual } = options;
   const probe = {
     version: options.version,
     contractVersion: options.host.contractVersion,
@@ -65,7 +65,6 @@ export function installProbe(options: ProbeOptions): void {
     capabilities: { ...options.host.capabilities },
     describe() {
       const state = controller.state;
-      const model = overlay.current;
       const message = document.getElementById("message");
       const outside = document.getElementById("outside-hours-overlay");
       return {
@@ -92,20 +91,9 @@ export function installProbe(options: ProbeOptions): void {
           visible: message?.classList.contains("visible") ?? false,
           text: text(message),
         },
-        overlay: {
-          strip: model.strip,
-          push: model.push,
-          marks: model.marks.map((mark) => mark.corner),
-          confetti: model.confettiKey !== null,
-          stripText:
-            model.strip === "countdown_bar"
-              ? text(document.getElementById("countdown-bar"))
-              : model.strip === "alert_ticker"
-                ? text(document.getElementById("alert-ticker"))
-                : model.strip === "noise_meter"
-                  ? text(document.getElementById("noise-meter"))
-                  : "",
-        },
+        // Which runtime plugin holds each surface slot, what it shows there,
+        // and the content-stage insets the host applied.
+        plugins: surfaces.describe(),
         identify: document
           .getElementById("identify")
           ?.classList.contains("visible")
@@ -133,7 +121,7 @@ export function installProbe(options: ProbeOptions): void {
       const layer = visibleLayer();
       const images = Array.from(
         document.querySelectorAll<HTMLImageElement>(
-          "#message img, #brand-bugs img[src], #outside-hours-overlay img",
+          "#message img, .tc-surfaces img[src], #outside-hours-overlay img",
         ),
       );
       if (layer) images.push(...Array.from(layer.querySelectorAll("img")));

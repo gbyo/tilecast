@@ -1,0 +1,140 @@
+/* Countdown Bar. The host places the strip container and sets its height;
+   the bar fills it and slides in from below. */
+.tc-countdown-bar {
+  position: absolute;
+  display: flex;
+  visibility: hidden;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 100%;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35em;
+  padding: 0 var(--tc-countdown-bar-padding, 4%);
+  background: rgba(13, 20, 27, 0.96);
+  color: #fff;
+  border-top: 1px solid rgba(255, 255, 255, 0.24);
+  font-size: var(--tc-countdown-bar-font-size, 30px);
+  font-weight: 600;
+  line-height: 1;
+  transform: translateY(100%);
+  transition:
+    transform 240ms ease,
+    height 240ms ease,
+    font-size 240ms ease,
+    background-color 240ms ease;
+}
+.tc-countdown-bar--visible {
+  visibility: visible;
+  transform: translateY(0);
+}
+.tc-countdown-bar[data-urgency="starting_soon"] {
+  background: rgba(180, 83, 9, 0.97);
+}
+.tc-countdown-bar[data-urgency="urgent"],
+.tc-countdown-bar[data-urgency="final"] {
+  background: rgba(185, 28, 28, 0.97);
+}
+.tc-countdown-bar__urgency {
+  position: relative;
+  z-index: 1;
+  padding: 0.24em 0.45em;
+  border: 1px solid rgba(255, 255, 255, 0.56);
+  font-size: 0.64em;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.tc-countdown-bar__urgency:empty {
+  display: none;
+}
+.tc-countdown-bar--pulse {
+  animation: tc-countdown-bar-pulse 900ms ease-in-out infinite alternate;
+}
+@keyframes tc-countdown-bar-pulse {
+  from {
+    filter: brightness(0.86);
+  }
+  to {
+    filter: brightness(1.16);
+  }
+}
+.tc-countdown-bar__message,
+.tc-countdown-bar__value {
+  position: relative;
+  z-index: 1;
+}
+.tc-countdown-bar__message:empty {
+  display: none;
+}
+.tc-countdown-bar__value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 750;
+}
+/* The draining fill sits behind the text and shrinks toward the left, so
+   at zero only the bar background is left. Width is set from the resolved
+   remaining fraction; the transition smooths the once-a-second step
+   without implying a precision the clock does not have. A negative
+   z-index would paint it behind the bar's own background and disappear,
+   so it stays at 0 and the text is lifted above it instead. */
+.tc-countdown-bar__fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  z-index: 0;
+  background: rgba(255, 255, 255, 0.16);
+  border-right: 2px solid rgba(255, 255, 255, 0.42);
+  transition: width 960ms linear;
+}
+.tc-countdown-bar__confetti {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.tc-countdown-bar__confetti-piece {
+  position: absolute;
+  top: -24px;
+  left: var(--tc-countdown-bar-confetti-x);
+  width: var(--tc-countdown-bar-confetti-width);
+  height: var(--tc-countdown-bar-confetti-height);
+  border-radius: var(--tc-countdown-bar-confetti-radius);
+  opacity: 0;
+  background: var(--tc-countdown-bar-confetti-color);
+  animation: tc-countdown-bar-confetti-fall
+    var(--tc-countdown-bar-confetti-duration) linear
+    var(--tc-countdown-bar-confetti-delay) both;
+}
+@keyframes tc-countdown-bar-confetti-fall {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, -24px, 0) rotate(0deg);
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(
+        var(--tc-countdown-bar-confetti-drift),
+        calc(100vh + 48px),
+        0
+      )
+      rotate(var(--tc-countdown-bar-confetti-spin));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tc-countdown-bar__fill {
+    transition: none;
+  }
+  .tc-countdown-bar__confetti {
+    display: none;
+  }
+  .tc-countdown-bar--pulse {
+    animation: none;
+  }
+}

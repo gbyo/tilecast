@@ -42,13 +42,13 @@
   },
   "studio": {
     "route": "/plugins/transit-alerts",
-    "entrypoint": "./studio/editor.tsx"
+    "entrypoint": "./studio/index.tsx"
   },
   "runtime": {
     "entrypoint": "./runtime/index.ts",
     "manifestTypes": ["transit_alert"],
     "surfaces": ["strip.bottom"],
-    "tier": "scheduled"
+    "tier": "urgent"
   },
   "docs": {
     "reference": "docs/plugins.md#transit-alerts",
