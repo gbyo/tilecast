@@ -387,10 +387,6 @@ function breadcrumbQueryKey(resource?: BreadcrumbResource, id?: string) {
       return ["schedules", id] as const;
     case "form":
       return ["form-data-source", id] as const;
-    case "brand-bug":
-      return ["brand-bug", id] as const;
-    case "noise-meter":
-      return ["noise-meter", id] as const;
     default:
       return ["breadcrumb", "none"] as const;
   }
@@ -419,10 +415,6 @@ function breadcrumbResource(resource: BreadcrumbResource, id: string) {
       return api.schedule(id);
     case "form":
       return api.getForm(id);
-    case "brand-bug":
-      return api.brandBug(id);
-    case "noise-meter":
-      return api.noiseMeter(id);
   }
 }
 

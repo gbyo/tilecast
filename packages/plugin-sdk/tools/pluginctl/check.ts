@@ -28,9 +28,7 @@ const DOCS_CONTENT = "apps/docs/src/content/docs";
  * surfaces must have runtime/index.ts.
  */
 export const TRANSITIONAL_RUNTIME_ADAPTERS: readonly string[] = [
-  "brand_bug",
   "emergency_alerts",
-  "noise_meter",
 ];
 
 export async function check(repo: Repo): Promise<Problem[]> {

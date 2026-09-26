@@ -217,39 +217,6 @@ const ticker = {
   },
 };
 
-const brandBug = {
-  id: "bug-1",
-  type: "brand_bug",
-  version: 1,
-  config: {
-    corner: "top_right",
-    text: "Tilecast Academy",
-    widthPercent: 14,
-    textSizePercent: 3,
-    opacityPercent: 90,
-    marginPercent: 3,
-    textColor: "#FFFFFF",
-    backgroundStyle: "scrim",
-    priority: 1,
-  },
-};
-
-const noiseMeter = {
-  id: "noise-1",
-  type: "noise_meter",
-  version: 1,
-  config: {
-    message: "Too loud",
-    warningLevel: 60,
-    loudLevel: 80,
-    sensitivity: 50,
-    triggerHoldMs: 0,
-    clearHoldMs: 0,
-    displayMode: "overlay",
-    heightPx: 96,
-  },
-};
-
 export const fixtures = [
   {
     name: "setup",
@@ -666,8 +633,7 @@ export const fixtures = [
   },
   {
     name: "plugins",
-    description:
-      "Countdown bar, emergency ticker priority and a brand bug over content.",
+    description: "Countdown bar and emergency ticker priority over content.",
     steps: [
       {
         present: {
@@ -677,42 +643,15 @@ export const fixtures = [
           activation: activation(1),
         },
       },
-      { plugins: { plugins: [countdown, brandBug] } },
+      { plugins: { plugins: [countdown] } },
       { advance: 0 },
       { checkpoint: "countdown", visual: true },
-      { plugins: { plugins: [countdown, brandBug, ticker] } },
+      { plugins: { plugins: [countdown, ticker] } },
       { advance: 0 },
       { checkpoint: "ticker-wins", visual: true },
-      { plugins: { plugins: [brandBug] } },
+      { plugins: { plugins: [] } },
       { advance: 1_000 },
       { checkpoint: "cleared", visual: true },
-    ],
-  },
-  {
-    name: "noise-meter",
-    // Needs a feature the pre-migration bridge did not have, or a long real-time run.
-    legacy: false,
-    description: "Host-measured noise levels take the strip and release it.",
-    steps: [
-      {
-        present: {
-          presentation: playing([
-            item("room", { src: "media:landscape", durationMs: null }),
-          ]),
-          activation: activation(1),
-        },
-      },
-      { plugins: { plugins: [noiseMeter, countdown] } },
-      { noise: 0.9 },
-      { advance: 100 },
-      { noise: 0.9 },
-      { advance: 100 },
-      { checkpoint: "loud" },
-      { noise: 0.0 },
-      { advance: 100 },
-      { noise: 0.0 },
-      { advance: 1_000 },
-      { checkpoint: "quiet" },
     ],
   },
   {
