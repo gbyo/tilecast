@@ -1,7 +1,9 @@
 # Tilecast Edge M9: reuse review
 
 **Date:** 2026-09-25
-**Scope:** M9 hardware parity (`docs/tilecast-edge.md` §18.1). This record compares each M9 subsystem with the mature Linux facility that can do the same work. It states what Tilecast keeps, what Tilecast replaces, and why.
+**Historical scope:** M9 hardware parity (`docs/tilecast-edge.md` §18.1). This record compares each M9 subsystem with the mature Linux facility that can do the same work. It states what Tilecast keeps, what Tilecast replaces, and why.
+
+Noise Meter has since been retired as a Tilecast plugin; this document records the earlier native implementation decision, not current feature availability.
 
 The rule for M9: Tilecast writes only the adapter between a system facility and the Tilecast contract. Tilecast does not own protocol behavior, device quirks or session policy that a maintained system component already owns.
 
