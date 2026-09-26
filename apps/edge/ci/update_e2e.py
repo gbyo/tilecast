@@ -540,8 +540,11 @@ def update_success():
     status = wait_healthy("0.2.0", "A provisional", 240)
     assert status["update"]["state"] in ("provisional", "confirmed"), status["update"]
     assert_helper_boundary("A provisional")
-    target = server_target(deployment)
-    assert target[0] in ("reconnecting", "succeeded"), f"the server sees the candidate: {target}"
+    # The candidate reports on its next coordinator pass (10 s) after its
+    # link is up.
+    e2e.wait_for(lambda: server_target(deployment)[0] in ("reconnecting", "succeeded"),
+                 "the server to see the candidate", 60)
+    assert server_target(deployment)[1] in ("provisional", "confirmed"), server_target(deployment)
     # Not confirmed by the version appearing: the stable period comes first.
     provisional_since = time.monotonic()
 
