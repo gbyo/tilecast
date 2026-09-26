@@ -15,11 +15,13 @@
 FROM debian:trixie@sha256:9cc080028c43b27d2074d63a5f9caf7166d731494965616c1a6d2827a004585c
 ARG SNAPSHOT=20260920T000000Z
 ENV DEBIAN_FRONTEND=noninteractive SOURCE_DATE_EPOCH=1789862400
+# Plain HTTP: the base image has no CA bundle for apt's HTTPS. apt verifies the
+# signed InRelease with debian-archive-keyring and every package by its hash.
 RUN rm -f /etc/apt/sources.list.d/debian.sources \
     && printf '%s\n' \
-      "deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/${SNAPSHOT} trixie main" \
-      "deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/${SNAPSHOT} trixie-updates main" \
-      "deb [check-valid-until=no] https://snapshot.debian.org/archive/debian-security/${SNAPSHOT} trixie-security main" \
+      "deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/${SNAPSHOT} trixie main" \
+      "deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/${SNAPSHOT} trixie-updates main" \
+      "deb [check-valid-until=no] http://snapshot.debian.org/archive/debian-security/${SNAPSHOT} trixie-security main" \
       > /etc/apt/sources.list \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
