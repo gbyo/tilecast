@@ -5,13 +5,13 @@ description: Install, pair, and update Tilecast Player on Android TV devices and
 
 Tilecast Player runs on each display. Choose the Android APK for Android TV, Google TV, or Fire TV, or use the current Linux AppImage on a 64-bit x86_64 computer with a graphical desktop session.
 
-Tilecast Edge is the new Linux Player that is still being developed. It replaces the current Electron/AppImage Player with a Linux service and WPE WebKit renderer. It is not the production Linux install yet; see [Tilecast Edge](../edge/) for the current preview.
+Tilecast Edge is the new Linux Player. It replaces the Electron/AppImage Player with a Linux service and a WPE WebKit renderer. Its software is complete, but it is still being qualified on physical hardware, so it is not the production Linux install yet. See [Tilecast Edge](../edge/).
 
 | Player  | Install format                    | Notes                                                                                                            |
 | ------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | Android | Signed APK, `tilecast-player.apk` | For Android TV, Google TV, and Fire TV devices that allow APK installation.                                      |
 | Linux   | AppImage                          | Current stable path. The server-provided installer targets x86_64 Linux with a graphical X11 or Wayland session. |
-| Edge    | Signed Linux release tree         | Preview only. Use it only when a Tilecast release lists your hardware as supported.                              |
+| Edge    | Signed Linux release archive      | Preview. Use it only when a Tilecast release lists your hardware as supported.                                   |
 
 Find the Android APK on the [Tilecast releases page](https://github.com/gbyo/tilecast/releases). The Linux installer downloads a signed, verified release cached on your Tilecast Server. See [Install the Linux Player](./install-linux/).
 

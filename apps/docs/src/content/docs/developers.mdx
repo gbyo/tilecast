@@ -17,7 +17,7 @@ import { FileTree, LinkButton, Steps } from "@astrojs/starlight/components";
     - dashboard/ React and TypeScript management app, Tilecast Studio.
     - player-android/ Kotlin and Jetpack Compose Player for Android TV devices.
     - player-linux/ Electron Player for Linux kiosk devices.
-    - edge/ Tilecast Edge, the Linux player in development: a Rust daemon, a WPE WebKit renderer, and a small user-session bridge.
+    - edge/ Tilecast Edge, the new Linux player: a Rust daemon, a WPE WebKit renderer, update and migration helpers, and a small user-session bridge.
     - docs/ Astro and Starlight public documentation site.
   - packages/ Shared design tokens and application contracts.
   - deploy/ Docker deployment and optional network integrations.
@@ -75,7 +75,7 @@ From the repository root, `make check` runs the repository's documented format, 
 
 ## Work on Tilecast Edge
 
-Tilecast Edge lives in `apps/edge` and is still in development; no release is published yet. Read [`apps/edge/README.md`](https://github.com/gbyo/tilecast/blob/main/apps/edge/README.md) and [`apps/edge/AGENTS.md`](https://github.com/gbyo/tilecast/blob/main/apps/edge/AGENTS.md) first. From `apps/edge`:
+Tilecast Edge lives in `apps/edge`. Its software milestones M1 to M10 are merged, physical hardware qualification (M11) is next, and no signed release is published yet. Read [`apps/edge/README.md`](https://github.com/gbyo/tilecast/blob/main/apps/edge/README.md) and [`apps/edge/AGENTS.md`](https://github.com/gbyo/tilecast/blob/main/apps/edge/AGENTS.md) first. From `apps/edge`:
 
 ```sh
 cargo fmt --all --check
@@ -103,4 +103,4 @@ Follow the [documentation style guide](https://github.com/gbyo/tilecast/blob/mai
 - [Development setup](https://github.com/gbyo/tilecast/blob/main/docs/development.md) covers local database and migration workflows.
 - [Architecture](https://github.com/gbyo/tilecast/blob/main/docs/architecture.md) describes the server and application boundaries.
 - [Android Player development](https://github.com/gbyo/tilecast/blob/main/docs/android-development.md) covers Android build and device workflows.
-- [Tilecast Edge architecture](https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge.md) and its [implementation ledger](https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-next.md) describe the Linux player in development.
+- [Tilecast Edge architecture](https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge.md) and its [implementation ledger](https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-next.md) describe the new Linux player and the state of each milestone.

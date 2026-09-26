@@ -1,32 +1,64 @@
 ---
-title: Migrate from the current Linux Player
-description: See how the Edge preview moves a screen from Electron to Tilecast Edge and rolls back if needed.
+title: Migrate from the stable Linux Player
+description: Move a screen from the Electron/AppImage Linux Player to Tilecast Edge, keep its pairing, and roll back automatically if Edge doesn't settle.
 ---
 
-:::caution[Preview]
-Do not migrate a production screen until a Tilecast release says Edge is supported on that hardware.
-:::
+import { Aside, LinkButton, Steps } from "@astrojs/starlight/components";
 
-The Edge migration is designed to avoid having the current Linux Player and Edge both control the same Tilecast screen at the same time.
+A migration moves one screen from the stable Linux AppImage Player to Edge. The screen keeps its identity, pairing, assignments, and history in Studio. Only one of the two Players controls the screen at any time, and a failed migration puts the AppImage Player back.
 
-## Before the switch
+Tilecast never migrates a screen on its own. Updating Tilecast Server doesn't move screens to Edge, and you start each migration on the computer.
 
-The migration checks the Edge release, the current Player service, the Edge daemon and renderer, display access, and whether the screen's current content can run on Edge.
+<Aside type="caution" title="Production screens">
+  Don't migrate a production screen until a Tilecast release lists its hardware
+  as supported. Physical hardware qualification is still in progress.
+</Aside>
 
-If one of those checks fails, the current Linux Player keeps running.
+<LinkButton href="../compatibility/" variant="secondary" icon="right-arrow">
+  Check compatibility first
+</LinkButton>
 
-## Switching to Edge
+## Before you start
 
-After the checks pass, the migrator stops the current Player, moves the small amount of state Edge needs, and starts Edge.
+- Check the [requirements](../requirements/). Edge takes over the display on the first console, so the computer stops using its desktop session for the Player.
+- Check [content compatibility](../compatibility/) and recent [Activity](../../operations/activity/) for the screen.
+- Make sure Tilecast Server is reachable from the computer. The migration checks the server's identity before it keeps the Player credential.
+- Take a current [server backup](../../administration/backups/).
+- Install the signed Edge release with `tilecast-edge-migrate install`, as in steps 1 and 2 of [Install Tilecast Edge](../install/#install-and-start-edge).
 
-Edge must then connect to the server, start the expected renderer, load the current presentation, and keep playback moving before the migration is accepted.
+## Migrate a screen
 
-If the credential is rejected, the presentation cannot run, Edge enters safe mode, or the old Player comes back unexpectedly, the migration can roll back.
+<Steps>
 
-## Rollback
+1. Start the migration, where `KIOSK` is the account that runs the AppImage Player:
 
-During the migration window, rollback stops Edge and restores the previous Player setup. A crash or power loss during migration does not count as a successful switch.
+   ```sh
+   sudo /opt/tilecast-edge/current/bin/tilecast-edge-migrate migrate --kiosk KIOSK
+   ```
 
-After Edge has been accepted, the old Player can remain installed but disabled until you choose to remove it later.
+   The command prints its progress. If your SSH session disconnects, the migration continues.
 
-Before migrating, check [requirements](../requirements/), [content compatibility](../compatibility/), recent [Activity](../../operations/activity/), and your latest [server backup](../../administration/backups/).
+2. Wait for the result. Before it stops the AppImage Player, the migrator verifies the release, runs a self-test of Edge, and checks that Edge can show the screen's current presentation. If any check fails, it changes nothing.
+3. After the switch, Edge must connect to the server and play the current presentation steadily for 60 seconds. Then the migrator accepts the migration and prints the result.
+4. Check the screen in Studio. It shows the same screen, online, with its presentation.
+
+</Steps>
+
+## Automatic rollback
+
+Until the migration is accepted, the migrator puts the AppImage Player and the desktop session back if:
+
+- Edge can't import the Player's credential or reach the server;
+- Edge can't show the presentation, enters safe mode, or doesn't settle within the time limit;
+- the AppImage Player starts again;
+- the computer crashes or loses power during the switch.
+
+The AppImage Player's files are never changed during a migration. `tilecast-edge-migrate status` shows the last attempt and its reason. You can also roll back by hand before the migration is accepted:
+
+```sh
+sudo /opt/tilecast-edge/current/bin/tilecast-edge-migrate rollback
+```
+
+To try again after a rollback, fix the reason and run `migrate` again. A command that either Player already ran never runs twice.
+
+After acceptance, rollback is no longer possible. The AppImage Player stays on the disk, turned off, until you remove it later.

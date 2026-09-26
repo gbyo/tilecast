@@ -18,6 +18,8 @@ The rule for M9: Tilecast writes only the adapter between a system facility and 
 | Device access        | udev rules, a sysusers group, `modules-load.d`, systemd `DevicePolicy=closed`.                                                                                                       | Packaging files                                                     |
 | M10 updates          | Prototype `systemd-sysupdate` before any custom updater code.                                                                                                                        | None in M9                                                          |
 
+> **Later outcome (M10).** The M10 row is the M9 recommendation, and §8 repeats it. M10 prototyped `systemd-sysupdate`, did not adopt it, and built on the M7 release installer instead. The evidence and the decision are in [`tilecast-edge-m10-sysupdate-evaluation.md`](tilecast-edge-m10-sysupdate-evaluation.md).
+
 ## 2. HDMI-CEC
 
 The kernel CEC framework is the Linux interface for HDMI-CEC. The provider uses the official UAPI (`linux/cec.h`) through `rustix` ioctls. The kernel owns logical address allocation, message retransmission and the follower messages that the CEC core answers.
@@ -117,4 +119,5 @@ Tilecast adds no `xset` call, no input simulation and no idle timer. The capabil
 
 - `docs/tilecast-edge.md` §4: the session bridge is a third Edge process (§4.4).
 - `docs/tilecast-edge.md` §15: M10 prototypes `systemd-sysupdate` (transfer definitions, verified downloads, A/B versions under `/opt/tilecast-edge/<version>/`) before any custom update code. Mender is not a candidate.
+
 - `docs/tilecast-edge-future.md`: an optional libddcutil helper process and an optional libCEC provider, each only after M11 hardware evidence.

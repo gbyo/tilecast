@@ -7,12 +7,13 @@ export const onRequest = defineRouteMiddleware((context) => {
   const { starlightRoute } = context.locals;
   if (!starlightRoute || !starlightRoute.entry?.data) return;
 
-  // Keep the development status visible on every current and future Edge page
-  // without duplicating the same frontmatter across the whole section.
+  // Keep the qualification status visible on every current and future Edge
+  // page without duplicating the same frontmatter across the whole section.
+  // Remove it only when a release qualifies Edge for production hardware.
   if (starlightRoute.id === "edge" || starlightRoute.id.startsWith("edge/")) {
     starlightRoute.entry.data.banner = {
       content:
-        "Tilecast Edge is in preview and is not the production Linux Player yet.",
+        "Tilecast Edge is in preview. Its software is complete, but it is not qualified on physical hardware yet. Use the stable Linux Player on production screens until a Tilecast release supports your hardware.",
     };
   }
 

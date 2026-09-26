@@ -1,36 +1,67 @@
 ---
 title: Install Tilecast Edge
-description: See how a clean Tilecast Edge installation works in the current preview.
+description: Install a signed Tilecast Edge release on a Linux computer that has no Tilecast Player yet, then pair it.
 ---
 
-For production screens, use [Install Tilecast Player on Linux](../../players/install-linux/).
+import { FileTree, LinkButton, Steps } from "@astrojs/starlight/components";
 
-Edge is packaged differently from the current AppImage Player. Instead of starting one AppImage from a desktop session, Edge installs a signed release under system services and checks that the Player can start correctly before enabling it.
+A clean install puts Edge on a Linux computer that doesn't run a Tilecast Player yet. When you finish, the screen shows the Edge setup screen and is ready to pair.
 
-## Clean install
+If the computer already runs the stable Linux AppImage Player, [migrate it](../migrate/) instead. Don't install Edge over it.
 
-The preview installer is designed to:
+## Before you start
 
-1. verify the signed release and its files;
-2. install Edge under `/opt/tilecast-edge/`;
-3. create the required users, directories, and systemd services;
-4. run checks for `tilecastd` and the WPE renderer;
-5. check the selected display backend;
-6. enable Edge only after those checks pass;
-7. show setup and wait for pairing.
+- Check the [requirements](../requirements/). The installer takes over the display from the desktop session.
+- Get a signed Edge release for the computer's architecture. Tilecast hasn't published a signed Edge release yet; the release notes will say which hardware each release supports.
+- Have root access on the computer.
 
-If the checks fail, Edge stays disabled instead of replacing a working screen with a blank Player.
+## Install and start Edge
 
-## Files and services
+<Steps>
 
-The preview currently uses:
+1. Unpack the release into an empty directory, and verify its signature with OpenSSL and the published Tilecast key as described in the [packaging guide](https://github.com/gbyo/tilecast/blob/main/apps/edge/packaging/README.md#1-verify-and-install-the-release).
+2. From the unpacked release directory, install the release:
 
-- `tilecast-edge.service` for `tilecastd`;
-- `tilecast-renderer.service` for WPE;
-- `/var/lib/tilecast-edge/` for Player state and cached content;
-- `/run/tilecast-edge/` for local communication between Edge components;
-- `/opt/tilecast-edge/` for installed release files.
+   ```sh title="In the unpacked release directory"
+   sudo ./bin/tilecast-edge-migrate install --from .
+   ```
 
-The renderer does not get direct access to the whole Player data directory. Media is provided through the local Edge service.
+   The installer checks the signature and every file again, then installs Edge under `/opt/tilecast-edge/`. It doesn't start Edge yet.
 
-If the computer already runs the current Linux AppImage Player, use the [migration guide](../migrate/) instead of doing a clean install over it.
+3. Run the clean install:
+
+   ```sh
+   sudo /opt/tilecast-edge/current/bin/tilecast-edge-migrate clean-install
+   ```
+
+   Edge runs a self-test of the daemon and the WPE renderer, then starts and shows its setup screen. If Edge can't settle on the setup screen, the installer turns Edge off again and restores the display session.
+
+4. Pair the screen from the setup screen, or from the command line. See [Pair an Edge screen](../pairing/).
+
+</Steps>
+
+<LinkButton href="../pairing/" icon="right-arrow">
+  Pair the screen
+</LinkButton>
+
+## What the installer sets up
+
+Edge runs as system services under a dedicated `tilecast` account, not in a desktop session:
+
+- `tilecast-edge.service` runs `tilecastd`, the Player service. It doesn't run as root.
+- `tilecast-renderer.service` runs the WPE WebKit renderer in a more restricted sandbox. It can't read the Player's data directory and gets media only through `tilecastd`.
+- `tilecast-edge-update.socket` starts the update helper only when `tilecastd` asks it to install an update. While an update is provisional, a guard from the previous release also runs. See [Update Tilecast Edge](../updates/).
+- A small process in the `tilecast` account's session reads the audio devices for the Noise Meter.
+
+<FileTree>
+
+- /opt/tilecast-edge/
+  - 1.5.0/ An installed release. Releases are never changed after install.
+  - current Points to the release that runs.
+- /etc/tilecast-edge/ Optional local configuration.
+- /var/lib/tilecast-edge/ Player state, the Player credential, and cached content. Only `tilecastd` can read it.
+- /run/tilecast-edge/ Local sockets between the Edge processes.
+
+</FileTree>
+
+Don't copy, share, or delete `/var/lib/tilecast-edge/`. It holds the screen's pairing, and deleting it means pairing the screen again.

@@ -39,13 +39,13 @@ A host publishes one object, `globalThis.tilecastRuntimeHost`, that implements `
 
 Behavior depends on `capabilities`, never on `info.host`:
 
-| Capability             | Electron              | WPE (Edge)                      |
-| ---------------------- | --------------------- | ------------------------------- |
-| `remoteWeb`            | `electron-webview`    | `null` until M11 isolation      |
-| `synchronizedPlayback` | `true`                | `true` (`tilecastd` anchors)    |
-| `setup`                | `true`                | `true`                          |
-| `discovery`            | `true`                | `true` (Avahi, `tilecastd`)     |
-| `noiseMeter`           | `renderer-microphone` | `null` (PipeWire arrives in M9) |
+| Capability             | Electron              | WPE (Edge)                     |
+| ---------------------- | --------------------- | ------------------------------ |
+| `remoteWeb`            | `electron-webview`    | `null` until M11 isolation     |
+| `synchronizedPlayback` | `true`                | `true` (`tilecastd` anchors)   |
+| `setup`                | `true`                | `true`                         |
+| `discovery`            | `true`                | `true` (Avahi, `tilecastd`)    |
+| `noiseMeter`           | `renderer-microphone` | `host-levels` (session bridge) |
 
 `info` (host name and version, engine name and version) is for diagnostics only.
 

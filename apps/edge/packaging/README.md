@@ -2,7 +2,7 @@
 
 This directory has the system integration files for Tilecast Edge. `tilecast-edge-migrate` installs them from a signed release and runs the one-way migration from the Electron Linux Player. `tilecast-edge-update` installs later releases (M10, section 4). The design and its guarantees are in [`docs/tilecast-edge-next.md`](../../../docs/tilecast-edge-next.md) (M7), and the root-operation reviews are [`docs/tilecast-edge-migration-threat-review.md`](../../../docs/tilecast-edge-migration-threat-review.md) and [`docs/tilecast-edge-update-threat-review.md`](../../../docs/tilecast-edge-update-threat-review.md).
 
-> **Status.** Edge plays server content, including synchronized groups (M6). It is qualified on the headless WPE platform only. Physical DRM and Wayland hardware qualification is M11. Do not migrate a production screen before the release notes say that its hardware class is qualified.
+> **Status.** M1 to M10 are merged. Edge plays server content, including synchronized groups (M6), and installs signed updates with provisional confirmation and automatic rollback (M10). It is qualified on the headless WPE platform and under systemd in containers only. Physical DRM and Wayland hardware qualification, and update and rollback on reference hardware, are M11. Do not migrate a production screen before the release notes say that its hardware class is qualified.
 
 ## Files
 

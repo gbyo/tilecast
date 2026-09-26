@@ -1,25 +1,26 @@
 ---
 title: Content compatibility
-description: Check whether a screen's content can run on the Tilecast Edge preview.
+description: Check whether a screen's content can play on Tilecast Edge before you migrate it, and what Edge does with content it can't show.
 ---
 
-Edge keeps the last working presentation if a newer one needs a feature it cannot render yet.
+Edge keeps playing the last presentation it could show if a newer one needs a feature it doesn't have. It reports the reason to Studio instead of showing a partial or blank presentation.
 
-:::caution[Preview]
-This page describes the current development stack, not a final Edge support promise.
-:::
+## Content that plays on Edge
 
-## Working in the current preview
+Edge plays images, downloaded video, native Widgets (including Clock, Date, World Clock, and Countdown), Layouts and playlist zones, transitions, direct assignments, schedules, Takeovers, Quick Present, synchronized Display Groups, unrotated Span content, status screens, and the Brand Bug, Countdown Bar, alert ticker, and Noise Meter plugins.
 
-Current automated coverage includes images, downloaded video, native Widgets, Clock/Date/World Clock/Countdown Widgets, Layouts and playlist zones, transitions, direct assignments, schedules, Takeovers, Quick Present, synchronized Display Groups, unrotated Span content, status screens, and the Brand Bug, Countdown Bar, and alert ticker plugin surfaces.
+For large videos and items marked for streaming, Edge downloads and verifies the complete file before it plays it. The item starts a little later the first time, and it keeps playing offline afterward.
 
-For large or stream-marked videos, Edge downloads and verifies the complete file before playback instead of promoting a partial download.
+## Content Edge can't show yet
 
-## Still being worked on
+- **Websites, YouTube, and web Widgets.** Edge doesn't run remote web content until the website isolation work in M11 is done.
+- **Rotated Span panels.** Edge rotates Span content the same way as the stable Linux Player, but rotation isn't verified on a physical wall yet.
 
-Remote Website content and YouTube still need the WPE website-isolation work. Rotated Span playback, frame alignment, graphics output, codecs, and hardware decoding also need more work or hardware testing. Player self-updates with automatic rollback work in automated testing and still need testing on real hardware.
+Codecs, hardware video decoding, and multi-panel frame alignment also still need testing on real hardware. See the [capability matrix](../capabilities/) for the full comparison.
 
-Before moving a screen to Edge, check:
+## Check a screen before you move it
+
+Review these in Studio for the screen you plan to migrate:
 
 - its direct assignment and upcoming schedules;
 - Layout zones and Widgets;
@@ -28,6 +29,4 @@ Before moving a screen to Edge, check:
 - Website or YouTube content;
 - Display Control and other hardware features.
 
-The migration check also reviews compatibility before it stops the current Linux Player.
-
-See the [capability matrix](../capabilities/) for a quick comparison with the stable Linux Player.
+The [migration](../migrate/) also checks the screen's current presentation before it stops the stable Linux Player, and refuses to switch if Edge can't show it.

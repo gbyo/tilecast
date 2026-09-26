@@ -1,30 +1,30 @@
 ---
 title: Player capability matrix
-description: Compare Android, stable Linux, and the Tilecast Edge preview before choosing hardware or depending on a platform-specific feature.
+description: Compare Android, stable Linux, and Tilecast Edge before choosing hardware or depending on a platform-specific feature.
 ---
 
 Available features can depend on the Player platform, operating-system version, firmware, adapters, and display hardware.
 
 Use this table as a starting point, then check the actual screen in Studio before relying on a hardware-specific feature.
 
-| Capability                                 | Android TV / Google TV / Fire TV                      | Stable Linux Player                     | Tilecast Edge preview                 |
-| ------------------------------------------ | ----------------------------------------------------- | --------------------------------------- | ------------------------------------- |
-| Images, video, Widgets, Layouts, Schedules | Supported                                             | Supported                               | Preview                               |
-| Prepared offline playback                  | Supported                                             | Supported                               | Preview                               |
-| Website and YouTube content                | Supported where the Android web runtime can load it   | Supported by Electron webviews          | Not yet supported on Edge             |
-| Quick Present and Takeover                 | Supported                                             | Supported                               | Preview                               |
-| Synchronized Display Groups                | Supported                                             | Supported                               | Preview                               |
-| Span walls                                 | Supported with current platform limits                | Supported with current platform limits  | Preview; still needs hardware testing |
-| Live preview                               | Supported                                             | Supported                               | Preview in M8                         |
-| Watch live                                 | Supported on capture-capable states                   | Supported on capture-capable states     | Not yet supported on Edge             |
-| Player updates                             | Supported; Android/Fire OS can require local approval | Supported for the managed AppImage path | Not yet supported on Edge             |
-| Managed Kiosk                              | Device-owner capable Android only                     | Not applicable                          | Not applicable                        |
-| Android Power Assist                       | Device/firmware dependent                             | Not applicable                          | Not applicable                        |
-| Accessibility Control Assist               | Android platform feature; Fire OS support differs     | Not applicable                          | Not applicable                        |
-| Display Control                            | Not provided by Tilecast Player                       | HDMI-CEC and DDC/CI where reported      | Preview in M9                         |
-| AirPlay receiver                           | Not supported                                         | Supported when provisioned              | Not in the current Edge 1 plan        |
-| Presentation Network                       | Not supported                                         | Supported when provisioned              | Preview in M9                         |
-| Noise Meter                                | Not supported                                         | Supported with an audio input           | Preview in M9 host-audio work         |
+| Capability                                 | Android TV / Google TV / Fire TV                      | Stable Linux Player                     | Tilecast Edge                                |
+| ------------------------------------------ | ----------------------------------------------------- | --------------------------------------- | -------------------------------------------- |
+| Images, video, Widgets, Layouts, Schedules | Supported                                             | Supported                               | Implemented; codecs need hardware testing    |
+| Prepared offline playback                  | Supported                                             | Supported                               | Implemented                                  |
+| Website and YouTube content                | Supported where the Android web runtime can load it   | Supported by Electron webviews          | Not available yet                            |
+| Quick Present and Takeover                 | Supported                                             | Supported                               | Implemented                                  |
+| Synchronized Display Groups                | Supported                                             | Supported                               | Implemented                                  |
+| Span walls                                 | Supported with current platform limits                | Supported with current platform limits  | Implemented; rotation needs hardware testing |
+| Live preview                               | Supported                                             | Supported                               | Implemented                                  |
+| Watch live                                 | Supported on capture-capable states                   | Supported on capture-capable states     | Not available                                |
+| Player updates                             | Supported; Android/Fire OS can require local approval | Supported for the managed AppImage path | Implemented, with automatic rollback         |
+| Managed Kiosk                              | Device-owner capable Android only                     | Not applicable                          | Not applicable                               |
+| Android Power Assist                       | Device/firmware dependent                             | Not applicable                          | Not applicable                               |
+| Accessibility Control Assist               | Android platform feature; Fire OS support differs     | Not applicable                          | Not applicable                               |
+| Display Control                            | Not provided by Tilecast Player                       | HDMI-CEC and DDC/CI where reported      | Implemented; hardware dependent              |
+| AirPlay receiver                           | Not supported                                         | Supported when provisioned              | Not part of Edge 1                           |
+| Presentation Network                       | Not supported                                         | Supported when provisioned              | Implemented; hardware dependent              |
+| Noise Meter                                | Not supported                                         | Supported with an audio input           | Implemented; needs an audio input            |
 
 ## Fire TV uses the Android Player
 
@@ -32,8 +32,8 @@ Fire TV uses the same Android Player, but Amazon firmware can behave differently
 
 Device-owner kiosk setup, accessibility settings, unattended app updates, and boot behavior can vary by model and Fire OS version. Check commissioning and the features reported by the actual device before depending on them.
 
-## Edge is still a preview
+## Edge is not qualified for production yet
 
-The Edge column describes current development work, not a released replacement for the AppImage Player.
+The Edge column shows what the Edge software does. None of it is qualified on physical hardware yet, so keep production Linux screens on the stable Linux Player until a Tilecast release lists your hardware as supported.
 
-See the [Edge capability matrix](../../edge/capabilities/) for more detail about the current preview and its limits.
+See the [Edge capability matrix](../../edge/capabilities/) for the details and limits of each feature.
