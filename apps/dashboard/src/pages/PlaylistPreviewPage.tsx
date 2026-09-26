@@ -157,10 +157,15 @@ function PreviewMedia({
     if (!widgetItem) return;
     if (
       presentationQuery.data?.kind === "native" &&
-      (!dataSourceId || !sourceQuery.isLoading)
+      (!dataSourceId || sourceQuery.isSuccess)
     )
       onReady();
-    else if ((widgetQuery.isError || presentationQuery.isError) && active)
+    else if (
+      (widgetQuery.isError ||
+        presentationQuery.isError ||
+        (dataSourceId && sourceQuery.isError)) &&
+      active
+    )
       onError();
   }, [
     active,
@@ -170,7 +175,8 @@ function PreviewMedia({
     onReady,
     presentationQuery.data,
     presentationQuery.isError,
-    sourceQuery.isLoading,
+    sourceQuery.isError,
+    sourceQuery.isSuccess,
     widgetQuery.data,
     widgetQuery.isError,
   ]);
