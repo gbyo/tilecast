@@ -6,35 +6,34 @@
  * the runtime is built. Nothing is loaded at run time.
  *
  * The host owns geometry, arbitration, and time: which plugin holds a strip
- * or a corner, how tall the strip is, whether it pushes content up, the
- * corrected clock, reduced motion, and the lifecycle. A plugin owns what it
- * draws inside the elements the host gives it. It never reads host globals,
- * never touches the content stage, and keeps time only with its context's
- * clock, so a conformance run can freeze and advance it.
- *
- * The contract mirrors the widget contract in
- * packages/player-runtime/src/widgets/contract.ts: engine-agnostic DOM, a
- * corrected clock, deterministic frames for conformance, and no arbitrary
- * host access.
+ * or a corner, how tall the strip is, whether it pushes content away, the
+ * corrected clock, timers, reduced motion, sleep, and the lifecycle. A plugin
+ * owns what it draws inside the elements the host gives it. It never reads
+ * host globals, never touches the content stage, and keeps time only with its
+ * context's clock, so a conformance run can freeze and advance it.
  */
-import type { surfaceSlots } from "./manifest.ts";
+import type { surfaceSlots, surfaceTiers } from "./manifest.ts";
 
 /** Where a plugin may draw. See the manifest's runtime.surfaces. */
 export type SurfaceSlot = (typeof surfaceSlots)[number];
 
 /**
- * How strongly a claim competes for a slot. The host compares tiers first and
+ * How strongly a plugin competes for a slot, declared once in the manifest's
+ * runtime.tier and in the definition. The host compares tiers first and
  * priorities only within a tier, so a scheduled countdown can never outrank
- * an emergency alert however it is configured.
+ * an emergency alert however it is configured. A claim cannot choose its
+ * own tier.
  */
-export type SurfaceTier = "emergency" | "live" | "scheduled" | "ambient";
+export type SurfaceTier = (typeof surfaceTiers)[number];
 
-export const SURFACE_TIERS: readonly SurfaceTier[] = [
-  "emergency",
-  "live",
-  "scheduled",
-  "ambient",
-];
+/** Strip slots: full-width bands at the top or bottom of the screen. */
+export const STRIP_SLOTS = ["strip.top", "strip.bottom"] as const;
+
+/** Claim priorities outside this range are refused. */
+export const CLAIM_PRIORITY_LIMIT = 1_000_000;
+
+/** A strip claim taller than this, in CSS pixels, is refused. */
+export const MAX_STRIP_HEIGHT_PX = 540;
 
 /** One entry of the Player manifest's `plugins` array. */
 export interface RuntimeManifestEntry<Config = unknown> {
@@ -69,16 +68,29 @@ export interface RuntimePluginClock {
 /** How a host measures the room for a plugin that declares `microphone`. */
 export type MicrophoneSource = "renderer-microphone" | "host-levels";
 
-/** The Player microphone, for a plugin that declares hardware `microphone`. */
+/** An open microphone. Closing it releases the device. */
+export interface MicrophoneLevels {
+  close(): void;
+}
+
+/**
+ * The Player microphone, for a plugin that declares hardware `microphone`.
+ * It yields root-mean-square levels, never audio: no sample leaves the host
+ * service, and nothing is recorded or transmitted.
+ */
 export interface RuntimeMicrophone {
   /** Where levels come from, or null when this Player has no microphone path. */
   readonly source: MicrophoneSource | null;
   /**
-   * Host-measured root-mean-square levels in [0, 1] (source "host-levels").
-   * Never audio. Returns an unsubscribe function.
+   * Start measuring. `onLevel` receives RMS levels in [0, 1], or null while
+   * the input is unavailable. Returns null when there is no source.
    */
-  onHostLevel(listener: (rms: number | null) => void): () => void;
-  /** Report the plugin's state and derived measurements to the Player. */
+  open(onLevel: (rms: number | null) => void): MicrophoneLevels | null;
+  /**
+   * Report the plugin's state and derived measurements to the Player. With
+   * the `host-levels` source, the host opens its microphone while the
+   * reported status is not "inactive".
+   */
   report(report: {
     status: string;
     level?: number | null;
@@ -94,7 +106,10 @@ export interface RuntimePluginContext {
   reducedMotion(): boolean;
   /** 0 freezes motion at a deterministic frame (conformance snapshots). */
   readonly animationScale: number;
-  /** Ask the host to re-evaluate claims now instead of on the next tick. */
+  /**
+   * Ask the host to evaluate again soon instead of on the next tick. Calls
+   * are coalesced; one made during an evaluation schedules one more pass.
+   */
   invalidate(): void;
   /** False while the Player is outside its active hours. */
   awake(): boolean;
@@ -104,27 +119,34 @@ export interface RuntimePluginContext {
   readonly microphone?: RuntimeMicrophone;
 }
 
-/** What a plugin wants now: one claim per slot it would like to hold. */
+/**
+ * What a plugin wants now: at most one claim per slot. The plugin chooses
+ * among its own instances first; the host compares plugins.
+ */
 export interface SurfaceClaim {
   slot: SurfaceSlot;
-  tier: SurfaceTier;
-  /** Higher wins within a tier. */
+  /**
+   * Higher wins within the plugin's tier. A finite number within
+   * ±CLAIM_PRIORITY_LIMIT.
+   */
   priority: number;
-  /** For strips: the height the strip should take, in CSS pixels. */
+  /** Strips only: the band's height in CSS pixels (0 < h ≤ MAX_STRIP_HEIGHT_PX). */
   heightPx?: number;
-  /** For strips: overlay the content, or push it out of the way. */
+  /** Strips only: overlay the content (default), or push it out of the way. */
   displayMode?: "overlay" | "push";
 }
 
-/** The host's decision for one plugin after an update. */
+/** The host's decision for one plugin after an evaluation. */
 export interface SurfaceGrant {
-  /** Slots this plugin holds now. A slot not listed is hidden. */
+  /** Slots this plugin holds now. A slot not listed must show nothing. */
   readonly shown: ReadonlySet<SurfaceSlot>;
   /**
-   * How far a bottom-corner surface must lift to clear the bottom strip, in
-   * CSS pixels. The host also exposes it as `--tc-corner-lift` on the
-   * bottom-corner slots.
+   * How far top-corner surfaces sit below the top strip, in CSS pixels. The
+   * host already places corner containers clear of the strips; this is for a
+   * plugin that animates or measures against it.
    */
+  readonly topLiftPx: number;
+  /** How far bottom-corner surfaces sit above the bottom strip. */
   readonly bottomLiftPx: number;
 }
 
@@ -132,29 +154,34 @@ export interface RuntimePluginInstance {
   /**
    * Called once for each surface the plugin declares, with the host-owned
    * container to draw in. The plugin builds its elements here and keeps them:
-   * the host never removes a plugin's elements between updates, so media is
-   * not re-decoded and animations are not restarted.
+   * the host never removes a plugin's elements between evaluations, so media
+   * is not decoded again and animations do not restart. A plugin that loses a
+   * slot keeps its elements and hides them.
    */
   mount(slot: SurfaceSlot, container: HTMLElement): void;
   /**
-   * The current manifest entries of the plugin's types, after every manifest
-   * change, on every host tick (about once a second), and after invalidate().
-   * Returns the claims the plugin makes now.
+   * The current manifest entries of the plugin's types. Called on every
+   * evaluation: after a manifest change, on each host tick (about once a
+   * second), after invalidate(), and on sleep and wake. Returns the claims the
+   * plugin makes now. It must not call invalidate() synchronously to get a
+   * second update.
    */
   update(entries: readonly RuntimeManifestEntry[]): SurfaceClaim[];
   /** Draw what the host granted. Called after every update. */
   render(grant: SurfaceGrant): void;
-  /** The Player went to sleep or woke up. */
+  /** The Player went to sleep or woke up. Stop unneeded work while asleep. */
   setAwake?(awake: boolean): void;
   /** Text a conformance probe reports for a slot the plugin holds. */
   describe?(slot: SurfaceSlot): string;
-  /** Release timers, hardware, and listeners. */
+  /** Release hardware and listeners. The host cancels the plugin's timers. */
   dispose(): void;
 }
 
 export interface RuntimePluginDefinition {
   /** Must equal the manifest's id. */
   readonly id: string;
+  /** Must equal the manifest's runtime.tier. */
+  readonly tier: SurfaceTier;
   /** Must equal the manifest's runtime.manifestTypes. */
   readonly manifestTypes: readonly string[];
   /** Must equal the manifest's runtime.surfaces. */
@@ -183,4 +210,36 @@ export function setStyles(
       element.style.removeProperty(name);
     else element.style.setProperty(name, value);
   }
+}
+
+/**
+ * Create an element with classes and optional text. A small convenience so
+ * plugin views stay free of innerHTML, which the Player never uses.
+ */
+export function element<K extends keyof HTMLElementTagNameMap>(
+  tag: K,
+  className: string,
+  text?: string,
+): HTMLElementTagNameMap[K] {
+  const node = document.createElement(tag);
+  node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+/**
+ * Compact countdown vocabulary shared by the Player's temporal widgets and
+ * plugins: "2d 3h", "4h 5m", "6m 7s", "8s", and "Now".
+ */
+export function compactDuration(remainingMilliseconds: number): string {
+  if (remainingMilliseconds <= 0) return "Now";
+  const totalSeconds = Math.floor(remainingMilliseconds / 1_000);
+  const days = Math.floor(totalSeconds / 86_400);
+  const hours = Math.floor((totalSeconds % 86_400) / 3_600);
+  const minutes = Math.floor((totalSeconds % 3_600) / 60);
+  const seconds = totalSeconds % 60;
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
 }

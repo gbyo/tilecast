@@ -12,7 +12,8 @@ The design, the host contract (`TilecastRuntimeHostV1`), the Lit and XState arch
 | `src/surfaces`    | `MediaSurface` implementations and the stage.                                                         |
 | `src/transitions` | Web Animations transitions.                                                                           |
 | `src/views`       | Lit views in light DOM.                                                                               |
-| `src/compat`      | Compatibility code: RenderNode projection and interpretation, and the built-in plugin surfaces.       |
+| `src/compat`      | Compatibility code: RenderNode projection and interpretation.                                         |
+| `src/plugins`     | The runtime surface host, the microphone service, and plugin discovery.                               |
 | `src/widgets`     | The contract for future first-class widget components.                                                |
 | `static`          | `index.html`, `runtime.css`, the logo and the font licence.                                           |
 | `conformance`     | The cross-engine conformance fixtures, runners, comparison and performance scenarios.                 |

@@ -238,9 +238,14 @@
               "overlay"
             ]
           }
+        },
+        "tier": {
+          "type": "string",
+          "enum": ["emergency", "live", "scheduled", "ambient"],
+          "description": "Arbitration tier of the plugin's surfaces: emergency, live, scheduled, or ambient. Declared once; a claim cannot choose its own tier."
         }
       },
-      "required": ["manifestTypes"],
+      "required": ["manifestTypes", "tier"],
       "additionalProperties": false
     },
     "docs": {

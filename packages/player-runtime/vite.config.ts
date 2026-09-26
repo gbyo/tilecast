@@ -30,6 +30,7 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["src/**/*.test.ts"],
+    // Plugin runtime tests run with the runtime's, in the same environment.
+    include: ["src/**/*.test.ts", "../../plugins/*/runtime/**/*.test.ts"],
   },
 });

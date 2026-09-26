@@ -1,4 +1,4 @@
-import type { TilecastManifestPluginEntry } from "./countdown-bar-resolver";
+import type { RuntimeManifestEntry as TilecastManifestPluginEntry } from "@tilecast/plugin-sdk/runtime";
 /**
  * Emergency Alerts ticker resolution: whether a live alert bar should be on
  * screen right now, and how fast its text should travel. Kept as a tiny global
@@ -41,7 +41,7 @@ export interface TilecastActiveAlertTicker {
 
 export interface TilecastAlertTickerResolver {
   resolve(
-    plugins: TilecastManifestPluginEntry[] | null | undefined,
+    plugins: readonly TilecastManifestPluginEntry[] | null | undefined,
     localNow: Date,
     clockOffsetMs?: number,
   ): TilecastActiveAlertTicker | null;
@@ -54,7 +54,7 @@ export const tilecastAlertTicker: TilecastAlertTickerResolver = (() => {
 
   return Object.freeze({
     resolve(
-      plugins: TilecastManifestPluginEntry[] | null | undefined,
+      plugins: readonly TilecastManifestPluginEntry[] | null | undefined,
       localNow: Date,
       clockOffsetMs = 0,
     ): TilecastActiveAlertTicker | null {

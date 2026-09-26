@@ -32,5 +32,10 @@
     "route": "/plugins/noise-meter",
     "entrypoint": "./studio/index.tsx"
   },
+  "runtime": {
+    "manifestTypes": ["noise_meter"],
+    "surfaces": ["strip.bottom"],
+    "tier": "live"
+  },
   "docs": { "reference": "docs/plugins.md#noise-meter" }
 }

@@ -1,4 +1,4 @@
-import { tilecastAlertTicker } from "./alert-ticker-resolver";
+import { tilecastAlertTicker } from "./resolver";
 import { describe, expect, it } from "vitest";
 
 interface PluginEntry {

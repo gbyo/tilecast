@@ -36,8 +36,10 @@
     "entrypoint": "./studio/index.tsx"
   },
   "runtime": {
+    "entrypoint": "./runtime/index.ts",
     "manifestTypes": ["countdown_bar"],
-    "surfaces": ["strip.bottom", "overlay"]
+    "surfaces": ["strip.bottom", "overlay"],
+    "tier": "scheduled"
   },
   "docs": {
     "reference": "docs/plugins.md#countdown-bar",

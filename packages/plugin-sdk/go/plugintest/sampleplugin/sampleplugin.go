@@ -40,7 +40,7 @@ const manifest = `{
   "server": { "entrypoint": "./plugin.go" },
   "api": { "basePaths": ["/plugins/sample-tally"], "openapi": "./api/openapi.yaml" },
   "studio": { "route": "/plugins/sample-tally", "entrypoint": "./studio/index.tsx" },
-  "runtime": { "entrypoint": "./runtime/index.ts", "manifestTypes": ["sample_tally"], "surfaces": ["corner.top-left"] },
+  "runtime": { "entrypoint": "./runtime/index.ts", "manifestTypes": ["sample_tally"], "surfaces": ["corner.top-left"], "tier": "ambient" },
   "docs": { "reference": "packages/plugin-sdk/go/plugintest/sampleplugin" }
 }`
 

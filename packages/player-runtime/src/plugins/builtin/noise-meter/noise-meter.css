@@ -1,0 +1,111 @@
+/* MIGRATION ONLY: moves to plugins/noise-meter in milestone 4.
+
+   The Noise Meter takes the bottom strip on the live tier: above a
+   countdown, below an alert. The three
+   zones are solid and fixed — normal, getting loud, too loud — rather
+   than one blended gradient, so the reading is a position on a scale
+   instead of a colour to interpret. */
+.tc-noise-meter {
+  position: absolute;
+  display: flex;
+  visibility: hidden;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 100%;
+  box-sizing: border-box;
+  align-items: center;
+  gap: 1.5vw;
+  padding: 0 2.5vw;
+  background: rgba(13, 20, 27, 0.96);
+  color: #fff;
+  border-top: 1px solid rgba(255, 255, 255, 0.24);
+  font-size: clamp(16px, calc(var(--tc-strip-height, 96px) * 0.24), 40px);
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+  transform: translateY(100%);
+  transition: transform 240ms ease;
+  --tc-noise-meter-warning: 60%;
+  --tc-noise-meter-loud: 80%;
+}
+.tc-noise-meter--visible {
+  visibility: visible;
+  transform: translateY(0);
+}
+.tc-noise-meter__label,
+.tc-noise-meter__warning {
+  flex: none;
+  white-space: nowrap;
+}
+.tc-noise-meter__warning {
+  padding: 0.3em 0.6em;
+  background: #b91c1c;
+  color: #fff;
+  font-weight: 800;
+}
+.tc-noise-meter__scale {
+  position: relative;
+  flex: 1;
+  height: 42%;
+  min-height: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+}
+.tc-noise-meter__zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+.tc-noise-meter__zone--normal {
+  left: 0;
+  width: var(--tc-noise-meter-warning);
+  background: #15803d;
+}
+.tc-noise-meter__zone--warning {
+  left: var(--tc-noise-meter-warning);
+  width: calc(var(--tc-noise-meter-loud) - var(--tc-noise-meter-warning));
+  background: #b45309;
+}
+.tc-noise-meter__zone--loud {
+  left: var(--tc-noise-meter-loud);
+  right: 0;
+  background: #b91c1c;
+}
+/* The current level. A crisp column rather than a needle or a dial: this
+   is a position on a fixed scale, not an instrument reading. */
+.tc-noise-meter__marker {
+  position: absolute;
+  top: -22%;
+  bottom: -22%;
+  left: 0;
+  width: 6px;
+  margin-left: -3px;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
+  transition: left 90ms linear;
+}
+/* The warning label is emphasised only as the bar arrives. A bar that
+   keeps flashing stops being read. */
+.tc-noise-meter--entering .tc-noise-meter__warning {
+  animation: tc-noise-meter-attention 400ms ease-in-out 3 alternate;
+}
+@keyframes tc-noise-meter-attention {
+  from {
+    background: #b91c1c;
+  }
+  to {
+    background: #ef4444;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tc-noise-meter {
+    transition: none;
+  }
+  .tc-noise-meter__marker {
+    transition: none;
+  }
+  .tc-noise-meter--entering .tc-noise-meter__warning {
+    animation: none;
+  }
+}

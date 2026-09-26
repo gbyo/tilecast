@@ -1,4 +1,4 @@
-import { tilecastCountdownBar } from "./countdown-bar-resolver";
+import { tilecastCountdownBar } from "./resolver";
 import { describe, expect, it } from "vitest";
 
 interface CountdownBarPlugin {

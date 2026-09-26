@@ -87,6 +87,9 @@ type RuntimeEntry struct {
 	Entrypoint    string   `json:"entrypoint,omitempty"`
 	ManifestTypes []string `json:"manifestTypes"`
 	Surfaces      []string `json:"surfaces,omitempty"`
+	// Tier is the arbitration tier of every surface the plugin claims:
+	// emergency, live, scheduled, or ambient.
+	Tier string `json:"tier"`
 }
 
 type DocsEntry struct {
@@ -154,6 +157,7 @@ var (
 	requirementKinds = set("platform", "hardware", "region", "network", "provider", "player")
 	surfaceSlots     = set("strip.top", "strip.bottom", "corner.top-left", "corner.top-right",
 		"corner.bottom-left", "corner.bottom-right", "overlay")
+	surfaceTiers  = set("emergency", "live", "scheduled", "ambient")
 	hardware      = set("microphone")
 	sidebarGroups = set("plugins", "review-and-collect")
 )
@@ -317,6 +321,9 @@ func (m Manifest) Validate() error {
 			if !surfaceSlots[slot] {
 				return fail("unknown runtime surface %q", slot)
 			}
+		}
+		if !surfaceTiers[m.Runtime.Tier] {
+			return fail("unknown runtime tier %q", m.Runtime.Tier)
 		}
 	}
 	if m.Docs != nil {
