@@ -39,6 +39,10 @@ UMask=0077
 ProtectHome=yes
 ProtectSystem=strict
 InaccessiblePaths=-/var/lib/tilecast-edge
+# The Presentation Network helper's socket. The account may belong to its
+# tilecast-network group, and the renderer inherits the account's groups.
+# An empty private mount hides a helper started after this renderer starts.
+TemporaryFileSystem=/run/tilecast:ro,mode=0000
 PrivateTmp=yes
 NoNewPrivileges=yes
 CapabilityBoundingSet=

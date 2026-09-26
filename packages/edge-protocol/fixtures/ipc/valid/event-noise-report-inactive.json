@@ -1,0 +1,10 @@
+{
+  "frame": {
+    "type": "event",
+    "seq": 5,
+    "event": "noise.report",
+    "data": {
+      "status": "inactive"
+    }
+  }
+}

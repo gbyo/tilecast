@@ -77,6 +77,11 @@ pub async fn run(fixture: PathBuf, runtime_root: PathBuf, timeout: Duration) -> 
     config.paths.state_dir = Some(runtime_root.join("state"));
     config.paths.runtime_dir = Some(runtime_root.clone());
     config.dev.fixture = Some(fixture);
+    // The self-test runs before the cutover, while the legacy player still
+    // owns the display: it sends nothing to the TV or monitor.
+    config.display.cec_enabled = false;
+    config.display.ddc_enabled = false;
+    config.dev.idle_inhibit = Some(false);
     config.log = crate::config::LogConfig::default();
     let failed = |reason, renderer, expected, proven, started: Instant| SelfTestReport {
         outcome: "failed",

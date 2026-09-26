@@ -10,8 +10,10 @@ pub mod config;
 pub mod daemon;
 pub mod legacy;
 pub mod manifests;
+pub mod noise_history;
 pub mod outbox;
 pub mod playback;
+pub mod presentation_network;
 pub mod renderer;
 
 use edge_protocol::Timestamp;

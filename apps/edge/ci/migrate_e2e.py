@@ -40,6 +40,7 @@ LEGACY_DIR = f"/home/{KIOSK}/.local/share/tilecast-player"
 MIGRATE = "/opt/tilecast-edge/current/bin/tilecast-edge-migrate"
 TARGET = "/target/cargo-qual"
 RENDERER_BUILD = "/target/renderer"
+BRIDGE_BUILD = "/target/bridge"
 RUNTIME = "/target/runtime"
 DROPINS = "/etc/systemd/system"
 
@@ -149,6 +150,9 @@ def setup():
     run("cmake", "-S", os.path.join(EDGE, "renderer-wpe"), "-B", RENDERER_BUILD, "-G", "Ninja",
         stdout=subprocess.DEVNULL)
     run("cmake", "--build", RENDERER_BUILD)
+    run("cmake", "-S", os.path.join(EDGE, "session-bridge"), "-B", BRIDGE_BUILD, "-G", "Ninja",
+        stdout=subprocess.DEVNULL)
+    run("cmake", "--build", BRIDGE_BUILD)
     run(os.path.join(EDGE, "renderer-wpe", "assemble-runtime.sh"), RUNTIME)
 
     # A release signed with a throwaway key that the machine is told to trust.
@@ -158,6 +162,7 @@ def setup():
     wpe = output("pkg-config", "--modversion", "wpe-webkit-2.0").strip()
     run(os.path.join(EDGE, "release", "stage-release.py"), "--out", RELEASE, "--version", "0.1.0",
         "--bin-dir", os.path.join(TARGET, "debug"), "--renderer", os.path.join(RENDERER_BUILD, "tilecast-renderer-wpe"),
+        "--session-bridge", os.path.join(BRIDGE_BUILD, "tilecast-session-bridge"),
         "--gst-plugin-dir", os.path.join(RENDERER_BUILD, "gstreamer-1.0"), "--runtime-dir", RUNTIME,
         "--sbom", sbom, "--wpe-version", wpe, "--base-distribution", "debian-sid-ci")
     key = os.path.join(WORK, "release-key.pem")
@@ -417,10 +422,138 @@ def accept():
     assert legacy_digests() == load("legacy-digests.json"), "legacy files are left intact"
     status = json.loads(output("/opt/tilecast-edge/current/bin/tilecastctl", "--json", "status"))
     assert status["server"]["screenId"] == screen["screenId"] and status["link"]["state"] == "connected", status
+    check_hardware_packaging()
     rollback = subprocess.run([MIGRATE, "rollback"], capture_output=True, text=True)
     assert rollback.returncode != 0 and "rollback window has ended" in rollback.stderr, rollback.stderr
     print(f"accept: accepted after {elapsed:.0f} s of migration; Edge plays the server presentation, the legacy "
           "player is disabled and its files are unchanged, and rollback is refused")
+
+
+def tilecast_systemctl(*argv):
+    return subprocess.run(["systemctl", "--user", "--machine=tilecast@.host", *argv], capture_output=True, text=True)
+
+
+def bridge_pid():
+    shown = tilecast_systemctl("show", "--property=MainPID", "tilecast-session-bridge.service").stdout.strip()
+    return int(shown.split("=", 1)[1])
+
+
+def print_bridge_diagnostics():
+    """What the tilecast session, the bridge and tilecastd saw."""
+    uid = pwd.getpwnam("tilecast").pw_uid
+    for argv in (["systemctl", "status", "--no-pager", f"user@{uid}.service"],
+                 ["systemctl", "--user", "--machine=tilecast@.host", "status", "--no-pager",
+                  "tilecast-session-bridge.path", "tilecast-session-bridge.service",
+                  "pipewire.service", "wireplumber.service"],
+                 ["systemctl", "--user", "--machine=tilecast@.host", "show", "--property=ActiveState,SubState,"
+                  "NRestarts,ExecMainStatus,ExecMainCode,Result", "tilecast-session-bridge.service"],
+                 ["ls", "-la", "/run/tilecast-edge", f"/run/user/{uid}", "/etc/systemd/user",
+                  "/etc/systemd/user/default.target.wants"],
+                 ["journalctl", "--no-pager", "-o", "cat", "-n", "150", f"_UID={uid}"],
+                 ["journalctl", "--no-pager", "-o", "cat", "-n", "80", "-u", "tilecast-edge.service",
+                  "--grep", "audio|ipc|session"],
+                 ["/opt/tilecast-edge/current/bin/tilecastctl", "--json", "capabilities"],
+                 # The socket directory as the bridge's mount namespace sees it.
+                 ["sh", "-c", "pid=$(systemctl --user --machine=tilecast@.host show -P MainPID "
+                  "tilecast-session-bridge.service); ls -la /proc/$pid/root/run/tilecast-edge; "
+                  "cat /proc/$pid/uid_map /proc/$pid/gid_map; grep -E '^(Uid|Gid|Groups)' /proc/$pid/status"]):
+        result = subprocess.run(argv, capture_output=True, text=True)
+        print(f"$ {' '.join(argv)}  (exit {result.returncode})\n{result.stdout[-8000:]}{result.stderr[-2000:]}",
+              flush=True)
+
+
+BRIDGE_SANDBOX_VARIANTS = (
+    ("none", []),
+    ("PrivateUsers", ["PrivateUsers=yes"]),
+    ("PrivateUsers+ProtectSystem", ["PrivateUsers=yes", "ProtectSystem=strict"]),
+    ("PrivateUsers+ProtectHome", ["PrivateUsers=yes", "ProtectHome=tmpfs", "BindReadOnlyPaths=%t"]),
+    ("PrivateUsers+PrivateTmp", ["PrivateUsers=yes", "PrivateTmp=yes"]),
+    ("PrivateUsers+InaccessiblePaths", ["PrivateUsers=yes",
+                                        "InaccessiblePaths=-/var/lib/tilecast-edge -/run/tilecast -/dev/snd"]),
+    ("PrivateUsers+ProtectKernelTunables+ControlGroups", ["PrivateUsers=yes", "ProtectKernelTunables=yes",
+                                                          "ProtectControlGroups=yes"]),
+    ("seccomp", ["NoNewPrivileges=yes", "RestrictAddressFamilies=AF_UNIX", "SystemCallFilter=@system-service",
+                 "MemoryDenyWriteExecute=yes", "RestrictNamespaces=yes", "LockPersonality=yes"]),
+)
+
+
+def probe_bridge_sandbox():
+    """Which sandbox option keeps the bridge's account from connecting to
+    tilecastd's socket: the same connect() under each subset."""
+    connect = ("import socket; s = socket.socket(socket.AF_UNIX); "
+               "s.connect('/run/tilecast-edge/edge.sock'); print('connected')")
+    for label, properties in BRIDGE_SANDBOX_VARIANTS:
+        argv = ["systemd-run", "--user", "--machine=tilecast@.host", "--wait", "--pipe", "--quiet"]
+        for prop in properties:
+            argv += ["-p", prop]
+        result = subprocess.run(argv + ["/usr/bin/python3", "-c", connect], capture_output=True, text=True,
+                                timeout=60)
+        outcome = result.stdout.strip() or result.stderr.strip().splitlines()[-1:]
+        print(f"bridge sandbox probe [{label}]: exit {result.returncode}: {outcome}", flush=True)
+
+
+def check_hardware_packaging():
+    """M9 packaging on a real systemd: the display group and device policy of
+    the daemon, and the session bridge in the lingering tilecast session with
+    its sandbox."""
+    shown = output("systemctl", "show", "--property=SupplementaryGroups,DevicePolicy,DeviceAllow",
+                   "tilecast-edge.service")
+    assert "SupplementaryGroups=tilecast-display" in shown and "DevicePolicy=closed" in shown, shown
+    assert "char-cec rw" in shown and "char-i2c rw" in shown, shown
+    renderer_mount = output("systemctl", "show", "--property=TemporaryFileSystem", "tilecast-renderer.service")
+    assert "/run/tilecast:ro,mode=0000" in renderer_mount, renderer_mount
+    groups = output("id", "-nG", "tilecast").split()
+    assert "tilecast-display" not in groups, "the account itself never joins tilecast-display"
+    assert os.path.exists("/usr/lib/udev/rules.d/70-tilecast-display.rules")
+    assert os.path.exists("/usr/lib/modules-load.d/tilecast-edge.conf")
+    assert os.path.exists("/var/lib/systemd/linger/tilecast"), "tilecast lingers so its session starts at boot"
+    # The packaged configuration asks logind for the idle lock (test harnesses
+    # alone turn it off); whether logind grants it depends on the host.
+    listed = json.loads(output("/opt/tilecast-edge/current/bin/tilecastctl", "--json", "capabilities"))
+    idle = next(c for c in listed["capabilities"] if c["id"] == "system.idle_inhibit")
+    assert idle.get("reasonCode") != "not_requested", idle
+    print(f"accept: system.idle_inhibit is {idle['state']} ({idle.get('reasonCode', 'lock held')})")
+    def bridge_running():
+        # Running, and not crash-looping: `is-active` alone is true for the
+        # moment between each failed start and its restart.
+        shown = tilecast_systemctl("show", "--property=SubState,NRestarts,ExecMainStatus",
+                                   "tilecast-session-bridge.service").stdout
+        return "SubState=running" in shown and "NRestarts=0" in shown
+
+    try:
+        e2e.wait_for(bridge_running, "the session bridge started by its path unit and still running", 90)
+    except AssertionError:
+        print_bridge_diagnostics()
+        raise
+    sandbox = tilecast_systemctl("show", "--property=RestrictAddressFamilies,NoNewPrivileges,"
+                                 "MemoryDenyWriteExecute,SystemCallFilter,RestrictNamespaces",
+                                 "tilecast-session-bridge.service").stdout
+    for expected in ("RestrictAddressFamilies=AF_UNIX", "NoNewPrivileges=yes", "MemoryDenyWriteExecute=yes",
+                     "RestrictNamespaces=yes"):
+        assert expected in sandbox, (expected, sandbox)
+    assert "SystemCallFilter=" in sandbox and "SystemCallFilter=\n" not in sandbox, sandbox
+    # The seccomp layer holds on every host, even where systemd could not
+    # give the unit a user namespace for the mount options.
+    status = subprocess.run(["grep", "-E", "^(Seccomp|NoNewPrivs):", f"/proc/{bridge_pid()}/status"],
+                            capture_output=True, text=True).stdout
+    assert "Seccomp:\t2" in status and "NoNewPrivs:\t1" in status, status
+    effective = subprocess.run(["grep", "-E", "^Cap(Eff|Prm|Bnd)", f"/proc/{bridge_pid()}/status"],
+                               capture_output=True, text=True).stdout
+    assert "CapEff:\t0000000000000000" in effective and "CapPrm:\t0000000000000000" in effective, effective
+
+    def bridge_connected():
+        capabilities = json.loads(output("/opt/tilecast-edge/current/bin/tilecastctl", "--json", "capabilities"))
+        noise = next((c for c in capabilities["capabilities"] if c["id"] == "audio.noise_meter"), None)
+        return noise if noise and noise.get("reasonCode") != "session_bridge_not_connected" else None
+
+    try:
+        noise = e2e.wait_for(bridge_connected, "the session bridge connected to tilecastd", 90)
+    except AssertionError:
+        print_bridge_diagnostics()
+        probe_bridge_sandbox()
+        raise
+    print(f"accept: the session bridge runs sandboxed in the tilecast session; audio.noise_meter is "
+          f"{noise['state']} ({noise.get('reasonCode', 'no reason')})")
 
 
 PHASES = {"setup": setup, "import-failure": import_failure, "crash": crash, "start-settling": start_settling,

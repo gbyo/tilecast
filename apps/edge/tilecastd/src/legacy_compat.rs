@@ -142,7 +142,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let mut value = manifest();
         value["plugins"] = serde_json::json!([{"id": "ca48c671-8e48-4bad-ab75-6125064d0f5c",
-            "type": "noise_meter", "version": 1, "config": {}}]);
+            "type": "air_quality", "version": 1, "config": {}}]);
         write(dir.path(), value, SCREEN);
         let report = check(dir.path()).unwrap();
         assert_eq!(report.outcome, "incompatible");

@@ -840,6 +840,21 @@ impl PresentationEngine {
         self.renderer.as_ref().and_then(|link| link.ready.as_ref())
     }
 
+    /// The current server presentation's Noise Meter plugin, while a ready
+    /// renderer shows it. Only then may the microphone open.
+    pub fn noise_meter_plugin(&self) -> Option<&serde_json::Value> {
+        self.renderer.as_ref().and_then(|link| link.ready.as_ref())?;
+        let current = self.current.as_ref().filter(|activation| activation.identity.is_some())?;
+        current.extras.plugins.iter().find(|plugin| plugin.get("type").and_then(|t| t.as_str()) == Some("noise_meter"))
+    }
+
+    /// Sends a host-measured level to a ready renderer. Returns whether it
+    /// was queued.
+    pub fn send_noise_level(&self, rms: Option<f64>) -> bool {
+        let Some(link) = self.renderer.as_ref().filter(|link| link.ready.is_some()) else { return false };
+        link.session.send_event(Event::NoiseLevel(edge_protocol::ipc::event::NoiseLevel { rms })).is_ok()
+    }
+
     pub fn renderer_version(&self) -> Option<ShortText> {
         self.renderer.as_ref().and_then(|l| l.ready.as_ref()).map(|r| r.renderer.version.clone())
     }

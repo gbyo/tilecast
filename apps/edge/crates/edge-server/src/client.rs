@@ -416,16 +416,35 @@ impl AuthenticatedServer {
         self.raw_request(method, path).timeout(REQUEST_TIMEOUT)
     }
 
-    /// The normal player contact path. Edge status remains a separate, slower report.
-    pub async fn player_heartbeat(&self, heartbeat: &serde_json::Value) -> Result<(), ServerError> {
+    /// The normal player contact path. The answer acknowledges any Noise
+    /// Meter history the heartbeat carried (`data.noiseHistory.accepted`).
+    pub async fn player_heartbeat(
+        &self,
+        heartbeat: &serde_json::Value,
+    ) -> Result<crate::player_api::HeartbeatAck, ServerError> {
         let response = self
             .request(reqwest::Method::POST, "/api/v1/player/heartbeat")
             .json(heartbeat)
             .send()
             .await
             .map_err(|_| ServerError::Network)?;
-        let _: serde_json::Value = decode(response, MAX_SMALL_JSON_BYTES).await?;
-        Ok(())
+        let data: serde_json::Value = decode(response, MAX_SMALL_JSON_BYTES).await?;
+        Ok(crate::player_api::heartbeat_ack(&data))
+    }
+
+    /// `GET /player/presentation-network`: the assigned Wi-Fi profile with
+    /// its secret, for one helper install call. The caller must not keep,
+    /// log or forward the secret.
+    pub async fn presentation_network_provisioning(
+        &self,
+    ) -> Result<crate::player_api::NetworkProvisioning, ServerError> {
+        let response = self
+            .request(reqwest::Method::GET, "/api/v1/player/presentation-network")
+            .send()
+            .await
+            .map_err(|_| ServerError::Network)?;
+        let data: serde_json::Value = decode(response, crate::player_api::MAX_PROVISIONING_BYTES).await?;
+        crate::player_api::network_provisioning(&data).ok_or(ServerError::Decode)
     }
 
     /// Reads the existing server compiler's manifest without introducing an Edge compiler.

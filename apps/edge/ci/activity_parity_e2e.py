@@ -39,8 +39,9 @@ TAKEOVER_ITEM_MS = 5000
 # manifest. Each phase outlasts that from the moment the later player plays,
 # so both players' windows are measured.
 PHASE_S = 130
-# The players reconnect after the outage and start a new assignment a few
-# seconds apart.
+# Over a common window the players differ only by when each reconnected
+# after the outage (both use a 2 s jittered backoff) and a few item
+# boundaries.
 MISSED_TOLERANCE_MS = 15_000
 
 
@@ -104,7 +105,9 @@ def summarize(records):
     outgoing item a few milliseconds before the switch. The Electron player
     attributes that restart to the incoming presentation (as content type
     `media`, because the item is not in it); Edge ignores evidence for an
-    activation it has replaced. Neither is a play anyone saw.
+    activation it has replaced. Neither is a play anyone saw. A takeover can
+    interrupt a real item just after it starts, so retain that terminal reason
+    even when its short session is excluded from play counts.
     """
     roots = Counter()
     items = Counter()
@@ -117,6 +120,8 @@ def summarize(records):
             continue
         duration = record.get("actualDurationMs")
         if duration is not None and duration < BOUNDARY_STUB_MS:
+            if reason == "takeover":
+                reasons.add((record.get("trigger"), reason))
             continue
         items[(record.get("trigger"), record.get("contentType"), record.get("playlistItemId"))] += 1
         reasons.add((record.get("trigger"), reason))
@@ -125,8 +130,27 @@ def summarize(records):
     return roots, items, reasons, boundary_ms
 
 
+def print_item_gaps(label, records, outage):
+    """Where a player's item sessions leave time uncovered, relative to the
+    outage, so a missing play can be placed."""
+    items = sorted((stamp(r["startedAt"]), r.get("actualDurationMs") or 0, r.get("trigger"), r.get("terminalReason"))
+                   for r in records if r.get("sessionType") != "presentation")
+    if not items:
+        return
+    t0 = items[0][0]
+    gaps = []
+    for (start, duration, trigger, reason), (next_start, *_rest) in zip(items, items[1:]):
+        uncovered = next_start - start - duration / 1000
+        if uncovered > 1.0:
+            gaps.append(f"{start - t0:.1f}+{duration / 1000:.1f}s {trigger}/{reason} then {uncovered:.1f}s uncovered")
+    print(f"parity {label}: first item at {t0:.1f}, outage {outage[0] - t0:.1f}-{outage[1] - t0:.1f} s; "
+          f"gaps: {gaps or 'none'}")
+
+
 def compare(electron, edge, outage):
     """The M8 exit criterion, on the records the server holds."""
+    for label, records in (("electron", electron), ("edge", edge)):
+        print_item_gaps(label, records, outage)
     (e_roots, e_items, e_reasons, e_boundary), (d_roots, d_items, d_reasons, d_boundary) = (
         summarize(electron), summarize(edge))
     # The same presentations, triggers and endings.
@@ -156,40 +180,81 @@ def compare(electron, edge, outage):
     print(f"parity: {sum(d_roots.values())} root sessions and {sum(d_items.values())} item sessions match")
 
 
+# The results the server counts as confirmed playback
+# (matchExpectedWindow in apps/server/internal/httpapi/expected_playback.go).
+CONFIRMING_RESULTS = ("playing", "completed", "recovered", "partial", "failed")
+
+
+def query(sql):
+    out = subprocess.run(["psql", "-At", "-F", "|", e2e.DATABASE, "-c", sql],
+                         capture_output=True, text=True, check=True).stdout
+    return [line.split("|") for line in out.splitlines()]
+
+
 def expected_windows(screen):
-    """The server's judged expected-playback windows for a screen, by
-    manifest version."""
-    out = subprocess.run(
-        ["psql", "-At", "-F", "|", e2e.DATABASE, "-c",
-         "SELECT manifest_version, match_status, "
-         "(EXTRACT(EPOCH FROM (expected_end - expected_start)) * 1000)::bigint, confirmed_duration_ms "
-         f"FROM expected_playback_windows WHERE screen_id='{screen}' AND expected_end IS NOT NULL "
-         "ORDER BY expected_start"],
-        capture_output=True, text=True, check=True).stdout
-    windows = {}
-    for line in out.splitlines():
-        version, status, expected_ms, confirmed_ms = line.split("|")
-        windows[int(version or 0)] = (status, int(expected_ms), int(confirmed_ms or 0))
-    return windows
+    """The server's judged expected-playback windows for a screen, in order:
+    (manifest version, status, start ms, end ms, confirmed ms, superseded
+    reason)."""
+    rows = query(
+        "SELECT manifest_version, match_status, (EXTRACT(EPOCH FROM expected_start) * 1000)::bigint, "
+        "(EXTRACT(EPOCH FROM expected_end) * 1000)::bigint, confirmed_duration_ms, superseded_reason "
+        f"FROM expected_playback_windows WHERE screen_id='{screen}' AND expected_end IS NOT NULL "
+        "ORDER BY expected_start")
+    return [(int(v or 0), status, int(start), int(end), int(confirmed or 0), reason)
+            for v, status, start, end, confirmed, reason in rows]
 
 
-def compare_windows(electron, edge):
-    """Each player's heartbeat runs on its own 60 s phase, so a window opens
-    and closes up to a minute apart on the two screens, and a manifest shown
-    for less than a heartbeat may have a window on one screen only. While a
-    player is already playing that phase moves only covered time, so the
-    comparison is the missed time of every window both screens measured."""
-    print(f"parity expected windows: electron {electron}, edge {edge}")
-    measured = [version for version in electron.keys() & edge.keys()
-                if "not_measurable" not in (electron[version][0], edge[version][0])]
-    assert measured, "no window was measured on both screens"
-    for version in sorted(measured):
-        (e_status, e_expected, e_confirmed), (d_status, d_expected, d_confirmed) = electron[version], edge[version]
-        assert e_status == d_status, f"manifest {version}: electron {e_status}, edge {d_status}"
-        e_missed, d_missed = max(0, e_expected - e_confirmed), max(0, d_expected - d_confirmed)
-        assert abs(e_missed - d_missed) <= MISSED_TOLERANCE_MS, \
-            f"manifest {version} missed: electron {e_missed} ms, edge {d_missed} ms"
-    print(f"parity: {len(measured)} expected-playback windows judged alike")
+def root_sessions(screen):
+    """Root presentation sessions as the server stores them: (start ms, end
+    ms or None, result)."""
+    rows = query(
+        "SELECT (EXTRACT(EPOCH FROM started_at) * 1000)::bigint, (EXTRACT(EPOCH FROM ended_at) * 1000)::bigint, "
+        f"result FROM playback_sessions WHERE screen_id='{screen}' AND session_type='presentation' "
+        "ORDER BY started_at")
+    return [(int(start), int(end) if end else None, result) for start, end, result in rows]
+
+
+def covered(roots, start, end):
+    """Milliseconds of [start, end) covered by root sessions the server
+    counts as playback: the numerator of its window match."""
+    total = 0
+    for s, e, result in roots:
+        if result in CONFIRMING_RESULTS:
+            total += max(0, min(e if e is not None else end, end) - max(s, start))
+    return total
+
+
+def compare_windows(electron, edge, t0):
+    """Each player's heartbeat runs on its own 60 s phase, and a window opens
+    and closes on the heartbeat that reports the change, so the two screens'
+    windows for one manifest start and end up to a minute apart. Their
+    expected and missed times therefore differ by design. What must match is
+    playback: over the interval both screens' windows for a manifest share,
+    each player's confirmed root-session coverage, as the server counts it."""
+    for label, data in (("electron", electron), ("edge", edge)):
+        print(f"parity {label} windows (s from start): " + "; ".join(
+            f"v{v} {status} {(s - t0) / 1000:.1f}-{(e - t0) / 1000:.1f} confirmed {c / 1000:.1f} ({reason})"
+            for v, status, s, e, c, reason in data["windows"]))
+        print(f"parity {label} root sessions (s from start): " + "; ".join(
+            f"{(s - t0) / 1000:.1f}-{'open' if e is None else f'{(e - t0) / 1000:.1f}'} {result}"
+            for s, e, result in data["roots"]))
+    compared = 0
+    for version in sorted({w[0] for w in electron["windows"]} & {w[0] for w in edge["windows"]}):
+        e_windows = [w for w in electron["windows"] if w[0] == version]
+        d_windows = [w for w in edge["windows"] if w[0] == version]
+        for e_window, d_window in zip(e_windows, d_windows):
+            start, end = max(e_window[2], d_window[2]), min(e_window[3], d_window[3])
+            if end - start < 60_000:
+                continue
+            e_missed = (end - start) - covered(electron["roots"], start, end)
+            d_missed = (end - start) - covered(edge["roots"], start, end)
+            print(f"parity v{version} common {(start - t0) / 1000:.1f}-{(end - t0) / 1000:.1f} s: "
+                  f"missed electron {e_missed} ms, edge {d_missed} ms")
+            assert abs(e_missed - d_missed) <= MISSED_TOLERANCE_MS, \
+                f"manifest {version} missed over the common window: electron {e_missed} ms, edge {d_missed} ms"
+            compared += 1
+    assert compared, "no manifest had a common window of a minute on both screens"
+    print(f"parity: {compared} common expected-playback windows played alike")
 
 
 def stamp(value):
@@ -269,7 +334,8 @@ def main():
         config = os.path.join(work, "edge.toml")
         with open(config, "w") as handle:
             handle.write(f'[paths]\nstate_dir = "{state}"\nruntime_dir = "{run_dir}"\n[log]\nformat = "text"\n'
-                         f'[renderer]\nbinary = "{renderer_bin}"\nstall_threshold_seconds = 60\n')
+                         f'[renderer]\nbinary = "{renderer_bin}"\nstall_threshold_seconds = 60\n'
+                         f'{e2e.hardware_roots(work)}')
         e2e.run(tilecastd, "--config", config, "import-legacy", "--from", edge_legacy, stdout=subprocess.DEVNULL)
         daemon_log = open(os.path.join(work, "tilecastd.log"), "w")
         processes.append(subprocess.Popen([tilecastd, "--config", config, "run"], stdout=daemon_log,
@@ -356,7 +422,10 @@ def main():
         assert e_row and d_row, "compliance measured for only one player"
         for field in ("neverStarted", "offlineMisses"):
             assert e_row[field] == d_row[field], f"compliance {field}: electron {e_row[field]}, edge {d_row[field]}"
-        compare_windows(expected_windows(electron["screenId"]), expected_windows(edge["screenId"]))
+        compare_windows(
+            {"windows": expected_windows(electron["screenId"]), "roots": root_sessions(electron["screenId"])},
+            {"windows": expected_windows(edge["screenId"]), "roots": root_sessions(edge["screenId"])},
+            int(started * 1000))
         print("parity: Electron and Edge produce the same proof of play")
     except Exception:
         for name in ("electron.log", "tilecastd.log", "renderer.log", "server.log"):

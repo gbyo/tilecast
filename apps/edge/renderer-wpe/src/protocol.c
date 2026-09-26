@@ -18,7 +18,8 @@
  * are not advertised and tilecastd will not send them. */
 static const char *const RENDERER_FEATURES[] = {
   "status-surfaces-v1", "image",           "video",           "render-tree-v1", "layout-v1", "synchronized-playback-v1",
-  "span-viewport-v1",   "plugin.brand_bug",   "plugin.countdown_bar", "plugin.alert_ticker", NULL,
+  "span-viewport-v1",   "plugin.brand_bug",   "plugin.countdown_bar", "plugin.alert_ticker", "plugin.noise_meter",
+  NULL,
 };
 
 static const char *
@@ -280,7 +281,8 @@ handle_event (TcHost *host, const char *name, JsonNode *data_node)
   } else if (g_strcmp0 (name, "plugin.state") == 0) {
     handle_plugins (host, data, data_node);
   } else if (g_strcmp0 (name, "presentation.clear") == 0 || g_strcmp0 (name, "presentation.identify") == 0
-             || g_strcmp0 (name, "renderer.command") == 0 || g_strcmp0 (name, "sync.position") == 0) {
+             || g_strcmp0 (name, "renderer.command") == 0 || g_strcmp0 (name, "sync.position") == 0
+             || g_strcmp0 (name, "noise.level") == 0) {
     if (g_strcmp0 (name, "renderer.command") == 0
         && g_strcmp0 (json_object_get_string_member_with_default (data, "command", ""), "reload") == 0) {
       tc_view_reload_runtime (host);

@@ -122,6 +122,23 @@ pub struct DaemonContext {
     pub report_wake: tokio::sync::Notify,
     /// Live-preview requests waiting for the renderer.
     pub preview_waiters: crate::preview::Waiters,
+    /// Display Control (M9).
+    pub display: Arc<crate::display_control::DisplayControl>,
+    /// Wakes the display task (a manifest was committed).
+    pub display_wake: tokio::sync::Notify,
+    /// Send the next status report without waiting for its interval.
+    pub status_due: std::sync::atomic::AtomicBool,
+    /// The session bridge and the Noise Meter (M9).
+    pub audio: crate::audio::Audio,
+    /// Wakes the audio task (a Noise Meter report or a bridge change).
+    pub audio_wake: tokio::sync::Notify,
+    /// The Presentation Network client of `tilecast-networkd` (M9).
+    pub network: crate::presentation_network::PresentationNetwork,
+    /// Wakes the Presentation Network task (configuration changed).
+    pub network_wake: tokio::sync::Notify,
+    /// The logind idle inhibitor's state, and its wake-up (M9).
+    pub idle_lock: std::sync::Mutex<crate::idle_inhibit::LockState>,
+    pub idle_wake: tokio::sync::Notify,
 }
 
 impl DaemonContext {
@@ -134,6 +151,13 @@ impl DaemonContext {
 
     pub fn now(&self) -> Timestamp {
         self.clock.now()
+    }
+
+    /// Asks the server link to report status on its next pass, as the
+    /// reference player does after a hardware state change.
+    pub fn report_status_soon(&self) {
+        self.status_due.store(true, std::sync::atomic::Ordering::Release);
+        self.server_wake.notify_one();
     }
 }
 
@@ -295,6 +319,11 @@ impl Daemon {
         policy.renderer_uids = config.ipc.renderer_uids.clone();
         policy.observer_uids = config.ipc.observer_uids.clone();
 
+        let config_for_display = config.clone();
+        let network_db = match &state {
+            StateMode::Normal(db) => Some(db.clone()),
+            StateMode::Recovery { .. } => None,
+        };
         let context = Arc::new(DaemonContext {
             config,
             paths,
@@ -329,6 +358,24 @@ impl Daemon {
             activity,
             report_wake: tokio::sync::Notify::new(),
             preview_waiters: crate::preview::Waiters::default(),
+            display: Arc::new(crate::display_control::DisplayControl::new(&config_for_display)),
+            display_wake: tokio::sync::Notify::new(),
+            status_due: std::sync::atomic::AtomicBool::new(false),
+            audio: crate::audio::Audio::default(),
+            audio_wake: tokio::sync::Notify::new(),
+            network: crate::presentation_network::PresentationNetwork::new(
+                crate::presentation_network::HelperClient::new(
+                    config_for_display
+                        .dev
+                        .networkd_socket
+                        .clone()
+                        .unwrap_or_else(|| PathBuf::from(crate::presentation_network::DEFAULT_HELPER_SOCKET)),
+                ),
+                network_db,
+            ),
+            network_wake: tokio::sync::Notify::new(),
+            idle_lock: std::sync::Mutex::new(crate::idle_inhibit::LockState::NotRequested),
+            idle_wake: tokio::sync::Notify::new(),
         });
 
         let bound_record = match context.db() {
@@ -416,6 +463,10 @@ impl Daemon {
         tasks.spawn(crate::activity::run(Arc::clone(&context), self.activity_signals));
         tasks.spawn(crate::telemetry::run(Arc::clone(&context)));
         tasks.spawn(crate::preview::run(Arc::clone(&context)));
+        tasks.spawn(crate::display_control::run(Arc::clone(&context)));
+        tasks.spawn(crate::audio::run(Arc::clone(&context)));
+        tasks.spawn(crate::network_task::run(Arc::clone(&context)));
+        tasks.spawn(crate::idle_inhibit::run(Arc::clone(&context)));
 
         let status = ready_status(&context);
         context.notifier.ready(&status);

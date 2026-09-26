@@ -1,0 +1,10 @@
+{
+  "frame": {
+    "type": "event",
+    "seq": 1,
+    "event": "noise.level",
+    "data": {
+      "rms": 3.5
+    }
+  }
+}

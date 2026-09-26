@@ -27,6 +27,10 @@ target_link_libraries(tilecast-media-client PUBLIC tilecast-validate PkgConfig::
 target_include_directories(tilecast-media-client PUBLIC src)
 set_target_properties(tilecast-media-client PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
+add_library(tilecast-noise STATIC src/noise.c)
+target_link_libraries(tilecast-noise PUBLIC PkgConfig::JSONGLIB m)
+target_include_directories(tilecast-noise PUBLIC src)
+
 add_executable(tilecast-renderer-wpe
   src/main.c
   src/drm-probe.c
@@ -35,7 +39,7 @@ add_executable(tilecast-renderer-wpe
   src/protocol.c
   src/schemes.c
   src/view.c)
-target_link_libraries(tilecast-renderer-wpe PRIVATE tilecast-media-client PkgConfig::WPE PkgConfig::JSONGLIB PkgConfig::GIO PkgConfig::GST PkgConfig::DRM)
+target_link_libraries(tilecast-renderer-wpe PRIVATE tilecast-media-client tilecast-noise PkgConfig::WPE PkgConfig::JSONGLIB PkgConfig::GIO PkgConfig::GST PkgConfig::DRM)
 
 # GStreamer source for tcmedia:// loaded into the web process (see
 # src/gst-tcmedia.c). Installed to lib/gstreamer-1.0 of the Edge release.
@@ -54,6 +58,11 @@ add_executable(test-media-client tests/test_media_client.c)
 target_link_libraries(test-media-client PRIVATE tilecast-media-client)
 target_compile_definitions(test-media-client PRIVATE TC_MEDIA_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/../../../packages/edge-protocol/fixtures/media")
 add_test(NAME media-client COMMAND test-media-client)
+
+add_executable(test-noise tests/test_noise.c)
+target_link_libraries(test-noise PRIVATE tilecast-noise)
+target_compile_definitions(test-noise PRIVATE TC_IPC_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/../../../packages/edge-protocol/fixtures/ipc")
+add_test(NAME noise COMMAND test-noise)
 
 install(TARGETS tilecast-renderer-wpe RUNTIME DESTINATION bin)
 

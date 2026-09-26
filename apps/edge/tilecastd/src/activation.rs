@@ -600,6 +600,7 @@ async fn promote(context: &DaemonContext, binding: &Binding, pending: &StoredMan
         manifest_version = pending.version
     );
     context.manifest_wake.notify_one();
+    context.display_wake.notify_one();
     true
 }
 

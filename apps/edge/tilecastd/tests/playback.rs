@@ -451,14 +451,19 @@ async fn serve(fake: Arc<FakeServer>) -> String {
                 _ => {}
             }
             let fake = Arc::clone(&fake);
-            let mut head = [0_u8; 32];
-            let upgrade =
-                matches!(stream.peek(&mut head).await, Ok(n) if head[..n].starts_with(b"GET /api/v1/player/socket"));
-            if upgrade && fake.socket_enabled.load(Ordering::SeqCst) {
-                tokio::spawn(player_socket(fake, stream));
-                continue;
-            }
+            // Classify each connection in its own task: waiting here for a
+            // connection's first bytes would stop the server accepting any
+            // other connection until they arrived.
             tokio::spawn(async move {
+                let mut head = [0_u8; 32];
+                let upgrade = matches!(
+                    tokio::time::timeout(Duration::from_secs(10), stream.peek(&mut head)).await,
+                    Ok(Ok(n)) if head[..n].starts_with(b"GET /api/v1/player/socket")
+                );
+                if upgrade && fake.socket_enabled.load(Ordering::SeqCst) {
+                    player_socket(fake, stream).await;
+                    return;
+                }
                 let service = hyper::service::service_fn(move |request| handle(Arc::clone(&fake), request));
                 let _ = hyper::server::conn::http1::Builder::new()
                     .serve_connection(hyper_util::rt::TokioIo::new(stream), service)
@@ -606,6 +611,7 @@ struct RendererLog {
     plugins: Vec<PluginState>,
     identify: Vec<(String, u32)>,
     commands: Vec<edge_protocol::ipc::event::RendererCommandKind>,
+    noise_levels: Vec<Option<f64>>,
 }
 
 struct FakeRenderer {
@@ -656,6 +662,7 @@ impl FakeRenderer {
                             .identify
                             .push((identify.name.as_str().to_owned(), identify.duration_seconds)),
                         Event::RendererCommand(command) => log.lock().unwrap().commands.push(command.command),
+                        Event::NoiseLevel(level) => log.lock().unwrap().noise_levels.push(level.rms),
                         Event::PreviewRequest(request) => {
                             // A tiny JPEG: the signature and a few bytes.
                             let jpeg =
@@ -771,7 +778,36 @@ async fn report_content(client: &IpcClient, activation: &PresentationActivate) {
 
 // ------------------------------------------------------------ harness
 
+/// How many scenarios run at once. Each one is a whole daemon (its own
+/// four-worker runtime and blocking pool), a fake server and a scripted
+/// renderer, and many of them wait on 30 s deadlines. Run all 31 at once on
+/// a 4-vCPU CI runner and CPU and fsync contention time out a different
+/// handful on every run. One slot per available core keeps those deadlines
+/// meaningful without serializing the suite.
+fn scenario_slots() -> &'static Arc<tokio::sync::Semaphore> {
+    static SLOTS: std::sync::OnceLock<Arc<tokio::sync::Semaphore>> = std::sync::OnceLock::new();
+    SLOTS.get_or_init(|| {
+        let cores = std::thread::available_parallelism().map_or(2, std::num::NonZeroUsize::get);
+        Arc::new(tokio::sync::Semaphore::new(cores.max(2)))
+    })
+}
+
+/// Sends daemon logs to the test harness's captured output, so a failed
+/// scenario shows what its daemon did. Runtime threads a test starts inherit
+/// its capture.
+fn capture_daemon_logs() {
+    static ONCE: std::sync::Once = std::sync::Once::new();
+    ONCE.call_once(|| {
+        let _ = tracing_subscriber::fmt()
+            .with_test_writer()
+            .with_env_filter(tracing_subscriber::EnvFilter::new("info"))
+            .try_init();
+    });
+}
+
 struct Harness {
+    /// Held for the whole scenario (see [`scenario_slots`]).
+    _slot: tokio::sync::OwnedSemaphorePermit,
     dir: tempfile::TempDir,
     fake: Arc<FakeServer>,
     url: String,
@@ -817,6 +853,8 @@ impl edge_platform::disk::SpaceProbe for Space {
 
 impl Harness {
     async fn new() -> Self {
+        capture_daemon_logs();
+        let slot = Arc::clone(scenario_slots()).acquire_owned().await.unwrap();
         let installation = InstallationId::new_random();
         let fake = FakeServer::new(installation);
         let url = serve(Arc::clone(&fake)).await;
@@ -839,7 +877,7 @@ impl Harness {
         db.run_blocking(move |c| binding::put(c, &bound, now)).unwrap();
         drop(db);
         DeviceCredential::parse(CREDENTIAL).unwrap().save(&state.join("identity")).unwrap();
-        Self { dir, fake, url, screen, installation }
+        Self { _slot: slot, dir, fake, url, screen, installation }
     }
 
     fn binding(&self) -> Binding {
@@ -852,6 +890,11 @@ impl Harness {
         config.paths.state_dir = Some(dir.join("state"));
         config.paths.runtime_dir = Some(dir.join("run"));
         config.renderer.binary = dir.join("no-renderer");
+        // Empty hardware roots: no test daemon may reach a real TV or monitor.
+        config.dev.hardware_dev_dir = Some(dir.join("hardware/dev"));
+        config.dev.hardware_sys_dir = Some(dir.join("hardware/sys"));
+        config.dev.networkd_socket = Some(dir.join("hardware/networkd.sock"));
+        config.dev.idle_inhibit = Some(false);
         config
     }
 
@@ -1043,10 +1086,13 @@ async fn assignment_prepares_activates_and_promotes_only_after_evidence() {
     assert_eq!(heartbeat["activeManifestVersion"], 3);
     assert!(heartbeat.get("pendingManifestVersion").is_none());
     assert_eq!(heartbeat["currentItemId"], item);
-    assert!(heartbeat["currentItemStartedAt"].is_string());
+    // Not a heartbeat field: the server's strict HTTP decoding would refuse
+    // the whole heartbeat. The start time travels in telemetry.
+    assert!(heartbeat.get("currentItemStartedAt").is_none());
     assert_eq!(heartbeat["selectionSource"], "direct_fallback");
     assert_eq!(heartbeat["currentPlaylistId"], harness.fake.manifest.lock().unwrap()["playlist"]["id"]);
-    assert!(heartbeat["lastMeaningfulProgressAt"].is_string());
+    assert!(heartbeat.get("lastMeaningfulProgressAt").is_none(), "a telemetry field, not a heartbeat one");
+    assert!(heartbeat["lastHealthyPlaybackAt"].is_string());
     assert_eq!(heartbeat["webRuntimeVersion"], 0);
     assert!(heartbeat["nativePresentationCapabilities"].is_object());
     renderer.stop();
@@ -1765,15 +1811,24 @@ async fn commands_run_at_most_once_across_redelivery_and_restart() {
     let generation = wait_for("content", || renderer.last().filter(|a| shows(a, &asset))).await.generation;
     let reload = harness.fake.offer("reload_playback", uuid::Uuid::new_v4(), json!({}));
     let skip = harness.fake.offer("skip_current_item", uuid::Uuid::new_v4(), json!({}));
-    let unsupported = harness.fake.offer("display_power_off", uuid::Uuid::new_v4(), json!({}));
+    let unsupported = harness.fake.offer("power_assist_sleep", uuid::Uuid::new_v4(), json!({}));
+    let display = harness.fake.offer("display_power_off", uuid::Uuid::new_v4(), json!({}));
     player.context.command_wake.notify_one();
     wait_for("reload", || renderer.last().filter(|a| a.generation > generation && shows(a, &asset))).await;
-    wait_for("all results", || (harness.fake.results_for(&unsupported).len() == 1).then_some(())).await;
+    wait_for("all results", || {
+        (harness.fake.results_for(&unsupported).len() == 1 && harness.fake.results_for(&display).len() == 1)
+            .then_some(())
+    })
+    .await;
     assert_eq!(harness.fake.results_for(&reload)[0]["code"], "playback_reloaded");
     assert_eq!(harness.fake.results_for(&skip)[0]["code"], "skipped");
     assert_eq!(renderer.log.lock().unwrap().commands, vec![edge_protocol::ipc::event::RendererCommandKind::SkipItem]);
     let refused = &harness.fake.results_for(&unsupported)[0];
     assert_eq!((refused["success"].clone(), refused["code"].clone()), (json!(false), json!("unsupported_command")));
+    // Display Control exists on Edge; without an adapter the refusal names why.
+    let display = &harness.fake.results_for(&display)[0];
+    assert_eq!((display["success"].clone(), display["code"].clone()), (json!(false), json!("display_unsupported")));
+    assert!(display["message"].as_str().unwrap().contains("cec_adapter_absent"), "{display}");
     renderer.stop();
     player.stop().await;
 }
@@ -2560,4 +2615,139 @@ async fn a_studio_preview_lease_uploads_the_renderer_capture() {
     assert!(!form.contains("unavailable"));
     renderer.stop();
     player.stop().await;
+}
+
+// ------------------------------------------------------------ M9: Noise Meter
+
+/// The session bridge's side of the socket: one microphone, and levels only
+/// while tilecastd asks.
+async fn fake_bridge(socket: &Path) -> (Arc<IpcClient>, Arc<Mutex<Vec<bool>>>, tokio::task::JoinHandle<()>) {
+    use edge_protocol::ipc::event::{AudioInventory, PipewireState};
+    let client = Arc::new(
+        IpcClient::connect(socket, ClientOptions::new(Role::SessionBridge, "tilecast-session-bridge", "0.1.0"))
+            .await
+            .unwrap(),
+    );
+    client
+        .send_event(Event::AudioInventory(AudioInventory {
+            pipewire: PipewireState::Available,
+            sources: 1,
+            sinks: 1,
+            default_source: true,
+            default_sink: true,
+        }))
+        .await
+        .unwrap();
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let task = tokio::spawn({
+        let (client, requests) = (Arc::clone(&client), Arc::clone(&requests));
+        async move {
+            while let Ok(Incoming::Event(_, Event::CaptureSet(set))) =
+                client.next_incoming(Duration::from_secs(120)).await
+            {
+                requests.lock().unwrap().push(set.enabled);
+            }
+        }
+    });
+    (client, requests, task)
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn the_noise_meter_opens_the_microphone_only_while_the_runtime_listens_and_queues_its_history() {
+    use edge_protocol::ipc::event::{AudioLevel, CaptureState, NoiseBucket, NoiseReport, NoiseStatus};
+    let harness = Harness::new().await;
+    let image = Asset::new("image", "image/png");
+    harness.fake.add_asset(&image, AssetMode::Serve);
+    harness.fake.set_manifest(with(manifest(harness.screen, 4, &[&image]), |m| {
+        m["plugins"] = json!([{"id": uuid::Uuid::new_v4().to_string(), "type": "noise_meter", "version": 1,
+            "config": {"warningLevel": 60, "loudLevel": 80, "sensitivity": 100, "historyEnabled": true,
+                "historyRetentionDays": 7}}]);
+    }));
+    let player = harness.start().await;
+    let renderer = FakeRenderer::connect(&player.socket, Evidence::Auto).await;
+    wait_for("the presentation", || renderer.last().filter(|a| shows(a, &image))).await;
+    wait_for("the noise meter plugin", || {
+        renderer.log.lock().unwrap().plugins.iter().rev().find(|p| !p.plugins.is_empty()).cloned()
+    })
+    .await;
+    let (bridge, requests, bridge_task) = fake_bridge(&player.socket).await;
+    settle().await;
+    assert!(!requests.lock().unwrap().contains(&true), "no microphone before the runtime's meter listens");
+    let noise = |context: &DaemonContext| {
+        context.audio.capabilities(context.now()).into_iter().find(|c| c.id.as_str() == "audio.noise_meter").unwrap()
+    };
+    assert_eq!(noise(&player.context).reason_code.unwrap().as_str(), "capture_not_requested");
+
+    let report = |status, bucket| Event::NoiseReport(NoiseReport { status, level: None, bucket });
+    renderer.client.send_event(report(NoiseStatus::Active, None)).await.unwrap();
+    wait_for("capture requested", || requests.lock().unwrap().last().copied().filter(|on| *on)).await;
+    for _ in 0..10 {
+        bridge
+            .send_event(Event::AudioLevel(AudioLevel { rms: Some(0.3), state: CaptureState::Capturing }))
+            .await
+            .unwrap();
+        tokio::time::sleep(Duration::from_millis(60)).await;
+    }
+    wait_for("levels forwarded to the runtime", || {
+        let levels = renderer.log.lock().unwrap().noise_levels.clone();
+        (levels.iter().filter(|l| **l == Some(0.3)).count() >= 3).then_some(())
+    })
+    .await;
+    assert_eq!(noise(&player.context).state, edge_protocol::capability::CapabilityState::Available);
+
+    let started_at = Timestamp::from_unix_millis((now_ms() / 10_000 - 1) * 10_000).unwrap();
+    let bucket = NoiseBucket {
+        started_at,
+        average_level: 42.0,
+        peak_level: 55.0,
+        monitored_ms: 10_000,
+        warning_ms: 0,
+        loud_ms: 0,
+        trigger_count: 0,
+    };
+    renderer.client.send_event(report(NoiseStatus::Normal, Some(bucket))).await.unwrap();
+    let (sent, heartbeat) = wait_for_async("the bucket queued for the heartbeat", || {
+        let context = Arc::clone(&player.context);
+        async move {
+            let mut heartbeat = json!({});
+            let sent = tilecastd::audio::heartbeat(&context, &mut heartbeat, true).await;
+            (!sent.is_empty()).then_some((sent, heartbeat))
+        }
+    })
+    .await;
+    let pending = heartbeat["noiseMeter"]["pendingHistory"].as_array().unwrap();
+    assert_eq!(pending.len(), 1);
+    assert_eq!(pending[0]["averageLevel"], 42.0);
+    let keys: Vec<&str> = pending[0].as_object().unwrap().keys().map(String::as_str).collect();
+    assert!(
+        keys.iter().all(|k| [
+            "startedAt",
+            "averageLevel",
+            "peakLevel",
+            "monitoredMs",
+            "warningMs",
+            "loudMs",
+            "triggerCount"
+        ]
+        .contains(k)),
+        "derived numbers only: {keys:?}"
+    );
+    tilecastd::audio::acknowledge(&player.context, sent, Some(1)).await;
+    assert!(!tilecastd::audio::history_pending(&player.context).await, "an acknowledged bucket is removed");
+
+    renderer.client.send_event(report(NoiseStatus::Inactive, None)).await.unwrap();
+    wait_for("capture released", || requests.lock().unwrap().last().copied().filter(|on| !*on).map(|_| ())).await;
+    bridge_task.abort();
+    renderer.stop();
+    player.stop().await;
+}
+
+async fn wait_for_async<T, F: std::future::Future<Output = Option<T>>>(what: &str, mut check: impl FnMut() -> F) -> T {
+    for _ in 0..200 {
+        if let Some(value) = check().await {
+            return value;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    panic!("timed out waiting for {what}");
 }

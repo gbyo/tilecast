@@ -53,6 +53,7 @@ pub const MIGRATIONS: &[Migration] = &[
         sql: include_str!("../migrations/0003_commands_and_config.sql"),
     },
     Migration { version: 4, name: "activity_outbox", sql: include_str!("../migrations/0004_activity_outbox.sql") },
+    Migration { version: 5, name: "hardware", sql: include_str!("../migrations/0005_hardware.sql") },
 ];
 
 pub fn latest_schema_version() -> u32 {

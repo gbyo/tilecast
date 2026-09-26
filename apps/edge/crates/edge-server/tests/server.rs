@@ -47,6 +47,8 @@ struct Fake {
     results: Mutex<Vec<(String, Value)>>,
     /// Serve a configuration body beyond the client's bound.
     oversized_config: AtomicBool,
+    /// The `/player/presentation-network` answer.
+    provisioning: Mutex<Option<Value>>,
 }
 
 impl Fake {
@@ -59,6 +61,7 @@ impl Fake {
             command_states: Mutex::new(BTreeMap::new()),
             results: Mutex::new(Vec::new()),
             oversized_config: AtomicBool::new(false),
+            provisioning: Mutex::new(None),
         })
     }
 
@@ -101,9 +104,20 @@ async fn handle(fake: Arc<Fake>, request: Request<Incoming>) -> Result<Response<
     match path.as_str() {
         "/api/v1/player/heartbeat" => {
             let body = request.into_body().collect().await.unwrap().to_bytes();
-            fake.heartbeats.lock().unwrap().push(serde_json::from_slice(&body).unwrap());
+            let heartbeat: Value = serde_json::from_slice(&body).unwrap();
+            let history = heartbeat["noiseMeter"]["pendingHistory"].as_array().map_or(0, Vec::len);
+            fake.heartbeats.lock().unwrap().push(heartbeat);
+            if history > 0 {
+                // The server stores at most two per request here, as a partial
+                // acknowledgement.
+                return Ok(data(json!({"accepted": true, "noiseHistory": {"accepted": history.min(2)}})));
+            }
             Ok(data(json!({"accepted": true})))
         }
+        "/api/v1/player/presentation-network" => match fake.provisioning.lock().unwrap().clone() {
+            Some(body) => Ok(data(body)),
+            None => Ok(status(StatusCode::NOT_FOUND, "presentation_network_not_assigned")),
+        },
         "/api/v1/player/manifest" => {
             if request.headers().get("if-none-match").and_then(|v| v.to_str().ok()) == Some("\"manifest-1\"") {
                 let mut response = Response::new(Full::new(Bytes::new()));
@@ -414,6 +428,55 @@ async fn a_revoked_credential_is_reported_as_rejected() {
     fake.revoked.store(true, Ordering::SeqCst);
     let error = server.player_heartbeat(&json!({"screenWidth": 0, "screenHeight": 0, "playerVersion": "0.1.0"})).await;
     assert_eq!(error, Err(ServerError::CredentialRejected));
+}
+
+#[tokio::test]
+async fn heartbeat_answers_acknowledge_noise_history_exactly() {
+    let installation = InstallationId::new_random();
+    let fake = Fake::new(installation);
+    let server = authenticated(&fake, installation).await;
+    let plain = server.player_heartbeat(&json!({"playerVersion": "0.1.0"})).await.unwrap();
+    assert_eq!(plain.noise_history_accepted, None, "no history, no acknowledgement");
+    let history = json!({"playerVersion": "0.1.0", "noiseMeter": {"status": "normal", "pendingHistory": [
+        {"startedAt": "2026-09-25T12:00:00Z"}, {"startedAt": "2026-09-25T12:00:10Z"}, {"startedAt": "2026-09-25T12:00:20Z"}
+    ]}});
+    let ack = server.player_heartbeat(&history).await.unwrap();
+    assert_eq!(ack.noise_history_accepted, Some(2));
+}
+
+#[tokio::test]
+async fn presentation_network_provisioning_is_strict_bounded_and_redacted() {
+    let installation = InstallationId::new_random();
+    let fake = Fake::new(installation);
+    let server = authenticated(&fake, installation).await;
+    assert!(matches!(server.presentation_network_provisioning().await, Err(ServerError::Api { status: 404, .. })));
+    let valid = json!({"presentationNetworkId": "6F0C2B1E-9D2A-4B7E-8F3A-2C1D0E9F8A7B", "name": "Library AV",
+        "ssid": "Library-AV", "hidden": false, "security": "wpa_psk", "configRevision": 3,
+        "profileName": "tilecast-presentation-6f0c2b1e-9d2a-4b7e-8f3a-2c1d0e9f8a7b",
+        "auth": {"identity": "", "anonymousIdentity": "", "domainSuffixMatch": "", "caCertificatePem": ""},
+        "secret": "correct horse battery"});
+    *fake.provisioning.lock().unwrap() = Some(valid.clone());
+    let material = server.presentation_network_provisioning().await.unwrap();
+    assert_eq!(material.network_id, "6f0c2b1e-9d2a-4b7e-8f3a-2c1d0e9f8a7b");
+    assert_eq!(material.secret(), "correct horse battery");
+    assert!(!format!("{material:?}").contains("horse"), "Debug never shows the secret");
+    for (field, bad) in [
+        ("security", json!("wep")),
+        ("ssid", json!("")),
+        ("ssid", json!("x".repeat(33))),
+        ("configRevision", json!(0)),
+        ("secret", json!("s".repeat(129))),
+        ("presentationNetworkId", json!("../../etc")),
+    ] {
+        let mut body = valid.clone();
+        body[field] = bad;
+        *fake.provisioning.lock().unwrap() = Some(body);
+        assert_eq!(server.presentation_network_provisioning().await.unwrap_err(), ServerError::Decode, "{field}");
+    }
+    let mut oversized = valid.clone();
+    oversized["auth"]["caCertificatePem"] = json!("x".repeat(edge_server::player_api::MAX_PROVISIONING_BYTES));
+    *fake.provisioning.lock().unwrap() = Some(oversized);
+    assert!(server.presentation_network_provisioning().await.is_err(), "an oversized body is refused");
 }
 
 #[tokio::test]

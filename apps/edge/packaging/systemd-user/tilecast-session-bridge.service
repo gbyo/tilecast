@@ -1,0 +1,63 @@
+# Tilecast Edge session bridge (docs/tilecast-edge.md §4.4). A user unit in
+# the tilecast account's session, because PipeWire is a per-user service.
+# It connects to tilecastd's socket with the session_bridge role, reports
+# which audio sources and sinks exist, and opens the microphone only while
+# tilecastd asks for Noise Meter levels. It sends tilecastd RMS values only;
+# no audio sample leaves the process.
+#
+# tilecast-session-bridge.path starts it while tilecastd's socket exists.
+# The bridge exits when the socket is gone for good (Edge was stopped), and
+# the path unit starts it again when the socket returns.
+[Unit]
+Description=Tilecast Edge session bridge
+Documentation=https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge.md
+ConditionUser=tilecast
+After=pipewire.service wireplumber.service
+Wants=pipewire.service wireplumber.service
+
+[Service]
+Type=simple
+# The bridge reconnects on its own across daemon restarts; systemd restarts
+# it only after a crash.
+ExecStart=/opt/tilecast-edge/current/bin/tilecast-session-bridge --socket=/run/tilecast-edge/edge.sock
+Restart=on-failure
+RestartSec=5
+# A session that cannot run the bridge (no PipeWire, a broken sandbox) is
+# retried with a growing delay, not every five seconds forever.
+RestartSteps=6
+RestartMaxDelaySec=300
+UMask=0077
+WorkingDirectory=/
+# No JIT: GStreamer's ORC code generator needs writable executable memory,
+# which MemoryDenyWriteExecute= forbids. The plain C paths are enough for
+# one 60 ms level measurement.
+Environment=ORC_CODE=backup
+# The registry lives in the session runtime directory, not in a shared /tmp.
+RuntimeDirectory=tilecast-session-bridge
+Environment=GST_REGISTRY=%t/tilecast-session-bridge/gstreamer-registry.bin
+
+# Sandbox. The bridge talks to PipeWire and tilecastd over Unix sockets only,
+# reads no files of the daemon and writes nothing but its GStreamer registry.
+#
+# A user manager has no capabilities, so its units get only the protections
+# that need none:
+# - nothing may shrink the capability bounding set (CapabilityBoundingSet=,
+#   PrivateDevices=, ProtectKernelModules=, ProtectKernelLogs=,
+#   ProtectClock=), or every start fails with 218/CAPABILITIES;
+# - the filesystem options (ProtectSystem=, ProtectHome=, PrivateTmp=,
+#   InaccessiblePaths=) need the unit's own user namespace (PrivateUsers=),
+#   and inside one, connect() to tilecastd's socket fails with EACCES on
+#   Ubuntu 24.04 hosts, so the bridge could never connect there.
+# What remains holds on every host: no capabilities, no new privileges, and
+# the seccomp filters below. The bridge runs as the same account as the
+# renderer and gains no access the account does not already have.
+NoNewPrivileges=yes
+RestrictAddressFamilies=AF_UNIX
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM

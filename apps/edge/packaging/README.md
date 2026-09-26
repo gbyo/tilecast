@@ -6,19 +6,23 @@ This directory has the system integration files for Tilecast Edge. `tilecast-edg
 
 ## Files
 
-| File                                            | Installed as                             | Enabled                         |
-| ----------------------------------------------- | ---------------------------------------- | ------------------------------- |
-| `systemd/tilecast-edge.service`                 | `/etc/systemd/system/`                   | by the migrator, at the cutover |
-| `systemd/tilecast-renderer.service`             | `/etc/systemd/system/`                   | by the migrator, at the cutover |
-| `systemd/tilecast-edge-migrate.service`         | `/etc/systemd/system/`                   | never (started by `migrate`)    |
-| `systemd/tilecast-edge-migrate-recover.service` | `/etc/systemd/system/`                   | only during a cutover           |
-| `systemd/tilecast-edge-selftest.service`        | `/etc/systemd/system/`                   | never (a migration task)        |
-| `systemd/tilecast-renderer-selftest.service`    | `/etc/systemd/system/`                   | never (a migration task)        |
-| `systemd/tilecast-renderer-probe.service`       | `/etc/systemd/system/`                   | never (a migration task)        |
-| `systemd/tilecast-edge-compat.service`          | `/etc/systemd/system/`                   | never (a migration task)        |
-| `systemd/tilecast-edge-import.service`          | `/etc/systemd/system/`                   | never (a migration task)        |
-| `sysusers.d/tilecast-edge.conf`                 | `/usr/lib/sysusers.d/tilecast-edge.conf` |                                 |
-| `tmpfiles.d/tilecast-edge.conf`                 | `/usr/lib/tmpfiles.d/tilecast-edge.conf` |                                 |
+| File                                            | Installed as                             | Enabled                                                                                          |
+| ----------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `systemd/tilecast-edge.service`                 | `/etc/systemd/system/`                   | by the migrator, at the cutover                                                                  |
+| `systemd/tilecast-renderer.service`             | `/etc/systemd/system/`                   | by the migrator, at the cutover                                                                  |
+| `systemd/tilecast-edge-migrate.service`         | `/etc/systemd/system/`                   | never (started by `migrate`)                                                                     |
+| `systemd/tilecast-edge-migrate-recover.service` | `/etc/systemd/system/`                   | only during a cutover                                                                            |
+| `systemd/tilecast-edge-selftest.service`        | `/etc/systemd/system/`                   | never (a migration task)                                                                         |
+| `systemd/tilecast-renderer-selftest.service`    | `/etc/systemd/system/`                   | never (a migration task)                                                                         |
+| `systemd/tilecast-renderer-probe.service`       | `/etc/systemd/system/`                   | never (a migration task)                                                                         |
+| `systemd/tilecast-edge-compat.service`          | `/etc/systemd/system/`                   | never (a migration task)                                                                         |
+| `systemd/tilecast-edge-import.service`          | `/etc/systemd/system/`                   | never (a migration task)                                                                         |
+| `sysusers.d/tilecast-edge.conf`                 | `/usr/lib/sysusers.d/tilecast-edge.conf` |                                                                                                  |
+| `tmpfiles.d/tilecast-edge.conf`                 | `/usr/lib/tmpfiles.d/tilecast-edge.conf` |                                                                                                  |
+| `udev/70-tilecast-display.rules`                | `/usr/lib/udev/rules.d/`                 |                                                                                                  |
+| `modules-load.d/tilecast-edge.conf`             | `/usr/lib/modules-load.d/`               |                                                                                                  |
+| `systemd-user/tilecast-session-bridge.service`  | `/etc/systemd/user/`                     | never (started by its path unit)                                                                 |
+| `systemd-user/tilecast-session-bridge.path`     | `/etc/systemd/user/`                     | by `install`, for every user manager; `ConditionUser=tilecast` limits it to the tilecast account |
 
 A release is installed under `/opt/tilecast-edge/<version>/`, and `/opt/tilecast-edge/current` is a symbolic link to the active version. The previous version directory stays in place. `tilecastd` never replaces its own binaries.
 
@@ -52,7 +56,7 @@ Then, as root:
 ./bin/tilecast-edge-migrate install --from .
 ```
 
-`install` verifies the signature again, copies exactly the signed files (each one hashed while it is copied, never through a link), switches `current`, installs the units and system configuration, and runs `systemd-sysusers` and `systemd-tmpfiles`. It enables nothing. A changed or missing file stops it before `current` changes. Installing the same release again changes nothing.
+`install` verifies the signature again, copies exactly the signed files (each one hashed while it is copied, never through a link), switches `current`, installs the units and system configuration, and runs `systemd-sysusers` and `systemd-tmpfiles`. It enables no system unit. It does turn lingering on for `tilecast` and enables the session bridge's path unit for that account's session; the bridge runs only while `tilecastd`'s socket exists. It applies the display udev rule and loads `i2c-dev` when it can, and otherwise prints a warning: both take effect at the next boot. See the [threat-boundary review](../../../docs/tilecast-edge-migration-threat-review.md) §3.4.1. A changed or missing file stops it before `current` changes. Installing the same release again changes nothing.
 
 For a custom build signed with your own key, put the base64 public key in `/etc/tilecast-edge/release-signing-key` (owned by root, not writable by group or others).
 

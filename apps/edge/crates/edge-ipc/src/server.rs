@@ -8,8 +8,9 @@
 //!    `HANDSHAKE_TIMEOUT_MS`. Version negotiation and role policy failures
 //!    are answered with `rejected`, then the socket closes.
 //! 3. **Session.** A `welcome` is queued, the handler's `session_opened` runs,
-//!    and frames flow. A second `renderer` session supersedes the first: the
-//!    old one receives `goodbye{reason: superseded}` and is closed.
+//!    and frames flow. A second `renderer` or `session_bridge` session
+//!    supersedes the first: the old one receives `goodbye{reason:
+//!    superseded}` and is closed.
 //! 4. **Close.** Any protocol violation, a full outbound queue, a goodbye,
 //!    EOF or daemon shutdown ends the session; `session_closed` always runs
 //!    exactly once.
@@ -75,7 +76,8 @@ impl PeerPolicy {
         match role {
             Role::Renderer => uid == self.daemon_uid || self.renderer_uids.contains(&uid),
             Role::Tilecastctl => uid == 0 || uid == self.daemon_uid || self.observer_uids.contains(&uid),
-            Role::SessionBridge => false,
+            // The bridge runs in the tilecast account's own user session.
+            Role::SessionBridge => uid == self.daemon_uid,
         }
     }
 
@@ -391,10 +393,6 @@ async fn serve_connection(stream: UnixStream, context: ConnectionContext) {
         let _ = write_frame(&mut writer, &rejected(RejectCode::UnsupportedProtocolVersion, &message)).await;
         return;
     };
-    if hello.role == Role::SessionBridge {
-        let _ = write_frame(&mut writer, &rejected(RejectCode::RoleNotEnabled, "This role is not enabled.")).await;
-        return;
-    }
     if !context.policy.permits_role(peer.uid, hello.role) {
         tracing::warn!(component = "ipc", event = "role_rejected", uid = peer.uid, role = hello.role.as_str());
         let _ = write_frame(
@@ -495,7 +493,13 @@ fn register_session(
                 return Err("Too many administration sessions are open.");
             }
         }
-        Role::SessionBridge => return Err("This role is not enabled."),
+        Role::SessionBridge => {
+            let previous: Vec<SessionHandle> =
+                sessions.values().filter(|s| s.role() == Role::SessionBridge).cloned().collect();
+            for old in previous {
+                old.close("superseded");
+            }
+        }
     }
     sessions.insert(session.id(), session.clone());
     Ok(session)
@@ -591,6 +595,8 @@ mod policy_tests {
         assert!(policy.admits(1000) && policy.permits_role(1000, Role::Tilecastctl) && !policy.is_admin(1000));
         assert!(!policy.permits_role(1000, Role::Renderer));
         assert!(!policy.admits(1001));
-        assert!(!policy.permits_role(990, Role::SessionBridge), "reserved role");
+        assert!(policy.permits_role(990, Role::SessionBridge), "the bridge runs as the daemon's account");
+        assert!(!policy.permits_role(0, Role::SessionBridge), "root must not impersonate the bridge");
+        assert!(!policy.permits_role(1000, Role::SessionBridge), "an observer is not the bridge");
     }
 }

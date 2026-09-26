@@ -27,6 +27,8 @@
 //! * [`activation`] — what the renderer shows, and evidence-gated promotion.
 //! * [`activity`], [`telemetry`] — proof of play and telemetry through the
 //!   bounded outbox; [`preview`] — the Studio live preview.
+//! * [`display_control`] — HDMI-CEC and DDC/CI display control, scheduled
+//!   display actions and their readback (M9).
 //! * [`media`], [`media_channel`] — renderer media capabilities.
 //! * [`pairing`], [`discovery`] — pairing a fresh installation and finding
 //!   servers on the LAN through Avahi.
@@ -36,6 +38,7 @@
 
 pub mod activation;
 pub mod activity;
+pub mod audio;
 pub mod capabilities;
 pub mod command_handlers;
 pub mod commands;
@@ -43,7 +46,9 @@ pub mod config;
 pub mod config_sync;
 pub mod daemon;
 pub mod discovery;
+pub mod display_control;
 pub mod fixture;
+pub mod idle_inhibit;
 pub mod ipc_handler;
 pub mod legacy_compat;
 pub mod legacy_import;
@@ -52,9 +57,11 @@ pub mod manifest;
 pub mod manifest_sync;
 pub mod media;
 pub mod media_channel;
+pub mod network_task;
 pub mod pairing;
 pub mod player_config;
 pub mod presentation;
+pub mod presentation_network;
 pub mod preview;
 pub mod schedule;
 pub mod self_test;

@@ -29,7 +29,17 @@ it, stop and write the complete tradeoff first.
 - The transition is one way: legacy Electron installation, one-time verified
   import (`tilecastd import-legacy`), Edge plus WPE. Do not add shadow modes,
   dual runtimes or a second credential.
-- Everything that is not visual rendering belongs in `tilecastd`.
+- Everything that is not visual rendering belongs in `tilecastd`, except
+  what only the tilecast account's user session can reach (PipeWire and
+  WirePlumber). That belongs in `tilecast-session-bridge`, which sends
+  bounded Tilecast concepts over the `session_bridge` IPC role and never
+  audio samples, device names or PipeWire object IDs.
+- Prefer the Linux facility to Tilecast code: kernel CEC and i2c-dev (no
+  `cec-ctl` or `ddcutil` processes, and no libddcutil in `tilecastd`, because
+  it starts shell processes), GStreamer `level` for audio levels,
+  libwireplumber for the audio graph, the existing `tilecast-networkd` helper
+  for NetworkManager, systemd-logind for idle inhibition, udev and systemd
+  for device access. See `docs/tilecast-edge-m9-reuse-review.md`.
 - Peer delivery, mesh, relayed state, the Context Engine and PTP are not part
   of Edge 1 (`docs/tilecast-edge-future.md`). Do not add runtime support for
   them.

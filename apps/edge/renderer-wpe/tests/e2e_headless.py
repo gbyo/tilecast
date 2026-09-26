@@ -56,9 +56,15 @@ class Stack:
             "[log]",
             'level = "info"',
             'format = "text"',
+            # Empty hardware roots: the test never reaches a real display.
+            "[dev]",
+            f'hardware_dev_dir = "{workdir}/hardware/dev"',
+            f'hardware_sys_dir = "{workdir}/hardware/sys"',
+            f'networkd_socket = "{workdir}/hardware/networkd.sock"',
+            "idle_inhibit = false",
         ]
         if fixture:
-            lines += ["[dev]", f'fixture = "{fixture}"']
+            lines += [f'fixture = "{fixture}"']
         with open(self.config, "w", encoding="utf-8") as handle:
             handle.write("\n".join(lines) + "\n")
         self.daemon = None
@@ -210,8 +216,13 @@ def scenario_fixture(args):
             stack.start_daemon()
             stack.start_renderer()
             status = wait_for("fixture activation", lambda: healthy(stack), timeout=90)
-            cas = stack.ctl("cache")
-            assert cas["objectCount"] >= 2 and cas["pinnedBytes"] > 0, cas
+            # The renderer can be healthy on the setup surface before the
+            # fixture task has imported and pinned both media files.
+            wait_for(
+                "the fixture's media verified and pinned",
+                lambda: (lambda c: c if c["objectCount"] >= 2 and c["pinnedBytes"] > 0 else None)(stack.ctl("cache")),
+                timeout=60,
+            )
             evidence = wait_for(
                 "evidence for every item kind",
                 lambda: fixture_evidence(stack),
@@ -225,6 +236,7 @@ def scenario_fixture(args):
                 ),
             )
             assert presentation["source"] == "fixture", presentation
+            status = stack.status()
             assert presentation["generation"] == status["renderer"]["currentActivationGeneration"], presentation
             assert status["renderer"].get("engineVersion") and status["renderer"].get("gstreamerVersion"), status
             print(f"fixture: generation {status['renderer']['currentActivationGeneration']}, evidence {sorted(evidence)}")

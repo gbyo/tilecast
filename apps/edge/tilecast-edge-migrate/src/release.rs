@@ -53,13 +53,22 @@ pub const REQUIRED_FILES: &[&str] = &[
     "bin/tilecastctl",
     "bin/tilecast-renderer-wpe",
     "bin/tilecast-edge-migrate",
+    "bin/tilecast-session-bridge",
     "lib/gstreamer-1.0/libgsttcmedia.so",
     "share/tilecast/renderer-web/index.html",
     "share/tilecast/selftest/fixture.json",
     "share/doc/tilecast-edge/sbom.cdx.json",
     "packaging/sysusers.d/tilecast-edge.conf",
     "packaging/tmpfiles.d/tilecast-edge.conf",
+    "packaging/udev/70-tilecast-display.rules",
+    "packaging/modules-load.d/tilecast-edge.conf",
 ];
+
+/// The user units a release installs for the tilecast account's session
+/// (`packaging/systemd-user`). Only the path unit is enabled; it starts the
+/// bridge while `tilecastd`'s socket exists.
+pub const USER_UNITS: &[&str] = &["tilecast-session-bridge.service", "tilecast-session-bridge.path"];
+pub const USER_UNIT_ENABLED: &str = "tilecast-session-bridge.path";
 
 /// The systemd units a release installs. The migrator only ever installs,
 /// enables, starts or stops units from this list.
@@ -254,6 +263,11 @@ fn validate(manifest: &ReleaseManifest) -> Result<(), ReleaseError> {
             return Err(ReleaseError::Invalid("a required unit is missing"));
         }
     }
+    for unit in USER_UNITS {
+        if !paths.contains(format!("packaging/systemd-user/{unit}").as_str()) {
+            return Err(ReleaseError::Invalid("a required unit is missing"));
+        }
+    }
     Ok(())
 }
 
@@ -294,6 +308,10 @@ pub struct Layout {
     pub unit_dir: PathBuf,
     pub sysusers_dir: PathBuf,
     pub tmpfiles_dir: PathBuf,
+    pub udev_rules_dir: PathBuf,
+    pub modules_load_dir: PathBuf,
+    /// Units for every user manager (`systemctl --global` scope).
+    pub user_unit_dir: PathBuf,
     pub key_override: PathBuf,
 }
 
@@ -304,6 +322,9 @@ impl Layout {
             unit_dir: PathBuf::from("/etc/systemd/system"),
             sysusers_dir: PathBuf::from("/usr/lib/sysusers.d"),
             tmpfiles_dir: PathBuf::from("/usr/lib/tmpfiles.d"),
+            udev_rules_dir: PathBuf::from("/usr/lib/udev/rules.d"),
+            modules_load_dir: PathBuf::from("/usr/lib/modules-load.d"),
+            user_unit_dir: PathBuf::from("/etc/systemd/user"),
             key_override: PathBuf::from(KEY_OVERRIDE_FILE),
         }
     }
@@ -484,6 +505,19 @@ fn install_system_files(release_dir: &Path, layout: &Layout) -> Result<(), Relea
         layout.tmpfiles_dir.clone(),
         "tilecast-edge.conf".into(),
     ));
+    copies.push((
+        release_dir.join("packaging/udev/70-tilecast-display.rules"),
+        layout.udev_rules_dir.clone(),
+        "70-tilecast-display.rules".into(),
+    ));
+    copies.push((
+        release_dir.join("packaging/modules-load.d/tilecast-edge.conf"),
+        layout.modules_load_dir.clone(),
+        "tilecast-edge.conf".into(),
+    ));
+    copies.extend(USER_UNITS.iter().map(|unit| {
+        (release_dir.join("packaging/systemd-user").join(unit), layout.user_unit_dir.clone(), (*unit).to_owned())
+    }));
     for (source, dir, name) in copies {
         let bytes = edge_platform::fs::read_regular(&source, 256 * 1024)?
             .ok_or_else(|| ReleaseError::FileUnavailable(name.clone()))?;
@@ -491,7 +525,26 @@ fn install_system_files(release_dir: &Path, layout: &Layout) -> Result<(), Relea
         crate::state::write_atomic(&dir, &name, &bytes)?;
         std::fs::set_permissions(dir.join(&name), std::fs::Permissions::from_mode(0o644))?;
     }
+    enable_user_unit(layout)?;
     Ok(())
+}
+
+/// What `systemctl --global enable` does for the bridge's path unit: a
+/// relative link in `default.target.wants`. The unit's `ConditionUser=`
+/// keeps it out of every session but the tilecast account's.
+fn enable_user_unit(layout: &Layout) -> std::io::Result<()> {
+    let wants = layout.user_unit_dir.join("default.target.wants");
+    std::fs::DirBuilder::new().recursive(true).mode(0o755).create(&wants)?;
+    let link = wants.join(USER_UNIT_ENABLED);
+    let target = Path::new("..").join(USER_UNIT_ENABLED);
+    if std::fs::read_link(&link).ok().as_deref() == Some(target.as_path()) {
+        return Ok(());
+    }
+    let temporary = wants.join(format!(".{USER_UNIT_ENABLED}.tmp"));
+    let _ = std::fs::remove_file(&temporary);
+    std::os::unix::fs::symlink(&target, &temporary)?;
+    std::fs::rename(&temporary, &link)?;
+    crate::state::sync_dir(&wants)
 }
 
 /// Verifies an installed release tree: the signature, every file's size,
@@ -577,6 +630,9 @@ pub(crate) mod tests {
             for unit in UNITS {
                 add(&format!("packaging/systemd/{unit}"), format!("[Unit]\n# {unit}\n").as_bytes(), "0644");
             }
+            for unit in USER_UNITS {
+                add(&format!("packaging/systemd-user/{unit}"), format!("[Unit]\n# {unit}\n").as_bytes(), "0644");
+            }
             let manifest = serde_json::json!({
                 "schemaVersion": 1, "product": "tilecast-edge", "platform": "linux",
                 "arch": std::env::consts::ARCH, "versionName": version, "versionCode": 1000,
@@ -601,6 +657,9 @@ pub(crate) mod tests {
             unit_dir: root.join("etc-systemd"),
             sysusers_dir: root.join("sysusers"),
             tmpfiles_dir: root.join("tmpfiles"),
+            udev_rules_dir: root.join("udev"),
+            modules_load_dir: root.join("modules-load"),
+            user_unit_dir: root.join("etc-systemd-user"),
             key_override: key,
         }
     }
@@ -633,6 +692,15 @@ pub(crate) mod tests {
         assert_eq!(mode, 0o755);
         assert!(layout.unit_dir.join("tilecast-edge.service").exists());
         assert!(layout.sysusers_dir.join("tilecast-edge.conf").exists());
+        assert!(layout.udev_rules_dir.join("70-tilecast-display.rules").exists());
+        assert!(layout.modules_load_dir.join("tilecast-edge.conf").exists());
+        assert!(layout.user_unit_dir.join("tilecast-session-bridge.service").exists());
+        assert_eq!(
+            std::fs::read_link(layout.user_unit_dir.join("default.target.wants/tilecast-session-bridge.path")).unwrap(),
+            PathBuf::from("../tilecast-session-bridge.path"),
+            "only the path unit is enabled, as systemctl --global enable would"
+        );
+        assert!(!layout.user_unit_dir.join("default.target.wants/tilecast-session-bridge.service").exists());
         assert!(!layout.install_root.join("0.2.0.staging").exists());
 
         // Installing the same release again changes nothing.

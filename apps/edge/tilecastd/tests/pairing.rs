@@ -256,6 +256,11 @@ impl Harness {
         config.paths.state_dir = Some(self.dir.path().join("state"));
         config.paths.runtime_dir = Some(self.dir.path().join("run"));
         config.renderer.binary = self.dir.path().join("no-renderer");
+        // Empty hardware roots: no test daemon may reach a real TV or monitor.
+        config.dev.hardware_dev_dir = Some(self.dir.path().join("hardware/dev"));
+        config.dev.hardware_sys_dir = Some(self.dir.path().join("hardware/sys"));
+        config.dev.networkd_socket = Some(self.dir.path().join("hardware/networkd.sock"));
+        config.dev.idle_inhibit = Some(false);
         let daemon = Daemon::start(config, Notifier::disabled()).await.unwrap();
         let socket = daemon.socket_path();
         let context = Arc::clone(daemon.context());

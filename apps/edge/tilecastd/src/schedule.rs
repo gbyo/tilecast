@@ -66,6 +66,9 @@ struct Schedule {
     id: Uuid,
     playlist_id: Option<Uuid>,
     layout_id: Option<Uuid>,
+    /// A Display Control action instead of content (`docs/display-control.md`).
+    #[serde(default)]
+    display_action: Option<Value>,
     #[serde(rename = "type")]
     kind: String,
     timezone: String,
@@ -286,6 +289,55 @@ pub fn resolve(document: &Value, now_ms: i64) -> Result<Selection, ScheduleError
     Ok(base(None, None, None, None, Source::None, None))
 }
 
+/// The Display Control action scheduled at an instant.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DisplayPolicy {
+    /// The winning schedule's action, exactly as the manifest carries it.
+    pub action: Option<Value>,
+    pub schedule_id: Option<Uuid>,
+    pub next_transition_ms: Option<i64>,
+}
+
+/// Resolves scheduled display actions with the same windows and precedence
+/// as content schedules (the reference player's `resolveDisplayPolicy`). A
+/// display action never changes what content plays.
+pub fn resolve_display_policy(document: &Value, now_ms: i64) -> Result<DisplayPolicy, ScheduleError> {
+    #[derive(Deserialize)]
+    struct Schedules {
+        #[serde(default)]
+        schedules: Vec<Schedule>,
+    }
+    let manifest: Schedules = serde_json::from_value(document.clone()).map_err(|_| ScheduleError::Invalid)?;
+    if manifest.schedules.len() > MAX_SCHEDULES {
+        return Err(ScheduleError::TooMany);
+    }
+    let now = Timestamp::from_millisecond(now_ms).map_err(|_| ScheduleError::Invalid)?;
+    let mut policy_windows = Vec::new();
+    for schedule in &manifest.schedules {
+        if schedule.display_action.as_ref().is_some_and(|action| !action.is_null()) {
+            policy_windows.extend(windows(schedule, now)?);
+        }
+    }
+    let next_transition_ms =
+        policy_windows.iter().flat_map(|window| [window.start, window.end]).filter(|at| *at > now_ms).min();
+    let mut active: Vec<_> =
+        policy_windows.into_iter().filter(|window| window.start <= now_ms && now_ms < window.end).collect();
+    active.sort_by(|a, b| {
+        b.schedule
+            .priority
+            .cmp(&a.schedule.priority)
+            .then(b.schedule.specificity.cmp(&a.schedule.specificity))
+            .then(b.start.cmp(&a.start))
+            .then(a.schedule.id.cmp(&b.schedule.id))
+    });
+    let winner = active.first();
+    Ok(DisplayPolicy {
+        action: winner.and_then(|window| window.schedule.display_action.clone()),
+        schedule_id: winner.map(|window| window.schedule.id),
+        next_transition_ms,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -370,5 +422,30 @@ mod tests {
         manifest["schedules"] = json!([{"id": SCHEDULE, "playlistId": SCHEDULED, "type": "weekly",
             "timezone": "Not/AZone", "priority": 1, "specificity": 1, "dailyStart": "09:00", "dailyEnd": "17:00", "daysOfWeek": [1]}]);
         assert_eq!(resolve(&manifest, at("2026-07-17T15:00:00Z")), Err(ScheduleError::Invalid));
+    }
+
+    #[test]
+    fn display_actions_follow_schedule_windows_and_never_change_content() {
+        const OFF: &str = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+        const DIM: &str = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+        let mut manifest = base();
+        manifest["schedules"] = json!([
+            {"id": OFF, "displayAction": {"type": "display_power_off"}, "type": "weekly", "timezone": "UTC",
+             "priority": 1, "specificity": 1, "dailyStart": "20:00", "dailyEnd": "06:00", "daysOfWeek": [0,1,2,3,4,5,6]},
+            {"id": DIM, "displayAction": {"type": "display_set_brightness", "brightness": 20}, "type": "one_time",
+             "timezone": "UTC", "priority": 5, "specificity": 1,
+             "oneTimeStart": "2026-07-17T21:00:00Z", "oneTimeEnd": "2026-07-17T22:00:00Z"}
+        ]);
+        let day = resolve_display_policy(&manifest, at("2026-07-17T12:00:00Z")).unwrap();
+        assert_eq!(day.action, None);
+        assert_eq!(day.next_transition_ms, Some(at("2026-07-17T20:00:00Z")));
+        let night = resolve_display_policy(&manifest, at("2026-07-17T20:30:00Z")).unwrap();
+        assert_eq!(night.action, Some(json!({"type": "display_power_off"})));
+        assert_eq!(night.schedule_id, Some(OFF.parse().unwrap()));
+        assert_eq!(night.next_transition_ms, Some(at("2026-07-17T21:00:00Z")));
+        let dimmed = resolve_display_policy(&manifest, at("2026-07-17T21:30:00Z")).unwrap();
+        assert_eq!(dimmed.schedule_id, Some(DIM.parse().unwrap()), "the higher priority wins");
+        // Content selection ignores display schedules entirely.
+        assert_eq!(resolve(&manifest, at("2026-07-17T20:30:00Z")).unwrap().source, Source::Direct);
     }
 }

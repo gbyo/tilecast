@@ -71,6 +71,12 @@ pub mod profile {
         "plugin.brand_bug",
         "plugin.countdown_bar",
         "plugin.alert_ticker",
+        // The runtime's meter with `host-levels`: tilecast-session-bridge
+        // measures through PipeWire and tilecastd forwards derived levels
+        // (docs/tilecast-edge.md §4.4). Without a bridge or a microphone the
+        // meter shows itself unavailable, as on the reference player, and
+        // `audio.noise_meter` says why.
+        "plugin.noise_meter",
     ];
 
     /// Declarative widget capabilities of the reference projection code the
@@ -214,7 +220,6 @@ pub enum Incompatibility {
     WebWidget,
     SynchronizedPlayback,
     SpanViewport,
-    DisplayControl,
     Plugin(String),
     WidgetCapability(String),
     ContentType(String),
@@ -229,7 +234,6 @@ impl Incompatibility {
             Self::WebWidget => "presentation_incompatible_web_widget",
             Self::SynchronizedPlayback => "presentation_incompatible_synchronized_playback",
             Self::SpanViewport => "presentation_incompatible_span",
-            Self::DisplayControl => "presentation_incompatible_display_control",
             Self::Plugin(_) => "presentation_incompatible_plugin",
             Self::WidgetCapability(_) => "presentation_incompatible_widget_capability",
             Self::ContentType(_) => "presentation_incompatible_content_type",
@@ -246,7 +250,6 @@ impl std::fmt::Display for Incompatibility {
             Self::WebWidget => f.write_str("web widgets need the WPE website isolation that is not qualified yet"),
             Self::SynchronizedPlayback => f.write_str("synchronized group playback is not supported by this renderer"),
             Self::SpanViewport => f.write_str("the Span canvas or panel geometry is malformed"),
-            Self::DisplayControl => f.write_str("scheduled display control needs a display control provider"),
             Self::Plugin(kind) => write!(f, "the {kind} plugin is not supported by this renderer"),
             Self::WidgetCapability(name) => write!(f, "a widget needs renderer capability {name}"),
             Self::ContentType(kind) => write!(f, "content type {kind} is not supported by this renderer"),
@@ -510,13 +513,9 @@ pub fn incompatibilities(document: &Value, assets: &[Asset]) -> Vec<Incompatibil
     if span_viewport(document).is_err() {
         push(Incompatibility::SpanViewport);
     }
-    if document
-        .get("schedules")
-        .and_then(Value::as_array)
-        .is_some_and(|schedules| schedules.iter().any(|s| s.get("displayAction").is_some_and(|v| !v.is_null())))
-    {
-        push(Incompatibility::DisplayControl);
-    }
+    // A schedule's `displayAction` is not a presentation requirement: the
+    // display task applies it when a provider exists and reports the typed
+    // reason when none does, as the reference Linux player does.
     for plugin in document.get("plugins").and_then(Value::as_array).into_iter().flatten() {
         let kind = plugin.get("type").and_then(Value::as_str).unwrap_or("unknown");
         if !profile::FEATURES.contains(&format!("plugin.{kind}").as_str()) {
@@ -651,6 +650,7 @@ impl Candidate {
             }
         }
         schedule::resolve(&document, 0).map_err(|_| ManifestError::Schedule)?;
+        schedule::resolve_display_policy(&document, 0).map_err(|_| ManifestError::Schedule)?;
         let required_downloads = assets.clone();
         Ok(Self {
             digest,
@@ -1431,7 +1431,7 @@ mod tests {
             (Box::new(|v| v["viewport"] = serde_json::json!({"x": 0})), "presentation_incompatible_span"),
             (
                 Box::new(|v| {
-                    v["plugins"] = serde_json::json!([{"id": ITEM, "type": "noise_meter", "version": 1, "config": {}}])
+                    v["plugins"] = serde_json::json!([{"id": ITEM, "type": "air_quality", "version": 1, "config": {}}])
                 }),
                 "presentation_incompatible_plugin",
             ),
@@ -1552,6 +1552,25 @@ mod tests {
 
         // No group, no timeline.
         assert!(parse(manifest()).unwrap().presentation(at).unwrap().timing.is_none());
+    }
+
+    #[test]
+    fn scheduled_display_actions_are_accepted_like_the_reference_player() {
+        let mut value = manifest();
+        value["schedules"] = serde_json::json!([{"id": ITEM, "type": "weekly", "timezone": "UTC",
+            "priority": 1, "specificity": 1, "dailyStart": "22:00", "dailyEnd": "06:00", "daysOfWeek": [1, 2, 3],
+            "displayAction": {"type": "display_power_off"}}]);
+        let candidate = parse(value).unwrap();
+        assert!(incompatibilities(&candidate.document, &candidate.assets).is_empty());
+    }
+
+    #[test]
+    fn invalid_display_only_schedule_is_rejected_before_activation() {
+        let mut value = manifest();
+        value["schedules"] = serde_json::json!([{"id": ITEM, "type": "weekly", "timezone": "Mars/Base",
+            "priority": 1, "specificity": 1, "dailyStart": "22:00", "dailyEnd": "06:00", "daysOfWeek": [1],
+            "displayAction": {"type": "display_power_off"}}]);
+        assert_eq!(parse(value).unwrap_err(), ManifestError::Schedule);
     }
 
     #[test]

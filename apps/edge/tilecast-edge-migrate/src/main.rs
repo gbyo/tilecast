@@ -170,9 +170,16 @@ mod linux_main {
                             return ExitCode::FAILURE;
                         }
                     };
-                    if let Err(error) = host.install_system_configuration().await {
-                        eprintln!("tilecast-edge-migrate: {error}");
-                        return ExitCode::FAILURE;
+                    match host.install_system_configuration().await {
+                        Ok(warnings) => {
+                            for warning in warnings {
+                                eprintln!("tilecast-edge-migrate: warning: {warning}");
+                            }
+                        }
+                        Err(error) => {
+                            eprintln!("tilecast-edge-migrate: {error}");
+                            return ExitCode::FAILURE;
+                        }
                     }
                     let version = match outcome {
                         InstallOutcome::Installed { version, .. } => format!("installed {version}"),

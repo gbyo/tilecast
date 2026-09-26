@@ -17,6 +17,7 @@ import { FileTree, LinkButton, Steps } from "@astrojs/starlight/components";
     - dashboard/ React and TypeScript management app, Tilecast Studio.
     - player-android/ Kotlin and Jetpack Compose Player for Android TV devices.
     - player-linux/ Electron Player for Linux kiosk devices.
+    - edge/ Tilecast Edge, the Linux player in development: a Rust daemon, a WPE WebKit renderer, and a small user-session bridge.
     - docs/ Astro and Starlight public documentation site.
   - packages/ Shared design tokens and application contracts.
   - deploy/ Docker deployment and optional network integrations.
@@ -72,6 +73,18 @@ From the repository root, `make check` runs the repository's documented format, 
   Read the contribution guide
 </LinkButton>
 
+## Work on Tilecast Edge
+
+Tilecast Edge lives in `apps/edge` and is still in development; no release is published yet. Read [`apps/edge/README.md`](https://github.com/gbyo/tilecast/blob/main/apps/edge/README.md) and [`apps/edge/AGENTS.md`](https://github.com/gbyo/tilecast/blob/main/apps/edge/AGENTS.md) first. From `apps/edge`:
+
+```sh
+cargo fmt --all --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+```
+
+The renderer and the session bridge are C projects built with CMake on Linux. The session bridge needs GLib, json-glib, GStreamer, and WirePlumber 0.5 development packages. Hardware tests never touch a real TV or monitor: test daemons use empty device directories, the HDMI-CEC test in CI uses the kernel's `vivid` virtual driver, and the session bridge test uses a real PipeWire with a virtual microphone. The [hardware capability matrix](https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-capabilities.md) says what each feature needs and how it is tested.
+
 ## Work on the public docs
 
 The docs site is an npm workspace. Run these commands from the repository root:
@@ -90,3 +103,4 @@ Follow the [documentation style guide](https://github.com/gbyo/tilecast/blob/mai
 - [Development setup](https://github.com/gbyo/tilecast/blob/main/docs/development.md) covers local database and migration workflows.
 - [Architecture](https://github.com/gbyo/tilecast/blob/main/docs/architecture.md) describes the server and application boundaries.
 - [Android Player development](https://github.com/gbyo/tilecast/blob/main/docs/android-development.md) covers Android build and device workflows.
+- [Tilecast Edge architecture](https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge.md) and its [implementation ledger](https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-next.md) describe the Linux player in development.
