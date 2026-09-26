@@ -29,6 +29,6 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
-    "prettier": "^3.9.6"
+    "prettier": "^3.9.8"
   }
 }
