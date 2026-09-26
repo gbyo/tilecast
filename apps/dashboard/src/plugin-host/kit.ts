@@ -33,6 +33,11 @@ export interface StudioPluginDefinition {
    * Routes below the manifest's `studio.route`. The host mounts them, adds
    * the plugin name as the breadcrumb, and wraps them in the install gate, so
    * an uninstalled plugin's page explains how to install it.
+   *
+   * A route's `handle.breadcrumb` is the English label, and
+   * `handle.breadcrumbKey` names its translation in the plugin's namespace
+   * (`studio/locales/<language>.json`), for example
+   * `{ breadcrumb: "New instance", breadcrumbKey: "breadcrumbs.newInstance" }`.
    */
   routes?: RouteObject[];
   /** Extra global search destinations. The plugin itself is always offered. */

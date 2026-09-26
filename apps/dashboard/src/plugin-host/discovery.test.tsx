@@ -107,7 +107,14 @@ describe("Studio plugin discovery", () => {
           "../../../../plugins/sample-tally/studio/index.tsx": {
             default: {
               id: "sample_tally",
-              routes: [{ index: true, element: <p>Sample</p> }],
+              routes: [
+                { index: true, element: <p>Sample</p> },
+                {
+                  path: "new",
+                  element: <p>New</p>,
+                  handle: { breadcrumb: "New", breadcrumbKey: "crumbs.new" },
+                },
+              ],
             },
           },
         },
@@ -119,7 +126,12 @@ describe("Studio plugin discovery", () => {
     expect(
       (route?.element as { props: { pluginId: string } }).props.pluginId,
     ).toBe("sample_tally");
-    expect(route?.children).toHaveLength(1);
+    expect(route?.children).toHaveLength(2);
+    // A plugin's breadcrumb key is qualified with its own namespace.
+    expect(route?.children?.[1]?.handle).toEqual({
+      breadcrumb: "New",
+      breadcrumbKey: { ns: "plugin.sample_tally", key: "crumbs.new" },
+    });
   });
 
   it("gives every discovered plugin route a place in the Studio router", () => {

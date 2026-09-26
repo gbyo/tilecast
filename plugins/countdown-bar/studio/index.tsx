@@ -15,13 +15,17 @@ export default defineStudioPlugin({
     {
       path: "new",
       element: <CountdownBarEditorPage />,
-      handle: { breadcrumb: "New instance" },
+      handle: {
+        breadcrumb: "New instance",
+        breadcrumbKey: "breadcrumbs.newInstance",
+      },
     },
     {
       path: ":id",
       element: <CountdownBarEditorPage />,
       handle: {
         breadcrumb: "Instance",
+        breadcrumbKey: "breadcrumbs.instance",
         resource: { queryKey: countdownBarQueryKey, load: countdownApi.get },
       },
     },

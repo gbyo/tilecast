@@ -25,7 +25,14 @@ export type BreadcrumbResourceLoader = {
 };
 
 export type StudioRouteHandle = {
+  /** The English breadcrumb, and the fallback for breadcrumbKey. */
   breadcrumb?: string;
+  /**
+   * The breadcrumb's translation, resolved with t() at render so it follows
+   * language changes. A plugin route gives a key in its own namespace as a
+   * string; the plugin host qualifies it (see plugin-host/routes.tsx).
+   */
+  breadcrumbKey?: { ns: string; key: string };
   resource?: BreadcrumbResource | BreadcrumbResourceLoader;
   search?: {
     label: string;

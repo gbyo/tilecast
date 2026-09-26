@@ -213,6 +213,22 @@ describe("StudioTopbar", () => {
     ]);
   });
 
+  it("translates a plugin breadcrumb from the plugin's own namespace", async () => {
+    await i18n.changeLanguage("es");
+    try {
+      renderTopbar("/plugins/countdown-bar/new");
+      await waitFor(() =>
+        expect(breadcrumbTrail().at(-1)).toEqual({
+          label: "Nueva instancia",
+          href: null,
+          current: true,
+        }),
+      );
+    } finally {
+      await i18n.changeLanguage("en");
+    }
+  });
+
   it("names a campaign on its detail route", async () => {
     vi.spyOn(api, "campaign").mockResolvedValue({
       id: "campaign-1",
