@@ -286,7 +286,11 @@ consumer read `docs/openapi.yaml`. Do not edit that file.
 `defineStudioPlugin({ id, icon, routes, search })` from `@tilecast/studio`.
 
 The host mounts the routes below the manifest's `studio.route`. It adds the
-plugin name as the breadcrumb and wraps the subtree in the install gate. An
+plugin name as the breadcrumb and wraps the subtree in the install gate. A
+plugin route gives its English breadcrumb in `handle.breadcrumb` and its
+translation key in `handle.breadcrumbKey`. The key is in the plugin
+namespace. The host adds the namespace to the key, and the Studio topbar
+resolves the label with `t()` when it renders. An
 uninstalled plugin's page shows how to install it. The catalog uses the
 discovered routes and icons, so Studio has no central plugin route list and
 no central icon map.
