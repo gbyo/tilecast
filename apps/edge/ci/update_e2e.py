@@ -321,11 +321,19 @@ def assert_helper_boundary(context):
     probe = subprocess.run(["nsenter", "-t", str(pid), "-m", "touch", "/usr/bin/tilecast-e2e-probe"],
                            capture_output=True, text=True)
     assert probe.returncode != 0 and "Read-only" in probe.stderr, f"{context}: /usr is writable: {probe.stderr}"
-    # Root as it is, the helper cannot even list the credential's directory.
-    hidden = subprocess.run(["nsenter", "-t", str(pid), "-m", "ls", "/var/lib/tilecast-edge/identity"],
+    # InaccessiblePaths= puts an empty mode-0000 directory over the
+    # credential's directory in the helper's mount namespace. nsenter joins
+    # only that namespace and keeps full root, so it can list the stub: what
+    # matters is that the stub is empty and the credential is not there.
+    identity = "/var/lib/tilecast-edge/identity"
+    credential = f"{identity}/device-credential"
+    assert os.path.exists(credential), "the credential exists outside the helper's namespace"
+    inside = subprocess.run(["nsenter", "-t", str(pid), "-m", "sh", "-c",
+                             f"stat -c %a {identity}; ls -A {identity}; test ! -e {credential}"],
                             capture_output=True, text=True)
-    assert hidden.returncode != 0, f"{context}: the helper can read the identity directory: {hidden.stdout}"
-    assert os.listdir("/var/lib/tilecast-edge/identity"), "the credential exists outside the helper's namespace"
+    lines = inside.stdout.split()
+    assert inside.returncode == 0 and lines == ["0"], \
+        f"{context}: the helper's namespace shows the identity directory: {inside.stdout!r} {inside.stderr!r}"
     print(f"{context}: helper pid {pid} runs as root with bounding set {status['CapBnd']}, NoNewPrivs, seccomp, "
           "Unix sockets only; the socket refuses root and the tilecast account outside tilecastd's unit")
 
