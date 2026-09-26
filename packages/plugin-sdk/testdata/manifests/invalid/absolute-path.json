@@ -11,8 +11,6 @@
     "singular": "item",
     "plural": "items"
   },
-  "studio": {
-    "route": "/plugins/minimal",
-    "entrypoint": "/etc/passwd"
-  }
+  "$schema": "../../../schema/tilecast-plugin.schema.json",
+  "migrations": "/etc/passwd"
 }

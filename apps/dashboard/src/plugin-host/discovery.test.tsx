@@ -18,7 +18,9 @@ const manifest = (id: string, route?: string) => ({
   icon: "hash",
   maintainers: ["@gbyo"],
   instanceNoun: { singular: "item", plural: "items" },
-  ...(route ? { studio: { route, entrypoint: "./studio/index.tsx" } } : {}),
+  ...(route
+    ? { studio: { route, entrypoint: "./studio/index.tsx" as const } }
+    : {}),
 });
 
 describe("Studio plugin discovery", () => {

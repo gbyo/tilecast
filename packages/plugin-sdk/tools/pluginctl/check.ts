@@ -6,6 +6,7 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
+import { conventionalEntrypoints } from "../../src/manifest.ts";
 import { checkBoundaries } from "./boundaries.ts";
 import { generate, stale } from "./generate.ts";
 import {
@@ -37,6 +38,7 @@ export async function check(repo: Repo): Promise<Problem[]> {
       add(`directory must be named plugins/${dirForId(id)}`);
 
     checkServer(plugin, add);
+    checkConventionalEntrypoints(plugin, add);
 
     if (manifest.studio) {
       const expected = `/plugins/${plugin.dir}`;
@@ -140,12 +142,6 @@ function checkServer(plugin: DiscoveredPlugin, add: Add) {
     add(`server.entrypoint ${server.entrypoint} does not exist`);
     return;
   }
-  if (
-    !server.entrypoint.endsWith(".go") ||
-    server.entrypoint.split("/").length !== 2
-  ) {
-    add("server.entrypoint must be a .go file in the plugin directory itself");
-  }
   if (!plugin.goPackage) add(`${server.entrypoint} has no package clause`);
   const text = readFileSync(entry, "utf8");
   if (!/^func New\(\) plugin\.Plugin \{/m.test(text)) {
@@ -159,6 +155,25 @@ function checkServer(plugin: DiscoveredPlugin, add: Add) {
     !new RegExp(`//go:embed ${plugin.manifest.migrations.slice(2)}`).test(text)
   ) {
     add(`${server.entrypoint} must embed the declared migrations directory`);
+  }
+}
+
+/**
+ * The builds find entry points by convention (the manifest schema only
+ * accepts the conventional paths). A conventional file that the manifest does
+ * not declare would be discovered by Vite anyway, or silently ignored by the
+ * host, so the manifest and the directory must agree both ways.
+ */
+function checkConventionalEntrypoints(plugin: DiscoveredPlugin, add: Add) {
+  const { manifest } = plugin;
+  const declared: [string, string | undefined][] = [
+    [conventionalEntrypoints.studio, manifest.studio?.entrypoint],
+    [conventionalEntrypoints.runtime, manifest.runtime?.entrypoint],
+  ];
+  for (const [path, entrypoint] of declared) {
+    if (entrypoint === undefined && existsSync(join(plugin.path, path))) {
+      add(`${path.slice(2)} exists but the manifest does not declare it`);
+    }
   }
 }
 

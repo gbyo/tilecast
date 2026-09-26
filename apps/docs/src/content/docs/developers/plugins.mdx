@@ -28,6 +28,8 @@ Plugins are compiled into the Tilecast release. Tilecast doesn't download or run
 
 The directory name is the plugin ID with hyphens, so `transit_alerts` lives in `plugins/transit-alerts/`.
 
+Entry points always sit at these paths: `plugin.go` for the server and `studio/index.tsx` for Studio. The build finds plugin code by these names, so the manifest can't point anywhere else. See the [Plugin API reference](https://github.com/gbyo/tilecast/blob/main/docs/plugin-api.md#manifest) for the exact contract.
+
 ## Create a plugin
 
 <Steps>

@@ -11,8 +11,13 @@
     "singular": "item",
     "plural": "items"
   },
-  "studio": {
-    "route": "/plugins/minimal",
-    "entrypoint": "./studio//index.tsx"
+  "$schema": "../../../schema/tilecast-plugin.schema.json",
+  "docs": {
+    "pages": [
+      {
+        "source": "./docs//index.mdx",
+        "slug": "operations/plugins/minimal"
+      }
+    ]
   }
 }

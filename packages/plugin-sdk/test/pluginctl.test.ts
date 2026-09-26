@@ -142,15 +142,44 @@ describe("pluginctl", () => {
       manifest.id = "transit_feeds";
       manifest.studio = {
         route: "/plugins/elsewhere",
-        entrypoint: "./studio/missing.tsx",
+        entrypoint: "./studio/index.tsx",
       };
     });
+    rmSync(join(root, "plugins/transit-alerts/studio/index.tsx"));
     await generateInto(root);
     const found = await problems(root);
     expect(found).toContain("directory must be named plugins/transit-feeds");
     expect(found).toContain("studio.route must be /plugins/transit-alerts");
     expect(found).toContain(
-      "studio.entrypoint ./studio/missing.tsx does not exist",
+      "studio.entrypoint ./studio/index.tsx does not exist",
+    );
+  });
+
+  it("accepts only the conventional entry points, in both directions", async () => {
+    scaffold(root, {
+      id: "transit_alerts",
+      category: "Display",
+      maintainer: "@gbyo",
+      api: false,
+    });
+    await generateInto(root);
+    editManifest(root, "transit-alerts", (manifest) => {
+      manifest.studio = {
+        route: "/plugins/transit-alerts",
+        entrypoint: "./studio/editor.tsx",
+      };
+    });
+    const renamed = (await check(discover(root))).map(
+      (problem) => `${problem.file ?? ""} ${problem.message}`,
+    );
+    expect(renamed.join("\n")).toMatch(/studio\.entrypoint/);
+
+    editManifest(root, "transit-alerts", (manifest) => {
+      delete manifest.studio;
+    });
+    await generateInto(root);
+    expect(await problems(root)).toContain(
+      "studio/index.tsx exists but the manifest does not declare it",
     );
   });
 
