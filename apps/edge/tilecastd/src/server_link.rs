@@ -245,22 +245,25 @@ pub async fn run(context: Arc<DaemonContext>) {
     }
 }
 
-/// Stores the server clock offset from a socket ping, as the reference
-/// player's `core/clock.ts` does, so a restart without the server still
-/// schedules at the corrected time.
-async fn sample_server_clock(context: &DaemonContext, timestamp: &str) {
+/// Stores the server clock offset from a server timestamp (a socket ping, or
+/// a manifest's `serverTime` as the reference player's `core/clock.ts`
+/// samples it), so a restart without the server still schedules at the
+/// corrected time.
+pub(crate) async fn sample_server_clock(context: &DaemonContext, timestamp: &str) {
     let Ok(server_time) = Timestamp::parse(timestamp) else { return };
     let Some(db) = context.db() else { return };
     let received_at = context.now();
-    let offset = server_time.unix_millis().saturating_sub(received_at.unix_millis());
+    let sample = server_time.unix_millis().saturating_sub(received_at.unix_millis());
+    // Older servers send whole-second pings: such a sample only says the
+    // offset lies in [sample, sample + 1 s).
+    let coarse = !timestamp.contains('.');
     let _ = db
         .run(move |c| {
             let mut state = playback::get(c)?;
-            let old = state.server_clock_offset_ms.unwrap_or_default();
             let stale = state
                 .server_clock_synchronized_at
                 .is_none_or(|at| received_at.unix_millis() - at.unix_millis() > 300_000);
-            if state.server_clock_offset_ms.is_none() || old.abs_diff(offset) >= 250 || stale {
+            if let Some(offset) = refined_offset(state.server_clock_offset_ms, sample, coarse, stale) {
                 state.server_clock_offset_ms = Some(offset);
                 state.server_clock_synchronized_at = Some(received_at);
                 playback::put(c, &state, received_at)?;
@@ -268,6 +271,23 @@ async fn sample_server_clock(context: &DaemonContext, timestamp: &str) {
             Ok(())
         })
         .await;
+}
+
+/// The offset to store after a sample, or `None` to keep the current one. A
+/// precise sample replaces an offset it moves by 250 ms or more, or a stale
+/// one. A whole-second sample replaces only an offset outside its interval,
+/// with the interval's middle.
+pub(crate) fn refined_offset(current: Option<i64>, sample: i64, coarse: bool, stale: bool) -> Option<i64> {
+    if coarse {
+        return match current {
+            Some(old) if (sample..=sample.saturating_add(1_000)).contains(&old) => None,
+            _ => Some(sample.saturating_add(500)),
+        };
+    }
+    match current {
+        Some(old) if old.abs_diff(sample) < 250 && !stale => None,
+        _ => Some(sample),
+    }
 }
 
 fn server_retry(error: &ServerError) -> LinkState {
@@ -325,7 +345,18 @@ async fn ensure_preparation(
             .flatten()
             .is_some_and(|stored| stored.digest == digest)
         {
-            return;
+            // Nothing to do while its content is whole; otherwise the
+            // preparation below repairs it in place.
+            let intact = match crate::manifest::Candidate::prepare_candidate(
+                target.document.clone(),
+                target.binding.screen_id,
+            ) {
+                Ok(candidate) => crate::manifest::verify_cached(context, &candidate).await.is_ok(),
+                Err(_) => true,
+            };
+            if intact {
+                return;
+            }
         }
     }
     // A deterministic rejection of this exact manifest is not retried.
@@ -347,6 +378,7 @@ async fn ensure_preparation(
         };
         match result {
             Ok(Prepared::Current) => set_preparation(&worker_context, Some(digest), "current", None),
+            Ok(Prepared::Repaired) => set_preparation(&worker_context, Some(digest), "repaired", None),
             Ok(Prepared::Pending) => set_preparation(&worker_context, Some(digest), "pending", None),
             Ok(Prepared::Superseded) => set_preparation(&worker_context, Some(digest), "superseded", None),
             Err(error) => {
@@ -528,14 +560,15 @@ pub fn heartbeat_item_id(key: &str) -> Option<String> {
     edge_protocol::ids::parse_canonical_uuid(candidate).ok().map(|id| id.to_string())
 }
 
-/// The heartbeat `selectionSource` for a selection. The server records player
-/// status only when this is one of `takeover`, `schedule`, `direct_fallback`
-/// or `none`, and discards the whole status otherwise. A direct assignment is
-/// reported as `direct_fallback`, as the Android player does; Quick Present
-/// has no accepted value and is omitted rather than mislabelled.
+/// The heartbeat `selectionSource` for a selection, in the server's shared
+/// status vocabulary (`takeover`, `quick_present`, `schedule`,
+/// `direct_fallback`, `none`); the server discards a whole status with any
+/// other value. A direct assignment is reported as `direct_fallback`, as the
+/// Android player does.
 pub fn heartbeat_selection_source(source: &str) -> Option<&'static str> {
     match source {
         "takeover" => Some("takeover"),
+        "quick_present" => Some("quick_present"),
         "schedule" => Some("schedule"),
         "direct" => Some("direct_fallback"),
         "none" => Some("none"),
@@ -619,7 +652,7 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
             heartbeat["currentItemStartedAt"] = serde_json::json!(started_at.to_string());
         }
     }
-    if let Ok(available) = edge_platform::disk::available_bytes(&context.paths.state_dir) {
+    if let Ok(available) = context.space.available_bytes(&context.paths.state_dir) {
         heartbeat["availableStorageBytes"] = serde_json::json!(available);
     }
     if let Some(cas) = &context.cas
@@ -672,6 +705,22 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_whole_second_sample_corrects_only_what_it_can_resolve() {
+        // Precise samples: 250 ms or more, or a stale offset, replace it.
+        assert_eq!(refined_offset(None, -40, false, false), Some(-40));
+        assert_eq!(refined_offset(Some(-40), 100, false, false), None);
+        assert_eq!(refined_offset(Some(-40), 300, false, false), Some(300));
+        assert_eq!(refined_offset(Some(-40), 100, false, true), Some(100));
+        // A whole-second ping 797 ms "behind" agrees with a precise -40 ms
+        // offset and must not replace it (the real-server two-player case).
+        assert_eq!(refined_offset(Some(-40), -837, true, true), None);
+        // Nothing better known: the interval's middle.
+        assert_eq!(refined_offset(None, -837, true, false), Some(-337));
+        // Outside its interval: a whole-second sample still fixes a large error.
+        assert_eq!(refined_offset(Some(90_000), -837, true, false), Some(-337));
+    }
+
+    #[test]
     fn retry_delay_grows_to_the_ceiling() {
         assert_eq!(retry_delay(1), Duration::from_secs(15));
         assert_eq!(retry_delay(3), Duration::from_secs(45));
@@ -704,7 +753,8 @@ mod tests {
         assert_eq!(heartbeat_selection_source("schedule"), Some("schedule"));
         assert_eq!(heartbeat_selection_source("takeover"), Some("takeover"));
         assert_eq!(heartbeat_selection_source("none"), Some("none"));
-        assert_eq!(heartbeat_selection_source("quick_present"), None);
+        assert_eq!(heartbeat_selection_source("quick_present"), Some("quick_present"));
+        assert_eq!(heartbeat_selection_source("emergency"), None);
     }
 
     #[test]

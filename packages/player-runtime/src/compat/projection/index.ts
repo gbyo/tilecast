@@ -16,7 +16,7 @@
 export * from "./types";
 export * from "./content-types";
 export * from "./render-tree";
-export { renderLayout } from "./layout-render";
+export { renderLayout, spanViewport } from "./layout-render";
 export { renderWidget } from "./widget-render";
 export { resolveRegionalFormatting } from "./format";
 export {

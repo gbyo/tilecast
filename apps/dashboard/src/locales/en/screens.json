@@ -453,6 +453,7 @@
     "selectionScheduledNamed": "Scheduled · {{name}}",
     "selectionScheduleFallback": "schedule",
     "selectionDirect": "Direct fallback",
+    "selectionQuickPresent": "Show now",
     "selectionNone": "No content",
     "nextScheduledChange": "Next scheduled change",
     "notGrouped": "Not grouped",

@@ -14,7 +14,7 @@ import type {
   RuntimePresentation,
 } from "../host/contract";
 import { resolveRegionalFormatting } from "./projection/format";
-import { renderLayout } from "./projection/layout-render";
+import { renderLayout, spanViewport } from "./projection/layout-render";
 import { renderWidget } from "./projection/widget-render";
 import type {
   LayoutDocument,
@@ -180,14 +180,18 @@ export function createProjector(
           const id = (item.layout as { layoutId: string }).layoutId;
           const layout = layouts.get(id);
           const payload = layout
-            ? renderLayout(layout.document, {
-                manifest,
-                widgets,
-                dataSources,
-                at,
-                playback,
-                regionalFormat,
-              })
+            ? renderLayout(
+                layout.document,
+                {
+                  manifest,
+                  widgets,
+                  dataSources,
+                  at,
+                  playback,
+                  regionalFormat,
+                },
+                spanViewport(manifest),
+              )
             : null;
           if (payload) {
             items.push({

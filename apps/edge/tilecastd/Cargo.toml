@@ -39,8 +39,10 @@ edge-protocol = { workspace = true, features = ["test-util"] }
 http-body-util.workspace = true
 hyper.workspace = true
 hyper-util.workspace = true
+rusqlite.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["full", "test-util"] }
+tokio-tungstenite.workspace = true
 
 [lints]
 workspace = true

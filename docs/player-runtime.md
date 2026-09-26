@@ -42,9 +42,9 @@ Behavior depends on `capabilities`, never on `info.host`:
 | Capability             | Electron              | WPE (Edge)                      |
 | ---------------------- | --------------------- | ------------------------------- |
 | `remoteWeb`            | `electron-webview`    | `null` until M11 isolation      |
-| `synchronizedPlayback` | `true`                | `false` (see §7)                |
+| `synchronizedPlayback` | `true`                | `true` (`tilecastd` anchors)    |
 | `setup`                | `true`                | `true`                          |
-| `discovery`            | `true`                | `false` (Avahi arrives in M5)   |
+| `discovery`            | `true`                | `true` (Avahi, `tilecastd`)     |
 | `noiseMeter`           | `renderer-microphone` | `null` (PipeWire arrives in M9) |
 
 `info` (host name and version, engine name and version) is for diagnostics only.
@@ -71,7 +71,7 @@ The playback rules are the Electron player's, unchanged: `engine/playback-policy
 
 `engine/timeline.ts` drives a group's shared timeline. At activation it reads the wall clock once, corrected by the host's `clockOffsetMs`, to place the screen in the cycle. From then on the position comes from the monotonic clock, so an NTP step or a manual clock change never jumps what is on screen. At each boundary the timeline reports the outgoing item's transition and re-presents the playlist rotated to the expected item. The presentation machine has no local authority under a shared timeline. Four times a second the timeline publishes the expected position, and the visible video surface applies the existing drift-correction bands.
 
-The timeline math (`clock/synchronized.ts`) is shared with the Electron main process, which builds the anchor from the active manifest (`apps/player-linux/src/main/runtime-messages.ts`).
+The timeline math (`clock/synchronized.ts`) is shared with the Electron main process, which builds the anchor from the active manifest (`apps/player-linux/src/main/runtime-messages.ts`). On Edge, `tilecastd` builds the same anchor and effective durations from the manifest (`manifest.rs`, `group_timing`) and sends them as `timing` with the activation. The anchor is fixed for that activation; the offset is the daemon's current one each time the timing is sent, so a restarted renderer rejoins with the best estimate. Neither host re-activates for a later offset sample.
 
 ## 5. Views, surfaces and transitions
 
@@ -98,7 +98,6 @@ RenderNode is not the Player Runtime's permanent widget API. `src/widgets/contra
 - `tilecast://runtime/` serves only files listed in the artifact's `runtime-manifest.json` (Electron) or allowed by `tc_runtime_path_is_allowed` (WPE). The names are top-level files and `fonts/<name>`, and anything a URL parser would rewrite is refused.
 - The Electron renderer runs with `sandbox: true`, `contextIsolation: true` and `nodeIntegration: false`. The preload is a thin adapter that requires only `electron`. The synchronized-timeline enrichment that forced `sandbox: false` moved to the main process.
 - Tilecast-owned surfaces use the bundled Tilecast UI face (Geist, SIL Open Font License 1.1, `static/fonts/OFL.txt`) rather than the distribution's `system-ui`. The display ignores host dark-mode and forced-colour preferences.
-- Synchronized playback is implemented in the runtime. The WPE host does not advertise it yet, because `tilecastd` does not yet build group anchors from the manifest.
 
 ## 8. Conformance suite
 

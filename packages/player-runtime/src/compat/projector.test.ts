@@ -151,6 +151,37 @@ describe("projection of widget and layout references", () => {
     expect(JSON.stringify(projected)).not.toContain("tcmedia://variant/");
   });
 
+  it("clips a Layout to this screen's Span panel, as Electron does", () => {
+    const panel = {
+      x: 960,
+      y: 0,
+      width: 960,
+      height: 1080,
+      rotation: 0,
+      order: 2,
+    };
+    const projector = createProjector({
+      ...projection,
+      manifest: {
+        ...manifest,
+        canvas: { width: 1920, height: 1080 },
+        viewport: panel,
+      },
+    })!;
+    const projected = projector.project(
+      playing([item("layout-1", "layout", { layout: { layoutId: LAYOUT } })]),
+      Date.UTC(2026, 8, 1),
+    ) as Extract<RuntimePresentation, { state: "playing" }>;
+    const payload = projected.items[0]!.layout as unknown as {
+      canvasWidth: number;
+      zones: { id: string; x: number; width: number }[];
+    };
+    // The left half is another panel's; the image zone moves to x = 0.
+    expect(payload.zones.map((zone) => [zone.id, zone.x, zone.width])).toEqual([
+      ["zone-image", 0, 960],
+    ]);
+  });
+
   it("skips an item that cannot render; none left is unavailable", () => {
     const projector = createProjector(projection)!;
     const projected = projector.project(
@@ -265,5 +296,134 @@ describe("projection under the host's player configuration", () => {
     const defaults = projectedClock({ ...projection, manifest: clockManifest });
     expect(defaults).not.toContain("America/Chicago");
     expect(defaults).not.toContain("es-US");
+  });
+});
+
+describe("time-bound widgets keep time without restarting playback", () => {
+  // The shapes the server compiles for these providers
+  // (apps/server/internal/playlists/presentation.go): text bound to the
+  // environment's currentTime, which requires environment.time.
+  const surface = (children: unknown[]) => ({
+    type: "surface",
+    props: { backgroundColor: "#101820", padding: 4, textScale: 100 },
+    children,
+  });
+  const clockText = (timezone: string) => ({
+    type: "text",
+    props: { color: "#ffffff", role: "metric" },
+    binding: {
+      source: "environment",
+      path: "currentTime",
+      format: `time:24:false:${timezone}`,
+    },
+  });
+  const declarative = (assetId: string, provider: string, root: unknown) => ({
+    assetId,
+    name: provider,
+    provider,
+    presentation: {
+      schemaVersion: 1,
+      kind: "native",
+      requiredCapabilities: { "content.text": 1, "environment.time": 1 },
+      native: { root },
+    },
+  });
+  const CLOCK = "1b7c2e3d-4f5a-4b6c-8d7e-9f0a1b2c3d4e";
+  const COUNTDOWN = "2c8d3f4e-5a6b-4c7d-9e8f-0a1b2c3d4e5f";
+  const WORLD = "3d9e4a5f-6b7c-4d8e-8f9a-1b2c3d4e5f6a";
+  const timeManifest = {
+    ...manifest,
+    widgets: [
+      declarative(CLOCK, "clock", surface([clockText("America/Chicago")])),
+      declarative(
+        COUNTDOWN,
+        "countdown",
+        surface([
+          {
+            type: "text",
+            props: { color: "#ffffff", role: "metric" },
+            binding: {
+              source: "environment",
+              path: "currentTime",
+              format:
+                "countdown:v2:2026-12-31T23%3A59%3A00Z:UTC:countdown:none:completed_text:1111:Complete",
+            },
+          },
+        ]),
+      ),
+      declarative(
+        WORLD,
+        "world_clock",
+        surface([
+          {
+            type: "grid",
+            props: { columns: 2 },
+            children: ["Europe/London", "Asia/Tokyo"].map((timezone) => ({
+              type: "column",
+              props: { card: true },
+              children: [clockText(timezone)],
+            })),
+          },
+        ]),
+      ),
+    ],
+  };
+  const context: ProjectionContextV1 = {
+    ...projection,
+    manifest: timeManifest,
+  };
+
+  it("projects ticking nodes, not a time frozen at projection", () => {
+    const projected = createProjector(context)!.project(
+      playing(
+        [CLOCK, COUNTDOWN, WORLD].map((id) =>
+          item(id, "widget", { widget: { widgetAssetId: id } }),
+        ),
+      ),
+      Date.UTC(2026, 8, 24, 13, 5),
+    ) as Extract<RuntimePresentation, { state: "playing" }>;
+    const [clock, countdown, world] = projected.items.map((entry) =>
+      JSON.stringify(entry.widget),
+    );
+    expect(clock).toContain('"t":"clock"');
+    expect(clock).toContain('"timezone":"America/Chicago"');
+    expect(countdown).toContain('"t":"countdown"');
+    expect(world!.match(/"t":"clock"/g)).toHaveLength(2);
+    // No rendered text holds a time of day: the nodes format it when shown.
+    for (const tree of [clock, countdown, world]) {
+      expect(tree).not.toMatch(/"value":"[^"]*\d{1,2}:\d{2}/);
+    }
+  });
+
+  it("re-projection over ten minutes never restarts a clock item", () => {
+    const clock = new ManualClock({ wallMs: Date.UTC(2026, 8, 24, 13, 5) });
+    const started: string[] = [];
+    const results: PresentationResultV1[] = [];
+    const playback = new PlaybackController({
+      clock,
+      synchronizedPlayback: false,
+      reports: {
+        evidence: (_activation, kind, itemId) => {
+          if (kind === "item-started") started.push(itemId ?? "-");
+        },
+        playbackError: () => {},
+        presentationResult: (result) => results.push(result),
+        websiteRecovered: () => {},
+      },
+    });
+    playback.present({
+      type: "presentation",
+      presentation: playing([
+        item("clock", "widget", {
+          durationMs: null,
+          widget: { widgetAssetId: WORLD },
+        }),
+      ]),
+      activation: { activationId: "a", generation: 1 },
+      projection: context,
+    });
+    expect(results.at(-1)?.outcome).toBe("accepted");
+    for (let step = 0; step < 20; step += 1) clock.advance(30_000);
+    expect(started).toEqual(["clock"]);
   });
 });

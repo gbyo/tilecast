@@ -214,7 +214,7 @@ impl DaemonIpc {
             partial_bytes: usage.partial_bytes,
             limit_bytes: self.context.config.cas.limit_bytes,
             reserved_free_bytes: self.context.config.cas.reserved_free_bytes,
-            filesystem_available_bytes: edge_platform::disk::available_bytes(&self.context.paths.state_dir).ok(),
+            filesystem_available_bytes: self.context.space.available_bytes(&self.context.paths.state_dir).ok(),
         })
     }
 

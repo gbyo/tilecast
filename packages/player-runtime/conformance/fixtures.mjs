@@ -23,6 +23,18 @@ const item = (id, overrides = {}) => ({
   ...overrides,
 });
 
+/** Half of a 1920 × 1080 Span canvas, unrotated. */
+const panel = (x) => ({
+  x,
+  y: 0,
+  width: 960,
+  height: 1080,
+  rotation: 0,
+  order: x === 0 ? 1 : 2,
+  canvasWidth: 1920,
+  canvasHeight: 1080,
+});
+
 const activation = (n) => ({
   activationId: `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`,
   generation: n,
@@ -476,6 +488,66 @@ export const fixtures = [
       { checkpoint: "after-boundary", visual: true },
       { command: "skip-item" },
       { checkpoint: "skip-ignored" },
+    ],
+  },
+  {
+    name: "span",
+    description:
+      "Span panels: one image cropped to the left and right panels of a two-panel canvas, and a Layout background cropped to a panel.",
+    steps: [
+      {
+        present: {
+          presentation: playing([
+            item("span-left", {
+              src: "media:landscape",
+              fitMode: "cover",
+              viewport: panel(0),
+            }),
+          ]),
+          activation: activation(1),
+        },
+      },
+      { checkpoint: "left-panel", visual: true },
+      {
+        present: {
+          presentation: playing([
+            item("span-right", {
+              src: "media:landscape",
+              fitMode: "cover",
+              viewport: panel(960),
+            }),
+          ]),
+          activation: activation(2),
+        },
+      },
+      { checkpoint: "right-panel", visual: true },
+      {
+        present: {
+          presentation: playing([
+            item("span-layout", {
+              kind: "layout",
+              durationMs: null,
+              layout: {
+                canvasWidth: 960,
+                canvasHeight: 1080,
+                background: "#0B1220",
+                backgroundImage: "media:landscape",
+                backgroundImageViewport: {
+                  x: 960,
+                  y: 0,
+                  width: 960,
+                  height: 1080,
+                  canvasWidth: 1920,
+                  canvasHeight: 1080,
+                },
+                zones: [],
+              },
+            }),
+          ]),
+          activation: activation(3),
+        },
+      },
+      { checkpoint: "layout-panel", visual: true },
     ],
   },
   {

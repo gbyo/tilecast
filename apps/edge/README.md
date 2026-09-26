@@ -90,7 +90,7 @@ End-to-end checks:
 - `ci/run-e2e-server.sh` runs the same script with a real WPE renderer in the
   `tilecast-edge-e2e` image (`ci/Dockerfile.e2e`: Go, PostgreSQL and FFmpeg
   added to `tilecast-edge-dev`). It adds the content phase: an uploaded image
-  and video in a playlist, the server's capability refusal of a Clock layout,
+  and video in a playlist, a Clock layout (time-bound widgets tick in place),
   a QR Code layout, and offline restart from the cache.
 
 `tilecastd/tests/playback.rs` (Linux) runs a real daemon against a fake

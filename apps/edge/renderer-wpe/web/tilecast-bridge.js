@@ -161,7 +161,9 @@
       // Remote websites need the isolated host view (M11) before they are
       // offered; until then they are typed incompatibilities in tilecastd.
       remoteWeb: null,
-      synchronizedPlayback: false,
+      // tilecastd builds the group anchor from the manifest; the runtime owns
+      // the shared timeline.
+      synchronizedPlayback: true,
       setup: !!handlers.tilecastRequest,
       // tilecastd browses Avahi; an empty list is a valid answer.
       discovery: !!handlers.tilecastRequest,

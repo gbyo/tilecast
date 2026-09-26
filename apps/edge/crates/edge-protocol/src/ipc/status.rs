@@ -65,6 +65,12 @@ pub struct RendererStatus {
     pub last_progress_at: Option<Timestamp>,
     pub last_error_code: Option<ShortToken>,
     pub incompatible_reason: Option<DetailText>,
+    /// The item the renderer last reported starting, and when the daemon
+    /// accepted that evidence (local wall clock). Diagnostics only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub current_item_id: Option<ShortText>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub current_item_started_at: Option<Timestamp>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

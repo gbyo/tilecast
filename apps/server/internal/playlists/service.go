@@ -2757,6 +2757,22 @@ func manifestETagForSchedules(base string, schedules []ManifestSchedule) string 
 	return `"sha256-` + hex.EncodeToString(sum[:]) + `"`
 }
 
+// canonicalSelectionSource maps a player's reason for what it shows onto the
+// shared status vocabulary, or reports that the value is not part of it.
+// Every player's resolver produces quick_present while a Quick Present
+// override is on screen. The Linux player names a direct assignment
+// "direct", which is the same selection Android reports as direct_fallback.
+func canonicalSelectionSource(source string) (string, bool) {
+	switch source {
+	case "", "takeover", "quick_present", "schedule", "direct_fallback", "none":
+		return source, true
+	case "direct":
+		return "direct_fallback", true
+	default:
+		return "", false
+	}
+}
+
 func (s *Service) ReportStatus(ctx context.Context, screenID uuid.UUID, status PlayerStatus) error {
 	if len(status.PlaybackState) > 80 || len(status.LastSyncError) > 500 || len(status.LastPlaybackError) > 500 || len(status.ScheduleEvaluationError) > 500 || len(status.WebsiteState) > 40 || len(status.WebsiteFailureCategory) > 80 || len(status.WebsiteCurrentHost) > 253 || len(status.WidgetState) > 40 || len(status.WidgetError) > 120 {
 		return errors.New("player status is invalid")
@@ -2765,9 +2781,11 @@ func (s *Service) ReportStatus(ctx context.Context, screenID uuid.UUID, status P
 	if !widgetProviders[status.WidgetProvider] {
 		return errors.New("player widget status is invalid")
 	}
-	if status.SelectionSource != "" && status.SelectionSource != "takeover" && status.SelectionSource != "schedule" && status.SelectionSource != "direct_fallback" && status.SelectionSource != "none" {
+	source, ok := canonicalSelectionSource(status.SelectionSource)
+	if !ok {
 		return errors.New("player status is invalid")
 	}
+	status.SelectionSource = source
 	websiteStates := map[string]bool{"": true, "idle": true, "loading": true, "loaded": true, "refreshing": true, "failed": true, "timed_out": true, "blocked": true, "showing_fallback": true}
 	websiteErrors := map[string]bool{"": true, "dns_failure": true, "connection_failure": true, "tls_failure": true, "http_error": true, "load_timeout": true, "blocked_navigation": true, "renderer_crash": true, "offline": true, "invalid_configuration": true, "unsupported_scheme": true, "unknown_webview_error": true}
 	if !websiteStates[status.WebsiteState] || !websiteErrors[status.WebsiteFailureCategory] {

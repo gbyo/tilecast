@@ -33,7 +33,7 @@ use anyhow::Context as _;
 use edge_cas::{ContentStore, LruByDomain, StorePolicy};
 use edge_ipc::{IpcServer, PeerPolicy};
 use edge_platform::capabilities::CapabilityRegistry;
-use edge_platform::disk::StatvfsProbe;
+use edge_platform::disk::{SpaceProbe, StatvfsProbe};
 use edge_platform::paths::EdgePaths;
 use edge_platform::providers::{HostTimeSyncProvider, SystemdProvider, WpePlatformProvider};
 use edge_platform::systemd::Notifier;
@@ -74,6 +74,8 @@ pub struct DaemonContext {
     pub config: EdgeConfig,
     pub paths: EdgePaths,
     pub clock: SharedClock,
+    /// Free space on the state filesystem, as the content store sees it.
+    pub space: Arc<dyn SpaceProbe>,
     pub state: StateMode,
     pub started_at: Timestamp,
     pub notifier: Notifier,
@@ -198,10 +200,28 @@ impl std::fmt::Debug for Daemon {
     }
 }
 
+/// The host facts a daemon reads through a seam, so qualification tests can
+/// step the wall clock or bring the disk to its reserve floor.
+#[derive(Debug, Clone)]
+pub struct Environment {
+    pub clock: SharedClock,
+    pub space: Arc<dyn SpaceProbe>,
+}
+
+impl Default for Environment {
+    fn default() -> Self {
+        Self { clock: system_clock(), space: Arc::new(StatvfsProbe) }
+    }
+}
+
 impl Daemon {
     /// Performs startup steps 2–4. Configuration is already validated.
     pub async fn start(config: EdgeConfig, notifier: Notifier) -> anyhow::Result<Self> {
-        let clock = system_clock();
+        Self::start_with(config, notifier, Environment::default()).await
+    }
+
+    pub async fn start_with(config: EdgeConfig, notifier: Notifier, environment: Environment) -> anyhow::Result<Self> {
+        let Environment { clock, space } = environment;
         let paths = EdgePaths::from_environment(config.paths.state_dir.as_deref(), config.paths.runtime_dir.as_deref());
         paths.ensure_private_dirs().with_context(|| format!("creating {}", paths.state_dir.display()))?;
         let now = clock.now();
@@ -245,7 +265,7 @@ impl Daemon {
                     paths.partial_dir(),
                     db.clone(),
                     clock.clone(),
-                    Arc::new(StatvfsProbe),
+                    space.clone(),
                     policy,
                     Arc::new(LruByDomain),
                 )
@@ -270,6 +290,7 @@ impl Daemon {
             config,
             paths,
             clock,
+            space,
             state,
             started_at: now,
             notifier,

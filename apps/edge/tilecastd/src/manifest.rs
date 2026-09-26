@@ -50,7 +50,6 @@ const MAX_LAYOUTS: usize = 128;
 const MAX_WIDGETS: usize = 256;
 const MAX_DATA_SOURCES: usize = 256;
 const MAX_PLUGINS: usize = 64;
-const AUTOMATIC_VIDEO_LIMIT_BYTES: u64 = 256 * 1024 * 1024;
 const DEFAULT_ACTIVATION_GRACE_SECONDS: u64 = 30;
 const LAYOUT_ITEM_PREFIX: &str = "layout-";
 
@@ -67,6 +66,8 @@ pub mod profile {
         "video",
         "render-tree-v1",
         "layout-v1",
+        "synchronized-playback-v1",
+        "span-viewport-v1",
         "plugin.brand_bug",
         "plugin.countdown_bar",
         "plugin.alert_ticker",
@@ -102,6 +103,10 @@ pub mod profile {
         ("selection.relative_date", 1),
         ("selection.temporal", 1),
         ("playback.auto_skip", 1),
+        // Clock, Date, Countdown and World Clock bind the current time. The
+        // runtime projects them as self-updating nodes (or, for a date, text
+        // that changes once a day), so re-projection never restarts playback.
+        ("environment.time", 1),
     ];
 
     /// Remote web content is not supported until the WPE website isolation is
@@ -141,12 +146,26 @@ pub struct Candidate {
 #[derive(Debug, Clone)]
 pub struct ResolvedPresentation {
     pub document: PresentationDocument,
+    /// The shared timeline of a synchronized group, when the screen belongs
+    /// to one and shows a playlist.
+    pub timing: Option<GroupTiming>,
     pub content: Vec<ContentRef>,
     pub projection: Option<ProjectionContext>,
     pub plugins: Vec<Value>,
     pub plugin_aliases: Vec<MediaAlias>,
     pub selection: Selection,
     pub next_transition_ms: Option<i64>,
+}
+
+/// A synchronized group's timeline for one presentation (the reference
+/// player's `enrichSynchronizedPresentation`): every member places the same
+/// items on the same anchor with the same effective durations.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GroupTiming {
+    pub group_id: String,
+    /// Corrected Unix milliseconds.
+    pub anchor_ms: i64,
+    pub durations_ms: Vec<u64>,
 }
 
 #[derive(Debug, thiserror::Error, Clone, PartialEq, Eq)]
@@ -193,7 +212,6 @@ pub enum Incompatibility {
     Website,
     YouTube,
     WebWidget,
-    StreamingDelivery,
     SynchronizedPlayback,
     SpanViewport,
     DisplayControl,
@@ -209,7 +227,6 @@ impl Incompatibility {
             Self::Website => "presentation_incompatible_website",
             Self::YouTube => "presentation_incompatible_youtube",
             Self::WebWidget => "presentation_incompatible_web_widget",
-            Self::StreamingDelivery => "presentation_incompatible_streaming_delivery",
             Self::SynchronizedPlayback => "presentation_incompatible_synchronized_playback",
             Self::SpanViewport => "presentation_incompatible_span",
             Self::DisplayControl => "presentation_incompatible_display_control",
@@ -227,9 +244,8 @@ impl std::fmt::Display for Incompatibility {
             Self::Website => f.write_str("websites need the WPE website isolation that is not qualified yet"),
             Self::YouTube => f.write_str("YouTube needs the WPE website isolation that is not qualified yet"),
             Self::WebWidget => f.write_str("web widgets need the WPE website isolation that is not qualified yet"),
-            Self::StreamingDelivery => f.write_str("server-streamed media has no verified Edge delivery path"),
             Self::SynchronizedPlayback => f.write_str("synchronized group playback is not supported by this renderer"),
-            Self::SpanViewport => f.write_str("Span video walls are not supported by this renderer"),
+            Self::SpanViewport => f.write_str("the Span canvas or panel geometry is malformed"),
             Self::DisplayControl => f.write_str("scheduled display control needs a display control provider"),
             Self::Plugin(kind) => write!(f, "the {kind} plugin is not supported by this renderer"),
             Self::WidgetCapability(name) => write!(f, "a widget needs renderer capability {name}"),
@@ -388,6 +404,40 @@ fn check_layout(layout: &Value, catalog: &BTreeMap<(uuid::Uuid, uuid::Uuid), usi
 
 /// Everything in `document` this renderer cannot safely provide. An empty
 /// list means compatible.
+/// This screen's panel of a Span canvas, in the runtime's `RuntimeViewport`
+/// shape (the Electron player's `spanViewport`), or `None` for a Mirror
+/// screen. Both objects must be present and the panel must lie inside the
+/// canvas; the server validates the same geometry.
+pub fn span_viewport(document: &Value) -> Result<Option<Value>, Incompatibility> {
+    const MAX_EDGE: u64 = 65_536;
+    let present = |key: &str| document.get(key).filter(|value| !value.is_null());
+    let (canvas, viewport) = match (present("canvas"), present("viewport")) {
+        (None, None) => return Ok(None),
+        (Some(canvas), Some(viewport)) => (canvas, viewport),
+        _ => return Err(Incompatibility::SpanViewport),
+    };
+    let field = |value: &Value, key: &str, max: u64| {
+        value.get(key).and_then(Value::as_u64).filter(|n| *n <= max).ok_or(Incompatibility::SpanViewport)
+    };
+    let (canvas_width, canvas_height) = (field(canvas, "width", MAX_EDGE)?, field(canvas, "height", MAX_EDGE)?);
+    let (x, y) = (field(viewport, "x", MAX_EDGE)?, field(viewport, "y", MAX_EDGE)?);
+    let (width, height) = (field(viewport, "width", MAX_EDGE)?, field(viewport, "height", MAX_EDGE)?);
+    let rotation = field(viewport, "rotation", 270)?;
+    let order = field(viewport, "order", 1_024)?;
+    if width == 0 || height == 0 || x + width > canvas_width || y + height > canvas_height || rotation % 90 != 0 {
+        return Err(Incompatibility::SpanViewport);
+    }
+    let mut out = serde_json::json!({"x": x, "y": y, "width": width, "height": height, "rotation": rotation,
+        "order": order, "canvasWidth": canvas_width, "canvasHeight": canvas_height});
+    for key in ["bezelLeft", "bezelTop", "bezelRight", "bezelBottom"] {
+        if let Some(value) = viewport.get(key).filter(|value| !value.is_null()) {
+            out[key] =
+                serde_json::json!(value.as_u64().filter(|n| *n <= MAX_EDGE).ok_or(Incompatibility::SpanViewport)?);
+        }
+    }
+    Ok(Some(out))
+}
+
 pub fn incompatibilities(document: &Value, assets: &[Asset]) -> Vec<Incompatibility> {
     let mut out = Vec::new();
     let mut push = |reason: Incompatibility| {
@@ -443,24 +493,21 @@ pub fn incompatibilities(document: &Value, assets: &[Asset]) -> Vec<Incompatibil
             if !(asset.mime_type.starts_with("image/") || asset.mime_type.starts_with("video/")) {
                 push(Incompatibility::ContentType(asset.mime_type.chars().take(32).collect()));
             }
-            let streamed = match item.get("deliveryPolicy").and_then(Value::as_str) {
-                Some("stream") => true,
-                Some("automatic") => {
-                    asset.mime_type.starts_with("video/") && asset.size_bytes > AUTOMATIC_VIDEO_LIMIT_BYTES
-                }
-                _ => false,
-            };
-            if streamed {
-                push(Incompatibility::StreamingDelivery);
-            }
+            // `stream` and `automatic` delivery need no incompatibility:
+            // Edge verifies every byte before use (docs/tilecast-edge.md
+            // §2), so it downloads such items into the store like any
+            // other. One too large for the store fails preparation with the
+            // store's typed reason and the committed presentation stays.
         }
     }
-    if document.get("syncGroup").is_some_and(|value| !value.is_null()) {
+    if document.get("syncGroup").is_some_and(|group| {
+        !group.is_null()
+            && (group.get("id").and_then(Value::as_str).is_none_or(|id| id.is_empty() || id.len() > 64)
+                || group.get("playbackEpoch").and_then(Value::as_str).is_none())
+    }) {
         push(Incompatibility::SynchronizedPlayback);
     }
-    if document.get("viewport").is_some_and(|value| !value.is_null())
-        || document.get("canvas").is_some_and(|value| !value.is_null())
-    {
+    if span_viewport(document).is_err() {
         push(Incompatibility::SpanViewport);
     }
     if document
@@ -732,6 +779,7 @@ impl Candidate {
             }
             ResolvedPresentation {
                 document,
+                timing: None,
                 content,
                 projection,
                 plugins: plugins.clone(),
@@ -787,6 +835,10 @@ impl Candidate {
         let mut items = Vec::with_capacity(source_items.len());
         let mut content_by_digest = BTreeMap::new();
         let mut needs_projection = false;
+        // Images are cropped to the panel, as on Electron; Layouts are
+        // clipped by the shared projector; Span video is a server-made panel
+        // variant and is played as it is.
+        let span = span_viewport(&self.document).ok().flatten();
         for item in source_items {
             if !available_at(item, now_ms)? {
                 continue;
@@ -868,6 +920,8 @@ impl Candidate {
             if built.kind == ItemKind::Video {
                 built.video_start_offset_ms = number("videoStartOffsetMs")?;
                 built.video_end_offset_ms = number("videoEndOffsetMs")?;
+            } else {
+                built.viewport = span.clone();
             }
             built.src = text(&content_uri(&asset.digest))?;
             content_by_digest.entry(asset.digest).or_insert(Self::content_ref(asset)?);
@@ -896,13 +950,70 @@ impl Candidate {
         } else {
             None
         };
+        let timing = self.group_timing(&selection, &items, source_items);
         let document = PresentationDocument::Playing {
             items,
             takeover: selection.source == Source::Takeover,
             generation: self.version.max(0) as u64,
-            synchronized: false,
+            synchronized: timing.is_some(),
         };
-        Ok(finish(document, content, projection, selection))
+        let mut resolved = finish(document, content, projection, selection);
+        resolved.timing = timing;
+        Ok(resolved)
+    }
+
+    /// The group timeline when this screen is in a synchronized group. The
+    /// anchor is the takeover's, the Quick Present's or the active schedule
+    /// window's start, and otherwise the group's playback epoch.
+    fn group_timing(&self, selection: &Selection, items: &[PresentationItem], source: &[Value]) -> Option<GroupTiming> {
+        let group = self.document.get("syncGroup").filter(|group| !group.is_null())?;
+        let group_id = group.get("id")?.as_str()?.to_owned();
+        let epoch = group.get("playbackEpoch")?.as_str()?.parse::<jiff::Timestamp>().ok()?.as_millisecond();
+        if items.is_empty() {
+            return None;
+        }
+        let anchor_ms = match selection.source {
+            Source::Takeover | Source::QuickPresent | Source::Schedule => selection.playback_anchor_ms.unwrap_or(epoch),
+            Source::Direct | Source::None => epoch,
+        };
+        let durations_ms = items
+            .iter()
+            .map(|built| {
+                let item = source.iter().find(|item| item.get("id").and_then(Value::as_str) == Some(built.id.as_str()));
+                self.effective_duration_ms(built, item)
+            })
+            .collect();
+        Some(GroupTiming { group_id, anchor_ms, durations_ms })
+    }
+
+    /// The reference player's `effectiveDurationMs`, shared with Android: only
+    /// the manifest carries an authored duration; a video otherwise runs its
+    /// trimmed length, other interactive kinds 30 s, anything else 10 s.
+    fn effective_duration_ms(&self, built: &PresentationItem, item: Option<&Value>) -> u64 {
+        let authored = item.and_then(|item| item.get("durationMs")).and_then(Value::as_u64).filter(|ms| *ms > 0);
+        let explicit = if built.kind == ItemKind::Video { authored } else { authored.or(built.duration_ms) };
+        if let Some(ms) = explicit.filter(|ms| *ms > 0) {
+            return ms;
+        }
+        match built.kind {
+            ItemKind::Website | ItemKind::Widget | ItemKind::Layout | ItemKind::Youtube => 30_000,
+            ItemKind::Video => {
+                let offset = |key: &str| item.and_then(|item| item.get(key)).and_then(Value::as_u64);
+                let start = offset("videoStartOffsetMs").or(built.video_start_offset_ms).unwrap_or(0);
+                let asset_seconds = item
+                    .and_then(|item| {
+                        let asset = self.asset(item.get("assetId")?.as_str()?, item.get("variantId")?.as_str()?)?;
+                        self.asset_value(asset)?.get("durationSeconds")?.as_f64()
+                    })
+                    .filter(|seconds| seconds.is_finite() && *seconds > 0.0)
+                    .map(|seconds| (seconds * 1_000.0).round() as u64);
+                match offset("videoEndOffsetMs").or(built.video_end_offset_ms).or(asset_seconds) {
+                    Some(end) => end.saturating_sub(start).max(1),
+                    None => 10_000,
+                }
+            }
+            ItemKind::Image => 10_000,
+        }
     }
 
     /// The manifest subset the trusted runtime's `renderWidget` and
@@ -913,9 +1024,18 @@ impl Candidate {
         config: &PlayerConfig,
     ) -> Result<(ProjectionContext, Vec<ContentRef>), ManifestError> {
         let mut manifest = serde_json::Map::new();
-        for key in
-            ["assets", "playlist", "directFallbackPlaylist", "playlists", "widgets", "dataSources", "layouts", "layout"]
-        {
+        for key in [
+            "assets",
+            "playlist",
+            "directFallbackPlaylist",
+            "playlists",
+            "widgets",
+            "dataSources",
+            "layouts",
+            "layout",
+            "canvas",
+            "viewport",
+        ] {
             if let Some(value) = self.document.get(key).filter(|value| !value.is_null()) {
                 manifest.insert(key.to_owned(), value.clone());
             }
@@ -1304,11 +1424,8 @@ mod tests {
                 "presentation_incompatible_website",
             ),
             (
-                Box::new(|v| v["playlist"]["items"][0]["deliveryPolicy"] = serde_json::json!("stream")),
-                "presentation_incompatible_streaming_delivery",
-            ),
-            (
-                Box::new(|v| v["syncGroup"] = serde_json::json!({"id": ITEM, "playbackEpoch": "2026-01-01T00:00:00Z"})),
+                // A group without an epoch cannot be placed on a shared timeline.
+                Box::new(|v| v["syncGroup"] = serde_json::json!({"id": ITEM})),
                 "presentation_incompatible_synchronized_playback",
             ),
             (Box::new(|v| v["viewport"] = serde_json::json!({"x": 0})), "presentation_incompatible_span"),
@@ -1340,15 +1457,114 @@ mod tests {
             let reasons = incompatibilities(&candidate.document, &candidate.assets);
             assert_eq!(reasons.first().map(Incompatibility::code), Some(code));
         }
+    }
+
+    #[test]
+    fn span_panels_crop_images_and_reach_the_projector() {
         let mut value = manifest();
-        value["assets"][0]["mimeType"] = serde_json::json!("video/mp4");
-        value["assets"][0]["fileSize"] = serde_json::json!(AUTOMATIC_VIDEO_LIMIT_BYTES + 1);
-        let candidate = parse(value).unwrap();
+        value["schemaVersion"] = serde_json::json!(15);
+        value["canvas"] = serde_json::json!({"width": 3840, "height": 1080});
+        value["viewport"] = serde_json::json!({"x": 1920, "y": 0, "width": 1920, "height": 1080, "rotation": 0,
+            "order": 2, "bezelLeft": 12});
+        let candidate = parse(value.clone()).unwrap();
+        assert!(incompatibilities(&candidate.document, &candidate.assets).is_empty());
+        let resolved = candidate.presentation(1_789_000_000_000).unwrap();
+        let PresentationDocument::Playing { items, .. } = &resolved.document else { panic!("playing") };
         assert_eq!(
-            incompatibilities(&candidate.document, &candidate.assets),
-            vec![Incompatibility::StreamingDelivery],
-            "automatic video above the download threshold would need streaming"
+            items[0].viewport,
+            Some(serde_json::json!({"x": 1920, "y": 0, "width": 1920, "height": 1080, "rotation": 0, "order": 2,
+                "canvasWidth": 3840, "canvasHeight": 1080, "bezelLeft": 12}))
         );
+        assert!(resolved.document.required_features().contains(&"span-viewport-v1"));
+
+        for (key, bad) in [
+            (
+                "viewport",
+                serde_json::json!({"x": 2000, "y": 0, "width": 1920, "height": 1080, "rotation": 0, "order": 1}),
+            ),
+            (
+                "viewport",
+                serde_json::json!({"x": 0, "y": 0, "width": 1920, "height": 1080, "rotation": 45, "order": 1}),
+            ),
+            ("viewport", serde_json::json!({"x": 0, "y": 0, "width": 0, "height": 1080, "rotation": 0, "order": 1})),
+            ("canvas", Value::Null),
+        ] {
+            let mut broken = value.clone();
+            broken[key] = bad.clone();
+            let candidate = parse(broken).unwrap();
+            assert_eq!(
+                incompatibilities(&candidate.document, &candidate.assets),
+                vec![Incompatibility::SpanViewport],
+                "{key} {bad}"
+            );
+        }
+    }
+
+    #[test]
+    fn streamed_delivery_is_a_verified_download_on_edge() {
+        for (mime, size, policy) in
+            [("image/png", 100, "stream"), ("video/mp4", 100, "stream"), ("video/mp4", 512 * 1024 * 1024, "automatic")]
+        {
+            let mut value = manifest();
+            value["assets"][0]["mimeType"] = serde_json::json!(mime);
+            value["assets"][0]["fileSize"] = serde_json::json!(size);
+            value["playlist"]["items"][0]["deliveryPolicy"] = serde_json::json!(policy);
+            let candidate = parse(value).unwrap();
+            assert!(incompatibilities(&candidate.document, &candidate.assets).is_empty(), "{policy} {mime}");
+            assert_eq!(candidate.required_downloads, candidate.assets, "{policy} {mime} is downloaded and verified");
+        }
+    }
+
+    #[test]
+    fn synchronized_groups_share_one_anchor_and_the_reference_durations() {
+        const VIDEO: &str = "5a4b3c2d-1e0f-4a9b-8c7d-6e5f4a3b2c1d";
+        const VIDEO_VARIANT: &str = "6b5c4d3e-2f1a-4b0c-9d8e-7f6a5b4c3d2e";
+        let mut value = manifest();
+        value["syncGroup"] = serde_json::json!({"id": "lobby-wall", "playbackEpoch": "2026-09-01T00:00:00Z"});
+        value["assets"].as_array_mut().unwrap().push(serde_json::json!({"assetId": VIDEO, "variantId": VIDEO_VARIANT,
+            "sha256": "f".repeat(64), "fileSize": 200, "mimeType": "video/mp4", "durationSeconds": 12.5,
+            "downloadPath": format!("/api/v1/player/assets/{VIDEO}/variants/{VIDEO_VARIANT}")}));
+        value["playlist"]["items"].as_array_mut().unwrap().push(serde_json::json!({
+            "id": "7c6d5e4f-3a2b-4c1d-8e9f-0a1b2c3d4e5f", "assetId": VIDEO, "variantId": VIDEO_VARIANT,
+            "assetType": "video", "deliveryPolicy": "automatic", "videoStartOffsetMs": 2500,
+            "fitMode": "contain", "transition": "none", "audioEnabled": false, "volume": 0}));
+        let candidate = parse(value.clone()).unwrap();
+        assert!(incompatibilities(&candidate.document, &candidate.assets).is_empty());
+        let resolved = candidate.presentation(1_789_000_000_000).unwrap();
+        let timing = resolved.timing.expect("group timing");
+        assert_eq!(timing.group_id, "lobby-wall");
+        assert_eq!(timing.anchor_ms, "2026-09-01T00:00:00Z".parse::<jiff::Timestamp>().unwrap().as_millisecond());
+        // The image's authored 10 s; the video's trimmed file length.
+        assert_eq!(timing.durations_ms, vec![10_000, 10_000]);
+        let PresentationDocument::Playing { synchronized, .. } = resolved.document else { panic!("playing") };
+        assert!(synchronized);
+
+        // A takeover anchors on its activation, not the epoch.
+        let takeover_playlist = "8d7e6f5a-4b3c-4d2e-9f0a-1b2c3d4e5f6a";
+        value["playlists"] =
+            serde_json::json!([{"id": takeover_playlist, "items": [value["playlist"]["items"][0].clone()]}]);
+        value["takeover"] = serde_json::json!({"id": ITEM, "playlistId": takeover_playlist,
+            "activatedAt": "2026-09-24T10:00:00Z", "expiresAt": "2099-01-01T00:00:00Z"});
+        let candidate = parse(value).unwrap();
+        let at = "2026-09-24T10:05:00Z".parse::<jiff::Timestamp>().unwrap().as_millisecond();
+        let timing = candidate.presentation(at).unwrap().timing.expect("group timing");
+        assert_eq!(timing.anchor_ms, "2026-09-24T10:00:00Z".parse::<jiff::Timestamp>().unwrap().as_millisecond());
+
+        // No group, no timeline.
+        assert!(parse(manifest()).unwrap().presentation(at).unwrap().timing.is_none());
+    }
+
+    #[test]
+    fn time_bound_widgets_are_compatible() {
+        let mut value = manifest();
+        value["widgets"] = serde_json::json!([{"assetId": WIDGET, "name": "Lobby clock", "provider": "clock",
+            "presentation": {"schemaVersion": 1, "kind": "native",
+                "requiredCapabilities": {"content.text": 1, "binding.core": 1, "environment.time": 1},
+                "native": {"root": {"type": "text", "binding": {"source": "environment", "path": "currentTime",
+                    "format": "time:24:false:UTC"}}}}}]);
+        let candidate = parse(value).unwrap();
+        assert!(incompatibilities(&candidate.document, &candidate.assets).is_empty());
+        assert_eq!(profile::native_capability("environment.time"), 1);
     }
 
     #[test]
