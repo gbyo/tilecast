@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"time"
 
@@ -122,6 +123,12 @@ type TakeoverResult struct {
 	AffectedCount int
 	ScreenIDs     []uuid.UUID
 }
+
+// ErrTakeoverInactive is returned by Takeovers.CancelInTx when the takeover
+// is already inactive. Reconcilers tolerate it: a poll clearing an alert
+// whose takeover another Takeover already replaced still has to mark the
+// alert cleared, and the desired end state already holds.
+var ErrTakeoverInactive = errors.New("takeover is no longer active")
 
 type Takeovers interface {
 	ValidatePlaylist(ctx context.Context, playlistID uuid.UUID, targets ScreenTargets, userSelectable bool) error
