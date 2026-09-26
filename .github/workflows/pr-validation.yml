@@ -24,6 +24,7 @@ jobs:
       container: ${{ steps.paths.outputs.container }}
       docs: ${{ steps.paths.outputs.docs }}
       e2e: ${{ steps.paths.outputs.e2e }}
+      plugins: ${{ steps.paths.outputs.plugins }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -43,6 +44,7 @@ jobs:
           container=false
           docs=false
           e2e=false
+          plugins=false
 
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             android=true
@@ -52,6 +54,7 @@ jobs:
             container=true
             docs=true
             e2e=true
+            plugins=true
           else
             while IFS= read -r path; do
               case "$path" in
@@ -65,9 +68,22 @@ jobs:
                   server=true
                   container=true
                   e2e=true
+                  plugins=true
                   ;;
                 apps/docs/*|.github/logos/*)
                   docs=true
+                  plugins=true
+                  ;;
+                # A bundled plugin reaches the server, Studio, the Player
+                # runtime, the container, and the docs site.
+                plugins/*|packages/plugin-sdk/*|go.work|go.work.sum|.github/CODEOWNERS|docs/openapi/*)
+                  plugins=true
+                  server=true
+                  dashboard=true
+                  linux=true
+                  container=true
+                  docs=true
+                  e2e=true
                   ;;
                 packages/design-tokens/*)
                   dashboard=true
@@ -78,6 +94,7 @@ jobs:
                   dashboard=true
                   container=true
                   e2e=true
+                  plugins=true
                   ;;
                 package.json|package-lock.json)
                   dashboard=true
@@ -85,6 +102,7 @@ jobs:
                   container=true
                   docs=true
                   e2e=true
+                  plugins=true
                   ;;
                 deploy/docker/*)
                   container=true
@@ -104,6 +122,7 @@ jobs:
                   container=true
                   docs=true
                   e2e=true
+                  plugins=true
                   ;;
               esac
             done < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
@@ -117,6 +136,7 @@ jobs:
             echo "container=$container"
             echo "docs=$docs"
             echo "e2e=$e2e"
+            echo "plugins=$plugins"
           } >> "$GITHUB_OUTPUT"
 
   android_ci:
@@ -208,12 +228,16 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: apps/server/go.mod
-          cache-dependency-path: apps/server/go.sum
+          cache-dependency-path: |
+            apps/server/go.sum
+            plugins/go.sum
+            packages/plugin-sdk/go/go.sum
+      # go.work puts the bundled plugins and the plugin SDK in the same build.
       - working-directory: apps/server
-        run: go vet ./...
+        run: go vet ./... github.com/tilecast/tilecast/plugins/... github.com/tilecast/tilecast/packages/plugin-sdk/go/...
       - name: Test
         working-directory: apps/server
-        run: go test -json -p 1 ./... > test-results.json
+        run: go test -json -p 1 ./... github.com/tilecast/tilecast/plugins/... github.com/tilecast/tilecast/packages/plugin-sdk/go/... > test-results.json
         env:
           TEST_DATABASE_URL: postgres://tilecast:tilecast_test_password@localhost:5432/tilecast_test?sslmode=disable
       - name: Test Reporter
@@ -258,6 +282,27 @@ jobs:
           reporter: java-junit
           fail-on-empty: false
       - run: npm run build
+
+  # The Official Tilecast Plugin Conformance checks that need no build:
+  # manifests, generated files, boundaries, migrations, OpenAPI fragments,
+  # and the SDK's own tests. The Go, Studio, and runtime suites run in their
+  # own jobs above.
+  plugins_ci:
+    name: Plugin conformance
+    needs: changes
+    if: needs.changes.outputs.plugins == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Check plugins and generated files
+        run: npm run plugins:check
+      - name: Test the plugin SDK and pluginctl
+        run: npm test --workspace @tilecast/plugin-sdk
 
   container_ci:
     name: Server container
@@ -335,7 +380,7 @@ jobs:
         run: bash scripts/check-docs-ste.sh
       - name: Check documentation formatting
         run: |
-          mapfile -t doc_files < <(rg --files -g '*.md' -g '*.mdx' docs wiki apps packages deploy | sort)
+          mapfile -t doc_files < <(rg --files -g '*.md' -g '*.mdx' docs wiki apps packages plugins deploy | sort)
           doc_files+=(README.md apps/docs)
           npx prettier --check "${doc_files[@]}"
       - name: Check the docs site
@@ -355,6 +400,7 @@ jobs:
       - container_ci
       - e2e_ci
       - docs_ci
+      - plugins_ci
     runs-on: ubuntu-latest
     env:
       RESULTS: ${{ join(needs.*.result, ',') }}

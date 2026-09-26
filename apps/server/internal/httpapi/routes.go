@@ -461,6 +461,9 @@ func (s *server) routes() http.Handler {
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScreenScope).Post("/screens/{id}/commands/{commandId}/cancel", s.cancelPlayerCommand)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScreenScope).Put("/screens/{id}/power-assist", s.confirmPowerAssist)
 		})
+		// Plugin routes come last so every one of them can be checked against
+		// the core routes already registered above.
+		s.mountPluginRoutes(api)
 	})
 	r.Handle("/*", web.Handler())
 	return r

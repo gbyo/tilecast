@@ -328,7 +328,14 @@ describe("Remove plugin", () => {
               message: "Forms cannot be removed while 2 forms remain.",
               details: {
                 pluginId: "forms",
-                resources: [{ kind: "form", count: 2, label: "forms" }],
+                resources: [
+                  {
+                    kind: "form",
+                    count: 2,
+                    label: "forms",
+                    resolution: "delete",
+                  },
+                ],
               },
             },
           })
@@ -361,16 +368,42 @@ describe("Remove plugin", () => {
     ).toBeNull();
   });
 
-  it("gives Emergency Alerts steps that match each blocker", () => {
+  it("gives steps that match how each blocker resolves", () => {
+    const t = i18n.getFixedT("en", "plugins");
     expect(
-      blockerInstruction(i18n.getFixedT("en", "plugins"), [
-        { kind: "alert_monitor", count: 1, label: "enabled monitor" },
-        { kind: "alert_rule", count: 2, label: "alert rules" },
-        { kind: "alert_activation", count: 1, label: "active alert" },
+      blockerInstruction(t, [
+        {
+          kind: "alert_monitor",
+          count: 1,
+          label: "enabled monitor",
+          resolution: "disable",
+        },
+        {
+          kind: "alert_rule",
+          count: 2,
+          label: "alert rules",
+          resolution: "delete",
+        },
+        {
+          kind: "alert_activation",
+          count: 1,
+          label: "active alert",
+          resolution: "wait",
+        },
       ]),
     ).toBe(
-      "Turn monitoring off and delete the remaining alert rules on this page, then remove the plugin.",
+      "Turn off the enabled monitor and delete the remaining alert rules on this page, then remove the plugin.",
     );
+    expect(
+      blockerInstruction(t, [
+        {
+          kind: "alert_activation",
+          count: 1,
+          label: "active alert",
+          resolution: "wait",
+        },
+      ]),
+    ).toBe("Wait for the active alert to clear, then remove the plugin.");
   });
 });
 

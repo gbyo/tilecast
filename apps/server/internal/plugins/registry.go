@@ -3,12 +3,16 @@ package plugins
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
+
+	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
+	bundled "github.com/tilecast/tilecast/plugins"
 )
 
-// Plugin identifiers are compiled constants. Runtime code names a plugin by one
-// of these rather than by a string literal so a typo fails to compile instead
-// of silently never matching an installation row.
+// Plugin identifiers that core code outside a plugin still names while the
+// built-in plugins move into plugins/. Each one disappears when its plugin no
+// longer needs a core special case.
 const (
 	CountdownBarID    = "countdown_bar"
 	EmergencyAlertsID = "emergency_alerts"
@@ -17,10 +21,11 @@ const (
 	NoiseMeterID      = "noise_meter"
 )
 
-// Definition is one release-owned plugin: what Tilecast can do, not whether an
-// installation uses it. Every field is plain data. Nothing here is executed,
-// downloaded, or supplied from outside the binary; Version is the definition
-// contract this release implements, not a separately updated package.
+// Definition is one release-owned plugin as the catalog presents it: what
+// Tilecast can do, not whether an installation uses it. It is derived from
+// the plugin's tilecast.plugin.json; nothing here is supplied from outside
+// the binary, and Version is the definition contract this release
+// implements, not a separately updated package.
 type Definition struct {
 	ID          string
 	Version     int
@@ -44,6 +49,10 @@ type Definition struct {
 	Documentation string
 
 	Installable bool
+
+	// PlayerFacing plugins contribute manifest entries, so installing or
+	// removing one changes what a screen should receive.
+	PlayerFacing bool
 }
 
 // Requirement is declarative context shown before installation. It is never
@@ -62,7 +71,7 @@ const (
 )
 
 var (
-	pluginIDPattern       = regexp.MustCompile(`^[a-z][a-z0-9_]{0,79}$`)
+	pluginIDPattern       = plugin.IDPattern
 	iconPattern           = regexp.MustCompile(`^[a-z][a-z0-9-]{0,39}$`)
 	managementPathPattern = regexp.MustCompile(`^/[a-z0-9][a-z0-9/-]{0,119}$`)
 	knownCategories       = map[string]bool{
@@ -73,84 +82,40 @@ var (
 	}
 )
 
-// registry lists every plugin this release can run, in catalog order.
-var registry = []Definition{
-	{
-		ID: CountdownBarID, Version: 1, Name: "Countdown Bar",
-		Description:          "Show a timed bottom bar without interrupting the content already playing.",
-		Category:             CategoryDisplay,
-		Icon:                 "clock",
-		ManagementPath:       "/plugins/countdown-bar",
-		InstanceNounSingular: "instance", InstanceNounPlural: "instances",
-		Requirements: []Requirement{
-			{Kind: "player", Label: "Player plugin support", Description: "Target screens need a Player build that renders plugin bars."},
-		},
-		Capabilities:  []string{"Player manifest plugin state", "Scheduled overlay bar"},
-		Documentation: "docs/plugins.md#countdown-bar",
-		Installable:   true,
-	},
-	{
-		ID: EmergencyAlertsID, Version: 1, Name: "Emergency Alerts",
-		Description:          "Watch official NWS weather alerts and respond automatically while one is active, with a fullscreen takeover or a ticker bar.",
-		Category:             CategoryAutomation,
-		Icon:                 "siren",
-		ManagementPath:       "/plugins/emergency-alerts",
-		InstanceNounSingular: "alert rule", InstanceNounPlural: "alert rules",
-		Requirements: []Requirement{
-			{Kind: "region", Label: "United States", Description: "National Weather Service alerts cover U.S. states, territories, and marine zones."},
-			{Kind: "network", Label: "Internet access from Tilecast Server", Description: "The server polls api.weather.gov on a fixed interval."},
-			{Kind: "provider", Label: "National Weather Service"},
-		},
-		Capabilities:  []string{"Background NWS polling", "Takeovers", "Player manifest plugin state"},
-		Documentation: "docs/plugins.md#emergency-alerts",
-		Installable:   true,
-	},
-	{
-		ID: FormsID, Version: 1, Name: "Forms",
-		Description:          "Collect submissions, run approval workflows, and publish approved records to Widgets.",
-		Category:             CategoryWorkflow,
-		Icon:                 "clipboard-list",
-		ManagementPath:       "/plugins/forms",
-		InstanceNounSingular: "form", InstanceNounPlural: "forms",
-		Requirements:  []Requirement{},
-		Capabilities:  []string{"Form Data Sources", "Approval workflows", "Record attachments"},
-		Documentation: "docs/plugins.md#forms",
-		Installable:   true,
-	},
-	{
-		ID: BrandBugID, Version: 1, Name: "Brand Bug / Watermark",
-		Description:          "Keep a logo, sponsor mark, legal notice, campaign badge, or location label in a corner over all normal content.",
-		Category:             CategoryDisplay,
-		Icon:                 "stamp",
-		ManagementPath:       "/plugins/brand-bug",
-		InstanceNounSingular: "mark", InstanceNounPlural: "marks",
-		Requirements: []Requirement{
-			{Kind: "player", Label: "Player plugin support", Description: "Target screens need a Player build that renders plugin overlays."},
-		},
-		Capabilities:  []string{"Player manifest plugin state", "Persistent corner overlay"},
-		Documentation: "docs/plugins.md#brand-bug--watermark",
-		Installable:   true,
-	},
-	{
-		ID: NoiseMeterID, Version: 1, Name: "Noise Meter",
-		Description:          "Watch room noise with a microphone on the Linux Player and show a bottom bar only while the room stays too loud.",
-		Category:             CategoryHardware,
-		Icon:                 "audio-lines",
-		ManagementPath:       "/plugins/noise-meter",
-		InstanceNounSingular: "meter", InstanceNounPlural: "meters",
-		Requirements: []Requirement{
-			{Kind: "platform", Label: "Linux Player"},
-			{Kind: "hardware", Label: "Microphone or audio input", Description: "Audio is processed locally by the Player; samples are never uploaded."},
-		},
-		Capabilities:  []string{"Player microphone", "Player manifest plugin state", "Derived noise history"},
-		Documentation: "docs/plugins.md#noise-meter",
-		Installable:   true,
-	},
+// registry lists every plugin this release can run, in catalog order: by
+// name, because no central list decides an order.
+var registry = mustDefinitions(bundled.Bundled())
+
+func mustDefinitions(bundle []plugin.Plugin) []Definition {
+	definitions := make([]Definition, 0, len(bundle))
+	for _, p := range bundle {
+		definitions = append(definitions, definitionFromManifest(p.Manifest()))
+	}
+	sort.SliceStable(definitions, func(i, j int) bool {
+		return strings.ToLower(definitions[i].Name) < strings.ToLower(definitions[j].Name)
+	})
+	if err := validateRegistry(definitions); err != nil {
+		panic(err)
+	}
+	return definitions
 }
 
-func init() {
-	if err := validateRegistry(registry); err != nil {
-		panic(err)
+func definitionFromManifest(m plugin.Manifest) Definition {
+	requirements := make([]Requirement, 0, len(m.Requirements))
+	for _, requirement := range m.Requirements {
+		requirements = append(requirements, Requirement(requirement))
+	}
+	documentation := ""
+	if m.Docs != nil {
+		documentation = m.Docs.Reference
+	}
+	return Definition{
+		ID: m.ID, Version: m.DefinitionVersion, Name: m.Name, Description: m.Description,
+		Category: m.Category, Icon: m.Icon, ManagementPath: m.StudioRoute(),
+		InstanceNounSingular: m.InstanceNoun.Singular, InstanceNounPlural: m.InstanceNoun.Plural,
+		Requirements: requirements, Capabilities: append([]string{}, m.Uses...),
+		Documentation: documentation, Installable: m.IsInstallable(),
+		PlayerFacing: m.Capabilities.PlayerManifest,
 	}
 }
 
@@ -173,6 +138,9 @@ func Lookup(id string) (Definition, bool) {
 	return Definition{}, false
 }
 
+// validateRegistry re-checks the catalog shape the API promises. The SDK has
+// already validated each manifest; this guards the translation and the
+// cross-plugin rule that identifiers are unique.
 func validateRegistry(definitions []Definition) error {
 	seen := map[string]bool{}
 	for _, d := range definitions {
@@ -189,7 +157,7 @@ func validateRegistry(definitions []Definition) error {
 			return fmt.Errorf("plugin registry: %s has unknown category %q", d.ID, d.Category)
 		case !iconPattern.MatchString(d.Icon):
 			return fmt.Errorf("plugin registry: %s has invalid icon %q", d.ID, d.Icon)
-		case !managementPathPattern.MatchString(d.ManagementPath) || strings.Contains(d.ManagementPath, "//"):
+		case d.ManagementPath != "" && (!managementPathPattern.MatchString(d.ManagementPath) || strings.Contains(d.ManagementPath, "//")):
 			return fmt.Errorf("plugin registry: %s has invalid management path %q", d.ID, d.ManagementPath)
 		case d.InstanceNounSingular == "" || d.InstanceNounPlural == "":
 			return fmt.Errorf("plugin registry: %s needs instance nouns", d.ID)

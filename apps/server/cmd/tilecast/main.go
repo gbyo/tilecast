@@ -127,7 +127,7 @@ func serve() {
 	presentationService := presentations.NewService(db, deviceService)
 	presentationService.SetPresentationReadiness(playlistService)
 	playlistService.SetPresentationOverrides(presentationService)
-	pluginService := plugins.NewService(db, deviceService)
+	pluginService := plugins.NewService(db, deviceService, plugins.WithLogger(logger))
 	pluginService.SetManifestInvalidator(playlistService)
 	playlistService.SetPluginProjector(pluginService)
 	mediaService.SetContentDefinitions(contentDefinitions)

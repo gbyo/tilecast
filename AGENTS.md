@@ -52,17 +52,22 @@ apps/server/                 Go application and embedded dashboard host
   internal/discovery/        optional mDNS/DNS-SD advertisement
   internal/httpapi/          Chi routes, middleware, JSON contracts, WebSocket
   internal/web/              embedded dashboard files and SPA fallback
+plugins/                     bundled first-party plugins, one directory each
+  <name>/tilecast.plugin.json  the plugin manifest (see docs/plugin-api.md)
+  registry_gen.go            generated Go registry; never edit
 apps/dashboard/              React, TypeScript, Vite, TanStack Query
   src/api/                   public browser contract types and fetch client
   src/auth/                  session state and forms
   src/content/               Widget and Data Source authoring controls
   src/navigation/            route metadata and workspace tab definitions
   src/pages/                 authenticated Studio routes
+  src/plugin-host/           plugin discovery and the @tilecast/studio surface
 apps/player-android/         native Android TV application
   app/src/main/              Compose UI and production player code
   app/src/test/              JVM unit tests
   app/src/androidTest/       emulator/device tests
 packages/player-runtime/      shared Player Runtime hosted by Electron and WPE
+packages/plugin-sdk/         Plugin API v1: manifest schema, Go SDK, pluginctl
 packages/api-schema/         reserved shared API contract boundary
 packages/manifest-schema/    reserved for the later player manifest
 packages/layout-schema/      reserved for renderer-neutral layouts
@@ -161,9 +166,17 @@ Do not store or trust a player-supplied online string. `internal/devices/status.
 
 Return computed status and `lastContactAt`. Do not duplicate the thresholds in React or Android.
 
+### Plugins
+
+A bundled plugin is a directory below `plugins/`. Read [`docs/plugin-api.md`](docs/plugin-api.md) before you change a plugin or the plugin host.
+
+- Keep everything unique to a plugin in its directory. Do not add a plugin identifier to core code; extend the SDK contribution interfaces instead.
+- Plugins import only the plugin SDK, `@tilecast/studio`, and their own files. `npm run plugins:check` enforces this.
+- Never edit generated files: `plugins/registry_gen.go`, `.github/CODEOWNERS`, `docs/openapi.yaml`, `packages/plugin-sdk/schema/tilecast-plugin.schema.json`, and `apps/server/internal/database/migrations.lock.json`. Run `npm run plugins:generate`.
+
 ### Database migrations
 
-Migration files are sequential under `apps/server/internal/database/migrations`.
+Migration files share one sequence. Core files are under `apps/server/internal/database/migrations`; a plugin's files are under `plugins/<name>/migrations`. Reserve a version with `npm run plugins:migration -- <plugin_id|core> <name>`.
 
 - Every file needs `-- +goose Up` and a valid `-- +goose Down` section.
 - Never edit a migration after it has shipped; add a new migration.
@@ -259,6 +272,13 @@ make check
 make build
 ```
 
+Plugins only:
+
+```sh
+npm run plugins:check      # manifests, boundaries, generated files
+npm run plugins:generate   # rewrite generated files
+```
+
 Dashboard only:
 
 ```sh
@@ -335,7 +355,8 @@ Update documentation with the implementation, not afterward as an approximation.
 
 - `README.md`
 - `docs/architecture.md`
-- `docs/api.md` and `docs/openapi.yaml`
+- `docs/api.md`, `docs/openapi/core.yaml`, and each plugin's `api/openapi.yaml` (the composed `docs/openapi.yaml` is generated)
+- `docs/plugin-api.md`
 - `docs/player-protocol.md`
 - `docs/device-credential-security.md`
 - `docs/android-development.md`

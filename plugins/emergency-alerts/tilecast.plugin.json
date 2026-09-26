@@ -1,0 +1,41 @@
+{
+  "$schema": "../../packages/plugin-sdk/schema/tilecast-plugin.schema.json",
+  "apiVersion": 1,
+  "id": "emergency_alerts",
+  "definitionVersion": 1,
+  "name": "Emergency Alerts",
+  "description": "Watch official NWS weather alerts and respond automatically while one is active, with a fullscreen takeover or a ticker bar.",
+  "category": "Automation",
+  "icon": "siren",
+  "maintainers": ["@gbyo"],
+  "instanceNoun": { "singular": "alert rule", "plural": "alert rules" },
+  "requirements": [
+    {
+      "kind": "region",
+      "label": "United States",
+      "description": "National Weather Service alerts cover U.S. states, territories, and marine zones."
+    },
+    {
+      "kind": "network",
+      "label": "Internet access from Tilecast Server",
+      "description": "The server polls api.weather.gov on a fixed interval."
+    },
+    { "kind": "provider", "label": "National Weather Service" }
+  ],
+  "uses": [
+    "Background NWS polling",
+    "Takeovers",
+    "Player manifest plugin state"
+  ],
+  "capabilities": {
+    "playerManifest": true,
+    "backgroundWorkers": true,
+    "network": ["api.weather.gov"]
+  },
+  "server": { "entrypoint": "./plugin.go" },
+  "studio": {
+    "route": "/plugins/emergency-alerts",
+    "entrypoint": "./studio/index.tsx"
+  },
+  "docs": { "reference": "docs/plugins.md#emergency-alerts" }
+}

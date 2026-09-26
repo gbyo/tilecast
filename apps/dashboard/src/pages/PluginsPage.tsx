@@ -177,7 +177,7 @@ function InstalledPlugin({ plugin }: { plugin: PluginSummary }) {
   return (
     <Item variant="outline">
       <ItemMedia variant="image" className="bg-muted">
-        <PluginIcon icon={plugin.icon} />
+        <PluginIcon pluginId={plugin.id} />
       </ItemMedia>
       <ItemContent>
         <ItemTitle>{plugin.name}</ItemTitle>
