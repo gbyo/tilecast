@@ -411,7 +411,7 @@ Plugin API v1 does not load third-party code. The contract keeps a path open:
 | Milestone | Scope                                                            | Status  |
 | --------- | ---------------------------------------------------------------- | ------- |
 | 1         | Layout, manifest, SDKs, host, discovery, tooling, CODEOWNERS, CI | Done    |
-| 2         | Countdown Bar in `plugins/countdown-bar/`                        | Planned |
+| 2         | Countdown Bar in `plugins/countdown-bar/`                        | Done    |
 | 3         | Generic runtime surface host                                     | Planned |
 | 4         | Brand Bug and Noise Meter                                        | Planned |
 | 5         | Emergency Alerts                                                 | Planned |
@@ -421,4 +421,8 @@ Plugin API v1 does not load third-party code. The contract keeps a path open:
 Until a plugin moves, `apps/server/internal/plugins` answers its status,
 removal blockers, and projection through the legacy functions in that
 package. These are the only places where the server host still names a
-plugin. Countdown Bar has moved: no server or Studio host code names it.
+plugin. Countdown Bar has moved: no server or Studio host code names it. Its
+shared Player runtime renderer stays in `packages/player-runtime` until
+milestone 3 gives the runtime a generic surface host. Until then, its manifest
+declares `runtime.manifestTypes` and `runtime.surfaces` without
+`runtime.entrypoint`.
