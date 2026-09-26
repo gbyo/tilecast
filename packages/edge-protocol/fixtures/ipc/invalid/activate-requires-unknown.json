@@ -27,9 +27,7 @@
         "takeover": false,
         "generation": 2,
         "synchronized": false,
-        "requires": [
-          "execute-script"
-        ]
+        "requires": ["execute-script"]
       },
       "content": [],
       "timing": null

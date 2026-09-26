@@ -208,7 +208,9 @@ export class HostRemoteWebSurface implements MediaSurface {
     this.maybeReady();
   }
 
-  private setTarget(target: { kind: "media-uri"; uri: string } | { kind: "host-layer" }): void {
+  private setTarget(
+    target: { kind: "media-uri"; uri: string } | { kind: "host-layer" },
+  ): void {
     if (target.kind === "host-layer") {
       this.hostLayer = true;
       this.streamReady = this.sourceReady;

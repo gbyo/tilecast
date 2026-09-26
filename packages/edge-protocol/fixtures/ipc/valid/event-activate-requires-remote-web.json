@@ -27,10 +27,7 @@
         "takeover": false,
         "generation": 2,
         "synchronized": false,
-        "requires": [
-          "remote-web-v1",
-          "website"
-        ]
+        "requires": ["remote-web-v1", "website"]
       },
       "content": [],
       "timing": null

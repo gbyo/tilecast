@@ -11,11 +11,7 @@
         "gstreamerVersion": "1.26.2",
         "platform": "headless"
       },
-      "features": [
-        "status-surfaces-v1",
-        "image",
-        "video"
-      ],
+      "features": ["status-surfaces-v1", "image", "video"],
       "display": {
         "connected": true,
         "width": 1920,
