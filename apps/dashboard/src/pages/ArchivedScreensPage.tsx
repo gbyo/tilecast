@@ -44,14 +44,13 @@ export function ArchivedScreensPage() {
   return (
     <div className="screens-page w-full min-w-0 space-y-4">
       <PageHeader title={t("archive.title")} description={t("archive.body")} />
-      {archived.isError && (
-        <Alert variant="destructive">
-          <AlertDescription>{archived.error.message}</AlertDescription>
-        </Alert>
-      )}
 
       {archived.isLoading ? (
         <p className="text-sm text-muted-foreground">{t("archive.loading")}</p>
+      ) : archived.isError ? (
+        <Alert variant="destructive">
+          <AlertDescription>{archived.error.message}</AlertDescription>
+        </Alert>
       ) : screens.length === 0 ? (
         <Empty className="border">
           <EmptyHeader>
