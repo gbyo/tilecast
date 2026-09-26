@@ -96,6 +96,16 @@ func (p *Plugin) write(ctx context.Context, id, userID uuid.UUID, input Input, c
 	if input.DaysOfWeek == nil {
 		input.DaysOfWeek = []int{}
 	}
+	// Read host facts before the transaction: a pool read while tx holds a
+	// connection needs a second one, and a one-connection or saturated pool
+	// would wait on the connection this transaction itself holds.
+	var organizationID uuid.UUID
+	if create {
+		var err error
+		if organizationID, err = p.host.Organization.ID(ctx); err != nil {
+			return err
+		}
+	}
 	tx, err := p.host.DB.Begin(ctx)
 	if err != nil {
 		return err
@@ -112,10 +122,6 @@ func (p *Plugin) write(ctx context.Context, id, userID uuid.UUID, input Input, c
 		targetTime = *input.TargetTime
 	}
 	if create {
-		organizationID, orgErr := p.host.Organization.ID(ctx)
-		if orgErr != nil {
-			return orgErr
-		}
 		_, err = tx.Exec(ctx, `INSERT INTO countdown_bar_instances
 			(id,organization_id,name,message,schedule_type,target_time,days_of_week,one_time_at,timezone,lead_time_seconds,
 			 completion_text,show_confetti,display_mode,height_px,progress_fill,content_padding,text_scale,

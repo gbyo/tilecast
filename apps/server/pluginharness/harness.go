@@ -16,7 +16,9 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -40,13 +42,29 @@ type Harness struct {
 	service *plugins.Service
 }
 
+// Option adjusts how a Harness is built.
+type Option func(*options)
+
+type options struct{ maxConnections int }
+
+// MaxConnections bounds the plugin's database pool. With 1, a plugin that
+// reads through the pool while its own transaction holds the only connection
+// blocks, so a test can prove that a write path never does that.
+func MaxConnections(n int) Option {
+	return func(o *options) { o.maxConnections = n }
+}
+
 // New migrates the test database, empties it, creates an organization and an
 // Owner, and hosts p. The plugin is initialized but not installed.
-func New(t *testing.T, p plugin.Plugin) *Harness {
+func New(t *testing.T, p plugin.Plugin, opts ...Option) *Harness {
 	t.Helper()
 	databaseURL := os.Getenv("TEST_DATABASE_URL")
 	if databaseURL == "" {
 		t.Skip("TEST_DATABASE_URL is not set")
+	}
+	var chosen options
+	for _, opt := range opts {
+		opt(&chosen)
 	}
 	ctx := context.Background()
 	lockPool, err := pgxpool.New(ctx, databaseURL)
@@ -66,7 +84,18 @@ func New(t *testing.T, p plugin.Plugin) *Harness {
 	if err = database.Migrate(ctx, databaseURL); err != nil {
 		t.Fatal(err)
 	}
-	pool, err := database.Open(ctx, databaseURL)
+	poolURL := databaseURL
+	if chosen.maxConnections > 0 {
+		parsed, parseErr := url.Parse(databaseURL)
+		if parseErr != nil {
+			t.Fatal(parseErr)
+		}
+		query := parsed.Query()
+		query.Set("pool_max_conns", strconv.Itoa(chosen.maxConnections))
+		parsed.RawQuery = query.Encode()
+		poolURL = parsed.String()
+	}
+	pool, err := database.Open(ctx, poolURL)
 	if err != nil {
 		t.Fatal(err)
 	}

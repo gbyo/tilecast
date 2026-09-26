@@ -1,6 +1,7 @@
 package server_test
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"testing"
@@ -185,5 +186,26 @@ func TestDemoSeed(t *testing.T) {
 	items, err := p.List(h.Ctx)
 	if err != nil || len(items) != 1 || items[0].TargetScope != plugin.TargetLocations || len(items[0].TargetIDs) != 1 {
 		t.Fatalf("seeded = %+v, %v", items, err)
+	}
+}
+
+// A write resolves host facts before its transaction. With one pooled
+// connection, a pool read inside the transaction would wait forever on the
+// connection the transaction holds.
+func TestWritesNeedOnlyOneConnection(t *testing.T) {
+	p := countdownbar.New().(*server.Plugin)
+	h := pluginharness.New(t, p, pluginharness.MaxConnections(1))
+	h.Install()
+	ctx, cancel := context.WithTimeout(h.Ctx, 10*time.Second)
+	defer cancel()
+	created, err := p.Create(ctx, h.OwnerID, input())
+	if err != nil {
+		t.Fatalf("create with one connection: %v", err)
+	}
+	if _, err = p.Update(ctx, created.ID, h.OwnerID, input()); err != nil {
+		t.Fatalf("update with one connection: %v", err)
+	}
+	if err = p.Delete(ctx, created.ID, h.OwnerID); err != nil {
+		t.Fatalf("delete with one connection: %v", err)
 	}
 }
