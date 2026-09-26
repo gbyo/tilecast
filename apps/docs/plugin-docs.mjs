@@ -166,10 +166,25 @@ export function pageMarkdown(source) {
  * @param {string} text
  */
 export function withoutHtmlComments(text) {
+  const OPEN = "<!--";
+  const CLOSE = "-->";
   let previous;
   do {
     previous = text;
-    text = text.replace(/<!--[\s\S]*?-->/g, "").replace(/<!--|-->/g, "");
+    let out = "";
+    let index = 0;
+    for (;;) {
+      const open = text.indexOf(OPEN, index);
+      if (open < 0) {
+        out += text.slice(index);
+        break;
+      }
+      out += text.slice(index, open);
+      const close = text.indexOf(CLOSE, open + OPEN.length);
+      // An unterminated opener is dropped on its own; the text after it stays.
+      index = close < 0 ? open + OPEN.length : close + CLOSE.length;
+    }
+    text = out.split(CLOSE).join("");
   } while (text !== previous);
   return text;
 }
