@@ -60,6 +60,7 @@ export function LiveStreamDialog({
             })
             .catch((reason) => {
               if (active) {
+                setPlaying(false);
                 setError(
                   reason instanceof Error
                     ? reason.message
@@ -113,7 +114,10 @@ export function LiveStreamDialog({
               src={liveStreamApi.mjpegUrl(screenId, session.id)}
               alt={t("liveStream.imageAlt", { name: screenName })}
               onLoad={() => setPlaying(true)}
-              onError={() => setError(t("liveStream.connectionEnded"))}
+              onError={() => {
+                setPlaying(false);
+                setError(t("liveStream.connectionEnded"));
+              }}
             />
           ) : null}
           {!playing && (

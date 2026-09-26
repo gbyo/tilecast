@@ -60,6 +60,11 @@ describe("LiveStreamDialog", () => {
       screen.getByText(/never saved to snapshots, live preview/i),
     ).toBeTruthy();
 
+    fireEvent.error(image);
+    expect(screen.queryByText("Live")).toBeNull();
+    expect(screen.getByText("Live preview unavailable")).toBeTruthy();
+    expect(screen.getByText("Live preview connection ended.")).toBeTruthy();
+
     fireEvent.click(screen.getByRole("button", { name: "Stop watching" }));
     expect(onClose).toHaveBeenCalledOnce();
     view.rerender(
