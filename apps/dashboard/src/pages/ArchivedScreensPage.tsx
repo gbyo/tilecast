@@ -50,7 +50,7 @@ export function ArchivedScreensPage() {
         </Alert>
       )}
 
-      {archived.isLoading ? (
+      {archived.isError ? null : archived.isLoading ? (
         <p className="text-sm text-muted-foreground">{t("archive.loading")}</p>
       ) : screens.length === 0 ? (
         <Empty className="border">
