@@ -6,9 +6,9 @@
   "emptyDescription": "Crea una instancia para mostrar una barra temporizada local en las pantallas elegidas.",
   "itemDescription": "{{message}} · {{displayMode}} · {{height}}px · prioridad {{priority}}",
   "deleteBody": "La barra se quitará de los reproductores de destino.",
-  "removedToast": "Se eliminó la barra de cuenta regresiva.",
-  "createdToast": "Se creó la barra de cuenta regresiva.",
-  "updatedToast": "Se actualizó la barra de cuenta regresiva.",
+  "removedToast": "Se eliminó la barra de cuenta atrás.",
+  "createdToast": "Se creó la barra de cuenta atrás.",
+  "updatedToast": "Se actualizó la barra de cuenta atrás.",
   "editor": {
     "createTitle": "Nueva barra de cuenta atrás",
     "manageTitle": "Gestionar barra de cuenta atrás",
@@ -77,5 +77,9 @@
     "oneTimeRequired": "Elige la fecha y la hora únicas del objetivo.",
     "targetRequired": "Elige al menos un destino.",
     "stageOrder": "Las etapas deben empezar en orden: pronto, urgente y luego pulso."
+  },
+  "breadcrumbs": {
+    "newInstance": "Nueva instancia",
+    "instance": "Instancia"
   }
 }
