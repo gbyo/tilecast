@@ -8,7 +8,6 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/layouts"
 	"github.com/tilecast/tilecast/apps/server/internal/media"
-	"github.com/tilecast/tilecast/apps/server/internal/plugins"
 	"github.com/tilecast/tilecast/apps/server/internal/scheduling"
 	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
@@ -362,23 +361,13 @@ func seedCampaign(b *builder) error {
 
 // seedPlugins lets each plugin that contributes Demo Mode data seed its own.
 func seedPlugins(b *builder) error {
-	if err := b.svc.Plugins.SeedDemo(b.ctx, plugin.Demo{
+	return b.svc.Plugins.SeedDemo(b.ctx, plugin.Demo{
 		Scenario: "district", OwnerID: b.owner, Timezone: demoTimezone,
 		Locations: map[string]uuid.UUID{
 			"high_school": IDs.HighSchool, "middle_school": IDs.MiddleSchool,
 			"main_office": IDs.MainOffice, "athletic_complex": IDs.AthleticComplex,
 		},
-	}); err != nil {
-		return err
-	}
-	if err := b.installPlugins(plugins.BrandBugID); err != nil {
-		return err
-	}
-	_, err := b.svc.Plugins.CreateBrandBug(b.ctx, b.owner, plugins.BrandBugInput{
-		Name: "Falcons mark", Corner: "top_right", Text: "Go Falcons", WidthPercent: 12, TextSizePercent: 3, OpacityPercent: 85,
-		MarginPercent: 3, TextColor: "#FFFFFF", BackgroundStyle: "scrim", Enabled: true, TargetScope: "all", TargetIDs: []uuid.UUID{},
 	})
-	return err
 }
 
 func seedSettings(b *builder) error {

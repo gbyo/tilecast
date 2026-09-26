@@ -16,9 +16,16 @@ import (
 const (
 	EmergencyAlertsID = "emergency_alerts"
 	FormsID           = "forms"
-	BrandBugID        = "brand_bug"
-	NoiseMeterID      = "noise_meter"
 )
+
+// retiredPlugins are plugins that earlier releases shipped and this release
+// removed. COMPATIBILITY: an installation row or data an installation still
+// holds for one of them is kept and inert, like any unknown plugin, but the
+// catalog reports it as retired rather than as coming from a newer release.
+var retiredPlugins = map[string]bool{
+	"brand_bug":   true,
+	"noise_meter": true,
+}
 
 // Definition is one release-owned plugin as the catalog presents it: what
 // Tilecast can do, not whether an installation uses it. It is derived from

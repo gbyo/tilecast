@@ -33,9 +33,6 @@ import { WidgetEditorPage, WidgetsPage } from "./pages/WidgetsPage";
 import { DataSourceEditorPage, DataSourcesPage } from "./pages/DataSourcesPage";
 import { ActivityPage } from "./pages/ActivityPage";
 import { PluginsPage } from "./pages/PluginsPage";
-import { BrandBugEditorPage, BrandBugsPage } from "./pages/BrandBugsPage";
-import { NoiseMeterEditorPage, NoiseMetersPage } from "./pages/NoiseMetersPage";
-import { NoiseMeterHistoryPage } from "./pages/NoiseMeterHistoryPage";
 import { EmergencyAlertsPage } from "./pages/EmergencyAlertsPage";
 import { ApprovalsPage } from "./pages/ApprovalsPage";
 import {
@@ -430,84 +427,6 @@ export const studioRoutes: RouteObject[] = [
                   </PluginRouteGate>
                 ),
                 handle: { breadcrumb: "Form", resource: "form" },
-              },
-            ],
-          },
-          {
-            path: "brand-bug",
-            handle: { breadcrumb: "Brand Bug / Watermark" },
-            children: [
-              {
-                index: true,
-                element: (
-                  <PluginRouteGate pluginId="brand_bug">
-                    <BrandBugsPage />
-                  </PluginRouteGate>
-                ),
-              },
-              {
-                path: "new",
-                element: (
-                  <PluginRouteGate pluginId="brand_bug">
-                    <BrandBugEditorPage />
-                  </PluginRouteGate>
-                ),
-                handle: { breadcrumb: "New instance" },
-              },
-              {
-                path: ":id",
-                element: (
-                  <PluginRouteGate pluginId="brand_bug">
-                    <BrandBugEditorPage />
-                  </PluginRouteGate>
-                ),
-                handle: { breadcrumb: "Instance", resource: "brand-bug" },
-              },
-            ],
-          },
-          {
-            path: "noise-meter",
-            handle: { breadcrumb: "Noise Meter" },
-            children: [
-              {
-                index: true,
-                element: (
-                  <PluginRouteGate pluginId="noise_meter">
-                    <NoiseMetersPage />
-                  </PluginRouteGate>
-                ),
-              },
-              {
-                path: "new",
-                element: (
-                  <PluginRouteGate pluginId="noise_meter">
-                    <NoiseMeterEditorPage />
-                  </PluginRouteGate>
-                ),
-                handle: { breadcrumb: "New instance" },
-              },
-              {
-                path: ":id",
-                handle: { breadcrumb: "Instance", resource: "noise-meter" },
-                children: [
-                  {
-                    index: true,
-                    element: (
-                      <PluginRouteGate pluginId="noise_meter">
-                        <NoiseMeterEditorPage />
-                      </PluginRouteGate>
-                    ),
-                  },
-                  {
-                    path: "history",
-                    element: (
-                      <PluginRouteGate pluginId="noise_meter">
-                        <NoiseMeterHistoryPage />
-                      </PluginRouteGate>
-                    ),
-                    handle: { breadcrumb: "History" },
-                  },
-                ],
               },
             ],
           },

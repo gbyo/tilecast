@@ -14,7 +14,10 @@ import { isValidElement, type ReactNode } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { studioRoutes } from "../App";
-import type { PluginSummary } from "../api/types";
+import type {
+  PluginSummary,
+  UnsupportedPluginInstallation,
+} from "../api/types";
 import { buildCommandResults } from "../components/StudioTopbar";
 import { i18n } from "../i18n";
 import { PluginsPage } from "../pages/PluginsPage";
@@ -37,6 +40,7 @@ vi.mock("../auth/AuthProvider", () => ({
 type Handler = (request: { method: string; path: string }) => Response;
 
 let catalog: PluginSummary[] = [];
+let unsupported: UnsupportedPluginInstallation[] = [];
 let calls: { method: string; path: string }[] = [];
 let override: Handler | undefined;
 
@@ -48,20 +52,35 @@ function json(status: number, body: unknown) {
 
 beforeEach(() => {
   auth.role = "owner";
+  unsupported = [];
   calls = [];
   override = undefined;
   catalog = [
     catalogPlugin({
-      id: "noise_meter",
+      id: "forms",
       installed: true,
       configured: true,
       active: true,
       instanceCount: 2,
     }),
-    catalogPlugin({ id: "forms", installed: true }),
+    catalogPlugin({
+      id: "transit_alerts",
+      name: "Transit Alerts",
+      category: "Automation",
+      managementPath: "/plugins/transit-alerts",
+      installed: true,
+    }),
     catalogPlugin({ id: "countdown_bar", installed: false }),
     catalogPlugin({ id: "emergency_alerts", installed: false }),
-    catalogPlugin({ id: "brand_bug", installed: false }),
+    catalogPlugin({
+      id: "lobby_signs",
+      name: "Lobby Signs",
+      // i18n-ignore: test fixture label, not Studio copy
+      description: "Show wayfinding signs in the lobby.",
+      category: "Display",
+      managementPath: "/plugins/lobby-signs",
+      installed: false,
+    }),
   ];
   vi.stubGlobal(
     "fetch",
@@ -83,7 +102,7 @@ beforeEach(() => {
       if (path === "/plugins")
         return Promise.resolve(
           json(200, {
-            data: { items: catalog, unsupportedInstallations: [] },
+            data: { items: catalog, unsupportedInstallations: unsupported },
           }),
         );
       return Promise.resolve(json(200, { data: { items: [], total: 0 } }));
@@ -134,15 +153,47 @@ function renderPlugins(path = "/plugins") {
 describe("Installed plugins list", () => {
   it("shows only installed plugins with their status", async () => {
     renderPlugins();
-    expect(await screen.findByText("Noise Meter")).toBeVisible();
-    expect(screen.getByText("Forms")).toBeVisible();
+    expect(await screen.findByText("Forms")).toBeVisible();
+    expect(screen.getByText("Transit Alerts")).toBeVisible();
     expect(screen.queryByText("Countdown Bar")).toBeNull();
-    expect(screen.getByText("2 meters")).toBeVisible();
+    expect(screen.getByText("2 forms")).toBeVisible();
     expect(screen.getByText("Active")).toBeVisible();
     expect(screen.getByText("Needs setup")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Open Forms" })).toHaveAttribute(
+      "href",
+      "/plugins/forms",
+    );
+  });
+
+  it("tells retired plugins apart from plugins of a newer release", async () => {
+    unsupported = [
+      {
+        pluginId: "noise_meter",
+        installedAt: "2026-01-01T00:00:00Z",
+        retired: true,
+      },
+      {
+        pluginId: "brand_bug",
+        installedAt: "2026-01-01T00:00:00Z",
+        retired: true,
+      },
+      { pluginId: "some_future_plugin", installedAt: "2026-01-01T00:00:00Z" },
+    ];
+    renderPlugins();
     expect(
-      screen.getByRole("link", { name: "Open Noise Meter" }),
-    ).toHaveAttribute("href", "/plugins/noise-meter");
+      await screen.findByText("Plugins removed from Tilecast"),
+    ).toBeVisible();
+    expect(
+      screen.getByText(
+        "noise_meter, brand_bug are recorded as installed but were removed from Tilecast. They no longer run, and their data is kept.",
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getByText("Plugins from a newer Tilecast release"),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/some_future_plugin is recorded as installed/),
+    ).toBeVisible();
   });
 
   it("uses an empty state when nothing is installed", async () => {
@@ -179,7 +230,7 @@ describe("Add plugin", () => {
     const dialog = await screen.findByRole("dialog", { name: "Add a plugin" });
     expect(dialog).toHaveTextContent("Countdown Bar");
     expect(dialog).toHaveTextContent("Emergency Alerts");
-    expect(dialog).not.toHaveTextContent("Noise Meter");
+    expect(dialog).not.toHaveTextContent("Transit Alerts");
 
     await user.click(screen.getByRole("button", { name: "Automation" }));
     expect(dialog).toHaveTextContent("Emergency Alerts");
@@ -188,10 +239,10 @@ describe("Add plugin", () => {
     await user.click(screen.getByRole("button", { name: "All" }));
     await user.type(
       screen.getByRole("textbox", { name: "Search plugins" }),
-      "noise",
+      "transit",
     );
     // An installed plugin reappears when a search matches it, marked.
-    expect(dialog).toHaveTextContent("Noise Meter");
+    expect(dialog).toHaveTextContent("Transit Alerts");
     expect(dialog).toHaveTextContent("Installed");
     expect(dialog).not.toHaveTextContent("Countdown Bar");
   });
@@ -229,11 +280,11 @@ describe("Add plugin", () => {
     expect(filterCatalog(catalog, "", "All").map((item) => item.id)).toEqual([
       "countdown_bar",
       "emergency_alerts",
-      "brand_bug",
+      "lobby_signs",
     ]);
     expect(
       filterCatalog(catalog, "", "Display").map((item) => item.id),
-    ).toEqual(["countdown_bar", "brand_bug"]);
+    ).toEqual(["countdown_bar", "lobby_signs"]);
     expect(
       filterCatalog(catalog, "weather", "All").map((item) => item.id),
     ).toEqual(["emergency_alerts"]);
@@ -425,15 +476,15 @@ describe("Plugin navigation", () => {
     const results = buildCommandResults(
       studioRoutes,
       [],
-      "noise",
+      "forms",
       undefined,
       catalog,
       i18n.getFixedT("en", "navigation"),
     );
-    const noise = results.find((result) => result.id === "plugin:noise_meter");
-    expect(noise).toMatchObject({
+    const forms = results.find((result) => result.id === "plugin:forms");
+    expect(forms).toMatchObject({
       description: "Plugin",
-      to: "/plugins/noise-meter",
+      to: "/plugins/forms",
     });
     const countdown = buildCommandResults(
       studioRoutes,

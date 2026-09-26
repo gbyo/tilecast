@@ -59,7 +59,12 @@ export function PluginsPage() {
 
   const plugins = catalog.data?.items ?? [];
   const installed = plugins.filter((plugin) => plugin.installed);
-  const unsupported = catalog.data?.unsupportedInstallations ?? [];
+  const unsupported = (catalog.data?.unsupportedInstallations ?? []).filter(
+    (item) => !item.retired,
+  );
+  const retired = (catalog.data?.unsupportedInstallations ?? []).filter(
+    (item) => item.retired,
+  );
 
   const openCatalog = () => {
     install.reset();
@@ -115,6 +120,19 @@ export function PluginsPage() {
             {t("list.unsupportedBody", {
               count: unsupported.length,
               ids: unsupported.map((item) => item.pluginId).join(", "),
+            })}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {retired.length > 0 && (
+        <Alert>
+          <CircleAlert aria-hidden="true" />
+          <AlertTitle>{t("list.retiredTitle")}</AlertTitle>
+          <AlertDescription>
+            {t("list.retiredBody", {
+              count: retired.length,
+              ids: retired.map((item) => item.pluginId).join(", "),
             })}
           </AlertDescription>
         </Alert>

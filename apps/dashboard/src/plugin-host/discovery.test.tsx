@@ -26,11 +26,9 @@ const manifest = (id: string, route?: string) => ({
 describe("Studio plugin discovery", () => {
   it("finds every bundled plugin's Studio entry point at build time", () => {
     expect(studioPlugins().map((plugin) => plugin.id)).toEqual([
-      "brand_bug",
       "countdown_bar",
       "emergency_alerts",
       "forms",
-      "noise_meter",
     ]);
     expect(hasStudioRoute("/plugins/countdown-bar")).toBe(true);
     expect(hasStudioRoute("/plugins/some-future-plugin")).toBe(false);
