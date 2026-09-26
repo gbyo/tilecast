@@ -209,8 +209,13 @@ the host to write: `plugin.ErrNotFound` gives `404 plugin_instance_not_found`,
 `plugin.ErrInvalid` gives `400 invalid_plugin_configuration`,
 `plugin.ErrNotInstalled` gives `409 plugin_not_installed`, and a
 `*plugin.APIError` is written as given. `plugin.DecodeJSON` applies the strict
-request contract. The host refuses to start when a plugin route is a route
-that a core route already answers.
+request contract. The host refuses to start when a plugin route overlaps a
+core route or a route of another plugin. Overlap is structural: the host
+compares the segments of the patterns, so `/things/{id}` overlaps
+`/things/install`, and `/foo/{id}` overlaps `/foo/{name}`, for the same
+method. Core routes are read from the registered Chi route tree. Inside one
+plugin, a plain segment can be next to a parameter, but two patterns with the
+same shape are refused.
 
 ### Status and removal
 
