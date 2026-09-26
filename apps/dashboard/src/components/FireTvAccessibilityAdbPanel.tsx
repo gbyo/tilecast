@@ -61,12 +61,12 @@ export function FireTvAccessibilityAdbPanel({
     try {
       await navigator.clipboard.writeText(commands.combined);
       setCopyState("copied");
-      toast.add({ title: "ADB commands copied.", type: "success" });
+      toast.add({ title: t("detail.fireTv.copiedNote"), type: "success" });
       window.setTimeout(() => setCopyState("idle"), 2_000);
     } catch {
       setCopyState("error");
       toast.add({
-        title: "ADB commands could not be copied.",
+        title: t("detail.fireTv.copyFail"),
         type: "error",
       });
     }
