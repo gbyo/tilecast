@@ -146,11 +146,32 @@ export function pageMarkdown(source) {
         /<Badge\s+(?=[^>]*text=["']([^"']+)["'])[^>]*\/?\s*>/g,
         (_, text) => text,
       )
-      .replace(/<!--([\s\S]*?)-->/g, "")
       .replace(/\{\/\*[\s\S]*?\*\/\}/g, ""),
   );
+  body = outsideCode(body, withoutHtmlComments);
   body = body.replace(/\n{3,}/g, "\n\n").trim();
   return `${title ? `# ${title}\n\n` : ""}${body}\n`;
+}
+
+/**
+ * Remove HTML comments, and any comment opener or closer left over, until
+ * nothing changes. One pass is not enough: removing `<!---->` from
+ * `<!<!---->--` leaves a new `<!--`.
+ *
+ * The result is only ever a Markdown copy of committed repository source,
+ * served as `text/markdown` or written as a `.md` file; the HTML page is
+ * rendered by Astro from the MDX itself. This is cleanup, not an HTML
+ * sanitizer, but a stray opener would hide the rest of the copy in any
+ * Markdown renderer, so it must not survive.
+ * @param {string} text
+ */
+export function withoutHtmlComments(text) {
+  let previous;
+  do {
+    previous = text;
+    text = text.replace(/<!--[\s\S]*?-->/g, "").replace(/<!--|-->/g, "");
+  } while (text !== previous);
+  return text;
 }
 
 /**
