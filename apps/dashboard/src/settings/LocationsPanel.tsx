@@ -162,7 +162,7 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
             </AlertDescription>
           </Alert>
         )}
-        {query.isLoading ? (
+        {query.isError ? null : query.isLoading ? (
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
             <Spinner aria-hidden="true" />
             {t("locations.loading")}
