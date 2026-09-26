@@ -668,7 +668,7 @@
       "snapshots": "Historial de capturas",
       "integrations": "Tokens de integración",
       "import-export": "Importar y exportar",
-      "dependency-graph": "Grafo de dependencias",
+      "dependency-graph": "Explorador de dependencias",
       "preferences": "Preferencias"
     },
     "sections": {
@@ -765,7 +765,7 @@
         "description": "Configuración portátil y no secreta de Tilecast."
       },
       "dependency-graph": {
-        "title": "Grafo de dependencias",
+        "title": "Explorador de dependencias",
         "description": "Sigue el contenido y los datos por presentaciones, programaciones, grupos y pantallas."
       },
       "preferences": {

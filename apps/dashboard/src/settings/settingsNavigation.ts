@@ -123,7 +123,7 @@ export const settingsNavigation: SettingsNavigationGroup[] = [
     item("import-export", "Import and export", "import-export"),
   ]),
   group("tools", "System tools", [
-    item("dependency-graph", "Dependency Graph", "dependency-graph"),
+    item("dependency-graph", "Dependency Explorer", "dependency-graph"),
   ]),
 ];
 export const settingsItems = settingsNavigation.flatMap((group) => group.items);
@@ -137,6 +137,11 @@ export const sectionDetails: Record<
     titleKey: `nav.sections.${SettingsSectionId}.title`;
     descriptionKey: `nav.sections.${SettingsSectionId}.description`;
     icon: LucideIcon;
+    /**
+     * A spatial tool that needs the full content width. Its section list
+     * moves into a Sheet instead of a permanent column.
+     */
+    workspace?: boolean;
   }
 > = {
   general: {
@@ -258,6 +263,7 @@ export const sectionDetails: Record<
     icon: Network,
     titleKey: "nav.sections.dependency-graph.title",
     descriptionKey: "nav.sections.dependency-graph.description",
+    workspace: true,
   },
   preferences: {
     icon: SlidersHorizontal,

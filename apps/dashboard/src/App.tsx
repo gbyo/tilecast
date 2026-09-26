@@ -75,6 +75,7 @@ const settingsSearch: Partial<
     // Search aliases stay in English in every language: they are matching
     // tokens, not displayed text, and the locale files hold strings only.
     keywords: [
+      "dependency graph",
       "content map",
       "used by",
       "relationships",
