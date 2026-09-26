@@ -40,8 +40,41 @@ export interface StudioPluginDefinition {
    * `{ breadcrumb: "New instance", breadcrumbKey: "breadcrumbs.newInstance" }`.
    */
   routes?: RouteObject[];
+  /**
+   * Routes outside the normal `/plugins/<plugin>` management subtree, for
+   * plugins that own a wider Studio surface (a submitter portal, a reviewer
+   * inbox). Each entry is explicit: the host mounts it at its absolute path,
+   * refuses collisions with core and other plugins' routes, and requires the
+   * path to be declared in the manifest's `studio.additionalRoutes`. This is
+   * not a generic router escape hatch; a plugin cannot override existing
+   * Studio routes.
+   */
+  standaloneRoutes?: StudioPluginStandaloneRoute[];
   /** Extra global search destinations. The plugin itself is always offered. */
   search?: StudioPluginSearchEntry[];
+}
+
+/**
+ * One plugin-owned Studio route outside the management subtree.
+ */
+export interface StudioPluginStandaloneRoute {
+  /** Absolute Studio path, for example "/forms". */
+  path: string;
+  /**
+   * Installation gating, deliberate per route. "install" wraps the route in
+   * the normal plugin installation gate; "none" renders directly, for pages
+   * that handle an uninstalled plugin themselves without exposing broken UI.
+   */
+  gate: "install" | "none";
+  /**
+   * Where the route mounts. Standalone routes mount inside the authenticated
+   * Studio chrome by default; `topLevel` mounts as a top-level route with its
+   * own shell and its own authentication, for areas intentionally outside the
+   * operator sidebar.
+   */
+  topLevel?: boolean;
+  /** The route's content below `path`, as relative child routes. */
+  children: RouteObject[];
 }
 
 /** Identity helper that type-checks a plugin's Studio contribution. */
@@ -81,7 +114,15 @@ export {
   type TargetSource,
 } from "../plugins/shared";
 export type { PluginTargetScope, PluginTargeting } from "../api/types";
+export type { VariantProps } from "class-variance-authority";
 export { FormField } from "../components/FormField";
+export {
+  localDateTimeToRfc3339,
+  rfc3339ToLocalDateTime,
+} from "../lib/dateTime";
+export { Pagination } from "../components/Pagination";
+export { Brand } from "../components/Brand";
+export { useDesktopLayout } from "../hooks/use-desktop-layout";
 export { DateInput, DateTimeInput } from "../components/date-picker";
 export { useConfirm } from "../components/ConfirmDialog";
 export { toast } from "../components/ui/toast";

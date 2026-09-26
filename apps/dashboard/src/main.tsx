@@ -12,7 +12,6 @@ import "./styles/signal.css";
 // Page-specific refinements intentionally load after shared Signal styles.
 import "./styles/screens.css";
 import "./styles/data-sources.css";
-import "./styles/forms.css";
 import "./styles/player-updates.css";
 import { TooltipProvider } from "./components/ui/tooltip";
 

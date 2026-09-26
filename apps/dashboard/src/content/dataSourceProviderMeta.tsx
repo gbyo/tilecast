@@ -17,10 +17,31 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { TFunction } from "i18next";
-import type { DataSourceDefinition, DataSourceProvider } from "../api/types";
+import type {
+  DataSourceDefinition,
+  DataSourceProvider,
+  ProviderCatalog,
+} from "../api/types";
 import { translateKnown } from "../i18n";
 
 type ContentT = TFunction<["content", "common"]>;
+
+/**
+ * Data Source providers the generic UI never authors directly: their plugin
+ * contribution hides them from the creation gallery in favor of a canonical
+ * editor. The generic list, filter options, gallery, and connect flows all
+ * skip those providers without naming any of them.
+ */
+export function galleryHiddenProviders(
+  catalog: ProviderCatalog | undefined,
+): DataSourceProvider[] {
+  return (catalog?.providers ?? [])
+    .filter(
+      (entry) =>
+        entry.role === "data_source" && entry.uiHints?.gallery === "hidden",
+    )
+    .map((entry) => entry.id);
+}
 
 // Display names for the providers Studio knows. Values sent to or compared
 // with the API (provider IDs, status strings) are never translated; only

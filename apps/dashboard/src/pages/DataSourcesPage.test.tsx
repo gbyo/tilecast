@@ -134,6 +134,22 @@ describe("Data Source card actions", () => {
       widgets: [],
       dataSources: [],
     });
+    // The Forms plugin hides its provider from the generic gallery through
+    // its contribution; the generic list honors that without naming Forms.
+    vi.spyOn(api, "providerCatalog").mockResolvedValue({
+      revision: 1,
+      providers: [
+        {
+          id: "form",
+          role: "data_source",
+          label: "Form",
+          group: "Interactive",
+          description: "Collect submissions.",
+          capabilities: {},
+          uiHints: { gallery: "hidden" },
+        },
+      ],
+    });
     return render(
       <QueryClientProvider
         client={

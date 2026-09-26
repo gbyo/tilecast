@@ -35,6 +35,7 @@ export async function check(repo: Repo): Promise<Problem[]> {
   const manifestTypes = new Map<string, string>();
   const slugs = new Map<string, string>();
   const bases: { base: string; id: string }[] = [];
+  const studioRoutes: { route: string; id: string }[] = [];
 
   for (const plugin of repo.plugins) {
     const { manifest } = plugin;
@@ -55,6 +56,24 @@ export async function check(repo: Repo): Promise<Problem[]> {
       if (manifest.studio.route !== expected)
         add(`studio.route must be ${expected}`);
       requireFile(plugin, manifest.studio.entrypoint, "studio.entrypoint", add);
+      for (const route of manifest.studio.additionalRoutes ?? []) {
+        if (route === "/plugins" || route.startsWith("/plugins/")) {
+          add(`studio additional route ${route} must not live below /plugins`);
+        }
+        for (const other of studioRoutes) {
+          if (
+            route === other.route ||
+            route.startsWith(`${other.route}/`) ||
+            other.route.startsWith(`${route}/`)
+          ) {
+            add(
+              `studio additional route ${route} overlaps ${other.route} of ${other.id}`,
+            );
+          }
+        }
+        studioRoutes.push({ route, id });
+      }
+      studioRoutes.push({ route: manifest.studio.route, id });
     }
 
     if (manifest.runtime) {

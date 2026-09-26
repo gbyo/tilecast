@@ -13,6 +13,8 @@ export interface DiscoveredStudioPlugin {
   name: string;
   /** The manifest's studio.route, for example "/plugins/countdown-bar". */
   route: string;
+  /** The manifest's studio.additionalRoutes, for example ["/forms"]. */
+  additionalRoutes: string[];
   definition: StudioPluginDefinition;
 }
 
@@ -60,6 +62,7 @@ export function discoverStudioPlugins(
       dir,
       name: manifest.name,
       route: manifest.studio.route,
+      additionalRoutes: manifest.studio.additionalRoutes ?? [],
       definition,
     });
   }

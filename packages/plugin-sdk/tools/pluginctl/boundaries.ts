@@ -31,6 +31,7 @@ const STUDIO_PACKAGES = [
   "react-i18next",
   "i18next",
   "@tanstack/react-query",
+  "@tanstack/react-table",
   "react-hook-form",
   "@hookform/resolvers",
   "zod",

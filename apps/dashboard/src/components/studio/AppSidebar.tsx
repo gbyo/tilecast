@@ -29,7 +29,19 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { canReviewForm } from "@/forms/capabilities";
+/**
+ * Whether the caller may act on a form's responses queue. This mirrors the
+ * Forms plugin's capability lattice (manage implies everything, approve
+ * implies review) over the raw granted list, so the sidebar can gate the
+ * Approvals entry without importing plugin code.
+ */
+function canReviewForm(granted: string[] | undefined): boolean {
+  return (
+    granted?.includes("review") === true ||
+    granted?.includes("approve") === true ||
+    granted?.includes("manage") === true
+  );
+}
 import { NavMain } from "./NavMain";
 import { NavSecondary } from "./NavSecondary";
 import { NavUser } from "./NavUser";

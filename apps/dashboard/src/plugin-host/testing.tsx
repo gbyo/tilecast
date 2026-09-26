@@ -11,6 +11,7 @@ export { i18n } from "../i18n";
 import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { StudioSessionProvider } from "./session";
+export { StudioSessionProvider };
 
 export function renderPluginRoute(
   element: ReactNode,
@@ -36,6 +37,11 @@ export function renderPluginRoute(
           csrfToken: "csrf",
           role,
           canManage: role === "owner" || role === "administrator",
+          authenticated: true,
+          setupRequired: false,
+          isLoading: false,
+          isSubmitting: false,
+          logout: () => Promise.resolve(),
         }}
       >
         <MemoryRouter initialEntries={[path]}>

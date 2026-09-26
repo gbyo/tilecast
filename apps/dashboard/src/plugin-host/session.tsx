@@ -8,6 +8,19 @@ export interface StudioSession {
   role?: string;
   /** Owner or Administrator: may change plugin configuration. */
   canManage: boolean;
+  /**
+   * Whether the session is authenticated. Top-level portal shells render
+   * nothing and redirect to login while this is false.
+   */
+  authenticated: boolean;
+  /** Whether the installation still needs owner setup (portals send it to /setup). */
+  setupRequired: boolean;
+  /** True while the session is resolving; shells render nothing until then. */
+  isLoading: boolean;
+  /** Whether a logout is in flight. */
+  isSubmitting: boolean;
+  /** Ends the session. */
+  logout: () => Promise<void>;
 }
 
 const StudioSessionOverride = createContext<StudioSession | null>(null);
@@ -36,6 +49,11 @@ export function useStudioSession(): StudioSession {
     csrfToken: auth.status?.csrfToken ?? "",
     role,
     canManage: canManage(role),
+    authenticated: auth.status?.authenticated ?? false,
+    setupRequired: auth.status?.setupRequired ?? false,
+    isLoading: auth.isLoading,
+    isSubmitting: auth.isSubmitting,
+    logout: auth.logout,
   };
 }
 
