@@ -13,7 +13,7 @@ Run these commands from the repository root:
 
 | Command                | Result                                                     |
 | ---------------------- | ---------------------------------------------------------- |
-| `npm run docs:dev`     | Starts a local server at `http://localhost:4321/` |
+| `npm run docs:dev`     | Starts a local server at `http://localhost:4321/`                  |
 | `npm run docs:check`   | Runs `astro check` for types and content frontmatter       |
 | `npm run docs:build`   | Builds `apps/docs/dist` and checks every internal link     |
 | `npm run docs:preview` | Serves the production build from `apps/docs/dist`          |
@@ -25,7 +25,7 @@ shallow clone shows the wrong date. Use a full clone.
 
 | Path                       | Contents                                                             |
 | -------------------------- | -------------------------------------------------------------------- |
-| `astro.config.mjs`         | Site URL, sidebar, theme, and Starlight settings          |
+| `astro.config.mjs`         | Site URL, sidebar, theme, and Starlight settings                    |
 | `src/content/docs/`        | Pages. The file path is the URL path.                                |
 | `src/route-middleware.mjs` | Adds the Edge section banner; hides page actions on generated routes |
 | `src/styles/tilecast.css`  | Starlight theme variables mapped to `@tilecast/design-tokens`        |
