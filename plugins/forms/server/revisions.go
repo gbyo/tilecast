@@ -214,8 +214,7 @@ func (s *Service) PublishRevision(ctx context.Context, id, user uuid.UUID) (Revi
 	if err := s.syncConfiguration(ctx, tx, id, &draft); err != nil {
 		return Revision{}, err
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,metadata)
-		VALUES($1,$2,'form.published','data_source',$3,jsonb_build_object('revision',$4::int))`, uuid.New(), user, id.String(), revision.RevisionNumber); err != nil {
+	if err := s.recordAudit(ctx, tx, user, "form.published", id.String(), map[string]any{"revision": revision.RevisionNumber}); err != nil {
 		return Revision{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
