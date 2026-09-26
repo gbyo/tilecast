@@ -418,7 +418,7 @@ export class TelemetryReporter {
     };
 
     try {
-      await this.client.postTelemetry(sample);
+      await this.client.postTelemetry(integerFields(sample));
     } catch {
       // Telemetry is not proof of play. A dropped sample loses a minute of
       // detail; buffering it would trade that for unbounded memory on a
@@ -426,4 +426,60 @@ export class TelemetryReporter {
       log.debug("telemetry sample dropped");
     }
   }
+}
+
+/**
+ * Fields the server decodes as integers (`telemetry_ingest.go`). A mean or
+ * a percentile is fractional, and one fractional integer field makes the
+ * server refuse the whole sample, so they are rounded here.
+ */
+const INTEGER_GAUGES = [
+  "playbackStallDurationMs",
+  "serverRoundTripMs",
+  "downloadQueueCount",
+  "bytesRemaining",
+  "cacheUsedBytes",
+  "cacheLimitBytes",
+  "freeStorageBytes",
+  "processUptimeSeconds",
+  "deviceUptimeSeconds",
+  "syncGroupDriftMs",
+  "wifiSignalDbm",
+  "wifiLinkSpeedMbps",
+  "batteryPercent",
+  "clockOffsetSeconds",
+  "startupTotalMs",
+  "startupConfigMs",
+  "startupManifestMs",
+  "startupAssetVerifyMs",
+  "startupFirstFrameMs",
+] as const;
+
+const INTEGER_INTERVAL = [
+  "averageMemoryBytes",
+  "peakMemoryBytes",
+  "syncDriftP50Ms",
+  "syncDriftP95Ms",
+  "syncDriftMaxMs",
+  "timeToFirstByteP95Ms",
+  "averageThroughputBytesPerSecond",
+] as const;
+
+export function integerFields<T extends Record<string, unknown>>(sample: T): T {
+  const round = (target: Record<string, unknown>, keys: readonly string[]) => {
+    for (const key of keys) {
+      const value = target[key];
+      if (typeof value === "number" && Number.isFinite(value)) {
+        target[key] = Math.round(value);
+      }
+    }
+  };
+  const out: Record<string, unknown> = { ...sample };
+  round(out, INTEGER_GAUGES);
+  if (out.interval && typeof out.interval === "object") {
+    const interval = { ...(out.interval as Record<string, unknown>) };
+    round(interval, INTEGER_INTERVAL);
+    out.interval = interval;
+  }
+  return out as T;
 }

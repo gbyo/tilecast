@@ -116,6 +116,8 @@ struct Link {
     config_binding: Option<ManifestBinding>,
     /// The one preparation in flight and the manifest it prepares.
     preparation: Option<(edge_protocol::Sha256Digest, tokio::task::JoinHandle<()>)>,
+    /// Connection events for Activity, as the Electron player reports them.
+    activity: Option<crate::activity::Handle>,
 }
 
 impl Link {
@@ -129,6 +131,14 @@ impl Link {
     }
 
     fn socket_lost(&mut self) {
+        if self.socket.is_some()
+            && let Some(activity) = &self.activity
+        {
+            let mut event = crate::activity::Event::new("connection.lost", "connectivity");
+            event.severity = Some("warning".into());
+            event.failure_message = Some("player socket closed".into());
+            activity.record(event);
+        }
         self.socket = None;
         self.last_socket_activity = None;
         let exponent = self.socket_failures.min(5);
@@ -144,7 +154,7 @@ impl Link {
 }
 
 pub async fn run(context: Arc<DaemonContext>) {
-    let mut link = Link::default();
+    let mut link = Link { activity: Some(context.activity.clone()), ..Link::default() };
     loop {
         if link.preparation.as_ref().is_some_and(|(_, task)| task.is_finished())
             && let Some((_, task)) = link.preparation.take()
@@ -479,6 +489,13 @@ async fn pass(context: &Arc<DaemonContext>, link: &mut Link) -> LinkState {
     if link.socket.is_none() && link.next_socket_attempt.is_none_or(|next| Instant::now() >= next) {
         match server.player_socket(VERSION).await {
             Ok(socket) => {
+                if link.socket_failures > 0
+                    && let Some(activity) = &link.activity
+                {
+                    let mut event = crate::activity::Event::new("connection.restored", "connectivity");
+                    event.result = Some("recovered".into());
+                    activity.record(event);
+                }
                 link.socket = Some(socket);
                 link.socket_activity();
                 link.socket_failures = 0;

@@ -268,27 +268,6 @@ handle_plugins (TcHost *host, JsonObject *data, JsonNode *data_node)
 }
 
 static void
-send_preview_unavailable (TcHost *host, JsonObject *data)
-{
-  const char *request_id = json_object_get_string_member_with_default (data, "requestId", NULL);
-  if (request_id == NULL)
-    return;
-  g_autoptr (JsonBuilder) builder = json_builder_new ();
-  json_builder_begin_object (builder);
-  json_builder_set_member_name (builder, "requestId");
-  json_builder_add_string_value (builder, request_id);
-  json_builder_set_member_name (builder, "result");
-  json_builder_begin_object (builder);
-  json_builder_set_member_name (builder, "outcome");
-  json_builder_add_string_value (builder, "unavailable");
-  json_builder_set_member_name (builder, "code");
-  json_builder_add_string_value (builder, "preview_not_implemented");
-  json_builder_end_object (builder);
-  json_builder_end_object (builder);
-  tc_ipc_send_event (host, "renderer.preview", json_builder_get_root (builder));
-}
-
-static void
 handle_event (TcHost *host, const char *name, JsonNode *data_node)
 {
   if (data_node == NULL || !JSON_NODE_HOLDS_OBJECT (data_node))
@@ -312,7 +291,7 @@ handle_event (TcHost *host, const char *name, JsonNode *data_node)
       tc_view_deliver (host, name, json);
     }
   } else if (g_strcmp0 (name, "preview.request") == 0) {
-    send_preview_unavailable (host, data);
+    tc_preview_capture (host, data);
   } else if (g_strcmp0 (name, "renderer.shutdown") == 0) {
     g_message ("protocol: tilecastd requested renderer shutdown (%s)",
                json_object_get_string_member_with_default (data, "reason", "unspecified"));

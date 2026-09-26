@@ -279,6 +279,8 @@ pub struct PresentationEngine {
     logged_evidence: std::collections::HashSet<(String, edge_protocol::ipc::event::EvidenceKind)>,
     /// Items of the current activation with content evidence (bounded).
     content_items: BTreeSet<String>,
+    /// Proof-of-play signals for the activity task.
+    activity: Option<crate::activity::Handle>,
     /// Corrected-minus-local wall offset handed to the runtime for
     /// time-dependent projection (countdowns, date-selected records).
     clock_offset_ms: i64,
@@ -313,6 +315,7 @@ impl PresentationEngine {
             content_progress_current: false,
             logged_evidence: std::collections::HashSet::new(),
             content_items: BTreeSet::new(),
+            activity: None,
             clock_offset_ms: 0,
         }
     }
@@ -402,6 +405,11 @@ impl PresentationEngine {
             state = activation.document.state_name(),
             content = activation.content.len()
         );
+        if let Some(presented) =
+            crate::activity::presented(activation.source, activation.identity.as_ref(), &activation.document)
+        {
+            self.signal(crate::activity::Signal::Presented(presented));
+        }
         self.current = Some(activation);
         self.supervisor.reset_clock(now_ms);
         self.push_current(now_ms);
@@ -530,6 +538,19 @@ impl PresentationEngine {
         if report.activation != current.reference() {
             return false;
         }
+        // Proof of play follows the renderer's item signals whether or not
+        // they count as progress for the supervisor, as in the Electron
+        // player.
+        let item_signal = match report.kind {
+            EvidenceKind::ItemStarted => Some(crate::activity::RendererSignal::ItemStarted),
+            EvidenceKind::ItemTransition => Some(crate::activity::RendererSignal::ItemTransition),
+            EvidenceKind::WidgetEmpty => Some(crate::activity::RendererSignal::WidgetEmpty),
+            _ => None,
+        };
+        if let Some(kind) = item_signal {
+            let item_id = report.item_id.as_ref().map(|id| id.as_str().to_owned());
+            self.signal(crate::activity::Signal::Renderer { kind, item_id });
+        }
         let expectation = current.expectation_for(report.item_id.as_ref().map(SafeText::as_str));
         if !is_meaningful(report.kind, expectation) {
             return false;
@@ -567,12 +588,23 @@ impl PresentationEngine {
         true
     }
 
-    pub fn item_error(&mut self, session: &SessionHandle, activation: ActivationRef, code: &str) {
+    pub fn item_error(
+        &mut self,
+        session: &SessionHandle,
+        activation: ActivationRef,
+        code: &str,
+        item_id: Option<&str>,
+        message: &str,
+    ) {
         let current = self.current.as_ref().map(Activation::reference);
         if let Some(link) = self.link_for(session)
             && current == Some(activation)
         {
             link.last_error_code = Some(code.to_owned());
+            self.signal(crate::activity::Signal::PlaybackError {
+                item_id: item_id.map(str::to_owned),
+                message: message.to_owned(),
+            });
         }
     }
 
@@ -622,6 +654,19 @@ impl PresentationEngine {
         }
         if action != HealAction::None {
             tracing::warn!(component = "presentation", event = "heal_action", action = ?action);
+            // The Electron player's report of a self-heal decision.
+            let (event_type, severity, code) = match action {
+                HealAction::EnterSafeMode => ("safe_mode.entered", "critical", "enter_safe_mode"),
+                HealAction::Reactivate => ("self_heal.attempted", "warning", "reactivate_content"),
+                HealAction::ReloadRenderer => ("self_heal.attempted", "warning", "recreate_renderer"),
+                HealAction::RestartRenderer => ("self_heal.attempted", "warning", "restart_renderer_process"),
+                HealAction::None => unreachable!("checked above"),
+            };
+            let mut event = crate::activity::Event::new(event_type, "reliability");
+            event.severity = Some(severity.into());
+            event.failure_code = Some(code.into());
+            event.metadata = Some(serde_json::json!({ "escalationStep": self.supervisor.escalation_step }));
+            self.signal(crate::activity::Signal::Event(Box::new(event)));
         }
         action
     }
@@ -766,6 +811,29 @@ impl PresentationEngine {
             accepted: self.current_is_accepted(),
             evidence: self.current_has_activation_evidence(),
         })
+    }
+
+    pub fn set_activity(&mut self, activity: crate::activity::Handle) {
+        self.activity = Some(activity);
+    }
+
+    fn signal(&self, signal: crate::activity::Signal) {
+        if let Some(activity) = &self.activity {
+            activity.send(signal);
+        }
+    }
+
+    /// Asks the connected renderer for a preview. False without a renderer.
+    pub fn request_preview(&self, request_id: uuid::Uuid, max_width: u32, max_height: u32, max_bytes: u32) -> bool {
+        let Some(link) = self.renderer.as_ref().filter(|link| link.ready.is_some()) else { return false };
+        link.session
+            .send_event(Event::PreviewRequest(edge_protocol::ipc::event::PreviewRequest {
+                request_id,
+                max_width,
+                max_height,
+                max_bytes,
+            }))
+            .is_ok()
     }
 
     pub fn ready_info(&self) -> Option<&RendererReady> {

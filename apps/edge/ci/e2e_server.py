@@ -511,6 +511,21 @@ def main():
             wait_for(lambda: reported(layout_version), "the heartbeat to report the layout", timeout=150)
             print("layout: manifest", layout_version, "committed through the reference projection")
 
+            # Studio live preview: a lease makes Edge ask the renderer for a
+            # snapshot and upload the bounded JPEG it encodes.
+            client.call("POST", f"/api/v1/screens/{screen_id}/preview-session", {"forceCapture": True}, expect=200)
+            preview = wait_for(lambda: (lambda data: data if data.get("imageAvailable") else None)(
+                client.call("GET", f"/api/v1/screens/{screen_id}/preview", expect=200)[1]["data"]),
+                "a live preview from the renderer", timeout=90)
+            assert not preview.get("captureFailureStatus"), preview
+            assert 0 < preview["width"] <= 960 and 0 < preview["height"] <= 540, preview
+            with client.opener.open(urllib.request.Request(
+                    f"{BASE}/api/v1/screens/{screen_id}/preview/image"), timeout=10) as response:
+                jpeg = response.read()
+            assert jpeg[:3] == b"\xff\xd8\xff" and jpeg[-2:] == b"\xff\xd9", jpeg[:8]
+            assert len(jpeg) == preview["fileSize"] <= 500 * 1024, (len(jpeg), preview)
+            print("preview:", f"{preview['width']}x{preview['height']} JPEG of {len(jpeg)} bytes from the renderer")
+
             # Offline: the committed Layout plays from the cache with the
             # server stopped and the player restarted.
             server = processes[0]

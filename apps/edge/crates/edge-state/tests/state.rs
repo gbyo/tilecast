@@ -170,22 +170,38 @@ fn pinned_objects_are_never_eviction_candidates() {
 }
 
 #[test]
-fn outbox_is_bounded_and_coalesces() {
+fn outbox_is_bounded_oldest_first_with_counters() {
     let (_dir, path) = temp_db();
     let db = StateDb::open(&path, OpenOptions::default()).expect("open");
-    use repo::outbox::{OutboxKind, due, enqueue};
-    db.run_blocking(|c| enqueue(c, OutboxKind::ActivityEvent, "coalesced", "{\"a\":1}", now())).expect("enqueue");
-    db.run_blocking(|c| enqueue(c, OutboxKind::ActivityEvent, "coalesced", "{\"a\":2}", now())).expect("enqueue");
-    let pending = db.run_blocking(|c| due(c, OutboxKind::ActivityEvent, now(), 10)).expect("due");
-    assert_eq!(pending.len(), 1);
-    assert_eq!(pending[0].payload, "{\"a\":2}");
-    for index in 0..(repo::outbox::MAX_ROWS + 20) {
-        db.run_blocking(|c| enqueue(c, OutboxKind::ActivityEvent, &format!("event-{index}"), "{}", now()))
-            .expect("enqueue");
+    use repo::outbox::{MAX_ROWS, MAX_TELEMETRY_ROWS, OutboxKind, enqueue_activity, enqueue_telemetry, pending, stats};
+    let id = |i: i64| format!("{:08x}-0000-4000-8000-{:012x}", i, i);
+    // Telemetry keeps only its share of the bound, oldest dropped.
+    for i in 0..(MAX_TELEMETRY_ROWS + 5) {
+        db.run_blocking(|c| enqueue_telemetry(c, &id(100_000 + i), "{}", now())).expect("telemetry");
     }
+    // Activity sequences are allocated in the same transaction and never reused.
+    let mut sequences = vec![];
+    for i in 0..(MAX_ROWS + 7) {
+        let sequence = db
+            .run_blocking(|c| enqueue_activity(c, &id(i), now(), |seq| format!("{{\"sequence\":{seq}}}")))
+            .expect("activity");
+        sequences.push(sequence);
+    }
+    assert_eq!(sequences.first(), Some(&1));
+    assert!(sequences.windows(2).all(|w| w[1] == w[0] + 1));
     let total: i64 =
         db.run_blocking(|c| Ok(c.query_row("SELECT COUNT(*) FROM outbox", [], |r| r.get(0))?)).expect("count");
-    assert_eq!(total, repo::outbox::MAX_ROWS);
+    assert_eq!(total, MAX_ROWS);
+    let stats = db.run_blocking(|c| stats(c)).expect("stats");
+    assert_eq!(stats.dropped_telemetry, MAX_TELEMETRY_ROWS as u64 + 5, "every telemetry row went before activity");
+    assert_eq!(stats.dropped_activity, 7);
+    let oldest = db.run_blocking(|c| pending(c, OutboxKind::ActivityEvent, 1)).expect("pending");
+    assert_eq!(oldest[0].body, "{\"sequence\":8}", "the oldest activity rows were dropped first");
+    // The sequence survives a reopen.
+    drop(db);
+    let db = StateDb::open(&path, OpenOptions::default()).expect("reopen");
+    let next = db.run_blocking(|c| enqueue_activity(c, &id(9_999), now(), |seq| seq.to_string())).expect("again");
+    assert_eq!(next, MAX_ROWS + 8);
 }
 
 #[tokio::test]

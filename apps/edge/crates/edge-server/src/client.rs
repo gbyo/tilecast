@@ -546,6 +546,79 @@ impl AuthenticatedServer {
         }
     }
 
+    /// `POST /player/activity-events` with at most
+    /// [`crate::player_api::MAX_ACTIVITY_BATCH`] events, each an already
+    /// serialized event object from the outbox.
+    pub async fn post_activity_events(
+        &self,
+        events: &[&str],
+    ) -> Result<crate::player_api::ActivityBatchOutcome, ServerError> {
+        if events.is_empty() || events.len() > crate::player_api::MAX_ACTIVITY_BATCH {
+            return Err(ServerError::Decode);
+        }
+        let body = format!("{{\"events\":[{}]}}", events.join(","));
+        let response = self
+            .request(reqwest::Method::POST, "/api/v1/player/activity-events")
+            .header(reqwest::header::CONTENT_TYPE, "application/json")
+            .body(body)
+            .send()
+            .await
+            .map_err(|_| ServerError::Network)?;
+        let status = response.status();
+        if status == reqwest::StatusCode::UNPROCESSABLE_ENTITY || status == reqwest::StatusCode::BAD_REQUEST {
+            return Ok(crate::player_api::activity_refusal(&error_from(response).await));
+        }
+        let data: serde_json::Value = decode(response, MAX_SMALL_JSON_BYTES).await?;
+        crate::player_api::activity_acknowledgement(&data).ok_or(ServerError::Decode)
+    }
+
+    /// `POST /player/telemetry` with one serialized sample.
+    pub async fn post_telemetry(&self, sample: &str) -> Result<crate::player_api::TelemetryOutcome, ServerError> {
+        let response = self
+            .request(reqwest::Method::POST, "/api/v1/player/telemetry")
+            .header(reqwest::header::CONTENT_TYPE, "application/json")
+            .body(sample.to_owned())
+            .send()
+            .await
+            .map_err(|_| ServerError::Network)?;
+        let status = response.status();
+        if status == reqwest::StatusCode::UNPROCESSABLE_ENTITY || status == reqwest::StatusCode::BAD_REQUEST {
+            let _ = error_from(response).await;
+            return Ok(crate::player_api::TelemetryOutcome::Refused);
+        }
+        let _: serde_json::Value = decode(response, MAX_SMALL_JSON_BYTES).await?;
+        Ok(crate::player_api::TelemetryOutcome::Accepted)
+    }
+
+    /// `GET /player/preview-session`: whether Studio holds a preview lease.
+    pub async fn preview_session(&self) -> Result<crate::player_api::PreviewSession, ServerError> {
+        let response = self
+            .request(reqwest::Method::GET, "/api/v1/player/preview-session")
+            .send()
+            .await
+            .map_err(|_| ServerError::Network)?;
+        let data: serde_json::Value = decode(response, MAX_SMALL_JSON_BYTES).await?;
+        Ok(crate::player_api::preview_session(&data))
+    }
+
+    /// `POST /player/preview`: one bounded JPEG, or an unavailable status
+    /// (a protected state or a failed capture), as multipart form data.
+    pub async fn post_preview(&self, upload: &crate::player_api::PreviewUpload<'_>) -> Result<(), ServerError> {
+        let boundary = format!("tilecast-{}", uuid::Uuid::new_v4().simple());
+        let body = crate::player_api::preview_form(&boundary, upload).ok_or(ServerError::Decode)?;
+        let response = self
+            .request(reqwest::Method::POST, "/api/v1/player/preview")
+            .header(reqwest::header::CONTENT_TYPE, format!("multipart/form-data; boundary={boundary}"))
+            .body(body)
+            .send()
+            .await
+            .map_err(|_| ServerError::Network)?;
+        if response.status().is_success() {
+            return Ok(());
+        }
+        Err(error_from(response).await)
+    }
+
     /// Opens an authenticated download (for the origin blob source).
     pub(crate) async fn get_range(
         &self,

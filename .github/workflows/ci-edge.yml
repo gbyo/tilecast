@@ -9,6 +9,7 @@ on:
       - "apps/edge/**"
       - "packages/edge-protocol/**"
       - "packages/player-runtime/**"
+      - "packages/api-schema/activity/**"
       - "apps/player-linux/**"
       - "apps/server/**"
       - "package.json"
@@ -195,10 +196,35 @@ jobs:
           mkdir -p "$RUNNER_TEMP/edge-target"
           apps/edge/ci/run-migrate-e2e.sh "$RUNNER_TEMP/edge-target"
 
+  activity_parity:
+    name: Proof of play, Electron and Edge side by side
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build --workspace @tilecast/player-runtime
+      - run: npm run build --workspace @gibsonmb71/tilecast-player-linux
+      - name: Build the parity image
+        run: |
+          set -euo pipefail
+          docker build -t tilecast-wpe-dev -f apps/edge/renderer-wpe/ci/Dockerfile apps/edge/renderer-wpe/ci
+          docker build -t tilecast-edge-dev -f apps/edge/renderer-wpe/ci/Dockerfile.edge apps/edge/renderer-wpe/ci
+          docker build -t tilecast-edge-e2e -f apps/edge/ci/Dockerfile.e2e apps/edge/ci
+          docker build -t tilecast-edge-parity -f apps/edge/ci/Dockerfile.parity apps/edge/ci
+      - name: One real server, the Electron player and Edge
+        run: |
+          mkdir -p "$RUNNER_TEMP/edge-target"
+          docker run --rm -v "$PWD:/src" -v "$RUNNER_TEMP/edge-target:/target" \
+            tilecast-edge-parity /src/apps/edge/ci/run-activity-parity.sh
+
   required:
     name: Required Edge validation
     if: always()
-    needs: [rust, wpe, runtime, conformance, server_e2e, migration]
+    needs: [rust, wpe, runtime, conformance, server_e2e, migration, activity_parity]
     runs-on: ubuntu-latest
     env:
       RESULTS: ${{ join(needs.*.result, ',') }}

@@ -1,0 +1,17 @@
+# M8 Activity parity image: the real-server image plus the Linux Electron
+# runtime and a virtual framebuffer, so the Electron Linux Player and
+# Tilecast Edge run side by side against one real Tilecast Server.
+#
+#   docker build -t tilecast-edge-parity -f apps/edge/ci/Dockerfile.parity apps/edge/ci
+FROM tilecast-edge-e2e
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      nodejs npm xvfb xauth \
+      libnss3 libatk1.0-0t64 libatk-bridge2.0-0t64 libcups2t64 libdrm2 libgbm1 libgtk-3-0t64 \
+      libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libxkbcommon0 libasound2t64 libpango-1.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+# The Linux Electron binary matching apps/player-linux/package.json.
+ARG ELECTRON_VERSION=39.8.5
+RUN mkdir /opt/electron && cd /opt/electron && npm init -y >/dev/null \
+    && npm install --no-audit --no-fund --ignore-scripts electron@${ELECTRON_VERSION} >/dev/null \
+    && node node_modules/electron/install.js
+ENV TILECAST_ELECTRON=/opt/electron/node_modules/.bin/electron

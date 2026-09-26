@@ -268,3 +268,22 @@ describe("frame timing", () => {
     expect(() => subject.recordSample("frameTime", Number.NaN)).not.toThrow();
   });
 });
+
+describe("integer telemetry fields", () => {
+  it("rounds what the server decodes as an integer and keeps the rest", async () => {
+    const { integerFields } = await import("./telemetry");
+    const sample = integerFields({
+      observedAt: "2026-09-25T00:00:00Z",
+      serverRoundTripMs: 12.6,
+      displayRefreshHz: 59.94,
+      interval: { averageThroughputBytesPerSecond: 105136.23, averageCpuPercent: 3.5, frameTimeP95Ms: 16.7 },
+    });
+    expect(sample.serverRoundTripMs).toBe(13);
+    expect(sample.displayRefreshHz).toBe(59.94);
+    expect(sample.interval).toEqual({
+      averageThroughputBytesPerSecond: 105136,
+      averageCpuPercent: 3.5,
+      frameTimeP95Ms: 16.7,
+    });
+  });
+});

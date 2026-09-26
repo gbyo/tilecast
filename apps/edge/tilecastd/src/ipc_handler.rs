@@ -109,13 +109,24 @@ impl IpcHandler for DaemonIpc {
                     item = item.item_id.as_ref().map(SafeText::as_str).unwrap_or(""),
                     message = item.message.as_str()
                 );
-                engine.item_error(session, item.activation, item.code.as_str());
+                engine.item_error(
+                    session,
+                    item.activation,
+                    item.code.as_str(),
+                    item.item_id.as_ref().map(SafeText::as_str),
+                    item.message.as_str(),
+                );
                 self.context.manifest_wake.notify_one();
             }
             Event::RendererHealth(health) => {
                 tracing::debug!(component = "renderer", event = "health", state = ?health.state, terminations = health.web_process_terminations);
             }
-            Event::PreviewResult(_) | Event::ShutdownAck(_) => {}
+            Event::PreviewResult(result) => {
+                if result.within_limits() {
+                    self.context.preview_waiters.complete(result.request_id, result.result);
+                }
+            }
+            Event::ShutdownAck(_) => {}
             // Daemon → client events never arrive here: the transport rejects
             // them by direction before dispatch.
             _ => {}
@@ -262,6 +273,19 @@ impl DaemonIpc {
         }
         .or(context.player_id);
         let pairing = crate::pairing::view(context);
+        let outbox = match context.db() {
+            Some(db) => db.run(|c| edge_state::repo::outbox::stats(c)).await.ok().map(|stats| {
+                edge_protocol::ipc::status::OutboxStatus {
+                    queued_activity: stats.queued_activity,
+                    queued_telemetry: stats.queued_telemetry,
+                    dropped_activity: stats.dropped_activity,
+                    dropped_telemetry: stats.dropped_telemetry,
+                    rejected: stats.rejected,
+                    expired: stats.expired,
+                }
+            }),
+            None => None,
+        };
         DaemonStatus {
             daemon_version: ShortText::lossy(VERSION),
             mode,
@@ -302,6 +326,7 @@ impl DaemonIpc {
                 reason: pairing.reason.as_deref().and_then(|reason| ShortToken::new(reason).ok()),
             }),
             presentation,
+            outbox,
         }
     }
 }
