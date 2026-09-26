@@ -1,8 +1,9 @@
-package forms
+package server_test
 
 import (
 	"errors"
 	"fmt"
+	formserver "github.com/tilecast/tilecast/plugins/forms/server"
 	"testing"
 
 	"github.com/google/uuid"
@@ -32,15 +33,15 @@ func (e formTestEnv) insertChartWidget(t *testing.T, name string, formID uuid.UU
 // references, and ConfigureWorkflow refuses to remove/rename either kind of referenced state.
 func TestWorkflowStateUsageMetadata(t *testing.T) {
 	e := setupForms(t)
-	form, _ := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "WF", DraftSchema: announcementSchema()})
-	if _, err := e.service.CreateRecord(e.ctx, form.ID, e.owner, RecordInput{Values: map[string]any{"title": "A"}}); err != nil {
+	form, _ := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "WF", DraftSchema: announcementSchema()})
+	if _, err := e.service.CreateRecord(e.ctx, form.ID, e.owner, formserver.RecordInput{Values: map[string]any{"title": "A"}}); err != nil {
 		t.Fatal(err)
 	}
 	detail, err := e.service.GetForm(e.ctx, form.ID, e.owner)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var draft, approved *WorkflowState
+	var draft, approved *formserver.WorkflowState
 	for i := range detail.Workflow.States {
 		switch detail.Workflow.States[i].Key {
 		case "draft":
@@ -57,8 +58,8 @@ func TestWorkflowStateUsageMetadata(t *testing.T) {
 	}
 
 	// Renaming/removing the used draft state is rejected by reconciliation.
-	wf := defaultWorkflow()
-	renamed := []WorkflowState{}
+	wf := testWorkflow()
+	renamed := []formserver.WorkflowState{}
 	for _, st := range wf.States {
 		if st.Key == "draft" {
 			st.Key = "intake" // rename → removes 'draft'
@@ -74,12 +75,12 @@ func TestWorkflowStateUsageMetadata(t *testing.T) {
 			wf.Transitions[i].To = "intake"
 		}
 	}
-	if err := e.service.ConfigureWorkflow(e.ctx, form.ID, e.owner, WorkflowInput{Workflow: wf}); !errors.Is(err, ErrValidation) {
+	if err := e.service.ConfigureWorkflow(e.ctx, form.ID, e.owner, formserver.WorkflowInput{Workflow: wf}); !errors.Is(err, formserver.ErrValidation) {
 		t.Fatalf("renaming a used state should be rejected, got %v", err)
 	}
 
 	// The approved state has no records, but the default saved view includes it and still locks it.
-	wf = defaultWorkflow()
+	wf = testWorkflow()
 	for i := range wf.States {
 		if wf.States[i].Key == "approved" {
 			wf.States[i].Key = "published"
@@ -93,7 +94,7 @@ func TestWorkflowStateUsageMetadata(t *testing.T) {
 			wf.Transitions[i].To = "published"
 		}
 	}
-	if err := e.service.ConfigureWorkflow(e.ctx, form.ID, e.owner, WorkflowInput{Workflow: wf}); !errors.Is(err, ErrValidation) {
+	if err := e.service.ConfigureWorkflow(e.ctx, form.ID, e.owner, formserver.WorkflowInput{Workflow: wf}); !errors.Is(err, formserver.ErrValidation) {
 		t.Fatalf("renaming a state referenced only by a saved view should be rejected, got %v", err)
 	}
 }
@@ -102,25 +103,25 @@ func TestWorkflowStateUsageMetadata(t *testing.T) {
 // reconciliation (label/eligibility change on an unused state) succeeds.
 func TestWorkflowValidationAndReconciliation(t *testing.T) {
 	e := setupForms(t)
-	form, _ := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "WF", DraftSchema: announcementSchema()})
+	form, _ := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "WF", DraftSchema: announcementSchema()})
 
 	// No output-eligible state is invalid.
-	wf := defaultWorkflow()
+	wf := testWorkflow()
 	for i := range wf.States {
 		wf.States[i].EligibleForOutput = false
 	}
-	if err := e.service.ConfigureWorkflow(e.ctx, form.ID, e.owner, WorkflowInput{Workflow: wf}); !errors.Is(err, ErrValidation) {
+	if err := e.service.ConfigureWorkflow(e.ctx, form.ID, e.owner, formserver.WorkflowInput{Workflow: wf}); !errors.Is(err, formserver.ErrValidation) {
 		t.Fatalf("workflow with no eligible state should be rejected, got %v", err)
 	}
 
 	// A valid change (rename a label) reconciles successfully.
-	wf = defaultWorkflow()
+	wf = testWorkflow()
 	for i := range wf.States {
 		if wf.States[i].Key == "approved" {
 			wf.States[i].Label = "Published"
 		}
 	}
-	if err := e.service.ConfigureWorkflow(e.ctx, form.ID, e.owner, WorkflowInput{Workflow: wf}); err != nil {
+	if err := e.service.ConfigureWorkflow(e.ctx, form.ID, e.owner, formserver.WorkflowInput{Workflow: wf}); err != nil {
 		t.Fatalf("valid reconciliation failed: %v", err)
 	}
 	detail, _ := e.service.GetForm(e.ctx, form.ID, e.owner)
@@ -135,21 +136,24 @@ func TestWorkflowValidationAndReconciliation(t *testing.T) {
 // or altering the cached projection.
 func TestViewPreviewDoesNotPersist(t *testing.T) {
 	e := setupForms(t)
-	form, _ := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "Views", DraftSchema: announcementSchema()})
+	form, _ := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "Views", DraftSchema: announcementSchema()})
 	// One approved (eligible) record and one draft (ineligible).
-	approvedRec, _ := e.service.CreateRecord(e.ctx, form.ID, e.owner, RecordInput{Values: map[string]any{"title": "Live"}})
+	approvedRec, _ := e.service.CreateRecord(e.ctx, form.ID, e.owner, formserver.RecordInput{Values: map[string]any{"title": "Live"}})
 	approvedRec, _ = e.service.Transition(e.ctx, form.ID, approvedRec.ID, e.owner, "submitted", "", approvedRec.Version)
 	if _, err := e.service.Transition(e.ctx, form.ID, approvedRec.ID, e.owner, "approved", "", approvedRec.Version); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.service.CreateRecord(e.ctx, form.ID, e.owner, RecordInput{Values: map[string]any{"title": "Draft"}}); err != nil {
+	if _, err := e.service.CreateRecord(e.ctx, form.ID, e.owner, formserver.RecordInput{Values: map[string]any{"title": "Draft"}}); err != nil {
 		t.Fatal(err)
 	}
 
-	beforeViews, _ := e.service.listViews(e.ctx, e.pool, form.ID)
+	var beforeViews int
+	if err := e.pool.QueryRow(e.ctx, `SELECT count(*) FROM form_views WHERE data_source_id=$1 AND deleted_at IS NULL`, form.ID).Scan(&beforeViews); err != nil {
+		t.Fatal(err)
+	}
 	beforePayload := e.readPayload(t, form.ID)
 
-	dataset, err := e.service.PreviewView(e.ctx, form.ID, ViewInput{
+	dataset, err := e.service.PreviewView(e.ctx, form.ID, formserver.ViewInput{
 		Key: "proposed", Name: "Proposed", IncludedStates: []string{"approved"}, OutputFields: []string{"title", "state"}, RecordLimit: 100,
 	})
 	if err != nil {
@@ -161,9 +165,12 @@ func TestViewPreviewDoesNotPersist(t *testing.T) {
 	}
 
 	// Nothing was persisted: no new view, unchanged cached payload.
-	afterViews, _ := e.service.listViews(e.ctx, e.pool, form.ID)
-	if len(afterViews) != len(beforeViews) {
-		t.Fatalf("preview must not create a view: before=%d after=%d", len(beforeViews), len(afterViews))
+	var afterViews int
+	if err := e.pool.QueryRow(e.ctx, `SELECT count(*) FROM form_views WHERE data_source_id=$1 AND deleted_at IS NULL`, form.ID).Scan(&afterViews); err != nil {
+		t.Fatal(err)
+	}
+	if afterViews != beforeViews {
+		t.Fatalf("preview must not create a view: before=%d after=%d", beforeViews, afterViews)
 	}
 	afterPayload := e.readPayload(t, form.ID)
 	if len(afterPayload.Datasets) != len(beforePayload.Datasets) {
@@ -179,37 +186,49 @@ func TestViewPreviewDoesNotPersist(t *testing.T) {
 // TestViewLifecycleAndSafeDeletion covers create, duplicate, and deletion blocked by downstream use.
 func TestViewLifecycleAndSafeDeletion(t *testing.T) {
 	e := setupForms(t)
-	form, _ := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "Views", DraftSchema: announcementSchema()})
+	form, _ := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "Views", DraftSchema: announcementSchema()})
 
-	original, err := e.service.UpsertView(e.ctx, form.ID, e.owner, ViewInput{
+	original, err := e.service.UpsertView(e.ctx, form.ID, e.owner, formserver.ViewInput{
 		Key: "highlights", Name: "Highlights", IncludedStates: []string{"approved"}, OutputFields: []string{"title"}, RecordLimit: 50,
 	})
 	if err != nil {
 		t.Fatalf("create view: %v", err)
 	}
 	// Duplicate = save under a new key.
-	if _, err := e.service.UpsertView(e.ctx, form.ID, e.owner, ViewInput{
+	if _, err := e.service.UpsertView(e.ctx, form.ID, e.owner, formserver.ViewInput{
 		Key: "highlights_copy", Name: "Highlights (copy)", IncludedStates: original.IncludedStates, OutputFields: original.OutputFields, RecordLimit: original.RecordLimit,
 	}); err != nil {
 		t.Fatalf("duplicate view: %v", err)
 	}
-	views, _ := e.service.listViews(e.ctx, e.pool, form.ID)
-	if len(views) < 2 {
-		t.Fatalf("expected at least 2 views after duplicate, got %d", len(views))
+	rows, err := e.pool.Query(e.ctx, `SELECT id,key FROM form_views WHERE data_source_id=$1 AND deleted_at IS NULL`, form.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	viewIDs := map[string]uuid.UUID{}
+	for rows.Next() {
+		var id uuid.UUID
+		var key string
+		if err := rows.Scan(&id, &key); err != nil {
+			rows.Close()
+			t.Fatal(err)
+		}
+		viewIDs[key] = id
+	}
+	rows.Close()
+	if rows.Err() != nil {
+		t.Fatal(rows.Err())
+	}
+	if len(viewIDs) < 2 {
+		t.Fatalf("expected at least 2 views after duplicate, got %d", len(viewIDs))
 	}
 
 	// A widget referencing the dataset blocks deletion.
 	e.insertChartWidget(t, "Board", form.ID, "highlights")
-	if err := e.service.DeleteView(e.ctx, form.ID, original.ID, e.owner); !errors.Is(err, ErrInUse) {
+	if err := e.service.DeleteView(e.ctx, form.ID, original.ID, e.owner); !errors.Is(err, formserver.ErrInUse) {
 		t.Fatalf("deleting a referenced view should be blocked, got %v", err)
 	}
 	// The unreferenced copy deletes fine.
-	var copyID uuid.UUID
-	for _, v := range views {
-		if v.Key == "highlights_copy" {
-			copyID = v.ID
-		}
-	}
+	copyID := viewIDs["highlights_copy"]
 	if err := e.service.DeleteView(e.ctx, form.ID, copyID, e.owner); err != nil {
 		t.Fatalf("deleting an unreferenced view should succeed: %v", err)
 	}
@@ -219,14 +238,14 @@ func TestViewLifecycleAndSafeDeletion(t *testing.T) {
 // a manual rebuild refreshes status and invalidates manifests.
 func TestOutputsEligibleOnlyAndRebuild(t *testing.T) {
 	e := setupForms(t)
-	form, _ := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "Out", DraftSchema: announcementSchema()})
-	rec, _ := e.service.CreateRecord(e.ctx, form.ID, e.owner, RecordInput{Values: map[string]any{"title": "Approved one"}})
+	form, _ := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "Out", DraftSchema: announcementSchema()})
+	rec, _ := e.service.CreateRecord(e.ctx, form.ID, e.owner, formserver.RecordInput{Values: map[string]any{"title": "Approved one"}})
 	rec, _ = e.service.Transition(e.ctx, form.ID, rec.ID, e.owner, "submitted", "", rec.Version)
 	if _, err := e.service.Transition(e.ctx, form.ID, rec.ID, e.owner, "approved", "", rec.Version); err != nil {
 		t.Fatal(err)
 	}
 	// A draft that must never appear in outputs.
-	if _, err := e.service.CreateRecord(e.ctx, form.ID, e.owner, RecordInput{Values: map[string]any{"title": "Hidden draft"}}); err != nil {
+	if _, err := e.service.CreateRecord(e.ctx, form.ID, e.owner, formserver.RecordInput{Values: map[string]any{"title": "Hidden draft"}}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -234,7 +253,7 @@ func TestOutputsEligibleOnlyAndRebuild(t *testing.T) {
 	if err != nil {
 		t.Fatalf("outputs: %v", err)
 	}
-	var approvedView *OutputView
+	var approvedView *formserver.OutputView
 	for i := range outputs.Views {
 		if outputs.Views[i].Key == "approved" {
 			approvedView = &outputs.Views[i]
@@ -255,13 +274,24 @@ func TestOutputsEligibleOnlyAndRebuild(t *testing.T) {
 		t.Fatal("outputs should report a last successful projection time")
 	}
 
-	// A manual rebuild invalidates the affected manifest (records an invalidator call).
-	before := len(e.invalidator.dataSourceCalls)
-	if _, err := e.service.RebuildOutputs(e.ctx, form.ID, e.owner); err != nil {
+	// A manual rebuild re-projects through the normal Data Source revision
+	// path and still serves exactly the eligible records.
+	rebuilt, err := e.service.RebuildOutputs(e.ctx, form.ID, e.owner)
+	if err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
-	if len(e.invalidator.dataSourceCalls) <= before {
-		t.Fatal("rebuild should invalidate affected manifests")
+	if rebuilt.LastSuccessAt == nil {
+		t.Fatal("rebuild should report a projection time")
+	}
+	for _, view := range rebuilt.Views {
+		if view.Key == "approved" && view.RecordCount != 1 {
+			t.Fatalf("rebuild should still project 1 eligible record, got %d", view.RecordCount)
+		}
+		for _, record := range view.PreviewRecords {
+			if record.Values["title"] == "Hidden draft" {
+				t.Fatal("rebuilt outputs must not contain unapproved records")
+			}
+		}
 	}
 }
 
@@ -269,7 +299,7 @@ func TestOutputsEligibleOnlyAndRebuild(t *testing.T) {
 // event cannot be persisted. A nonexistent actor triggers the audit_logs user foreign key.
 func TestRebuildOutputsReturnsAuditFailure(t *testing.T) {
 	e := setupForms(t)
-	form, _ := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "Out", DraftSchema: announcementSchema()})
+	form, _ := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "Out", DraftSchema: announcementSchema()})
 	if _, err := e.service.RebuildOutputs(e.ctx, form.ID, uuid.New()); err == nil {
 		t.Fatal("rebuild should return the audit insert failure")
 	}
@@ -279,11 +309,11 @@ func TestRebuildOutputsReturnsAuditFailure(t *testing.T) {
 // the always-manager creator, and the self-management guard.
 func TestGrantReplacementCollapseAndCreatorLock(t *testing.T) {
 	e := setupForms(t)
-	form, _ := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "Access", DraftSchema: announcementSchema()})
+	form, _ := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "Access", DraftSchema: announcementSchema()})
 	alice := e.insertUser(t, "Alice", "alice", "viewer")
 
 	// Redundant implied capabilities collapse to the minimal generating set.
-	entries, err := e.service.ReplaceGrants(e.ctx, form.ID, e.owner, alice, []Capability{CapApprove, CapReview, CapViewAll, CapSubmit})
+	entries, err := e.service.ReplaceGrants(e.ctx, form.ID, e.owner, alice, []formserver.Capability{formserver.CapApprove, formserver.CapReview, formserver.CapViewAll, formserver.CapSubmit})
 	if err != nil {
 		t.Fatalf("replace grants: %v", err)
 	}
@@ -291,12 +321,12 @@ func TestGrantReplacementCollapseAndCreatorLock(t *testing.T) {
 	if aliceEntry == nil {
 		t.Fatal("alice should appear in access list")
 	}
-	if !sameCaps(aliceEntry.Capabilities, []Capability{CapApprove, CapSubmit}) {
+	if !sameCaps(aliceEntry.Capabilities, []formserver.Capability{formserver.CapApprove, formserver.CapSubmit}) {
 		t.Fatalf("capabilities should collapse to [approve submit], got %#v", aliceEntry.Capabilities)
 	}
 
 	// Replacement is atomic: a new set fully replaces the old one.
-	if _, err := e.service.ReplaceGrants(e.ctx, form.ID, e.owner, alice, []Capability{CapViewOwn}); err != nil {
+	if _, err := e.service.ReplaceGrants(e.ctx, form.ID, e.owner, alice, []formserver.Capability{formserver.CapViewOwn}); err != nil {
 		t.Fatal(err)
 	}
 	grants, _ := e.service.ListGrants(e.ctx, form.ID)
@@ -313,19 +343,19 @@ func TestGrantReplacementCollapseAndCreatorLock(t *testing.T) {
 	// The creator always shows as manager and cannot be edited via grants.
 	access, _ := e.service.ListAccess(e.ctx, form.ID)
 	creator := findEntry(access, e.owner)
-	if creator == nil || !creator.IsCreator || !sameCaps(creator.Capabilities, []Capability{CapManage}) {
+	if creator == nil || !creator.IsCreator || !sameCaps(creator.Capabilities, []formserver.Capability{formserver.CapManage}) {
 		t.Fatalf("creator must appear as an implicit manager, got %#v", creator)
 	}
-	if _, err := e.service.ReplaceGrants(e.ctx, form.ID, e.owner, e.owner, []Capability{CapSubmit}); !errors.Is(err, ErrValidation) {
+	if _, err := e.service.ReplaceGrants(e.ctx, form.ID, e.owner, e.owner, []formserver.Capability{formserver.CapSubmit}); !errors.Is(err, formserver.ErrValidation) {
 		t.Fatalf("editing the creator's grants should be rejected, got %v", err)
 	}
 
 	// A non-creator manager cannot remove their own management path.
 	bob := e.insertUser(t, "Bob", "bob", "viewer")
-	if _, err := e.service.ReplaceGrants(e.ctx, form.ID, e.owner, bob, []Capability{CapManage}); err != nil {
+	if _, err := e.service.ReplaceGrants(e.ctx, form.ID, e.owner, bob, []formserver.Capability{formserver.CapManage}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.service.ReplaceGrants(e.ctx, form.ID, bob, bob, []Capability{CapSubmit}); !errors.Is(err, ErrValidation) {
+	if _, err := e.service.ReplaceGrants(e.ctx, form.ID, bob, bob, []formserver.Capability{formserver.CapSubmit}); !errors.Is(err, formserver.ErrValidation) {
 		t.Fatalf("a manager removing their own management access should be rejected, got %v", err)
 	}
 
@@ -336,10 +366,10 @@ func TestGrantReplacementCollapseAndCreatorLock(t *testing.T) {
 		t.Fatal(err)
 	}
 	ownerEntry := findEntry(access, otherOwner)
-	if ownerEntry == nil || !ownerEntry.IsGlobalOwner || ownerEntry.IsCreator || !sameCaps(ownerEntry.Capabilities, []Capability{CapManage}) {
+	if ownerEntry == nil || !ownerEntry.IsGlobalOwner || ownerEntry.IsCreator || !sameCaps(ownerEntry.Capabilities, []formserver.Capability{formserver.CapManage}) {
 		t.Fatalf("global Owner must appear as an implicit manager, got %#v", ownerEntry)
 	}
-	if _, err := e.service.ReplaceGrants(e.ctx, form.ID, e.owner, otherOwner, []Capability{CapSubmit}); !errors.Is(err, ErrValidation) {
+	if _, err := e.service.ReplaceGrants(e.ctx, form.ID, e.owner, otherOwner, []formserver.Capability{formserver.CapSubmit}); !errors.Is(err, formserver.ErrValidation) {
 		t.Fatalf("editing a global Owner's access should be rejected, got %v", err)
 	}
 }
@@ -347,18 +377,18 @@ func TestGrantReplacementCollapseAndCreatorLock(t *testing.T) {
 // TestGrantReplacementRejectsInvalidWithoutChange verifies an invalid capability leaves grants intact.
 func TestGrantReplacementRejectsInvalidWithoutChange(t *testing.T) {
 	e := setupForms(t)
-	form, _ := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "Access", DraftSchema: announcementSchema()})
+	form, _ := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "Access", DraftSchema: announcementSchema()})
 	alice := e.insertUser(t, "Alice", "alice", "viewer")
-	if _, err := e.service.ReplaceGrants(e.ctx, form.ID, e.owner, alice, []Capability{CapReview}); err != nil {
+	if _, err := e.service.ReplaceGrants(e.ctx, form.ID, e.owner, alice, []formserver.Capability{formserver.CapReview}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.service.ReplaceGrants(e.ctx, form.ID, e.owner, alice, []Capability{Capability("bogus")}); !errors.Is(err, ErrValidation) {
+	if _, err := e.service.ReplaceGrants(e.ctx, form.ID, e.owner, alice, []formserver.Capability{formserver.Capability("bogus")}); !errors.Is(err, formserver.ErrValidation) {
 		t.Fatalf("invalid capability should be rejected, got %v", err)
 	}
 	// The previous grant is unchanged.
 	access, _ := e.service.ListAccess(e.ctx, form.ID)
 	aliceEntry := findEntry(access, alice)
-	if aliceEntry == nil || !sameCaps(aliceEntry.Capabilities, []Capability{CapReview}) {
+	if aliceEntry == nil || !sameCaps(aliceEntry.Capabilities, []formserver.Capability{formserver.CapReview}) {
 		t.Fatalf("a rejected replacement must not change existing grants, got %#v", aliceEntry)
 	}
 }
@@ -376,7 +406,7 @@ func TestUserDirectoryLimitedFields(t *testing.T) {
 	}
 }
 
-func findEntry(entries []AccessEntry, userID uuid.UUID) *AccessEntry {
+func findEntry(entries []formserver.AccessEntry, userID uuid.UUID) *formserver.AccessEntry {
 	for i := range entries {
 		if entries[i].UserID == userID {
 			return &entries[i]
@@ -385,11 +415,11 @@ func findEntry(entries []AccessEntry, userID uuid.UUID) *AccessEntry {
 	return nil
 }
 
-func sameCaps(got, want []Capability) bool {
+func sameCaps(got, want []formserver.Capability) bool {
 	if len(got) != len(want) {
 		return false
 	}
-	set := map[Capability]bool{}
+	set := map[formserver.Capability]bool{}
 	for _, c := range got {
 		set[c] = true
 	}

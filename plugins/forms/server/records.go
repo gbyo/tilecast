@@ -1,4 +1,4 @@
-package forms
+package server
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/tilecast/tilecast/apps/server/internal/media"
+	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
 
 // RecordInput carries submitted or edited record values and display metadata. The display fields
@@ -144,7 +144,7 @@ func (s *Service) authorizeEdit(ctx context.Context, formID, recordID, userID uu
 // CreateRecord creates a draft submission bound to the form's current published revision. The
 // caller must hold the submit capability on the form.
 func (s *Service) CreateRecord(ctx context.Context, formID, actor uuid.UUID, in RecordInput) (Record, error) {
-	if _, err := s.ensureForm(ctx, s.db, formID); err != nil {
+	if _, err := s.ensureForm(ctx, formID); err != nil {
 		return Record{}, err
 	}
 	allowed, err := s.allow(ctx, formID, actor, CapSubmit)
@@ -193,7 +193,7 @@ func (s *Service) CreateRecord(ctx context.Context, formID, actor uuid.UUID, in 
 		return Record{}, err
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
-	submitterName := s.userName(ctx, tx, actor)
+	submitterName := s.userNameInTx(ctx, tx, actor)
 	if _, err := tx.Exec(ctx, `INSERT INTO form_records(id,data_source_id,revision_id,state_key,values,submitted_by,submitter_name,display_title,priority,display_at,expires_at,eligible,version)
 		VALUES($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9,$10,$11,FALSE,1)`,
 		recordID, formID, revision.ID, initialState, string(encoded), actor, submitterName, displayTitle, priority, displayAt, expiresAt); err != nil {
@@ -283,7 +283,7 @@ func (s *Service) UpdateRecord(ctx context.Context, formID, recordID, actor uuid
 	} else if in.ExpiresAt.Set {
 		addSet("expires_at", *in.ExpiresAt.Value)
 	}
-	actorName := s.userName(ctx, tx, actor)
+	actorName := s.userNameInTx(ctx, tx, actor)
 	if _, err := tx.Exec(ctx, `UPDATE form_records SET `+strings.Join(sets, ",")+` WHERE id=$1`, args...); err != nil {
 		return Record{}, err
 	}
@@ -412,7 +412,7 @@ func (s *Service) Transition(ctx context.Context, formID, recordID, actor uuid.U
 			return Record{}, err
 		}
 	}
-	actorName := s.userName(ctx, tx, actor)
+	actorName := s.userNameInTx(ctx, tx, actor)
 	if _, err := tx.Exec(ctx, `UPDATE form_records SET state_key=$2,eligible=$3,version=version+1,updated_at=now() WHERE id=$1`, recordID, toState, targetEligible); err != nil {
 		return Record{}, err
 	}
@@ -425,9 +425,8 @@ func (s *Service) Transition(ctx context.Context, formID, recordID, actor uuid.U
 			return Record{}, err
 		}
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,metadata)
-		VALUES($1,$2,'form.record_transition','data_source',$3,jsonb_build_object('record',$4::text,'from',$5::text,'to',$6::text))`,
-		uuid.New(), actor, formID.String(), recordID.String(), meta.state, toState); err != nil {
+	if err := s.recordAudit(ctx, tx, actor, "form.record_transition", formID.String(),
+		map[string]any{"record": recordID.String(), "from": meta.state, "to": toState}); err != nil {
 		return Record{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -473,8 +472,7 @@ func (s *Service) DeleteRecord(ctx context.Context, formID, recordID, actor uuid
 	if _, err := tx.Exec(ctx, `UPDATE form_records SET deleted_at=now(),eligible=FALSE,updated_at=now() WHERE id=$1`, recordID); err != nil {
 		return err
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id)
-		VALUES($1,$2,'form.record_deleted','data_source',$3)`, uuid.New(), actor, formID.String()); err != nil {
+	if err := s.recordAudit(ctx, tx, actor, "form.record_deleted", formID.String(), nil); err != nil {
 		return err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -514,7 +512,7 @@ func (s *Service) AddComment(ctx context.Context, formID, recordID, actor uuid.U
 		return RecordComment{}, err
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
-	actorName := s.userName(ctx, tx, actor)
+	actorName := s.userNameInTx(ctx, tx, actor)
 	commentID := uuid.New()
 	if _, err := tx.Exec(ctx, `INSERT INTO form_record_comments(id,record_id,author_id,author_name,body) VALUES($1,$2,$3,$4,$5)`,
 		commentID, recordID, actor, actorName, body); err != nil {
@@ -557,9 +555,9 @@ func (s *Service) CreateAttachment(ctx context.Context, formID, recordID, actor 
 	if !isImageField(schema, upload.FieldKey) {
 		return RecordDetail{}, fmt.Errorf("%w: %q is not an image field in this form", ErrValidation, upload.FieldKey)
 	}
-	asset, err := s.media.IngestFormAttachment(ctx, actor, upload.FileName, upload.ContentType, upload.Data)
+	asset, err := s.host.PluginAssets.IngestPrivate(ctx, actor, upload.FileName, upload.ContentType, upload.Data)
 	if err != nil {
-		if errors.Is(err, media.ErrUploadTooLarge) || errors.Is(err, media.ErrUnsupportedType) || isAttachmentInputError(err) {
+		if errors.Is(err, plugin.ErrTooLarge) || errors.Is(err, plugin.ErrInvalid) {
 			return RecordDetail{}, fmt.Errorf("%w: %v", ErrValidation, err)
 		}
 		return RecordDetail{}, err
@@ -569,7 +567,7 @@ func (s *Service) CreateAttachment(ctx context.Context, formID, recordID, actor 
 	committed := false
 	defer func() {
 		if !committed {
-			_ = s.media.SoftDeleteFormAttachment(ctx, asset.ID)
+			_ = s.host.PluginAssets.DiscardPrivate(ctx, asset.ID)
 		}
 	}()
 
@@ -611,7 +609,7 @@ func (s *Service) CreateAttachment(ctx context.Context, formID, recordID, actor 
 		return RecordDetail{}, err
 	}
 	encoded, _ := json.Marshal(values)
-	actorName := s.userName(ctx, tx, actor)
+	actorName := s.userNameInTx(ctx, tx, actor)
 	if _, err := tx.Exec(ctx, `UPDATE form_records SET values=$2::jsonb,version=version+1,updated_at=now() WHERE id=$1`, recordID, string(encoded)); err != nil {
 		return RecordDetail{}, err
 	}
@@ -631,7 +629,7 @@ func (s *Service) CreateAttachment(ctx context.Context, formID, recordID, actor 
 		}
 	}
 	for _, staleAsset := range staleAssets {
-		_ = s.media.SoftDeleteFormAttachment(ctx, staleAsset)
+		_ = s.host.PluginAssets.DiscardPrivate(ctx, staleAsset)
 	}
 	return s.GetRecord(ctx, formID, recordID, actor)
 }
@@ -693,7 +691,7 @@ func (s *Service) RemoveAttachment(ctx context.Context, formID, recordID, attach
 		return RecordDetail{}, err
 	}
 	encoded, _ := json.Marshal(values)
-	actorName := s.userName(ctx, tx, actor)
+	actorName := s.userNameInTx(ctx, tx, actor)
 	if _, err := tx.Exec(ctx, `UPDATE form_records SET values=$2::jsonb,version=version+1,updated_at=now() WHERE id=$1`, recordID, string(encoded)); err != nil {
 		return RecordDetail{}, err
 	}
@@ -709,7 +707,7 @@ func (s *Service) RemoveAttachment(ctx context.Context, formID, recordID, attach
 			return RecordDetail{}, err
 		}
 	}
-	_ = s.media.SoftDeleteFormAttachment(ctx, assetID)
+	_ = s.host.PluginAssets.DiscardPrivate(ctx, assetID)
 	return s.GetRecord(ctx, formID, recordID, actor)
 }
 
@@ -804,34 +802,26 @@ func (s *Service) AttachmentAsset(ctx context.Context, formID, recordID, attachm
 	return assetID, nil
 }
 
-// bindAttachment links a form-attachment asset to a record and field, refusing library assets and
-// assets already used by playlists, layouts, Widgets, or other records.
+// bindAttachment links a private attachment asset to a record and field, refusing library assets
+// and assets already used by playlists, layouts, Widgets, or other records. The core-side
+// origin and usage check runs through Host.PluginAssets; the other-record check reads the
+// plugin's own binding table.
 func (s *Service) bindAttachment(ctx context.Context, tx pgx.Tx, recordID, assetID uuid.UUID, fieldKey string) (uuid.UUID, error) {
-	var origin string
-	err := tx.QueryRow(ctx, `SELECT origin FROM assets WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`, assetID).Scan(&origin)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return uuid.Nil, fmt.Errorf("%w: attachment asset does not exist", ErrValidation)
-	}
-	if err != nil {
+	if err := s.host.PluginAssets.ClaimPrivateInTx(ctx, tx, assetID); err != nil {
+		if errors.Is(err, plugin.ErrInvalid) {
+			return uuid.Nil, fmt.Errorf("%w: %v", ErrValidation, err)
+		}
 		return uuid.Nil, err
 	}
-	if origin != "form_attachment" {
-		return uuid.Nil, fmt.Errorf("%w: only dedicated form attachments may be attached", ErrValidation)
-	}
 	var used bool
-	if err := tx.QueryRow(ctx, `SELECT
-		EXISTS(SELECT 1 FROM playlist_items WHERE asset_id=$1)
-		OR EXISTS(SELECT 1 FROM widgets WHERE asset_id=$1)
-		OR EXISTS(SELECT 1 FROM layout_draft_dependencies WHERE dependency_id=$1 AND dependency_type IN('widget','asset'))
-		OR EXISTS(SELECT 1 FROM layout_revision_dependencies WHERE dependency_id=$1 AND dependency_type IN('widget','asset'))
-		OR EXISTS(SELECT 1 FROM form_record_attachments WHERE asset_id=$1 AND record_id<>$2)`, assetID, recordID).Scan(&used); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM form_record_attachments WHERE asset_id=$1 AND record_id<>$2)`, assetID, recordID).Scan(&used); err != nil {
 		return uuid.Nil, err
 	}
 	if used {
 		return uuid.Nil, fmt.Errorf("%w: the asset is already in use", ErrValidation)
 	}
 	attachmentID := uuid.New()
-	err = tx.QueryRow(ctx, `INSERT INTO form_record_attachments(id,record_id,asset_id,field_key)
+	err := tx.QueryRow(ctx, `INSERT INTO form_record_attachments(id,record_id,asset_id,field_key)
 		VALUES($1,$2,$3,$4)
 		ON CONFLICT(record_id,asset_id) DO UPDATE SET field_key=EXCLUDED.field_key
 		RETURNING id`, attachmentID, recordID, assetID, fieldKey).Scan(&attachmentID)
@@ -890,7 +880,7 @@ func isAttachmentInputError(err error) bool {
 // ListRecords returns a filtered, paginated slice of a form's records. Callers without view_all
 // see only their own submissions; callers who cannot view any records are refused.
 func (s *Service) ListRecords(ctx context.Context, formID, viewer uuid.UUID, filter RecordFilter) (RecordPage, error) {
-	if _, err := s.ensureForm(ctx, s.db, formID); err != nil {
+	if _, err := s.ensureForm(ctx, formID); err != nil {
 		return RecordPage{}, err
 	}
 	canViewAll, err := s.allow(ctx, formID, viewer, CapViewAll)
@@ -986,7 +976,7 @@ func (s *Service) ListRecords(ctx context.Context, formID, viewer uuid.UUID, fil
 // for the viewer with the immutable revision, canEdit/canComment/canDelete, and the workflow
 // transitions the viewer may perform, so the UI never re-implements authorization.
 func (s *Service) GetRecord(ctx context.Context, formID, recordID, viewer uuid.UUID) (RecordDetail, error) {
-	createdBy, err := s.ensureForm(ctx, s.db, formID)
+	createdBy, err := s.ensureForm(ctx, formID)
 	if err != nil {
 		return RecordDetail{}, err
 	}

@@ -20,6 +20,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
 	"github.com/tilecast/tilecast/apps/server/internal/ids"
 	"github.com/tilecast/tilecast/apps/server/internal/manifestchanges"
+	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
 
 const UploadLifetime = 24 * time.Hour
@@ -42,6 +43,45 @@ type Service struct {
 	invalidator AssetInvalidator
 	definitions *contentdefs.Catalog
 	hooks       FinalizationHooks
+	// contributed are plugin-owned Data Source providers. They overlay the
+	// static registry for traits, configuration shape, field discovery,
+	// and authoring-surface metadata; core never names them.
+	contributed map[string]plugin.DataSourceProvider
+}
+
+// SetDataSourceProviders registers plugin-owned Data Source providers. The
+// host calls it once at startup with every bundled plugin's contribution;
+// a provider with no contribution is unknown to generic paths.
+func (s *Service) SetDataSourceProviders(providers ...plugin.DataSourceProvider) {
+	if s.contributed == nil {
+		s.contributed = map[string]plugin.DataSourceProvider{}
+	}
+	for _, provider := range providers {
+		if provider == nil {
+			continue
+		}
+		s.contributed[provider.ProviderID()] = provider
+	}
+}
+
+// contributedProvider returns the plugin contribution for a provider id, if
+// one is registered.
+func (s *Service) contributedProvider(id string) (plugin.DataSourceProvider, bool) {
+	if s == nil {
+		return nil, false
+	}
+	provider, ok := s.contributed[id]
+	return provider, ok
+}
+
+// externallyManaged reports whether a provider is authored through its own
+// plugin API rather than the generic Data Source paths.
+func (s *Service) externallyManaged(id string) (plugin.DataSourceProvider, bool) {
+	provider, ok := s.contributedProvider(id)
+	if !ok || !provider.ManagedExternally() {
+		return nil, false
+	}
+	return provider, true
 }
 
 // FinalizationHooks is intentionally empty in production. Tests use the

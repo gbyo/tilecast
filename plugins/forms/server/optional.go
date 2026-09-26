@@ -1,4 +1,4 @@
-package forms
+package server
 
 import "encoding/json"
 

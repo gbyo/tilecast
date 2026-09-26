@@ -1,4 +1,4 @@
-package forms
+package server
 
 import (
 	"context"
@@ -11,54 +11,52 @@ import (
 // else sees forms they created or hold any grant on. This backs the lightweight Forms portal and
 // the operator navigation, so it deliberately avoids loading full form detail per row.
 func (s *Service) ListAccessibleForms(ctx context.Context, userID uuid.UUID) ([]FormSummary, error) {
-	role, err := s.userGlobalRole(ctx, s.db, userID)
+	role, err := s.userGlobalRole(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 	isOwner := role == "owner"
-	rows, err := s.db.Query(ctx, `SELECT ds.id,ds.name,ds.description,ds.created_by,
-			(SELECT max(revision_number) FROM form_revisions r WHERE r.data_source_id=ds.id) AS published
-		FROM data_sources ds
-		WHERE ds.provider='form' AND ds.deleted_at IS NULL
-		AND ($2 OR ds.created_by=$1 OR EXISTS(SELECT 1 FROM form_grants g WHERE g.data_source_id=ds.id AND g.user_id=$1))
-		ORDER BY ds.name,ds.id`, userID, isOwner)
+	// The candidate set comes from Host.DataSources; visibility scoping
+	// (creator or grant holder, unless a global Owner) stays here with the
+	// plugin's capability model.
+	forms, err := s.host.DataSources.ListLive(ctx, providerName)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	type row struct {
-		id          uuid.UUID
-		name        string
-		description string
-		createdBy   *uuid.UUID
-		published   *int
-	}
-	scanned := []row{}
-	for rows.Next() {
-		var rec row
-		if err := rows.Scan(&rec.id, &rec.name, &rec.description, &rec.createdBy, &rec.published); err != nil {
+	summaries := make([]FormSummary, 0, len(forms))
+	for _, form := range forms {
+		var createdBy *uuid.UUID
+		if form.CreatedBy != uuid.Nil {
+			createdBy = &form.CreatedBy
+		}
+		if !isOwner {
+			if createdBy == nil || *createdBy != userID {
+				var hasGrant bool
+				if err := s.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM form_grants WHERE data_source_id=$1 AND user_id=$2)`, form.ID, userID).Scan(&hasGrant); err != nil {
+					return nil, err
+				}
+				if !hasGrant {
+					continue
+				}
+			}
+		}
+		var published *int
+		if err := s.db.QueryRow(ctx, `SELECT max(revision_number) FROM form_revisions WHERE data_source_id=$1`, form.ID).Scan(&published); err != nil {
 			return nil, err
 		}
-		scanned = append(scanned, rec)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	summaries := make([]FormSummary, 0, len(scanned))
-	for _, rec := range scanned {
-		capabilities, err := s.grantedCapabilities(ctx, s.db, rec.id, rec.createdBy, userID)
+		capabilities, err := s.grantedCapabilities(ctx, s.db, form.ID, createdBy, userID)
 		if err != nil {
 			return nil, err
 		}
-		counts, err := s.ownSubmissionCounts(ctx, rec.id, userID)
+		counts, err := s.ownSubmissionCounts(ctx, form.ID, userID)
 		if err != nil {
 			return nil, err
 		}
 		summaries = append(summaries, FormSummary{
-			ID:                      rec.id,
-			Name:                    rec.name,
-			Description:             rec.description,
-			PublishedRevisionNumber: rec.published,
+			ID:                      form.ID,
+			Name:                    form.Name,
+			Description:             form.Description,
+			PublishedRevisionNumber: published,
 			Capabilities:            capabilities,
 			Counts:                  counts,
 		})

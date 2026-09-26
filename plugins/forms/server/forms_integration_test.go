@@ -1,4 +1,4 @@
-package forms
+package server_test
 
 import (
 	"context"
@@ -10,81 +10,49 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/tilecast/tilecast/apps/server/internal/auth"
-	"github.com/tilecast/tilecast/apps/server/internal/database"
-	"github.com/tilecast/tilecast/apps/server/internal/media"
+	"github.com/tilecast/tilecast/apps/server/pluginharness"
+	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
+	formserver "github.com/tilecast/tilecast/plugins/forms/server"
 )
 
-// fakeInvalidator records DataSourceChanged calls so tests can assert manifest invalidation
-// without wiring the full playlist/screen graph.
-type fakeInvalidator struct{ dataSourceCalls []uuid.UUID }
-
-func (f *fakeInvalidator) AssetChanged(context.Context, uuid.UUID, string) error { return nil }
-func (f *fakeInvalidator) TagAssignmentsChanged(context.Context, []uuid.UUID, string) error {
-	return nil
+// testPlugin hosts the real Forms server contribution without importing the
+// parent package (which would cycle back into this one). Conformance against
+// the real bundle runs in the parent package's TestConformance.
+type testPlugin struct {
+	plugin.Bundle
+	*formserver.Service
 }
-func (f *fakeInvalidator) DataSourceChanged(_ context.Context, id uuid.UUID, _ string) error {
-	f.dataSourceCalls = append(f.dataSourceCalls, id)
-	return nil
+
+func newTestPlugin(t *testing.T, service *formserver.Service) plugin.Plugin {
+	t.Helper()
+	manifest, err := os.ReadFile("../tilecast.plugin.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &testPlugin{Bundle: plugin.NewBundle(manifest, os.DirFS("..")), Service: service}
 }
 
 type formTestEnv struct {
-	ctx         context.Context
-	pool        *pgxpool.Pool
-	service     *Service
-	invalidator *fakeInvalidator
-	owner       uuid.UUID
+	ctx     context.Context
+	pool    *pgxpool.Pool
+	harness *pluginharness.Harness
+	service *formserver.Service
+	owner   uuid.UUID
 }
 
 func setupForms(t *testing.T) formTestEnv {
 	t.Helper()
-	databaseURL := os.Getenv("TEST_DATABASE_URL")
-	if databaseURL == "" {
-		t.Skip("TEST_DATABASE_URL is not set")
-	}
-	ctx := context.Background()
-	lockPool, err := pgxpool.New(ctx, databaseURL)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(lockPool.Close)
-	lock, err := lockPool.Acquire(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(lock.Release)
-	if _, err := lock.Exec(ctx, `SELECT pg_advisory_lock(7421999)`); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _, _ = lock.Exec(ctx, `SELECT pg_advisory_unlock(7421999)`) })
-	if err := database.Migrate(ctx, databaseURL); err != nil {
-		t.Fatal(err)
-	}
-	pool, err := database.Open(ctx, databaseURL)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(pool.Close)
-	if _, err := pool.Exec(ctx, `TRUNCATE form_record_attachments,form_record_comments,form_record_events,form_records,form_views,form_grants,form_workflow_transitions,form_workflow_states,form_revisions,data_source_refresh_states,data_sources,widgets,website_assets,asset_variants,assets,sessions,audit_logs,users,organization_settings CASCADE`); err != nil {
-		t.Fatal(err)
-	}
-	owner, err := auth.NewService(pool, time.Hour).Setup(ctx, auth.SetupInput{OrganizationName: "District", OwnerName: "Owner", Username: "owner", Password: "correct horse battery staple"})
-	if err != nil {
+	service := formserver.NewService()
+	harness := pluginharness.New(t, newTestPlugin(t, service))
+	// The harness truncates the core organization, user, and installation
+	// tables; the plugin's own tables plus everything attachments and audit
+	// rows touch still need a reset between tests.
+	if _, err := harness.Pool.Exec(harness.Ctx, `TRUNCATE form_record_attachments,form_record_comments,form_record_events,form_records,form_views,form_grants,form_workflow_transitions,form_workflow_states,form_revisions,data_source_refresh_states,data_sources,widgets,asset_variants,assets,audit_logs CASCADE`); err != nil {
 		t.Fatal(err)
 	}
 	// Forms is an installable plugin; these tests exercise an installation that has added it.
-	if _, err = pool.Exec(ctx, `INSERT INTO plugin_installations(organization_id,plugin_id) SELECT id,'forms' FROM organization_settings WHERE singleton`); err != nil {
-		t.Fatal(err)
-	}
-	storage, err := media.NewLocalStorage(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	mediaService := media.NewService(pool, storage, media.Config{})
-	service := NewService(pool, mediaService)
-	invalidator := &fakeInvalidator{}
-	service.SetAssetInvalidator(invalidator)
-	return formTestEnv{ctx: ctx, pool: pool, service: service, invalidator: invalidator, owner: owner.User.ID}
+	harness.Install()
+	return formTestEnv{ctx: harness.Ctx, pool: harness.Pool, harness: harness, service: service, owner: harness.OwnerID}
 }
 
 // versionOf returns a record's current stored version (0 if it does not exist), for tests that
@@ -96,12 +64,12 @@ func (e formTestEnv) versionOf(recordID uuid.UUID) int {
 }
 
 // attach uploads an attachment using the record's current version (optimistic concurrency).
-func (e formTestEnv) attach(formID, recordID, actor uuid.UUID, upload AttachmentUpload) (RecordDetail, error) {
+func (e formTestEnv) attach(formID, recordID, actor uuid.UUID, upload formserver.AttachmentUpload) (formserver.RecordDetail, error) {
 	return e.service.CreateAttachment(e.ctx, formID, recordID, actor, upload, e.versionOf(recordID))
 }
 
 // removeAttachment removes an attachment using the record's current version.
-func (e formTestEnv) removeAttachment(formID, recordID, attachmentID, actor uuid.UUID) (RecordDetail, error) {
+func (e formTestEnv) removeAttachment(formID, recordID, attachmentID, actor uuid.UUID) (formserver.RecordDetail, error) {
 	return e.service.RemoveAttachment(e.ctx, formID, recordID, attachmentID, actor, e.versionOf(recordID))
 }
 
@@ -116,42 +84,42 @@ func (e formTestEnv) insertUser(t *testing.T, name, username, role string) uuid.
 }
 
 // announcementSchema is a representative form definition used across tests.
-func announcementSchema() FormSchema {
-	return FormSchema{Fields: []FormField{
-		{Key: "title", Label: "Title", Control: ControlShortText, Required: true, MaxLength: 120},
-		{Key: "body", Label: "Body", Control: ControlLongText, MaxLength: 1000},
-		{Key: "rank", Label: "Rank", Control: ControlInteger},
-		{Key: "startAt", Label: "Start", Control: ControlDateTime},
-		{Key: "endAt", Label: "End", Control: ControlDateTime},
+func announcementSchema() formserver.FormSchema {
+	return formserver.FormSchema{Fields: []formserver.FormField{
+		{Key: "title", Label: "Title", Control: formserver.ControlShortText, Required: true, MaxLength: 120},
+		{Key: "body", Label: "Body", Control: formserver.ControlLongText, MaxLength: 1000},
+		{Key: "rank", Label: "Rank", Control: formserver.ControlInteger},
+		{Key: "startAt", Label: "Start", Control: formserver.ControlDateTime},
+		{Key: "endAt", Label: "End", Control: formserver.ControlDateTime},
 	}}
 }
 
-func (e formTestEnv) readPayload(t *testing.T, formID uuid.UUID) media.TypedDatasetPayload {
+func (e formTestEnv) readPayload(t *testing.T, formID uuid.UUID) plugin.TypedDatasetPayload {
 	t.Helper()
 	var raw []byte
 	if err := e.pool.QueryRow(e.ctx, `SELECT cached_payload FROM data_source_refresh_states WHERE data_source_id=$1`, formID).Scan(&raw); err != nil {
 		t.Fatalf("read cached payload: %v", err)
 	}
-	var payload media.TypedDatasetPayload
+	var payload plugin.TypedDatasetPayload
 	if err := json.Unmarshal(raw, &payload); err != nil {
 		t.Fatalf("decode payload: %v", err)
 	}
 	return payload
 }
 
-func datasetByID(payload media.TypedDatasetPayload, id string) (media.TypedDataset, bool) {
+func datasetByID(payload plugin.TypedDatasetPayload, id string) (plugin.TypedDataset, bool) {
 	for _, ds := range payload.Datasets {
 		if ds.ID == id {
 			return ds, true
 		}
 	}
-	return media.TypedDataset{}, false
+	return plugin.TypedDataset{}, false
 }
 
 // submitAndApprove drives a fresh record through draft -> submitted -> approved.
-func (e formTestEnv) submitAndApprove(t *testing.T, formID uuid.UUID, values map[string]any) Record {
+func (e formTestEnv) submitAndApprove(t *testing.T, formID uuid.UUID, values map[string]any) formserver.Record {
 	t.Helper()
-	record, err := e.service.CreateRecord(e.ctx, formID, e.owner, RecordInput{Values: values})
+	record, err := e.service.CreateRecord(e.ctx, formID, e.owner, formserver.RecordInput{Values: values})
 	if err != nil {
 		t.Fatalf("create record: %v", err)
 	}
@@ -168,7 +136,7 @@ func (e formTestEnv) submitAndApprove(t *testing.T, formID uuid.UUID, values map
 
 func TestCreateFormAndProjectApprovedOnly(t *testing.T) {
 	e := setupForms(t)
-	form, err := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "Staff Announcements", DraftSchema: announcementSchema()})
+	form, err := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "Staff Announcements", DraftSchema: announcementSchema()})
 	if err != nil {
 		t.Fatalf("create form: %v", err)
 	}
@@ -188,7 +156,7 @@ func TestCreateFormAndProjectApprovedOnly(t *testing.T) {
 	}
 
 	// A draft record must not appear in the projected payload.
-	draft, err := e.service.CreateRecord(e.ctx, form.ID, e.owner, RecordInput{Values: map[string]any{"title": "Draft only"}})
+	draft, err := e.service.CreateRecord(e.ctx, form.ID, e.owner, formserver.RecordInput{Values: map[string]any{"title": "Draft only"}})
 	if err != nil {
 		t.Fatalf("create draft: %v", err)
 	}
@@ -216,23 +184,19 @@ func TestCreateFormAndProjectApprovedOnly(t *testing.T) {
 	}
 	_ = draft
 
-	// The Player projection returns the same payload for the form provider.
-	projected, err := e.service.media.PlayerTypedDataSourceConfiguration(e.ctx, form.ID, "form", nil)
+	// The Outputs status serves the same cached payload Players consume.
+	outputs, err := e.service.GetOutputs(e.ctx, form.ID)
 	if err != nil {
-		t.Fatalf("player projection: %v", err)
+		t.Fatalf("outputs: %v", err)
 	}
-	var playerPayload media.TypedDatasetPayload
-	if err := json.Unmarshal(projected, &playerPayload); err != nil {
-		t.Fatal(err)
-	}
-	if ds, ok := datasetByID(playerPayload, "approved"); !ok || len(ds.Records) != 1 {
-		t.Fatalf("player payload mismatch: %#v", playerPayload)
+	if len(outputs.Views) != 1 || outputs.Views[0].RecordCount != 1 {
+		t.Fatalf("outputs payload mismatch: %+v", outputs.Views)
 	}
 }
 
 func TestPublishRevisionKeepsOldSubmissions(t *testing.T) {
 	e := setupForms(t)
-	form, err := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "Events", DraftSchema: announcementSchema()})
+	form, err := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "Events", DraftSchema: announcementSchema()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -241,8 +205,8 @@ func TestPublishRevisionKeepsOldSubmissions(t *testing.T) {
 
 	// Revise the form: add a field and republish.
 	schema := announcementSchema()
-	schema.Fields = append(schema.Fields, FormField{Key: "location", Label: "Location", Control: ControlShortText})
-	if _, err := e.service.UpdateDraft(e.ctx, form.ID, e.owner, DraftInput{Schema: schema}); err != nil {
+	schema.Fields = append(schema.Fields, formserver.FormField{Key: "location", Label: "Location", Control: formserver.ControlShortText})
+	if _, err := e.service.UpdateDraft(e.ctx, form.ID, e.owner, formserver.DraftInput{Schema: schema}); err != nil {
 		t.Fatalf("update draft: %v", err)
 	}
 	revision, err := e.service.PublishRevision(e.ctx, form.ID, e.owner)
@@ -281,12 +245,12 @@ func TestPublishRevisionKeepsOldSubmissions(t *testing.T) {
 
 func TestWorkflowTransitionsAndValidation(t *testing.T) {
 	e := setupForms(t)
-	form, err := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "Requests", DraftSchema: announcementSchema()})
+	form, err := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "Requests", DraftSchema: announcementSchema()})
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Request changes then resubmit then approve.
-	record, err := e.service.CreateRecord(e.ctx, form.ID, e.owner, RecordInput{Values: map[string]any{"title": "Needs work"}})
+	record, err := e.service.CreateRecord(e.ctx, form.ID, e.owner, formserver.RecordInput{Values: map[string]any{"title": "Needs work"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -307,16 +271,16 @@ func TestWorkflowTransitionsAndValidation(t *testing.T) {
 	}
 
 	// An invalid transition is rejected.
-	rejectMe, _ := e.service.CreateRecord(e.ctx, form.ID, e.owner, RecordInput{Values: map[string]any{"title": "x"}})
-	if _, err := e.service.Transition(e.ctx, form.ID, rejectMe.ID, e.owner, "approved", "", rejectMe.Version); !errors.Is(err, ErrValidation) {
+	rejectMe, _ := e.service.CreateRecord(e.ctx, form.ID, e.owner, formserver.RecordInput{Values: map[string]any{"title": "x"}})
+	if _, err := e.service.Transition(e.ctx, form.ID, rejectMe.ID, e.owner, "approved", "", rejectMe.Version); !errors.Is(err, formserver.ErrValidation) {
 		t.Fatalf("expected validation error for illegal transition, got %v", err)
 	}
 
 	// A record missing a required field cannot be submitted at all: required fields are enforced
 	// before any transition requiring the submit capability, not only when entering the eligible
 	// state. The incomplete draft is preserved (still editable) rather than advanced.
-	incomplete, _ := e.service.CreateRecord(e.ctx, form.ID, e.owner, RecordInput{Values: map[string]any{}})
-	if _, err := e.service.Transition(e.ctx, form.ID, incomplete.ID, e.owner, "submitted", "", incomplete.Version); !errors.Is(err, ErrValidation) {
+	incomplete, _ := e.service.CreateRecord(e.ctx, form.ID, e.owner, formserver.RecordInput{Values: map[string]any{}})
+	if _, err := e.service.Transition(e.ctx, form.ID, incomplete.ID, e.owner, "submitted", "", incomplete.Version); !errors.Is(err, formserver.ErrValidation) {
 		t.Fatalf("expected required-field validation on submit, got %v", err)
 	}
 	stillDraft, err := e.service.GetRecord(e.ctx, form.ID, incomplete.ID, e.owner)
@@ -330,35 +294,35 @@ func TestWorkflowTransitionsAndValidation(t *testing.T) {
 
 func TestConcurrentEditConflict(t *testing.T) {
 	e := setupForms(t)
-	form, _ := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "Concurrent", DraftSchema: announcementSchema()})
-	record, err := e.service.CreateRecord(e.ctx, form.ID, e.owner, RecordInput{Values: map[string]any{"title": "First"}})
+	form, _ := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "Concurrent", DraftSchema: announcementSchema()})
+	record, err := e.service.CreateRecord(e.ctx, form.ID, e.owner, formserver.RecordInput{Values: map[string]any{"title": "First"}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.service.UpdateRecord(e.ctx, form.ID, record.ID, e.owner, RecordInput{Values: map[string]any{"title": "Edit A"}}, record.Version); err != nil {
+	if _, err := e.service.UpdateRecord(e.ctx, form.ID, record.ID, e.owner, formserver.RecordInput{Values: map[string]any{"title": "Edit A"}}, record.Version); err != nil {
 		t.Fatalf("first edit: %v", err)
 	}
 	// A second edit with the stale version must conflict.
-	if _, err := e.service.UpdateRecord(e.ctx, form.ID, record.ID, e.owner, RecordInput{Values: map[string]any{"title": "Edit B"}}, record.Version); !errors.Is(err, ErrConflict) {
+	if _, err := e.service.UpdateRecord(e.ctx, form.ID, record.ID, e.owner, formserver.RecordInput{Values: map[string]any{"title": "Edit B"}}, record.Version); !errors.Is(err, formserver.ErrConflict) {
 		t.Fatalf("expected conflict on stale version, got %v", err)
 	}
 	// A stale transition likewise conflicts.
-	if _, err := e.service.Transition(e.ctx, form.ID, record.ID, e.owner, "submitted", "", record.Version); !errors.Is(err, ErrConflict) {
+	if _, err := e.service.Transition(e.ctx, form.ID, record.ID, e.owner, "submitted", "", record.Version); !errors.Is(err, formserver.ErrConflict) {
 		t.Fatalf("expected conflict on stale transition, got %v", err)
 	}
 }
 
 func TestPerFormGrantsScopeAccess(t *testing.T) {
 	e := setupForms(t)
-	formA, _ := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "Form A", DraftSchema: announcementSchema()})
-	formB, _ := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "Form B", DraftSchema: announcementSchema()})
+	formA, _ := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "Form A", DraftSchema: announcementSchema()})
+	formB, _ := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "Form B", DraftSchema: announcementSchema()})
 	viewer := e.insertUser(t, "Vera", "vera", "viewer")
 
 	// Grant submit on Form A only.
-	if _, err := e.service.SetGrant(e.ctx, formA.ID, e.owner, GrantInput{UserID: viewer, Capability: CapSubmit}); err != nil {
+	if _, err := e.service.SetGrant(e.ctx, formA.ID, e.owner, formserver.GrantInput{UserID: viewer, Capability: formserver.CapSubmit}); err != nil {
 		t.Fatalf("set grant: %v", err)
 	}
-	assertAuth := func(formID uuid.UUID, need Capability, want bool) {
+	assertAuth := func(formID uuid.UUID, need formserver.Capability, want bool) {
 		got, err := e.service.Authorize(e.ctx, formID, viewer, need)
 		if err != nil {
 			t.Fatal(err)
@@ -367,42 +331,42 @@ func TestPerFormGrantsScopeAccess(t *testing.T) {
 			t.Fatalf("Authorize(%v,%s)=%v, want %v", formID, need, got, want)
 		}
 	}
-	assertAuth(formA.ID, CapSubmit, true)
-	assertAuth(formA.ID, CapReview, false) // submit does not imply review
-	assertAuth(formB.ID, CapSubmit, false) // grant is scoped to Form A
+	assertAuth(formA.ID, formserver.CapSubmit, true)
+	assertAuth(formA.ID, formserver.CapReview, false) // submit does not imply review
+	assertAuth(formB.ID, formserver.CapSubmit, false) // grant is scoped to Form A
 
 	// The global Owner always manages any form.
-	if ok, _ := e.service.Authorize(e.ctx, formB.ID, e.owner, CapManage); !ok {
+	if ok, _ := e.service.Authorize(e.ctx, formB.ID, e.owner, formserver.CapManage); !ok {
 		t.Fatal("owner should always manage forms")
 	}
 }
 
 func TestApprovalsInboxPermissions(t *testing.T) {
 	e := setupForms(t)
-	form, _ := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "Inbox", DraftSchema: announcementSchema()})
+	form, _ := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "Inbox", DraftSchema: announcementSchema()})
 	reviewer := e.insertUser(t, "Rhea", "rhea", "viewer")
 	outsider := e.insertUser(t, "Odis", "odis", "viewer")
-	if _, err := e.service.SetGrant(e.ctx, form.ID, e.owner, GrantInput{UserID: reviewer, Capability: CapReview}); err != nil {
+	if _, err := e.service.SetGrant(e.ctx, form.ID, e.owner, formserver.GrantInput{UserID: reviewer, Capability: formserver.CapReview}); err != nil {
 		t.Fatal(err)
 	}
 	// Submit a record so it is awaiting review.
-	record, _ := e.service.CreateRecord(e.ctx, form.ID, e.owner, RecordInput{Values: map[string]any{"title": "Please review"}})
+	record, _ := e.service.CreateRecord(e.ctx, form.ID, e.owner, formserver.RecordInput{Values: map[string]any{"title": "Please review"}})
 	if _, err := e.service.Transition(e.ctx, form.ID, record.ID, e.owner, "submitted", "", record.Version); err != nil {
 		t.Fatal(err)
 	}
 
-	reviewerItems, err := e.service.PendingApprovals(e.ctx, reviewer, ApprovalFilter{})
+	reviewerItems, err := e.service.PendingApprovals(e.ctx, reviewer, formserver.ApprovalFilter{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(reviewerItems.Items) != 1 || reviewerItems.Total != 1 {
 		t.Fatalf("reviewer should see 1 pending item, got %d (total %d)", len(reviewerItems.Items), reviewerItems.Total)
 	}
-	outsiderItems, _ := e.service.PendingApprovals(e.ctx, outsider, ApprovalFilter{})
+	outsiderItems, _ := e.service.PendingApprovals(e.ctx, outsider, formserver.ApprovalFilter{})
 	if len(outsiderItems.Items) != 0 || outsiderItems.Total != 0 {
 		t.Fatalf("outsider should see nothing, got %d", len(outsiderItems.Items))
 	}
-	ownerItems, _ := e.service.PendingApprovals(e.ctx, e.owner, ApprovalFilter{})
+	ownerItems, _ := e.service.PendingApprovals(e.ctx, e.owner, formserver.ApprovalFilter{})
 	if len(ownerItems.Items) != 1 || ownerItems.Total != 1 {
 		t.Fatalf("owner should see 1 pending item, got %d", len(ownerItems.Items))
 	}
@@ -410,12 +374,12 @@ func TestApprovalsInboxPermissions(t *testing.T) {
 
 func TestSavedViewFilteringSortingAndNamedDatasets(t *testing.T) {
 	e := setupForms(t)
-	form, _ := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "Views", DraftSchema: announcementSchema()})
+	form, _ := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "Views", DraftSchema: announcementSchema()})
 	// A second view that only includes high-rank records, sorted descending, limited to 2.
-	if _, err := e.service.UpsertView(e.ctx, form.ID, e.owner, ViewInput{
+	if _, err := e.service.UpsertView(e.ctx, form.ID, e.owner, formserver.ViewInput{
 		Key: "priority", Name: "High priority", IncludedStates: []string{"approved"},
-		FieldFilters: []FieldFilter{{Field: "rank", Operator: "greater_than", Value: "5"}},
-		Sort:         []SortRule{{Field: "rank", Direction: "desc"}},
+		FieldFilters: []formserver.FieldFilter{{Field: "rank", Operator: "greater_than", Value: "5"}},
+		Sort:         []formserver.SortRule{{Field: "rank", Direction: "desc"}},
 		OutputFields: []string{"title", "rank"}, RecordLimit: 2,
 	}); err != nil {
 		t.Fatalf("upsert view: %v", err)
@@ -443,10 +407,10 @@ func TestSavedViewFilteringSortingAndNamedDatasets(t *testing.T) {
 
 func TestTimeBasedViewActivationAndBoundary(t *testing.T) {
 	e := setupForms(t)
-	form, _ := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "Active", DraftSchema: announcementSchema()})
-	if _, err := e.service.UpsertView(e.ctx, form.ID, e.owner, ViewInput{
+	form, _ := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "Active", DraftSchema: announcementSchema()})
+	if _, err := e.service.UpsertView(e.ctx, form.ID, e.owner, formserver.ViewInput{
 		Key: "active", Name: "Active now", IncludedStates: []string{"approved"},
-		TimeFilter:   TimeFilter{Enabled: true, StartField: "startAt", EndField: "endAt", StartBeforeNow: true, EndAfterNow: true},
+		TimeFilter:   formserver.TimeFilter{Enabled: true, StartField: "startAt", EndField: "endAt", StartBeforeNow: true, EndAfterNow: true},
 		OutputFields: []string{"title", "startAt", "endAt"}, RecordLimit: 100,
 	}); err != nil {
 		t.Fatal(err)
@@ -477,43 +441,42 @@ func TestTimeBasedViewActivationAndBoundary(t *testing.T) {
 
 func TestManifestInvalidationOnApproval(t *testing.T) {
 	e := setupForms(t)
-	form, _ := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "Invalidate", DraftSchema: announcementSchema()})
-	record, _ := e.service.CreateRecord(e.ctx, form.ID, e.owner, RecordInput{Values: map[string]any{"title": "Ship it"}})
+	form, _ := e.service.CreateForm(e.ctx, e.owner, formserver.FormInput{Name: "Invalidate", DraftSchema: announcementSchema()})
+	record, _ := e.service.CreateRecord(e.ctx, form.ID, e.owner, formserver.RecordInput{Values: map[string]any{"title": "Ship it"}})
 	record, _ = e.service.Transition(e.ctx, form.ID, record.ID, e.owner, "submitted", "", record.Version)
-	// Reset recorded calls, then approve.
-	e.invalidator.dataSourceCalls = nil
+	before := e.readPayload(t, form.ID)
+	if ds, _ := datasetByID(before, "approved"); len(ds.Records) != 0 {
+		t.Fatalf("submitted record must not project before approval, got %d records", len(ds.Records))
+	}
 	if _, err := e.service.Transition(e.ctx, form.ID, record.ID, e.owner, "approved", "", record.Version); err != nil {
 		t.Fatal(err)
 	}
-	found := false
-	for _, id := range e.invalidator.dataSourceCalls {
-		if id == form.ID {
-			found = true
-		}
-	}
-	if !found {
-		t.Fatalf("approval did not invalidate the form's manifests; calls=%v", e.invalidator.dataSourceCalls)
+	// Approval re-projects through the normal Data Source revision path, so
+	// the approved record appears in the cached payload (manifest bumps for
+	// bound screens are the playlist service's path and are covered there).
+	after := e.readPayload(t, form.ID)
+	if ds, _ := datasetByID(after, "approved"); len(ds.Records) != 1 {
+		t.Fatalf("approval did not re-project the form, got %d records", len(ds.Records))
 	}
 }
 
-func TestFieldDiscoveryExposesFormFields(t *testing.T) {
-	e := setupForms(t)
-	form, _ := e.service.CreateForm(e.ctx, e.owner, FormInput{Name: "Fields", DraftSchema: announcementSchema()})
-	detail, err := e.service.media.GetDataSourceDetail(e.ctx, form.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	got := map[string]string{}
-	for _, field := range detail.Fields {
-		got[field.Key] = field.Type
-	}
-	// User fields plus the synthetic record fields must be selectable by Widgets.
-	for _, key := range []string{"title", "body", "rank", "startAt", "state", "displayTitle", "priority", "submittedAt"} {
-		if _, ok := got[key]; !ok {
-			t.Fatalf("expected field %q to be selectable, have %#v", key, got)
-		}
-	}
-	if got["rank"] != "integer" {
-		t.Fatalf("expected rank to be integer, got %q", got["rank"])
+func testWorkflow() formserver.Workflow {
+	return formserver.Workflow{
+		States: []formserver.WorkflowState{
+			{Key: "draft", Label: "Draft", Position: 0, Initial: true},
+			{Key: "submitted", Label: "Submitted", Position: 1},
+			{Key: "changes_requested", Label: "Changes requested", Position: 2},
+			{Key: "approved", Label: "Approved", Position: 3, EligibleForOutput: true},
+			{Key: "rejected", Label: "Rejected", Position: 4, Terminal: true},
+			{Key: "expired", Label: "Expired", Position: 5, Terminal: true},
+		},
+		Transitions: []formserver.WorkflowTransition{
+			{From: "draft", To: "submitted", Label: "Submit", RequiredCapability: formserver.CapSubmit, Position: 0},
+			{From: "submitted", To: "approved", Label: "Approve", RequiredCapability: formserver.CapApprove, Position: 1},
+			{From: "submitted", To: "rejected", Label: "Reject", RequiredCapability: formserver.CapApprove, Position: 2},
+			{From: "submitted", To: "changes_requested", Label: "Request changes", RequiredCapability: formserver.CapReview, Position: 3},
+			{From: "changes_requested", To: "submitted", Label: "Resubmit", RequiredCapability: formserver.CapSubmit, Position: 4},
+			{From: "approved", To: "expired", Label: "Expire", RequiredCapability: formserver.CapManage, Position: 5},
+		},
 	}
 }

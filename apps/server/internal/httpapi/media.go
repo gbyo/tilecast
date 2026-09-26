@@ -20,7 +20,7 @@ import (
 )
 
 func (s *server) providerCatalog(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{"revision": 1, "providers": media.ProviderCatalog()}})
+	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{"revision": 1, "providers": s.media.ProviderCatalog()}})
 }
 
 func (s *server) contentDefinitions(w http.ResponseWriter, _ *http.Request) {
