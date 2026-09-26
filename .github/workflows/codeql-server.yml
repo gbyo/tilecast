@@ -1,8 +1,8 @@
 name: Server CodeQL
 
 on:
+  # Every pull request, including one stacked on another PR's branch.
   pull_request:
-    branches: [main]
   push:
     branches: [main]
     paths:
@@ -41,6 +41,9 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
           elif git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- \
             apps/server \
+            plugins \
+            packages/plugin-sdk/go \
+            go.work \
             .github/workflows/codeql-server.yml; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
@@ -58,10 +61,10 @@ jobs:
         with:
           languages: go
           build-mode: manual
-      - name: Build Go server
+      - name: Build Go server, plugins, and plugin SDK
         if: steps.changes.outputs.changed == 'true'
-        working-directory: apps/server
-        run: go build ./...
+        # go.work joins the three modules; bundled plugins are server code.
+        run: go build ./apps/server/... ./plugins/... ./packages/plugin-sdk/go/...
       - name: Analyze
         if: steps.changes.outputs.changed == 'true'
         uses: github/codeql-action/analyze@v4.37.4
