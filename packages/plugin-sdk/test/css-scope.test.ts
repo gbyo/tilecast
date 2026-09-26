@@ -16,6 +16,15 @@ describe("plugin runtime stylesheet scope", () => {
     expect(checkCssScope(css, "transit-alerts")).toEqual([]);
   });
 
+  it("accepts combinator characters inside attribute selectors and functions", () => {
+    const css = `
+      .tc-transit-alerts[data-label="a+b~c"] { color: red; }
+      .tc-transit-alerts__item:nth-child(2n+1) { margin: 0; }
+      .tc-transit-alerts::before { content: "{"; }
+    `;
+    expect(checkCssScope(css, "transit-alerts")).toEqual([]);
+  });
+
   it.each([
     ["an id", "#content-stage { bottom: 0; }"],
     ["a bare element", "img { display: none; }"],
@@ -33,6 +42,22 @@ describe("plugin runtime stylesheet scope", () => {
     ],
     ["@import", '@import url("x.css");'],
     ["@font-face", "@font-face { font-family: x; }"],
+    [
+      "an adjacent sibling",
+      ".tc-transit-alerts + .tc-transit-alerts__line { margin: 0; }",
+    ],
+    [
+      "a general sibling",
+      ".tc-transit-alerts ~ .tc-transit-alerts__line { margin: 0; }",
+    ],
+    [
+      "a nested rule",
+      ".tc-transit-alerts { color: red; .tc-transit-alerts__line { margin: 0; } }",
+    ],
+    [
+      "a nested rule inside @media",
+      "@media print { .tc-transit-alerts { color: red; span { margin: 0; } } }",
+    ],
   ])("refuses %s", (_name, css) => {
     expect(checkCssScope(css, "transit-alerts").length).toBeGreaterThan(0);
   });

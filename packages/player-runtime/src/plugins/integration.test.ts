@@ -62,7 +62,7 @@ const brandBug: RuntimeManifestEntry = {
   },
 };
 
-const noiseMeter: RuntimeManifestEntry = {
+const noiseMeter: RuntimeManifestEntry<Record<string, unknown>> = {
   id: "noise-1",
   type: "noise_meter",
   version: 1,
@@ -86,11 +86,17 @@ function player(
 ) {
   const clock = new ManualClock({ wallMs: WALL });
   const reports: string[] = [];
+  const buckets: unknown[] = [];
   const stage = document.createElement("div");
   const microphone = new MicrophoneService({
     source: options.source === undefined ? "host-levels" : options.source,
     clock,
-    report: (report) => reports.push(report.status),
+    report: (report) => {
+      reports.push(report.status);
+      if (report.bucket !== undefined && report.bucket !== null) {
+        buckets.push(report.bucket);
+      }
+    },
     diagnostic: () => {},
   });
   const diagnostics: string[] = [];
@@ -105,7 +111,7 @@ function player(
     diagnostic: (id, message) => diagnostics.push(`${id}: ${message}`),
   });
   document.body.replaceChildren(host.element);
-  return { clock, host, stage, microphone, reports, diagnostics };
+  return { clock, host, stage, microphone, reports, buckets, diagnostics };
 }
 
 const holder = (host: RuntimeSurfaceHost, slot: "strip.bottom") =>
@@ -229,7 +235,7 @@ describe("runtime plugin discovery", () => {
     ).toMatch(/id someone_else ≠ sample_surface/);
   });
 
-  it("refuses two renderers for one manifest type", () => {
+  it("refuses an entrypoint that keeps its temporary adapter", () => {
     const found = discoverRuntimePlugins(
       {
         "../../../../plugins/sample-surface/tilecast.plugin.json":
@@ -243,6 +249,31 @@ describe("runtime plugin discovery", () => {
       [definition()],
     );
     expect(found.problems.join()).toMatch(/remove its temporary adapter/);
+  });
+
+  it("refuses two renderers for one manifest type", () => {
+    const found = discoverRuntimePlugins(
+      {
+        "../../../../plugins/sample-surface/tilecast.plugin.json":
+          manifest(declared),
+        "../../../../plugins/sample-copy/tilecast.plugin.json": manifest(
+          declared,
+          "sample_copy",
+        ),
+      },
+      {
+        "../../../../plugins/sample-surface/runtime/index.ts": {
+          default: definition(),
+        },
+        "../../../../plugins/sample-copy/runtime/index.ts": {
+          default: definition({
+            id: "sample_copy",
+            manifestTypes: ["sample_surface"],
+          }),
+        },
+      },
+    );
+    expect(found.problems.join()).toMatch(/is also rendered by/);
   });
 });
 
@@ -354,6 +385,38 @@ describe("Noise Meter on the generic microphone contract", () => {
     microphone.hostLevel(0.9);
     clock.advance(100);
     expect(holder(host, "strip.bottom")).toBe("noise_meter");
+  });
+
+  it("restarts history buckets when the thresholds change", () => {
+    const { host, clock, microphone, buckets } = player();
+    const withHistory = {
+      ...noiseMeter,
+      config: { ...noiseMeter.config, historyEnabled: true },
+    };
+    host.setEntries([withHistory], 0);
+    for (let index = 0; index < 101; index += 1) {
+      microphone.hostLevel(0.9);
+      clock.advance(100);
+    }
+    // The same room at 98 is loud under 60/80 but merely warning under
+    // 95/99, so the bucket after the change tells which thresholds it used.
+    const retuned = {
+      ...noiseMeter,
+      config: {
+        ...noiseMeter.config,
+        historyEnabled: true,
+        warningLevel: 95,
+        loudLevel: 99,
+      },
+    };
+    host.setEntries([retuned], 0);
+    for (let index = 0; index < 100; index += 1) {
+      microphone.hostLevel(0.9);
+      clock.advance(100);
+    }
+    const last = buckets.at(-1) as { loudMs: number; warningMs: number };
+    expect(last.loudMs).toBe(0);
+    expect(last.warningMs).toBeGreaterThan(0);
   });
 
   it("closes the microphone while asleep and opens it again on wake", () => {
