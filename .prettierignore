@@ -1,2 +1,4 @@
 .claude/worktrees/
 .muse/worktrees/
+# Cargo build output of the Edge workspace.
+apps/edge/target/

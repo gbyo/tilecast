@@ -1,0 +1,27 @@
+[package]
+name = "edge-cas"
+description = "Tilecast Edge content-addressed store: verified immutable blobs, resumable partials, pins, eviction and source fallback."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+bytes.workspace = true
+edge-platform.workspace = true
+edge-protocol.workspace = true
+edge-state.workspace = true
+futures-util.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["fs", "io-util", "sync", "rt", "time"] }
+tracing.workspace = true
+
+[dev-dependencies]
+edge-protocol = { workspace = true, features = ["test-util"] }
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "fs", "io-util", "sync", "time"] }
+
+[lints]
+workspace = true

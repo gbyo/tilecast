@@ -11,7 +11,7 @@ For a production Linux screen, use the [current Linux Player](../players/install
 
 The Tilecast Server and Studio work the same way. The main change is on the Linux Player itself:
 
-~~~text
+```text
 Tilecast Server
       |
 HTTPS / WebSocket
@@ -25,7 +25,7 @@ local IPC
 WPE WebKit renderer
       |
    display
-~~~
+```
 
 **tilecastd** handles the server connection, local Player state, downloaded content, commands, configuration, schedules, hardware features, and renderer restarts. WPE WebKit is the renderer that actually draws the current presentation.
 
@@ -47,16 +47,16 @@ The first Edge release does not include the older peer-to-peer "Edge Fabric" ide
 
 ## Current work
 
-| Area                                                                                    | Milestone |
-| --------------------------------------------------------------------------------------- | --------- |
-| Daemon, WPE renderer, SQLite state, verified content store                              | M1        |
-| Server presence, manifests, offline content playback                                    | M2/M3     |
-| Commands and Player configuration                                                       | M4        |
-| Fresh-install pairing and Avahi discovery                                               | M5        |
-| Resilience, synchronized playback, Span parity                                          | M6        |
-| Installer and Electron-to-Edge migration with rollback                                  | M7        |
-| Proof of play, telemetry, and live preview                                              | M8        |
-| Linux hardware features such as CEC/DDC, Presentation Network, and host audio           | M9        |
+| Area                                                                          | Milestone |
+| ----------------------------------------------------------------------------- | --------- |
+| Daemon, WPE renderer, SQLite state, verified content store                    | M1        |
+| Server presence, manifests, offline content playback                          | M2/M3     |
+| Commands and Player configuration                                             | M4        |
+| Fresh-install pairing and Avahi discovery                                     | M5        |
+| Resilience, synchronized playback, Span parity                                | M6        |
+| Installer and Electron-to-Edge migration with rollback                        | M7        |
+| Proof of play, telemetry, and live preview                                    | M8        |
+| Linux hardware features such as CEC/DDC, Presentation Network, and host audio | M9        |
 
 Follow the [Tilecast Edge milestone](https://github.com/gbyo/tilecast/milestone/2) to see the active work.
 

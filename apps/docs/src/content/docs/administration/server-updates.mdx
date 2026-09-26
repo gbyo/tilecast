@@ -22,27 +22,27 @@ A full recovery needs PostgreSQL data and Tilecast media from the same point in 
 
 1. From the repository clone, fetch the version you want to install.
 
-   ~~~sh title="Repository clone · Fetch releases"
+   ```sh title="Repository clone · Fetch releases"
    git fetch --tags origin
-   ~~~
+   ```
 
 2. Check out the release tag or reviewed commit. Do not update a production server from an unreviewed working tree.
 
-   ~~~sh title="Repository clone · Check out the release"
+   ```sh title="Repository clone · Check out the release"
    git checkout <release-tag>
-   ~~~
+   ```
 
 3. Rebuild and recreate the services without deleting their volumes.
 
-   ~~~sh title="Repository root · Rebuild Tilecast"
+   ```sh title="Repository root · Rebuild Tilecast"
    docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml up -d --build
-   ~~~
+   ```
 
 4. Wait for Tilecast Server to finish startup and any database migrations, then check readiness.
 
-   ~~~sh title="Check server readiness"
+   ```sh title="Check server readiness"
    curl --fail https://signage.example.org/readyz
-   ~~~
+   ```
 
 5. Open Studio and check the fleet, Activity, media library, and at least one Player before considering the update finished.
 
@@ -54,9 +54,9 @@ Do not use `docker compose down --volumes` during an update. That removes the na
 
 Read the server log before making more changes:
 
-~~~sh title="Read the Tilecast Server log"
+```sh title="Read the Tilecast Server log"
 docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml logs server
-~~~
+```
 
 A database migration can make an older Tilecast version unable to use the upgraded database. Checking out the previous source code and starting it against that database is not always a safe rollback.
 

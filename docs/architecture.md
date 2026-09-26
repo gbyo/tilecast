@@ -138,3 +138,14 @@ The closed typed registry separates organization settings, preferences, group po
 ## Milestone 9 player updates
 
 The `updates` domain owns an optional fixed GitHub Releases provider, direct signed-release import, Ed25519-signed release manifests, Android APK-signature verification, private persistent cache, deployment snapshots, and per-screen state. Both release sources converge on one verified Player release model. Update commands reuse PostgreSQL command delivery; APK bytes use a device-authenticated range endpoint and never enter content manifests. Success remains provisional until the updated player reconnects with the expected version code. See [player-updates.md](player-updates.md).
+
+## Tilecast Edge
+
+Tilecast Edge is the Linux player that replaces the Electron Linux Player. The design is [`tilecast-edge.md`](tilecast-edge.md); the implementation state is in [`tilecast-edge-next.md`](tilecast-edge-next.md).
+
+On each Linux player:
+
+- `tilecastd` (Rust, `apps/edge`) runs as the fixed `tilecast` account. It owns the server relationship, the device credential, SQLite state, the content-addressed store and renderer supervision.
+- `tilecast-renderer-wpe` (C, WPE WebKit 2.54+ on WPEPlatform) shows what `tilecastd` sends over a versioned Unix socket. It holds no credential.
+
+The server stays the only authority, and Edge uses the ordinary player API: identity, pairing, heartbeat, the player WebSocket, manifests, commands and authenticated downloads. The server has no Edge-specific domain package or endpoint. A player keeps playing from its local state and verified content when the server is unreachable.

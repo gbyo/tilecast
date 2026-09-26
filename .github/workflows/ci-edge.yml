@@ -1,0 +1,125 @@
+name: Edge CI
+
+# Tilecast Edge is developed as a stack of pull requests whose bases are other
+# Edge branches, so this workflow runs for pull requests against any base.
+# (Pull request validation runs only for pull requests against main.)
+on:
+  pull_request:
+    paths:
+      - "apps/edge/**"
+      - "packages/edge-protocol/**"
+      - "apps/player-linux/**"
+      - "apps/server/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/ci-edge.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/edge/**"
+      - "packages/edge-protocol/**"
+      - ".github/workflows/ci-edge.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    name: Rust workspace
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/edge
+    steps:
+      - uses: actions/checkout@v7
+      # rust-toolchain.toml pins the toolchain; rustup installs it on first use.
+      - run: rustup show active-toolchain
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            apps/edge/target
+          key: edge-rust-${{ runner.os }}-${{ hashFiles('apps/edge/Cargo.lock', 'apps/edge/rust-toolchain.toml') }}
+      - run: cargo fmt --all --check
+      - run: cargo clippy --locked --workspace --all-targets -- -D warnings
+      - run: cargo test --locked --workspace
+
+  wpe:
+    name: WPE headless end to end
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build --workspace @gibsonmb71/tilecast-player-linux
+      - name: Build the WPE development images
+        run: |
+          set -euo pipefail
+          docker build -t tilecast-wpe-dev -f apps/edge/renderer-wpe/ci/Dockerfile apps/edge/renderer-wpe/ci
+          docker build -t tilecast-edge-dev -f apps/edge/renderer-wpe/ci/Dockerfile.edge apps/edge/renderer-wpe/ci
+      - name: Record engine versions
+        run: |
+          docker run --rm tilecast-wpe-dev sh -c \
+            'pkg-config --modversion wpe-webkit-2.0 wpe-platform-2.0 gstreamer-1.0' | tee edge-engine-versions.txt
+      - name: Renderer unit tests and headless scenarios
+        run: |
+          mkdir -p "$RUNNER_TEMP/edge-target"
+          docker run --rm -v "$PWD:/src" -v "$RUNNER_TEMP/edge-target:/target" \
+            tilecast-edge-dev /src/apps/edge/renderer-wpe/ci/run-e2e.sh all
+      - uses: actions/upload-artifact@v6
+        if: ${{ !cancelled() }}
+        with:
+          name: edge-wpe-engine-versions
+          path: edge-engine-versions.txt
+          if-no-files-found: ignore
+
+  server_e2e:
+    name: Real server end to end
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
+      - name: Start PostgreSQL
+        run: |
+          # A throwaway cluster: trust local connections, as ci/run-e2e-server.sh does.
+          sudo sed -i -E 's/(scram-sha-256|md5|peer)$/trust/' /etc/postgresql/*/main/pg_hba.conf
+          sudo systemctl start postgresql.service
+          sudo -u postgres createuser --superuser "$USER"
+      - run: rustup show active-toolchain
+        working-directory: apps/edge
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            apps/edge/target
+          key: edge-rust-${{ runner.os }}-${{ hashFiles('apps/edge/Cargo.lock', 'apps/edge/rust-toolchain.toml') }}
+      - run: python3 apps/edge/ci/e2e_server.py
+
+  required:
+    name: Required Edge validation
+    if: always()
+    needs: [rust, wpe, server_e2e]
+    runs-on: ubuntu-latest
+    env:
+      RESULTS: ${{ join(needs.*.result, ',') }}
+    steps:
+      - name: Require every Edge job to pass
+        run: |
+          if [[ ",$RESULTS," == *,failure,* || ",$RESULTS," == *,cancelled,* || ",$RESULTS," == *,skipped,* ]]; then
+            echo "One or more Edge validation jobs did not pass: $RESULTS" >&2
+            exit 1
+          fi
+          echo "All Edge validation jobs passed: $RESULTS"

@@ -1,0 +1,17 @@
+{
+  "frame": {
+    "type": "event",
+    "seq": 1,
+    "event": "renderer.configure",
+    "data": {
+      "contentStore": {
+        "layout": "cas-sha256-v1",
+        "root": "/var/lib/tilecast-edge/cas"
+      },
+      "kiosk": {
+        "preventDisplaySleep": true,
+        "hideCursor": true
+      }
+    }
+  }
+}

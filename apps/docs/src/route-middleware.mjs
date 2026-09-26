@@ -11,7 +11,8 @@ export const onRequest = defineRouteMiddleware((context) => {
   // without duplicating the same frontmatter across the whole section.
   if (starlightRoute.id === "edge" || starlightRoute.id.startsWith("edge/")) {
     starlightRoute.entry.data.banner = {
-      content: "Tilecast Edge is in preview and is not the production Linux Player yet.",
+      content:
+        "Tilecast Edge is in preview and is not the production Linux Player yet.",
     };
   }
 

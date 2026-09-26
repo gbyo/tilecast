@@ -1,0 +1,38 @@
+{
+  "frame": {
+    "type": "event",
+    "seq": 3,
+    "event": "presentation.activate",
+    "data": {
+      "activationId": "3f2b8c1d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+      "generation": 2,
+      "presentation": {
+        "state": "playing",
+        "items": [
+          {
+            "id": "item-1",
+            "kind": "image",
+            "src": "tcmedia://sha256/9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+            "durationMs": 10000,
+            "fitMode": "contain",
+            "audioEnabled": false,
+            "volume": 1.0,
+            "videoStartOffsetMs": null,
+            "videoEndOffsetMs": null
+          }
+        ],
+        "takeover": false,
+        "generation": 2,
+        "synchronized": false
+      },
+      "content": [
+        {
+          "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+          "sizeBytes": 4,
+          "mimeType": "image/png"
+        }
+      ],
+      "timing": null
+    }
+  }
+}

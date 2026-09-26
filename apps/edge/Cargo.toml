@@ -1,0 +1,71 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/edge-protocol",
+    "crates/edge-state",
+    "crates/edge-ipc",
+    "crates/edge-platform",
+    "crates/edge-cas",
+    "crates/edge-server",
+    "tilecastd",
+    "tilecastctl",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-only"
+repository = "https://github.com/gbyo/tilecast"
+publish = false
+rust-version = "1.98"
+
+[workspace.dependencies]
+# Internal crates. Dependency direction is documented in apps/edge/README.md;
+# a lower crate never depends on a higher one.
+edge-protocol = { path = "crates/edge-protocol" }
+edge-state = { path = "crates/edge-state" }
+edge-cas = { path = "crates/edge-cas" }
+edge-server = { path = "crates/edge-server" }
+edge-platform = { path = "crates/edge-platform" }
+edge-ipc = { path = "crates/edge-ipc" }
+
+anyhow = "1"
+async-trait = "0.1"
+bytes = "1"
+clap = { version = "4.6", features = ["derive"] }
+futures-util = { version = "0.3", default-features = false, features = ["std", "sink"] }
+http-body-util = "0.1"
+hyper = { version = "1", features = ["http1", "server", "client"] }
+hyper-util = { version = "0.1", features = ["tokio", "http1", "server", "client-legacy"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-manual-roots-no-provider", "stream", "json", "http2"] }
+rusqlite = { version = "0.37", features = ["bundled"] }
+rustix = { version = "1", features = ["fs"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "logging", "tls12"] }
+rustls-native-certs = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tempfile = "3"
+thiserror = "2"
+time = { version = "0.3", features = ["formatting", "parsing", "macros", "serde"] }
+tokio = { version = "1.47", features = ["rt-multi-thread", "macros", "net", "io-util", "time", "sync", "signal", "fs"] }
+tokio-util = { version = "0.7", features = ["rt", "io"] }
+toml = "0.9"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter", "fmt"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+missing_debug_implementations = "warn"
+
+[workspace.lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+unwrap_used = "warn"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+strip = "debuginfo"

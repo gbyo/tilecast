@@ -1,0 +1,11 @@
+{
+  "frame": {
+    "type": "event",
+    "seq": 5,
+    "event": "renderer.shutdown",
+    "data": {
+      "reason": "daemon_shutdown",
+      "deadlineMs": 5000
+    }
+  }
+}

@@ -11,11 +11,11 @@ Start in Studio. Edge reports through the normal Screens and Activity pages, so 
 
 ## Local status and logs
 
-~~~sh title="Check Edge status and logs"
+```sh title="Check Edge status and logs"
 tilecastctl status
 journalctl -u tilecast-edge.service
 journalctl -u tilecast-renderer.service
-~~~
+```
 
 Use `tilecastctl status` to check pairing, the server connection, rendering, and safe mode. The daemon and renderer have separate logs, which makes it easier to tell a WPE crash from a full Player problem.
 
