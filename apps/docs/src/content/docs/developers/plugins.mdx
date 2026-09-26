@@ -22,13 +22,14 @@ Plugins are compiled into the Tilecast release. Tilecast doesn't download or run
     - migrations/ Optional database migrations.
     - api/openapi.yaml The plugin's API description.
     - studio/index.tsx The plugin's Studio pages.
+    - runtime/index.ts Optional. What the plugin draws on screens that run the shared Player runtime.
     - docs/index.mdx The plugin's page on this site.
 
 </FileTree>
 
 The directory name is the plugin ID with hyphens, so `transit_alerts` lives in `plugins/transit-alerts/`.
 
-Entry points always sit at these paths: `plugin.go` for the server and `studio/index.tsx` for Studio. The build finds plugin code by these names, so the manifest can't point anywhere else. See the [Plugin API reference](https://github.com/gbyo/tilecast/blob/main/docs/plugin-api.md#manifest) for the exact contract.
+Entry points always sit at these paths: `plugin.go` for the server, `studio/index.tsx` for Studio, and `runtime/index.ts` for the Player. The build finds plugin code by these names, so the manifest can't point anywhere else. See the [Plugin API reference](https://github.com/gbyo/tilecast/blob/main/docs/plugin-api.md#manifest) for the exact contract.
 
 ## Create a plugin
 
@@ -73,5 +74,11 @@ The result is pass or fail. There are no quality tiers.
 The `maintainers` in a manifest are stewards for the plugin's subject. Anyone can contribute to any plugin, and Tilecast's core maintainers review architecture and merge changes. GitHub requests a maintainer's review through the generated `CODEOWNERS` file when that person has access to the repository.
 
 ## Reference
+
+## Draw on the Player
+
+A plugin that shows something on screens declares a tier and the places it draws in its manifest, for example `"runtime": { "entrypoint": "./runtime/index.ts", "manifestTypes": ["transit_alert"], "surfaces": ["strip.bottom"], "tier": "scheduled" }`. The tier decides who wins a shared place: an emergency message always beats a scheduled one, whatever priorities they're given. The Player gives your plugin its own area to draw in, sizes it, and moves the rest of the screen out of the way when a bar asks to push content. Your plugin only draws inside the area it's given.
+
+Styles go in `runtime/*.css`, and every selector starts with `.tc-<directory>`, for example `.tc-transit-alerts`. `plugins:check` refuses styles that could reach another plugin or the Player itself. Tests can use `@tilecast/plugin-sdk/runtime/testing`, which gives a plugin a clock you move by hand.
 
 The exact contract, including every contribution point and host service, is in [`docs/plugin-api.md`](https://github.com/gbyo/tilecast/blob/main/docs/plugin-api.md).
