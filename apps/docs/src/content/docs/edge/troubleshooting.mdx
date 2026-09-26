@@ -27,6 +27,21 @@ Use `tilecastctl status` to check pairing, the server connection, rendering, and
 - **Display Control unavailable:** check the reported reason, such as missing hardware, missing permission, disconnected display, no DDC response, or unsupported control.
 - **Migration refused or rolled back:** fix the failed requirement or compatibility check before trying again.
 
+## Updates
+
+```sh title="Check the update helper"
+sudo /opt/tilecast-edge/current/bin/tilecast-edge-update status
+journalctl -u tilecast-edge-update.service -u tilecast-edge-update-guard.service
+```
+
+The status shows the installed releases, the current one, and the last update with its result and reason. While an update is still provisional, `sudo /opt/tilecast-edge/current/bin/tilecast-edge-update rollback` returns to the previous release.
+
+### Recovery screen after an update
+
+If a new release upgraded the Player's local state database and was then rolled back, the previous release can't read the newer database. It shows its recovery screen instead of changing or recreating the data, and `tilecastctl status` reports `state_db_newer_schema`. The screen stops reporting to Studio until you fix it.
+
+Studio can't send an update to a screen in this state, so recover it on the screen: install a fixed newer release by hand as described in the [packaging guide](https://github.com/gbyo/tilecast/blob/main/apps/edge/packaging/README.md#4-updates), or restore a backup of `/var/lib/tilecast-edge/state.db` from before the update. Don't delete the database to clear the recovery screen. See the [update threat review](https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-update-threat-review.md) for the details.
+
 Do not run `tilecastd` as root just to work around one device permission. Do not delete `/var/lib/tilecast-edge` as a routine troubleshooting step.
 
 Do not post Player credentials, pairing secrets, or private state files in a public issue.

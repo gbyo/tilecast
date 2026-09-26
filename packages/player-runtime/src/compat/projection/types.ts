@@ -370,6 +370,11 @@ export interface UpdateMetadata {
   /** Stable artifact identity; never infer the artifact from directory order. */
   artifactId?: string;
   platform: string; // "linux" for this player
+  /**
+   * The Player release family: "electron-linux" for this player. Tilecast
+   * Edge releases are also "linux" and must never be installed here.
+   */
+  playerFamily?: string;
   versionCode: number;
   versionName: string;
   artifactSizeBytes?: number;

@@ -26,6 +26,7 @@ fn assert_one_stack(host: &FakeHost, phase: Phase, context: &str) {
     let expected = world.legacy_file_digests();
     drop(world);
     let edge = [host.unit_state(EDGE_DAEMON), host.unit_state(EDGE_RENDERER)];
+    let update_socket = host.unit_state(crate::host::UPDATE_SOCKET);
     let recover = host.unit_state(RECOVER_UNIT);
     let display = host.unit_state("gdm3.service");
     let legacy = host.world.lock().unwrap().legacy;
@@ -33,11 +34,13 @@ fn assert_one_stack(host: &FakeHost, phase: Phase, context: &str) {
     match phase {
         Phase::Accepted => {
             assert_eq!(edge, [(true, true), (true, true)], "{context}: Edge runs");
+            assert!(update_socket.0, "{context}: the update helper's socket is enabled with Edge");
             assert_eq!(legacy, (false, false), "{context}: legacy is disabled but left on disk");
             assert_eq!(display, (false, false), "{context}: Edge owns the display");
         }
         Phase::RolledBack | Phase::Refused => {
             assert_eq!(edge, [(false, false), (false, false)], "{context}: Edge is off");
+            assert_eq!(update_socket, (false, false), "{context}: no Edge unit stays enabled");
             assert_eq!(legacy, (true, true), "{context}: the legacy player runs again");
             assert_eq!(display, (true, true), "{context}: the display session is back");
         }

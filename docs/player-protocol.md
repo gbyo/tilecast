@@ -47,6 +47,14 @@ Every identifier field in a heartbeat (`currentItemId`, `currentAssetId`, `curre
 
 Server-side handling is deliberately asymmetric. A malformed **optional playback identifier** — the eight fields listed first above — is dropped, named in the warning log, and returned in `data.ignoredFields`; the rest of the heartbeat is then processed normally. This exists because the same message carries the lifecycle facts that settle a self-update (`playerVersion`, `playerVersionCode`, `lastHealthyPlaybackAt`, `playbackState`, `safeMode`), and one unusable telemetry field must not strand a deployment on a healthy screen. A malformed **required, deployment, command, or credential-bearing** field still rejects the whole heartbeat: `currentUpdateDeploymentId` or `lastCommandId` with an unreadable value would misattribute an update or a command result. Dropped values are recorded as absent, never coerced or substituted.
 
+### Release family
+
+A heartbeat may carry `playerFamily` (`android`, `electron-linux` or `edge`) and, for Tilecast Edge, `playerArchitecture` (`x86_64` or `aarch64`). The server records only these values; another value is recorded as absent and never rejects the heartbeat. Player Updates target a release only at screens of its family and architecture. A player that does not report a family keeps the family its platform always meant: `linux` is `electron-linux` and every other platform is `android`.
+
+`install_player_update` payloads carry `playerFamily` and `expectedArtifactSha256` beside `expectedVersionCode` and the Android field `expectedApkSha256`. A player refuses a payload of another family and never downloads it: Tilecast Edge answers the command with `update_wrong_family`, and the Electron Linux Player reports the deployment `failed`.
+
+For a Tilecast Edge release, a new version code in the heartbeat does not settle the update. Tilecast Edge keeps the new release provisional until it has held a live server link, a ready renderer and meaningful playback evidence for 120 seconds, and then reports `succeeded` to `POST /api/v1/player/update-deployments/{deploymentId}/status`. A release that does not confirm is rolled back on the screen, which reports `failed` with `installerStatus: "rolled_back"` and a reason code.
+
 Status thresholds are centralized on the server: connected socket is `online`, contact within two minutes is `recent`, contact within fifteen minutes is `stale`, and older contact is `offline`. Administrative disable and credential revocation override those states.
 
 Display Control is optional heartbeat metadata. A Linux Player may report

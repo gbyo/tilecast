@@ -1,6 +1,6 @@
 ---
 title: Player updates
-description: Troubleshoot Android or Linux Player releases that cannot verify, download, install, or finish deploying.
+description: Troubleshoot Android, Linux, or Tilecast Edge Player releases that cannot verify, download, install, or finish deploying.
 ---
 
 import { TabItem, Tabs } from "@astrojs/starlight/components";
@@ -34,6 +34,23 @@ The stable Linux update flow is for Tilecast's managed AppImage installation.
 Current Tilecast Linux installs use systemd **user** services, so manage them with `systemctl --user`, not the system service manager.
 
 If an older Player uses a custom service or obsolete AppImage startup method, move it to the current Linux setup before expecting Studio-driven updates to work.
+
+</TabItem>
+
+<TabItem label="Tilecast Edge">
+
+If a screen is listed as incompatible, the release was built for another architecture. Upload the release for the screen's architecture (`x86_64` or `aarch64`).
+
+If a screen shows **Failed**, it kept playing its current release. Common reasons:
+
+- the screen didn't have enough free disk space to download or install the release;
+- the new release didn't start or kept restarting, so the screen returned to its previous release;
+- the screen restarted or lost power before the update confirmed. This always returns to the previous release, even if the new one looked healthy;
+- the screen couldn't reconnect or show content before the confirmation deadline.
+
+To see what happened on the screen, run `sudo /opt/tilecast-edge/current/bin/tilecast-edge-update status`.
+
+If the screen shows its recovery screen after a rollback, the new release changed the local state database to a version the previous release can't read. See [Tilecast Edge troubleshooting](../../edge/troubleshooting/#recovery-screen-after-an-update).
 
 </TabItem>
 

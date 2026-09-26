@@ -1,0 +1,36 @@
+[package]
+name = "edge-release"
+description = "Signed Tilecast Edge releases: the release manifest, the update envelope, the update helper protocol and (feature `install`) the immutable installer shared by tilecast-edge-migrate and tilecast-edge-update."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[features]
+# Filesystem installation: staging from a directory or a signed archive,
+# activation, verification of an installed tree and retention. Only the
+# root tools enable it; tilecastd verifies envelopes only.
+install = ["dep:tar", "dep:ruzstd", "dep:rustix"]
+# Throwaway signing keys, release trees, archives and envelopes for tests.
+test-util = ["install"]
+
+[dependencies]
+base64.workspace = true
+edge-platform.workspace = true
+edge-protocol.workspace = true
+ring.workspace = true
+rustix = { workspace = true, features = ["fs"], optional = true }
+ruzstd = { workspace = true, optional = true }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+tar = { workspace = true, optional = true }
+thiserror.workspace = true
+
+[dev-dependencies]
+edge-release = { path = ".", features = ["test-util"] }
+tempfile.workspace = true
+
+[lints]
+workspace = true

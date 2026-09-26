@@ -1,0 +1,55 @@
+# The Tilecast Edge update helper (M10), started by its socket for tilecastd's
+# requests and gone again after a minute without one. It stages, activates,
+# confirms and rolls back signed releases; it has no device credential, no
+# server connection and no network access, and it takes no path, unit name or
+# command from a request (docs/tilecast-edge-update-threat-review.md).
+#
+# It is never enabled and never depends on tilecast-edge.service: activating
+# a release stops that daemon, and the helper must outlive it.
+[Unit]
+Description=Tilecast Edge update helper
+Documentation=https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-update-threat-review.md
+Requires=tilecast-edge-update.socket
+After=tilecast-edge-update.socket dbus.service
+
+[Service]
+Type=simple
+ExecStart=/opt/tilecast-edge/current/bin/tilecast-edge-update serve
+# An activation runs to its end even if the socket unit is stopped.
+KillMode=process
+TimeoutStopSec=15min
+UMask=0077
+
+# The helper runs as root because it installs releases and changes units. It
+# writes /opt/tilecast-edge, the unit and system configuration directories,
+# its own state directory, and (through systemd-sysusers and
+# systemd-tmpfiles) the account databases and Edge's directories. It reads
+# tilecastd's content store to copy a verified archive. Everything else is
+# read-only to it: /usr outside the four Edge configuration directories,
+# /boot and /efi. The guard units (guard_units.rs) use the same sandbox.
+StateDirectory=tilecast-edge-update
+StateDirectoryMode=0700
+ProtectSystem=strict
+ReadWritePaths=/etc /opt/tilecast-edge -/var/lib/tilecast-edge
+ReadWritePaths=-/usr/lib/sysusers.d -/usr/lib/tmpfiles.d -/usr/lib/udev/rules.d -/usr/lib/modules-load.d
+# The device credential stays out of reach even of this root process.
+InaccessiblePaths=-/var/lib/tilecast-edge/identity
+NoNewPrivileges=yes
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+LockPersonality=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX
+SystemCallArchitectures=native
+MemoryDenyWriteExecute=yes
+IPAddressDeny=any
+CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH CAP_FOWNER CAP_FSETID

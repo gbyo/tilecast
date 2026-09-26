@@ -86,7 +86,7 @@ pub async fn run(fixture: PathBuf, runtime_root: PathBuf, timeout: Duration) -> 
     let failed = |reason, renderer, expected, proven, started: Instant| SelfTestReport {
         outcome: "failed",
         reason: Some(reason),
-        daemon_version: env!("CARGO_PKG_VERSION"),
+        daemon_version: crate::daemon::VERSION,
         renderer,
         expected_items: expected,
         proven_items: proven,
@@ -116,7 +116,7 @@ pub async fn run(fixture: PathBuf, runtime_root: PathBuf, timeout: Duration) -> 
             break SelfTestReport {
                 outcome: "passed",
                 reason: None,
-                daemon_version: env!("CARGO_PKG_VERSION"),
+                daemon_version: crate::daemon::VERSION,
                 renderer: observation.renderer,
                 expected_items: observation.expected,
                 proven_items: observation.proven,

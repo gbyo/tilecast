@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -34,8 +35,27 @@ const (
 	PlatformAndroid = "android"
 	PlatformLinux   = "linux"
 
+	// Player release families. The platform names the operating system; the
+	// family names the player that installs the artifact. Linux has two: the
+	// Electron Linux Player (an AppImage) and Tilecast Edge (a signed release
+	// archive). A deployment reaches only screens of its release's family.
+	FamilyAndroid       = "android"
+	FamilyElectronLinux = "electron-linux"
+	FamilyEdge          = "edge"
+
 	AndroidArtifactName = "tilecast-player.apk"
 	LinuxArtifactName   = "tilecast-player.AppImage"
+
+	// EdgeProduct is the product of a Tilecast Edge update envelope
+	// (apps/edge/crates/edge-release/src/envelope.rs).
+	EdgeProduct = "tilecast-edge"
+	// EdgeManifestName and its signature are the names of an uploaded Edge
+	// envelope; a GitHub release carries one per architecture,
+	// tilecast-edge-update-<arch>.json.
+	EdgeManifestName       = "tilecast-edge-update.json"
+	EdgeMaxArtifactBytes   = 4 << 30
+	edgeMaxReleaseNotes    = 4000
+	edgeGitHubManifestHead = "tilecast-edge-update-"
 
 	// Linux releases are versioned independently of Android and there is no shipped
 	// baseline yet, so any positive Linux version code is acceptable.
@@ -43,6 +63,36 @@ const (
 )
 
 var digestPattern = regexp.MustCompile(`^[a-f0-9]{64}$`)
+
+// edgeVersionPattern mirrors edge_release::manifest::is_version_name.
+var edgeVersionPattern = regexp.MustCompile(`^[0-9]{1,9}\.[0-9]{1,9}\.[0-9]{1,9}(-[0-9A-Za-z.]+)?$`)
+
+// EdgeArchitectures are the architectures an Edge release is built for, in
+// `uname -m` spelling.
+var EdgeArchitectures = map[string]bool{"x86_64": true, "aarch64": true}
+
+// EdgeVersionCode is the version code of an Edge version name, as the release
+// build writes it: MAJOR*1000000 + MINOR*1000 + PATCH. The prerelease part
+// does not count; a part of 1000 or more would collide and is invalid.
+func EdgeVersionCode(name string) (int64, bool) {
+	if len(name) > 64 || !edgeVersionPattern.MatchString(name) {
+		return 0, false
+	}
+	core := strings.SplitN(name, "-", 2)[0]
+	parts := strings.Split(core, ".")
+	major, errMajor := strconv.ParseInt(parts[0], 10, 64)
+	minor, errMinor := strconv.ParseInt(parts[1], 10, 64)
+	patch, errPatch := strconv.ParseInt(parts[2], 10, 64)
+	if errMajor != nil || errMinor != nil || errPatch != nil || major >= 1_000_000 || minor >= 1000 || patch >= 1000 {
+		return 0, false
+	}
+	return major*1_000_000 + minor*1000 + patch, true
+}
+
+// EdgeArtifactName is the archive name of an Edge release.
+func EdgeArtifactName(versionName, arch string) string {
+	return "tilecast-edge-" + versionName + "-" + arch + ".tar.zst"
+}
 
 // Manifest describes a signed player release. Android (APK) and Linux (AppImage)
 // releases share the common fields; the platform-specific fields are mutually
@@ -65,10 +115,39 @@ type Manifest struct {
 	APKSHA256                string `json:"apkSha256,omitempty"`
 	SigningCertificateSHA256 string `json:"signingCertificateSha256,omitempty"`
 
-	// Linux (AppImage) fields.
+	// Linux (AppImage and Edge archive) fields.
 	ArtifactAssetName string `json:"artifactAssetName,omitempty"`
 	ArtifactSizeBytes int64  `json:"artifactSizeBytes,omitempty"`
 	ArtifactSHA256    string `json:"artifactSha256,omitempty"`
+
+	// Tilecast Edge envelope fields. PlayerFamily is "edge"; the rest bind
+	// the archive to the signed release manifest inside it.
+	PlayerFamily          string `json:"playerFamily,omitempty"`
+	Arch                  string `json:"arch,omitempty"`
+	ReleaseManifestSHA256 string `json:"releaseManifestSha256,omitempty"`
+	SBOMSHA256            string `json:"sbomSha256,omitempty"`
+	StateSchemaVersion    int    `json:"stateSchemaVersion,omitempty"`
+}
+
+// NormalizedFamily returns the release family: the signed playerFamily, or
+// for manifests that predate it, the family the platform always meant.
+func (m Manifest) NormalizedFamily() string {
+	if m.PlayerFamily != "" {
+		return m.PlayerFamily
+	}
+	if m.NormalizedPlatform() == PlatformLinux {
+		return FamilyElectronLinux
+	}
+	return FamilyAndroid
+}
+
+// Architecture is the release's architecture, or "" for a family whose
+// artifact is not architecture-specific.
+func (m Manifest) Architecture() string {
+	if m.NormalizedFamily() == FamilyEdge {
+		return m.Arch
+	}
+	return ""
 }
 
 // NormalizedPlatform returns the platform, defaulting an empty value (legacy
@@ -104,21 +183,33 @@ func (m Manifest) ArtifactHash() string {
 	return strings.ToLower(m.APKSHA256)
 }
 
-// artifactSuffix maps a platform to the cache-file extension used on disk.
-func artifactSuffix(platform string) string {
-	if platform == PlatformLinux {
+// artifactSuffix maps a release family to the cache-file extension used on disk.
+func artifactSuffix(family string) string {
+	switch family {
+	case FamilyEdge:
+		return ".tar.zst"
+	case FamilyElectronLinux:
 		return ".appimage"
+	default:
+		return ".apk"
 	}
-	return ".apk"
 }
 
 // baselineVersionCode is the highest version code considered "already shipped"
-// for a platform; a valid release must be strictly newer than it.
-func baselineVersionCode(platform string) int64 {
-	if platform == PlatformLinux {
-		return LinuxBaselineVersionCode
+// for a family; a valid release must be strictly newer than it.
+func baselineVersionCode(family string) int64 {
+	if family == FamilyAndroid {
+		return CurrentVersionCode
 	}
-	return CurrentVersionCode
+	return LinuxBaselineVersionCode
+}
+
+// manifestStateSchema is the Edge state schema to persist, or SQL NULL.
+func manifestStateSchema(m Manifest) any {
+	if m.NormalizedFamily() == FamilyEdge {
+		return m.StateSchemaVersion
+	}
+	return nil
 }
 
 // manifestApplicationID / manifestMinimumSDK return the value to persist,
@@ -203,11 +294,25 @@ func ParseAndVerifyManifest(raw, signature []byte, key ed25519.PublicKey) (Manif
 	if decoder.Decode(&struct{}{}) != io.EOF {
 		return Manifest{}, errors.New("update manifest must contain one JSON object")
 	}
-	if manifest.SchemaVersion != 1 || manifest.Product != "tilecast-player" || manifest.VersionName == "" {
+	if manifest.SchemaVersion != 1 || manifest.VersionName == "" {
 		return Manifest{}, errors.New("update manifest metadata is invalid")
 	}
 	if manifest.Channel != "stable" && manifest.Channel != "beta" {
 		return Manifest{}, errors.New("update channel is invalid")
+	}
+	if manifest.NormalizedFamily() == FamilyEdge {
+		if err := validateEdgeManifest(manifest); err != nil {
+			return Manifest{}, err
+		}
+		return manifest, nil
+	}
+	// Electron and Android manifests carry none of the Edge fields, and an
+	// explicit family must agree with the platform.
+	if manifest.Product != "tilecast-player" || manifest.Arch != "" || manifest.ReleaseManifestSHA256 != "" || manifest.SBOMSHA256 != "" || manifest.StateSchemaVersion != 0 {
+		return Manifest{}, errors.New("update manifest metadata is invalid")
+	}
+	if manifest.PlayerFamily != "" && manifest.PlayerFamily != map[string]string{PlatformLinux: FamilyElectronLinux, PlatformAndroid: FamilyAndroid}[manifest.NormalizedPlatform()] {
+		return Manifest{}, errors.New("update manifest player family does not match its platform")
 	}
 	switch manifest.NormalizedPlatform() {
 	case PlatformLinux:
@@ -233,16 +338,52 @@ func ParseAndVerifyManifest(raw, signature []byte, key ed25519.PublicKey) (Manif
 	return manifest, nil
 }
 
+// validateEdgeManifest applies the Tilecast Edge envelope rules, the same ones
+// the screen and its update helper apply (edge_release::envelope).
+func validateEdgeManifest(m Manifest) error {
+	if m.Product != EdgeProduct || m.NormalizedPlatform() != PlatformLinux {
+		return errors.New("edge update envelope is not a Tilecast Edge update")
+	}
+	if m.ApplicationID != "" || m.MinimumSDK != 0 || m.APKAssetName != "" || m.APKSizeBytes != 0 || m.APKSHA256 != "" || m.SigningCertificateSHA256 != "" {
+		return errors.New("edge update envelope must not carry android fields")
+	}
+	if !EdgeArchitectures[m.Arch] {
+		return errors.New("edge update envelope architecture is invalid")
+	}
+	code, ok := EdgeVersionCode(m.VersionName)
+	if !ok || code != m.VersionCode || m.VersionCode <= LinuxBaselineVersionCode {
+		return errors.New("edge update envelope version is invalid")
+	}
+	if len(m.ReleaseNotes) > edgeMaxReleaseNotes {
+		return errors.New("edge update envelope release notes are too long")
+	}
+	if m.ArtifactAssetName != EdgeArtifactName(m.VersionName, m.Arch) || m.ArtifactSizeBytes <= 0 || m.ArtifactSizeBytes > EdgeMaxArtifactBytes {
+		return errors.New("edge update envelope artifact is invalid")
+	}
+	if !digestPattern.MatchString(m.ArtifactSHA256) || !digestPattern.MatchString(m.ReleaseManifestSHA256) || !digestPattern.MatchString(m.SBOMSHA256) {
+		return errors.New("edge update envelope digests are invalid")
+	}
+	if m.StateSchemaVersion <= 0 {
+		return errors.New("edge update envelope state schema version is invalid")
+	}
+	return nil
+}
+
 // ImportUpload verifies a locally uploaded release with the same manifest and
 // artifact checks used for GitHub releases (plus APK package/signing-certificate
 // checks for Android). The caller owns artifactPath and may remove it after this
 // method returns.
-func (s *Service) ImportUpload(ctx context.Context, artifactPath string, raw, signature []byte, importedBy *uuid.UUID) (ImportedRelease, error) {
+func (s *Service) ImportUpload(ctx context.Context, artifactPath, artifactName string, raw, signature []byte, importedBy *uuid.UUID) (ImportedRelease, error) {
 	manifest, err := ParseAndVerifyManifest(raw, signature, s.key)
 	if err != nil {
 		return ImportedRelease{}, err
 	}
+	if artifactName != manifest.AssetName() {
+		return ImportedRelease{}, errors.New("the uploaded artifact is not the one the signed manifest names")
+	}
 	platform := manifest.NormalizedPlatform()
+	family := manifest.NormalizedFamily()
+	architecture := manifest.Architecture()
 	artifactSize := manifest.ArtifactSize()
 	artifactHash := manifest.ArtifactHash()
 	if artifactSize > s.maxAPK {
@@ -254,7 +395,7 @@ func (s *Service) ImportUpload(ctx context.Context, artifactPath string, raw, si
 	}
 
 	id := uuid.New()
-	suffix := artifactSuffix(platform)
+	suffix := artifactSuffix(family)
 	part := filepath.Join(s.root, id.String()+suffix+".part")
 	final := filepath.Join(s.root, id.String()+suffix)
 	input, err := os.Open(artifactPath)
@@ -284,7 +425,7 @@ func (s *Service) ImportUpload(ctx context.Context, artifactPath string, raw, si
 
 	var existingID uuid.UUID
 	var existingHash, existingCert, existingVerification, existingCache, existingSource string
-	err = s.db.QueryRow(ctx, `SELECT id,apk_sha256,signing_certificate_sha256,verification_status,cache_status,source FROM player_releases WHERE platform=$1 AND version_code=$2`, platform, manifest.VersionCode).Scan(&existingID, &existingHash, &existingCert, &existingVerification, &existingCache, &existingSource)
+	err = s.db.QueryRow(ctx, `SELECT id,apk_sha256,signing_certificate_sha256,verification_status,cache_status,source FROM player_releases WHERE player_family=$1 AND architecture=$2 AND version_code=$3`, family, architecture, manifest.VersionCode).Scan(&existingID, &existingHash, &existingCert, &existingVerification, &existingCache, &existingSource)
 	if err == nil {
 		_ = os.Remove(part)
 		if existingHash == artifactHash && existingCert == strings.ToLower(manifest.SigningCertificateSHA256) && existingVerification == "verified" && existingCache == "cached" {
@@ -297,7 +438,7 @@ func (s *Service) ImportUpload(ctx context.Context, artifactPath string, raw, si
 		return ImportedRelease{}, err
 	}
 	var latestVersion int64
-	if err := s.db.QueryRow(ctx, `SELECT COALESCE(max(version_code),$1) FROM player_releases WHERE platform=$2`, baselineVersionCode(platform), platform).Scan(&latestVersion); err != nil {
+	if err := s.db.QueryRow(ctx, `SELECT COALESCE(max(version_code),$1) FROM player_releases WHERE player_family=$2 AND architecture=$3`, baselineVersionCode(family), family, architecture).Scan(&latestVersion); err != nil {
 		_ = os.Remove(part)
 		return ImportedRelease{}, err
 	}
@@ -309,7 +450,7 @@ func (s *Service) ImportUpload(ctx context.Context, artifactPath string, raw, si
 		_ = os.Remove(part)
 		return ImportedRelease{}, err
 	}
-	_, err = s.db.Exec(ctx, `INSERT INTO player_releases(id,platform,channel,version_code,version_name,application_id,minimum_sdk,release_notes,published_at,apk_name,apk_size,apk_sha256,signing_certificate_sha256,manifest,manifest_signature,cache_status,verification_status,source,imported_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,now(),$9,$10,$11,$12,$13::jsonb,$14,'cached','verified','upload',$15)`, id, platform, manifest.Channel, manifest.VersionCode, manifest.VersionName, manifestApplicationID(manifest), manifestMinimumSDK(manifest), manifest.ReleaseNotes, manifest.AssetName(), artifactSize, artifactHash, strings.ToLower(manifest.SigningCertificateSHA256), string(raw), strings.TrimSpace(string(signature)), importedBy)
+	_, err = s.db.Exec(ctx, `INSERT INTO player_releases(id,platform,player_family,architecture,channel,version_code,version_name,application_id,minimum_sdk,release_notes,published_at,apk_name,apk_size,apk_sha256,signing_certificate_sha256,manifest,manifest_bytes,manifest_signature,state_schema_version,cache_status,verification_status,source,imported_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,now(),$11,$12,$13,$14,$15::jsonb,$16,$17,$18,'cached','verified','upload',$19)`, id, platform, family, architecture, manifest.Channel, manifest.VersionCode, manifest.VersionName, manifestApplicationID(manifest), manifestMinimumSDK(manifest), manifest.ReleaseNotes, manifest.AssetName(), artifactSize, artifactHash, strings.ToLower(manifest.SigningCertificateSHA256), string(raw), raw, strings.TrimSpace(string(signature)), manifestStateSchema(manifest), importedBy)
 	if err != nil {
 		_ = os.Remove(final)
 		return ImportedRelease{}, err
@@ -363,6 +504,31 @@ func (s *Service) importRelease(ctx context.Context, release ProviderRelease) er
 	for _, asset := range release.Assets {
 		assets[asset.Name] = asset
 	}
+	// A Tilecast Edge release carries one signed envelope per architecture.
+	var edgeManifests []string
+	for name := range assets {
+		if strings.HasPrefix(name, edgeGitHubManifestHead) && strings.HasSuffix(name, ".json") {
+			edgeManifests = append(edgeManifests, name)
+		}
+	}
+	if len(edgeManifests) > 0 {
+		sort.Strings(edgeManifests)
+		var firstError error
+		imported := 0
+		for _, name := range edgeManifests {
+			if err := s.importEdgeRelease(ctx, release, assets, name); err != nil {
+				if firstError == nil {
+					firstError = err
+				}
+				continue
+			}
+			imported++
+		}
+		if imported == 0 {
+			return firstError
+		}
+		return nil
+	}
 	// A Linux release is identified by its distinct manifest asset name; anything
 	// else is treated as the original Android APK release layout.
 	platform := PlatformAndroid
@@ -389,9 +555,45 @@ func (s *Service) importRelease(ctx context.Context, release ProviderRelease) er
 	if err != nil {
 		return err
 	}
-	if manifest.NormalizedPlatform() != platform {
+	if manifest.NormalizedPlatform() != platform || manifest.NormalizedFamily() == FamilyEdge {
 		return errors.New("release asset set does not match the signed manifest platform")
 	}
+	id := uuid.NewSHA1(uuid.NameSpaceURL, []byte(fmt.Sprintf("github:%d", release.ID)))
+	return s.storeGitHubRelease(ctx, id, release, manifest, raw, signature, artifactAsset)
+}
+
+// importEdgeRelease imports the Edge release of one architecture from a GitHub
+// release: tilecast-edge-update-<arch>.json, its signature, and the archive
+// that the verified envelope names.
+func (s *Service) importEdgeRelease(ctx context.Context, release ProviderRelease, assets map[string]Asset, manifestName string) error {
+	signatureAsset, ok := assets[manifestName+".sig"]
+	if !ok {
+		return errors.New("edge release is missing its envelope signature")
+	}
+	raw, err := s.provider.Download(ctx, assets[manifestName].URL, 16<<10)
+	if err != nil {
+		return err
+	}
+	signature, err := s.provider.Download(ctx, signatureAsset.URL, 4<<10)
+	if err != nil {
+		return err
+	}
+	manifest, err := ParseAndVerifyManifest(raw, signature, s.key)
+	if err != nil {
+		return err
+	}
+	if manifest.NormalizedFamily() != FamilyEdge || manifestName != edgeGitHubManifestHead+manifest.Arch+".json" {
+		return errors.New("edge release asset names do not match the signed envelope")
+	}
+	artifactAsset, ok := assets[manifest.ArtifactAssetName]
+	if !ok {
+		return errors.New("edge release is missing the archive its envelope names")
+	}
+	id := uuid.NewSHA1(uuid.NameSpaceURL, []byte(fmt.Sprintf("github:%d:edge:%s", release.ID, manifest.Arch)))
+	return s.storeGitHubRelease(ctx, id, release, manifest, raw, signature, artifactAsset)
+}
+
+func (s *Service) storeGitHubRelease(ctx context.Context, id uuid.UUID, release ProviderRelease, manifest Manifest, raw, signature []byte, artifactAsset Asset) error {
 	expectedChannel := "stable"
 	if release.Prerelease {
 		expectedChannel = "beta"
@@ -399,15 +601,14 @@ func (s *Service) importRelease(ctx context.Context, release ProviderRelease) er
 	if manifest.Channel != expectedChannel || manifest.ArtifactSize() != artifactAsset.Size || manifest.ArtifactSize() > s.maxAPK {
 		return errors.New("GitHub asset metadata does not match the signed update manifest")
 	}
-	id := uuid.NewSHA1(uuid.NameSpaceURL, []byte(fmt.Sprintf("github:%d", release.ID)))
-	_, err = s.db.Exec(ctx, `INSERT INTO player_releases(id,github_release_id,github_tag,platform,channel,version_code,version_name,application_id,minimum_sdk,release_notes,published_at,apk_name,apk_size,apk_sha256,signing_certificate_sha256,manifest,manifest_signature,apk_download_url,verification_status) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::jsonb,$17,$18,'verified_manifest') ON CONFLICT(github_release_id) DO UPDATE SET manifest=EXCLUDED.manifest,manifest_signature=EXCLUDED.manifest_signature,updated_at=now()`, id, release.ID, release.Tag, platform, manifest.Channel, manifest.VersionCode, manifest.VersionName, manifestApplicationID(manifest), manifestMinimumSDK(manifest), manifest.ReleaseNotes, release.PublishedAt, manifest.AssetName(), manifest.ArtifactSize(), manifest.ArtifactHash(), strings.ToLower(manifest.SigningCertificateSHA256), string(raw), strings.TrimSpace(string(signature)), artifactAsset.URL)
+	_, err := s.db.Exec(ctx, `INSERT INTO player_releases(id,github_release_id,github_tag,platform,player_family,architecture,channel,version_code,version_name,application_id,minimum_sdk,release_notes,published_at,apk_name,apk_size,apk_sha256,signing_certificate_sha256,manifest,manifest_bytes,manifest_signature,state_schema_version,apk_download_url,verification_status) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18::jsonb,$19,$20,$21,$22,'verified_manifest') ON CONFLICT(github_release_id,player_family,architecture) DO UPDATE SET manifest=EXCLUDED.manifest,manifest_bytes=EXCLUDED.manifest_bytes,manifest_signature=EXCLUDED.manifest_signature,updated_at=now()`, id, release.ID, release.Tag, manifest.NormalizedPlatform(), manifest.NormalizedFamily(), manifest.Architecture(), manifest.Channel, manifest.VersionCode, manifest.VersionName, manifestApplicationID(manifest), manifestMinimumSDK(manifest), manifest.ReleaseNotes, release.PublishedAt, manifest.AssetName(), manifest.ArtifactSize(), manifest.ArtifactHash(), strings.ToLower(manifest.SigningCertificateSHA256), string(raw), raw, strings.TrimSpace(string(signature)), manifestStateSchema(manifest), artifactAsset.URL)
 	return err
 }
 
 func (s *Service) Cache(ctx context.Context, releaseID uuid.UUID) error {
-	var platform, assetURL, expectedHash, expectedCert string
+	var platform, family, assetURL, expectedHash, expectedCert string
 	var expectedSize int64
-	if err := s.db.QueryRow(ctx, `SELECT platform,apk_download_url,apk_size,apk_sha256,signing_certificate_sha256 FROM player_releases WHERE id=$1 AND verification_status<>'failed'`, releaseID).Scan(&platform, &assetURL, &expectedSize, &expectedHash, &expectedCert); err != nil {
+	if err := s.db.QueryRow(ctx, `SELECT platform,player_family,apk_download_url,apk_size,apk_sha256,signing_certificate_sha256 FROM player_releases WHERE id=$1 AND verification_status<>'failed'`, releaseID).Scan(&platform, &family, &assetURL, &expectedSize, &expectedHash, &expectedCert); err != nil {
 		return errors.New("verified player release was not found")
 	}
 	response, err := s.provider.Open(ctx, assetURL)
@@ -418,7 +619,7 @@ func (s *Service) Cache(ctx context.Context, releaseID uuid.UUID) error {
 	if response.StatusCode != 200 || response.ContentLength > s.maxAPK {
 		return errors.New("release artifact download was rejected")
 	}
-	suffix := artifactSuffix(platform)
+	suffix := artifactSuffix(family)
 	part := filepath.Join(s.root, releaseID.String()+suffix+".part")
 	final := filepath.Join(s.root, releaseID.String()+suffix)
 	file, err := os.OpenFile(part, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o640)
@@ -543,14 +744,14 @@ func apkMetadata(path string) (string, int64, int, error) {
 }
 
 // ArtifactPath resolves the cached, verified release artifact on disk, returning
-// its path, byte size, SHA-256, and platform.
+// its path, byte size, SHA-256, and release family.
 func (s *Service) ArtifactPath(ctx context.Context, releaseID uuid.UUID) (string, int64, string, string, error) {
 	var size int64
-	var hash, status, platform string
-	if err := s.db.QueryRow(ctx, `SELECT platform,apk_size,apk_sha256,verification_status FROM player_releases WHERE id=$1`, releaseID).Scan(&platform, &size, &hash, &status); err != nil || status != "verified" {
+	var hash, status, family string
+	if err := s.db.QueryRow(ctx, `SELECT player_family,apk_size,apk_sha256,verification_status FROM player_releases WHERE id=$1`, releaseID).Scan(&family, &size, &hash, &status); err != nil || status != "verified" {
 		return "", 0, "", "", errors.New("verified cached release was not found")
 	}
-	return filepath.Join(s.root, releaseID.String()+artifactSuffix(platform)), size, hash, platform, nil
+	return filepath.Join(s.root, releaseID.String()+artifactSuffix(family)), size, hash, family, nil
 }
 
 // Purge frees a release's cached artifacts from disk. The release record itself
@@ -599,7 +800,7 @@ func (s *Service) Cleanup(ctx context.Context, retentionDays int) {
 // The platform is not consulted: the release row may already be gone, and the
 // unused suffixes simply do not exist.
 func (s *Service) removeArtifacts(releaseID uuid.UUID) {
-	for _, suffix := range []string{".apk", ".apk.part", ".appimage", ".appimage.part"} {
+	for _, suffix := range []string{".apk", ".apk.part", ".appimage", ".appimage.part", ".tar.zst", ".tar.zst.part"} {
 		_ = os.Remove(filepath.Join(s.root, releaseID.String()+suffix))
 	}
 }
@@ -631,12 +832,12 @@ type InstallableRelease struct {
 func (s *Service) LatestInstallableLinux(ctx context.Context) (InstallableRelease, error) {
 	var release InstallableRelease
 	err := s.db.QueryRow(ctx, `SELECT id,version_name,version_code,apk_size,apk_sha256 FROM player_releases
-		WHERE platform=$1 AND channel='stable' AND verification_status='verified' AND cache_status='cached'
-		ORDER BY version_code DESC LIMIT 1`, PlatformLinux).
+		WHERE player_family=$1 AND channel='stable' AND verification_status='verified' AND cache_status='cached'
+		ORDER BY version_code DESC LIMIT 1`, FamilyElectronLinux).
 		Scan(&release.ID, &release.VersionName, &release.VersionCode, &release.SizeBytes, &release.SHA256)
 	if err != nil {
 		return InstallableRelease{}, errors.New("no cached, verified Linux release is available")
 	}
-	release.Path = filepath.Join(s.root, release.ID.String()+artifactSuffix(PlatformLinux))
+	release.Path = filepath.Join(s.root, release.ID.String()+artifactSuffix(FamilyElectronLinux))
 	return release, nil
 }

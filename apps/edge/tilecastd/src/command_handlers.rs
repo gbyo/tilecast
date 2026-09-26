@@ -29,7 +29,6 @@ pub const SYNC_TIMEOUT: Duration = Duration::from_secs(45);
 /// Why a known command type is not available on Edge yet.
 pub fn unsupported_reason(command_type: &str) -> Option<&'static str> {
     Some(match command_type {
-        "install_player_update" => "Signed Tilecast Edge updates arrive in milestone M10.",
         "clear_website_data" => "Website playback on Tilecast Edge arrives with website isolation (M11).",
         // Power Assist is the Android player's device sleep; the reference
         // Linux player answers it the same way. Linux players control the
@@ -215,7 +214,8 @@ impl Handlers for DaemonHandlers {
             | "exit_safe_mode"
             | "run_player_self_test"
             | "provision_presentation_network"
-            | "test_presentation_network" => Plan::Run,
+            | "test_presentation_network"
+            | "install_player_update" => Plan::Run,
             kind if crate::display_control::COMMANDS.contains(&kind) => Plan::Run,
             other => Plan::Settle(CommandResult::failed(
                 "unsupported_command",
@@ -267,6 +267,22 @@ impl Handlers for DaemonHandlers {
                 CommandResult::ok("safe_mode_cleared", if was { "" } else { "Safe mode was not active." })
             }
             "run_player_self_test" => self.self_test().await,
+            // Records a durable job and returns; the update coordinator
+            // downloads, stages and activates it (crate::update).
+            "install_player_update" => match self.context.db() {
+                Some(db) => {
+                    let result = crate::update::accept(
+                        db,
+                        command,
+                        crate::update::own_version_code(),
+                        self.context.now().unix_millis(),
+                    )
+                    .await;
+                    self.context.update_wake.notify_one();
+                    result
+                }
+                None => CommandResult::failed("state_unavailable", ""),
+            },
             "provision_presentation_network" => {
                 let provisioner = crate::network_task::ServerProvisioner::new(&self.context);
                 let result = self.context.network.provision_command(&provisioner, self.context.now()).await;

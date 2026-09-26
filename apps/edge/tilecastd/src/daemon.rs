@@ -55,7 +55,13 @@ use crate::presentation::{ActivationSource, PresentationEngine};
 use crate::server_link::{self, LinkState};
 use crate::supervisor::SupervisorConfig;
 
-pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+/// The release version. `TILECAST_EDGE_VERSION` at build time overrides the
+/// crate version; only the update integration test uses it, to build a
+/// candidate that reports another version from the same source.
+pub const VERSION: &str = match option_env!("TILECAST_EDGE_VERSION") {
+    Some(version) => version,
+    None => env!("CARGO_PKG_VERSION"),
+};
 pub const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(10);
 const SUPERVISION_INTERVAL: Duration = Duration::from_secs(15);
 const CAPABILITY_INTERVAL: Duration = Duration::from_secs(300);
@@ -139,6 +145,10 @@ pub struct DaemonContext {
     /// The logind idle inhibitor's state, and its wake-up (M9).
     pub idle_lock: std::sync::Mutex<crate::idle_inhibit::LockState>,
     pub idle_wake: tokio::sync::Notify,
+    /// Player updates (M10): the coordinator once its task runs, and its
+    /// wake-up (a command accepted a job).
+    pub update: std::sync::Mutex<Option<Arc<crate::update::Coordinator>>>,
+    pub update_wake: tokio::sync::Notify,
 }
 
 impl DaemonContext {
@@ -376,6 +386,8 @@ impl Daemon {
             network_wake: tokio::sync::Notify::new(),
             idle_lock: std::sync::Mutex::new(crate::idle_inhibit::LockState::NotRequested),
             idle_wake: tokio::sync::Notify::new(),
+            update: std::sync::Mutex::new(None),
+            update_wake: tokio::sync::Notify::new(),
         });
 
         let bound_record = match context.db() {
@@ -467,6 +479,7 @@ impl Daemon {
         tasks.spawn(crate::audio::run(Arc::clone(&context)));
         tasks.spawn(crate::network_task::run(Arc::clone(&context)));
         tasks.spawn(crate::idle_inhibit::run(Arc::clone(&context)));
+        tasks.spawn(crate::update::run(Arc::clone(&context)));
 
         let status = ready_status(&context);
         context.notifier.ready(&status);

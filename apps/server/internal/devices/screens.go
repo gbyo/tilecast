@@ -25,7 +25,8 @@ SELECT s.id,s.name,s.description,COALESCE(l.name,''),s.location_id,s.room_name,s
        s.archived_at,s.archived_reason,
        sg.id,sg.name,COALESCE(p.name,ly.name),
        CASE WHEN p.id IS NOT NULL THEN 'playlist' WHEN ly.id IS NOT NULL THEN 'presentation' END,
-       ps.player_version_code,ps.android_sdk,ps.installer_source,ps.install_permission_status,ps.current_update_deployment_id,ps.update_state,ps.update_downloaded_bytes,ps.update_expected_bytes,ps.update_error
+       ps.player_version_code,ps.android_sdk,ps.installer_source,ps.install_permission_status,ps.current_update_deployment_id,ps.update_state,ps.update_downloaded_bytes,ps.update_expected_bytes,ps.update_error,
+       ps.player_family,ps.player_architecture
 FROM screens s
 LEFT JOIN locations l ON l.id=s.location_id
 LEFT JOIN screen_group_memberships gm ON gm.screen_id=s.id
@@ -93,7 +94,7 @@ func scanScreen(row scanner, presence *PresenceHub, now time.Time) (Screen, erro
 		&screen.Platform, &screen.DeviceManufacturer, &screen.DeviceModel, &screen.AndroidVersion, &screen.PlayerVersion, &screen.ScreenWidth, &screen.ScreenHeight, &screen.Density, &screen.Locale, &screen.Timezone, &screen.AvailableStorageBytes, &screen.UptimeSeconds, &screen.Enabled, &screen.PairedAt, &screen.LastConnectedAt, &screen.LastDisconnectedAt, &screen.LastHeartbeatAt, &screen.LastKnownIP, &screen.CreatedAt, &screen.UpdatedAt, &screen.HasActiveCredential,
 		&screen.ArchivedAt, &screen.ArchivedReason,
 		&screen.SyncGroupID, &screen.SyncGroupName, &screen.NowPlayingName, &screen.NowPlayingType,
-		&screen.PlayerVersionCode, &screen.AndroidSDK, &screen.InstallerSource, &screen.InstallPermissionStatus, &screen.CurrentUpdateDeploymentID, &screen.UpdateState, &screen.UpdateDownloadedBytes, &screen.UpdateExpectedBytes, &screen.UpdateError); err != nil {
+		&screen.PlayerVersionCode, &screen.AndroidSDK, &screen.InstallerSource, &screen.InstallPermissionStatus, &screen.CurrentUpdateDeploymentID, &screen.UpdateState, &screen.UpdateDownloadedBytes, &screen.UpdateExpectedBytes, &screen.UpdateError, &screen.PlayerFamily, &screen.PlayerArchitecture); err != nil {
 		return Screen{}, err
 	}
 	if screen.LocationID != nil {

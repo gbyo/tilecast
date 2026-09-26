@@ -1,11 +1,14 @@
-# The M7 migration integration image: the real-server image with systemd as
-# PID 1, a system bus and user managers, so tilecast-edge-migrate runs
-# against real units, a lingering kiosk account and a real legacy user unit.
+# The M7 migration and M10 update integration image: the real-server image
+# with systemd as PID 1, a system bus and user managers, so
+# tilecast-edge-migrate runs against real units, a lingering kiosk account and
+# a real legacy user unit, and tilecast-edge-update against the same units
+# (zstd packs test releases; tc slows a download so it can be interrupted).
 #
 #   docker build -t tilecast-edge-migrate-e2e -f apps/edge/ci/Dockerfile.migrate apps/edge/ci
 FROM tilecast-edge-e2e
 RUN apt-get update && apt-get install -y --no-install-recommends \
       systemd systemd-sysv dbus dbus-user-session libpam-systemd systemd-container \
+      zstd iproute2 \
     && rm -rf /var/lib/apt/lists/* \
     && systemctl mask getty@tty1.service console-getty.service systemd-firstboot.service \
     && systemctl set-default multi-user.target

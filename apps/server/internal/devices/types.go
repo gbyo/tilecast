@@ -134,26 +134,30 @@ type Screen struct {
 	UpdateDownloadedBytes     *int64     `json:"updateDownloadedBytes,omitempty"`
 	UpdateExpectedBytes       *int64     `json:"updateExpectedBytes,omitempty"`
 	UpdateError               *string    `json:"updateError,omitempty"`
-	ScreenWidth               int        `json:"screenWidth"`
-	ScreenHeight              int        `json:"screenHeight"`
-	Density                   float32    `json:"density"`
-	Locale                    string     `json:"locale"`
-	Timezone                  string     `json:"timezone"`
-	AvailableStorageBytes     *int64     `json:"availableStorageBytes,omitempty"`
-	UptimeSeconds             *int64     `json:"uptimeSeconds,omitempty"`
-	Enabled                   bool       `json:"enabled"`
-	PairedAt                  time.Time  `json:"pairedAt"`
-	LastConnectedAt           *time.Time `json:"lastConnectedAt,omitempty"`
-	LastDisconnectedAt        *time.Time `json:"lastDisconnectedAt,omitempty"`
-	LastHeartbeatAt           *time.Time `json:"lastHeartbeatAt,omitempty"`
-	LastKnownIP               *string    `json:"lastKnownIp,omitempty"`
-	LastContactAt             *time.Time `json:"lastContactAt,omitempty"`
-	Status                    Status     `json:"status"`
-	HasActiveCredential       bool       `json:"hasActiveCredential"`
-	ArchivedAt                *time.Time `json:"archivedAt,omitempty"`
-	ArchivedReason            string     `json:"archivedReason,omitempty"`
-	CreatedAt                 time.Time  `json:"createdAt"`
-	UpdatedAt                 time.Time  `json:"updatedAt"`
+	// PlayerFamily is what the running player reported (`edge` for Tilecast
+	// Edge); absent for players that do not report it.
+	PlayerFamily          *string    `json:"playerFamily,omitempty"`
+	PlayerArchitecture    *string    `json:"playerArchitecture,omitempty"`
+	ScreenWidth           int        `json:"screenWidth"`
+	ScreenHeight          int        `json:"screenHeight"`
+	Density               float32    `json:"density"`
+	Locale                string     `json:"locale"`
+	Timezone              string     `json:"timezone"`
+	AvailableStorageBytes *int64     `json:"availableStorageBytes,omitempty"`
+	UptimeSeconds         *int64     `json:"uptimeSeconds,omitempty"`
+	Enabled               bool       `json:"enabled"`
+	PairedAt              time.Time  `json:"pairedAt"`
+	LastConnectedAt       *time.Time `json:"lastConnectedAt,omitempty"`
+	LastDisconnectedAt    *time.Time `json:"lastDisconnectedAt,omitempty"`
+	LastHeartbeatAt       *time.Time `json:"lastHeartbeatAt,omitempty"`
+	LastKnownIP           *string    `json:"lastKnownIp,omitempty"`
+	LastContactAt         *time.Time `json:"lastContactAt,omitempty"`
+	Status                Status     `json:"status"`
+	HasActiveCredential   bool       `json:"hasActiveCredential"`
+	ArchivedAt            *time.Time `json:"archivedAt,omitempty"`
+	ArchivedReason        string     `json:"archivedReason,omitempty"`
+	CreatedAt             time.Time  `json:"createdAt"`
+	UpdatedAt             time.Time  `json:"updatedAt"`
 }
 
 type Status string
@@ -175,12 +179,18 @@ type DevicePrincipal struct {
 }
 
 type Heartbeat struct {
-	ScreenWidth                       int               `json:"screenWidth"`
-	ScreenHeight                      int               `json:"screenHeight"`
-	AvailableStorageBytes             *int64            `json:"availableStorageBytes,omitempty"`
-	UptimeSeconds                     *int64            `json:"uptimeSeconds,omitempty"`
-	PlayerVersion                     string            `json:"playerVersion"`
-	PlayerVersionCode                 *int64            `json:"playerVersionCode,omitempty"`
+	ScreenWidth           int    `json:"screenWidth"`
+	ScreenHeight          int    `json:"screenHeight"`
+	AvailableStorageBytes *int64 `json:"availableStorageBytes,omitempty"`
+	UptimeSeconds         *int64 `json:"uptimeSeconds,omitempty"`
+	PlayerVersion         string `json:"playerVersion"`
+	PlayerVersionCode     *int64 `json:"playerVersionCode,omitempty"`
+	// PlayerFamily and PlayerArchitecture say which Player release family
+	// the running player installs (`android`, `electron-linux`, `edge`) and,
+	// for Tilecast Edge, its architecture. A release reaches only screens of
+	// its family; older players omit both.
+	PlayerFamily                      string            `json:"playerFamily,omitempty"`
+	PlayerArchitecture                string            `json:"playerArchitecture,omitempty"`
 	PresentationSchemaVersions        []int             `json:"presentationSchemaVersions,omitempty"`
 	NativePresentationCapabilities    map[string]int    `json:"nativePresentationCapabilities,omitempty"`
 	WebRuntimeVersion                 int               `json:"webRuntimeVersion,omitempty"`

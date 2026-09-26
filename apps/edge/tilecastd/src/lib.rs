@@ -68,3 +68,4 @@ pub mod self_test;
 pub mod server_link;
 pub mod supervisor;
 pub mod telemetry;
+pub mod update;

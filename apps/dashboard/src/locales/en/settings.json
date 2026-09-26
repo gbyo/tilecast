@@ -1511,7 +1511,11 @@
       "uploadedVersion": "Version {{version}} · {{channel}} · {{size}}",
       "importing": "Importing release…",
       "uploadVerify": "Upload and verify",
-      "clearFiles": "Clear files"
+      "clearFiles": "Clear files",
+      "edgeNote": "Each Tilecast Edge screen downloads and verifies the release, restarts into it, and confirms it after it reconnects and shows content. A screen that cannot confirm returns to its previous release on its own.",
+      "verifyingEdge": "Verifying the signed envelope and the release archive hash…",
+      "architectureUnknown": "architecture not reported",
+      "edgeArchive": "release archive"
     },
     "setup": {
       "connect": "Connect GitHub",

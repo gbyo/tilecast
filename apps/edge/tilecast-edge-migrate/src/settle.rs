@@ -168,6 +168,7 @@ pub(crate) mod tests {
             last_legacy_import: ShortToken::new("completed").ok(),
             pairing: None,
             outbox: None,
+            update: None,
             presentation: Some(PresentationStatus {
                 source: ShortToken::new("server_manifest").unwrap(),
                 generation: 3,

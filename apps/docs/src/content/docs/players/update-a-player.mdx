@@ -1,9 +1,9 @@
 ---
 title: Update a Player
-description: Cache a verified release and deploy it to selected Android or Linux screens.
+description: Cache a verified release and deploy it to selected Android, Linux, or Tilecast Edge screens.
 ---
 
-Use **Settings** > **Player updates** to choose and deploy a verified Android or Linux release. Updating a release does not update Tilecast Server, Docker, or the host operating system.
+Use **Settings** > **Player updates** to choose and deploy a verified Android, Linux, or Tilecast Edge release. Updating a release does not update Tilecast Server, Docker, or the host operating system.
 
 import { Steps, TabItem, Tabs } from "@astrojs/starlight/components";
 
@@ -12,7 +12,7 @@ import { Steps, TabItem, Tabs } from "@astrojs/starlight/components";
 <Steps>
 
 1. Open **Settings** > **Player updates** in Studio.
-2. Select **Android** or **Linux**.
+2. Select **Android**, **Linux**, or **Tilecast Edge**.
 3. If you need a GitHub release that is not listed yet, select **Sync from GitHub**. Only an Owner can synchronize releases.
 4. Select **Download** beside the release. Wait until its status is **Ready to deploy**. Only a cached and verified release can be deployed.
 
@@ -45,6 +45,12 @@ The Player downloads and verifies the APK. Android may require the install permi
 <TabItem label="Linux">
 
 The managed AppImage downloads and verifies the release, replaces the running file, and restarts. The AppImage and its parent directory must be writable by the kiosk account. Use the [server-provided Linux installation](../install-linux/) to create the supported managed setup.
+
+</TabItem>
+
+<TabItem label="Tilecast Edge">
+
+The screen downloads and verifies the release, installs it beside the current release, and restarts into it. It confirms the update after it reconnects and shows content for two minutes. If it can't, it returns to its previous release on its own and the deployment shows the screen as failed. See [Update Tilecast Edge](../../administration/player-updates/#update-tilecast-edge).
 
 </TabItem>
 

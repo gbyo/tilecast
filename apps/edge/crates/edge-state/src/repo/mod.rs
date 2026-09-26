@@ -15,6 +15,7 @@ pub mod outbox;
 pub mod playback;
 pub mod presentation_network;
 pub mod renderer;
+pub mod updates;
 
 use edge_protocol::Timestamp;
 

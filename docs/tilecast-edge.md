@@ -94,7 +94,7 @@ It owns:
 - SQLite state and crash recovery;
 - the renderer relationship: what to show, whether it is shown, and recovery;
 - capability probing;
-- update staging;
+- update jobs: verifying, downloading and asking the update helper (§15) to stage, activate and confirm;
 - the bounded telemetry and Activity outbox;
 - local administration over IPC (`tilecastctl`).
 
@@ -113,6 +113,8 @@ Edge 1 adds no general root daemon. Operations that need root keep the existing 
 Display control and input use udev rules and group membership, not root. The udev rule gives HDMI-CEC adapters and the I2C buses of display adapters to the `tilecast-display` group. Only `tilecast-edge.service` joins that group (`SupplementaryGroups=`), and `DevicePolicy=closed` with `DeviceAllow=char-cec rw` and `DeviceAllow=char-i2c rw` limits the daemon to those device classes. The `tilecast` account is not a member, so the renderer and the session bridge do not get the group.
 
 A new root operation needs a written threat-boundary review before it is added.
+
+M10 adds one root helper, `tilecast-edge-update`, with a written review in [`tilecast-edge-update-threat-review.md`](tilecast-edge-update-threat-review.md). It has five fixed operations (`stage`, `activate`, `confirm`, `rollback`, `status`) on a socket that only `tilecast-edge.service` may use, no network, no device credential, and no path, unit or command input. §15 describes it.
 
 ### 4.4 Session bridge (amendment, M9)
 
@@ -148,21 +150,295 @@ The bridge:
 
 The bridge is optional. A missing user session, bridge, PipeWire or microphone never stops playback and never fails a migration; it sets the audio capabilities to `blocked` or `unsupported` with a stable reason (`session_bridge_not_connected`, `pipewire_unavailable`, `no_microphone`, [`tilecast-edge-capabilities.md`](tilecast-edge-capabilities.md)), and the runtime's meter shows itself unavailable. The installer checks only that the units are installed and enabled.
 
+## 5. Filesystem layout
+
+```text
+/etc/tilecast-edge/edge.toml          optional, root-owned operator configuration
+/var/lib/tilecast-edge/               StateDirectory, 0700 tilecast
+    state.db                          SQLite metadata
+    identity/                         0700: device-credential (0600)
+    cas/sha256/<ab>/<64 hex>          verified immutable objects
+    partial/<64 hex>.part             resumable downloads (update archives too)
+    diagnostics/                      bounded local diagnostics
+/run/tilecast-edge/                   RuntimeDirectory, 0750
+    edge.sock                         IPC socket, 0660 tilecast:tilecast
+/var/lib/tilecast-edge-update/        the update helper's state, 0700 root
+    transaction.json                  open update transaction, 0600
+    previous.json                     last finished transaction, 0600
+    work/                             private archive copy while staging
+/run/tilecast-edge-update/
+    update.sock                       update helper socket, 0660 root:tilecast
+/opt/tilecast-edge/<version>/         installed release, root-owned, immutable
+/opt/tilecast-edge/current            symbolic link to the active release
+```
+
+Rules:
+
+- CAS and partial paths derive only from a validated lowercase SHA-256 digest. No filename, URL, MIME type or server string becomes part of a path.
+- `cas/` and `partial/` are on the state directory's filesystem, so promotion is an atomic `rename(2)` followed by a directory `fsync`.
+- The device credential is a file, never a database value.
+- The state database is never served to any client.
+- The renderer unit cannot read `identity/`, `state.db` or `partial/`, and cannot reach the update helper's socket.
+- An update archive is a content-store object like any other; there is no separate download directory.
+
+## 6. Local state
+
+### 6.1 Database
+
+One SQLite database holds every piece of metadata that must survive a restart. Connection settings are fixed: WAL journal, `synchronous = FULL`, foreign keys on, and a busy timeout. `synchronous = FULL` is not relaxed to gain speed; hot paths are optimized individually.
+
+Migrations are compiled into the binary and applied in order, each in its own `BEGIN IMMEDIATE` transaction. A database with a newer schema than the build knows is refused, not rewritten. A shipped migration is never edited.
+
+Nothing deletes or recreates the database automatically. Any open, migration or integrity failure puts the daemon in **recovery mode** (§11.4). Starting empty would silently lose the server binding and could strand a paired screen.
+
+The schema stores no secrets and no media bytes. Every table that can grow names its bound, and its repository enforces the bound.
+
+### 6.2 Write amplification
+
+Reads never cause one write each. CAS access times are batched in memory and flushed once a minute. Status and capability snapshots replace the current row; they are never an unbounded history.
+
+### 6.3 Unclean shutdown
+
+The daemon records a running marker at start and clears it on clean shutdown. A start that finds the marker set runs an integrity check and marks every CAS object as suspect. A suspect object is re-hashed before its next use.
+
+## 7. Local IPC
+
+The IPC contract is `edge_protocol::ipc`, protocol version 1. It is renderer-neutral.
+
+- **Transport:** an `AF_UNIX` stream socket at `/run/tilecast-edge/edge.sock`, mode `0660`. The daemon checks the client UID with `SO_PEERCRED` against its allowlist.
+- **Framing:** a big-endian `u32` length, then one UTF-8 JSON object. A length of zero or more than 4 MiB closes the connection.
+- **Handshake:** the client sends `hello` with a role and a version range. The daemon picks the highest common version or rejects. Roles are `renderer`, `tilecastctl` and `session_bridge` (§4.4); administrative methods also need the daemon's own UID or root, and only the daemon's UID may take `session_bridge`.
+- **Messages:** requests and responses (client to daemon only), events in either direction with a per-direction sequence, and `goodbye`.
+- **Strictness:** every frame rejects unknown members; every string and list has an explicit bound.
+- **Reconnect:** the daemon is the source of truth. On connect it sends `renderer.configure`. After `renderer.ready` it sends the current activation, with its original identifier, only when the renderer supports every feature it needs.
+
+What never crosses the socket: the device credential, Presentation Network secrets, raw server responses, arbitrary filesystem paths from a client, executables, shell fragments and media bytes.
+
+Golden fixtures for every frame type are in `packages/edge-protocol/fixtures/ipc`. The Rust and C sides test against them.
+
+## 8. Server relationship
+
+### 8.1 Authority
+
+The server owns organization data, screens, pairing and credentials, content, playlists, layouts, schedules, takeovers, configuration policy, update authorization, Activity and incidents. Edge 1 moves none of this to the player.
+
+`tilecastd` is the only process on the machine that talks to the server as the player.
+
+### 8.2 Identity and credential
+
+Edge keeps every existing player invariant:
+
+1. The server address is normalized with the player URL policy: HTTP and HTTPS only; public hosts need HTTPS; HTTP is allowed only for private IPv4, link-local, localhost and `.local`; HTTPS is never downgraded; explicit ports are kept.
+2. Before the stored credential is sent, `GET /api/v1/system/identity` must report the installation ID the player is bound to. In code this is a type: only `ServerClient::verify_installation` produces an `AuthenticatedServer`, and only an `AuthenticatedServer` can send the credential.
+3. A mismatch stops the server link. The credential is never sent to the other server. An explicit reset is required.
+4. The credential is deleted only when the server answers `device_credential_invalid` or `device_credential_revoked`. Network errors, 5xx answers and `screen_disabled` retry with backoff.
+5. Redirects are never followed with the credential attached.
+6. The credential is stored as `identity/device-credential`, mode 0600, and its `Debug` form is redacted.
+
+### 8.3 Contact and reconciliation
+
+`tilecastd` uses the ordinary player API: pairing, `POST /player/heartbeat`, the player WebSocket, the manifest, configuration and command endpoints, and authenticated asset downloads. The server computes screen status from this contact exactly as for every other player. Edge 1 adds no Edge-specific server endpoint.
+
+The WebSocket is a wake-up path. Periodic reconciliation always runs as well, so a lost push never leaves a screen stale. Push events cause a reconciliation; they never replace one.
+
+### 8.4 Offline behavior
+
+Readiness, the renderer and playback never wait for the server. At start the daemon activates what it already has:
+
+- the last accepted, fully prepared manifest and configuration from SQLite;
+- the content it references, verified and pinned in the CAS;
+- the local schedule, evaluated with the last server clock offset (§13).
+
+A failed reconciliation or preparation never replaces the last good state. A new manifest becomes active only after every object it needs is verified and pinned.
+
+## 9. Content store
+
+### 9.1 Identity and invariants
+
+An object's identity is the SHA-256 of its bytes. These invariants do not change without an update to this document:
+
+1. **Only verified bytes are promoted.** An object is promoted only after its full size and SHA-256 match, computed over the final partial file after `fsync`.
+2. **Commit order** is: fsync partial, verify, `rename` into `cas/`, fsync the directory, insert the metadata row. Reconciliation at open repairs every crash point: an orphan partial without a row is deleted, a row without a file is dropped, and an object file without a row is re-hashed and adopted or deleted.
+3. **Objects are immutable.** Nothing is written in place under `cas/`.
+4. **Pins win.** Eviction never removes a pinned object and never touches a partial that has an active writer.
+5. **One writer per digest.** Concurrent fetches of the same object are serialized.
+6. **Suspect objects are re-hashed** before use after an unclean shutdown (§6.3).
+
+### 9.2 Sources
+
+For Edge 1, a needed object comes from:
+
+1. the local verified CAS, when it is already present; or
+2. the Tilecast Server origin, through an authenticated player download path.
+
+Local files (the legacy import and development fixtures) use the same verified commit path.
+
+The origin source keeps the Electron player's resume rules: `Range` with `If-Range` set to the server's strong validator; a `200` answer to a range request restarts from zero; `401`, `403`, `404` and `410` end that source; other failures are transient and keep the partial. Download paths come from the manifest and must be plain `/api/v1/player/` paths without a query, fragment or dot segment.
+
+Sources implement one trait, `edge_cas::BlobSource`, and the `Fetcher` tries them in order. A source never decides integrity; the store does. This is the extension seam for a later source such as a release-artifact store. Edge 1 carries no peer source.
+
+### 9.3 Pins, limits and eviction
+
+Pins have a reason and a holder: the active and pending presentation, prefetch, updates, renderer releases, migration and manual. Timed pins expire. The store keeps a byte limit and a reserved free-space floor; eviction removes unpinned objects, least recently used first, cheaper domains (media) before update and renderer artifacts.
+
+### 9.4 Scrubbing
+
+`tilecastctl` can verify one object on request. A corrupt object is removed; the next preparation that needs it fetches it again. Background scrubbing, when added, uses the same verification and is rate-limited.
+
+## 10. Renderer
+
+### 10.1 Baseline
+
+- WPE WebKit 2.54 or later, through WPEPlatform only. No Cog, libwpe or WPEBackend-fdo.
+- Platforms: `drm` on dedicated signage (no compositor), `wayland` on development machines and existing kiosk compositors, `headless` in CI.
+- A small C11/GLib host. Presentation policy and business logic stay in `tilecastd`.
+
+### 10.2 Trusted runtime
+
+Electron and WPE host the shared Tilecast Player Runtime (`@tilecast/player-runtime`, [`player-runtime.md`](player-runtime.md)). Both load the same built artifact from `tilecast://runtime/index.html`, so presentation behavior stays identical during migration. The runtime owns the display DOM, playback lifecycle, transitions and evidence. The WPE host owns only the WPEPlatform and web view lifecycle, the URI schemes, the script bridge and output integration, and it stays small: presentation policy never moves into C.
+
+The host adapter (`web/tilecast-bridge.js`) implements the runtime's versioned host contract, `TilecastRuntimeHostV1`, and exposes only its typed members. Behavior follows the capabilities the adapter advertises, never the host's name. Runtime file names are validated against a fixed grammar: top-level files and `fonts/<name>`. Host-to-page delivery calls one fixed function with typed arguments; no script source is built from strings. The runtime document's CSP is `script-src 'self'` and `style-src 'self'`, with no inline allowance.
+
+### 10.3 Media access
+
+The renderer reads media only through `tcmedia://`, and only for objects that the current activation or plugin state lists, with the declared size. It never receives a directory to browse and never receives a path from the page. The target is a daemon-owned media capability channel: `tilecastd` grants short-lived per-activation capabilities and serves the bytes itself, so the renderer needs no filesystem access to the CAS at all.
+
+### 10.4 Evidence and compatibility
+
+The renderer reports `renderer.ready` with the features it can show, then acceptance, rejection, progress and item errors. Progress counts only when it is meaningful for the item kind (for example, advancing video time or a painted image). A presentation that needs a feature the renderer does not advertise is not sent; the screen shows an explicit "unavailable" surface and status reports the reason.
+
+### 10.5 Websites
+
+Website and YouTube playback need an isolation design (network policy, permissions, storage partitioning, navigation limits) before the renderer advertises them. Until then they are reported as incompatible, never shown in a weakened form. Website credentials remain out of scope.
+
+## 11. Supervision and recovery
+
+### 11.1 systemd
+
+- `tilecast-edge.service` is `Type=notify`. `READY=1` is sent once state and IPC are up. Readiness never waits for the server.
+- The watchdog is pinged at half the configured interval, and only while the daemon can answer a trivial state query in time. A wedged state thread stops the pings, and systemd restarts the daemon.
+- On SIGTERM the daemon sends `STOPPING=1`, cancels its tasks, says goodbye to IPC sessions, waits at most ten seconds, records a clean shutdown and checkpoints the WAL.
+- The renderer is a separate unit and keeps its last frame while the daemon restarts.
+
+### 11.2 Recovery ladder
+
+The ladder is the Electron player's, adapted to a separate renderer process: re-activate the prepared presentation, reload the renderer's trusted runtime, ask the renderer to exit so systemd restarts it, then safe mode after repeated exhaustion inside a window. Each rung is spaced; sustained healthy evidence clears the ladder. The daemon never restarts itself for a renderer fault.
+
+### 11.3 Safe mode
+
+Safe mode shows a status surface instead of content and stops the ladder. It is reported in status. Activation leaves the safe-mode surface in place until the daemon restarts or the `exit_safe_mode` command clears it.
+
+### 11.4 Recovery mode
+
+If the state database cannot be opened, migrated or verified, the daemon stays up in recovery mode: IPC, `tilecastctl status` and the watchdog work, the renderer shows a recovery surface, and nothing is recreated. A restart loop cannot fix a corrupt database.
+
+## 12. Capabilities
+
+A capability describes one thing the device can or cannot do, with a state and a reason: `available`, `degraded`, `blocked`, `supported` (implemented but not usable right now) or `unsupported`. Code decides behavior from capabilities and presentation requirements, never from a platform name.
+
+Providers probe the machine independently, each with a timeout. A provider that fails keeps its last known capabilities, marked `degraded` with `provider_probe_failed`. The daemon adds capabilities it knows from live state: the renderer and the state store. Only the current snapshot is stored; its revision moves only on a material change.
+
+Edge 1 providers: systemd notify and watchdog, host time synchronization, the WPE platform backends, the renderer, and the state store. M9 adds display control (kernel HDMI-CEC and DDC/CI), the Presentation Network helper, the systemd-logind idle inhibitor, and audio from the session bridge (§4.4). [`tilecast-edge-capabilities.md`](tilecast-edge-capabilities.md) lists each hardware capability with its reasons.
+
+## 13. Time
+
+Wall time answers "when" (schedule boundaries, pin expiry, report timestamps). Monotonic time answers "how long" (timeouts, backoff, progression of running playback). Wall time comes from an injected clock, so tests control it.
+
+The player keeps the Electron player's server clock offset: it samples server time from the WebSocket and stores the last offset, so a restart without the server still schedules correctly. Synchronized playback anchors once at activation and then advances with the renderer's monotonic clock, so a later wall-clock correction never jumps active playback.
+
+Host time synchronization (chrony, systemd-timesyncd) is reported as a capability. Edge 1 does not add PTP or a distributed clock.
+
+## 14. Migration from Electron
+
+### 14.1 Model
+
+```text
+legacy Electron player
+        ↓
+one-time migration
+        ↓
+tilecastd + WPE
+```
+
+There is no shadow mode, no dual runtime, no credential leasing and no second credential. The screen keeps its server record, its `playerInstallationId` and its device credential.
+
+### 14.2 Legacy import
+
+`tilecastd import-legacy` reads the Electron player's data directory (`$XDG_DATA_HOME/tilecast-player`, default `~/.local/share/tilecast-player`) read-only and imports:
+
+- `installation.json`: the player installation ID, stored once as the player ID;
+- `credential.json`: server URL, installation ID, screen ID and name, and the device credential;
+- persisted command idempotency, the playback-disabled flag and the last server clock offset;
+- cached media, only when size and SHA-256 match an entry in the saved manifest.
+
+Imported state is untrusted until checked. The saved URL is normalized with the player URL policy, `/api/v1/system/identity` must report the saved installation ID, and only then is the credential stored. The import sends no authenticated request.
+
+The import is bounded (every file is size-limited and strictly parsed, symbolic links are not followed), idempotent and crash-safe. A completed import is not repeated. It refuses to run while `tilecastd` runs. It never modifies, moves or deletes legacy files. Pairing sessions, updater stages, AirPlay files, Presentation Network radio state and website storage are not imported.
+
+### 14.3 Cutover
+
+The installer:
+
+1. installs the Edge release and units without enabling them;
+2. runs the local WPE self-test on the actual display backend, and checks the cached legacy manifest for presentations that the installed renderer reports as incompatible;
+3. stops and disables the legacy unit; the legacy AppImage and data stay in place;
+4. runs `tilecastd import-legacy`;
+5. enables `tilecast-edge.service` and `tilecast-renderer.service`;
+6. waits for a connected server link and meaningful playback evidence of the current presentation for a bounded settlement window.
+
+Only one stack is enabled at a time. The legacy player is a systemd user unit, so the installer, not a unit dependency, enforces this: it disables the legacy unit before it enables Edge, re-enables it only after it disables Edge, and holds a migration lock for the whole cutover. The importer refuses to run beside a running daemon. Because both stacks use the same device credential, this local mutual exclusion is the control that prevents two processes from acting as one screen.
+
+### 14.4 Rollback and acceptance
+
+Until the migration is accepted, rollback is: stop and disable the Edge units, then re-enable the preserved legacy unit. The legacy files were never changed, and the credential is the same, so the legacy player resumes where it stopped. The installer rolls back automatically when step 2 or step 6 of §14.3 fails.
+
+Acceptance is a local decision that ends the rollback window. After acceptance a later maintenance release may remove the legacy AppImage and data. A revoked credential is revoked for both stacks; re-pair the screen in Studio in that case.
+
 A server-side migration session with a separate candidate credential is not part of Edge 1. It becomes worth its complexity only if field evidence shows legacy players being restarted beside Edge; [`tilecast-edge-future.md`](tilecast-edge-future.md) records it as deferred.
 
 ## 15. Updates
 
-Release authorization stays on the server, as for the Android and Electron players. Edge 1 update basics:
+Tilecast Edge updates are Player updates. The Tilecast Server authorizes every deployment with the existing Player Updates model (releases, deployments, canary, maintenance windows, cancel and retry), and a screen installs only what a deployment names. `systemd-sysupdate` was prototyped and is not used ([`tilecast-edge-m10-sysupdate-evaluation.md`](tilecast-edge-m10-sysupdate-evaluation.md)): on the tested systemd versions it did not unpack the Tilecast `.tar.zst` archive, it verifies no local source, it cannot send the device credential, and it has no install-without-activation or rollback step. Debian 12 does not ship it. Mender is not a candidate.
 
-- releases are signed artifacts published from the fixed release workflow; the player verifies the signature and digest before staging;
-- artifacts are downloaded through the CAS like any other object and pinned while staged;
-- a release is installed into a new `/opt/tilecast-edge/<version>/` directory; activation switches the `current` link atomically; the previous version stays for rollback;
-- success is provisional until the new version reconnects and reports meaningful playback; otherwise the previous version is restored;
-- the state schema migration of a new version runs only after activation, and a downgraded daemon refuses a newer schema (§6.1) instead of writing to it.
+```text
+ Tilecast Server
+   |  install_player_update, update metadata and archive (device credential)
+   v
+ tilecastd --- durable update job (state.db), archive in the content store
+   |
+   |  /run/tilecast-edge-update/update.sock
+   v
+ tilecast-edge-update (root)
+   |- stage      verify, unpack into /opt/tilecast-edge/<version>/
+   |- activate   switch current, provisional
+   |- confirm    end the provisional window
+   '- rollback   return to the previous release
+          ^
+          |  tilecast-edge-update-guard (the previous release's binary):
+          |  at boot before Edge, and every 30 s while provisional
+```
 
-`tilecastd` never replaces its own binaries in place. The privileged activation step is a narrow, separately reviewed helper (§4.3).
+### 15.1 Releases and targeting
 
-M10 must first prototype `systemd-sysupdate` (transfer definitions, verified downloads, versioned installs under `/opt/tilecast-edge/<version>/`) and use it where it meets these rules. Custom update code is written only for a gap that the prototype shows. Mender is not a candidate.
+- A release is a Player release of the `edge` family with an architecture (`x86_64` or `aarch64`). Android releases are the `android` family and the Electron Linux Player's are `electron-linux`. The server targets an Edge release only at screens whose heartbeat reports `playerFamily: "edge"` and that architecture; an Electron release never reaches an Edge screen, and Electron refuses an Edge release.
+- A release is the M7 release tree (every file listed with size, SHA-256 and mode in `tilecast-edge-release.json`, signed with the Tilecast Ed25519 update key), packed as `tilecast-edge-<version>-<arch>.tar.zst`, and a signed update envelope (`tilecast-edge-update.json`) that binds the archive's name, size and SHA-256 to the release manifest's and the SBOM's digests, the version and the state schema. The same key signs both, in the same way. The server, `tilecastd` and the helper each verify the envelope.
+
+### 15.2 Download and staging
+
+- `install_player_update` only writes a durable job and answers `update_accepted`. The update coordinator in `tilecastd` then moves the job through `accepted`, `verified`, `downloaded`, `staged`, `activating`, `provisional` and a terminal state, one saved step per pass, and reports each state to the server. A restart resumes the job at its saved state.
+- The coordinator verifies the envelope against the metadata and the command, then downloads the archive through the content store with range resume, pinned while the job needs it. The bytes are trusted only after the store verifies size and SHA-256.
+- The helper copies the content-store object into a private root-owned file while it hashes it, verifies the archive, the release manifest and every file, and stages the tree in `/opt/tilecast-edge/<version>.staging`, renamed to `/opt/tilecast-edge/<version>/`. Staging activates nothing. `download_only` deployments end here.
+
+### 15.3 Activation, confirmation and rollback
+
+- Activation waits for the deployment's maintenance window, for no takeover, and for a live server link. The helper writes a root transaction record first, arms the guard, stops the renderer and then the daemon (WPE WebKit finds its helper processes under `current/lib/wpe`), installs the candidate's units and system files, switches `current` with one `rename(2)`, reloads systemd and starts the candidate. `tilecastd` never replaces its own binaries.
+- The candidate is provisional. The candidate `tilecastd` asks for confirmation only after 120 s without a break of: a connected server link with fresh contact since it started, a ready renderer that is not in safe mode, and the current presentation accepted with meaningful evidence (and fresh progress for content that plays). The helper checks the running daemon's own status again before it confirms. Only then does the screen report `succeeded`; the server never settles an Edge target from a heartbeat version.
+- The guard runs the previous release's helper, so a candidate that cannot run cannot stop its own rollback. It rolls back a candidate that did not confirm within 600 s, that restarts repeatedly or that systemd gave up on, and, at boot, any candidate that was still provisional when the machine stopped, before the Edge units start. The screen reports `failed` with `installerStatus: "rolled_back"` and the reason.
+- The previous release stays installed through the provisional window. A confirmation keeps the confirmed and the previous release (and anything newer that is staged) and removes older ones.
+
+### 15.4 State schema
+
+The candidate migrates `state.db` after activation. An older daemon refuses a newer schema (§6.1) and runs in recovery mode instead of changing it. A rollback after such a migration restores the previous release but not a working screen; the helper never changes the database, and there is no reverse migration. `tilecastd` refuses a release whose state schema is older than its database before it downloads it. The threat review records the recovery steps.
 
 ## 16. Local administration and observability
 
@@ -191,20 +467,20 @@ Telemetry and Activity events use a bounded outbox in SQLite (at most 500 rows, 
 
 Edge 1 ships as a sequence of reviewable milestones. Each one keeps the tree releasable.
 
-| Milestone                      | Scope                                                                                                                                                                                                                                                                                                                                           | Exit criteria                                                                                                                                             |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| M1 Foundation                  | Rust workspace, `tilecastd` lifecycle under systemd, SQLite state and recovery mode, local IPC, `tilecastctl`, WPE renderer on drm, wayland and headless, renderer supervision, CAS with origin downloads, identity gate, device credential, minimal heartbeat, legacy import, capability registry, Linux CI and WPE headless end-to-end tests. | Workspace checks and Linux image checks pass; the headless scenarios pass; the real-server script passes import, identity gate, heartbeat and revocation. |
-| M2 Server presence             | Player WebSocket with fallback heartbeat, server clock sampling, full heartbeat fields.                                                                                                                                                                                                                                                         | Studio shows a migrated screen as online; socket loss falls back to heartbeat; reconnect after server restart.                                            |
-| M3 Manifests and content       | Manifest fetch and validation, CAS preparation from the origin, atomic activation, pinning, daemon-owned media capability channel, local schedule selection.                                                                                                                                                                                    | Downloaded image and video playback; restart offline from cached state; a failed preparation keeps the previous manifest.                                 |
-| M4 Configuration and commands  | Player configuration synchronization; durable commands with idempotency; restart, reload and display commands.                                                                                                                                                                                                                                  | A command runs at most once across daemon restarts and redelivery.                                                                                        |
-| M5 Pairing                     | Pairing sessions and setup surface for a new installation; manual URL entry; LAN discovery through Avahi.                                                                                                                                                                                                                                       | A clean machine pairs, is approved and plays without legacy state.                                                                                        |
-| M6 Offline resilience          | Server outage, WAN outage, power-loss and clock-change qualification.                                                                                                                                                                                                                                                                           | Documented crash-point and outage tests pass.                                                                                                             |
-| M7 Migration installer         | Preflight, cutover, settlement window, automatic rollback, acceptance.                                                                                                                                                                                                                                                                          | Migration and rollback tested on each supported host type.                                                                                                |
-| M8 Proof of play and telemetry | Activity events through the outbox, bounded player telemetry.                                                                                                                                                                                                                                                                                   | Activity compliance matches an Electron player on the same schedule.                                                                                      |
-| M9 Hardware parity             | CEC and DDC display control, Presentation Network helper client, audio output, Noise Meter capture through PipeWire.                                                                                                                                                                                                                            | Capability matrix on reference hardware.                                                                                                                  |
-| M10 Updates                    | Signed Edge releases, server-authorized deployment, atomic switch, provisional success and rollback.                                                                                                                                                                                                                                            | An update and a forced rollback on reference hardware.                                                                                                    |
-| M11 WPE qualification          | DRM/KMS on reference hardware, Wayland kiosks, website isolation.                                                                                                                                                                                                                                                                               | Physical-device validation recorded in the ledger.                                                                                                        |
-| M12 Production rollout         | Pilot, staged migration, Electron retirement plan.                                                                                                                                                                                                                                                                                              | Pilot fleet stable for an agreed period.                                                                                                                  |
+| Milestone                      | Scope                                                                                                                                                                                                                                                                                                                                           | Exit criteria                                                                                                                                                  |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M1 Foundation                  | Rust workspace, `tilecastd` lifecycle under systemd, SQLite state and recovery mode, local IPC, `tilecastctl`, WPE renderer on drm, wayland and headless, renderer supervision, CAS with origin downloads, identity gate, device credential, minimal heartbeat, legacy import, capability registry, Linux CI and WPE headless end-to-end tests. | Workspace checks and Linux image checks pass; the headless scenarios pass; the real-server script passes import, identity gate, heartbeat and revocation.      |
+| M2 Server presence             | Player WebSocket with fallback heartbeat, server clock sampling, full heartbeat fields.                                                                                                                                                                                                                                                         | Studio shows a migrated screen as online; socket loss falls back to heartbeat; reconnect after server restart.                                                 |
+| M3 Manifests and content       | Manifest fetch and validation, CAS preparation from the origin, atomic activation, pinning, daemon-owned media capability channel, local schedule selection.                                                                                                                                                                                    | Downloaded image and video playback; restart offline from cached state; a failed preparation keeps the previous manifest.                                      |
+| M4 Configuration and commands  | Player configuration synchronization; durable commands with idempotency; restart, reload and display commands.                                                                                                                                                                                                                                  | A command runs at most once across daemon restarts and redelivery.                                                                                             |
+| M5 Pairing                     | Pairing sessions and setup surface for a new installation; manual URL entry; LAN discovery through Avahi.                                                                                                                                                                                                                                       | A clean machine pairs, is approved and plays without legacy state.                                                                                             |
+| M6 Offline resilience          | Server outage, WAN outage, power-loss and clock-change qualification.                                                                                                                                                                                                                                                                           | Documented crash-point and outage tests pass.                                                                                                                  |
+| M7 Migration installer         | Preflight, cutover, settlement window, automatic rollback, acceptance.                                                                                                                                                                                                                                                                          | Migration and rollback tested on each supported host type.                                                                                                     |
+| M8 Proof of play and telemetry | Activity events through the outbox, bounded player telemetry.                                                                                                                                                                                                                                                                                   | Activity compliance matches an Electron player on the same schedule.                                                                                           |
+| M9 Hardware parity             | CEC and DDC display control, Presentation Network helper client, audio output, Noise Meter capture through PipeWire.                                                                                                                                                                                                                            | Capability matrix on reference hardware.                                                                                                                       |
+| M10 Updates                    | Signed Edge releases in the Player Updates model, resumable verified download, the root update helper, atomic switch, provisional confirmation and automatic rollback.                                                                                                                                                                          | Software: an update, a power loss while provisional and a broken candidate under real systemd. Hardware: an update and a rollback on reference hardware (M11). |
+| M11 WPE qualification          | DRM/KMS on reference hardware, Wayland kiosks, website isolation.                                                                                                                                                                                                                                                                               | Physical-device validation recorded in the ledger.                                                                                                             |
+| M12 Production rollout         | Pilot, staged migration, Electron retirement plan.                                                                                                                                                                                                                                                                                              | Pilot fleet stable for an agreed period.                                                                                                                       |
 
 ### 18.2 Edge 1.5 and Edge 2
 

@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -34,10 +36,10 @@ func (s *server) listPlayerReleases(w http.ResponseWriter, r *http.Request) {
 		_ = s.db.QueryRow(r.Context(), `SELECT last_checked_at,safe_error FROM update_provider_state WHERE provider='github'`).Scan(&checked, &providerError)
 	}
 
-	rows, err := s.db.Query(r.Context(), `SELECT id,COALESCE(github_tag,''),platform,source,channel,version_code,version_name,minimum_sdk,release_notes,published_at,apk_size,cache_downloaded_bytes,apk_sha256,signing_certificate_sha256,manifest_signature,cache_status,verification_status,verification_error,
+	rows, err := s.db.Query(r.Context(), `SELECT id,COALESCE(github_tag,''),platform,player_family,architecture,source,channel,version_code,version_name,minimum_sdk,release_notes,published_at,apk_size,cache_downloaded_bytes,apk_sha256,signing_certificate_sha256,manifest_signature,cache_status,verification_status,verification_error,
 		(SELECT count(*) FROM update_deployments d WHERE d.release_id=player_releases.id),
 		(SELECT count(*) FROM update_deployments d WHERE d.release_id=player_releases.id AND d.status IN('pending','active'))
-		FROM player_releases ORDER BY platform,version_code DESC`)
+		FROM player_releases ORDER BY player_family,architecture,version_code DESC`)
 	if err != nil {
 		s.internalError(w, r, err)
 		return
@@ -46,14 +48,14 @@ func (s *server) listPlayerReleases(w http.ResponseWriter, r *http.Request) {
 	items := []map[string]any{}
 	for rows.Next() {
 		var id uuid.UUID
-		var tag, platform, source, channel, name, notes, hash, cert, signature, cache, verification string
+		var tag, platform, family, architecture, source, channel, name, notes, hash, cert, signature, cache, verification string
 		var code, size, downloadedBytes int64
 		var deploymentCount, activeDeploymentCount int
 		var sdk *int
 		var published time.Time
 		var verificationError *string
-		if rows.Scan(&id, &tag, &platform, &source, &channel, &code, &name, &sdk, &notes, &published, &size, &downloadedBytes, &hash, &cert, &signature, &cache, &verification, &verificationError, &deploymentCount, &activeDeploymentCount) == nil {
-			items = append(items, map[string]any{"id": id, "tag": tag, "platform": platform, "source": source, "channel": channel, "versionCode": code, "versionName": name, "minimumSdk": sdk, "releaseNotes": notes, "publishedAt": published, "apkSizeBytes": size, "downloadedBytes": downloadedBytes, "apkSha256": hash, "signingCertificateSha256": cert, "manifestSignature": signature, "cacheStatus": cache, "verificationStatus": verification, "verificationError": verificationError, "deploymentCount": deploymentCount, "activeDeploymentCount": activeDeploymentCount})
+		if rows.Scan(&id, &tag, &platform, &family, &architecture, &source, &channel, &code, &name, &sdk, &notes, &published, &size, &downloadedBytes, &hash, &cert, &signature, &cache, &verification, &verificationError, &deploymentCount, &activeDeploymentCount) == nil {
+			items = append(items, map[string]any{"id": id, "tag": tag, "platform": platform, "playerFamily": family, "architecture": architecture, "source": source, "channel": channel, "versionCode": code, "versionName": name, "minimumSdk": sdk, "releaseNotes": notes, "publishedAt": published, "apkSizeBytes": size, "downloadedBytes": downloadedBytes, "apkSha256": hash, "signingCertificateSha256": cert, "manifestSignature": signature, "cacheStatus": cache, "verificationStatus": verification, "verificationError": verificationError, "deploymentCount": deploymentCount, "activeDeploymentCount": activeDeploymentCount})
 		}
 	}
 	writeJSON(w, 200, map[string]any{"data": map[string]any{"repository": "Gibsonmb71/tilecast", "lastCheckedAt": checked, "providerError": providerError, "manifestKeyConfigured": s.updates.ManifestKeyConfigured(), "githubAuth": s.updates.GitHubAuthStatus(), "items": items}})
@@ -110,11 +112,24 @@ func (s *server) uploadPlayerRelease(w http.ResponseWriter, r *http.Request) {
 		}
 		files[name] = path
 	}
-	// The uploaded artifact filename selects the platform: an AppImage means a
-	// Linux release (with its Linux-suffixed manifest), otherwise the Android APK.
+	// The uploaded files select the family: a Tilecast Edge envelope and
+	// archive, an AppImage (the Electron Linux Player, with its Linux-suffixed
+	// manifest), or otherwise the Android APK.
 	artifactName, manifestName, signatureName := "tilecast-player.apk", "tilecast-player-update.json", "tilecast-player-update.json.sig"
 	if files[updates.LinuxArtifactName] != "" {
 		artifactName, manifestName, signatureName = updates.LinuxArtifactName, "tilecast-player-update-linux.json", "tilecast-player-update-linux.json.sig"
+	}
+	if files[updates.EdgeManifestName] != "" {
+		manifestName, signatureName, artifactName = updates.EdgeManifestName, updates.EdgeManifestName+".sig", ""
+		for name := range files {
+			if edgeArchiveName.MatchString(name) {
+				artifactName = name
+			}
+		}
+		if artifactName == "" {
+			writeError(w, http.StatusUnprocessableEntity, "player_release_file_missing", "Missing required release file: the Tilecast Edge archive.")
+			return
+		}
 	}
 	for _, name := range []string{artifactName, manifestName, signatureName} {
 		if files[name] == "" {
@@ -136,20 +151,31 @@ func (s *server) uploadPlayerRelease(w http.ResponseWriter, r *http.Request) {
 	if session, ok := r.Context().Value(sessionContextKey).(auth.Session); ok {
 		userID = &session.User.ID
 	}
-	result, err := s.updates.ImportUpload(r.Context(), files[artifactName], manifest, signature, userID)
+	result, err := s.updates.ImportUpload(r.Context(), files[artifactName], artifactName, manifest, signature, userID)
 	if err != nil {
 		writeError(w, http.StatusUnprocessableEntity, "player_release_verification_failed", err.Error())
 		return
 	}
 	resourceID := result.ID.String()
-	auditMetadata, _ := json.Marshal(map[string]any{"platform": result.Manifest.NormalizedPlatform(), "versionCode": result.Manifest.VersionCode, "channel": result.Manifest.Channel, "duplicate": result.Duplicate})
+	auditMetadata, _ := json.Marshal(map[string]any{"platform": result.Manifest.NormalizedPlatform(), "playerFamily": result.Manifest.NormalizedFamily(), "architecture": result.Manifest.Architecture(), "versionCode": result.Manifest.VersionCode, "channel": result.Manifest.Channel, "duplicate": result.Duplicate})
 	_, _ = s.db.Exec(r.Context(), `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,metadata)VALUES($1,$2,'player_updates.release_uploaded','player_release',$3,$4::jsonb)`, uuid.New(), userID, resourceID, string(auditMetadata))
-	writeJSON(w, http.StatusCreated, map[string]any{"data": map[string]any{"id": result.ID, "platform": result.Manifest.NormalizedPlatform(), "source": result.Source, "versionCode": result.Manifest.VersionCode, "versionName": result.Manifest.VersionName, "channel": result.Manifest.Channel, "apkSizeBytes": result.Manifest.ArtifactSize(), "releaseNotes": result.Manifest.ReleaseNotes, "cacheStatus": result.CacheStatus, "verificationStatus": result.VerificationStatus, "duplicate": result.Duplicate}})
+	writeJSON(w, http.StatusCreated, map[string]any{"data": map[string]any{"id": result.ID, "platform": result.Manifest.NormalizedPlatform(), "playerFamily": result.Manifest.NormalizedFamily(), "architecture": result.Manifest.Architecture(), "source": result.Source, "versionCode": result.Manifest.VersionCode, "versionName": result.Manifest.VersionName, "channel": result.Manifest.Channel, "apkSizeBytes": result.Manifest.ArtifactSize(), "releaseNotes": result.Manifest.ReleaseNotes, "cacheStatus": result.CacheStatus, "verificationStatus": result.VerificationStatus, "duplicate": result.Duplicate}})
 }
+
+// edgeArchiveName matches the archive of a Tilecast Edge release
+// (updates.EdgeArtifactName); the signed envelope must name it exactly.
+var edgeArchiveName = regexp.MustCompile(`^tilecast-edge-[0-9]{1,9}\.[0-9]{1,9}\.[0-9]{1,9}(-[0-9A-Za-z.]+)?-(x86_64|aarch64)\.tar\.zst$`)
 
 func releaseUploadPartLimit(name, contentType string, maximum int64) (int64, bool) {
 	mediaType := strings.ToLower(strings.TrimSpace(strings.Split(contentType, ";")[0]))
+	if edgeArchiveName.MatchString(name) {
+		return maximum, mediaType == "application/zstd" || mediaType == "application/octet-stream"
+	}
 	switch name {
+	case updates.EdgeManifestName:
+		return 16 << 10, mediaType == "application/json" || mediaType == "application/octet-stream"
+	case updates.EdgeManifestName + ".sig":
+		return 4 << 10, mediaType == "application/octet-stream" || mediaType == "text/plain"
 	case "tilecast-player.apk":
 		return maximum, mediaType == "application/vnd.android.package-archive" || mediaType == "application/octet-stream"
 	case updates.LinuxArtifactName:
@@ -330,8 +356,8 @@ func (s *server) createUpdateDeployment(w http.ResponseWriter, r *http.Request) 
 	}
 	var versionCode, apkSize int64
 	var minimumSDK *int
-	var platform, hash string
-	if err := s.db.QueryRow(r.Context(), `SELECT platform,version_code,minimum_sdk,apk_size,apk_sha256 FROM player_releases WHERE id=$1 AND verification_status='verified' AND cache_status='cached'`, input.ReleaseID).Scan(&platform, &versionCode, &minimumSDK, &apkSize, &hash); err != nil {
+	var family, architecture, hash string
+	if err := s.db.QueryRow(r.Context(), `SELECT player_family,architecture,version_code,minimum_sdk,apk_size,apk_sha256 FROM player_releases WHERE id=$1 AND verification_status='verified' AND cache_status='cached'`, input.ReleaseID).Scan(&family, &architecture, &versionCode, &minimumSDK, &apkSize, &hash); err != nil {
 		writeError(w, 422, "player_release_not_verified", "Only fully verified cached releases can be deployed.")
 		return
 	}
@@ -369,25 +395,29 @@ func (s *server) createUpdateDeployment(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 	}
-	// Screens report a specific platform string (e.g. "fire-tv", "android-tv",
-	// "linux"); a release targets a family. Everything that is not Linux is
-	// treated as Android so future Android form factors stay eligible.
-	rows, err := tx.Query(r.Context(), `SELECT DISTINCT s.id,ps.player_version_code,ps.android_sdk,COALESCE(ps.install_permission_status,'unknown'),COALESCE(s.last_heartbeat_at>now()-interval '15 minutes',false) FROM screens s LEFT JOIN screen_player_status ps ON ps.screen_id=s.id WHERE s.deleted_at IS NULL AND (CASE WHEN s.platform='linux' THEN 'linux' ELSE 'android' END)=$3 AND (s.id=ANY($1) OR EXISTS(SELECT 1 FROM screen_group_memberships m WHERE m.screen_id=s.id AND m.screen_group_id=ANY($2))) ORDER BY s.id`, input.ScreenIDs, input.GroupIDs, platform)
+	// A release reaches only screens of its family. A player that reports its
+	// family (Tilecast Edge always does) is taken at its word; for older
+	// players the platform decides: "linux" is the Electron Linux Player, and
+	// every other platform string ("fire-tv", "android-tv", ...) is Android,
+	// so future Android form factors stay eligible. An Electron release can
+	// therefore never reach an Edge screen, nor an Edge release an Electron one.
+	rows, err := tx.Query(r.Context(), `SELECT DISTINCT s.id,ps.player_version_code,ps.android_sdk,COALESCE(ps.install_permission_status,'unknown'),COALESCE(s.last_heartbeat_at>now()-interval '15 minutes',false),COALESCE(ps.player_architecture,'') FROM screens s LEFT JOIN screen_player_status ps ON ps.screen_id=s.id WHERE s.deleted_at IS NULL AND `+screenFamilySQL+`=$3 AND (s.id=ANY($1) OR EXISTS(SELECT 1 FROM screen_group_memberships m WHERE m.screen_id=s.id AND m.screen_group_id=ANY($2))) ORDER BY s.id`, input.ScreenIDs, input.GroupIDs, family)
 	if err != nil {
 		s.internalError(w, r, err)
 		return
 	}
 	type target struct {
-		id         uuid.UUID
-		current    *int64
-		sdk        *int
-		permission string
-		recent     bool
+		id           uuid.UUID
+		current      *int64
+		sdk          *int
+		permission   string
+		recent       bool
+		architecture string
 	}
 	targets := []target{}
 	for rows.Next() {
 		var item target
-		if err = rows.Scan(&item.id, &item.current, &item.sdk, &item.permission, &item.recent); err != nil {
+		if err = rows.Scan(&item.id, &item.current, &item.sdk, &item.permission, &item.recent, &item.architecture); err != nil {
 			rows.Close()
 			s.internalError(w, r, err)
 			return
@@ -400,7 +430,7 @@ func (s *server) createUpdateDeployment(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if len(targets) == 0 {
-		writeError(w, 422, "update_target_required", "No eligible "+platform+" screens matched the targets.")
+		writeError(w, 422, "update_target_required", "No eligible "+familyLabel(family)+" screens matched the targets.")
 		return
 	}
 	canarySize := normalizedCanarySize(input.CanarySize, len(targets))
@@ -421,6 +451,11 @@ func (s *server) createUpdateDeployment(w http.ResponseWriter, r *http.Request) 
 		if minimumSDK != nil && target.sdk != nil && *target.sdk < *minimumSDK {
 			state = "incompatible"
 		}
+		// An architecture-specific release needs a screen that reported the
+		// same architecture; an unknown one is not assumed to match.
+		if architecture != "" && target.architecture != architecture {
+			state = "incompatible"
+		}
 		if target.current != nil && *target.current >= versionCode {
 			state = "already_current"
 		}
@@ -432,7 +467,7 @@ func (s *server) createUpdateDeployment(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 		if state == "pending" || state == "offline" {
-			payload, _ := json.Marshal(map[string]any{"deploymentId": id, "releaseId": input.ReleaseID, "expectedVersionCode": versionCode, "expectedApkSha256": hash, "expectedArtifactSha256": hash, "installationMode": input.Mode, "maintenanceWindowStart": input.MaintenanceWindowStart})
+			payload, _ := json.Marshal(updateCommandPayload(id, input.ReleaseID, family, versionCode, hash, input.Mode, input.MaintenanceWindowStart))
 			commandID := uuid.New()
 			if _, err = tx.Exec(r.Context(), `INSERT INTO player_commands(id,organization_id,screen_id,type,payload,idempotency_key,created_by,expires_at) SELECT $1,organization_id,id,'install_player_update',$2::jsonb,$1,$3,now()+interval '7 days' FROM screens WHERE id=$4`, commandID, string(payload), user.ID, target.id); err != nil {
 				s.internalError(w, r, err)
@@ -454,12 +489,41 @@ func (s *server) createUpdateDeployment(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, 201, map[string]any{"data": map[string]any{"id": id, "status": "active", "targetCount": len(targets), "apkSizeBytes": apkSize, "rolloutMode": rolloutMode, "rolloutPhase": rolloutPhase, "canarySize": canarySize}})
 }
 
+// screenFamilySQL is the Player release family of screen s (joined with its
+// status as ps): what the player reported, or what its platform always meant.
+const screenFamilySQL = `COALESCE(ps.player_family,CASE WHEN s.platform='linux' THEN 'electron-linux' ELSE 'android' END)`
+
+func familyLabel(family string) string {
+	switch family {
+	case updates.FamilyEdge:
+		return "Tilecast Edge"
+	case updates.FamilyElectronLinux:
+		return "Linux (Electron)"
+	default:
+		return "Android"
+	}
+}
+
+// updateCommandPayload is the install_player_update command payload. The
+// family lets a player refuse a deployment for another family before it
+// fetches anything.
+func updateCommandPayload(deployment, release uuid.UUID, family string, versionCode int64, hash, mode string, window *time.Time) map[string]any {
+	return map[string]any{"deploymentId": deployment, "releaseId": release, "playerFamily": family, "expectedVersionCode": versionCode, "expectedApkSha256": hash, "expectedArtifactSha256": hash, "installationMode": mode, "maintenanceWindowStart": window}
+}
+
 func normalizedCanarySize(requested, targetCount int) int {
 	if requested <= 0 || requested >= targetCount {
 		return 0
 	}
 	return requested
 }
+
+// edgeDeploymentSQL is true when screen update state st belongs to a Tilecast
+// Edge release. Edge success is never inferred from a heartbeat's version
+// code: an Edge release is provisional after activation, and only the
+// screen's explicit confirmation, reported through the update status
+// endpoint, settles it (docs/tilecast-edge.md §15).
+const edgeDeploymentSQL = `EXISTS(SELECT 1 FROM update_deployments ed JOIN player_releases er ON er.id=ed.release_id WHERE ed.id=st.deployment_id AND er.player_family='edge')`
 
 // reconcileUpdateDeployments settles what the live heartbeat path should already
 // have settled. It exists because a target stuck mid-install while its screen is
@@ -486,7 +550,7 @@ func (s *server) reconcileUpdateDeployments(ctx context.Context) {
 	// whole sites: a screen asleep outside its active hours reports no playback at
 	// all, so an update it had plainly finished could not settle until its next
 	// school day. Uptime carries that weight instead — see devices.SettledUptimeSeconds.
-	_, _ = s.db.Exec(ctx, `UPDATE screen_update_states st SET state='succeeded',reconnect_at=COALESCE(st.reconnect_at,now()),completed_at=now(),updated_at=now() WHERE st.state NOT IN('succeeded','failed','cancelled','incompatible','already_current') AND EXISTS(SELECT 1 FROM screens sc JOIN screen_player_status ps ON ps.screen_id=sc.id WHERE sc.id=st.screen_id AND sc.last_heartbeat_at>now()-interval '5 minutes' AND ps.player_version_code>=st.expected_version_code AND (sc.uptime_seconds IS NULL OR sc.uptime_seconds>=$1) AND NOT ps.safe_mode AND (ps.update_error IS NULL OR ps.update_error=''))`, devices.SettledUptimeSeconds)
+	_, _ = s.db.Exec(ctx, `UPDATE screen_update_states st SET state='succeeded',reconnect_at=COALESCE(st.reconnect_at,now()),completed_at=now(),updated_at=now() WHERE st.state NOT IN('succeeded','failed','cancelled','incompatible','already_current') AND NOT `+edgeDeploymentSQL+` AND EXISTS(SELECT 1 FROM screens sc JOIN screen_player_status ps ON ps.screen_id=sc.id WHERE sc.id=st.screen_id AND sc.last_heartbeat_at>now()-interval '5 minutes' AND ps.player_version_code>=st.expected_version_code AND (sc.uptime_seconds IS NULL OR sc.uptime_seconds>=$1) AND NOT ps.safe_mode AND (ps.update_error IS NULL OR ps.update_error=''))`, devices.SettledUptimeSeconds)
 	_, _ = s.db.Exec(ctx, `UPDATE update_deployments d SET status='paused',rollout_phase='paused',paused_at=now(),pause_reason='A canary did not reconnect within ten minutes.' WHERE d.status='active' AND d.rollout_phase='canary' AND EXISTS(SELECT 1 FROM screen_update_states st WHERE st.deployment_id=d.id AND st.is_canary AND st.state IN('installing','reconnecting') AND st.updated_at<now()-interval '10 minutes')`)
 	// The aggregate follows the targets: an active deployment with no unfinished
 	// target is finished, whichever path finished the last one. Idempotent, so a
@@ -550,7 +614,7 @@ func (s *server) listUpdateDeployments(w http.ResponseWriter, r *http.Request) {
 			devices.InScopeSQL("sc", "$1")
 		args = append(args, user)
 	}
-	rows, err := s.db.Query(r.Context(), `SELECT d.id,d.name,d.mode,d.status,d.created_at,r.platform,r.version_code,r.version_name,count(st.screen_id),count(*) FILTER(WHERE st.state='succeeded'),count(*) FILTER(WHERE st.state='failed'),count(*) FILTER(WHERE st.state IN ('waiting_for_permission','waiting_for_user')),d.rollout_mode,d.rollout_phase,d.canary_size,d.pause_reason,max(st.safe_error) FILTER(WHERE st.state='failed') FROM update_deployments d JOIN player_releases r ON r.id=d.release_id `+states+` GROUP BY d.id,r.id ORDER BY d.created_at DESC LIMIT 100`, args...)
+	rows, err := s.db.Query(r.Context(), `SELECT d.id,d.name,d.mode,d.status,d.created_at,r.platform,r.player_family,r.architecture,r.version_code,r.version_name,count(st.screen_id),count(*) FILTER(WHERE st.state='succeeded'),count(*) FILTER(WHERE st.state='failed'),count(*) FILTER(WHERE st.state IN ('waiting_for_permission','waiting_for_user')),d.rollout_mode,d.rollout_phase,d.canary_size,d.pause_reason,max(st.safe_error) FILTER(WHERE st.state='failed') FROM update_deployments d JOIN player_releases r ON r.id=d.release_id `+states+` GROUP BY d.id,r.id ORDER BY d.created_at DESC LIMIT 100`, args...)
 	if err != nil {
 		s.internalError(w, r, err)
 		return
@@ -559,17 +623,17 @@ func (s *server) listUpdateDeployments(w http.ResponseWriter, r *http.Request) {
 	items := []map[string]any{}
 	for rows.Next() {
 		var id uuid.UUID
-		var name, mode, status, platform, version, rolloutMode, rolloutPhase string
+		var name, mode, status, platform, family, architecture, version, rolloutMode, rolloutPhase string
 		var pauseReason, lastFailure *string
 		var created time.Time
 		var code int64
 		var total, succeeded, failed, waiting int64
 		var canarySize int
-		if err = rows.Scan(&id, &name, &mode, &status, &created, &platform, &code, &version, &total, &succeeded, &failed, &waiting, &rolloutMode, &rolloutPhase, &canarySize, &pauseReason, &lastFailure); err != nil {
+		if err = rows.Scan(&id, &name, &mode, &status, &created, &platform, &family, &architecture, &code, &version, &total, &succeeded, &failed, &waiting, &rolloutMode, &rolloutPhase, &canarySize, &pauseReason, &lastFailure); err != nil {
 			s.internalError(w, r, err)
 			return
 		}
-		items = append(items, map[string]any{"id": id, "name": name, "mode": mode, "status": status, "createdAt": created, "platform": platform, "versionCode": code, "versionName": version, "targetCount": total, "succeededCount": succeeded, "failedCount": failed, "waitingForUserCount": waiting, "rolloutMode": rolloutMode, "rolloutPhase": rolloutPhase, "canarySize": canarySize, "pauseReason": pauseReason, "lastFailure": lastFailure})
+		items = append(items, map[string]any{"id": id, "name": name, "mode": mode, "status": status, "createdAt": created, "platform": platform, "playerFamily": family, "architecture": architecture, "versionCode": code, "versionName": version, "targetCount": total, "succeededCount": succeeded, "failedCount": failed, "waitingForUserCount": waiting, "rolloutMode": rolloutMode, "rolloutPhase": rolloutPhase, "canarySize": canarySize, "pauseReason": pauseReason, "lastFailure": lastFailure})
 	}
 	if err = rows.Err(); err != nil {
 		s.internalError(w, r, err)
@@ -646,14 +710,14 @@ func (s *server) getUpdateDeployment(w http.ResponseWriter, r *http.Request) {
 // updateDeploymentSummary reads the deployment header its detail view renders.
 // Scope is already settled by the caller, which narrows the screen rows.
 func (s *server) updateDeploymentSummary(w http.ResponseWriter, r *http.Request, id uuid.UUID) (map[string]any, bool) {
-	var name, mode, status, platform, version, rolloutMode, rolloutPhase string
+	var name, mode, status, platform, family, architecture, version, rolloutMode, rolloutPhase string
 	var pauseReason *string
 	var created time.Time
 	var completed *time.Time
 	var code, artifactSize int64
 	var canarySize int
-	err := s.db.QueryRow(r.Context(), `SELECT d.name,d.mode,d.status,d.created_at,d.completed_at,d.rollout_mode,d.rollout_phase,d.canary_size,d.pause_reason,r.platform,r.version_code,r.version_name,r.apk_size FROM update_deployments d JOIN player_releases r ON r.id=d.release_id WHERE d.id=$1`, id).
-		Scan(&name, &mode, &status, &created, &completed, &rolloutMode, &rolloutPhase, &canarySize, &pauseReason, &platform, &code, &version, &artifactSize)
+	err := s.db.QueryRow(r.Context(), `SELECT d.name,d.mode,d.status,d.created_at,d.completed_at,d.rollout_mode,d.rollout_phase,d.canary_size,d.pause_reason,r.platform,r.player_family,r.architecture,r.version_code,r.version_name,r.apk_size FROM update_deployments d JOIN player_releases r ON r.id=d.release_id WHERE d.id=$1`, id).
+		Scan(&name, &mode, &status, &created, &completed, &rolloutMode, &rolloutPhase, &canarySize, &pauseReason, &platform, &family, &architecture, &code, &version, &artifactSize)
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeError(w, 404, "update_deployment_not_found", "Deployment was not found.")
 		return nil, false
@@ -662,7 +726,7 @@ func (s *server) updateDeploymentSummary(w http.ResponseWriter, r *http.Request,
 		s.internalError(w, r, err)
 		return nil, false
 	}
-	return map[string]any{"name": name, "mode": mode, "status": status, "createdAt": created, "completedAt": completed, "rolloutMode": rolloutMode, "rolloutPhase": rolloutPhase, "canarySize": canarySize, "pauseReason": pauseReason, "platform": platform, "versionCode": code, "versionName": version, "artifactSizeBytes": artifactSize}, true
+	return map[string]any{"name": name, "mode": mode, "status": status, "createdAt": created, "completedAt": completed, "rolloutMode": rolloutMode, "rolloutPhase": rolloutPhase, "canarySize": canarySize, "pauseReason": pauseReason, "platform": platform, "playerFamily": family, "architecture": architecture, "versionCode": code, "versionName": version, "artifactSizeBytes": artifactSize}, true
 }
 
 func (s *server) cancelUpdateDeployment(w http.ResponseWriter, r *http.Request) {
@@ -706,12 +770,13 @@ func (s *server) retryUpdateScreen(w http.ResponseWriter, r *http.Request) {
 	}
 	var release uuid.UUID
 	var version int64
-	var hash, mode string
-	if err := s.db.QueryRow(r.Context(), `SELECT d.release_id,pr.version_code,pr.apk_sha256,d.mode FROM update_deployments d JOIN player_releases pr ON pr.id=d.release_id JOIN screen_update_states st ON st.deployment_id=d.id AND st.screen_id=$2 WHERE d.id=$1 AND st.state='failed'`, deployment, screen).Scan(&release, &version, &hash, &mode); err != nil {
+	var hash, mode, family string
+	var window *time.Time
+	if err := s.db.QueryRow(r.Context(), `SELECT d.release_id,pr.version_code,pr.apk_sha256,d.mode,pr.player_family,d.maintenance_window_start FROM update_deployments d JOIN player_releases pr ON pr.id=d.release_id JOIN screen_update_states st ON st.deployment_id=d.id AND st.screen_id=$2 WHERE d.id=$1 AND st.state='failed'`, deployment, screen).Scan(&release, &version, &hash, &mode, &family, &window); err != nil {
 		writeError(w, 409, "update_retry_not_allowed", "Only failed screen updates can be retried.")
 		return
 	}
-	payload, _ := json.Marshal(map[string]any{"deploymentId": deployment, "releaseId": release, "expectedVersionCode": version, "expectedApkSha256": hash, "expectedArtifactSha256": hash, "installationMode": mode})
+	payload, _ := json.Marshal(updateCommandPayload(deployment, release, family, version, hash, mode, window))
 	user := r.Context().Value(sessionContextKey).(auth.Session).User
 	command := uuid.New()
 	_, err := s.db.Exec(r.Context(), `INSERT INTO player_commands(id,organization_id,screen_id,type,payload,idempotency_key,created_by,expires_at) SELECT $1,organization_id,id,'install_player_update',$2::jsonb,$1,$3,now()+interval '7 days' FROM screens WHERE id=$4`, command, string(payload), user.ID, screen)
@@ -731,18 +796,33 @@ func (s *server) playerUpdateMetadata(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var code, size int64
-	var platform, name, hash, cert, artifactName string
+	var platform, family, architecture, name, hash, cert, artifactName, signature string
+	var manifestBytes []byte
+	var stateSchema *int
 	var sdk *int
-	if err := s.db.QueryRow(r.Context(), `SELECT pr.platform,pr.version_code,pr.version_name,pr.minimum_sdk,pr.apk_size,pr.apk_sha256,pr.signing_certificate_sha256,pr.apk_name FROM player_releases pr WHERE pr.id=$1 AND pr.verification_status='verified' AND EXISTS(SELECT 1 FROM screen_update_states st JOIN update_deployments d ON d.id=st.deployment_id WHERE st.screen_id=$2 AND d.release_id=pr.id AND d.status='active' AND st.state NOT IN ('cancelled','incompatible'))`, release, principal.ScreenID).Scan(&platform, &code, &name, &sdk, &size, &hash, &cert, &artifactName); err != nil {
+	if err := s.db.QueryRow(r.Context(), `SELECT pr.platform,pr.player_family,pr.architecture,pr.version_code,pr.version_name,pr.minimum_sdk,pr.apk_size,pr.apk_sha256,pr.signing_certificate_sha256,pr.apk_name,pr.manifest_bytes,pr.manifest_signature,pr.state_schema_version FROM player_releases pr WHERE pr.id=$1 AND pr.verification_status='verified' AND EXISTS(SELECT 1 FROM screen_update_states st JOIN update_deployments d ON d.id=st.deployment_id WHERE st.screen_id=$2 AND d.release_id=pr.id AND d.status='active' AND st.state NOT IN ('cancelled','incompatible'))`, release, principal.ScreenID).Scan(&platform, &family, &architecture, &code, &name, &sdk, &size, &hash, &cert, &artifactName, &manifestBytes, &signature, &stateSchema); err != nil {
 		writeError(w, 404, "player_update_not_found", "Update is unavailable for this screen.")
 		return
 	}
 	data := map[string]any{"releaseId": release, "artifactId": artifactName, "platform": platform, "versionCode": code, "versionName": name}
-	if platform == updates.PlatformLinux {
+	switch family {
+	case updates.FamilyEdge:
+		// The exact signed envelope: the screen verifies its signature and
+		// every field against this answer and the command before it downloads.
+		data["playerFamily"] = family
+		data["architecture"] = architecture
 		data["artifactSizeBytes"] = size
 		data["artifactSha256"] = hash
 		data["artifactPath"] = fmt.Sprintf("/api/v1/player/updates/%s/artifact", release)
-	} else {
+		data["signedManifest"] = base64.StdEncoding.EncodeToString(manifestBytes)
+		data["manifestSignature"] = signature
+		data["stateSchemaVersion"] = stateSchema
+	case updates.FamilyElectronLinux:
+		data["playerFamily"] = family
+		data["artifactSizeBytes"] = size
+		data["artifactSha256"] = hash
+		data["artifactPath"] = fmt.Sprintf("/api/v1/player/updates/%s/artifact", release)
+	default:
 		data["applicationId"] = updates.ApplicationID
 		data["minimumSdk"] = sdk
 		data["apkSizeBytes"] = size
@@ -768,7 +848,7 @@ func (s *server) playerUpdateArtifact(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 403, "player_update_not_targeted", "This screen is not targeted for the update.")
 		return
 	}
-	path, size, hash, platform, err := s.updates.ArtifactPath(r.Context(), release)
+	path, size, hash, family, err := s.updates.ArtifactPath(r.Context(), release)
 	if err != nil {
 		writeError(w, 404, "player_update_not_found", "Verified update artifact is unavailable.")
 		return
@@ -780,8 +860,11 @@ func (s *server) playerUpdateArtifact(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 	filename, contentType := "tilecast-player.apk", "application/vnd.android.package-archive"
-	if platform == updates.PlatformLinux {
+	switch family {
+	case updates.FamilyElectronLinux:
 		filename, contentType = updates.LinuxArtifactName, "application/octet-stream"
+	case updates.FamilyEdge:
+		filename, contentType = "tilecast-edge.tar.zst", "application/zstd"
 	}
 	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("ETag", `"sha256-`+hash+`"`)
@@ -814,12 +897,21 @@ func (s *server) playerUpdateStatus(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 400, "invalid_request", err.Error())
 		return
 	}
-	allowed := map[string]bool{"downloading": true, "downloaded": true, "verifying": true, "ready": true, "waiting_for_permission": true, "waiting_for_user": true, "installing": true, "reconnecting": true, "failed": true}
-	if !allowed[body.State] || body.DownloadedBytes < 0 || len(body.Error) > 240 {
+	allowed := map[string]bool{"downloading": true, "downloaded": true, "verifying": true, "ready": true, "waiting_for_permission": true, "waiting_for_user": true, "installing": true, "reconnecting": true, "failed": true, "succeeded": true}
+	if !allowed[body.State] || body.DownloadedBytes < 0 || len(body.Error) > 240 || len(body.PermissionStatus) > 64 || len(body.InstallerStatus) > 64 {
 		writeError(w, 422, "update_status_invalid", "Update status is invalid.")
 		return
 	}
-	tag, err := s.db.Exec(r.Context(), `UPDATE screen_update_states SET state=$3,downloaded_bytes=$4,permission_status=NULLIF($5,''),installer_status=NULLIF($6,''),safe_error=NULLIF($7,''),download_started_at=CASE WHEN $3='downloading' THEN COALESCE(download_started_at,now()) ELSE download_started_at END,downloaded_at=CASE WHEN $3 IN('downloaded','verifying','ready','waiting_for_permission','waiting_for_user','installing','reconnecting') THEN COALESCE(downloaded_at,now()) ELSE downloaded_at END,install_started_at=CASE WHEN $3='installing' THEN COALESCE(install_started_at,now()) ELSE install_started_at END,updated_at=now() WHERE deployment_id=$1 AND screen_id=$2 AND state NOT IN('cancelled','succeeded')`, deployment, principal.ScreenID, body.State, body.DownloadedBytes, body.PermissionStatus, body.InstallerStatus, body.Error)
+	// `succeeded` is the explicit confirmation of a provisional Tilecast Edge
+	// release. Other families settle from the heartbeat of the new build.
+	if body.State == "succeeded" {
+		var family string
+		if err := s.db.QueryRow(r.Context(), `SELECT r.player_family FROM update_deployments d JOIN player_releases r ON r.id=d.release_id WHERE d.id=$1`, deployment).Scan(&family); err != nil || family != updates.FamilyEdge {
+			writeError(w, 422, "update_status_invalid", "Update status is invalid.")
+			return
+		}
+	}
+	tag, err := s.db.Exec(r.Context(), `UPDATE screen_update_states SET state=$3,downloaded_bytes=$4,permission_status=NULLIF($5,''),installer_status=NULLIF($6,''),safe_error=NULLIF($7,''),download_started_at=CASE WHEN $3='downloading' THEN COALESCE(download_started_at,now()) ELSE download_started_at END,downloaded_at=CASE WHEN $3 IN('downloaded','verifying','ready','waiting_for_permission','waiting_for_user','installing','reconnecting') THEN COALESCE(downloaded_at,now()) ELSE downloaded_at END,install_started_at=CASE WHEN $3='installing' THEN COALESCE(install_started_at,now()) ELSE install_started_at END,reconnect_at=CASE WHEN $3 IN('reconnecting','succeeded') THEN COALESCE(reconnect_at,now()) ELSE reconnect_at END,completed_at=CASE WHEN $3='succeeded' THEN now() ELSE completed_at END,updated_at=now() WHERE deployment_id=$1 AND screen_id=$2 AND state NOT IN('cancelled','succeeded')`, deployment, principal.ScreenID, body.State, body.DownloadedBytes, body.PermissionStatus, body.InstallerStatus, body.Error)
 	if err != nil {
 		s.internalError(w, r, err)
 		return
@@ -830,6 +922,9 @@ func (s *server) playerUpdateStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	_, _ = s.db.Exec(r.Context(), `UPDATE screen_player_status SET current_update_deployment_id=$2,update_state=$3,update_downloaded_bytes=$4,update_error=NULLIF($5,'') WHERE screen_id=$1`, principal.ScreenID, deployment, body.State, body.DownloadedBytes, body.Error)
 	s.advanceCanaryDeployment(r.Context(), deployment, body.State == "failed")
+	if body.State == "succeeded" {
+		_, _ = s.db.Exec(r.Context(), `UPDATE update_deployments d SET status='completed',completed_at=COALESCE(d.completed_at,now()) WHERE d.id=$1 AND d.status='active' AND NOT EXISTS(SELECT 1 FROM screen_update_states st WHERE st.deployment_id=d.id AND st.state NOT IN('succeeded','failed','cancelled','incompatible','already_current'))`, deployment)
+	}
 	writeJSON(w, 200, map[string]any{"data": map[string]any{"state": body.State}})
 }
 
@@ -861,14 +956,14 @@ func (s *server) advanceCanaryDeployment(ctx context.Context, deployment uuid.UU
 	rows.Close()
 	var release uuid.UUID
 	var version int64
-	var hash, mode string
+	var hash, mode, family string
 	var window *time.Time
 	var creator *uuid.UUID
-	if s.db.QueryRow(ctx, `SELECT d.release_id,r.version_code,r.apk_sha256,d.mode,d.maintenance_window_start,d.created_by FROM update_deployments d JOIN player_releases r ON r.id=d.release_id WHERE d.id=$1`, deployment).Scan(&release, &version, &hash, &mode, &window, &creator) != nil {
+	if s.db.QueryRow(ctx, `SELECT d.release_id,r.version_code,r.apk_sha256,d.mode,d.maintenance_window_start,d.created_by,r.player_family FROM update_deployments d JOIN player_releases r ON r.id=d.release_id WHERE d.id=$1`, deployment).Scan(&release, &version, &hash, &mode, &window, &creator, &family) != nil {
 		return
 	}
 	for _, screen := range screens {
-		payload, _ := json.Marshal(map[string]any{"deploymentId": deployment, "releaseId": release, "expectedVersionCode": version, "expectedApkSha256": hash, "expectedArtifactSha256": hash, "installationMode": mode, "maintenanceWindowStart": window})
+		payload, _ := json.Marshal(updateCommandPayload(deployment, release, family, version, hash, mode, window))
 		command := uuid.New()
 		_, _ = s.db.Exec(ctx, `INSERT INTO player_commands(id,organization_id,screen_id,type,payload,idempotency_key,created_by,expires_at) SELECT $1,organization_id,id,'install_player_update',$2::jsonb,$1,$3,now()+interval '7 days' FROM screens WHERE id=$4`, command, string(payload), creator, screen)
 		s.devices.Notify(screen, map[string]any{"type": "commands.available"})

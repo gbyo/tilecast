@@ -122,9 +122,13 @@ export function parseVersionCode(version: string): number {
   );
 }
 
+/** The Player release family this updater installs (the server's name). */
+export const PLAYER_FAMILY = "electron-linux";
+
 interface UpdatePayload {
   deploymentId: string;
   releaseId: string;
+  playerFamily?: string;
   installationMode: string;
   expectedArtifactSha256?: string;
   maintenanceWindowStart?: string;
@@ -141,9 +145,11 @@ function readPayload(command: PlayerCommand): UpdatePayload | null {
   const sha =
     (payload["expectedArtifactSha256"] as string | undefined) ??
     (payload["expectedApkSha256"] as string | undefined);
+  const family = payload["playerFamily"];
   return {
     deploymentId,
     releaseId,
+    playerFamily: typeof family === "string" ? family : undefined,
     installationMode,
     expectedArtifactSha256: typeof sha === "string" ? sha : undefined,
     maintenanceWindowStart:
@@ -204,6 +210,17 @@ export class SelfUpdater {
         return;
       }
 
+      // A Tilecast Edge release is also a "linux" release, but it is a signed
+      // archive for another installer. The server never targets this player
+      // with one; refusing here keeps a mistake from reaching the AppImage.
+      if (payload.playerFamily && payload.playerFamily !== PLAYER_FAMILY) {
+        await this.report(deploymentId, {
+          state: "failed",
+          error: `release family ${payload.playerFamily.slice(0, 32)} is not installable by this player`,
+        });
+        return;
+      }
+
       const resumedBytes = await existingFileSize(
         `${this.deps.stagePath}.part`,
       );
@@ -215,6 +232,8 @@ export class SelfUpdater {
       const meta = await this.deps.fetchMetadata(payload.releaseId);
       if (
         meta.platform !== "linux" ||
+        (meta.playerFamily !== undefined &&
+          meta.playerFamily !== PLAYER_FAMILY) ||
         !meta.artifactPath ||
         !meta.artifactSha256 ||
         !meta.artifactSizeBytes

@@ -565,6 +565,39 @@ impl AuthenticatedServer {
         }
     }
 
+    /// `GET /player/updates/{releaseId}`: the metadata of a release this
+    /// screen is targeted with, including the exact signed Edge envelope.
+    pub async fn player_update_metadata(
+        &self,
+        release: uuid::Uuid,
+    ) -> Result<crate::updates::UpdateMetadata, ServerError> {
+        let path = format!("/api/v1/player/updates/{release}");
+        let response = self.request(reqwest::Method::GET, &path).send().await.map_err(|_| ServerError::Network)?;
+        let data: serde_json::Value = decode(response, MAX_SMALL_JSON_BYTES).await?;
+        crate::updates::update_metadata(&data).ok_or(ServerError::Decode)
+    }
+
+    /// `POST /player/update-deployments/{id}/status`.
+    pub async fn report_update_status(
+        &self,
+        deployment: uuid::Uuid,
+        report: &crate::updates::UpdateReport,
+    ) -> Result<crate::updates::UpdateReportOutcome, ServerError> {
+        let path = format!("/api/v1/player/update-deployments/{deployment}/status");
+        let response = self
+            .request(reqwest::Method::POST, &path)
+            .json(&report.body())
+            .send()
+            .await
+            .map_err(|_| ServerError::Network)?;
+        if response.status() == reqwest::StatusCode::CONFLICT {
+            let _ = error_from(response).await;
+            return Ok(crate::updates::UpdateReportOutcome::Closed);
+        }
+        let _: serde_json::Value = decode(response, MAX_SMALL_JSON_BYTES).await?;
+        Ok(crate::updates::UpdateReportOutcome::Accepted)
+    }
+
     /// `POST /player/activity-events` with at most
     /// [`crate::player_api::MAX_ACTIVITY_BATCH`] events, each an already
     /// serialized event object from the outbox.

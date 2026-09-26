@@ -212,7 +212,7 @@ pub async fn run(context: Arc<DaemonContext>) {
         if !due {
             continue;
         }
-        let version = env!("CARGO_PKG_VERSION");
+        let version = crate::daemon::VERSION;
         let captured_at = serde_json::to_value(context.now()).ok().and_then(|v| v.as_str().map(str::to_owned));
         let started = Instant::now();
         let captured = capture(&context).await;

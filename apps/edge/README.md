@@ -18,6 +18,16 @@ Player. It has three processes:
   [`docs/tilecast-edge.md`](../../docs/tilecast-edge.md) §4.4 and
   [`session-bridge/`](session-bridge/).
 
+Two root programs install and change releases. Neither is a long-running
+service, and neither can read the device credential:
+
+- `tilecast-edge-migrate` installs the first release and runs the one-way
+  migration from the Electron player (M7). An operator starts it.
+- `tilecast-edge-update` stages, activates, confirms and rolls back signed
+  updates (M10). Its socket starts it for `tilecastd`'s requests, and the
+  update guard units run the previous release's copy of it. See
+  [`docs/tilecast-edge-update-threat-review.md`](../../docs/tilecast-edge-update-threat-review.md).
+
 The Tilecast Server is the only authority. `tilecastd` reconciles directly
 from it and keeps playing from local state when it is unreachable.
 
@@ -28,21 +38,24 @@ for this directory are in [`AGENTS.md`](AGENTS.md).
 
 ## Crates
 
-| Crate           | Responsibility                                                                                                                                                          |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `edge-protocol` | Contracts only: IDs, digests, time, bounded text, capabilities, the IPC v1 messages. No I/O.                                                                            |
-| `edge-state`    | SQLite state with embedded migrations and typed repositories.                                                                                                           |
-| `edge-platform` | Paths, systemd notify and watchdog, disk probes, capability providers, display control (kernel CEC and DDC/CI; `display/kernel.rs` is the one audited `unsafe` module). |
-| `edge-cas`      | The content-addressed store: verified commit, crash reconciliation, pins, eviction, the `BlobSource` trait and the multi-source `Fetcher`.                              |
-| `edge-ipc`      | The versioned Unix socket server and client (length-prefixed frames, handshake, peer UID policy).                                                                       |
-| `edge-server`   | The Tilecast Server client: URL policy, identity gate, device credential, heartbeat, one-time legacy import, origin `BlobSource`.                                       |
-| `tilecastd`     | The daemon: lifecycle, IPC handler, presentation engine, supervisor, server link, `import-legacy`.                                                                      |
-| `tilecastctl`   | The operator command line over IPC.                                                                                                                                     |
+| Crate                   | Responsibility                                                                                                                                                          |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `edge-protocol`         | Contracts only: IDs, digests, time, bounded text, capabilities, the IPC v1 messages. No I/O.                                                                            |
+| `edge-state`            | SQLite state with embedded migrations and typed repositories.                                                                                                           |
+| `edge-platform`         | Paths, systemd notify and watchdog, disk probes, capability providers, display control (kernel CEC and DDC/CI; `display/kernel.rs` is the one audited `unsafe` module). |
+| `edge-cas`              | The content-addressed store: verified commit, crash reconciliation, pins, eviction, the `BlobSource` trait and the multi-source `Fetcher`.                              |
+| `edge-ipc`              | The versioned Unix socket server and client (length-prefixed frames, handshake, peer UID policy).                                                                       |
+| `edge-server`           | The Tilecast Server client: URL policy, identity gate, device credential, heartbeat, one-time legacy import, origin `BlobSource`.                                       |
+| `edge-release`          | Signed releases: the update envelope, the release manifest, the verified archive reader, and the one installer (stage, verify, activate) for migration and updates.     |
+| `tilecastd`             | The daemon: lifecycle, IPC handler, presentation engine, supervisor, server link, `import-legacy`.                                                                      |
+| `tilecastctl`           | The operator command line over IPC.                                                                                                                                     |
+| `tilecast-edge-migrate` | The root installer and the one-way migration from the Electron player (M7).                                                                                             |
+| `tilecast-edge-update`  | The root update helper: five fixed operations on its socket, the root transaction record, and the guard (M10).                                                          |
 
 ### Dependency direction
 
 A crate depends only on crates above it in this list. `edge-protocol` has no
-internal dependency. Only `tilecastd` depends on more than one service crate.
+internal dependency. Only `tilecastd` combines the server client, the content store and the state.
 
 ```text
 edge-protocol
@@ -51,8 +64,11 @@ edge-protocol
 ├── edge-ipc
 ├── edge-cas          (protocol, state, platform)
 ├── edge-server       (protocol, state, cas)
+├── edge-release      (protocol, platform)
 ├── tilecastctl       (protocol, ipc, platform)
-└── tilecastd         (all of the above)
+├── tilecastd         (all of the above)
+├── tilecast-edge-migrate (protocol, ipc, platform, release)
+└── tilecast-edge-update  (protocol, ipc, platform, release)
 ```
 
 Rules that follow from the direction:
@@ -60,6 +76,9 @@ Rules that follow from the direction:
 - Only `edge-server` holds the device credential, and only an
   `AuthenticatedServer` (obtained after the installation identity check) can
   send it.
+- The root programs do not depend on `edge-server`, `edge-cas` or
+  `edge-state`. The update helper reads a content-store object only through
+  a path that it makes from the digest, and copies it before it verifies it.
 - `edge-server`'s origin source and local files are `BlobSource`
   implementations. The content store verifies every byte from either. A new
   source is a new `BlobSource`, never a second write path.
@@ -98,6 +117,15 @@ End-to-end checks:
   added to `tilecast-edge-dev`). It adds the content phase: an uploaded image
   and video in a playlist, a Clock layout (time-bound widgets tick in place),
   a QR Code layout, and offline restart from the cache.
+
+- `ci/run-migrate-e2e.sh` runs the migrator and the update helper under real
+  systemd in the `tilecast-edge-migrate-e2e` image (`ci/Dockerfile.migrate`),
+  with a real server. After the M7 phases (install, import failure, crash,
+  power loss during settlement, acceptance), `ci/update_e2e.py` runs the M10
+  updates: A, a resumed download and a confirmed update from 0.1.0 to 0.2.0;
+  B, a power loss while 0.3.0 is provisional, rolled back at boot by 0.2.0's
+  helper; C, a broken 0.4.0 that the guard rolls back and never activates
+  again.
 
 M9 hardware checks:
 

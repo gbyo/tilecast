@@ -104,6 +104,29 @@ pub struct DaemonStatus {
     /// Activity and telemetry reports waiting for the server (M8).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub outbox: Option<OutboxStatus>,
+    /// The Player update this screen is working on, or finished last (M10).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub update: Option<UpdateStatus>,
+}
+
+/// One Player update, as `tilecastd` sees it (M10). Server identifiers and
+/// signed release identities only; never a path or a URL.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct UpdateStatus {
+    /// The local update job state (`accepted`, `downloading`, `staged`,
+    /// `activating`, `provisional`, `confirmed`, `rolled_back`, `failed`,
+    /// `cancelled`, ...).
+    pub state: ShortToken,
+    pub deployment_id: ShortText,
+    pub version_name: Option<ShortText>,
+    pub installation_mode: ShortToken,
+    pub downloaded_bytes: u64,
+    pub total_bytes: Option<u64>,
+    pub reason_code: Option<ShortToken>,
+    /// The confirmation condition that is not met yet, while provisional.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub waiting_for: Option<ShortToken>,
 }
 
 /// The bounded report outbox: what waits, and what was lost and why.
