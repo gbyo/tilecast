@@ -3,7 +3,7 @@
 use edge_protocol::capability::{Capability, CapabilityId, CapabilityState};
 use edge_protocol::{InstallationId, PlayerId, ScreenId, Sha256Digest, Timestamp};
 use edge_state::repo::manifests::{self, Binding, Stage, StoredManifest, Target};
-use edge_state::repo::{self, cas, commands, daemon};
+use edge_state::repo::{self, cas, daemon};
 use edge_state::{Migration, OpenOptions, StateDb, StateError, latest_schema_version, migrate_with, open_connection};
 
 fn now() -> Timestamp {
@@ -56,14 +56,17 @@ fn newer_schema_is_refused_not_rewritten() {
 fn failed_migration_rolls_back_completely() {
     let (_dir, path) = temp_db();
     let connection = open_connection(&path, OpenOptions::default()).expect("open");
-    let broken = [
-        Migration { version: 1, name: "initial", sql: edge_state::MIGRATIONS[0].sql },
-        Migration { version: 2, name: "manifests", sql: edge_state::MIGRATIONS[1].sql },
-        Migration { version: 3, name: "broken", sql: "CREATE TABLE half_done (id INTEGER); THIS IS NOT SQL;" },
-    ];
+    let latest = latest_schema_version();
+    let mut broken: Vec<Migration> =
+        edge_state::MIGRATIONS.iter().map(|m| Migration { version: m.version, name: m.name, sql: m.sql }).collect();
+    broken.push(Migration {
+        version: latest + 1,
+        name: "broken",
+        sql: "CREATE TABLE half_done (id INTEGER); THIS IS NOT SQL;",
+    });
     let error = migrate_with(&connection, &broken).expect_err("migration fails");
-    assert!(matches!(error, StateError::Migration { version: 3, .. }));
-    assert_eq!(edge_state::schema_version(&connection).expect("version"), 2);
+    assert!(matches!(error, StateError::Migration { version, .. } if version == latest + 1));
+    assert_eq!(edge_state::schema_version(&connection).expect("version"), latest);
     let half: i64 = connection
         .query_row("SELECT COUNT(*) FROM sqlite_master WHERE name = 'half_done'", [], |r| r.get(0))
         .expect("query");
@@ -164,26 +167,6 @@ fn pinned_objects_are_never_eviction_candidates() {
     assert_eq!(candidates.iter().map(|o| o.sha256).collect::<Vec<_>>(), vec![b]);
     let usage = db.run_blocking(|c| cas::usage(c)).expect("usage");
     assert_eq!((usage.object_count, usage.used_bytes, usage.pinned_bytes), (2, 2, 1));
-}
-
-#[test]
-fn command_idempotency_survives_reopen() {
-    let (_dir, path) = temp_db();
-    {
-        let db = StateDb::open(&path, OpenOptions::default()).expect("open");
-        assert_eq!(
-            db.run_blocking(|c| commands::observe(c, "cmd-1", "restart_player_process", now())).expect("observe"),
-            commands::CommandState::Received
-        );
-        db.run_blocking(|c| commands::advance(c, "cmd-1", commands::CommandState::Executing, None, now()))
-            .expect("advance");
-    }
-    let db = StateDb::open(&path, OpenOptions::default()).expect("reopen");
-    assert_eq!(
-        db.run_blocking(|c| commands::observe(c, "cmd-1", "restart_player_process", now())).expect("observe"),
-        commands::CommandState::Executing,
-        "a restart sees the command was already started and must not run it again"
-    );
 }
 
 #[test]

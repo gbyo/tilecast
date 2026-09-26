@@ -31,6 +31,7 @@ fn now() -> Timestamp {
     system_clock().now()
 }
 
+const KEY: &str = "5c0b1f0e-8f1a-4c55-9a53-27f2f0b2f0aa";
 const MEDIA: &[u8] = b"not really a PNG, but bytes are bytes for a content-addressed store";
 
 struct Fake {
@@ -41,6 +42,11 @@ struct Fake {
     /// (path, carried a credential) for every request.
     log: Mutex<Vec<(String, bool)>>,
     heartbeats: Mutex<Vec<Value>>,
+    /// Delivery ID -> server state, for the command routes.
+    command_states: Mutex<BTreeMap<String, &'static str>>,
+    results: Mutex<Vec<(String, Value)>>,
+    /// Serve a configuration body beyond the client's bound.
+    oversized_config: AtomicBool,
 }
 
 impl Fake {
@@ -50,6 +56,9 @@ impl Fake {
             revoked: AtomicBool::new(false),
             log: Mutex::new(Vec::new()),
             heartbeats: Mutex::new(Vec::new()),
+            command_states: Mutex::new(BTreeMap::new()),
+            results: Mutex::new(Vec::new()),
+            oversized_config: AtomicBool::new(false),
         })
     }
 
@@ -105,6 +114,55 @@ async fn handle(fake: Arc<Fake>, request: Request<Incoming>) -> Result<Response<
                 "screenId": ScreenId::new_random().to_string(), "assets": []}));
             response.headers_mut().insert("etag", "\"manifest-1\"".parse().unwrap());
             Ok(response)
+        }
+        "/api/v1/player/config" => {
+            if fake.oversized_config.load(Ordering::SeqCst) {
+                let padding = "x".repeat(edge_server::client::MAX_CONFIG_BYTES);
+                return Ok(data(json!({"schemaVersion": 1, "configRevision": 8, "padding": padding})));
+            }
+            if request.headers().get("if-none-match").and_then(|v| v.to_str().ok()) == Some("\"config-7\"") {
+                let mut response = Response::new(Full::new(Bytes::new()));
+                *response.status_mut() = StatusCode::NOT_MODIFIED;
+                return Ok(response);
+            }
+            let mut response = data(json!({"schemaVersion": 1, "configRevision": 7, "branding": {}}));
+            response.headers_mut().insert("etag", "\"config-7\"".parse().unwrap());
+            Ok(response)
+        }
+        "/api/v1/player/commands" => {
+            let items: Vec<Value> = fake
+                .command_states
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|(_, state)| matches!(**state, "delivered" | "acknowledged"))
+                .map(|(id, state)| {
+                    json!({"id": id, "type": "reload_playback", "idempotencyKey": KEY, "payload": {}, "state": state})
+                })
+                .collect();
+            Ok(data(json!({ "items": items })))
+        }
+        command if command.starts_with("/api/v1/player/commands/") => {
+            let rest = command.trim_start_matches("/api/v1/player/commands/");
+            let (id, action) = rest.split_once('/').unwrap();
+            let state = fake.command_states.lock().unwrap().get(id).copied().unwrap_or("expired");
+            match (action, state) {
+                (_, "expired") => Ok(status(StatusCode::CONFLICT, "command_expired")),
+                ("acknowledge", "succeeded" | "failed") => Ok(data(json!({"id": id, "state": state}))),
+                ("acknowledge", _) => {
+                    fake.command_states.lock().unwrap().insert(id.to_owned(), "acknowledged");
+                    Ok(data(json!({"id": id, "state": "acknowledged"})))
+                }
+                ("result", _) => {
+                    let body = request.into_body().collect().await.unwrap().to_bytes();
+                    let body: Value = serde_json::from_slice(&body).unwrap();
+                    let terminal = if body["success"] == true { "succeeded" } else { "failed" };
+                    fake.command_states.lock().unwrap().insert(id.to_owned(), terminal);
+                    fake.results.lock().unwrap().push((id.to_owned(), body));
+                    Ok(data(json!({"id": id, "state": terminal})))
+                }
+                _ => Ok(status(StatusCode::NOT_FOUND, "not_found")),
+            }
         }
         "/api/v1/player/assets/a1/variants/v1" => {
             let etag = format!("\"sha256-{}\"", Sha256Digest::of(MEDIA).to_hex());
@@ -266,8 +324,10 @@ async fn legacy_import_then_player_contact() {
     let credential_mode = std::fs::metadata(env.identity().join("device-credential")).unwrap().permissions().mode();
     assert_eq!(credential_mode & 0o777, 0o600);
     assert!(DeviceCredential::load(&env.identity()).unwrap().is_some());
-    let state = env.db.run(|c| commands::state(c, "cmd-2")).await.unwrap();
-    assert_eq!(state, Some(commands::CommandState::Completed));
+    let record = env.db.run(|c| commands::get(c, "cmd-2")).await.unwrap().expect("imported key");
+    assert_eq!(record.state, commands::CommandState::Completed);
+    assert_eq!(record.report_state, commands::ReportState::NotRequired);
+    assert_eq!(record.command_id, None);
     let flags = env.db.run(|c| playback::get(c)).await.unwrap();
     assert!(flags.playback_disabled);
     assert_eq!(flags.server_clock_offset_ms, Some(1234));
@@ -357,4 +417,52 @@ async fn player_manifest_uses_the_ordinary_endpoint_and_conditional_etag() {
     assert_eq!(server.player_manifest(Some(&etag)).await.unwrap(), ManifestFetch::NotModified);
     assert!(server.player_manifest(Some(&"x".repeat(201))).await.is_err(), "validators are bounded");
     const { assert!(MAX_MANIFEST_BYTES > 5 * 1024 * 1024, "the server's own five MiB bound fits") };
+}
+
+async fn authenticated(fake: &Arc<Fake>, installation: InstallationId) -> edge_server::AuthenticatedServer {
+    let url = serve(Arc::clone(fake)).await;
+    ServerClient::new(&url)
+        .unwrap()
+        .verify_installation(installation, DeviceCredential::parse(CREDENTIAL).unwrap())
+        .await
+        .unwrap()
+}
+
+#[tokio::test]
+async fn player_config_is_conditional_and_bounded() {
+    use edge_server::player_api::ConfigFetch;
+    let installation = InstallationId::new_random();
+    let fake = Fake::new(installation);
+    let server = authenticated(&fake, installation).await;
+    let ConfigFetch::Modified { document, etag } = server.player_config(None).await.unwrap() else {
+        panic!("expected a configuration");
+    };
+    assert_eq!(document["configRevision"], 7);
+    assert_eq!(etag.as_deref(), Some("\"config-7\""));
+    assert_eq!(server.player_config(etag.as_deref()).await.unwrap(), ConfigFetch::NotModified);
+    fake.oversized_config.store(true, Ordering::SeqCst);
+    assert_eq!(server.player_config(None).await, Err(ServerError::ResponseTooLarge));
+}
+
+#[tokio::test]
+async fn commands_are_acknowledged_and_reported_by_delivery_id() {
+    use edge_server::player_api::{AcknowledgeOutcome, ReportOutcome};
+    let installation = InstallationId::new_random();
+    let fake = Fake::new(installation);
+    let server = authenticated(&fake, installation).await;
+    let id = uuid::Uuid::new_v4();
+    fake.command_states.lock().unwrap().insert(id.to_string(), "delivered");
+    let batch = server.player_commands().await.unwrap();
+    assert_eq!(batch.commands.len(), 1);
+    assert_eq!((batch.commands[0].id, batch.commands[0].idempotency_key.as_str()), (id, KEY));
+    assert_eq!(server.acknowledge_command(id).await.unwrap(), AcknowledgeOutcome::Acknowledged);
+    assert_eq!(server.report_command_result(id, true, "playback_reloaded", "").await.unwrap(), ReportOutcome::Accepted);
+    assert_eq!(server.acknowledge_command(id).await.unwrap(), AcknowledgeOutcome::AlreadySettled { succeeded: true });
+    let expired = uuid::Uuid::new_v4();
+    assert_eq!(server.acknowledge_command(expired).await.unwrap(), AcknowledgeOutcome::NotActionable);
+    assert_eq!(
+        server.report_command_result(expired, false, "command_interrupted", "").await.unwrap(),
+        ReportOutcome::NotAccepted
+    );
+    assert_eq!(fake.results.lock().unwrap().len(), 1);
 }

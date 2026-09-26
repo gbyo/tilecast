@@ -47,6 +47,11 @@ pub struct Migration {
 pub const MIGRATIONS: &[Migration] = &[
     Migration { version: 1, name: "initial", sql: include_str!("../migrations/0001_initial.sql") },
     Migration { version: 2, name: "manifests", sql: include_str!("../migrations/0002_manifests.sql") },
+    Migration {
+        version: 3,
+        name: "commands_and_config",
+        sql: include_str!("../migrations/0003_commands_and_config.sql"),
+    },
 ];
 
 pub fn latest_schema_version() -> u32 {

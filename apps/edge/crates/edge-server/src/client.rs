@@ -30,8 +30,23 @@ use crate::url_policy::normalize_server_url;
 
 pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 pub const PLAYER_SOCKET_ACTIVITY_TIMEOUT: Duration = Duration::from_secs(95);
+
+// Response body bounds (docs/tilecast-edge.md §17.5: every network read is
+// bounded). Each is far above what its endpoint legitimately returns and far
+// below anything that could exhaust the daemon. A body is read in chunks and
+// abandoned as soon as it passes its bound; `Content-Length` never sizes an
+// allocation.
 /// The server's own manifest bound (five MiB) plus envelope overhead.
 pub const MAX_MANIFEST_BYTES: usize = 6 * 1024 * 1024;
+/// Small JSON answers: identity, heartbeat, command acknowledgement and result.
+pub const MAX_SMALL_JSON_BYTES: usize = 64 * 1024;
+/// Error envelopes. Only a bounded code and message are kept from them.
+pub const MAX_ERROR_BYTES: usize = 16 * 1024;
+/// A player configuration document is a few KiB.
+pub const MAX_CONFIG_BYTES: usize = crate::player_api::MAX_CONFIG_BYTES;
+/// The pending command list: 8 KiB is the largest single payload the server
+/// accepts, so this holds well over a hundred of the largest commands.
+pub const MAX_COMMANDS_BYTES: usize = 1024 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum ServerError {
@@ -47,6 +62,8 @@ pub enum ServerError {
     CredentialRejected,
     #[error("the server response could not be read")]
     Decode,
+    #[error("the server response exceeded its size bound")]
+    ResponseTooLarge,
 }
 
 impl ServerError {
@@ -58,13 +75,14 @@ impl ServerError {
             Self::IdentityMismatch { .. } => "installation_identity_mismatch",
             Self::CredentialRejected => "device_credential_rejected",
             Self::Decode => "server_response_invalid",
+            Self::ResponseTooLarge => "server_response_too_large",
         }
     }
 
     /// Worth retrying later without operator action.
     pub fn is_transient(&self) -> bool {
         match self {
-            Self::Network | Self::Decode => true,
+            Self::Network | Self::Decode | Self::ResponseTooLarge => true,
             Self::Api { status, .. } => *status >= 500 || *status == 429,
             _ => false,
         }
@@ -167,7 +185,7 @@ impl ServerClient {
                     ServerError::Network
                 },
             )?;
-        decode(response).await
+        decode(response, MAX_SMALL_JSON_BYTES).await
     }
 
     /// The only way to obtain an [`AuthenticatedServer`].
@@ -184,23 +202,49 @@ impl ServerClient {
     }
 }
 
-async fn decode<T: DeserializeOwned>(response: reqwest::Response) -> Result<T, ServerError> {
+/// Reads at most `limit` body bytes. A declared or actual length beyond the
+/// bound ends the read with [`ServerError::ResponseTooLarge`] without
+/// reading further.
+pub(crate) async fn read_bounded(mut response: reqwest::Response, limit: usize) -> Result<Vec<u8>, ServerError> {
+    if response.content_length().is_some_and(|length| length > limit as u64) {
+        return Err(ServerError::ResponseTooLarge);
+    }
+    let mut bytes = Vec::new();
+    while let Some(chunk) = response.chunk().await.map_err(|_| ServerError::Network)? {
+        if chunk.len() > limit.saturating_sub(bytes.len()) {
+            return Err(ServerError::ResponseTooLarge);
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    Ok(bytes)
+}
+
+/// Maps a non-success answer to a bounded error. An error body beyond
+/// [`MAX_ERROR_BYTES`] or without the error envelope keeps only its status:
+/// the credential is judged rejected only from a readable envelope.
+pub(crate) async fn error_from(response: reqwest::Response) -> ServerError {
     let status = response.status();
-    let bytes = response.bytes().await.map_err(|_| ServerError::Network)?;
-    if status.is_success() {
-        return serde_json::from_slice::<Envelope<T>>(&bytes).map(|e| e.data).map_err(|_| ServerError::Decode);
+    let error = match read_bounded(response, MAX_ERROR_BYTES).await {
+        Ok(bytes) => serde_json::from_slice::<ErrorEnvelope>(&bytes).map(|e| e.error).ok(),
+        Err(_) => None,
     }
-    let error = serde_json::from_slice::<ErrorEnvelope>(&bytes)
-        .map(|e| e.error)
-        .unwrap_or(ErrorBody { code: format!("http_{}", status.as_u16()), message: String::new() });
+    .unwrap_or(ErrorBody { code: format!("http_{}", status.as_u16()), message: String::new() });
     if error.code == "device_credential_invalid" || error.code == "device_credential_revoked" {
-        return Err(ServerError::CredentialRejected);
+        return ServerError::CredentialRejected;
     }
-    Err(ServerError::Api {
+    ServerError::Api {
         status: status.as_u16(),
         code: error.code.chars().take(64).collect(),
         message: error.message.chars().take(240).collect(),
-    })
+    }
+}
+
+async fn decode<T: DeserializeOwned>(response: reqwest::Response, limit: usize) -> Result<T, ServerError> {
+    if !response.status().is_success() {
+        return Err(error_from(response).await);
+    }
+    let bytes = read_bounded(response, limit).await?;
+    serde_json::from_slice::<Envelope<T>>(&bytes).map(|e| e.data).map_err(|_| ServerError::Decode)
 }
 
 /// A server whose installation identity matched; can send the credential.
@@ -368,7 +412,7 @@ impl AuthenticatedServer {
             .send()
             .await
             .map_err(|_| ServerError::Network)?;
-        let _: serde_json::Value = decode(response).await?;
+        let _: serde_json::Value = decode(response, MAX_SMALL_JSON_BYTES).await?;
         Ok(())
     }
 
@@ -382,13 +426,12 @@ impl AuthenticatedServer {
             let header = reqwest::header::HeaderValue::from_str(etag).map_err(|_| ServerError::Decode)?;
             request = request.header(reqwest::header::IF_NONE_MATCH, header);
         }
-        let mut response = request.send().await.map_err(|_| ServerError::Network)?;
+        let response = request.send().await.map_err(|_| ServerError::Network)?;
         if response.status() == reqwest::StatusCode::NOT_MODIFIED {
             return Ok(ManifestFetch::NotModified);
         }
         if !response.status().is_success() {
-            let _: serde_json::Value = decode(response).await?;
-            return Err(ServerError::Decode);
+            return Err(error_from(response).await);
         }
         let etag = response
             .headers()
@@ -397,18 +440,98 @@ impl AuthenticatedServer {
             .filter(|value| value.len() <= 200)
             .ok_or(ServerError::Decode)?
             .to_owned();
-        let mut bytes = Vec::new();
-        while let Some(chunk) = response.chunk().await.map_err(|_| ServerError::Network)? {
-            if chunk.len() > MAX_MANIFEST_BYTES.saturating_sub(bytes.len()) {
-                return Err(ServerError::Decode);
-            }
-            bytes.extend_from_slice(&chunk);
-        }
+        let bytes = read_bounded(response, MAX_MANIFEST_BYTES).await?;
         let envelope: Envelope<serde_json::Value> = serde_json::from_slice(&bytes).map_err(|_| ServerError::Decode)?;
         if !envelope.data.is_object() {
             return Err(ServerError::Decode);
         }
         Ok(ManifestFetch::Modified { document: envelope.data, etag })
+    }
+
+    /// The ordinary player configuration endpoint, conditional on the
+    /// validator of the configuration already accepted.
+    pub async fn player_config(&self, etag: Option<&str>) -> Result<crate::player_api::ConfigFetch, ServerError> {
+        let mut request = self.request(reqwest::Method::GET, "/api/v1/player/config");
+        if let Some(etag) = etag {
+            if etag.len() > 200 {
+                return Err(ServerError::Decode);
+            }
+            let header = reqwest::header::HeaderValue::from_str(etag).map_err(|_| ServerError::Decode)?;
+            request = request.header(reqwest::header::IF_NONE_MATCH, header);
+        }
+        let response = request.send().await.map_err(|_| ServerError::Network)?;
+        if response.status() == reqwest::StatusCode::NOT_MODIFIED {
+            return Ok(crate::player_api::ConfigFetch::NotModified);
+        }
+        if !response.status().is_success() {
+            return Err(error_from(response).await);
+        }
+        let etag = response
+            .headers()
+            .get(reqwest::header::ETAG)
+            .and_then(|value| value.to_str().ok())
+            .filter(|value| value.len() <= 200)
+            .map(str::to_owned);
+        let bytes = read_bounded(response, MAX_CONFIG_BYTES).await?;
+        let envelope: Envelope<serde_json::Value> = serde_json::from_slice(&bytes).map_err(|_| ServerError::Decode)?;
+        if !envelope.data.is_object() {
+            return Err(ServerError::Decode);
+        }
+        Ok(crate::player_api::ConfigFetch::Modified { document: envelope.data, etag })
+    }
+
+    /// Pending commands (`GET /player/commands`). Each item is validated on
+    /// its own: a malformed item is returned as rejected, never as runnable.
+    pub async fn player_commands(&self) -> Result<crate::player_api::CommandBatch, ServerError> {
+        let response = self
+            .request(reqwest::Method::GET, "/api/v1/player/commands")
+            .send()
+            .await
+            .map_err(|_| ServerError::Network)?;
+        let data: serde_json::Value = decode(response, MAX_COMMANDS_BYTES).await?;
+        crate::player_api::parse_command_batch(&data).ok_or(ServerError::Decode)
+    }
+
+    /// `POST /player/commands/{id}/acknowledge`.
+    pub async fn acknowledge_command(
+        &self,
+        command_id: uuid::Uuid,
+    ) -> Result<crate::player_api::AcknowledgeOutcome, ServerError> {
+        let path = format!("/api/v1/player/commands/{command_id}/acknowledge");
+        let response = self.request(reqwest::Method::POST, &path).send().await.map_err(|_| ServerError::Network)?;
+        if response.status() == reqwest::StatusCode::CONFLICT {
+            let _ = error_from(response).await;
+            return Ok(crate::player_api::AcknowledgeOutcome::NotActionable);
+        }
+        let data: serde_json::Value = decode(response, MAX_SMALL_JSON_BYTES).await?;
+        Ok(crate::player_api::acknowledge_outcome(&data))
+    }
+
+    /// `POST /player/commands/{id}/result`. The server treats a repeated
+    /// terminal report as success, so resending a stored result is safe.
+    pub async fn report_command_result(
+        &self,
+        command_id: uuid::Uuid,
+        success: bool,
+        code: &str,
+        message: &str,
+    ) -> Result<crate::player_api::ReportOutcome, ServerError> {
+        let path = format!("/api/v1/player/commands/{command_id}/result");
+        let body = serde_json::json!({ "success": success, "code": code, "message": message });
+        let response =
+            self.request(reqwest::Method::POST, &path).json(&body).send().await.map_err(|_| ServerError::Network)?;
+        match response.status() {
+            reqwest::StatusCode::CONFLICT
+            | reqwest::StatusCode::UNPROCESSABLE_ENTITY
+            | reqwest::StatusCode::BAD_REQUEST => {
+                let _ = error_from(response).await;
+                Ok(crate::player_api::ReportOutcome::NotAccepted)
+            }
+            _ => {
+                let _: serde_json::Value = decode(response, MAX_SMALL_JSON_BYTES).await?;
+                Ok(crate::player_api::ReportOutcome::Accepted)
+            }
+        }
     }
 
     /// Opens an authenticated download (for the origin blob source).

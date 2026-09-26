@@ -8,6 +8,7 @@
 //! * [`url_policy`]: the player's server-address rules.
 //! * [`credential`]: the device bearer credential at rest.
 //! * [`client`]: REST client and the identity gate.
+//! * [`player_api`]: validated player configuration and command contracts.
 //! * [`legacy`]: one-time import of Electron Linux Player state.
 //! * [`origin`]: the server as a content-addressed store source.
 
@@ -15,6 +16,7 @@ pub mod client;
 pub mod credential;
 pub mod legacy;
 pub mod origin;
+pub mod player_api;
 pub mod url_policy;
 
 pub use client::{AuthenticatedServer, ServerClient, ServerError, ServerIdentity};

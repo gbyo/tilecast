@@ -6,6 +6,7 @@ pub mod binding;
 pub mod capabilities;
 pub mod cas;
 pub mod commands;
+pub mod config;
 pub mod daemon;
 pub mod legacy;
 pub mod manifests;

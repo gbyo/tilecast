@@ -132,6 +132,28 @@ pub struct ProjectionContext {
     pub manifest: Value,
     #[serde(deserialize_with = "media_aliases")]
     pub media: Vec<MediaAlias>,
+    /// The accepted player configuration's `playback` section (regional
+    /// formatting and layout playlist-zone defaults), exactly as the
+    /// reference player hands it to `renderLayout` and `renderWidget`.
+    /// Absent means the runtime's defaults.
+    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "playback_context")]
+    pub playback: Option<Value>,
+}
+
+/// Largest playback section carried in a projection context.
+pub const MAX_PLAYBACK_CONTEXT_BYTES: usize = 16 * 1024;
+
+fn playback_context<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<Value>, D::Error> {
+    let value = Option::<Value>::deserialize(d)?;
+    if let Some(value) = &value {
+        if !value.is_object() {
+            return Err(D::Error::custom("playback context must be an object"));
+        }
+        if serde_json::to_vec(value).map_or(true, |bytes| bytes.len() > MAX_PLAYBACK_CONTEXT_BYTES) {
+            return Err(D::Error::custom("playback context exceeds its bound"));
+        }
+    }
+    Ok(value)
 }
 
 /// One manifest asset variant and the media URI that serves it.

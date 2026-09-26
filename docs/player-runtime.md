@@ -86,7 +86,7 @@ The timeline math (`clock/synchronized.ts`) is shared with the Electron main pro
 
 The current widget system is preserved as compatibility code and labelled as such:
 
-- `src/compat/projection`: the server-compiled Widget and Layout projection into the RenderNode tree. The Electron main process imports it through `@tilecast/player-runtime/projection`. The runtime runs it itself when a host sends references and a projection context (`compat/projector.ts`).
+- `src/compat/projection`: the server-compiled Widget and Layout projection into the RenderNode tree. The Electron main process imports it through `@tilecast/player-runtime/projection`. The runtime runs it itself when a host sends references and a projection context (`compat/projector.ts`). The context may carry the accepted player configuration's `playback` section; the projector then applies its regional formatting and layout playlist-zone defaults exactly as the Electron main process does. The member is optional and additive, so `TilecastRuntimeHostV1` stays at contract version 1.
 - `src/compat/render-tree-dom.ts`: the RenderNode interpreter.
 - `src/compat/plugins`: the Countdown Bar, Emergency Alerts ticker, Noise Meter and Brand Bug resolvers, plus the overlay controller.
 

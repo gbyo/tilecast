@@ -14,7 +14,11 @@
 //! * [`capabilities`] — daemon-owned capabilities and persistence.
 //! * [`fixture`] — development presentation source.
 //! * [`server_link`] — identity gate, player WebSocket and heartbeat, and
-//!   driving manifest reconciliation.
+//!   driving manifest and configuration reconciliation.
+//! * [`commands`], [`command_handlers`] — durable player commands and their
+//!   fixed handlers.
+//! * [`player_config`], [`config_sync`] — the player configuration document
+//!   and its reconciliation.
 //! * [`manifest_sync`] — the ordinary manifest endpoint, the target and its
 //!   verified preparation.
 //! * [`manifest`] — the manifest boundary, renderer compatibility and
@@ -26,7 +30,10 @@
 
 pub mod activation;
 pub mod capabilities;
+pub mod command_handlers;
+pub mod commands;
 pub mod config;
+pub mod config_sync;
 pub mod daemon;
 pub mod fixture;
 pub mod ipc_handler;
@@ -36,6 +43,7 @@ pub mod manifest;
 pub mod manifest_sync;
 pub mod media;
 pub mod media_channel;
+pub mod player_config;
 pub mod presentation;
 pub mod schedule;
 pub mod server_link;

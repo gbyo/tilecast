@@ -1,0 +1,54 @@
+{
+  "frame": {
+    "type": "event",
+    "seq": 4,
+    "event": "presentation.activate",
+    "data": {
+      "activationId": "3f2b8c1d-4e5f-4a6b-8c7d-9e0f1a2b3c4e",
+      "generation": 3,
+      "presentation": {
+        "state": "playing",
+        "items": [
+          {
+            "id": "layout-1c9a8f5e-2b1d-4f3a-9c8e-7d6b5a4f3e2d",
+            "kind": "layout",
+            "src": "",
+            "durationMs": null,
+            "fitMode": "contain",
+            "transition": "none",
+            "audioEnabled": false,
+            "volume": 0.0,
+            "videoStartOffsetMs": null,
+            "videoEndOffsetMs": null,
+            "layout": {
+              "layoutId": "1c9a8f5e-2b1d-4f3a-9c8e-7d6b5a4f3e2d"
+            }
+          }
+        ],
+        "takeover": false,
+        "generation": 3,
+        "synchronized": false
+      },
+      "content": [],
+      "timing": null,
+      "projection": {
+        "schema": 1,
+        "clockOffsetMs": -250,
+        "manifest": {
+          "layouts": []
+        },
+        "media": [],
+        "playback": {
+          "defaultImageDurationSeconds": 8,
+          "regionalFormat": {
+            "locale": "es-US",
+            "timezone": "America/Chicago",
+            "dateFormat": "locale",
+            "timeFormat": "12-hour",
+            "firstDayOfWeek": "sunday"
+          }
+        }
+      }
+    }
+  }
+}

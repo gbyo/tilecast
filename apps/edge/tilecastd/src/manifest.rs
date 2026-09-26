@@ -36,6 +36,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::daemon::DaemonContext;
+use crate::player_config::{self, PlayerConfig};
 use crate::schedule::{self, Selection, Source};
 
 /// Player manifest schema versions the server compiler emits and this
@@ -51,7 +52,6 @@ const MAX_DATA_SOURCES: usize = 256;
 const MAX_PLUGINS: usize = 64;
 const AUTOMATIC_VIDEO_LIMIT_BYTES: u64 = 256 * 1024 * 1024;
 const DEFAULT_ACTIVATION_GRACE_SECONDS: u64 = 30;
-const DEFAULT_IMAGE_DURATION_MS: u64 = 10_000;
 const LAYOUT_ITEM_PREFIX: &str = "layout-";
 
 /// The installed WPE renderer profile. It is compiled into the daemon release
@@ -635,6 +635,7 @@ impl Candidate {
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn status(
         &self,
         state: &str,
@@ -642,6 +643,7 @@ impl Candidate {
         message: &str,
         status: &str,
         now_ms: i64,
+        config: &PlayerConfig,
     ) -> Result<(PresentationDocument, Vec<ContentRef>), ManifestError> {
         let mut content = Vec::new();
         let logo = self
@@ -659,20 +661,40 @@ impl Candidate {
             }
             None => None,
         };
+        let branding = &config.branding;
         let surface = StatusSurface {
-            title: text(title)?,
-            message: text(message)?,
-            background_color: Some(text("#0E141B")?),
-            text_color: Some(text("#F5F7FA")?),
+            title: SafeText::lossy(title),
+            message: SafeText::lossy(message),
+            background_color: Some(text(branding.background())?),
+            text_color: Some(text(branding.text())?),
             logo_src,
-            footer_text: None,
+            footer_text: branding.footer_text.as_deref().map(SafeText::lossy),
             status: Some(text(status)?),
         };
         let document = match state {
             "unavailable" => PresentationDocument::Unavailable(surface),
+            "disabled" => PresentationDocument::Disabled(surface),
             _ => PresentationDocument::Idle(surface),
         };
         Ok((document, content))
+    }
+
+    /// The branded surface for a screen whose playback an administrator
+    /// disabled (the reference player's `brandingFallback`).
+    pub fn disabled_surface(
+        &self,
+        now_ms: i64,
+        config: &PlayerConfig,
+    ) -> Result<(PresentationDocument, Vec<ContentRef>), ManifestError> {
+        let branding = &config.branding;
+        self.status(
+            "disabled",
+            branding.disabled_title.as_deref().unwrap_or("Screen disabled"),
+            branding.disabled_message.as_deref().unwrap_or(""),
+            "disabled",
+            now_ms,
+            config,
+        )
     }
 
     fn widget(&self, asset_id: &str) -> Option<&Value> {
@@ -683,8 +705,14 @@ impl Candidate {
             .find(|widget| widget.get("assetId").and_then(Value::as_str) == Some(asset_id))
     }
 
-    /// Resolves the server-compiled manifest at one corrected server instant.
+    /// Resolves the manifest with default player configuration.
     pub fn presentation(&self, now_ms: i64) -> Result<ResolvedPresentation, ManifestError> {
+        self.presentation_with(now_ms, &PlayerConfig::default())
+    }
+
+    /// Resolves the server-compiled manifest at one corrected server instant
+    /// under the accepted player configuration.
+    pub fn presentation_with(&self, now_ms: i64, config: &PlayerConfig) -> Result<ResolvedPresentation, ManifestError> {
         let selection = schedule::resolve(&self.document, now_ms).map_err(|_| ManifestError::Schedule)?;
         let availability = next_availability_transition(&self.document, now_ms)?;
         let next_transition_ms = match (selection.next_transition_ms, availability) {
@@ -730,7 +758,7 @@ impl Candidate {
                 widget: None,
                 layout: Some(serde_json::json!({ "layoutId": layout_id.to_string() })),
             };
-            let (projection, content) = self.projection(now_ms)?;
+            let (projection, content) = self.projection(now_ms, config)?;
             let document = PresentationDocument::Playing {
                 items: vec![item],
                 takeover: false,
@@ -741,7 +769,15 @@ impl Candidate {
         }
 
         let Some(playlist_id) = selection.playlist_id else {
-            let (document, content) = self.status("idle", "No content assigned", "", "no_content", now_ms)?;
+            let branding = &config.branding;
+            let (document, content) = self.status(
+                "idle",
+                branding.no_content_title.as_deref().unwrap_or("No content assigned"),
+                branding.no_content_message.as_deref().unwrap_or(""),
+                "no_content",
+                now_ms,
+                config,
+            )?;
             return Ok(finish(document, content, None, selection));
         };
         let playlist = playlists_of(&self.document)
@@ -757,29 +793,18 @@ impl Candidate {
             }
             let item_id = item.get("id").and_then(Value::as_str).ok_or(ManifestError::Structure)?;
             let asset_type = item.get("assetType").and_then(Value::as_str).unwrap_or("");
-            let fallback_duration = match asset_type {
-                "image" => Some(DEFAULT_IMAGE_DURATION_MS),
-                "video" => None,
-                "website" => Some(60_000),
-                _ => Some(30_000),
-            };
-            let duration_ms = match item.get("durationMs") {
+            let authored_duration = match item.get("durationMs") {
                 Some(Value::Number(value)) => Some(value.as_u64().ok_or(ManifestError::Structure)?),
-                None | Some(Value::Null) => fallback_duration,
+                None | Some(Value::Null) => None,
                 _ => return Err(ManifestError::Structure),
             };
-            let fit_mode = item
-                .get("fitMode")
-                .and_then(Value::as_str)
-                .filter(|mode| matches!(*mode, "contain" | "cover" | "stretch"))
-                .unwrap_or("contain");
-            let transition = item
-                .get("transition")
-                .and_then(Value::as_str)
-                .filter(|mode| matches!(*mode, "fade" | "crossfade"))
-                .unwrap_or("none");
-            let volume = item.get("volume").and_then(Value::as_f64).unwrap_or(0.5).clamp(0.0, 1.0);
-            let audio_enabled = item.get("audioEnabled").and_then(Value::as_bool).unwrap_or(true);
+            let settings = player_config::item_settings(
+                item.as_object().ok_or(ManifestError::Structure)?,
+                &config.playback,
+                authored_duration,
+            );
+            let (duration_ms, fit_mode, transition, volume, audio_enabled) =
+                (settings.duration_ms, settings.fit_mode, settings.transition, settings.volume, settings.audio_enabled);
             let number = |key: &str| -> Result<Option<u64>, ManifestError> {
                 match item.get(key) {
                     None | Some(Value::Null) => Ok(None),
@@ -855,12 +880,13 @@ impl Candidate {
                 "Assigned content is not currently available.",
                 "unavailable",
                 now_ms,
+                config,
             )?;
             return Ok(finish(document, content, None, selection));
         }
         let mut content: Vec<ContentRef> = content_by_digest.into_values().collect();
         let projection = if needs_projection {
-            let (projection, projection_content) = self.projection(now_ms)?;
+            let (projection, projection_content) = self.projection(now_ms, config)?;
             for reference in projection_content {
                 if !content.iter().any(|existing| existing.sha256 == reference.sha256) {
                     content.push(reference);
@@ -881,7 +907,11 @@ impl Candidate {
 
     /// The manifest subset the trusted runtime's `renderWidget` and
     /// `renderLayout` read, plus the media map for every asset variant.
-    fn projection(&self, now_ms: i64) -> Result<(ProjectionContext, Vec<ContentRef>), ManifestError> {
+    fn projection(
+        &self,
+        now_ms: i64,
+        config: &PlayerConfig,
+    ) -> Result<(ProjectionContext, Vec<ContentRef>), ManifestError> {
         let mut manifest = serde_json::Map::new();
         for key in
             ["assets", "playlist", "directFallbackPlaylist", "playlists", "widgets", "dataSources", "layouts", "layout"]
@@ -909,7 +939,8 @@ impl Candidate {
             return Err(ManifestError::Bound);
         }
         let _ = now_ms;
-        Ok((ProjectionContext { schema: 1, clock_offset_ms: 0, manifest, media }, content))
+        let playback = (!config.playback.context.is_empty()).then(|| Value::Object(config.playback.context.clone()));
+        Ok((ProjectionContext { schema: 1, clock_offset_ms: 0, manifest, media, playback }, content))
     }
 
     /// Supported built-in plugins, their media aliases and content.

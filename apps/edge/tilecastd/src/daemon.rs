@@ -95,6 +95,19 @@ pub struct DaemonContext {
     pub link_state: std::sync::Mutex<LinkState>,
     /// Last successful authenticated contact with the server.
     pub last_server_contact: std::sync::Mutex<Option<Timestamp>>,
+    /// The accepted player configuration in force (`config_sync`).
+    pub player_config: std::sync::RwLock<Option<Arc<crate::player_config::PlayerConfig>>>,
+    /// Wakes the command task (`commands.available`).
+    pub command_wake: tokio::sync::Notify,
+    /// The identity-verified server the command task polls, published by the
+    /// server link while the relationship lasts.
+    pub command_server: tokio::sync::watch::Sender<Option<edge_server::AuthenticatedServer>>,
+    /// `sync_now` requests: the requested generation, and the last
+    /// generation a server-link pass completed with whether it succeeded.
+    pub sync_request: std::sync::atomic::AtomicU64,
+    pub sync_done: tokio::sync::watch::Sender<(u64, bool)>,
+    /// Set by `restart_player_process` before it cancels the daemon.
+    pub restart_requested: std::sync::atomic::AtomicBool,
     pub shutdown: CancellationToken,
 }
 
@@ -267,13 +280,33 @@ impl Daemon {
             preparation: Default::default(),
             link_state: std::sync::Mutex::new(LinkState::Unbound),
             last_server_contact: std::sync::Mutex::new(None),
+            player_config: std::sync::RwLock::new(None),
+            command_wake: tokio::sync::Notify::new(),
+            command_server: tokio::sync::watch::Sender::new(None),
+            sync_request: std::sync::atomic::AtomicU64::new(0),
+            sync_done: tokio::sync::watch::Sender::new((0, false)),
+            restart_requested: std::sync::atomic::AtomicBool::new(false),
             shutdown: CancellationToken::new(),
         });
 
-        let bound = match context.db() {
-            Some(db) => db.run_blocking(|c| binding::get(c)).ok().flatten().is_some(),
-            None => false,
+        let bound_record = match context.db() {
+            Some(db) => db.run_blocking(|c| binding::get(c)).ok().flatten(),
+            None => None,
         };
+        let bound = bound_record.is_some();
+        // The accepted configuration applies before any network access.
+        if let Some(record) = bound_record
+            && let Some(screen_id) = record.screen_id
+        {
+            let binding = edge_state::repo::manifests::Binding {
+                installation_id: record.installation_id,
+                screen_id,
+                server_url: record.server_url,
+            };
+            crate::config_sync::load_cached(&context, &binding).await;
+        } else {
+            crate::config_sync::install(&context, None).await;
+        }
         let initial = status_surface(&context, bound);
         context
             .presentation
@@ -336,6 +369,7 @@ impl Daemon {
         tasks.spawn(crate::activation::run(Arc::clone(&context)));
         tasks.spawn(cas_maintenance_loop(Arc::clone(&context)));
         tasks.spawn(server_link::run(Arc::clone(&context)));
+        tasks.spawn(crate::commands::run(Arc::clone(&context)));
 
         let status = ready_status(&context);
         context.notifier.ready(&status);

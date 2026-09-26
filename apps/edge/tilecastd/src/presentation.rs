@@ -52,6 +52,9 @@ pub enum ActivationSource {
     Fixture,
     ServerManifest,
     SafeMode,
+    /// A surface the accepted configuration or an administrator selected
+    /// instead of content: outside active hours, or playback disabled.
+    Policy,
 }
 
 /// Which verified presentation an activation shows and what selected it:
@@ -719,5 +722,113 @@ impl PresentationEngine {
 
     pub fn is_safe_mode(&self) -> bool {
         self.supervisor.safe_mode
+    }
+
+    /// Applies the accepted player configuration: the recovery ladder from
+    /// its `reliability` section (the operator's stall threshold when the
+    /// section is absent) and the renderer kiosk policy, which prevents
+    /// display sleep only while both the operator and the server want it.
+    /// The kiosk policy reaches a renderer in its next `renderer.configure`.
+    pub fn apply_player_config(
+        &mut self,
+        operator: &crate::config::EdgeConfig,
+        config: &crate::player_config::PlayerConfig,
+    ) {
+        let mut supervisor = SupervisorConfig {
+            stall_threshold_ms: operator.renderer.stall_threshold_seconds as i64 * 1_000,
+            ..SupervisorConfig::default()
+        };
+        if let Some(reliability) = config.reliability {
+            supervisor.stall_threshold_ms = reliability.stall_threshold_ms;
+            supervisor.ladder_run_window_ms = reliability.ladder_run_window_ms;
+            supervisor.max_ladder_runs_before_safe_mode = reliability.max_ladder_runs_before_safe_mode;
+            supervisor.safe_mode_enabled = reliability.safe_mode_enabled;
+        }
+        self.supervisor_config = supervisor;
+        self.configure.kiosk.prevent_display_sleep =
+            operator.renderer.prevent_display_sleep && config.linux_kiosk.prevent_display_sleep;
+    }
+
+    pub fn supervisor_config(&self) -> SupervisorConfig {
+        self.supervisor_config
+    }
+
+    pub fn kiosk_policy(&self) -> KioskPolicy {
+        self.configure.kiosk.clone()
+    }
+
+    /// Whether a renderer is connected and has reported ready.
+    pub fn renderer_is_ready(&self) -> bool {
+        self.renderer.as_ref().is_some_and(|link| link.ready.is_some())
+    }
+
+    /// Issues the current activation again under a new generation: the
+    /// runtime starts the presentation from the beginning (the reference
+    /// player's `reload_playback`).
+    pub fn reload_current(&mut self, now_ms: i64) -> bool {
+        let Some(current) = self.current.take() else { return false };
+        self.activate_revision(
+            current.document,
+            current.content,
+            current.timing,
+            current.source,
+            current.identity,
+            current.extras,
+            now_ms,
+        )
+        .is_ok()
+    }
+
+    /// Shows the screen's name over the presentation. Returns whether a ready
+    /// renderer received the request.
+    pub fn identify(&self, name: &str, duration_seconds: u32) -> bool {
+        let Some(link) = self.renderer.as_ref().filter(|link| link.ready.is_some()) else { return false };
+        link.session
+            .send_event(Event::Identify(edge_protocol::ipc::event::Identify {
+                name: SafeText::lossy(name),
+                duration_seconds,
+            }))
+            .is_ok()
+    }
+
+    /// Sends a playback command to a ready renderer. Returns whether it was
+    /// delivered; the renderer's evidence, not this, shows its effect.
+    pub fn renderer_command(&self, command: RendererCommandKind) -> bool {
+        let Some(link) = self.renderer.as_ref().filter(|link| link.ready.is_some()) else { return false };
+        link.session
+            .send_event(Event::RendererCommand(RendererCommand { command_id: uuid::Uuid::new_v4(), command }))
+            .is_ok()
+    }
+
+    /// Asks the connected renderer to exit so systemd starts a fresh one; the
+    /// current activation is restored when it reconnects.
+    pub fn restart_renderer(&mut self, reason: &str) -> bool {
+        let Some(link) = self.renderer.as_ref() else { return false };
+        let sent = link
+            .session
+            .send_event(Event::RendererShutdown(RendererShutdown {
+                reason: ShortToken::new(reason).unwrap_or_else(|_| ShortToken::new("command").expect("literal token")),
+                deadline_ms: 5_000,
+            }))
+            .is_ok();
+        if sent {
+            self.restart_count += 1;
+        }
+        sent
+    }
+
+    /// Leaves safe mode and restarts the ladder. Returns whether safe mode
+    /// was active. Activation shows the right presentation again.
+    pub fn clear_safe_mode(&mut self, now_ms: i64) -> bool {
+        let was = self.supervisor.safe_mode;
+        self.supervisor.clear_safe_mode(now_ms);
+        was
+    }
+
+    /// Allows the next recovery rung at once and evaluates it (the reference
+    /// player's `retry_player_recovery`).
+    pub fn retry_recovery(&mut self, now_ms: i64) -> HealAction {
+        self.supervisor.last_action_at_ms = None;
+        self.tick(now_ms)
     }
 }

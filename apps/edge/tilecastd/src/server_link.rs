@@ -13,8 +13,12 @@
 //!    back to `POST /player/heartbeat` while the socket is unavailable. A
 //!    server ping samples the clock and is answered; pushes only wake the
 //!    next reconciliation.
-//! 4. Reconciles the manifest through the ordinary manifest endpoint
-//!    (`manifest_sync`) and keeps one abortable preparation on its target.
+//! 4. Reconciles player configuration (`config_sync`) on connection, on a
+//!    `config.changed` push and at the manifest interval, and the manifest
+//!    through the ordinary manifest endpoint (`manifest_sync`), keeping one
+//!    abortable preparation on its target.
+//! 5. Publishes the verified server to the command task (`commands`), which
+//!    polls on its own cadence; a `commands.available` push wakes that task.
 //!
 //! The server is the only authority, and this task is the only way its
 //! state reaches the player. Playback never waits for it: while the server
@@ -39,11 +43,13 @@ use crate::daemon::{DaemonContext, VERSION};
 use crate::manifest::OriginSources;
 use crate::manifest_sync::{self, PreparationStatus, Prepared};
 
-/// Contact and reconciliation cadence while connected (the reference
-/// player's heartbeat interval).
+/// Contact cadence while connected without configuration (the reference
+/// player's heartbeat interval); configuration's `statusReportSeconds`
+/// replaces it.
 pub const CONTACT_INTERVAL: Duration = Duration::from_secs(60);
-/// Manifest reconciliation without a push (the reference player's
-/// `RECONCILE_INTERVAL_MS`).
+/// Manifest and configuration reconciliation without a push (the reference
+/// player's `RECONCILE_INTERVAL_MS`); configuration's
+/// `manifestReconciliationSeconds` replaces it.
 pub const MANIFEST_INTERVAL: Duration = Duration::from_secs(300);
 /// Re-check cadence while there is nothing to do (unbound, rejected).
 pub const IDLE_INTERVAL: Duration = Duration::from_secs(300);
@@ -104,6 +110,10 @@ struct Link {
     last_socket_activity: Option<Instant>,
     next_manifest_sync: Option<Instant>,
     manifest_dirty: bool,
+    next_config_sync: Option<Instant>,
+    config_dirty: bool,
+    /// The binding whose cached configuration is in force.
+    config_binding: Option<ManifestBinding>,
     /// The one preparation in flight and the manifest it prepares.
     preparation: Option<(edge_protocol::Sha256Digest, tokio::task::JoinHandle<()>)>,
 }
@@ -141,11 +151,23 @@ pub async fn run(context: Arc<DaemonContext>) {
         {
             let _ = task.await;
         }
+        let requested = context.sync_request.load(std::sync::atomic::Ordering::Acquire);
+        if requested > context.sync_done.borrow().0 {
+            link.manifest_dirty = true;
+            link.config_dirty = true;
+        }
         let state = pass(&context, &mut link).await;
+        if requested > context.sync_done.borrow().0 {
+            context.sync_done.send_replace((requested, state == LinkState::Connected));
+        }
+        if !matches!(state, LinkState::Connected | LinkState::Retrying(_)) {
+            context.command_server.send_replace(None);
+        }
+        let contact_interval = crate::config_sync::effective(&context).sync.status_report;
         let mut delay = match &state {
             LinkState::Connected => {
                 link.failures = 0;
-                CONTACT_INTERVAL
+                contact_interval
             }
             LinkState::Retrying(_) => {
                 link.failures = link.failures.saturating_add(1);
@@ -173,6 +195,7 @@ pub async fn run(context: Arc<DaemonContext>) {
                     () = &mut deadline => break,
                     () = context.server_wake.notified() => {
                         link.manifest_dirty = true;
+                        link.config_dirty = true;
                         break;
                     }
                 }
@@ -182,6 +205,7 @@ pub async fn run(context: Arc<DaemonContext>) {
                 () = &mut deadline => break,
                 () = context.server_wake.notified() => {
                     link.manifest_dirty = true;
+                    link.config_dirty = true;
                     break;
                 }
                 received = tokio::time::timeout(remaining, socket.next_event()) => {
@@ -204,7 +228,12 @@ pub async fn run(context: Arc<DaemonContext>) {
                                     link.manifest_dirty = true;
                                     break;
                                 }
-                                PlayerSocketEvent::ConfigChanged | PlayerSocketEvent::CommandsAvailable => break,
+                                PlayerSocketEvent::ConfigChanged => {
+                                    link.config_dirty = true;
+                                    break;
+                                }
+                                // Commands have their own task and cadence.
+                                PlayerSocketEvent::CommandsAvailable => context.command_wake.notify_one(),
                                 PlayerSocketEvent::Hello | PlayerSocketEvent::Other => {}
                                 PlayerSocketEvent::Closed => unreachable!("closed events are handled above"),
                             }
@@ -249,13 +278,14 @@ fn server_retry(error: &ServerError) -> LinkState {
     }
 }
 
-async fn reject_credential(context: &DaemonContext) {
+pub async fn reject_credential(context: &DaemonContext) {
     tracing::warn!(component = "server", event = "credential_rejected");
     if let Some(db) = context.db() {
         let now = context.now();
         let _ = db.run(move |c| binding::set_credential_state(c, CredentialState::Rejected, now)).await;
     }
     let _ = DeviceCredential::remove(&context.paths.identity_dir());
+    context.command_server.send_replace(None);
 }
 
 fn set_preparation(
@@ -405,6 +435,14 @@ async fn pass(context: &Arc<DaemonContext>, link: &mut Link) -> LinkState {
     };
     let now = context.now();
     let _ = db.run(move |c| binding::mark_identity_verified(c, now)).await;
+    // A new relationship (or a changed server) polls commands at once; a
+    // continuing one only refreshes the handle.
+    let published = server.clone();
+    context.command_server.send_if_modified(move |current| {
+        let changed = current.as_ref().is_none_or(|existing| existing.base_url() != published.base_url());
+        *current = Some(published);
+        changed
+    });
 
     if link.socket.is_none() && link.next_socket_attempt.is_none_or(|next| Instant::now() >= next) {
         match server.player_socket(VERSION).await {
@@ -432,7 +470,7 @@ async fn pass(context: &Arc<DaemonContext>, link: &mut Link) -> LinkState {
         let sent = if socket_sent { Ok(()) } else { server.player_heartbeat(&heartbeat).await };
         match sent {
             Ok(()) => {
-                link.next_heartbeat = Some(Instant::now() + CONTACT_INTERVAL);
+                link.next_heartbeat = Some(Instant::now() + crate::config_sync::effective(context).sync.status_report);
                 *context.last_server_contact.lock().unwrap_or_else(|e| e.into_inner()) = Some(context.now());
             }
             Err(ServerError::CredentialRejected) => {
@@ -442,15 +480,39 @@ async fn pass(context: &Arc<DaemonContext>, link: &mut Link) -> LinkState {
             Err(error) => return server_retry(&error),
         }
     }
-    if let Some(screen_id) = bound.screen_id
-        && (link.manifest_dirty || link.next_manifest_sync.is_none_or(|next| Instant::now() >= next))
-    {
-        link.manifest_dirty = false;
-        link.next_manifest_sync = Some(Instant::now() + MANIFEST_INTERVAL);
+    let reconcile_interval = crate::config_sync::effective(context).sync.manifest_reconciliation;
+    if let Some(screen_id) = bound.screen_id {
         let binding =
             ManifestBinding { installation_id: bound.installation_id, screen_id, server_url: bound.server_url.clone() };
-        if let Err(state) = sync_manifest(context, link, &server, binding).await {
-            return state;
+        if link.config_binding.as_ref() != Some(&binding) {
+            crate::config_sync::load_cached(context, &binding).await;
+            link.config_binding = Some(binding.clone());
+            link.config_dirty = true;
+        }
+        if link.config_dirty || link.next_config_sync.is_none_or(|next| Instant::now() >= next) {
+            link.config_dirty = false;
+            link.next_config_sync = Some(Instant::now() + reconcile_interval);
+            match crate::config_sync::reconcile(context, &server, &binding).await {
+                Err(ServerError::CredentialRejected) => {
+                    reject_credential(context).await;
+                    return LinkState::CredentialRejected;
+                }
+                Err(error) => {
+                    tracing::warn!(
+                        component = "config",
+                        event = "config_reconcile_failed",
+                        reason = error.reason_code()
+                    );
+                }
+                Ok(_) => {}
+            }
+        }
+        if link.manifest_dirty || link.next_manifest_sync.is_none_or(|next| Instant::now() >= next) {
+            link.manifest_dirty = false;
+            link.next_manifest_sync = Some(Instant::now() + reconcile_interval);
+            if let Err(state) = sync_manifest(context, link, &server, binding).await {
+                return state;
+            }
         }
     }
     LinkState::Connected
@@ -495,7 +557,22 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
         (presentation.status(), presentation.current().cloned(), presentation.current_item())
     };
     let healthy = renderer.state.as_str() == "healthy"
-        && current.as_ref().is_some_and(|active| active.source != crate::presentation::ActivationSource::StatusSurface);
+        && current
+            .as_ref()
+            .is_some_and(|active| active.source == crate::presentation::ActivationSource::ServerManifest)
+        && current.as_ref().is_some_and(|active| {
+            matches!(active.document, edge_protocol::ipc::presentation::PresentationDocument::Playing { .. })
+        });
+    // The reference player reports what is on screen: `playing`, or the
+    // surface's state (`sleep`, `disabled`, `safe-mode`, `idle`, ...).
+    let playback_state = if healthy {
+        "playing"
+    } else {
+        current.as_ref().map_or("idle", |active| match active.document.state_name() {
+            "playing" => "starting",
+            other => other,
+        })
+    };
     let uptime = ((context.now().unix_millis() - context.started_at.unix_millis()).max(0) / 1000) as u64;
     let native: serde_json::Map<String, serde_json::Value> = crate::manifest::profile::NATIVE_CAPABILITIES
         .iter()
@@ -506,7 +583,7 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
         "screenHeight": 0,
         "playerVersion": VERSION,
         "uptimeSeconds": uptime,
-        "playbackState": if healthy { "playing" } else { "idle" },
+        "playbackState": playback_state,
         "safeMode": renderer.state.as_str() == "safe_mode",
         "presentationSchemaVersions": [1],
         "nativePresentationCapabilities": native,
@@ -571,6 +648,15 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
                 }
             }
         }
+    }
+    if let Some(revision) = crate::config_sync::accepted_revision(context) {
+        heartbeat["activeConfigRevision"] = serde_json::json!(revision);
+    }
+    if let Some(db) = context.db()
+        && let Ok(status) = db.run(|c| edge_state::repo::config::status(c)).await
+        && let Some(code) = status.last_error_code
+    {
+        heartbeat["configurationError"] = serde_json::json!(code);
     }
     let preparation = context.preparation.lock().unwrap_or_else(|e| e.into_inner()).clone();
     if let Some(reason) =

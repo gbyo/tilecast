@@ -282,7 +282,7 @@ The ladder is the Electron player's, adapted to a separate renderer process: re-
 
 ### 11.3 Safe mode
 
-Safe mode shows a status surface instead of content and stops the ladder. It is reported in status. It lasts until the daemon restarts; an operator command to clear it arrives with commands (M4).
+Safe mode shows a status surface instead of content and stops the ladder. It is reported in status. Activation leaves the safe-mode surface in place until the daemon restarts or the `exit_safe_mode` command clears it.
 
 ### 11.4 Recovery mode
 

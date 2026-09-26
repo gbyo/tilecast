@@ -17,6 +17,14 @@
 //! promoted; if it was being tried on screen, the committed presentation
 //! returns until the newer one is ready. Pins follow the same rule: only the
 //! active, pending and on-screen manifests keep theirs.
+//!
+//! What may reach the screen follows the reference player's precedence
+//! (`player.ts#buildPresentation`): safe mode first, then the rest surface
+//! outside configured active hours, then the disabled surface while an
+//! administrator has disabled playback, then content. A takeover or Quick
+//! Present outranks both the rest and the disabled surfaces. A pending
+//! manifest is never promoted while a policy surface is shown, because it
+//! has not produced evidence on screen; it is tried when content returns.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -30,6 +38,7 @@ use edge_state::repo::playback;
 
 use crate::daemon::DaemonContext;
 use crate::manifest::{self, Candidate, ResolvedPresentation};
+use crate::player_config::{self, PlayerConfig};
 use crate::presentation::{ActivationSource, PlaybackIdentity, ServerExtras};
 use crate::schedule::Source;
 
@@ -45,6 +54,99 @@ pub fn should_activate_pending(
     grace_at_ms: i64,
 ) -> bool {
     !current_is_playing || takeover || item_boundary || now_ms >= grace_at_ms
+}
+
+/// A surface that replaces content by policy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Gate {
+    /// Outside configured active hours.
+    Rest,
+    /// An administrator disabled playback.
+    Disabled,
+}
+
+/// Which policy surface, if any, applies at `now_ms` (corrected), and in how
+/// many milliseconds the active-hours answer next changes.
+pub fn gate(config: &PlayerConfig, playback_disabled: bool, now_ms: i64) -> (Option<Gate>, Option<i64>) {
+    let hours = player_config::evaluate_active_hours(config.power.active_hours.as_ref(), now_ms);
+    let gate = if !hours.active {
+        Some(Gate::Rest)
+    } else if playback_disabled {
+        Some(Gate::Disabled)
+    } else {
+        None
+    };
+    (gate, hours.ms_until_transition)
+}
+
+/// A takeover or Quick Present outranks the policy surfaces.
+pub fn overrides_gate(source: Source) -> bool {
+    matches!(source, Source::Takeover | Source::QuickPresent)
+}
+
+/// The surface for `gate`. The disabled surface carries the manifest's
+/// branding logo when a verified candidate is available.
+pub fn gate_document(
+    gate: Gate,
+    config: &PlayerConfig,
+    candidate: Option<&Candidate>,
+    now_ms: i64,
+) -> (PresentationDocument, Vec<edge_protocol::ipc::presentation::ContentRef>) {
+    use edge_protocol::bounded::{SafeText, ShortToken};
+    match gate {
+        Gate::Rest => (
+            PresentationDocument::Sleep {
+                display: ShortToken::new(config.power.outside_display.as_str()).ok(),
+                text: Some(SafeText::lossy(&config.power.outside_text)),
+                text_color: Some(SafeText::lossy(config.branding.text())),
+            },
+            Vec::new(),
+        ),
+        Gate::Disabled => {
+            if let Some(Ok(surface)) = candidate.map(|candidate| candidate.disabled_surface(now_ms, config)) {
+                return surface;
+            }
+            let branding = &config.branding;
+            (
+                PresentationDocument::Disabled(edge_protocol::ipc::presentation::StatusSurface {
+                    title: SafeText::lossy(branding.disabled_title.as_deref().unwrap_or("Screen disabled")),
+                    message: SafeText::lossy(branding.disabled_message.as_deref().unwrap_or("")),
+                    background_color: Some(SafeText::lossy(branding.background())),
+                    text_color: Some(SafeText::lossy(branding.text())),
+                    logo_src: None,
+                    footer_text: branding.footer_text.as_deref().map(SafeText::lossy),
+                    status: Some(SafeText::lossy("disabled")),
+                }),
+                Vec::new(),
+            )
+        }
+    }
+}
+
+/// Shows a policy surface unless it is already on screen.
+async fn show_policy(
+    context: &DaemonContext,
+    document: PresentationDocument,
+    content: Vec<edge_protocol::ipc::presentation::ContentRef>,
+    local_now_ms: i64,
+) {
+    let mut engine = context.presentation.lock().await;
+    let showing = engine.current().is_some_and(|current| {
+        current.source == ActivationSource::Policy && current.document == document && current.content == content
+    });
+    if !showing {
+        tracing::info!(component = "activation", event = "policy_surface", state = document.state_name());
+        if let Err(error) = engine.activate(document, content, None, ActivationSource::Policy, local_now_ms) {
+            tracing::warn!(component = "activation", event = "policy_surface_rejected", error = %error);
+        }
+    }
+}
+
+fn earliest(a: Option<i64>, b: Option<i64>) -> Option<i64> {
+    match (a, b) {
+        (Some(a), Some(b)) => Some(a.min(b)),
+        (a, b) => a.or(b),
+    }
 }
 
 #[derive(Debug, Default)]
@@ -153,14 +255,13 @@ async fn tick(context: &DaemonContext, state: &mut ActivationLoop, item_boundary
     let target = db.run(move |c| manifests::target(c, &target_binding)).await.ok().flatten().map(|t| t.digest);
 
     let local_now_ms = context.now().unix_millis();
-    let offset_ms = db
-        .run(|connection| playback::get(connection))
-        .await
-        .ok()
-        .and_then(|state| state.server_clock_offset_ms)
-        .unwrap_or_default();
+    let flags = db.run(|connection| playback::get(connection)).await.unwrap_or_default();
+    let offset_ms = flags.server_clock_offset_ms.unwrap_or_default();
     context.presentation.lock().await.set_clock_offset(offset_ms);
     let presentation_now_ms = local_now_ms.saturating_add(offset_ms);
+    let config = crate::config_sync::effective(context);
+    let (gate, hours_change_ms) = gate(&config, flags.playback_disabled, presentation_now_ms);
+    let hours_wake = hours_change_ms.map(|ms| local_now_ms.saturating_add(ms));
     let current = current(context).await;
 
     // A pending manifest that is no longer the target can never be promoted.
@@ -175,6 +276,15 @@ async fn tick(context: &DaemonContext, state: &mut ActivationLoop, item_boundary
         state.trial = None;
     }
     sweep_pins(context, &active, &pending, current.as_ref().and_then(|c| c.manifest)).await;
+
+    // Safe mode keeps its surface until an operator clears it; after that
+    // the leftover safe-mode activation no longer matches and is replaced.
+    if context.presentation.lock().await.is_safe_mode() {
+        state.trial = None;
+        return Some(local_now_ms.saturating_add(MAX_SLEEP.as_millis() as i64));
+    }
+    let active_candidate =
+        active.as_ref().and_then(|stored| Candidate::parse(stored.document.clone(), screen_id, stored.digest).ok());
 
     'pending: {
         if let Some(stored) = pending.as_ref() {
@@ -195,6 +305,19 @@ async fn tick(context: &DaemonContext, state: &mut ActivationLoop, item_boundary
                     break 'pending;
                 }
             };
+            if let Some(gate) = gate
+                && !candidate
+                    .presentation_with(presentation_now_ms, &config)
+                    .is_ok_and(|r| overrides_gate(r.selection.source))
+            {
+                // A policy surface suspends a trial. Restart its deadline only
+                // after the candidate is actually allowed back on screen.
+                state.trial = None;
+                let (document, content) =
+                    gate_document(gate, &config, active_candidate.as_ref().or(Some(&candidate)), presentation_now_ms);
+                show_policy(context, document, content, local_now_ms).await;
+                return earliest(hours_wake, Some(local_now_ms.saturating_add(MAX_SLEEP.as_millis() as i64)));
+            }
             let trial = current.as_ref().is_some_and(|c| c.manifest == Some(stored.digest));
             if trial {
                 let current = current.as_ref()?;
@@ -223,10 +346,11 @@ async fn tick(context: &DaemonContext, state: &mut ActivationLoop, item_boundary
                     return Some(local_now_ms.saturating_add(MAX_SLEEP.as_millis() as i64));
                 }
                 // The trial follows schedule boundaries like any presentation.
-                let next = show(context, &candidate, current, presentation_now_ms, local_now_ms, offset_ms).await;
-                return Some(next.unwrap_or(deadline).min(deadline));
+                let next =
+                    show(context, &candidate, current, &config, presentation_now_ms, local_now_ms, offset_ms).await;
+                return earliest(Some(next.unwrap_or(deadline).min(deadline)), hours_wake);
             }
-            let resolved = match candidate.presentation(presentation_now_ms) {
+            let resolved = match candidate.presentation_with(presentation_now_ms, &config) {
                 Ok(resolved) => resolved,
                 Err(error) => {
                     if state.invalid_pending != Some(stored.digest) {
@@ -286,9 +410,18 @@ async fn tick(context: &DaemonContext, state: &mut ActivationLoop, item_boundary
     }
 
     let Some(stored) = active.as_ref() else {
+        if let Some(gate) = gate {
+            let (document, content) = gate_document(gate, &config, None, presentation_now_ms);
+            show_policy(context, document, content, local_now_ms).await;
+            return earliest(hours_wake, Some(local_now_ms.saturating_add(MAX_SLEEP.as_millis() as i64)));
+        }
         // Nothing committed yet. An uncommitted trial whose pending state was
-        // superseded leaves the screen for the waiting surface.
-        if current.as_ref().is_some_and(|c| c.source == ActivationSource::ServerManifest) {
+        // superseded, or a policy surface that no longer applies, leaves the
+        // screen for the waiting surface.
+        if current
+            .as_ref()
+            .is_some_and(|c| matches!(c.source, ActivationSource::ServerManifest | ActivationSource::Policy))
+        {
             let surface = crate::daemon::status_surface_for(context, true);
             let _ = context.presentation.lock().await.activate(
                 surface,
@@ -298,7 +431,7 @@ async fn tick(context: &DaemonContext, state: &mut ActivationLoop, item_boundary
                 local_now_ms,
             );
         }
-        return None;
+        return hours_wake;
     };
     let candidate = match Candidate::parse(stored.document.clone(), screen_id, stored.digest) {
         Ok(candidate) => candidate,
@@ -320,7 +453,17 @@ async fn tick(context: &DaemonContext, state: &mut ActivationLoop, item_boundary
         accepted: false,
         evidence: false,
     });
-    show(context, &candidate, &current, presentation_now_ms, local_now_ms, offset_ms).await
+    let resolved = candidate.presentation_with(presentation_now_ms, &config);
+    if let Some(gate) = gate
+        && !resolved.as_ref().is_ok_and(|r| overrides_gate(r.selection.source))
+    {
+        let (document, content) = gate_document(gate, &config, Some(&candidate), presentation_now_ms);
+        show_policy(context, document, content, local_now_ms).await;
+        let content_wake = resolved.ok().and_then(|r| r.next_transition_ms).map(|at| at.saturating_sub(offset_ms));
+        return earliest(hours_wake, content_wake);
+    }
+    let next = show(context, &candidate, &current, &config, presentation_now_ms, local_now_ms, offset_ms).await;
+    earliest(next, hours_wake)
 }
 
 /// Shows `candidate` resolved at `presentation_now_ms`, re-activating only
@@ -329,11 +472,12 @@ async fn show(
     context: &DaemonContext,
     candidate: &Candidate,
     current: &Current,
+    config: &PlayerConfig,
     presentation_now_ms: i64,
     local_now_ms: i64,
     offset_ms: i64,
 ) -> Option<i64> {
-    let resolved = match candidate.presentation(presentation_now_ms) {
+    let resolved = match candidate.presentation_with(presentation_now_ms, config) {
         Ok(resolved) => resolved,
         Err(error) => {
             tracing::warn!(component = "activation", event = "selection_failed", reason = error.reason_code());
