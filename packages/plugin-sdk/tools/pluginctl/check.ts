@@ -27,8 +27,7 @@ const DOCS_CONTENT = "apps/docs/src/content/docs";
  * plugin, and leaves this list then. Every other plugin that declares
  * surfaces must have runtime/index.ts.
  */
-export const TRANSITIONAL_RUNTIME_ADAPTERS: readonly string[] = [
-];
+export const TRANSITIONAL_RUNTIME_ADAPTERS: readonly string[] = [];
 
 export async function check(repo: Repo): Promise<Problem[]> {
   const problems: Problem[] = [...repo.problems];
