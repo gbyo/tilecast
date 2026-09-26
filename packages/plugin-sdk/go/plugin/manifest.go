@@ -128,6 +128,16 @@ func (m Manifest) ManifestTypes() []string {
 	return append([]string(nil), m.Runtime.ManifestTypes...)
 }
 
+// Conventional entry points. Each build finds plugin code by these fixed
+// paths (the Go registry generator, and Vite import.meta.glob for Studio and
+// the Player runtime), so a manifest may only name the path the build
+// actually discovers.
+const (
+	ServerEntrypoint  = "./plugin.go"
+	StudioEntrypoint  = "./studio/index.tsx"
+	RuntimeEntrypoint = "./runtime/index.ts"
+)
+
 var (
 	IDPattern         = regexp.MustCompile(`^[a-z][a-z0-9_]{0,79}$`)
 	iconPattern       = regexp.MustCompile(`^[a-z][a-z0-9-]{0,39}$`)
@@ -248,8 +258,14 @@ func (m Manifest) Validate() error {
 		}
 		return nil
 	}
+	conventional := func(field, value, want string) error {
+		if value != want {
+			return fail("%s must be %s", field, want)
+		}
+		return nil
+	}
 	if m.Server != nil {
-		if err := checkPath("server.entrypoint", m.Server.Entrypoint); err != nil {
+		if err := conventional("server.entrypoint", m.Server.Entrypoint, ServerEntrypoint); err != nil {
 			return err
 		}
 	}
@@ -277,12 +293,12 @@ func (m Manifest) Validate() error {
 		if !routePattern.MatchString(m.Studio.Route) || strings.Contains(m.Studio.Route, "//") {
 			return fail("invalid studio route %q", m.Studio.Route)
 		}
-		if err := checkPath("studio.entrypoint", m.Studio.Entrypoint); err != nil {
+		if err := conventional("studio.entrypoint", m.Studio.Entrypoint, StudioEntrypoint); err != nil {
 			return err
 		}
 	}
 	if m.Runtime != nil {
-		if err := checkPath("runtime.entrypoint", m.Runtime.Entrypoint); err != nil {
+		if err := conventional("runtime.entrypoint", m.Runtime.Entrypoint, RuntimeEntrypoint); err != nil {
 			return err
 		}
 		if len(m.Runtime.ManifestTypes) == 0 {

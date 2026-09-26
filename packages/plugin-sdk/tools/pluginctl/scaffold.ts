@@ -6,7 +6,11 @@
  */
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
-import { pluginCategories, pluginIdPattern } from "../../src/manifest.ts";
+import {
+  conventionalEntrypoints,
+  pluginCategories,
+  pluginIdPattern,
+} from "../../src/manifest.ts";
 import { dirForId } from "./repo.ts";
 
 export interface ScaffoldOptions {
@@ -56,7 +60,7 @@ export function scaffold(root: string, options: ScaffoldOptions): string[] {
     requirements: [],
     uses: [],
     capabilities: {},
-    server: { entrypoint: "./plugin.go" },
+    server: { entrypoint: conventionalEntrypoints.server },
     ...(options.api
       ? {
           api: {
@@ -65,7 +69,10 @@ export function scaffold(root: string, options: ScaffoldOptions): string[] {
           },
         }
       : {}),
-    studio: { route: `/plugins/${dir}`, entrypoint: "./studio/index.tsx" },
+    studio: {
+      route: `/plugins/${dir}`,
+      entrypoint: conventionalEntrypoints.studio,
+    },
     docs: {
       pages: [
         { source: "./docs/index.mdx", slug: `operations/plugins/${dir}` },

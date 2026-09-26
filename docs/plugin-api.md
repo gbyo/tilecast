@@ -94,7 +94,7 @@ The schema is `packages/plugin-sdk/src/manifest.ts`. The main fields are:
 | `requirements`          | Advice shown before installation. Never evaluated.                           |
 | `uses`                  | Catalog "what it uses" text. The catalog API publishes it as `capabilities`. |
 | `capabilities`          | Machine-readable declarations. See below.                                    |
-| `server.entrypoint`     | The Go entry point. Required for a bundled plugin.                           |
+| `server.entrypoint`     | The Go entry point, `./plugin.go`. Required for a bundled plugin.            |
 | `migrations`            | The migration directory.                                                     |
 | `api.basePaths`         | Route prefixes below `/api/v1` that the plugin can register.                 |
 | `api.openapi`           | The OpenAPI fragment that describes those routes.                            |
@@ -103,6 +103,15 @@ The schema is `packages/plugin-sdk/src/manifest.ts`. The main fields are:
 | `runtime.surfaces`      | Runtime surface slots the plugin draws in.                                   |
 | `docs.pages`            | Public docs pages, their slugs, and their sidebar group.                     |
 | `docs.reference`        | The engineering reference, published as the catalog documentation link.      |
+
+The entry points are fixed. `server.entrypoint` must be `./plugin.go`,
+`studio.entrypoint` must be `./studio/index.tsx`, and `runtime.entrypoint`
+must be `./runtime/index.ts`. The builds find plugin code at these paths: the
+Go registry generator reads `plugin.go`, and Studio and the Player runtime use
+Vite `import.meta.glob`. Thus a manifest cannot name a file that the build does
+not find. The Zod schema, the Go parser, and `pluginctl check` apply this rule.
+`pluginctl check` also refuses a conventional file that the manifest does not
+declare.
 
 `capabilities` has these members:
 

@@ -11,7 +11,12 @@
     "singular": "item",
     "plural": "items"
   },
+  "$schema": "../../../schema/tilecast-plugin.schema.json",
   "server": {
-    "entrypoint": "../other/plugin.go"
+    "entrypoint": "./plugin.go"
+  },
+  "api": {
+    "basePaths": ["/plugins/minimal"],
+    "openapi": "../other/api/openapi.yaml"
   }
 }

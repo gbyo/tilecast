@@ -68,6 +68,18 @@ export const surfaceSlots = [
   "overlay",
 ] as const;
 
+/**
+ * Entry points are conventional, not configurable. The Go registry generator,
+ * Studio, and the Player runtime each find plugin code by these fixed paths
+ * (Vite `import.meta.glob` is convention-based), so a manifest may only name
+ * the path the build actually discovers.
+ */
+export const conventionalEntrypoints = {
+  server: "./plugin.go",
+  studio: "./studio/index.tsx",
+  runtime: "./runtime/index.ts",
+} as const;
+
 /** Docs site sidebar groups a plugin page may be listed in. */
 export const docsSidebarGroups = ["plugins", "review-and-collect"] as const;
 
@@ -167,9 +179,11 @@ export const pluginManifestSchema = z
       }),
     server: z
       .strictObject({
-        entrypoint: pluginPath.describe(
-          "Go file that declares the plugin package and its New constructor.",
-        ),
+        entrypoint: z
+          .literal(conventionalEntrypoints.server)
+          .describe(
+            "Go file that declares the plugin package and its New constructor. Always ./plugin.go.",
+          ),
       })
       .optional(),
     migrations: pluginPath
@@ -196,12 +210,20 @@ export const pluginManifestSchema = z
           .string()
           .regex(/^\/[a-z0-9][a-z0-9/-]{0,119}$/)
           .describe("The Studio route that manages the plugin."),
-        entrypoint: pluginPath,
+        entrypoint: z
+          .literal(conventionalEntrypoints.studio)
+          .describe(
+            "Studio module that default-exports defineStudioPlugin. Always ./studio/index.tsx.",
+          ),
       })
       .optional(),
     runtime: z
       .strictObject({
-        entrypoint: pluginPath,
+        entrypoint: z
+          .literal(conventionalEntrypoints.runtime)
+          .describe(
+            "Shared Player runtime module that renders the manifest types. Always ./runtime/index.ts.",
+          ),
         manifestTypes: z
           .array(z.string().regex(pluginIdPattern))
           .min(1)

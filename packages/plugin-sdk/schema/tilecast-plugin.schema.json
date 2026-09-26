@@ -160,8 +160,8 @@
       "properties": {
         "entrypoint": {
           "type": "string",
-          "pattern": "^\\.(?:\\/[A-Za-z0-9_-][A-Za-z0-9._-]*)+$",
-          "description": "Go file that declares the plugin package and its New constructor."
+          "const": "./plugin.go",
+          "description": "Go file that declares the plugin package and its New constructor. Always ./plugin.go."
         }
       },
       "required": ["entrypoint"],
@@ -202,7 +202,8 @@
         },
         "entrypoint": {
           "type": "string",
-          "pattern": "^\\.(?:\\/[A-Za-z0-9_-][A-Za-z0-9._-]*)+$"
+          "const": "./studio/index.tsx",
+          "description": "Studio module that default-exports defineStudioPlugin. Always ./studio/index.tsx."
         }
       },
       "required": ["route", "entrypoint"],
@@ -213,7 +214,8 @@
       "properties": {
         "entrypoint": {
           "type": "string",
-          "pattern": "^\\.(?:\\/[A-Za-z0-9_-][A-Za-z0-9._-]*)+$"
+          "const": "./runtime/index.ts",
+          "description": "Shared Player runtime module that renders the manifest types. Always ./runtime/index.ts."
         },
         "manifestTypes": {
           "minItems": 1,
