@@ -25,11 +25,31 @@ export function useNavigationWarning(
       const href = link?.getAttribute("href");
       if (link && href && !href.startsWith(allowPrefix)) {
         event.preventDefault();
+        const target = link.getAttribute("target");
+        const download = link.getAttribute("download");
+        const openInNewContext =
+          target === "_blank" || event.metaKey || event.ctrlKey || event.shiftKey;
         void confirm({ title: message, action: "Discard changes" }).then(
           (ok) => {
             if (!ok) return;
-            if (/^https?:\/\//.test(href)) window.location.assign(href);
-            else void navigate(href);
+            if (download !== null) {
+              const replay = document.createElement("a");
+              replay.href = link.href;
+              replay.download = download;
+              if (target) replay.target = target;
+              replay.click();
+              return;
+            }
+            if (openInNewContext || (target && target !== "_self")) {
+              window.open(link.href, target ?? "_blank");
+              return;
+            }
+            const url = new URL(link.href, window.location.href);
+            if (url.origin === window.location.origin && /^https?:$/.test(url.protocol)) {
+              void navigate(`${url.pathname}${url.search}${url.hash}`);
+            } else {
+              window.location.assign(link.href);
+            }
           },
         );
       }
