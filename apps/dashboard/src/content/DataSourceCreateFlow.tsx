@@ -15,6 +15,13 @@ import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { DataSourceDefinition, DataSourceProvider } from "../api/types";
 import { Button } from "../components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
 import { DataSourceEditor } from "./data-sources/dispatcher";
 import {
   galleryDescriptionText,
@@ -317,29 +324,22 @@ export function ConnectDataFlow({
       />,
       document.body,
     );
-  return createPortal(
-    <div
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4"
-      role="presentation"
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
     >
-      <section
-        className="relative mx-auto grid w-full max-w-5xl gap-5 rounded-xl bg-background p-5"
-        role="dialog"
-        aria-modal="true"
-        aria-label={t("dataSources.createFlow.createTitle", {
-          label: dialogLabel,
-        })}
-      >
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="absolute top-4 right-4"
-          aria-label={t("common:actions.close")}
-          onClick={onClose}
-        >
-          <X size={18} aria-hidden="true" />
-        </Button>
+      <DialogContent className="max-h-[calc(100vh-2rem)] max-w-5xl overflow-y-auto">
+        <DialogHeader className="sr-only">
+          <DialogTitle>
+            {t("dataSources.createFlow.createTitle", { label: dialogLabel })}
+          </DialogTitle>
+          <DialogDescription>
+            {t("dataSources.createFlow.connectDescription")}
+          </DialogDescription>
+        </DialogHeader>
         <DataSourceCreateShell
           provider={provider}
           definition={definition}
@@ -348,8 +348,7 @@ export function ConnectDataFlow({
           onClose={onBack}
           onSaved={(created) => onCreated(created.id)}
         />
-      </section>
-    </div>,
-    document.body,
+      </DialogContent>
+    </Dialog>
   );
 }
