@@ -81,7 +81,6 @@ The timeline math (`clock/synchronized.ts`) is shared with the Electron main pro
 - **Transitions** use the Web Animations API (`transitions/crossfade.ts`). A transition has one clock and one `finished` signal. A takeover or a newer swap cancels it, which puts both layers in their resting state at once.
 - **Video evidence**: `HtmlVideoSurface` reports `video-progress` only while decoded frames are presented, when `requestVideoFrameCallback` is available and has fired. Otherwise it falls back to advancing media time. The API makes evidence stronger; playback never requires it.
 - **Plugin surfaces** come from the runtime surface host (`src/plugins`). The host finds each runtime plugin when the runtime is built, gives it one container for each surface that it declares, arbitrates each slot by the declared tier and the claimed priority, and sets the content-stage insets and the corner lift. A plugin draws only inside its containers. [plugin-api.md](plugin-api.md#player-runtime) is the contract.
-- **Media progress is never rendered.** The Noise Meter marker moves at its sampling rate through a direct style write, outside any evaluation.
 
 ## 6. Compatibility code and the widget seam
 
@@ -108,7 +107,7 @@ RenderNode is not the Player Runtime's permanent widget API. `src/widgets/contra
 - The WPE runner (`apps/edge/renderer-wpe/tests/conformance.c`) loads it through the renderer's own path validation and `tcmediasrc` media source on WPEPlatform headless.
 - `compare.mjs` requires identical semantic state, evidence, errors and presentation results at every checkpoint. It compares screenshots perceptually, with a 1.5 % mismatch budget. Active video and remote web content are never pixel-compared. On a failure the report keeps both screenshots, the diff, the fixture and the engine versions.
 
-The fixtures cover setup and discovery, pairing, idle, offline, disabled and safe-mode surfaces, image contain, cover and fill, playlist transitions, the video lifecycle, a synchronized join and boundary with a wall-clock step, Layout zones with a rotating zone, the stable widget compatibility fixture, outside active hours, takeover and resume, plugin strip priority, host-measured Noise Meter levels, identify, and projection rejection.
+The fixtures cover setup and discovery, pairing, idle, offline, disabled and safe-mode surfaces, image contain, cover and fill, playlist transitions, the video lifecycle, a synchronized join and boundary with a wall-clock step, Layout zones with a rotating zone, the stable widget compatibility fixture, outside active hours, takeover and resume, plugin strip priority, identify, and projection rejection.
 
 Run it locally:
 

@@ -51,7 +51,6 @@ Edge runs as system services under a dedicated `tilecast` account, not in a desk
 - `tilecast-edge.service` runs `tilecastd`, the Player service. It doesn't run as root.
 - `tilecast-renderer.service` runs the WPE WebKit renderer in a more restricted sandbox. It can't read the Player's data directory and gets media only through `tilecastd`.
 - `tilecast-edge-update.socket` starts the update helper only when `tilecastd` asks it to install an update. While an update is provisional, a guard from the previous release also runs. See [Update Tilecast Edge](../updates/).
-- A small process in the `tilecast` account's session reads the audio devices for the Noise Meter.
 
 <FileTree>
 

@@ -10,7 +10,7 @@ the new structure one at a time; see [Migration status](#migration-status).
 
 ## Context
 
-Before Plugin API v1, the five built-in plugins had one shared installation
+Before Plugin API v1, the then-current built-in plugins had one shared installation
 lifecycle, but their behavior was spread across Tilecast. A new plugin needed
 edits in the server registry, the status query, the removal switch, the
 manifest projection list, the playlist asset projection, the manifest
@@ -240,7 +240,10 @@ transport. The plugin answers the plugin-specific questions:
   explain the next step.
 
 An installation row for a plugin that this release does not know stays inert
-and removable, as before.
+and removable, as before. Rows for the retired `brand_bug` and `noise_meter`
+plugins are also inert and removable, but the catalog marks them as retired
+rather than as plugins from a newer release. Removing a row preserves its
+historical data.
 
 ## Migrations
 
@@ -309,15 +312,14 @@ The contract is `@tilecast/plugin-sdk/runtime`
 
 A plugin owns what it draws. The runtime host owns everything around it.
 
-| The host owns                                                         | The plugin owns                                   |
-| --------------------------------------------------------------------- | ------------------------------------------------- |
-| Discovery and the check against the manifest                          | How it reads its manifest entries                 |
-| Claim validation and arbitration (tier, then priority, then ID)       | Which of its own instances it claims a slot for   |
-| One long-lived container for each declared surface                    | Its elements inside those containers              |
-| Slot geometry: strip height, push and overlay insets, the corner lift | Its own layout inside the container               |
-| The corrected clock, its timers, reduced motion, and frozen frames    | Its behavior and animation on those clocks        |
-| Evaluation scheduling, sleep and wake, disposal                       | The text that the conformance probe reports       |
-| The microphone (root-mean-square levels only)                         | What it measures from the levels, and its reports |
+| The host owns                                                         | The plugin owns                                 |
+| --------------------------------------------------------------------- | ----------------------------------------------- |
+| Discovery and the check against the manifest                          | How it reads its manifest entries               |
+| Claim validation and arbitration (tier, then priority, then ID)       | Which of its own instances it claims a slot for |
+| One long-lived container for each declared surface                    | Its elements inside those containers            |
+| Slot geometry: strip height, push and overlay insets, the corner lift | Its own layout inside the container             |
+| The corrected clock, its timers, reduced motion, and frozen frames    | Its behavior and animation on those clocks      |
+| Evaluation scheduling, sleep and wake, disposal                       | The text that the conformance probe reports     |
 
 ### Discovery
 
@@ -338,9 +340,7 @@ A plugin declares one tier in `runtime.tier`:
 | Tier        | For                                  | Example          |
 | ----------- | ------------------------------------ | ---------------- |
 | `emergency` | Safety messages that must be visible | Emergency Alerts |
-| `live`      | Conditions measured now              | Noise Meter      |
 | `scheduled` | Planned, time-bound messages         | Countdown Bar    |
-| `ambient`   | Permanent marks                      | Brand Bug        |
 
 On each evaluation, the host calls `update` with the entries of the plugin's
 manifest types. The plugin returns its claims: at most one for each slot,
@@ -412,12 +412,11 @@ with a manual clock.
 
 ### Microphone
 
-A plugin that declares hardware `microphone` gets `context.microphone`.
-`open` gives root-mean-square levels, never audio. The source is the
-renderer's own microphone (`renderer-microphone`) or levels that the host
-process measures (`host-levels`). The host contract between the runtime and
-Electron or WPE does not change: the service uses the existing `noiseMeter`
-host members and `noise-level` messages.
+The runtime contract still defines `context.microphone` for a plugin that
+declares microphone hardware. No plugin in this release uses it. The older
+Noise Meter's host-level messages and native Edge capture code remain only as
+inactive compatibility infrastructure; they do not make Noise Meter an
+available plugin.
 
 ### Stylesheets
 
@@ -431,13 +430,13 @@ refuses other selectors and global rules such as `@import` and `@font-face`.
 
 ### Migration adapters
 
-Until milestones 4 and 5, the Emergency Alerts ticker, the Noise Meter, and
-the Brand Bug are adapters in `packages/player-runtime/src/plugins/builtin`.
-They use the same contract, and discovery checks them against their
-manifests. Their manifests declare `runtime.surfaces` and `runtime.tier`
-without `runtime.entrypoint`. `pluginctl check` permits this only for the
-plugins in `TRANSITIONAL_RUNTIME_ADAPTERS`. Every other plugin that declares
-surfaces must have `runtime/index.ts`.
+The Emergency Alerts ticker remains a migration adapter in
+`packages/player-runtime/src/plugins/builtin`. It uses the same contract,
+and discovery checks it against its manifest. Its manifest declares
+`runtime.surfaces` and `runtime.tier` without `runtime.entrypoint`.
+`pluginctl check` permits this only for plugins in
+`TRANSITIONAL_RUNTIME_ADAPTERS`. Every other plugin that declares surfaces
+must have `runtime/index.ts`.
 
 ## Documentation
 
@@ -501,6 +500,9 @@ its user documentation, and its tests.
 - `plugin_installations` rows, plugin data, and the migration history do not
   change. A moved migration keeps its version and its content.
 - Removal still never deletes plugin data.
+- Old cached Player manifest entries for `brand_bug` and `noise_meter` are
+  ignored. Legacy `noiseMeter` heartbeat fields are accepted and ignored;
+  they do not create history or status updates.
 
 ## Rejected alternatives
 
@@ -551,14 +553,15 @@ Plugin API v1 does not load third-party code. The contract keeps a path open:
 | 1         | Layout, manifest, SDKs, host, discovery, tooling, CODEOWNERS, CI | Done    |
 | 2         | Countdown Bar in `plugins/countdown-bar/`                        | Done    |
 | 3         | Generic runtime surface host                                     | Done    |
-| 4         | Brand Bug and Noise Meter                                        | Planned |
+| 4         | Retire Brand Bug and Noise Meter with compatibility shims        | Done    |
 | 5         | Emergency Alerts                                                 | Planned |
 | 6         | Forms                                                            | Planned |
 | 7         | Remove the remaining special cases                               | Planned |
 
 Until a plugin moves, `apps/server/internal/plugins` answers its status,
 removal blockers, and projection through the legacy functions in that
-package. These are the only places where the server host still names a
-plugin. Countdown Bar has moved completely, including its Player renderer.
-The runtime surface host names no plugin. Three renderers are still migration
-adapters inside the runtime package; see [Migration adapters](#migration-adapters).
+package. Countdown Bar has moved completely, including its Player renderer.
+Brand Bug and Noise Meter are retired: their old installation rows and data
+remain, but neither is cataloged, configured, projected, or rendered. The
+Emergency Alerts ticker remains a migration adapter in the runtime package;
+see [Migration adapters](#migration-adapters).

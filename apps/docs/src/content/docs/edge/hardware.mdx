@@ -1,11 +1,11 @@
 ---
 title: Hardware and host integrations
-description: See how Tilecast Edge uses HDMI-CEC, DDC/CI, Presentation Network, and host audio for the Noise Meter, and how it reports what each Player can do.
+description: See how Tilecast Edge uses HDMI-CEC, DDC/CI, and Presentation Network, and how it reports what each Player can do.
 ---
 
-Edge reports a hardware feature as available only when it works on that Player. A missing CEC adapter, DDC/CI support, microphone, or Wi-Fi adapter turns that feature off with a reason. Normal playback continues.
+Edge reports a hardware feature as available only when it works on that Player. A missing CEC adapter, DDC/CI support, or Wi-Fi adapter turns that feature off with a reason. Normal playback continues.
 
-The Edge software for each of these features is complete. Real TVs, monitors, microphones, and Wi-Fi adapters haven't been qualified yet, so check each feature on your own hardware before you depend on it.
+The Edge software for each of these features is complete. Real TVs, monitors, and Wi-Fi adapters haven't been qualified yet, so check each feature on your own hardware before you depend on it.
 
 ## Check what a Player can do
 
@@ -15,7 +15,7 @@ Studio shows the hardware features each screen reports. On the Edge computer, `t
 /opt/tilecast-edge/current/bin/tilecastctl capabilities
 ```
 
-A reason such as `cec_adapter_absent`, `ddc_ci_not_responding`, or `no_microphone` tells you what to fix. The [engineering capability matrix](https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-capabilities.md#hardware-capabilities-m9) lists every state and reason.
+A reason such as `cec_adapter_absent` or `ddc_ci_not_responding` tells you what to fix. The [engineering capability matrix](https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-capabilities.md#hardware-capabilities-m9) lists every state and reason.
 
 ## Display Control
 
@@ -26,10 +26,6 @@ Edge reports a display change as confirmed only when the display reads it back. 
 ## Presentation Network
 
 Edge uses the same small root helper as the stable Linux Player to set up the Presentation Network through NetworkManager. The main Edge service gets no general network-control access. The computer needs NetworkManager and a Wi-Fi adapter. See [Presentation Networks](../../administration/presentation-networks/).
-
-## Noise Meter
-
-The Noise Meter needs an audio input on the Linux computer. A small process in the `tilecast` account's session measures the level through PipeWire, and Edge sends only the levels to Tilecast Server, never audio. The microphone is open only while a Noise Meter is on screen. See [Noise Meter](../../operations/plugins/noise-meter/).
 
 ## Device permissions
 

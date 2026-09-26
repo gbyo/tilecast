@@ -18,17 +18,15 @@ import { Badge, Steps } from "@astrojs/starlight/components";
 
 </Steps>
 
-Tilecast shows installed plugins and their setup state. Some plugins need a compatible Player, hardware, or network connection. For example, **Noise Meter** needs a Linux Player with an available microphone, and **Emergency Alerts** needs the server to reach the National Weather Service. A listed requirement is guidance; installation itself does not confirm that a device meets it.
+Tilecast shows installed plugins and their setup state. Some plugins need a compatible Player or network connection. For example, **Emergency Alerts** needs the server to reach the National Weather Service. A listed requirement is guidance; installation itself does not confirm that a device meets it.
 
 The built-in catalog includes:
 
-| Plugin                                                          | What it adds                                                               | Important limit                                                                                                       |
-| --------------------------------------------------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| **Countdown Bar**                                               | A timed bar over normal playback.                                          | Target Players must support plugin bars.                                                                              |
-| **Brand Bug / Watermark** <Badge text="Linux" variant="note" /> | A persistent corner mark over content.                                     | The Linux Player renders it; the Android Player does not.                                                             |
-| **Noise Meter** <Badge text="Linux only" variant="note" />      | A bar that appears while room noise stays above the configured level.      | A Linux Player and an audio input are required. The reading is relative, not a calibrated sound-pressure measurement. |
-| **Emergency Alerts** <Badge text="US" variant="note" />         | Automatic response to matching National Weather Service alerts.            | Covers U.S. alerts and needs outbound server access to the NWS service.                                               |
-| **Forms**                                                       | Submission and approval workflows whose approved records can feed Widgets. | Forms are managed from their plugin page, not from the Data Sources library.                                          |
+| Plugin                                                  | What it adds                                                               | Important limit                                                              |
+| ------------------------------------------------------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| **Countdown Bar**                                       | A timed bar over normal playback.                                          | Target Players must support plugin bars.                                     |
+| **Emergency Alerts** <Badge text="US" variant="note" /> | Automatic response to matching National Weather Service alerts.            | Covers U.S. alerts and needs outbound server access to the NWS service.      |
+| **Forms**                                               | Submission and approval workflows whose approved records can feed Widgets. | Forms are managed from their plugin page, not from the Data Sources library. |
 
 Removing a plugin is blocked while its instances or other plugin-owned resources remain. Remove those through the plugin's own page first. Removal does not delete those resources.
 
@@ -37,7 +35,5 @@ See [Configure Emergency Alerts](../emergency-alerts/) for coverage, matching ru
 ## Plugin guides
 
 - [Countdown Bar](./countdown-bar/) for timed overlays, targeting, priority, and urgency.
-- [Brand Bug / Watermark](./brand-bug/) for persistent corner marks.
-- [Noise Meter](./noise-meter/) for local microphone levels and privacy behavior.
 - [Emergency Alerts](../emergency-alerts/) for NWS monitoring and response rules.
 - [Forms](../../studio/forms/) for data collection and approval workflows.
