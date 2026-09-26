@@ -7,7 +7,7 @@
  *   - load the trusted Tilecast web runtime from tilecast://runtime/;
  *   - bridge the IPC renderer contract to the runtime through a strict
  *     message handler;
- *   - serve verified CAS objects through tcmedia://sha256/<hex>;
+ *   - serve generation-bound media capabilities through tilecastd;
  *   - report readiness, acceptance, evidence, errors and health;
  *   - exit on unrecoverable engine failure so systemd restarts it.
  *
@@ -34,7 +34,7 @@ typedef enum {
 } TcPlatform;
 
 typedef struct {
-  char sha256[65];
+  char uri[128];
   guint64 size_bytes;
   char *mime_type;
 } TcContentRef;
@@ -46,9 +46,8 @@ struct _TcHost {
   TcPlatform platform;
   char *socket_path;
   char *runtime_dir;
-  /* CAS root fixed at startup: the web process's media source reads it from
-   * its environment, so tilecastd's renderer.configure must match it. */
-  char *startup_cas_root;
+  /* Daemon-owned media socket; web processes inherit this path. */
+  char *media_socket;
   char *gst_plugin_dir;
   int headless_width;
   int headless_height;
@@ -82,9 +81,9 @@ struct _TcHost {
   GHashTable *pending_replies; /* request id -> WebKitScriptMessageReply */
 
   /* Daemon-provided state. */
-  char *cas_root;
   GPtrArray *content;          /* TcContentRef*, current activation + plugins */
   GPtrArray *plugin_content;   /* TcContentRef*, current plugin state */
+  GHashTable *media_aliases;   /* "<asset>/<variant>" -> capability URI, from plugin state */
   char *current_activation_id;
   gint64 current_generation;
   char *current_activation_json; /* full presentation.activate data, for re-delivery */
@@ -111,7 +110,7 @@ void tc_view_resolve_reply (TcHost *host, const char *request_id, const char *re
 
 /* schemes.c */
 void tc_schemes_register (TcHost *host);
-const TcContentRef *tc_host_find_content (TcHost *host, const char *sha256);
+const TcContentRef *tc_host_find_content (TcHost *host, const char *uri);
 void tc_content_ref_free (gpointer ref);
 
 G_END_DECLS

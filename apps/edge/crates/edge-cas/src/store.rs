@@ -264,9 +264,8 @@ impl ContentStore {
         Ok(self.inner.db.run(move |c| repo::get_object(c, &digest)).await?)
     }
 
-    /// Path of a verified object, for trusted local consumers that read by
-    /// path (the renderer resolves the same layout from the CAS root). Only
-    /// returned after verification; suspect objects are re-hashed first.
+    /// Path of a verified object for trusted daemon-side local consumers.
+    /// Only returned after verification; suspect objects are re-hashed first.
     pub async fn verified_path(&self, digest: &Sha256Digest) -> Result<Option<PathBuf>, CasError> {
         match self.ensure_verified(digest).await? {
             Some(_) => {
@@ -277,7 +276,7 @@ impl ContentStore {
         }
     }
 
-    /// Opens a verified object for reading (daemon-owned media access).
+    /// Opens a verified object for daemon-owned renderer media serving.
     pub async fn open_verified(
         &self,
         digest: &Sha256Digest,
@@ -285,13 +284,31 @@ impl ContentStore {
         let Some(record) = self.ensure_verified(digest).await? else {
             return Ok(None);
         };
-        match std::fs::File::open(object_path(&self.inner.cas_dir, digest)) {
-            Ok(file) => {
+        let path = object_path(&self.inner.cas_dir, digest);
+        match rustix::fs::open(
+            &path,
+            rustix::fs::OFlags::RDONLY
+                | rustix::fs::OFlags::NONBLOCK
+                | rustix::fs::OFlags::NOFOLLOW
+                | rustix::fs::OFlags::CLOEXEC,
+            rustix::fs::Mode::empty(),
+        ) {
+            Ok(fd) => {
+                let file = std::fs::File::from(fd);
+                let metadata = file.metadata()?;
+                if !metadata.is_file() || metadata.len() != record.size_bytes {
+                    self.remove_unchecked(digest).await?;
+                    return Ok(None);
+                }
                 self.touch(digest);
                 Ok(Some((file, record)))
             }
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
-            Err(error) => Err(error.into()),
+            Err(rustix::io::Errno::NOENT) => Ok(None),
+            Err(rustix::io::Errno::LOOP) => {
+                self.remove_unchecked(digest).await?;
+                Ok(None)
+            }
+            Err(error) => Err(std::io::Error::from(error).into()),
         }
     }
 
@@ -383,9 +400,16 @@ impl ContentStore {
         // Row first: a crash after this leaves an orphan file, which the
         // next reconciliation re-hashes and adopts or deletes.
         self.inner.db.run(move |c| repo::delete_object(c, &d)).await?;
-        match tokio::fs::remove_file(object_path(&self.inner.cas_dir, digest)).await {
+        let path = object_path(&self.inner.cas_dir, digest);
+        match tokio::fs::remove_file(&path).await {
             Ok(()) => {}
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error)
+                if matches!(error.kind(), std::io::ErrorKind::IsADirectory | std::io::ErrorKind::PermissionDenied)
+                    && std::fs::symlink_metadata(&path).is_ok_and(|metadata| metadata.is_dir()) =>
+            {
+                tokio::fs::remove_dir(path).await?;
+            }
             Err(error) => return Err(error.into()),
         }
         Ok(())
@@ -559,6 +583,16 @@ impl WriteSession {
 
     pub fn expected_size(&self) -> u64 {
         self.expected_size
+    }
+
+    /// Records which source supplied the final verified bytes. A partial may
+    /// have been resumed through several sources; provenance follows the
+    /// source that completed the object, never a manifest's optimistic hint.
+    pub fn set_completed_source(&mut self, source: crate::source::SourceKind) {
+        self.meta.source = match source {
+            crate::source::SourceKind::Origin => RecordSource::Origin,
+            crate::source::SourceKind::Local => RecordSource::Local,
+        };
     }
 
     fn file(&mut self) -> std::io::Result<&mut std::fs::File> {

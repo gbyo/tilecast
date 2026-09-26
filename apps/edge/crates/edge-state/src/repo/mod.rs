@@ -8,6 +8,7 @@ pub mod cas;
 pub mod commands;
 pub mod daemon;
 pub mod legacy;
+pub mod manifests;
 pub mod outbox;
 pub mod playback;
 pub mod renderer;

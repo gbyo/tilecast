@@ -14,7 +14,7 @@ use edge_cas::{BlobSource, ContentStore, LruByDomain, SourceError, StorePolicy};
 use edge_platform::disk::FixedSpace;
 use edge_protocol::time::system_clock;
 use edge_protocol::{InstallationId, PlayerId, ScreenId, Sha256Digest, Timestamp};
-use edge_server::client::ServerClient;
+use edge_server::client::{MAX_MANIFEST_BYTES, ManifestFetch, ServerClient};
 use edge_server::legacy::{ImportError, ImportOutcome, import_legacy};
 use edge_server::origin::OriginBlobSource;
 use edge_server::{DeviceCredential, ServerError};
@@ -94,6 +94,17 @@ async fn handle(fake: Arc<Fake>, request: Request<Incoming>) -> Result<Response<
             let body = request.into_body().collect().await.unwrap().to_bytes();
             fake.heartbeats.lock().unwrap().push(serde_json::from_slice(&body).unwrap());
             Ok(data(json!({"accepted": true})))
+        }
+        "/api/v1/player/manifest" => {
+            if request.headers().get("if-none-match").and_then(|v| v.to_str().ok()) == Some("\"manifest-1\"") {
+                let mut response = Response::new(Full::new(Bytes::new()));
+                *response.status_mut() = StatusCode::NOT_MODIFIED;
+                return Ok(response);
+            }
+            let mut response = data(json!({"schemaVersion": 11, "manifestVersion": 1,
+                "screenId": ScreenId::new_random().to_string(), "assets": []}));
+            response.headers_mut().insert("etag", "\"manifest-1\"".parse().unwrap());
+            Ok(response)
         }
         "/api/v1/player/assets/a1/variants/v1" => {
             let etag = format!("\"sha256-{}\"", Sha256Digest::of(MEDIA).to_hex());
@@ -326,4 +337,24 @@ async fn a_revoked_credential_is_reported_as_rejected() {
     fake.revoked.store(true, Ordering::SeqCst);
     let error = server.player_heartbeat(&json!({"screenWidth": 0, "screenHeight": 0, "playerVersion": "0.1.0"})).await;
     assert_eq!(error, Err(ServerError::CredentialRejected));
+}
+
+#[tokio::test]
+async fn player_manifest_uses_the_ordinary_endpoint_and_conditional_etag() {
+    let installation = InstallationId::new_random();
+    let fake = Fake::new(installation);
+    let url = serve(Arc::clone(&fake)).await;
+    let server = ServerClient::new(&url)
+        .unwrap()
+        .verify_installation(installation, DeviceCredential::parse(CREDENTIAL).unwrap())
+        .await
+        .unwrap();
+    let ManifestFetch::Modified { document, etag } = server.player_manifest(None).await.unwrap() else {
+        panic!("expected a manifest");
+    };
+    assert_eq!(document["schemaVersion"], 11);
+    assert_eq!(etag, "\"manifest-1\"");
+    assert_eq!(server.player_manifest(Some(&etag)).await.unwrap(), ManifestFetch::NotModified);
+    assert!(server.player_manifest(Some(&"x".repeat(201))).await.is_err(), "validators are bounded");
+    const { assert!(MAX_MANIFEST_BYTES > 5 * 1024 * 1024, "the server's own five MiB bound fits") };
 }

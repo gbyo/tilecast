@@ -15,7 +15,7 @@ The Tilecast Linux display engine: a small C11/GLib embedder of WPE WebKit 2.54+
 ## What it serves
 
 - `tilecast://runtime/<name>` and `tilecast://runtime/fonts/<name>`: the shared Player Runtime artifact (`packages/player-runtime/dist/runtime`), the same files the Electron player serves. `assemble-runtime.sh` copies it and verifies every file against the artifact's `runtime-manifest.json`. Names are validated against a fixed grammar (`src/validate.c`).
-- `tcmedia://sha256/<hex>`: a CAS object. It is served only when the current activation or plugin state lists that digest, and only when the file size matches the declared size. The file is opened with `O_NOFOLLOW`. A single byte range is honored.
+- `tcmedia://cap/<opaque>`: a daemon-issued capability scoped to the current renderer and presentation generation. Reads use the bounded media socket; the renderer has no CAS path or direct CAS permission.
 
 ## Bridge
 
@@ -24,7 +24,9 @@ The Tilecast Linux display engine: a small C11/GLib embedder of WPE WebKit 2.54+
 - `tilecast` carries events: `runtime.ready`, `presentation.accepted`, `presentation.rejected`, `renderer.progress`, `renderer.item_error`.
 - `tilecastRequest` carries `setup.submit_server_url`.
 
-The host copies only known, bounded fields into IPC events. Host-to-page delivery calls one fixed function with GVariant arguments; no script source is concatenated.
+Layout and Widget items arrive as references (`{"layoutId"}`, `{"widgetAssetId"}`) with a projection context: the needed manifest subset, the corrected clock offset and a media alias table. The adapter passes the context to the Player Runtime, which projects the items with its projection compatibility code (the same code the Electron player runs) before it accepts the activation, and re-projects them every 30 seconds. `tcmedia://variant/<asset>/<variant>` addresses in a projected tree, and the Brand Bug plugin's logo, resolve only through the alias table, and only to capabilities granted for the activation.
+
+The host copies only known, bounded fields into IPC events. Host-to-page delivery calls one fixed function with GVariant arguments; no script source is concatenated. The daemon replaces internal hash URIs with opaque, renderer-generation capabilities before sending an activation.
 
 ## Build and test
 
@@ -36,7 +38,7 @@ docker run --rm -v "$PWD/../../..:/src" -v tilecast-edge-target:/target \
   tilecast-edge-dev /src/apps/edge/renderer-wpe/ci/run-e2e.sh all
 ```
 
-`ci/run-e2e.sh` builds `tilecastd`, `tilecastctl` and the renderer, runs the C unit tests, assembles the runtime, and runs `tests/e2e_headless.py`. That script starts a real daemon and renderer on `WPE_PLATFORM=headless` and checks the lifecycle through `tilecastctl`.
+`ci/run-e2e.sh` builds `tilecastd`, `tilecastctl` and the renderer, runs the C unit tests, assembles the runtime, runs the projection tests (`tests/bridge_projection.test.mjs`), and runs `tests/e2e_headless.py`. That script starts a real daemon and renderer on `WPE_PLATFORM=headless` and checks the lifecycle through `tilecastctl`.
 
 `ci/run-conformance.sh` builds the test-only `tilecast-runtime-conformance` runner (`tests/conformance.c`) and runs the Player Runtime conformance fixtures under WPE WebKit headless, for comparison with the Electron run (`packages/player-runtime/conformance`).
 

@@ -267,6 +267,7 @@ async fn wrong_direction_and_sequence_violations_close_the_session() {
         }),
         content: vec![],
         timing: None,
+        projection: None,
     }));
     client.send_event(activate).await.unwrap();
     eventually(|| harness.handler.closed.lock().unwrap().contains(&"event_not_permitted".to_owned())).await;
@@ -335,7 +336,12 @@ async fn slow_client_is_disconnected_instead_of_buffered() {
     let big = json!({"type": "brand_bug", "text": "x".repeat(200_000)});
     let mut closed = false;
     for _ in 0..10_000 {
-        let event = Event::PluginState(PluginState { plugins: vec![big.clone()], content: vec![], clock_offset_ms: 0 });
+        let event = Event::PluginState(PluginState {
+            plugins: vec![big.clone()],
+            content: vec![],
+            clock_offset_ms: 0,
+            aliases: vec![],
+        });
         if session.send_event(event).is_err() {
             closed = true;
             break;

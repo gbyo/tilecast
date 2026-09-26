@@ -1,7 +1,8 @@
 //! Migration, restart-safety and repository tests against real SQLite files.
 
 use edge_protocol::capability::{Capability, CapabilityId, CapabilityState};
-use edge_protocol::{PlayerId, Sha256Digest, Timestamp};
+use edge_protocol::{InstallationId, PlayerId, ScreenId, Sha256Digest, Timestamp};
+use edge_state::repo::manifests::{self, Binding, Stage, StoredManifest, Target};
 use edge_state::repo::{self, cas, commands, daemon};
 use edge_state::{Migration, OpenOptions, StateDb, StateError, latest_schema_version, migrate_with, open_connection};
 
@@ -57,11 +58,12 @@ fn failed_migration_rolls_back_completely() {
     let connection = open_connection(&path, OpenOptions::default()).expect("open");
     let broken = [
         Migration { version: 1, name: "initial", sql: edge_state::MIGRATIONS[0].sql },
-        Migration { version: 2, name: "broken", sql: "CREATE TABLE half_done (id INTEGER); THIS IS NOT SQL;" },
+        Migration { version: 2, name: "manifests", sql: edge_state::MIGRATIONS[1].sql },
+        Migration { version: 3, name: "broken", sql: "CREATE TABLE half_done (id INTEGER); THIS IS NOT SQL;" },
     ];
     let error = migrate_with(&connection, &broken).expect_err("migration fails");
-    assert!(matches!(error, StateError::Migration { version: 2, .. }));
-    assert_eq!(edge_state::schema_version(&connection).expect("version"), 1);
+    assert!(matches!(error, StateError::Migration { version: 3, .. }));
+    assert_eq!(edge_state::schema_version(&connection).expect("version"), 2);
     let half: i64 = connection
         .query_row("SELECT COUNT(*) FROM sqlite_master WHERE name = 'half_done'", [], |r| r.get(0))
         .expect("query");
@@ -212,4 +214,118 @@ async fn async_access_runs_on_blocking_pool() {
         .await
         .expect("start");
     assert!(record.first_start);
+}
+
+fn binding() -> Binding {
+    Binding {
+        installation_id: InstallationId::new_random(),
+        screen_id: ScreenId::new_random(),
+        server_url: "https://signage.example".to_owned(),
+    }
+}
+
+fn target(db: &StateDb, binding: &Binding, digest: Sha256Digest, version: i64) {
+    let target = Target {
+        binding: binding.clone(),
+        digest,
+        version,
+        etag: format!("\"{}\"", digest.to_hex()),
+        document: serde_json::json!({"manifestVersion": version}),
+        fetched_at: now(),
+    };
+    db.run_blocking(move |c| manifests::put_target(c, &target)).expect("target");
+}
+
+fn stored(binding: &Binding, digest: Sha256Digest, version: i64) -> StoredManifest {
+    StoredManifest {
+        binding: binding.clone(),
+        digest,
+        version,
+        document: serde_json::json!({"manifestVersion": version}),
+        stored_at: now(),
+    }
+}
+
+#[test]
+fn prepared_manifest_survives_restart_and_promotes_without_losing_previous() {
+    let (_dir, path) = temp_db();
+    let db = StateDb::open(&path, OpenOptions::default()).expect("open");
+    let binding = binding();
+    let (a, b) = (Sha256Digest::of(b"a"), Sha256Digest::of(b"b"));
+    let first = stored(&binding, a, 7);
+    let pending = first.clone();
+    assert!(!db.run_blocking(move |c| manifests::put_pending_for_target(c, &pending)).unwrap(), "not the target yet");
+    target(&db, &binding, a, 7);
+    let pending = first.clone();
+    assert!(db.run_blocking(move |c| manifests::put_pending_for_target(c, &pending)).unwrap());
+    drop(db);
+    let db = StateDb::open(&path, OpenOptions { integrity_check: true }).expect("reopen");
+    assert_eq!(db.run_blocking(|c| manifests::get_for(c, Stage::Active, &binding)).unwrap(), None);
+    assert_eq!(db.run_blocking(|c| manifests::get_for(c, Stage::Pending, &binding)).unwrap(), Some(first.clone()));
+    let promote = binding.clone();
+    assert!(db.run_blocking(move |c| manifests::promote_pending(c, &promote, &a)).unwrap());
+
+    let second = stored(&binding, b, 8);
+    target(&db, &binding, b, 8);
+    let pending = second.clone();
+    assert!(db.run_blocking(move |c| manifests::put_pending_for_target(c, &pending)).unwrap());
+    let promote = binding.clone();
+    assert!(!db.run_blocking(move |c| manifests::promote_pending(c, &promote, &a)).unwrap(), "wrong digest");
+    let promote = binding.clone();
+    assert!(db.run_blocking(move |c| manifests::promote_pending(c, &promote, &b)).unwrap());
+    drop(db);
+    let reopened = StateDb::open(&path, OpenOptions { integrity_check: true }).expect("reopen again");
+    assert_eq!(reopened.run_blocking(|c| manifests::get_for(c, Stage::Active, &binding)).unwrap(), Some(second));
+    assert_eq!(reopened.run_blocking(|c| manifests::get_for(c, Stage::Previous, &binding)).unwrap(), Some(first));
+    assert_eq!(reopened.run_blocking(|c| manifests::get_for(c, Stage::Pending, &binding)).unwrap(), None);
+}
+
+#[test]
+fn superseded_preparation_can_never_become_active() {
+    let (_dir, path) = temp_db();
+    let db = StateDb::open(&path, OpenOptions::default()).expect("open");
+    let binding = binding();
+    let (b, c_digest) = (Sha256Digest::of(b"b"), Sha256Digest::of(b"c"));
+    target(&db, &binding, b, 5);
+    let prepared = stored(&binding, b, 5);
+    assert!(db.run_blocking(move |c| manifests::put_pending_for_target(c, &prepared)).unwrap());
+    // C becomes the server's answer before B is confirmed.
+    target(&db, &binding, c_digest, 6);
+    let promote = binding.clone();
+    assert!(!db.run_blocking(move |c| manifests::promote_pending(c, &promote, &b)).unwrap());
+    assert_eq!(db.run_blocking(|c| manifests::get_for(c, Stage::Active, &binding)).unwrap(), None);
+    let late = stored(&binding, b, 5);
+    assert!(!db.run_blocking(move |c| manifests::put_pending_for_target(c, &late)).unwrap(), "late preparation");
+    let discard = binding.clone();
+    assert!(db.run_blocking(move |c| manifests::discard_pending(c, &discard, &b)).unwrap());
+}
+
+#[test]
+fn cached_manifest_is_bound_to_one_screen_server_and_version() {
+    let (_dir, path) = temp_db();
+    let db = StateDb::open(&path, OpenOptions::default()).expect("open");
+    let binding = binding();
+    let digest = Sha256Digest::of(b"active");
+    target(&db, &binding, digest, 10);
+    let active = stored(&binding, digest, 10);
+    let pending = active.clone();
+    db.run_blocking(move |c| manifests::put_pending_for_target(c, &pending)).unwrap();
+    let promote = binding.clone();
+    db.run_blocking(move |c| manifests::promote_pending(c, &promote, &digest)).unwrap();
+    let stale = Target {
+        binding: binding.clone(),
+        digest: Sha256Digest::of(b"stale"),
+        version: 9,
+        etag: "\"stale\"".to_owned(),
+        document: serde_json::json!({}),
+        fetched_at: now(),
+    };
+    assert!(db.run_blocking(move |c| manifests::put_target(c, &stale)).is_err(), "versions never regress");
+    let foreign = Binding { screen_id: ScreenId::new_random(), ..binding.clone() };
+    assert_eq!(db.run_blocking(|c| manifests::get_for(c, Stage::Active, &foreign)).unwrap(), None);
+    let foreign = Binding { server_url: "https://other.example".to_owned(), ..binding.clone() };
+    assert_eq!(db.run_blocking(|c| manifests::get_for(c, Stage::Active, &foreign)).unwrap(), None);
+    let foreign = Binding { installation_id: InstallationId::new_random(), ..binding.clone() };
+    assert_eq!(db.run_blocking(|c| manifests::get_for(c, Stage::Active, &foreign)).unwrap(), None);
+    assert_eq!(db.run_blocking(move |c| manifests::target(c, &foreign)).unwrap(), None);
 }

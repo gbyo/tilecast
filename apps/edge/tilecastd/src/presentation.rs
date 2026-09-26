@@ -24,22 +24,25 @@
 //! `player.ts#buildPresentation`) calls [`PresentationEngine::activate`] the
 //! same way, after its content is verified and pinned in the CAS.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
+use std::path::Path;
+use std::sync::{Arc, Mutex};
 
 use edge_ipc::SessionHandle;
 use edge_protocol::Timestamp;
 use edge_protocol::bounded::{SafeText, ShortText, ShortToken};
 use edge_protocol::ids::{ActivationId, SessionId};
 use edge_protocol::ipc::event::{
-    ActivationRef, ContentStoreDescriptor, Event, KioskPolicy, PresentationActivate, PresentationClear,
-    RendererCommand, RendererCommandKind, RendererConfigure, RendererProgress, RendererReady, RendererShutdown,
-    SyncTiming,
+    ActivationRef, Event, EvidenceKind, KioskPolicy, MediaAlias, MediaChannelDescriptor, PluginState,
+    PresentationActivate, PresentationClear, ProjectionContext, RendererCommand, RendererCommandKind,
+    RendererConfigure, RendererMediaRef, RendererProgress, RendererReady, RendererShutdown, SyncTiming,
 };
 use edge_protocol::ipc::presentation::{
     ContentRef, PresentationDocument, PresentationError, StatusSurface, validate_content_references,
 };
 use edge_protocol::ipc::status::RendererStatus;
 
+use crate::media::{MediaCapability, MediaRegistry};
 use crate::supervisor::{Expectation, HealAction, SupervisorConfig, SupervisorState, is_meaningful};
 
 /// Where an activation came from, for status and logs.
@@ -47,17 +50,45 @@ use crate::supervisor::{Expectation, HealAction, SupervisorConfig, SupervisorSta
 pub enum ActivationSource {
     StatusSurface,
     Fixture,
+    ServerManifest,
     SafeMode,
+}
+
+/// Which verified presentation an activation shows and what selected it:
+/// the same identifiers the reference player reports in its heartbeat.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PlaybackIdentity {
+    /// The prepared manifest this activation shows.
+    pub manifest: edge_protocol::Sha256Digest,
+    pub manifest_version: i64,
+    pub selection_source: &'static str,
+    pub playlist_id: Option<uuid::Uuid>,
+    pub layout_id: Option<uuid::Uuid>,
+    pub schedule_id: Option<uuid::Uuid>,
+    pub takeover_id: Option<uuid::Uuid>,
+    pub next_transition_ms: Option<i64>,
+}
+
+/// Everything a server presentation activation carries besides its document.
+#[derive(Debug, Clone, Default)]
+pub struct ServerExtras {
+    pub projection: Option<ProjectionContext>,
+    pub plugins: Vec<serde_json::Value>,
+    pub plugin_aliases: Vec<MediaAlias>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Activation {
     pub id: ActivationId,
     pub generation: u64,
+    /// The prepared manifest and selection for server-presentation
+    /// activations.
+    pub identity: Option<PlaybackIdentity>,
     pub document: PresentationDocument,
     pub content: Vec<ContentRef>,
     pub timing: Option<SyncTiming>,
     pub source: ActivationSource,
+    pub extras: ServerExtras,
 }
 
 impl Activation {
@@ -65,14 +96,24 @@ impl Activation {
         ActivationRef { activation_id: self.id, generation: self.generation }
     }
 
-    fn event(&self) -> Event {
+    fn event(
+        &self,
+        document: PresentationDocument,
+        content: Vec<RendererMediaRef>,
+        projection: Option<ProjectionContext>,
+    ) -> Event {
         Event::PresentationActivate(Box::new(PresentationActivate {
             activation_id: self.id,
             generation: self.generation,
-            presentation: self.document.clone(),
-            content: self.content.clone(),
+            presentation: document,
+            content,
             timing: self.timing.clone(),
+            projection,
         }))
+    }
+
+    pub fn manifest(&self) -> Option<edge_protocol::Sha256Digest> {
+        self.identity.as_ref().map(|identity| identity.manifest)
     }
 
     fn expectation_for(&self, item_id: Option<&str>) -> Expectation {
@@ -85,6 +126,108 @@ impl Activation {
     }
 }
 
+fn rewrite_media_value(
+    value: &mut serde_json::Value,
+    capabilities: &HashMap<edge_protocol::Sha256Digest, MediaCapability>,
+) -> bool {
+    match value {
+        serde_json::Value::String(text) if text.to_ascii_lowercase().starts_with("tcmedia:") => {
+            let Some(digest) = edge_protocol::ipc::presentation::parse_content_uri(text) else { return false };
+            let Some(capability) = capabilities.get(&digest) else { return false };
+            *text = capability.uri();
+            true
+        }
+        serde_json::Value::Array(items) => items.iter_mut().all(|item| rewrite_media_value(item, capabilities)),
+        serde_json::Value::Object(members) => members.values_mut().all(|item| rewrite_media_value(item, capabilities)),
+        _ => true,
+    }
+}
+
+/// What the renderer receives for one activation: every internal content URI
+/// replaced by its renderer-generation capability.
+struct RendererPayload {
+    document: PresentationDocument,
+    content: Vec<RendererMediaRef>,
+    projection: Option<ProjectionContext>,
+    plugins: Option<PluginState>,
+}
+
+fn rewrite<T: serde::Serialize + serde::de::DeserializeOwned>(
+    value: &T,
+    capabilities: &HashMap<edge_protocol::Sha256Digest, MediaCapability>,
+) -> Option<T> {
+    let mut encoded = serde_json::to_value(value).ok()?;
+    if !rewrite_media_value(&mut encoded, capabilities) {
+        return None;
+    }
+    serde_json::from_value(encoded).ok()
+}
+
+fn renderer_payload(
+    activation: &Activation,
+    capabilities: &HashMap<edge_protocol::Sha256Digest, MediaCapability>,
+    clock_offset_ms: i64,
+) -> Option<RendererPayload> {
+    let document = rewrite(&activation.document, capabilities)?;
+    let content = activation
+        .content
+        .iter()
+        .map(|reference| {
+            let capability = capabilities.get(&reference.sha256)?;
+            Some(RendererMediaRef {
+                uri: SafeText::lossy(&capability.uri()),
+                size_bytes: reference.size_bytes,
+                mime_type: reference.mime_type.clone(),
+            })
+        })
+        .collect::<Option<Vec<_>>>()?;
+    let projection = match &activation.extras.projection {
+        Some(projection) => {
+            let mut projection = rewrite(projection, capabilities)?;
+            projection.clock_offset_ms = clock_offset_ms;
+            Some(projection)
+        }
+        None => None,
+    };
+    let plugins = if activation.identity.is_some() {
+        let aliases = rewrite(&activation.extras.plugin_aliases, capabilities)?;
+        let plugins = rewrite(&activation.extras.plugins, capabilities)?;
+        let plugin_content = content
+            .iter()
+            .filter(|reference| aliases.iter().any(|alias: &MediaAlias| alias.uri == reference.uri))
+            .cloned()
+            .collect();
+        Some(PluginState { plugins, content: plugin_content, clock_offset_ms, aliases })
+    } else {
+        // Plugins belong to server presentations; anything else clears them.
+        Some(PluginState { plugins: Vec::new(), content: Vec::new(), clock_offset_ms, aliases: Vec::new() })
+    };
+    Some(RendererPayload { document, content, projection, plugins })
+}
+
+/// Evidence that the activation's own content appeared, as opposed to
+/// liveness. Promotion of a pending presentation requires it.
+fn is_content_evidence(kind: EvidenceKind, expectation: Expectation) -> bool {
+    match expectation {
+        Expectation::Still => matches!(kind, EvidenceKind::ImageShown),
+        Expectation::Video => matches!(kind, EvidenceKind::VideoProgress | EvidenceKind::FrameChanged),
+        Expectation::Website => matches!(kind, EvidenceKind::WidgetShown),
+        Expectation::Layout => matches!(kind, EvidenceKind::LayoutShown | EvidenceKind::LayoutZoneRendered),
+        Expectation::Indefinite => false,
+    }
+}
+
+fn validate_media_aliases(aliases: &[MediaAlias], content: &[ContentRef]) -> Result<(), PresentationError> {
+    for alias in aliases {
+        let digest = edge_protocol::ipc::presentation::parse_content_uri(alias.uri.as_str())
+            .ok_or_else(|| PresentationError::MalformedContentUri(alias.uri.as_str().chars().take(48).collect()))?;
+        if !content.iter().any(|reference| reference.sha256 == digest) {
+            return Err(PresentationError::UnlistedContent(digest.short()));
+        }
+    }
+    Ok(())
+}
+
 #[derive(Debug)]
 struct RendererLink {
     session: SessionHandle,
@@ -92,11 +235,15 @@ struct RendererLink {
     accepted: Option<ActivationRef>,
     last_progress_at: Option<Timestamp>,
     last_error_code: Option<String>,
+    media: Option<(ActivationRef, HashMap<edge_protocol::Sha256Digest, MediaCapability>)>,
+    /// The item the renderer last reported starting, for the heartbeat.
+    current_item: Option<(String, Timestamp)>,
 }
 
 #[derive(Debug)]
 pub struct PresentationEngine {
     configure: RendererConfigure,
+    media_registry: Arc<Mutex<MediaRegistry>>,
     next_generation: u64,
     current: Option<Activation>,
     renderer: Option<RendererLink>,
@@ -104,25 +251,32 @@ pub struct PresentationEngine {
     supervisor: SupervisorState,
     supervisor_config: SupervisorConfig,
     restart_count: u64,
+    meaningful_current: bool,
+    content_progress_current: bool,
     logged_evidence: std::collections::HashSet<(String, edge_protocol::ipc::event::EvidenceKind)>,
+    /// Corrected-minus-local wall offset handed to the runtime for
+    /// time-dependent projection (countdowns, date-selected records).
+    clock_offset_ms: i64,
 }
 
 impl PresentationEngine {
     pub fn new(
-        cas_root: &std::path::Path,
+        media_socket: &Path,
+        media_registry: Arc<Mutex<MediaRegistry>>,
         kiosk: KioskPolicy,
         supervisor_config: SupervisorConfig,
         now_ms: i64,
     ) -> Self {
         let configure = RendererConfigure {
-            content_store: ContentStoreDescriptor {
-                layout: ShortToken::new("cas-sha256-v1").expect("literal token"),
-                root: SafeText::lossy(&cas_root.to_string_lossy()),
+            media_channel: MediaChannelDescriptor {
+                protocol: ShortToken::new("daemon-cap-v1").expect("literal token"),
+                socket: SafeText::lossy(&media_socket.to_string_lossy()),
             },
             kiosk,
         };
         Self {
             configure,
+            media_registry,
             next_generation: 1,
             current: None,
             renderer: None,
@@ -130,8 +284,15 @@ impl PresentationEngine {
             supervisor: SupervisorState::new(now_ms),
             supervisor_config,
             restart_count: 0,
+            meaningful_current: false,
+            content_progress_current: false,
             logged_evidence: std::collections::HashSet::new(),
+            clock_offset_ms: 0,
         }
+    }
+
+    pub fn set_clock_offset(&mut self, offset_ms: i64) {
+        self.clock_offset_ms = offset_ms;
     }
 
     /// Issues a new activation and sends it if a ready renderer is connected.
@@ -143,17 +304,68 @@ impl PresentationEngine {
         source: ActivationSource,
         now_ms: i64,
     ) -> Result<ActivationRef, PresentationError> {
+        self.activate_revision(document, content, timing, source, None, ServerExtras::default(), now_ms)
+    }
+
+    /// Activates a prepared server presentation. The identity binds renderer
+    /// acceptance and evidence to exactly this manifest.
+    pub fn activate_server_presentation(
+        &mut self,
+        identity: PlaybackIdentity,
+        document: PresentationDocument,
+        content: Vec<ContentRef>,
+        extras: ServerExtras,
+        now_ms: i64,
+    ) -> Result<ActivationRef, PresentationError> {
+        if let Some(projection) = &extras.projection {
+            validate_media_aliases(&projection.media, &content)?;
+            edge_protocol::ipc::presentation::validate_value(&projection.manifest, &content)?;
+        }
+        validate_media_aliases(&extras.plugin_aliases, &content)?;
+        for plugin in &extras.plugins {
+            edge_protocol::ipc::presentation::validate_value(plugin, &content)?;
+        }
+        self.activate_revision(
+            document,
+            content,
+            None,
+            ActivationSource::ServerManifest,
+            Some(identity),
+            extras,
+            now_ms,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn activate_revision(
+        &mut self,
+        document: PresentationDocument,
+        content: Vec<ContentRef>,
+        timing: Option<SyncTiming>,
+        source: ActivationSource,
+        identity: Option<PlaybackIdentity>,
+        extras: ServerExtras,
+        now_ms: i64,
+    ) -> Result<ActivationRef, PresentationError> {
         validate_content_references(&document, &content)?;
         let activation = Activation {
             id: ActivationId::new_random(),
             generation: self.next_generation,
+            identity,
             document,
             content,
             timing,
             source,
+            extras,
         };
         self.next_generation += 1;
+        self.meaningful_current = false;
+        self.content_progress_current = false;
         self.logged_evidence.clear();
+        if let Some(link) = self.renderer.as_mut() {
+            link.accepted = None;
+            link.last_error_code = None;
+        }
         let reference = activation.reference();
         tracing::info!(
             component = "presentation",
@@ -164,12 +376,47 @@ impl PresentationEngine {
         );
         self.current = Some(activation);
         self.supervisor.reset_clock(now_ms);
-        self.push_current();
+        self.push_current(now_ms);
         Ok(reference)
     }
 
     pub fn current(&self) -> Option<&Activation> {
         self.current.as_ref()
+    }
+
+    pub fn current_manifest(&self) -> Option<edge_protocol::Sha256Digest> {
+        self.current.as_ref().and_then(Activation::manifest)
+    }
+
+    /// The item the renderer last reported starting for the current
+    /// activation, with when it started.
+    pub fn current_item(&self) -> Option<(String, Timestamp)> {
+        self.renderer.as_ref().and_then(|link| link.current_item.clone())
+    }
+
+    pub fn current_is_server_manifest(&self) -> bool {
+        self.current.as_ref().is_some_and(|activation| activation.source == ActivationSource::ServerManifest)
+    }
+
+    pub fn current_has_meaningful_progress(&self) -> bool {
+        self.meaningful_current
+    }
+
+    pub fn current_has_activation_evidence(&self) -> bool {
+        let Some(current) = self.current.as_ref() else { return false };
+        match &current.document {
+            PresentationDocument::Playing { items, .. } if !items.is_empty() => self.content_progress_current,
+            _ => self.meaningful_current,
+        }
+    }
+
+    pub fn current_is_accepted(&self) -> bool {
+        let Some(current) = self.current.as_ref().map(Activation::reference) else { return false };
+        self.renderer.as_ref().is_some_and(|link| link.accepted == Some(current))
+    }
+
+    pub fn current_has_renderer_error(&self) -> bool {
+        self.renderer.as_ref().is_some_and(|link| link.last_error_code.is_some())
     }
 
     /// Digests the current activation needs pinned.
@@ -179,8 +426,19 @@ impl PresentationEngine {
 
     pub fn renderer_connected(&mut self, session: SessionHandle, now_ms: i64) {
         let _ = session.send_event(Event::RendererConfigure(self.configure.clone()));
-        self.renderer =
-            Some(RendererLink { session, ready: None, accepted: None, last_progress_at: None, last_error_code: None });
+        self.renderer = Some(RendererLink {
+            session,
+            ready: None,
+            accepted: None,
+            last_progress_at: None,
+            last_error_code: None,
+            media: None,
+            current_item: None,
+        });
+        // Evidence belongs to the renderer that produced it. A reconnecting
+        // renderer must show the activation again before it can count.
+        self.meaningful_current = false;
+        self.content_progress_current = false;
         self.supervisor.reset_clock(now_ms);
     }
 
@@ -194,7 +452,7 @@ impl PresentationEngine {
         self.renderer.as_mut().filter(|link| link.session.id() == session.id())
     }
 
-    pub fn renderer_ready(&mut self, session: &SessionHandle, ready: RendererReady) {
+    pub fn renderer_ready(&mut self, session: &SessionHandle, ready: RendererReady, now_ms: i64) {
         let Some(link) = self.link_for(session) else {
             return;
         };
@@ -205,7 +463,7 @@ impl PresentationEngine {
             features = ready.features.len()
         );
         link.ready = Some(ready);
-        self.push_current();
+        self.push_current(now_ms);
     }
 
     pub fn accepted(&mut self, session: &SessionHandle, activation: ActivationRef) {
@@ -227,18 +485,22 @@ impl PresentationEngine {
         }
     }
 
-    pub fn progress(&mut self, session: &SessionHandle, report: &RendererProgress, now: Timestamp) {
+    pub fn progress(&mut self, session: &SessionHandle, report: &RendererProgress, now: Timestamp) -> bool {
         let Some(current) = self.current.as_ref() else {
-            return;
+            return false;
         };
+        if self.renderer.as_ref().is_none_or(|link| link.session.id() != session.id()) {
+            return false;
+        }
         // Evidence for a replaced activation must never count as progress.
         if report.activation != current.reference() {
-            return;
+            return false;
         }
         let expectation = current.expectation_for(report.item_id.as_ref().map(SafeText::as_str));
         if !is_meaningful(report.kind, expectation) {
-            return;
+            return false;
         }
+        let content_evidence = is_content_evidence(report.kind, expectation) && report.item_id.is_some();
         // Log the first acceptance of each (item, kind) per activation: enough
         // for diagnostics and tests, bounded regardless of playback length.
         let key = (report.item_id.as_ref().map(|i| i.as_str().to_owned()).unwrap_or_default(), report.kind);
@@ -253,8 +515,16 @@ impl PresentationEngine {
         }
         if let Some(link) = self.link_for(session) {
             link.last_progress_at = Some(now);
+            if report.kind == EvidenceKind::ItemStarted
+                && let Some(item) = report.item_id.as_ref()
+            {
+                link.current_item = Some((item.as_str().to_owned(), now));
+            }
         }
+        self.meaningful_current = true;
+        self.content_progress_current |= content_evidence;
         self.supervisor.on_progress(now.unix_millis(), &self.supervisor_config);
+        true
     }
 
     pub fn item_error(&mut self, session: &SessionHandle, activation: ActivationRef, code: &str) {
@@ -278,7 +548,15 @@ impl PresentationEngine {
             HealAction::None => {}
             HealAction::Reactivate => {
                 if let Some(current) = self.current.take() {
-                    let _ = self.activate(current.document, current.content, current.timing, current.source, now_ms);
+                    let _ = self.activate_revision(
+                        current.document,
+                        current.content,
+                        current.timing,
+                        current.source,
+                        current.identity,
+                        current.extras,
+                        now_ms,
+                    );
                 }
             }
             HealAction::ReloadRenderer => self.command(RendererCommandKind::Reload),
@@ -318,6 +596,7 @@ impl PresentationEngine {
 
     pub fn clear(&mut self, reason: &str) {
         self.current = None;
+        self.meaningful_current = false;
         if let Some(link) = &self.renderer {
             let _ = link.session.send_event(Event::PresentationClear(PresentationClear {
                 reason: ShortToken::new(reason).unwrap_or_else(|_| ShortToken::new("cleared").expect("literal")),
@@ -325,32 +604,21 @@ impl PresentationEngine {
         }
     }
 
-    fn push_current(&mut self) {
-        let Some(link) = &self.renderer else {
+    fn push_current(&mut self, now_ms: i64) {
+        let Some((session, ready, cached_media)) = self.renderer.as_ref().and_then(|link| {
+            link.ready.as_ref().map(|ready| (link.session.clone(), ready.clone(), link.media.clone()))
+        }) else {
             return;
         };
-        let Some(ready) = &link.ready else {
-            return;
-        };
-        let Some(current) = &self.current else {
-            return;
-        };
+        let Some(current) = self.current.clone() else { return };
         let offered: BTreeSet<&str> = ready.features.iter().map(ShortToken::as_str).collect();
         let missing: Vec<&str> =
             current.document.required_features().into_iter().filter(|f| !offered.contains(f)).collect();
-        if missing.is_empty() {
-            self.incompatible_reason = None;
-            let _ = link.session.send_event(current.event());
-            return;
-        }
-        let reason = format!("This display engine does not support: {}.", missing.join(", "));
-        tracing::warn!(component = "presentation", event = "presentation_incompatible", missing = %missing.join(","));
-        self.incompatible_reason = Some(reason);
-        // Show an explicit surface instead of dropping part of the content.
-        let fallback = Activation {
-            id: ActivationId::new_random(),
-            generation: current.generation,
-            document: PresentationDocument::Unavailable(StatusSurface {
+        if !missing.is_empty() {
+            let reason = format!("This display engine does not support: {}.", missing.join(", "));
+            tracing::warn!(component = "presentation", event = "presentation_incompatible", missing = %missing.join(","));
+            self.incompatible_reason = Some(reason);
+            let fallback = PresentationDocument::Unavailable(StatusSurface {
                 title: SafeText::lossy("Presentation unavailable"),
                 message: SafeText::lossy("This screen's display engine cannot show the assigned presentation yet."),
                 background_color: None,
@@ -358,12 +626,52 @@ impl PresentationEngine {
                 logo_src: None,
                 footer_text: None,
                 status: None,
-            }),
-            content: Vec::new(),
-            timing: None,
-            source: current.source,
+            });
+            let event = current.event(fallback, Vec::new(), None);
+            let _ = session.send_event(event);
+            return;
+        }
+        self.incompatible_reason = None;
+
+        let reference = current.reference();
+        let capabilities = if let Some((_, capabilities)) = cached_media.filter(|(cached, _)| *cached == reference) {
+            capabilities
+        } else if current.content.is_empty() {
+            // Nothing to grant; older generations still stop being active.
+            if let Ok(mut registry) = self.media_registry.lock() {
+                registry.drain_active(now_ms);
+            }
+            HashMap::new()
+        } else {
+            let Ok(mut registry) = self.media_registry.lock() else {
+                tracing::error!(component = "media", event = "registry_poisoned");
+                return;
+            };
+            let prepared = match registry.prepare(session.id(), current.generation, now_ms, &current.content) {
+                Ok(prepared) => prepared,
+                Err(error) => {
+                    tracing::error!(component = "media", event = "capability_prepare_failed", error = %error);
+                    return;
+                }
+            };
+            if let Err(error) = registry.activate(session.id(), current.generation, now_ms) {
+                registry.retire(current.generation);
+                tracing::error!(component = "media", event = "capability_activate_failed", error = %error);
+                return;
+            }
+            prepared
         };
-        let _ = link.session.send_event(fallback.event());
+        let Some(payload) = renderer_payload(&current, &capabilities, self.clock_offset_ms) else {
+            tracing::error!(component = "media", event = "capability_reference_missing");
+            return;
+        };
+        if let Some(link) = self.renderer.as_mut().filter(|link| link.session.id() == session.id()) {
+            link.media = Some((reference, capabilities));
+            let _ = link.session.send_event(current.event(payload.document, payload.content, payload.projection));
+            if let Some(plugins) = payload.plugins {
+                let _ = link.session.send_event(Event::PluginState(plugins));
+            }
+        }
     }
 
     pub fn status(&self) -> RendererStatus {

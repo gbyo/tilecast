@@ -14,10 +14,10 @@ Binaries and the renderer runtime go under
 symbolic link to the active version. The previous version directory stays in
 place for rollback.
 
-> **Status.** Edge verifies installation identity and sends the ordinary
-> player heartbeat. It does not yet hold the player WebSocket, fetch the
-> server manifest or run commands, so the screen does not play server
-> content. Do not migrate a production screen until the milestones named in
+> **Status.** Edge verifies installation identity, holds the player WebSocket,
+> and activates assigned images, videos, layouts, and supported native
+> widgets from the server manifest. Websites and commands remain unsupported.
+> Do not migrate a production screen until the milestones named in
 > [`docs/tilecast-edge-next.md`](../../../docs/tilecast-edge-next.md) are
 > complete.
 
@@ -26,8 +26,12 @@ place for rollback.
 - `tilecastd` runs as the fixed `tilecast` account (`sysusers.d`). On a
   machine migrated from the Electron player this account usually exists
   already as the kiosk login; `systemd-sysusers` leaves it unchanged.
-- The renderer runs as the same account in its own unit. It can read the
-  content store and cannot read `identity/` or the state database.
+- The renderer runs as the same account in its own unit, which makes all of
+  `/var/lib/tilecast-edge` inaccessible to it: it cannot read `identity/`,
+  the state database or the content store. It reads media only through
+  daemon-granted capabilities on `/run/tilecast-edge/media.sock`, and loads
+  its `tcmediasrc` GStreamer element from the release's
+  `lib/gstreamer-1.0`.
 - Installation is a one-time privileged step. After it, nothing runs as root.
   `tilecastd` never replaces its own binaries.
 

@@ -12,7 +12,7 @@
           {
             "id": "item-1",
             "kind": "image",
-            "src": "tcmedia://sha256/9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+            "src": "tcmedia://cap/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
             "durationMs": 10000,
             "fitMode": "contain",
             "audioEnabled": false,
@@ -27,7 +27,7 @@
       },
       "content": [
         {
-          "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+          "uri": "tcmedia://cap/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
           "sizeBytes": 4,
           "mimeType": "image/png"
         }

@@ -1,0 +1,12 @@
+# Real-server end-to-end image: the tilecastd + tilecast-renderer-wpe
+# development image plus the Go toolchain and PostgreSQL, so
+# ci/run-e2e-server.sh can run a real Tilecast Server, a real daemon and a
+# real WPE renderer together. FFmpeg is already present for media processing.
+#
+#   docker build -t tilecast-edge-e2e -f apps/edge/ci/Dockerfile.e2e apps/edge/ci
+FROM tilecast-edge-dev
+RUN apt-get update && apt-get install -y --no-install-recommends golang-go postgresql sudo \
+    && rm -rf /var/lib/apt/lists/*
+# The server's go.mod names its minimum toolchain; fetch it when the
+# distribution's Go is older.
+ENV GOTOOLCHAIN=auto GOPATH=/target/go GOCACHE=/target/go-cache

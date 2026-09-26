@@ -13,9 +13,18 @@
 //! * [`supervisor`] — the renderer recovery ladder.
 //! * [`capabilities`] — daemon-owned capabilities and persistence.
 //! * [`fixture`] — development presentation source.
-//! * [`server_link`] — identity gate and ordinary player contact.
+//! * [`server_link`] — identity gate, player WebSocket and heartbeat, and
+//!   driving manifest reconciliation.
+//! * [`manifest_sync`] — the ordinary manifest endpoint, the target and its
+//!   verified preparation.
+//! * [`manifest`] — the manifest boundary, renderer compatibility and
+//!   projection into the renderer contract.
+//! * [`schedule`] — offline schedule and availability selection.
+//! * [`activation`] — what the renderer shows, and evidence-gated promotion.
+//! * [`media`], [`media_channel`] — renderer media capabilities.
 //! * [`legacy_import`] — the one-time `import-legacy` command.
 
+pub mod activation;
 pub mod capabilities;
 pub mod config;
 pub mod daemon;
@@ -23,6 +32,11 @@ pub mod fixture;
 pub mod ipc_handler;
 pub mod legacy_import;
 pub mod logging;
+pub mod manifest;
+pub mod manifest_sync;
+pub mod media;
+pub mod media_channel;
 pub mod presentation;
+pub mod schedule;
 pub mod server_link;
 pub mod supervisor;

@@ -56,7 +56,7 @@ main (int argc, char **argv)
   g_autofree char *socket_path = NULL;
   g_autofree char *runtime_dir = NULL;
   g_autofree char *size = NULL;
-  g_autofree char *cas_root = NULL;
+  g_autofree char *media_socket = NULL;
   g_autofree char *gst_plugin_dir = NULL;
   gboolean console = FALSE;
   int exit_after = 0;
@@ -64,7 +64,7 @@ main (int argc, char **argv)
     { "platform", 0, 0, G_OPTION_ARG_STRING, &platform, "drm, wayland or headless", "NAME" },
     { "socket", 0, 0, G_OPTION_ARG_FILENAME, &socket_path, "tilecastd socket", "PATH" },
     { "runtime-dir", 0, 0, G_OPTION_ARG_FILENAME, &runtime_dir, "Trusted web runtime directory", "PATH" },
-    { "cas-root", 0, 0, G_OPTION_ARG_FILENAME, &cas_root, "Content store root (default /var/lib/tilecast-edge/cas)", "PATH" },
+    { "media-socket", 0, 0, G_OPTION_ARG_FILENAME, &media_socket, "tilecastd media capability socket", "PATH" },
     { "gst-plugin-dir", 0, 0, G_OPTION_ARG_FILENAME, &gst_plugin_dir, "Directory holding the tcmedia GStreamer plugin", "PATH" },
     { "headless-size", 0, 0, G_OPTION_ARG_STRING, &size, "Headless view size (default 1920x1080)", "WxH" },
     { "console", 0, 0, G_OPTION_ARG_NONE, &console, "Write page console messages to stderr (development)", NULL },
@@ -98,10 +98,10 @@ main (int argc, char **argv)
   }
   host.socket_path = g_strdup (socket_path ? socket_path : "/run/tilecast-edge/edge.sock");
   host.runtime_dir = g_strdup (runtime_dir ? runtime_dir : "/opt/tilecast-edge/current/share/tilecast/renderer-web");
-  host.startup_cas_root = g_strdup (cas_root ? cas_root : "/var/lib/tilecast-edge/cas");
+  host.media_socket = g_strdup (media_socket ? media_socket : "/run/tilecast-edge/media.sock");
   host.gst_plugin_dir = g_strdup (gst_plugin_dir ? gst_plugin_dir : "/opt/tilecast-edge/current/lib/gstreamer-1.0");
   if (!tc_is_clean_absolute_path (host.socket_path) || !tc_is_clean_absolute_path (host.runtime_dir)
-      || !tc_is_clean_absolute_path (host.startup_cas_root) || !tc_is_clean_absolute_path (host.gst_plugin_dir)) {
+      || !tc_is_clean_absolute_path (host.media_socket) || !tc_is_clean_absolute_path (host.gst_plugin_dir)) {
     g_printerr ("tilecast-renderer-wpe: path options must be clean absolute paths\n");
     return 2;
   }
@@ -109,6 +109,7 @@ main (int argc, char **argv)
   host.exit_after_seconds = exit_after > 0 ? (guint) exit_after : 0;
   host.content = g_ptr_array_new_with_free_func (tc_content_ref_free);
   host.plugin_content = g_ptr_array_new_with_free_func (tc_content_ref_free);
+  host.media_aliases = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_free);
   host.pending_replies = g_hash_table_new_full (g_str_hash, g_str_equal, g_free,
                                                 (GDestroyNotify) webkit_script_message_reply_unref);
   host.current_generation = -1;
@@ -118,10 +119,10 @@ main (int argc, char **argv)
    *   - WebKit's GStreamer backend loads media only from allowlisted URI
    *     protocols; the renderer plays CAS objects only, so the allowlist is
    *     exactly tcmedia;
-   *   - tcmediasrc (gst-tcmedia.c) serves tcmedia:// to the pipeline and
-   *     reads TILECAST_CAS_ROOT. */
+   *   - tcmediasrc (gst-tcmedia.c) serves opaque tcmedia URLs through the
+   *     daemon's bounded media socket. */
   g_setenv ("WEBKIT_GST_ALLOWED_URI_PROTOCOLS", "tcmedia", TRUE);
-  g_setenv ("TILECAST_CAS_ROOT", host.startup_cas_root, TRUE);
+  g_setenv ("TILECAST_MEDIA_SOCKET", host.media_socket, TRUE);
   const char *existing = g_getenv ("GST_PLUGIN_PATH");
   g_autofree char *plugin_path =
     existing && *existing ? g_strjoin (":", host.gst_plugin_dir, existing, NULL) : g_strdup (host.gst_plugin_dir);
@@ -155,5 +156,6 @@ main (int argc, char **argv)
   g_hash_table_unref (host.pending_replies);
   g_ptr_array_unref (host.content);
   g_ptr_array_unref (host.plugin_content);
+  g_hash_table_unref (host.media_aliases);
   return host.exit_code;
 }

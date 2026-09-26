@@ -20,6 +20,8 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <gio/gunixinputstream.h>
+#include <gio/gunixsocketaddress.h>
+#include <glib/gstdio.h>
 #include <json-glib/json-glib.h>
 #include <stdio.h>
 #include <string.h>
@@ -68,21 +70,106 @@ handle_runtime (WebKitURISchemeRequest *request, gpointer user_data)
   finish_request (request, file, type);
 }
 
+/* The fixture store is keyed by digest, and in this harness a media
+ * capability is simply that digest: the renderer only ever sees
+ * tcmedia://cap/<64 hex>, as it does from tilecastd. */
+static char *
+fixture_object (const char *cas_root, const char *capability)
+{
+  if (!tc_is_sha256_hex (capability))
+    return NULL;
+  char shard[3] = { capability[0], capability[1], '\0' };
+  return g_build_filename (cas_root, "sha256", shard, capability, NULL);
+}
+
 static void
 handle_media (WebKitURISchemeRequest *request, gpointer user_data)
 {
   Runner *runner = user_data;
   const char *uri = webkit_uri_scheme_request_get_uri (request);
-  const char *prefix = "tcmedia://sha256/";
-  const char *hex = g_str_has_prefix (uri, prefix) ? uri + strlen (prefix) : NULL;
-  if (!tc_is_sha256_hex (hex)) {
+  const char *prefix = "tcmedia://cap/";
+  g_autofree char *file = g_str_has_prefix (uri, prefix) ? fixture_object (runner->cas_root, uri + strlen (prefix))
+                                                          : NULL;
+  if (file == NULL) {
     g_autoptr (GError) error = g_error_new (G_IO_ERROR, G_IO_ERROR_PERMISSION_DENIED, "not a media object");
     webkit_uri_scheme_request_finish_error (request, error);
     return;
   }
-  char shard[3] = { hex[0], hex[1], '\0' };
-  g_autofree char *file = g_build_filename (runner->cas_root, "sha256", shard, hex, NULL);
   finish_request (request, file, "image/png");
+}
+
+/* A test-only stand-in for tilecastd's media channel (daemon-cap-v1), so
+ * video reaches the product's tcmediasrc exactly as in the product: a
+ * big-endian length, a small JSON request, a JSON reply and, for reads, the
+ * bytes. It serves only objects in the fixture store. */
+static gboolean
+write_frame (GOutputStream *output, const char *json)
+{
+  guint32 size = (guint32) strlen (json);
+  guint8 header[4] = { size >> 24, size >> 16, size >> 8, size };
+  return g_output_stream_write_all (output, header, sizeof header, NULL, NULL, NULL)
+         && g_output_stream_write_all (output, json, size, NULL, NULL, NULL);
+}
+
+static gboolean
+serve_media (GThreadedSocketService *service, GSocketConnection *connection, GObject *source, gpointer user_data)
+{
+  (void) service;
+  (void) source;
+  const char *cas_root = user_data;
+  GInputStream *input = g_io_stream_get_input_stream (G_IO_STREAM (connection));
+  GOutputStream *output = g_io_stream_get_output_stream (G_IO_STREAM (connection));
+  guint8 header[4];
+  gsize received = 0;
+  if (!g_input_stream_read_all (input, header, sizeof header, &received, NULL, NULL) || received != sizeof header)
+    return TRUE;
+  guint32 size = ((guint32) header[0] << 24) | ((guint32) header[1] << 16) | ((guint32) header[2] << 8) | header[3];
+  char request[513];
+  if (size == 0 || size > 512 || !g_input_stream_read_all (input, request, size, &received, NULL, NULL)
+      || received != size)
+    return TRUE;
+  request[size] = '\0';
+  g_autoptr (JsonParser) parser = json_parser_new ();
+  JsonObject *message = NULL;
+  if (json_parser_load_from_data (parser, request, size, NULL) && JSON_NODE_HOLDS_OBJECT (json_parser_get_root (parser)))
+    message = json_node_get_object (json_parser_get_root (parser));
+  const char *op = message ? json_object_get_string_member_with_default (message, "op", "") : "";
+  const char *capability = message ? json_object_get_string_member_with_default (message, "capability", "") : "";
+  g_autofree char *file = fixture_object (cas_root, capability);
+  struct stat info;
+  int fd = file ? open (file, O_RDONLY | O_CLOEXEC) : -1;
+  if (fd < 0 || fstat (fd, &info) != 0) {
+    if (fd >= 0)
+      close (fd);
+    write_frame (output, "{\"status\":\"denied\"}");
+    return TRUE;
+  }
+  if (g_strcmp0 (op, "head") == 0) {
+    guint8 magic[8] = { 0 };
+    gboolean png = pread (fd, magic, sizeof magic, 0) == sizeof magic && memcmp (magic, "\x89PNG\r\n\x1a\n", 8) == 0;
+    g_autofree char *reply = g_strdup_printf ("{\"status\":\"ok\",\"sizeBytes\":%" G_GINT64_FORMAT ",\"mimeType\":\"%s\"}",
+                                              (gint64) info.st_size, png ? "image/png" : "video/mp4");
+    write_frame (output, reply);
+  } else if (g_strcmp0 (op, "read") == 0) {
+    gint64 offset = json_object_get_int_member_with_default (message, "offset", -1);
+    gint64 length = json_object_get_int_member_with_default (message, "length", -1);
+    if (offset < 0 || length <= 0 || length > 1024 * 1024 || offset + length > (gint64) info.st_size) {
+      write_frame (output, "{\"status\":\"denied\"}");
+    } else {
+      g_autofree guint8 *bytes = g_malloc (length);
+      if (pread (fd, bytes, length, offset) == length) {
+        g_autofree char *reply = g_strdup_printf ("{\"status\":\"ok\",\"length\":%" G_GINT64_FORMAT "}", length);
+        if (write_frame (output, reply))
+          g_output_stream_write_all (output, bytes, length, NULL, NULL, NULL);
+      } else {
+        write_frame (output, "{\"status\":\"denied\"}");
+      }
+    }
+  } else {
+    write_frame (output, "{\"status\":\"denied\"}");
+  }
+  close (fd);
+  return TRUE;
 }
 
 static gboolean
@@ -235,8 +322,11 @@ main (int argc, char **argv)
     g_printerr ("conformance: %s\n", error->message);
     return 66;
   }
-  /* The fixture is re-serialized by json-glib, never pasted as text. */
-  g_autofree char *fixture_json = json_to_string (json_parser_get_root (parser), FALSE);
+  /* The fixture is re-serialized by json-glib, never pasted as text. Its
+   * content addresses become the capability URIs tilecastd would send. */
+  g_autofree char *serialized = json_to_string (json_parser_get_root (parser), FALSE);
+  g_auto (GStrv) pieces = g_strsplit (serialized, "tcmedia://sha256/", -1);
+  g_autofree char *fixture_json = g_strjoinv ("tcmedia://cap/", pieces);
   g_autofree char *runner_source = g_strdup_printf (
     "globalThis.__tilecastConformanceRunner = Object.freeze({"
     "  fixture: %s,"
@@ -252,7 +342,22 @@ main (int argc, char **argv)
   /* The product's media environment (see src/main.c): video plays through
    * tcmediasrc from the fixture store only. GST_PLUGIN_PATH is the caller's. */
   g_setenv ("WEBKIT_GST_ALLOWED_URI_PROTOCOLS", "tcmedia", TRUE);
-  g_setenv ("TILECAST_CAS_ROOT", cas_root, TRUE);
+  g_autofree char *socket_dir = g_dir_make_tmp ("tcconf-XXXXXX", &error);
+  if (socket_dir == NULL) {
+    g_printerr ("conformance: %s\n", error->message);
+    return 70;
+  }
+  g_autofree char *media_socket = g_build_filename (socket_dir, "media.sock", NULL);
+  g_autoptr (GSocketService) media_service = g_threaded_socket_service_new (8);
+  g_autoptr (GSocketAddress) media_address = g_unix_socket_address_new (media_socket);
+  if (!g_socket_listener_add_address (G_SOCKET_LISTENER (media_service), media_address, G_SOCKET_TYPE_STREAM,
+                                      G_SOCKET_PROTOCOL_DEFAULT, NULL, NULL, &error)) {
+    g_printerr ("conformance: media socket: %s\n", error->message);
+    return 70;
+  }
+  g_signal_connect (media_service, "run", G_CALLBACK (serve_media), cas_root);
+  g_socket_service_start (media_service);
+  g_setenv ("TILECAST_MEDIA_SOCKET", media_socket, TRUE);
 
   WPEDisplay *display = wpe_display_headless_new ();
   if (!wpe_display_connect (display, &error)) {
@@ -307,5 +412,8 @@ main (int argc, char **argv)
   g_timeout_add_seconds ((guint) timeout, on_timeout, &runner);
   webkit_web_view_load_uri (runner.view, "tilecast://runtime/index.html");
   g_main_loop_run (runner.loop);
+  g_socket_service_stop (media_service);
+  g_unlink (media_socket);
+  g_rmdir (socket_dir);
   return runner.exit_code;
 }

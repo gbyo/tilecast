@@ -135,6 +135,7 @@ async fn fetch_verifies_and_promotes() {
     let sources: Vec<Arc<dyn BlobSource>> = vec![Arc::new(Scripted::new("origin-a", DATA))];
     let record = fetcher.fetch(&request(DATA), &sources, None).await.unwrap();
     assert_eq!(record.size_bytes, DATA.len() as u64);
+    assert_eq!(record.source_kind, RecordSource::Origin, "provenance is the source that completed the object");
     let path = store.verified_path(&record.sha256).await.unwrap().unwrap();
     assert_eq!(std::fs::read(&path).unwrap(), DATA);
     assert!(path.ends_with(format!("sha256/{}/{}", record.sha256.fanout(), record.sha256.to_hex())));
@@ -145,6 +146,33 @@ async fn fetch_verifies_and_promotes() {
     // A second fetch is a no-op.
     let again = fetcher.fetch(&request(DATA), &[], None).await.unwrap();
     assert_eq!(again.sha256, record.sha256);
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn daemon_media_open_rejects_symlink_and_truncated_object() {
+    use std::os::unix::fs::symlink;
+
+    let env = env();
+    let store = store(&env).await;
+    let source = env.dir.path().join("source.png");
+    std::fs::write(&source, DATA).unwrap();
+    let digest = Sha256Digest::of(DATA);
+    store.import_file(&source, digest, DATA.len() as u64, meta()).await.unwrap();
+    let path = store.verified_path(&digest).await.unwrap().unwrap();
+    std::fs::write(&path, &DATA[..DATA.len() - 1]).unwrap();
+    assert!(store.open_verified(&digest).await.unwrap().is_none());
+    assert!(store.stat(&digest).await.unwrap().is_none());
+    store.import_file(&source, digest, DATA.len() as u64, meta()).await.unwrap();
+    std::fs::remove_file(&path).unwrap();
+    symlink(&source, &path).unwrap();
+    assert!(store.open_verified(&digest).await.unwrap().is_none());
+    assert!(store.stat(&digest).await.unwrap().is_none());
+    store.import_file(&source, digest, DATA.len() as u64, meta()).await.unwrap();
+    std::fs::remove_file(&path).unwrap();
+    std::fs::create_dir(&path).unwrap();
+    assert!(store.open_verified(&digest).await.unwrap().is_none());
+    assert!(store.stat(&digest).await.unwrap().is_none());
 }
 
 #[tokio::test]

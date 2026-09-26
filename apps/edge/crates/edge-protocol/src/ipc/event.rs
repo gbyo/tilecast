@@ -4,10 +4,11 @@
 //! strict structs; [`Event::decode`] rejects unknown names, unknown fields and
 //! malformed types.
 
+use serde::de::Error as _;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::presentation::{ContentRef, PresentationDocument};
+use super::presentation::PresentationDocument;
 use super::{Direction, Role};
 use crate::bounded::{SafeText, ShortText, ShortToken, bounded_vec};
 use crate::ids::{ActivationId, canonical_uuid};
@@ -25,15 +26,14 @@ pub struct ActivationRef {
 
 // ------------------------------------------------------------ daemon → client
 
-/// How the renderer resolves `tcmedia://sha256/<digest>`.
+/// How the renderer reaches the daemon-owned media capability service.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct ContentStoreDescriptor {
-    /// Always `cas-sha256-v1`: `<root>/sha256/<first two hex>/<64 hex>`.
-    pub layout: ShortToken,
-    /// Absolute path of the CAS root, set by daemon configuration. The
-    /// renderer never receives any other path.
-    pub root: SafeText<512>,
+pub struct MediaChannelDescriptor {
+    /// Always `daemon-cap-v1`.
+    pub protocol: ShortToken,
+    /// Absolute path to the daemon's bounded renderer media socket.
+    pub socket: SafeText<512>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -46,8 +46,31 @@ pub struct KioskPolicy {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RendererConfigure {
-    pub content_store: ContentStoreDescriptor,
+    pub media_channel: MediaChannelDescriptor,
     pub kiosk: KioskPolicy,
+}
+
+/// A renderer-visible media grant. The digest remains daemon-side; `uri` is
+/// an opaque capability valid only for the current renderer generation.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RendererMediaRef {
+    #[serde(deserialize_with = "media_capability_uri")]
+    pub uri: SafeText<128>,
+    pub size_bytes: u64,
+    pub mime_type: SafeText<127>,
+}
+
+fn media_capability_uri<'de, D: serde::Deserializer<'de>>(d: D) -> Result<SafeText<128>, D::Error> {
+    let uri = SafeText::<128>::deserialize(d)?;
+    let Some(capability) = uri.as_str().strip_prefix("tcmedia://cap/") else {
+        return Err(D::Error::custom("invalid renderer media capability URI"));
+    };
+    if capability.len() != 64 || !capability.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    {
+        return Err(D::Error::custom("invalid renderer media capability URI"));
+    }
+    Ok(uri)
 }
 
 /// Shared synchronized-playback anchor. The renderer anchors once at
@@ -69,7 +92,7 @@ fn durations<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<u64>, D::Erro
     bounded_vec(d, super::presentation::MAX_ITEMS)
 }
 
-fn content_refs<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<ContentRef>, D::Error> {
+fn renderer_media_refs<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<RendererMediaRef>, D::Error> {
     bounded_vec(d, super::presentation::MAX_CONTENT_REFS)
 }
 
@@ -80,10 +103,50 @@ pub struct PresentationActivate {
     /// Increases with every activation the daemon issues (process-local).
     pub generation: u64,
     pub presentation: PresentationDocument,
-    #[serde(deserialize_with = "content_refs")]
-    pub content: Vec<ContentRef>,
+    #[serde(deserialize_with = "renderer_media_refs")]
+    pub content: Vec<RendererMediaRef>,
     #[serde(default)]
     pub timing: Option<SyncTiming>,
+    /// Inputs for the trusted runtime's render-tree projection of `widget`
+    /// and `layout` items (the reference runtime's `renderWidget` and
+    /// `renderLayout`), present when the presentation has such items.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub projection: Option<ProjectionContext>,
+}
+
+/// Largest projection manifest subset sent to a renderer.
+pub const MAX_PROJECTION_BYTES: usize = 3 * 1024 * 1024;
+pub const MAX_MEDIA_ALIASES: usize = super::presentation::MAX_CONTENT_REFS;
+
+/// What the trusted runtime needs to project server-compiled widgets and
+/// layouts into render trees at the corrected clock: the relevant subset of
+/// the verified Player manifest and a map from the manifest's asset/variant
+/// identity to media URIs. Every media URI must be listed in the activation's
+/// `content`; the renderer never resolves a variant itself.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ProjectionContext {
+    pub schema: u32,
+    /// Corrected-minus-local wall offset at activation.
+    pub clock_offset_ms: i64,
+    pub manifest: Value,
+    #[serde(deserialize_with = "media_aliases")]
+    pub media: Vec<MediaAlias>,
+}
+
+/// One manifest asset variant and the media URI that serves it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct MediaAlias {
+    #[serde(with = "canonical_uuid")]
+    pub asset_id: uuid::Uuid,
+    #[serde(with = "canonical_uuid")]
+    pub variant_id: uuid::Uuid,
+    pub uri: SafeText<128>,
+}
+
+fn media_aliases<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<MediaAlias>, D::Error> {
+    bounded_vec(d, MAX_MEDIA_ALIASES)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -99,9 +162,14 @@ pub struct PresentationClear {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PluginState {
     pub plugins: Vec<Value>,
-    #[serde(deserialize_with = "content_refs")]
-    pub content: Vec<ContentRef>,
+    #[serde(deserialize_with = "renderer_media_refs")]
+    pub content: Vec<RendererMediaRef>,
     pub clock_offset_ms: i64,
+    /// Media the reference runtime addresses by asset/variant identity
+    /// (the Brand Bug logo). The host resolves `tcmedia://variant/<asset>/
+    /// <variant>` only through this list, and only to a URI in `content`.
+    #[serde(default, deserialize_with = "media_aliases", skip_serializing_if = "Vec::is_empty")]
+    pub aliases: Vec<MediaAlias>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
