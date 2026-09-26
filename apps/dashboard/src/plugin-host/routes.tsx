@@ -6,7 +6,7 @@ import { studioPlugins } from "./discovery";
  * Route objects for every plugin that contributes routes, as children of the
  * `/plugins` route. The gate wraps the whole subtree once.
  */
-export function pluginRouteObjects(plugins = studioPlugins): RouteObject[] {
+export function pluginRouteObjects(plugins = studioPlugins()): RouteObject[] {
   return plugins
     .filter(
       (plugin) =>

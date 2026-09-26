@@ -8,7 +8,10 @@
   "category": "Display",
   "icon": "clock",
   "maintainers": ["@gbyo"],
-  "instanceNoun": { "singular": "instance", "plural": "instances" },
+  "instanceNoun": {
+    "singular": "instance",
+    "plural": "instances"
+  },
   "requirements": [
     {
       "kind": "player",
@@ -17,11 +20,32 @@
     }
   ],
   "uses": ["Player manifest plugin state", "Scheduled overlay bar"],
-  "capabilities": { "playerManifest": true },
-  "server": { "entrypoint": "./plugin.go" },
+  "capabilities": {
+    "playerManifest": true
+  },
+  "server": {
+    "entrypoint": "./plugin.go"
+  },
+  "migrations": "./migrations",
+  "api": {
+    "basePaths": ["/plugins/countdown-bar"],
+    "openapi": "./api/openapi.yaml"
+  },
   "studio": {
     "route": "/plugins/countdown-bar",
     "entrypoint": "./studio/index.tsx"
   },
-  "docs": { "reference": "docs/plugins.md#countdown-bar" }
+  "runtime": {
+    "manifestTypes": ["countdown_bar"],
+    "surfaces": ["strip.bottom", "overlay"]
+  },
+  "docs": {
+    "reference": "docs/plugins.md#countdown-bar",
+    "pages": [
+      {
+        "source": "./docs/index.mdx",
+        "slug": "operations/plugins/countdown-bar"
+      }
+    ]
+  }
 }

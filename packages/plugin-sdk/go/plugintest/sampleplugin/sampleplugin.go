@@ -107,6 +107,17 @@ func (p *Plugin) Init(_ context.Context, host plugin.Host) error {
 	return nil
 }
 
+// Seed adds items directly, as data left in a database would be, without the
+// installation check or a manifest revision.
+func (p *Plugin) Seed(labels ...string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for _, label := range labels {
+		id := uuid.New()
+		p.items[id] = Item{ID: id, Label: label}
+	}
+}
+
 // Items returns the items in a stable order.
 func (p *Plugin) Items() []Item {
 	p.mu.Lock()

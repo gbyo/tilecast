@@ -101,3 +101,24 @@ type HeartbeatSection struct {
 	Name   string
 	Handle func(ctx context.Context, screenID uuid.UUID, raw json.RawMessage) (response map[string]any, err error)
 }
+
+// DemoSeeder contributes sample data to Demo Mode, the disposable, pre-seeded
+// installation used for development, screenshots, and browser tests. The host
+// installs the plugin before it calls SeedDemo, and never calls it outside
+// Demo Mode.
+type DemoSeeder interface {
+	SeedDemo(ctx context.Context, demo Demo) error
+}
+
+// Demo describes the demo installation a plugin seeds into.
+type Demo struct {
+	// Scenario is the demo scenario's name.
+	Scenario string
+	// OwnerID is the demo Owner, used as the author of seeded data.
+	OwnerID uuid.UUID
+	// Timezone is the scenario's IANA timezone.
+	Timezone string
+	// Locations are the scenario's locations by stable name, for example
+	// "high_school". A plugin skips a location the scenario does not have.
+	Locations map[string]uuid.UUID
+}

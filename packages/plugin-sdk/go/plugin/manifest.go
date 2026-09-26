@@ -82,7 +82,9 @@ type StudioEntry struct {
 }
 
 type RuntimeEntry struct {
-	Entrypoint    string   `json:"entrypoint"`
+	// Entrypoint is the shared Player runtime module. It is empty when only
+	// native Players render the plugin's manifest types.
+	Entrypoint    string   `json:"entrypoint,omitempty"`
 	ManifestTypes []string `json:"manifestTypes"`
 	Surfaces      []string `json:"surfaces,omitempty"`
 }
@@ -298,8 +300,10 @@ func (m Manifest) Validate() error {
 		}
 	}
 	if m.Runtime != nil {
-		if err := conventional("runtime.entrypoint", m.Runtime.Entrypoint, RuntimeEntrypoint); err != nil {
-			return err
+		if m.Runtime.Entrypoint != "" {
+			if err := conventional("runtime.entrypoint", m.Runtime.Entrypoint, RuntimeEntrypoint); err != nil {
+				return err
+			}
 		}
 		if len(m.Runtime.ManifestTypes) == 0 {
 			return fail("runtime.manifestTypes needs at least one type")

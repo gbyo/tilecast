@@ -17,6 +17,15 @@ export const onRequest = defineRouteMiddleware((context) => {
     };
   }
 
+  // A plugin-owned page's source is in plugins/<name>/docs/, outside this
+  // app. The page actions derive their Markdown copy's address from the
+  // entry path, so give them the path the page would have here; the edit
+  // link and last-updated date were already taken from the real file, and
+  // plugin-docs.mjs publishes the copy.
+  if (starlightRoute.entry.filePath?.startsWith("../../plugins/")) {
+    starlightRoute.entry.filePath = `src/content/docs/${starlightRoute.id}.mdx`;
+  }
+
   if (context.url.pathname.includes("/reference/api/endpoints")) {
     starlightRoute.entry.data.pageContextActions = false;
   }

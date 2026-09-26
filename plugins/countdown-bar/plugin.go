@@ -2,19 +2,18 @@
 package countdownbar
 
 import (
-	_ "embed"
+	"embed"
 
 	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
+	"github.com/tilecast/tilecast/plugins/countdown-bar/server"
 )
 
 //go:embed tilecast.plugin.json
 var manifest []byte
 
-// Plugin is the Countdown Bar server contribution.
-type Plugin struct {
-	plugin.Bundle
-}
+//go:embed migrations/*.sql
+var migrations embed.FS
 
 func New() plugin.Plugin {
-	return &Plugin{Bundle: plugin.NewBundle(manifest, nil)}
+	return server.New(plugin.NewBundle(manifest, migrations))
 }

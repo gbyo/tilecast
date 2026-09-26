@@ -374,19 +374,19 @@
   {
     "version": 63,
     "file": "00063_countdown_bar_plugin.sql",
-    "owner": "core",
+    "owner": "countdown_bar",
     "sha256": "408f133074fc3873e115ed391364195e5a12e94a5b65d117b528365e76b76333"
   },
   {
     "version": 64,
     "file": "00064_countdown_bar_progress_fill.sql",
-    "owner": "core",
+    "owner": "countdown_bar",
     "sha256": "9d028772dae6dd07ea1714d7cade10b1d99a52d61fb9050dda6e0e39b30c444f"
   },
   {
     "version": 65,
     "file": "00065_countdown_bar_text_metrics.sql",
-    "owner": "core",
+    "owner": "countdown_bar",
     "sha256": "a03af9eeeafa92b7b23e65d16f155b49784c5ba35df14af51aa382de00ec7674"
   },
   {
@@ -398,7 +398,7 @@
   {
     "version": 67,
     "file": "00067_countdown_bar_confetti.sql",
-    "owner": "core",
+    "owner": "countdown_bar",
     "sha256": "406144dda53d8c4f6ccc8267c035350d73c74b91ebff77e5affeecd85477357b"
   },
   {
@@ -476,7 +476,7 @@
   {
     "version": 80,
     "file": "00080_countdown_bar_urgency.sql",
-    "owner": "core",
+    "owner": "countdown_bar",
     "sha256": "d49fe3f2fe72c350f9565316171d0bf7493c48ecca598d5d3b73efec9e6f053c"
   },
   {

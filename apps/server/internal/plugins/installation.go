@@ -310,8 +310,6 @@ func legacyRemovalBlockers(ctx context.Context, tx pgx.Tx, id string) ([]InUseRe
 	}
 	var err error
 	switch id {
-	case CountdownBarID:
-		err = add("countdown_bar_instance", "countdown bar", "countdown bars", "delete", `SELECT count(*) FROM countdown_bar_instances`)
 	case BrandBugID:
 		err = add("brand_bug_instance", "mark", "marks", "delete", `SELECT count(*) FROM brand_bug_instances`)
 	case NoiseMeterID:

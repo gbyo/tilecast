@@ -192,6 +192,15 @@ gives must extend the SDK. It must not read core tables.
 convention: an instances table with `target_scope` and a targets table with
 `(instance_id, target_type, target_id)`. The core owns the SQL of the filter.
 
+### Studio translations
+
+A plugin keeps its Studio strings in `studio/locales/<language>.json`. They
+form the namespace `plugin.<id>`. `usePluginTranslation(id, english)` returns a
+`t` function that checks keys against the English file. The locale test
+requires every supported language for every plugin namespace. Shared plugin
+strings (for example the targeting controls) stay in the Studio `plugins`
+namespace.
+
 ### Routes
 
 A plugin registers routes with `Router.Handle(method, pattern, access,
@@ -313,6 +322,12 @@ existing test tools:
 | Install, status, removal, projection, routes    | server host tests with the sample plugin   |
 | Studio discovery and routes                     | Vitest in `apps/dashboard/src/plugin-host` |
 
+A plugin's integration tests use `apps/server/pluginharness`. The harness
+migrates the test database, creates an organization, and hosts the plugin with
+the real host services. It is the only Tilecast Server package that plugin
+code can import, and only in `_test.go` files. This is the same arrangement
+as a test harness that a host application publishes for its extensions.
+
 `packages/plugin-sdk/go/plugintest/sampleplugin` is a test-only plugin that
 implements every contribution point. No core code knows it. The host tests
 load it to prove the generic paths work without a special case.
@@ -401,4 +416,5 @@ Plugin API v1 does not load third-party code. The contract keeps a path open:
 
 Until a plugin moves, `apps/server/internal/plugins` answers its status,
 removal blockers, and projection through the legacy functions in that
-package. These are the only places where the host still names a plugin.
+package. These are the only places where the server host still names a
+plugin. Countdown Bar has moved: no server or Studio host code names it.
