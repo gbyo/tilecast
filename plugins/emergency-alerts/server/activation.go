@@ -168,9 +168,15 @@ func (d displayedAlert) differsFrom(alert nwsProperties, expires time.Time) bool
 	return d.expiresAt == nil || !d.expiresAt.Equal(expires)
 }
 
-func ruleTargetsInTx(ctx context.Context, tx pgx.Tx, ruleID uuid.UUID) (plugin.ScreenTargets, error) {
+// rowQuerier is the QueryRow surface ruleTargetsInTx needs. Single reads run
+// on the pool directly; transactional callers pass their tx.
+type rowQuerier interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+func ruleTargetsInTx(ctx context.Context, q rowQuerier, ruleID uuid.UUID) (plugin.ScreenTargets, error) {
 	var targets plugin.ScreenTargets
-	err := tx.QueryRow(ctx, `SELECT COALESCE(array_agg(screen_id) FILTER (WHERE screen_id IS NOT NULL),'{}'), COALESCE(array_agg(screen_group_id) FILTER (WHERE screen_group_id IS NOT NULL),'{}') FROM alert_rule_targets WHERE rule_id=$1`, ruleID).Scan(&targets.ScreenIDs, &targets.GroupIDs)
+	err := q.QueryRow(ctx, `SELECT COALESCE(array_agg(screen_id) FILTER (WHERE screen_id IS NOT NULL),'{}'), COALESCE(array_agg(screen_group_id) FILTER (WHERE screen_group_id IS NOT NULL),'{}') FROM alert_rule_targets WHERE rule_id=$1`, ruleID).Scan(&targets.ScreenIDs, &targets.GroupIDs)
 	return targets, err
 }
 

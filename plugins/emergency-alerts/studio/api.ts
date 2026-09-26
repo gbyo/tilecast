@@ -9,6 +9,30 @@ import type {
   TargetItem,
 } from "./types";
 
+// Both list endpoints cap pages at 100 rows. Rule targets must offer every
+// group and playlist, so aggregate every page instead of the first one.
+async function fetchAll<T>(
+  path: string,
+): Promise<{ items: T[]; total: number }> {
+  const pageSize = 100;
+  const first = await studioRequest<{ items: T[]; total: number }>(
+    `${path}?page=1&pageSize=${pageSize}`,
+  );
+  const items = [...first.items];
+  let page = 2;
+  while (items.length < first.total) {
+    const next = await studioRequest<{ items: T[]; total: number }>(
+      `${path}?page=${page}&pageSize=${pageSize}`,
+    );
+    if (next.items.length === 0) {
+      break;
+    }
+    items.push(...next.items);
+    page += 1;
+  }
+  return { items, total: first.total };
+}
+
 export const api = {
   nwsAlertSettings: () => studioRequest<NWSAlertSettings>("/alerts/nws"),
   nwsZones: (area: string) =>
@@ -57,12 +81,6 @@ export const api = {
     }),
   screens: () =>
     studioRequest<{ items: TargetItem[]; total: number }>("/screens"),
-  screenGroups: () =>
-    studioRequest<{ items: TargetItem[]; total: number }>(
-      "/screen-groups?page=1&pageSize=100",
-    ),
-  playlists: () =>
-    studioRequest<{ items: Playlist[]; total: number }>(
-      "/playlists?page=1&pageSize=100",
-    ),
+  screenGroups: () => fetchAll<TargetItem>("/screen-groups"),
+  playlists: () => fetchAll<Playlist>("/playlists"),
 };
