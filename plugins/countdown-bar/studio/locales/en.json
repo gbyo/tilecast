@@ -77,5 +77,9 @@
     "oneTimeRequired": "Choose the one-time target date and time.",
     "targetRequired": "Choose at least one target.",
     "stageOrder": "Stages must begin in order: starting soon, urgent, then pulse."
+  },
+  "breadcrumbs": {
+    "newInstance": "New instance",
+    "instance": "Instance"
   }
 }
