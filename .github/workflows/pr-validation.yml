@@ -1,8 +1,10 @@
 name: Pull request validation
 
 on:
+  # Every pull request, whatever its base, so a PR stacked on another PR's
+  # branch gets the same validation as one against main. The change detector
+  # diffs the PR's own base and head.
   pull_request:
-    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -76,7 +78,9 @@ jobs:
                   ;;
                 # A bundled plugin reaches the server, Studio, the Player
                 # runtime, the container, and the docs site.
-                plugins/*|packages/plugin-sdk/*|go.work|go.work.sum|.github/CODEOWNERS|docs/openapi/*)
+                # docs/openapi.yaml is generated from the fragments, so a direct
+                # edit must meet the staleness check.
+                plugins/*|packages/plugin-sdk/*|go.work|go.work.sum|.github/CODEOWNERS|docs/openapi/*|docs/openapi.yaml)
                   plugins=true
                   server=true
                   dashboard=true
