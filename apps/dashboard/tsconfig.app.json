@@ -5,6 +5,8 @@
     "paths": {
       "@/*": ["./src/*"],
       "@tilecast/studio": ["./src/plugin-host/kit.ts"],
+      "@tilecast/studio/ui/*": ["./src/components/ui/*"],
+      "@tilecast/studio/testing": ["./src/plugin-host/testing.tsx"],
       "lucide-react": ["./node_modules/lucide-react"],
       "@hookform/resolvers/*": ["./node_modules/@hookform/resolvers/*"]
     },

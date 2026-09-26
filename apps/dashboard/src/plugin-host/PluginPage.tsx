@@ -2,11 +2,10 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft } from "lucide-react";
 import { Link } from "react-router";
-import { useAuth } from "../auth/AuthProvider";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { PluginActionsMenu } from "../plugins/PluginActionsMenu";
 import { usePluginCatalog } from "../plugins/pluginCatalog";
-import { canManage } from "../plugins/shared";
+import { useStudioSession } from "./session";
 
 /**
  * The page chrome every plugin shares: the way back to Plugins, the title
@@ -29,7 +28,7 @@ export function PluginPage({
   children?: ReactNode;
 }) {
   const { t } = useTranslation("plugins");
-  const auth = useAuth();
+  const session = useStudioSession();
   const catalog = usePluginCatalog();
   const plugin = catalog.data?.items.find((item) => item.id === pluginId);
   return (
@@ -55,7 +54,7 @@ export function PluginPage({
           <PluginActionsMenu pluginId={pluginId} />
         </div>
       </header>
-      {!canManage(auth.status?.user?.role) && (
+      {!session.canManage && (
         <Alert>
           <AlertDescription>{t("shared.manageNote")}</AlertDescription>
         </Alert>

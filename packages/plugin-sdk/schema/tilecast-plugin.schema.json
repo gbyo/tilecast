@@ -213,9 +213,9 @@
       "type": "object",
       "properties": {
         "entrypoint": {
+          "description": "Shared Player runtime module that renders the manifest types. Always ./runtime/index.ts; omitted when only native Players render them.",
           "type": "string",
-          "const": "./runtime/index.ts",
-          "description": "Shared Player runtime module that renders the manifest types. Always ./runtime/index.ts."
+          "const": "./runtime/index.ts"
         },
         "manifestTypes": {
           "minItems": 1,
@@ -240,7 +240,7 @@
           }
         }
       },
-      "required": ["entrypoint", "manifestTypes"],
+      "required": ["manifestTypes"],
       "additionalProperties": false
     },
     "docs": {

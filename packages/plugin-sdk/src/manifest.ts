@@ -221,8 +221,9 @@ export const pluginManifestSchema = z
       .strictObject({
         entrypoint: z
           .literal(conventionalEntrypoints.runtime)
+          .optional()
           .describe(
-            "Shared Player runtime module that renders the manifest types. Always ./runtime/index.ts.",
+            "Shared Player runtime module that renders the manifest types. Always ./runtime/index.ts; omitted when only native Players render them.",
           ),
         manifestTypes: z
           .array(z.string().regex(pluginIdPattern))

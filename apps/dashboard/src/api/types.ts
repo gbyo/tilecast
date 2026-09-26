@@ -1215,36 +1215,6 @@ export type PluginTargeting = {
   targetIds: string[];
 };
 
-export type CountdownBarInput = {
-  name: string;
-  message: string;
-  scheduleType: "weekly" | "one_time";
-  targetTime?: string;
-  daysOfWeek: number[];
-  oneTimeAt?: string;
-  timezone: string;
-  leadTimeSeconds: number;
-  completionText: string;
-  showConfetti: boolean;
-  displayMode: "overlay" | "push";
-  heightPx: number;
-  progressFill: "none" | "drain";
-  contentPadding: number;
-  textScale: number;
-  urgencyEnabled: boolean;
-  startingSoonSeconds: number;
-  urgentSeconds: number;
-  pulseSeconds: number;
-  enabled: boolean;
-  priority: number;
-} & PluginTargeting;
-
-export type CountdownBar = CountdownBarInput & {
-  id: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
 export type BrandBugCorner =
   "top_left" | "top_right" | "bottom_left" | "bottom_right";
 

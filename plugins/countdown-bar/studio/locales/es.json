@@ -1,0 +1,81 @@
+{
+  "title": "Barra de cuenta atrás",
+  "subtitle": "Las barras temporizadas funcionan con independencia de la lista de reproducción y se siguen evaluando desde el manifiesto en caché del reproductor.",
+  "loadError": "No se pudieron cargar las barras de cuenta atrás.",
+  "emptyTitle": "Ninguna barra de cuenta atrás configurada",
+  "emptyDescription": "Crea una instancia para mostrar una barra temporizada local en las pantallas elegidas.",
+  "itemDescription": "{{message}} · {{displayMode}} · {{height}}px · prioridad {{priority}}",
+  "deleteBody": "La barra se quitará de los reproductores de destino.",
+  "removedToast": "Se eliminó la barra de cuenta regresiva.",
+  "createdToast": "Se creó la barra de cuenta regresiva.",
+  "updatedToast": "Se actualizó la barra de cuenta regresiva.",
+  "editor": {
+    "createTitle": "Nueva barra de cuenta atrás",
+    "manageTitle": "Gestionar barra de cuenta atrás",
+    "subtitle": "El reproductor evalúa esta programación localmente. La prioridad decide qué barra gana cuando las instancias se solapan.",
+    "sections": {
+      "content": "Contenido",
+      "timing": "Tiempos",
+      "display": "Presentación",
+      "urgency": "Etapas de urgencia"
+    },
+    "messageLabel": "Mensaje",
+    "defaults": {
+      "message": "El almuerzo termina en"
+    },
+    "completionLabel": "Texto de finalización opcional",
+    "completionPlaceholder": "Se terminó el almuerzo",
+    "completionHint": "Se muestra durante un minuto después del objetivo; deja en blanco para ocultar al llegar a cero.",
+    "confettiLabel": "Mostrar confeti al llegar a cero la cuenta atrás",
+    "scheduleLabel": "Programación",
+    "scheduleType": {
+      "weekly": "Días de la semana",
+      "oneTime": "Fecha única"
+    },
+    "targetTimeLabel": "Hora objetivo",
+    "daysLabel": "Días de la semana",
+    "oneTimeLabel": "Fecha y hora objetivo",
+    "oneTimeHint": "Se escribe en la hora local de este navegador; el reproductor cuenta atrás hasta el mismo instante.",
+    "timezoneLabel": "Zona horaria",
+    "leadLabel": "Aparecer estos minutos antes",
+    "modeLabel": "Modo",
+    "displayMode": {
+      "overlay": "Superponer al contenido actual",
+      "push": "Empujar y encoger el contenido actual"
+    },
+    "progressLabel": "Cuenta atrás de fondo",
+    "progressFill": {
+      "none": "Fondo liso",
+      "drain": "Vaciar de derecha a izquierda"
+    },
+    "progressHint": "El vaciado vacía la barra de derecha a izquierda a medida que se acerca el objetivo.",
+    "heightLabel": "Altura de la barra inferior (px)",
+    "paddingLabel": "Relleno horizontal (%)",
+    "paddingHint": "Menos relleno deja más espacio al mensaje y a la cuenta atrás.",
+    "textScaleLabel": "Tamaño del texto (%)",
+    "textScaleHint": "Aumenta el tamaño del tipo sin cambiar la altura de la barra.",
+    "urgencyDescription": "Cambia la barra automáticamente a medida que se acerca el objetivo. Las etapas no tocadas siguen el tiempo total de antelación; los valores personalizados quedan fijos. Los mensajes completados vuelven al tamaño normal.",
+    "urgencyEnabledLabel": "Habilitar etapas de urgencia de la cuenta atrás",
+    "startingSoonLabel": "Pronto (naranja), minutos antes",
+    "urgentLabel": "Urgente (rojo), segundos antes",
+    "pulseLabel": "Pulso y ampliación, segundos finales",
+    "pulseHint": "La barra y el texto crecen un 25 % durante esta etapa final."
+  },
+  "validation": {
+    "timezone": "Escribe una zona horaria IANA como America/Chicago.",
+    "wholeMinutes": "Escribe un número entero de minutos.",
+    "leadRange": "La antelación debe estar entre 1 y 43200 minutos.",
+    "heightRange": "Escribe una altura entre 40 y 320 píxeles.",
+    "paddingRange": "Escribe un relleno entre 0 y 40 por ciento.",
+    "textScaleRange": "Escribe un tamaño de texto entre 25 y 500 por ciento.",
+    "soonRange": "El aviso de pronto debe empezar entre 1 y 1440 minutos antes del cero.",
+    "wholeSeconds": "Escribe un número entero de segundos.",
+    "urgentRange": "La urgencia debe empezar entre 2 y 3600 segundos antes del cero.",
+    "pulseRange": "El pulso debe empezar entre 1 y 60 segundos antes del cero.",
+    "priorityRange": "Escribe una prioridad entre -1000 y 1000.",
+    "weeklyRequired": "Elige una hora objetivo y al menos un día.",
+    "oneTimeRequired": "Elige la fecha y la hora únicas del objetivo.",
+    "targetRequired": "Elige al menos un destino.",
+    "stageOrder": "Las etapas deben empezar en orden: pronto, urgente y luego pulso."
+  }
+}

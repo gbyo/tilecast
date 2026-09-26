@@ -46,8 +46,39 @@ export function defineStudioPlugin<
   return definition;
 }
 
+// Plugin chrome and lifecycle.
 export { PluginPage } from "./PluginPage";
 export { PluginRouteGate as PluginInstallGate } from "../plugins/PluginRouteGate";
 export { PluginActionsMenu } from "../plugins/PluginActionsMenu";
-export { usePluginCatalog } from "../plugins/pluginCatalog";
-export { canManage } from "../plugins/shared";
+export { usePluginCatalog, pluginsQueryKey } from "../plugins/pluginCatalog";
+
+// The signed-in user, the API, and errors.
+export { useStudioSession, type StudioSession } from "./session";
+export { request as studioRequest, ApiError } from "../api/client";
+export { apiErrorMessage, useFormatLocale } from "../i18n";
+export {
+  usePluginTranslation,
+  type LocaleKey,
+  type PluginT,
+} from "./translation";
+export type { BreadcrumbResourceLoader } from "../navigation/studioRoutes";
+
+// Shared form and targeting primitives. Targeting is a property of Tilecast,
+// not of one plugin, so every plugin uses the same scopes and picker.
+export {
+  RegisterCheckbox,
+  TargetFields,
+  targetScopeLabel,
+  toLocalInputValue,
+  useTargetSource,
+  weekdayShortLabel,
+  type TargetScope,
+  type TargetSource,
+} from "../plugins/shared";
+export type { PluginTargetScope, PluginTargeting } from "../api/types";
+export { FormField } from "../components/FormField";
+export { DateInput, DateTimeInput } from "../components/date-picker";
+export { useConfirm } from "../components/ConfirmDialog";
+export { toast } from "../components/ui/toast";
+export { scheduleWeekdays } from "../schedules/scheduleBuilderModel";
+export { useOrganizationRegionalProfile } from "../settings/regionalProfile";

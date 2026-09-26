@@ -19,6 +19,9 @@ const GO_MODULE_ROOT = "github.com/tilecast/tilecast/";
 const GO_ALLOWED_TILECAST = [
   "github.com/tilecast/tilecast/packages/plugin-sdk/go/",
 ];
+/** The server's plugin test harness, allowed in _test.go files only. */
+const GO_TEST_HARNESS =
+  "github.com/tilecast/tilecast/apps/server/pluginharness";
 
 /** npm packages Studio code may import, in addition to the host surfaces. */
 const STUDIO_PACKAGES = [
@@ -101,10 +104,11 @@ function checkGo(
       (path) =>
         !GO_ALLOWED_TILECAST.some((allowed) => path.startsWith(allowed)),
     )
+    .filter((path) => !(file.endsWith("_test.go") && path === GO_TEST_HARNESS))
     .map((path) => ({
       plugin: plugin.manifest.id,
       file: relative(repo.root, file),
-      message: `imports ${path}; plugins may import only the plugin SDK and their own packages`,
+      message: `imports ${path}; plugins may import only the plugin SDK and their own packages (tests may also import apps/server/pluginharness)`,
     }));
 }
 

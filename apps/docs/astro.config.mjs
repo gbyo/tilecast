@@ -6,7 +6,7 @@ import starlightPageContextAction from "starlight-page-context-action";
 import starlightOpenAPIPlugin, {
   createOpenAPISidebarGroup,
 } from "starlight-openapi";
-import { pluginSidebarItems } from "./plugin-docs.mjs";
+import { pluginPageMarkdown, pluginSidebarItems } from "./plugin-docs.mjs";
 
 const repository = "https://github.com/gbyo/tilecast";
 
@@ -29,7 +29,8 @@ function tilecastDocsPlugin() {
   return {
     name: "tilecast-docs",
     hooks: {
-      "config:setup"({ addRouteMiddleware }) {
+      "config:setup"({ addRouteMiddleware, addIntegration }) {
+        addIntegration(pluginPageMarkdown());
         addRouteMiddleware({
           entrypoint: new URL("./src/route-middleware.mjs", import.meta.url)
             .pathname,
@@ -342,7 +343,6 @@ export default defineConfig({
               collapsed: true,
               items: [
                 { slug: "operations/plugins" },
-                { slug: "operations/plugins/countdown-bar" },
                 { slug: "operations/plugins/brand-bug" },
                 { slug: "operations/plugins/noise-meter" },
                 {

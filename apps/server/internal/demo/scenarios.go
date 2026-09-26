@@ -10,6 +10,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/media"
 	"github.com/tilecast/tilecast/apps/server/internal/plugins"
 	"github.com/tilecast/tilecast/apps/server/internal/scheduling"
+	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
 
 // The two scenarios share these primitives. A future scenario such as
@@ -359,17 +360,18 @@ func seedCampaign(b *builder) error {
 	})
 }
 
+// seedPlugins lets each plugin that contributes Demo Mode data seed its own.
 func seedPlugins(b *builder) error {
-	if err := b.installPlugins(plugins.CountdownBarID, plugins.BrandBugID); err != nil {
+	if err := b.svc.Plugins.SeedDemo(b.ctx, plugin.Demo{
+		Scenario: "district", OwnerID: b.owner, Timezone: demoTimezone,
+		Locations: map[string]uuid.UUID{
+			"high_school": IDs.HighSchool, "middle_school": IDs.MiddleSchool,
+			"main_office": IDs.MainOffice, "athletic_complex": IDs.AthleticComplex,
+		},
+	}); err != nil {
 		return err
 	}
-	lunchEnds := "12:55"
-	if _, err := b.svc.Plugins.CreateCountdownBar(b.ctx, b.owner, plugins.CountdownBarInput{
-		Name: "Lunch ends", Message: "Lunch ends in", ScheduleType: "weekly", TargetTime: &lunchEnds, DaysOfWeek: []int{1, 2, 3, 4, 5},
-		Timezone: demoTimezone, LeadTimeSeconds: 900, DisplayMode: "overlay", HeightPX: 72, ProgressFill: "none", ContentPadding: ptr(4),
-		TextScale: 100, Enabled: true, StartingSoonSeconds: 300, UrgentSeconds: 60, PulseSeconds: 10,
-		TargetScope: "locations", TargetIDs: []uuid.UUID{IDs.HighSchool, IDs.MiddleSchool},
-	}); err != nil {
+	if err := b.installPlugins(plugins.BrandBugID); err != nil {
 		return err
 	}
 	_, err := b.svc.Plugins.CreateBrandBug(b.ctx, b.owner, plugins.BrandBugInput{

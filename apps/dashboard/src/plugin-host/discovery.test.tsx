@@ -25,7 +25,7 @@ const manifest = (id: string, route?: string) => ({
 
 describe("Studio plugin discovery", () => {
   it("finds every bundled plugin's Studio entry point at build time", () => {
-    expect(studioPlugins.map((plugin) => plugin.id)).toEqual([
+    expect(studioPlugins().map((plugin) => plugin.id)).toEqual([
       "brand_bug",
       "countdown_bar",
       "emergency_alerts",
@@ -34,7 +34,7 @@ describe("Studio plugin discovery", () => {
     ]);
     expect(hasStudioRoute("/plugins/countdown-bar")).toBe(true);
     expect(hasStudioRoute("/plugins/some-future-plugin")).toBe(false);
-    for (const plugin of studioPlugins) {
+    for (const plugin of studioPlugins()) {
       expect(plugin.definition.icon, plugin.id).toBeDefined();
     }
   });
@@ -127,7 +127,7 @@ describe("Studio plugin discovery", () => {
       .flatMap((route) => route.children ?? [])
       .find((route) => route.path === "plugins");
     const paths = new Set(plugins?.children?.map((route) => route.path));
-    for (const plugin of studioPlugins) {
+    for (const plugin of studioPlugins()) {
       expect(paths.has(plugin.route.replace("/plugins/", "")), plugin.id).toBe(
         true,
       );
