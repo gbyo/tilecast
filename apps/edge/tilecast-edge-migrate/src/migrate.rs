@@ -37,8 +37,8 @@ use serde_json::Value;
 
 use crate::host::{
     COMPAT_OUTPUT, COMPAT_UNIT, CONSOLE_UNIT, DISPLAY_MANAGER_UNIT, DRM_PROBE_OUTPUT, DRM_PROBE_UNIT, EDGE_DAEMON,
-    EDGE_ENABLED_UNITS, EDGE_RENDERER, EDGE_UNITS, Host, HostError, IMPORT_OUTPUT, IMPORT_UNIT, SELFTEST_HOST_UNIT,
-    SELFTEST_OUTPUT, SELFTEST_RENDERER_UNIT, UPDATE_SOCKET,
+    EDGE_ENABLED_UNITS, EDGE_RENDERER, EDGE_UNITS, EDGE_WEB, Host, HostError, IMPORT_OUTPUT, IMPORT_UNIT,
+    SELFTEST_HOST_UNIT, SELFTEST_OUTPUT, SELFTEST_RENDERER_UNIT, UPDATE_SOCKET,
 };
 use crate::settle::{Expectation, Verdict, evaluate, summary};
 use crate::state::{Attempt, Backend, Kind, Phase, SCHEMA_VERSION, StateError, StateStore, UnitRecord};
@@ -109,6 +109,7 @@ pub enum CrashPoint {
     AfterEdgeStartIntent,
     AfterEdgeEnabled,
     AfterDaemonStarted,
+    AfterWebStarted,
     AfterRendererStarted,
     AfterSettlingSaved,
     DuringSettling,
@@ -124,7 +125,7 @@ pub enum CrashPoint {
 }
 
 impl CrashPoint {
-    pub const ALL: [CrashPoint; 28] = [
+    pub const ALL: [CrashPoint; 29] = [
         Self::AfterStarted,
         Self::AfterSelfTest,
         Self::AfterCompat,
@@ -141,6 +142,7 @@ impl CrashPoint {
         Self::AfterEdgeStartIntent,
         Self::AfterEdgeEnabled,
         Self::AfterDaemonStarted,
+        Self::AfterWebStarted,
         Self::AfterRendererStarted,
         Self::AfterSettlingSaved,
         Self::DuringSettling,
@@ -532,6 +534,10 @@ impl<'a, H: Host> Migrator<'a, H> {
         attempt.edge_started_at_ms = Some(self.host.now_ms());
         self.host.start(EDGE_DAEMON).await.map_err(|e| roll_back(host_reason("edge_start_failed", &e)))?;
         self.crash(CrashPoint::AfterDaemonStarted)?;
+        // The trusted renderer connects to the helper with a bounded backoff,
+        // so the helper starts before it.
+        self.host.start(EDGE_WEB).await.map_err(|e| roll_back(host_reason("web_start_failed", &e)))?;
+        self.crash(CrashPoint::AfterWebStarted)?;
         self.host.start(EDGE_RENDERER).await.map_err(|e| roll_back(host_reason("renderer_start_failed", &e)))?;
         self.crash(CrashPoint::AfterRendererStarted)?;
         attempt.settle_deadline_ms = Some(self.host.now_ms() + attempt.settle_seconds as i64 * 1_000);
@@ -654,7 +660,7 @@ impl<'a, H: Host> Migrator<'a, H> {
         // Edge first: disabled on disk, then stopped, then confirmed.
         self.host.disable(&EDGE_ENABLED_UNITS).await.map_err(|e| MigrateError::RollbackIncomplete(e.to_string()))?;
         self.crash(CrashPoint::AfterEdgeDisabled)?;
-        for unit in [EDGE_RENDERER, EDGE_DAEMON, UPDATE_SOCKET] {
+        for unit in [EDGE_WEB, EDGE_RENDERER, EDGE_DAEMON, UPDATE_SOCKET] {
             let _ = self.host.stop(unit).await;
         }
         for unit in EDGE_UNITS {

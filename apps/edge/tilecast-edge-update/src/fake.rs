@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use edge_protocol::bounded::ShortToken;
 use edge_protocol::ipc::status::{DaemonMode, DaemonStatus};
 
-use crate::host::{EDGE_DAEMON, EDGE_RENDERER, HostError, UnitActivity, UpdateHost};
+use crate::host::{EDGE_DAEMON, EDGE_RENDERER, EDGE_WEB, HostError, UnitActivity, UpdateHost};
 
 /// How the daemon of a version behaves once it runs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -56,7 +56,7 @@ impl FakeHost {
     pub fn new(install_root: PathBuf) -> Self {
         Self {
             state: Mutex::new(FakeState {
-                active: [EDGE_DAEMON, EDGE_RENDERER].iter().map(|u| (*u).to_owned()).collect(),
+                active: [EDGE_DAEMON, EDGE_WEB, EDGE_RENDERER].iter().map(|u| (*u).to_owned()).collect(),
                 guard_armed_for: None,
                 reloads: 0,
                 configuration_runs: 0,
@@ -101,6 +101,7 @@ impl FakeHost {
         let version = self.current();
         self.with(|s| {
             s.active.insert(EDGE_DAEMON.into());
+            s.active.insert(EDGE_WEB.into());
             s.active.insert(EDGE_RENDERER.into());
             s.running_version = version;
         });

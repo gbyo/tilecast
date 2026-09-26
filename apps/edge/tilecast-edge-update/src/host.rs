@@ -18,6 +18,10 @@ use edge_protocol::ipc::status::DaemonStatus;
 
 pub const EDGE_DAEMON: &str = "tilecast-edge.service";
 pub const EDGE_RENDERER: &str = "tilecast-renderer.service";
+/// The isolated remote web helper (M11). It maps files under `current` like
+/// the renderer, so it stops first and starts between the daemon and the
+/// renderer (docs/tilecast-edge-remote-web-threat-review.md §17).
+pub const EDGE_WEB: &str = "tilecast-web-renderer.service";
 pub const GUARD_SERVICE: &str = "tilecast-edge-update-guard.service";
 pub const GUARD_TIMER: &str = "tilecast-edge-update-guard.timer";
 

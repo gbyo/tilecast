@@ -41,6 +41,7 @@ pub const REQUIRED_FILES: &[&str] = &[
     "bin/tilecastd",
     "bin/tilecastctl",
     "bin/tilecast-renderer-wpe",
+    "bin/tilecast-web-renderer-wpe",
     "bin/tilecast-edge-migrate",
     "bin/tilecast-edge-update",
     "bin/tilecast-session-bridge",
@@ -66,6 +67,7 @@ pub const USER_UNIT_ENABLED: &str = "tilecast-session-bridge.path";
 pub const UNITS: &[&str] = &[
     "tilecast-edge.service",
     "tilecast-renderer.service",
+    "tilecast-web-renderer.service",
     "tilecast-edge-migrate.service",
     "tilecast-edge-migrate-recover.service",
     "tilecast-edge-selftest.service",

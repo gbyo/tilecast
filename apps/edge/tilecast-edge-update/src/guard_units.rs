@@ -22,7 +22,7 @@ Description=Tilecast Edge update guard
 Documentation=https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge.md
 ConditionPathExists=/var/lib/tilecast-edge-update/transaction.json
 After=dbus.service local-fs.target
-Before=tilecast-edge.service tilecast-renderer.service
+Before=tilecast-edge.service tilecast-web-renderer.service tilecast-renderer.service
 StartLimitIntervalSec=0
 
 [Service]
@@ -88,7 +88,7 @@ mod tests {
         let text = service(Path::new("/opt/tilecast-edge"), "0.1.0");
         assert!(text.contains("ExecStart=/opt/tilecast-edge/0.1.0/bin/tilecast-edge-update guard\n"));
         assert!(!text.contains("/current/"), "never the candidate's helper");
-        assert!(text.contains("Before=tilecast-edge.service tilecast-renderer.service"));
+        assert!(text.contains("Before=tilecast-edge.service tilecast-web-renderer.service tilecast-renderer.service"));
         assert!(timer().contains("OnUnitActiveSec=30s"));
         let helper = include_str!("../../packaging/systemd/tilecast-edge-update.service");
         // Every hardening line except ReadWritePaths=, which names the

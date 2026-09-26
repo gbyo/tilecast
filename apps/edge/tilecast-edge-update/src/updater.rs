@@ -3,9 +3,9 @@
 //! | Operation  | Durable phases                                     | Side effects, in order |
 //! | ---------- | -------------------------------------------------- | ---------------------- |
 //! | stage      | none (the version directory appears by `rename`)   | private copy of the CAS object, verify, unpack into `<version>.staging`, rename |
-//! | activate   | `ActivateIntent` → `Provisional`                   | arm the guard, stop renderer and daemon, candidate system files, `current`, daemon-reload, sysusers and tmpfiles, start daemon and renderer |
+//! | activate   | `ActivateIntent` → `Provisional`                   | arm the guard, stop web helper, renderer and daemon, candidate system files, `current`, daemon-reload, sysusers and tmpfiles, start daemon, web helper and renderer |
 //! | confirm    | `ConfirmIntent` → `Confirmed`                      | disarm the guard, retention |
-//! | rollback   | `RollbackIntent` → `RolledBack`                    | stop renderer and daemon, verify previous, previous system files, `current`, daemon-reload, sysusers and tmpfiles, start, disarm the guard |
+//! | rollback   | `RollbackIntent` → `RolledBack`                    | stop web helper, renderer and daemon, verify previous, previous system files, `current`, daemon-reload, sysusers and tmpfiles, start daemon, web helper and renderer, disarm the guard |
 //! | guard      | (reads the phase)                                  | finishes or undoes an interrupted operation; rolls back a candidate that did not confirm |
 //!
 //! Rules:
@@ -35,7 +35,7 @@ use edge_release::manifest::{ReleaseError, hex, is_version_name, verify_manifest
 use edge_release::protocol::{HelperStatus, MAX_LISTED_VERSIONS, Phase, ReleaseRef};
 use sha2::{Digest as _, Sha256};
 
-use crate::host::{EDGE_DAEMON, EDGE_RENDERER, HostError, UnitActivity, UpdateHost};
+use crate::host::{EDGE_DAEMON, EDGE_RENDERER, EDGE_WEB, HostError, UnitActivity, UpdateHost};
 use crate::transaction::{SCHEMA_VERSION, StateError, Transaction, TransactionStore};
 
 /// Free space kept on the helper's filesystem after the private archive copy.
@@ -106,6 +106,7 @@ pub enum CrashPoint {
     AfterReload,
     AfterProvisionalSaved,
     AfterDaemonStarted,
+    AfterWebStarted,
     AfterRendererStarted,
     AfterConfirmIntent,
     AfterGuardDisarmed,
@@ -120,7 +121,7 @@ pub enum CrashPoint {
 }
 
 impl CrashPoint {
-    pub const ACTIVATION: [CrashPoint; 9] = [
+    pub const ACTIVATION: [CrashPoint; 10] = [
         Self::AfterActivateIntent,
         Self::AfterGuardArmed,
         Self::AfterServicesStopped,
@@ -129,6 +130,7 @@ impl CrashPoint {
         Self::AfterReload,
         Self::AfterProvisionalSaved,
         Self::AfterDaemonStarted,
+        Self::AfterWebStarted,
         Self::AfterRendererStarted,
     ];
     pub const CONFIRMATION: [CrashPoint; 3] =
@@ -403,8 +405,12 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
     async fn activation_steps(&self, transaction: &mut Transaction) -> Result<(), UpdateError> {
         self.host.arm_guard(&transaction.previous.version_name).await?;
         self.crash(CrashPoint::AfterGuardArmed)?;
-        // WPE WebKit finds its helper processes under `current`: the renderer
-        // stops before `current` moves (docs/tilecast-edge-next.md §4).
+        // WPE WebKit finds its helper processes under `current`: the web helper
+        // and the renderer stop before `current` moves, web first so no new
+        // frame socket can appear while the renderer drains
+        // (docs/tilecast-edge-next.md §4,
+        // docs/tilecast-edge-remote-web-threat-review.md §17).
+        self.host.stop(EDGE_WEB).await?;
         self.host.stop(EDGE_RENDERER).await?;
         self.host.stop(EDGE_DAEMON).await?;
         self.crash(CrashPoint::AfterServicesStopped)?;
@@ -434,6 +440,11 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
         self.crash(CrashPoint::AfterProvisionalSaved)?;
         self.host.start(EDGE_DAEMON).await?;
         self.crash(CrashPoint::AfterDaemonStarted)?;
+        // The renderer connects to the helper's control socket with a bounded
+        // backoff, so the helper starts before it; the closed remote-web
+        // protocol fails safely on a version mismatch (threat review §6-§7).
+        self.host.start(EDGE_WEB).await?;
+        self.crash(CrashPoint::AfterWebStarted)?;
         self.host.start(EDGE_RENDERER).await?;
         self.crash(CrashPoint::AfterRendererStarted)?;
         Ok(())
@@ -542,6 +553,7 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
             self.save(transaction, Phase::RollbackIntent, reason)?;
             self.crash(CrashPoint::AfterRollbackIntent)?;
         }
+        let _ = self.host.stop(EDGE_WEB).await;
         let _ = self.host.stop(EDGE_RENDERER).await;
         let _ = self.host.stop(EDGE_DAEMON).await;
         self.crash(CrashPoint::AfterRollbackStopped)?;
@@ -555,6 +567,7 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
             transaction.record(self.host.now_ms(), "the previous release does not verify");
             self.store.save(transaction)?;
             let _ = self.host.start(EDGE_DAEMON).await;
+            let _ = self.host.start(EDGE_WEB).await;
             let _ = self.host.start(EDGE_RENDERER).await;
             return Err(UpdateError::RollbackIncomplete("previous_release_corrupt"));
         }
@@ -567,6 +580,7 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
         self.host.apply_system_configuration().await?;
         self.crash(CrashPoint::AfterRollbackReload)?;
         self.host.start(EDGE_DAEMON).await?;
+        self.host.start(EDGE_WEB).await?;
         self.host.start(EDGE_RENDERER).await?;
         self.crash(CrashPoint::AfterRollbackStarted)?;
         self.host.disarm_guard().await?;
@@ -645,6 +659,7 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
                     now.ok().zip(base).is_some_and(|(now, base)| now.saturating_sub(base) > limit)
                 };
                 let daemon = self.host.activity(EDGE_DAEMON).await.ok();
+                let web = self.host.activity(EDGE_WEB).await.ok();
                 let renderer = self.host.activity(EDGE_RENDERER).await.ok();
                 let reason = if let Some(reason) = self.expired(&transaction) {
                     Some(reason)
@@ -673,9 +688,11 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
                 } else {
                     // An activation interrupted after `Provisional` may not
                     // have started the candidate. Only a stopped unit is
-                    // started: `start` resets the restart counter, and a
-                    // crashing candidate's restarts are the evidence above.
-                    for (unit, activity) in [(EDGE_DAEMON, daemon), (EDGE_RENDERER, renderer)] {
+                    // started, in dependency order: the renderer waits for
+                    // the helper's control socket. `start` resets the
+                    // restart counter, and a crashing candidate's restarts
+                    // are the evidence above.
+                    for (unit, activity) in [(EDGE_DAEMON, daemon), (EDGE_WEB, web), (EDGE_RENDERER, renderer)] {
                         if activity == Some(UnitActivity::Inactive) {
                             let _ = self.host.start(unit).await;
                         }

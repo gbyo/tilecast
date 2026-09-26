@@ -14,7 +14,12 @@ Conflicts=getty@tty1.service
 Type=simple
 User=tilecast
 Group=tilecast
-SupplementaryGroups=video render input
+# tilecast-web joins the helper's runtime directory and sockets
+# (/run/tilecast-web, 0750 tilecast-web:tilecast-web with 0660 sockets) to
+# the trusted renderer and nothing else. The helper's persistent website
+# profiles stay 0700 tilecast-web, so group membership does not let the
+# renderer read web storage (threat review §3-§5).
+SupplementaryGroups=video render input tilecast-web
 ExecStart=/opt/tilecast-edge/current/bin/tilecast-renderer-wpe --platform=drm --socket=/run/tilecast-edge/edge.sock --media-socket=/run/tilecast-edge/media.sock --runtime-dir=/opt/tilecast-edge/current/share/tilecast/renderer-web --gst-plugin-dir=/opt/tilecast-edge/current/lib/gstreamer-1.0
 Restart=always
 RestartSec=2

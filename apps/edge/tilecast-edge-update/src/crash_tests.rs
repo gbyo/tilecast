@@ -19,7 +19,7 @@ use edge_release::protocol::{HelperRequest, Phase};
 use edge_release::testing::{Signer, layout, write_archive};
 
 use crate::fake::{Behavior, FakeHost};
-use crate::host::{EDGE_DAEMON, EDGE_RENDERER};
+use crate::host::{EDGE_DAEMON, EDGE_RENDERER, EDGE_WEB};
 use crate::transaction::{Transaction, TransactionStore};
 use crate::updater::{CrashPoint, HelperPaths, Timing, UpdateError, Updater};
 
@@ -136,7 +136,10 @@ impl World {
         assert_eq!(current, wanted);
         assert_eq!(self.units_version(), wanted, "system files describe the current release");
         assert!(self.host.with(|s| s.guard_armed_for.is_none()), "the guard ends with the transaction");
-        assert!(self.host.is_active(EDGE_DAEMON) && self.host.is_active(EDGE_RENDERER), "the screen runs");
+        assert!(
+            self.host.is_active(EDGE_DAEMON) && self.host.is_active(EDGE_WEB) && self.host.is_active(EDGE_RENDERER),
+            "the screen runs"
+        );
         assert_eq!(self.host.with(|s| s.running_version.clone()).as_deref(), Some(wanted));
         for version in ["0.1.0", "0.2.0"] {
             verify_installed(&self.layout.version_dir(version), &self.signer.public())
@@ -162,9 +165,14 @@ async fn a_healthy_candidate_is_activated_confirmed_and_older_releases_are_remov
     assert_eq!(world.host.with(|s| s.running_version.clone()).as_deref(), Some("0.2.0"));
     assert!(installed_versions(&world.layout).unwrap().contains(&"0.0.9".to_owned()), "kept while provisional");
     let log = world.host.with(|s| s.log.clone());
+    let web_stop = log.iter().position(|l| l == "stop tilecast-web-renderer.service").unwrap();
     let renderer_stop = log.iter().position(|l| l == "stop tilecast-renderer.service").unwrap();
     let daemon_stop = log.iter().position(|l| l == "stop tilecast-edge.service").unwrap();
-    assert!(renderer_stop < daemon_stop, "the renderer stops before current moves");
+    assert!(web_stop < renderer_stop && renderer_stop < daemon_stop, "the web helper stops before the renderer");
+    let daemon_start = log.iter().position(|l| l == "start tilecast-edge.service").unwrap();
+    let web_start = log.iter().position(|l| l == "start tilecast-web-renderer.service").unwrap();
+    let renderer_start = log.iter().position(|l| l == "start tilecast-renderer.service").unwrap();
+    assert!(daemon_start < web_start && web_start < renderer_start, "the daemon starts before the web helper");
 
     let confirmed = world.updater(None).confirm("0.2.0").await.unwrap();
     assert_eq!(confirmed.phase, Phase::Confirmed);
@@ -189,7 +197,10 @@ async fn every_activation_crash_point_recovers_with_and_without_power_loss() {
             // never counts: a crash never confirms.
             let started = matches!(
                 point,
-                CrashPoint::AfterProvisionalSaved | CrashPoint::AfterDaemonStarted | CrashPoint::AfterRendererStarted
+                CrashPoint::AfterProvisionalSaved
+                    | CrashPoint::AfterDaemonStarted
+                    | CrashPoint::AfterWebStarted
+                    | CrashPoint::AfterRendererStarted
             );
             let expected = if started && !power_loss { Phase::Confirmed } else { Phase::RolledBack };
             world.assert_consistent(expected);
@@ -339,7 +350,10 @@ async fn a_corrupt_previous_release_keeps_the_screen_running_and_the_rollback_op
     let error = world.updater(None).rollback("candidate_safe_mode").await.unwrap_err();
     assert_eq!(error.reason_code(), "previous_release_corrupt");
     assert_eq!(world.store.load().unwrap().unwrap().phase, Phase::RollbackIntent, "the guard keeps trying");
-    assert!(world.host.is_active(EDGE_DAEMON) && world.host.is_active(EDGE_RENDERER), "never a dark screen");
+    assert!(
+        world.host.is_active(EDGE_DAEMON) && world.host.is_active(EDGE_WEB) && world.host.is_active(EDGE_RENDERER),
+        "never a dark screen"
+    );
     assert_eq!(current_version(&world.layout).as_deref(), Some("0.2.0"));
 }
 

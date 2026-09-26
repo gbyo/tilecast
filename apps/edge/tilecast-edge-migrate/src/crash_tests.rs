@@ -25,7 +25,7 @@ fn assert_one_stack(host: &FakeHost, phase: Phase, context: &str) {
     assert!(!world.probation, "{context}: probation ends with the attempt");
     let expected = world.legacy_file_digests();
     drop(world);
-    let edge = [host.unit_state(EDGE_DAEMON), host.unit_state(EDGE_RENDERER)];
+    let edge = [host.unit_state(EDGE_DAEMON), host.unit_state(EDGE_WEB), host.unit_state(EDGE_RENDERER)];
     let update_socket = host.unit_state(crate::host::UPDATE_SOCKET);
     let recover = host.unit_state(RECOVER_UNIT);
     let display = host.unit_state("gdm3.service");
@@ -33,13 +33,13 @@ fn assert_one_stack(host: &FakeHost, phase: Phase, context: &str) {
     assert!(!recover.0, "{context}: the recover unit is disabled after a terminal phase");
     match phase {
         Phase::Accepted => {
-            assert_eq!(edge, [(true, true), (true, true)], "{context}: Edge runs");
+            assert_eq!(edge, [(true, true), (true, true), (true, true)], "{context}: Edge runs");
             assert!(update_socket.0, "{context}: the update helper's socket is enabled with Edge");
             assert_eq!(legacy, (false, false), "{context}: legacy is disabled but left on disk");
             assert_eq!(display, (false, false), "{context}: Edge owns the display");
         }
         Phase::RolledBack | Phase::Refused => {
-            assert_eq!(edge, [(false, false), (false, false)], "{context}: Edge is off");
+            assert_eq!(edge, [(false, false), (false, false), (false, false)], "{context}: Edge is off");
             assert_eq!(update_socket, (false, false), "{context}: no Edge unit stays enabled");
             assert_eq!(legacy, (true, true), "{context}: the legacy player runs again");
             assert_eq!(display, (true, true), "{context}: the display session is back");
@@ -259,18 +259,19 @@ fn position(point: CrashPoint) -> usize {
         AfterEdgeStartIntent => 13,
         AfterEdgeEnabled => 14,
         AfterDaemonStarted => 15,
-        AfterRendererStarted => 16,
-        AfterSettlingSaved => 17,
-        DuringSettling => 18,
-        AfterAcceptIntent => 19,
-        AfterProbationCleared => 20,
-        AfterRecoverDisabled => 21,
-        AfterRollbackIntent => 22,
-        AfterEdgeDisabled => 23,
-        AfterEdgeStopped => 24,
-        AfterDisplayRestored => 25,
-        AfterLegacyEnabled => 26,
-        AfterLegacyStarted => 27,
+        AfterWebStarted => 16,
+        AfterRendererStarted => 17,
+        AfterSettlingSaved => 18,
+        DuringSettling => 19,
+        AfterAcceptIntent => 20,
+        AfterProbationCleared => 21,
+        AfterRecoverDisabled => 22,
+        AfterRollbackIntent => 23,
+        AfterEdgeDisabled => 24,
+        AfterEdgeStopped => 25,
+        AfterDisplayRestored => 26,
+        AfterLegacyEnabled => 27,
+        AfterLegacyStarted => 28,
     }
 }
 
