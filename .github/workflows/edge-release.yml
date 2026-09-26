@@ -13,6 +13,14 @@ on:
         required: false
         default: true
         type: boolean
+      channel:
+        description: Update channel in the signed envelope; beta for a GitHub prerelease
+        required: false
+        default: stable
+        type: choice
+        options:
+          - stable
+          - beta
 
 permissions:
   contents: read
@@ -76,6 +84,8 @@ jobs:
           key: edge-wpe-${{ hashFiles('apps/edge/release/Dockerfile.builder', 'apps/edge/release/build-wpe.sh') }}
 
       - name: Build, sign and package
+        env:
+          CHANNEL: ${{ inputs.channel }}
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/edge-release-cache" "$RUNNER_TEMP/edge-release"
@@ -83,15 +93,18 @@ jobs:
             -v "$RUNNER_TEMP/edge-release:/out" -v "$RUNNER_TEMP/tilecast-signing:/keys:ro" \
             -e TILECAST_UPDATE_MANIFEST_PRIVATE_KEY=/keys/update-private.pem \
             -e TILECAST_UPDATE_MANIFEST_PUBLIC_KEY_FILE=/keys/update-public.pem \
+            -e TILECAST_EDGE_CHANNEL="$CHANNEL" \
             tilecast-edge-release-builder /src/apps/edge/release/build-edge-release.sh
 
       - name: Rebuild and compare every file digest
         if: ${{ inputs.verify_reproducible }}
+        env:
+          CHANNEL: ${{ inputs.channel }}
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/edge-release-again"
           docker run --rm -v "$PWD:/src" -v "$RUNNER_TEMP/edge-release-cache:/cache" \
-            -v "$RUNNER_TEMP/edge-release-again:/out" \
+            -v "$RUNNER_TEMP/edge-release-again:/out" -e TILECAST_EDGE_CHANNEL="$CHANNEL" \
             tilecast-edge-release-builder bash -c 'rm -rf /cache/cargo /cache/renderer && /src/apps/edge/release/build-edge-release.sh'
           jq -S '.files' "$RUNNER_TEMP/edge-release/tree/tilecast-edge-release.json" > "$RUNNER_TEMP/first.json"
           jq -S '.files' "$RUNNER_TEMP/edge-release-again/tree/tilecast-edge-release.json" > "$RUNNER_TEMP/second.json"
