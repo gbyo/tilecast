@@ -1389,7 +1389,7 @@ async fn failed_downloads_keep_the_committed_presentation_and_recover() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn incompatible_content_is_typed_and_never_replaces_playback() {
+async fn remote_web_without_a_helper_keeps_the_committed_presentation() {
     let harness = Harness::new().await;
     let first = Asset::new("first", "image/png");
     let (player, renderer) = harness.committed(&first, 3).await;
@@ -1399,8 +1399,10 @@ async fn incompatible_content_is_typed_and_never_replaces_playback() {
         m["websites"] = json!([{"assetId": website, "name": "Menu", "url": "https://menu.example/"}]);
     }));
     player.push();
-    let reason = player.prepared_as(&binding, "incompatible").await;
-    assert_eq!(reason.as_deref(), Some("presentation_incompatible_website"));
+    wait_until("the Website manifest to be prepared", || async {
+        player.stage(&binding, Stage::Pending).await.is_some_and(|m| m.version == 4)
+    })
+    .await;
     let requests = harness.fake.manifest_requests.load(Ordering::SeqCst);
     player.push();
     wait_until("the next reconciliation", || async {
@@ -1408,12 +1410,13 @@ async fn incompatible_content_is_typed_and_never_replaces_playback() {
     })
     .await;
     settle().await;
-    assert_eq!(player.preparation().1, "incompatible", "a deterministic rejection is not retried");
+    assert_eq!(player.preparation().1, "pending", "the Website remains ready for a capable renderer");
     assert_eq!(player.stage(&binding, Stage::Active).await.unwrap().version, 3);
-    assert!(player.stage(&binding, Stage::Pending).await.is_none());
+    assert!(player.stage(&binding, Stage::Pending).await.is_some_and(|m| m.version == 4));
     assert!(shows(&renderer.last().unwrap(), &first));
     let heartbeat = heartbeat(&player.context).await;
-    assert_eq!(heartbeat["lastSynchronizationError"], "presentation_incompatible_website");
+    assert_eq!(heartbeat["webRuntimeVersion"], 0);
+    assert_eq!(heartbeat["pendingManifestVersion"], 4);
     renderer.stop();
     player.stop().await;
 }

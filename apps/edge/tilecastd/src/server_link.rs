@@ -655,9 +655,15 @@ fn iso(ms: i64) -> Option<String> {
 /// committed and pending manifest versions, and what the renderer is actually
 /// showing and why.
 pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
-    let (renderer, current, current_item) = {
+    let (renderer, current, current_item, remote_web_available) = {
         let presentation = context.presentation.lock().await;
-        (presentation.status(), presentation.current().cloned(), presentation.current_item())
+        let (remote_web, connected, restarting) = presentation.remote_web();
+        (
+            presentation.status(),
+            presentation.current().cloned(),
+            presentation.current_item(),
+            connected && !restarting && remote_web.is_some_and(|status| status.available),
+        )
     };
     let healthy = renderer.state.as_str() == "healthy"
         && current
@@ -695,7 +701,7 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
         "safeMode": renderer.state.as_str() == "safe_mode",
         "presentationSchemaVersions": [1],
         "nativePresentationCapabilities": native,
-        "webRuntimeVersion": crate::manifest::profile::WEB_RUNTIME_VERSION,
+        "webRuntimeVersion": if remote_web_available { crate::manifest::profile::WEB_RUNTIME_VERSION } else { 0 },
     });
     // `lastMeaningfulProgressAt` is a telemetry field, not a heartbeat one:
     // the server's strict HTTP heartbeat decoding refuses the whole message

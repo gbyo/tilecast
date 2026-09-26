@@ -49,6 +49,9 @@ export class HostRemoteWebSurface implements MediaSurface {
   private readonly key: string;
   private surfaceId: string | null = null;
   private video: HTMLVideoElement | null = null;
+  private targetUri: string | null = null;
+  private sourceReady = false;
+  private hostLayer = false;
   private frameCallback: number | null = null;
   private resize: ResizeObserver | null = null;
   private lastViewport = "";
@@ -168,12 +171,8 @@ export class HostRemoteWebSurface implements MediaSurface {
       this.surfaceId = adopted.surfaceId;
       this.loaded = adopted.loaded;
       this.port.updateViewport(adopted.surfaceId, this.viewport());
-      if (adopted.target)
-        this.attach(
-          adopted.target.kind === "media-uri" ? adopted.target.uri : null,
-        );
-      this.streamReady =
-        adopted.streamReady && adopted.target?.kind === "host-layer";
+      this.sourceReady = adopted.streamReady;
+      if (adopted.target) this.setTarget(adopted.target);
       this.maybeReady();
       return;
     }
@@ -201,14 +200,23 @@ export class HostRemoteWebSurface implements MediaSurface {
     }
     this.surfaceId = state.surfaceId;
     this.lastViewport = JSON.stringify(viewport);
-    this.attach(result.target.kind === "media-uri" ? result.target.uri : null);
+    this.sourceReady = this.sourceReady || state.streamReady;
+    this.setTarget(result.target);
     // Events that arrived before the create reply resolved.
     this.loaded = this.loaded || state.loaded;
-    if (result.target.kind === "host-layer") {
-      this.streamReady = this.streamReady || state.streamReady;
-    }
     if (state.failed) this.fail(state.failed);
     this.maybeReady();
+  }
+
+  private setTarget(target: { kind: "media-uri"; uri: string } | { kind: "host-layer" }): void {
+    if (target.kind === "host-layer") {
+      this.hostLayer = true;
+      this.streamReady = this.sourceReady;
+      this.attach(null);
+    } else {
+      this.targetUri = target.uri;
+      this.attach(this.sourceReady ? target.uri : null);
+    }
   }
 
   /** Shows the stream (a media URI) or keeps a placeholder (a host layer). */
@@ -230,8 +238,10 @@ export class HostRemoteWebSurface implements MediaSurface {
       this.watchFrames();
       void video.play().catch(() => undefined);
     }
-    this.resize = new ResizeObserver(() => this.sendViewport());
-    this.resize.observe(this.element);
+    if (!this.resize) {
+      this.resize = new ResizeObserver(() => this.sendViewport());
+      this.resize.observe(this.element);
+    }
   }
 
   private sendViewport(): void {
@@ -300,7 +310,10 @@ export class HostRemoteWebSurface implements MediaSurface {
         this.maybeReady();
         return;
       case "stream-ready":
-        if (this.video === null) {
+        this.sourceReady = true;
+        if (this.targetUri !== null && this.video === null) {
+          this.attach(this.targetUri);
+        } else if (this.hostLayer) {
           this.streamReady = true;
           this.maybeReady();
         }

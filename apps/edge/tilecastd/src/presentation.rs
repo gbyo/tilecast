@@ -573,7 +573,8 @@ impl PresentationEngine {
         // A Website load is logged every time (still bounded): a later one
         // is a recovery after a failure.
         let fresh = report.kind == EvidenceKind::WebsiteLoaded || !self.logged_evidence.contains(&key);
-        if self.logged_evidence.len() < 512 && fresh && self.logged_evidence.insert(key.clone()) | true {
+        if self.logged_evidence.len() < 512 && fresh {
+            self.logged_evidence.insert(key);
             tracing::info!(
                 component = "presentation",
                 event = "evidence_accepted",
@@ -874,8 +875,13 @@ impl PresentationEngine {
     }
 
     /// Records the renderer's health reason that concerns remote web.
-    pub fn renderer_health(&mut self, session: &SessionHandle, health: &edge_protocol::ipc::event::RendererHealth) {
+    pub fn renderer_health(
+        &mut self,
+        session: &SessionHandle,
+        health: &edge_protocol::ipc::event::RendererHealth,
+    ) -> bool {
         if let Some(link) = self.link_for(session) {
+            let before = link.remote_web_restarting;
             match health.reason_code.as_ref().map(ShortToken::as_str) {
                 Some("remote_web_helper_restarting") => link.remote_web_restarting = true,
                 _ if health.state == edge_protocol::ipc::event::HealthState::Healthy => {
@@ -883,7 +889,9 @@ impl PresentationEngine {
                 }
                 _ => {}
             }
+            return before != link.remote_web_restarting;
         }
+        false
     }
 
     pub fn renderer_ready_features(&self) -> Option<Vec<ShortToken>> {

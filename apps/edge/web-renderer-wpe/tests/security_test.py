@@ -413,9 +413,9 @@ def run(helper, root):
         closed = True
     check("an oversized frame closes the connection", closed)
     client = helper.client()
-    client.send({"type": "create", "surfaceId": "h", "width": 640, "height": 360, "muted": True, "visible": True,
-                 "content": rwclient.page("http://127.0.0.1/still.html", [f"h{i}.example" for i in range(5000)])})
     try:
+        client.send({"type": "create", "surfaceId": "h", "width": 640, "height": 360, "muted": True, "visible": True,
+                     "content": rwclient.page("http://127.0.0.1/still.html", [f"h{i}.example" for i in range(5000)])})
         client.recv()
         closed = False
     except (rwclient.Closed, ConnectionError):

@@ -411,8 +411,7 @@ def log_lines(stack):
 
 def scenario_website(args):
     if not args.web_helper:
-        print("website: skipped (no --web-helper)")
-        return
+        raise ValueError("website scenario requires --web-helper")
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 80), WebHandler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     with tempfile.TemporaryDirectory(dir="/tmp", prefix="tcw") as workdir:

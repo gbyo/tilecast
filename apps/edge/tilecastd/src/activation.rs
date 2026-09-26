@@ -372,6 +372,20 @@ async fn tick(context: &DaemonContext, state: &mut ActivationLoop, item_boundary
                     break 'pending;
                 }
             };
+            let renderer_features = context.presentation.lock().await.renderer_ready_features();
+            let supported = renderer_features.as_ref().is_some_and(|features| {
+                resolved
+                    .document
+                    .required_features()
+                    .iter()
+                    .all(|required| features.iter().any(|feature| feature.as_str() == *required))
+            });
+            if !supported {
+                // Keep the committed presentation on screen while the optional
+                // remote-web helper or renderer is unavailable. A later
+                // renderer.ready wakes this loop to try the pending manifest.
+                return Some(local_now_ms.saturating_add(MAX_SLEEP.as_millis() as i64));
+            }
             let takeover = matches!(resolved.selection.source, Source::Takeover | Source::QuickPresent);
             let current_is_playing = current.as_ref().is_some_and(|c| {
                 c.source == ActivationSource::ServerManifest
