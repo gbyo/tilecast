@@ -20,10 +20,19 @@ export function checkCssScope(css: string, dir: string): string[] {
 
   const block = (start: number): number => {
     // Index just past the brace that closes the block opened at start.
+    // Braces inside quoted strings are content, not structure.
     let depth = 0;
+    let quote = "";
     for (let index = start; index < text.length; index += 1) {
-      if (text[index] === "{") depth += 1;
-      else if (text[index] === "}") {
+      const character = text[index];
+      if (quote) {
+        if (character === "\\") index += 1;
+        else if (character === quote) quote = "";
+        continue;
+      }
+      if (character === '"' || character === "'") quote = character;
+      else if (character === "{") depth += 1;
+      else if (character === "}") {
         depth -= 1;
         if (depth === 0) return index + 1;
       }
@@ -69,7 +78,14 @@ export function checkCssScope(css: string, dir: string): string[] {
         for (const selector of splitSelectors(prelude)) {
           if (!selectorPrefix.test(selector)) {
             problems.push(`selector "${selector}" must start with .tc-${dir}`);
+          } else if (hasSiblingCombinator(selector)) {
+            problems.push(
+              `selector "${selector}" must not use sibling combinators`,
+            );
           }
+        }
+        if (hasNestedRule(text.slice(open + 1, end - 1))) {
+          problems.push(`nested rules are not allowed in "${prelude}"`);
         }
       }
       index = end;
@@ -78,6 +94,47 @@ export function checkCssScope(css: string, dir: string): string[] {
 
   scan(0, text.length);
   return problems;
+}
+
+/**
+ * A + or ~ at the top level of a selector reaches a sibling outside the
+ * plugin's subtree. The same characters inside attribute selectors, quoted
+ * strings, or functional expressions are values, not combinators.
+ */
+function hasSiblingCombinator(selector: string): boolean {
+  let depth = 0;
+  let quote = "";
+  for (let index = 0; index < selector.length; index += 1) {
+    const character = selector[index];
+    if (quote) {
+      if (character === "\\") index += 1;
+      else if (character === quote) quote = "";
+      continue;
+    }
+    if (character === '"' || character === "'") quote = character;
+    else if (character === "(" || character === "[") depth += 1;
+    else if (character === ")" || character === "]") depth -= 1;
+    else if ((character === "+" || character === "~") && depth === 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** A block opener inside a style rule body starts a nested rule. */
+function hasNestedRule(body: string): boolean {
+  let quote = "";
+  for (let index = 0; index < body.length; index += 1) {
+    const character = body[index];
+    if (quote) {
+      if (character === "\\") index += 1;
+      else if (character === quote) quote = "";
+      continue;
+    }
+    if (character === '"' || character === "'") quote = character;
+    else if (character === "{") return true;
+  }
+  return false;
 }
 
 function splitSelectors(prelude: string): string[] {

@@ -128,6 +128,9 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  .tc-countdown-bar {
+    transition: none;
+  }
   .tc-countdown-bar__fill {
     transition: none;
   }

@@ -171,6 +171,8 @@ export default defineRuntimePlugin({
       // Thresholds changed: the hysteresis and the open aggregate restart,
       // because a bucket measured against two thresholds is not one measurement.
       machine = next ? meter.createStateMachine(next) : null;
+      flushHistory();
+      history = null;
       applyLifecycle();
     };
 
