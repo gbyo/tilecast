@@ -343,8 +343,6 @@ export default defineConfig({
               collapsed: true,
               items: [
                 { slug: "operations/plugins" },
-                { slug: "operations/plugins/brand-bug" },
-                { slug: "operations/plugins/noise-meter" },
                 {
                   slug: "operations/emergency-alerts",
                   badge: { text: "US", variant: "note" },
