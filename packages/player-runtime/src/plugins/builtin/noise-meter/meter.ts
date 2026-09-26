@@ -1,4 +1,4 @@
-import type { TilecastManifestPluginEntry } from "./countdown-bar-resolver";
+import type { RuntimeManifestEntry as TilecastManifestPluginEntry } from "@tilecast/plugin-sdk/runtime";
 /**
  * Noise Meter: room level measurement for the Linux Player, kept out of the
  * renderer so the parts that decide *whether* a bar should be on screen can be
@@ -13,14 +13,11 @@ import type { TilecastManifestPluginEntry } from "./countdown-bar-resolver";
  *   3. `createSmoother` — jitter removal that still reacts to a real rise.
  *   4. `createStateMachine` — the hysteresis that keeps a bar from flapping.
  *
- * `createCapture` is the only piece that touches browser media APIs, and its
- * two dependencies are injectable so the lifecycle can be exercised with fakes.
+ * The microphone itself belongs to the runtime host (plugins/microphone.ts):
+ * this module only turns RMS levels into readings.
  *
- * What this module never does: record, store, or transmit audio. No
- * MediaRecorder, no buffer retention, no upload — the analyser's window is read
- * into one reused array, reduced to a single number, and overwritten. The
- * capture graph is deliberately never connected to `context.destination`, so a
- * room is never monitored through the display's own speakers.
+ * What this module never does: record, store, or transmit audio. It never
+ * sees audio at all, only one RMS number per sampling window.
  *
  * The published value is relative to whatever microphone happens to be plugged
  * into this player. It is not dB, dBA, or SPL, and nothing here should present
@@ -106,24 +103,6 @@ export interface TilecastNoiseMeterSmoother {
   reset(): void;
 }
 
-export interface TilecastNoiseMeterCaptureOptions {
-  /** Called with each window's RMS, or `null` when the input is unavailable. */
-  onLevel(rms: number | null): void;
-  onDiagnostic?(message: string, detail?: Record<string, unknown>): void;
-  retryIntervalMs?: number;
-  sampleIntervalMs?: number;
-  requestStream?(): Promise<MediaStream>;
-  createContext?(): AudioContext;
-  /** Returns a function that removes the listener again. */
-  observeDeviceChange?(listener: () => void): () => void;
-}
-
-export interface TilecastNoiseMeterCapture {
-  start(): void;
-  stop(): void;
-  readonly active: boolean;
-}
-
 /**
  * One completed ten-second aggregate. This is the only thing about a room that
  * is ever written down: an average, a peak, three durations, and how many times
@@ -158,18 +137,10 @@ export interface TilecastNoiseHistoryAggregator {
   reset(): void;
 }
 
-export type TilecastBottomStripOwner =
-  "alert_ticker" | "noise_meter" | "countdown_bar" | "none";
-
 export interface TilecastNoiseMeterModule {
   resolve(
-    plugins: TilecastManifestPluginEntry[] | null | undefined,
+    plugins: readonly TilecastManifestPluginEntry[] | null | undefined,
   ): TilecastNoiseMeterSettings | null;
-  stripOwner(candidates: {
-    alertTicker: boolean;
-    noiseMeter: boolean;
-    countdownBar: boolean;
-  }): TilecastBottomStripOwner;
   levelFromRms(rms: number, sensitivity: number): number;
   createSmoother(options?: {
     attackMs?: number;
@@ -181,9 +152,6 @@ export interface TilecastNoiseMeterModule {
       "warningLevel" | "loudLevel" | "triggerHoldMs" | "clearHoldMs"
     >,
   ): TilecastNoiseMeterMachine;
-  createCapture(
-    options: TilecastNoiseMeterCaptureOptions,
-  ): TilecastNoiseMeterCapture;
   createHistoryAggregator(settings: {
     warningLevel: number;
     loudLevel: number;
@@ -209,7 +177,6 @@ export const tilecastNoiseMeter: TilecastNoiseMeterModule = (() => {
   // ~16 updates a second: fast enough to read as live movement, slow enough to
   // stay invisible on the low-end mini PCs these players run on.
   const SAMPLE_INTERVAL_MS = 60;
-  const RETRY_INTERVAL_MS = 10_000;
   // The history resolution. Fixed rather than configurable: the Player, the
   // stored records, and every chart aggregation have to agree about what one
   // record means, and per-installation resolution would break that quietly.
@@ -280,193 +247,11 @@ export const tilecastNoiseMeter: TilecastNoiseMeterModule = (() => {
     return { weekday, minutes: hours * 60 + minutes };
   }
 
-  function defaultRequestStream(): Promise<MediaStream> {
-    const media = (globalThis as { navigator?: Navigator }).navigator
-      ?.mediaDevices;
-    if (!media?.getUserMedia) {
-      return Promise.reject(new Error("no media capture API is available"));
-    }
-    // Audio only, and with the three call-oriented processing features off:
-    // echo cancellation, noise suppression, and automatic gain control all
-    // rewrite level continuously, which is exactly what a room meter must not
-    // have happening underneath it. A player whose stack ignores the hints
-    // still works — the reading is simply less stable.
-    return media.getUserMedia({
-      audio: {
-        echoCancellation: false,
-        noiseSuppression: false,
-        autoGainControl: false,
-      },
-      video: false,
-    });
-  }
-
-  function defaultCreateContext(): AudioContext {
-    const constructor = (globalThis as { AudioContext?: typeof AudioContext })
-      .AudioContext;
-    if (!constructor) throw new Error("no Web Audio API is available");
-    return new constructor();
-  }
-
-  function defaultObserveDeviceChange(listener: () => void): () => void {
-    const media = (globalThis as { navigator?: Navigator }).navigator
-      ?.mediaDevices;
-    if (!media?.addEventListener) return () => {};
-    media.addEventListener("devicechange", listener);
-    return () => media.removeEventListener("devicechange", listener);
-  }
-
-  function createCapture(
-    options: TilecastNoiseMeterCaptureOptions,
-  ): TilecastNoiseMeterCapture {
-    const retryIntervalMs = options.retryIntervalMs ?? RETRY_INTERVAL_MS;
-    const sampleIntervalMs = options.sampleIntervalMs ?? SAMPLE_INTERVAL_MS;
-    const requestStream = options.requestStream ?? defaultRequestStream;
-    const createContext = options.createContext ?? defaultCreateContext;
-    const observeDeviceChange =
-      options.observeDeviceChange ?? defaultObserveDeviceChange;
-    const diagnostic = options.onDiagnostic ?? (() => {});
-
-    let wanted = false;
-    let opening = false;
-    let stream: MediaStream | null = null;
-    let context: AudioContext | null = null;
-    let source: MediaStreamAudioSourceNode | null = null;
-    let analyser: AnalyserNode | null = null;
-    let frame: Float32Array<ArrayBuffer> | null = null;
-    let sampleTimer: ReturnType<typeof setInterval> | null = null;
-    let retryTimer: ReturnType<typeof setTimeout> | null = null;
-    let releaseDeviceChange: (() => void) | null = null;
-
-    function teardown(): void {
-      if (sampleTimer !== null) {
-        clearInterval(sampleTimer);
-        sampleTimer = null;
-      }
-      for (const track of stream?.getTracks() ?? []) {
-        track.removeEventListener("ended", handleLoss);
-        track.stop();
-      }
-      source?.disconnect();
-      // Closing releases the audio device. A player that keeps a context open
-      // for a plugin it no longer has would hold the microphone forever.
-      void context?.close().catch(() => {});
-      stream = null;
-      context = null;
-      source = null;
-      analyser = null;
-      frame = null;
-    }
-
-    function scheduleRetry(): void {
-      if (!wanted || retryTimer !== null) return;
-      retryTimer = setTimeout(() => {
-        retryTimer = null;
-        void open();
-      }, retryIntervalMs);
-    }
-
-    function fail(reason: string): void {
-      teardown();
-      // Fail open: the meter reports itself unavailable, the bar comes down,
-      // and normal signage is untouched.
-      options.onLevel(null);
-      diagnostic("noise meter input unavailable", { reason });
-      scheduleRetry();
-    }
-
-    function handleLoss(): void {
-      if (!wanted) return;
-      fail("the microphone input ended");
-    }
-
-    function sample(): void {
-      if (!analyser || !frame) return;
-      try {
-        analyser.getFloatTimeDomainData(frame);
-      } catch (error) {
-        fail(String(error));
-        return;
-      }
-      let sum = 0;
-      for (let index = 0; index < frame.length; index += 1) {
-        const amplitude = frame[index] ?? 0;
-        sum += amplitude * amplitude;
-      }
-      const rms = Math.sqrt(sum / frame.length);
-      options.onLevel(Number.isFinite(rms) ? rms : 0);
-    }
-
-    async function open(): Promise<void> {
-      if (!wanted || opening || analyser) return;
-      opening = true;
-      try {
-        const opened = await requestStream();
-        if (!wanted) {
-          for (const track of opened.getTracks()) track.stop();
-          return;
-        }
-        stream = opened;
-        context = createContext();
-        source = context.createMediaStreamSource(stream);
-        analyser = context.createAnalyser();
-        analyser.fftSize = 2048;
-        // Smoothing is applied to the normalized level instead, where its time
-        // constant is expressed in milliseconds rather than in FFT frames.
-        analyser.smoothingTimeConstant = 0;
-        source.connect(analyser);
-        // Deliberately not connected to context.destination: a room must never
-        // be played back through the display it is being measured in front of.
-        frame = new Float32Array(analyser.fftSize);
-        for (const track of stream.getAudioTracks()) {
-          track.addEventListener("ended", handleLoss);
-        }
-        sampleTimer = setInterval(sample, sampleIntervalMs);
-        diagnostic("noise meter microphone opened");
-      } catch (error) {
-        fail(String(error));
-      } finally {
-        opening = false;
-      }
-    }
-
-    return {
-      start(): void {
-        if (wanted) return;
-        wanted = true;
-        // A USB microphone plugged back in should recover in seconds rather
-        // than on the next retry tick.
-        releaseDeviceChange = observeDeviceChange(() => {
-          if (!wanted || analyser) return;
-          if (retryTimer !== null) {
-            clearTimeout(retryTimer);
-            retryTimer = null;
-          }
-          void open();
-        });
-        void open();
-      },
-      stop(): void {
-        wanted = false;
-        if (retryTimer !== null) {
-          clearTimeout(retryTimer);
-          retryTimer = null;
-        }
-        releaseDeviceChange?.();
-        releaseDeviceChange = null;
-        teardown();
-      },
-      get active(): boolean {
-        return wanted;
-      },
-    };
-  }
-
   return Object.freeze({
     sampleIntervalMs: SAMPLE_INTERVAL_MS,
 
     resolve(
-      plugins: TilecastManifestPluginEntry[] | null | undefined,
+      plugins: readonly TilecastManifestPluginEntry[] | null | undefined,
     ): TilecastNoiseMeterSettings | null {
       const candidates: TilecastNoiseMeterSettings[] = [];
       for (const entry of plugins ?? []) {
@@ -524,27 +309,6 @@ export const tilecastNoiseMeter: TilecastNoiseMeterModule = (() => {
       // projects and keeps two players in a group in agreement.
       candidates.sort((left, right) => left.id.localeCompare(right.id));
       return candidates[0] ?? null;
-    },
-
-    /**
-     * Bottom-strip priority, now that three surfaces can want it. An emergency
-     * ticker always takes it: a noise bar must never be what a screen is
-     * showing instead of a tornado warning. A room that is too loud outranks a
-     * countdown, which is the one of the three that can wait.
-     *
-     * Nothing is destroyed by losing the strip. Each surface keeps resolving
-     * itself, so an emergency clearing over a still-loud room shows the meter
-     * again immediately, and a room going quiet returns the countdown.
-     */
-    stripOwner(candidates: {
-      alertTicker: boolean;
-      noiseMeter: boolean;
-      countdownBar: boolean;
-    }): TilecastBottomStripOwner {
-      if (candidates.alertTicker) return "alert_ticker";
-      if (candidates.noiseMeter) return "noise_meter";
-      if (candidates.countdownBar) return "countdown_bar";
-      return "none";
     },
 
     /**
@@ -875,7 +639,6 @@ export const tilecastNoiseMeter: TilecastNoiseMeterModule = (() => {
       );
     },
 
-    createCapture,
     historyBucketMs: HISTORY_BUCKET_MS,
   });
 })();

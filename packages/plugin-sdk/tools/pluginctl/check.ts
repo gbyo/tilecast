@@ -8,6 +8,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { conventionalEntrypoints } from "../../src/manifest.ts";
 import { checkBoundaries } from "./boundaries.ts";
+import { checkCssScope } from "./css-scope.ts";
 import { generate, stale } from "./generate.ts";
 import {
   dirForId,
@@ -18,6 +19,19 @@ import {
 } from "./repo.ts";
 
 const DOCS_CONTENT = "apps/docs/src/content/docs";
+
+/**
+ * MIGRATION ONLY. Plugins whose shared-runtime renderer is still a temporary
+ * adapter inside packages/player-runtime. Each one declares its surfaces
+ * without runtime/index.ts until its milestone moves the renderer into the
+ * plugin, and leaves this list then. Every other plugin that declares
+ * surfaces must have runtime/index.ts.
+ */
+export const TRANSITIONAL_RUNTIME_ADAPTERS: readonly string[] = [
+  "brand_bug",
+  "emergency_alerts",
+  "noise_meter",
+];
 
 export async function check(repo: Repo): Promise<Problem[]> {
   const problems: Problem[] = [...repo.problems];
@@ -58,6 +72,23 @@ export async function check(repo: Repo): Promise<Problem[]> {
       }
       if (!manifest.capabilities.playerManifest) {
         add("a runtime entry needs capabilities.playerManifest");
+      }
+      if (
+        manifest.runtime.surfaces.length > 0 &&
+        !manifest.runtime.entrypoint &&
+        !TRANSITIONAL_RUNTIME_ADAPTERS.includes(id)
+      ) {
+        add(
+          "a plugin that declares runtime.surfaces must render them in ./runtime/index.ts",
+        );
+      }
+      if (
+        manifest.runtime.entrypoint &&
+        TRANSITIONAL_RUNTIME_ADAPTERS.includes(id)
+      ) {
+        add(
+          "the runtime has moved into the plugin; remove it from TRANSITIONAL_RUNTIME_ADAPTERS",
+        );
       }
       for (const type of manifest.runtime.manifestTypes) {
         if (manifestTypes.has(type))
@@ -100,6 +131,17 @@ export async function check(repo: Repo): Promise<Problem[]> {
           add(
             `docs slug ${page.slug} collides with ${relative(repo.root, collision)}`,
           );
+      }
+    }
+
+    for (const file of walk(join(plugin.path, "runtime"))) {
+      if (!file.endsWith(".css")) continue;
+      const path = join("runtime", file);
+      for (const problem of checkCssScope(
+        readFileSync(join(plugin.path, path), "utf8"),
+        plugin.dir,
+      )) {
+        add(`${path}: ${problem}`);
       }
     }
 

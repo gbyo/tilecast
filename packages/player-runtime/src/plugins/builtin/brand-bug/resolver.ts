@@ -49,9 +49,10 @@ export interface TilecastActiveBrandBug {
 
 export interface TilecastBrandBugResolver {
   resolve(
-    plugins: TilecastBrandBugPlugin[] | null | undefined,
+    plugins: readonly TilecastBrandBugPlugin[] | null | undefined,
     localNow: Date,
     clockOffsetMs?: number,
+    mediaUrl?: (assetId: string, variantId: string) => string,
   ): TilecastActiveBrandBug[];
 }
 
@@ -87,9 +88,13 @@ export const tilecastBrandBug: TilecastBrandBugResolver = (() => {
 
   return Object.freeze({
     resolve(
-      plugins: TilecastBrandBugPlugin[] | null | undefined,
+      plugins: readonly TilecastBrandBugPlugin[] | null | undefined,
       localNow: Date,
       clockOffsetMs = 0,
+      mediaUrl: (assetId: string, variantId: string) => string = (
+        assetId,
+        variantId,
+      ) => `tcmedia://variant/${assetId}/${variantId}`,
     ): TilecastActiveBrandBug[] {
       const now = localNow.getTime() + clockOffsetMs;
       const byCorner = new Map<string, TilecastActiveBrandBug>();
@@ -104,7 +109,7 @@ export const tilecastBrandBug: TilecastBrandBugResolver = (() => {
           config.imageAssetId &&
           config.imageVariantId &&
           withinWindow(config.imageAvailableFrom, config.imageExpiresAt, now)
-            ? `tcmedia://variant/${config.imageAssetId}/${config.imageVariantId}`
+            ? mediaUrl(config.imageAssetId, config.imageVariantId)
             : null;
         const text = (config.text ?? "").trim();
         if (!imageSrc && text.length === 0) continue;

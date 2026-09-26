@@ -75,12 +75,13 @@ The timeline math (`clock/synchronized.ts`) is shared with the Electron main pro
 
 ## 5. Views, surfaces and transitions
 
-- **Views** are Lit 3 components in light DOM (`src/views`): `<tc-player>`, `<tc-status-surface>`, `<tc-plugin-surfaces>` and `<tc-outside-hours>`. They render the engine's view state and decide nothing about playback. Style bindings use `cssProps` (CSSOM only), because Lit's `styleMap` writes a `style` attribute, which `style-src 'self'` refuses.
+- **Views** are Lit 3 components in light DOM (`src/views`): `<tc-player>`, `<tc-status-surface>` and `<tc-outside-hours>`. They render the engine's view state and decide nothing about playback. Style bindings use `cssProps` (CSSOM only), because Lit's `styleMap` writes a `style` attribute, which `style-src 'self'` refuses.
 - **Surfaces** implement `MediaSurface` (`prepare`, `activate`, `pause`, `seek`, `dispose`): `ImageSurface`, `HtmlVideoSurface`, `WidgetSurface`, `LayoutSurface` and `WebviewWebsiteSurface`. The engine depends on the interface only, so a future surface (a host-owned web view in M11, or a native media pipeline if hardware testing ever justifies one) needs no change to the engine.
 - **The stage** (`surfaces/stage.ts`) is the only code that creates or destroys media elements. The playback layers carry no Lit bindings, so no reactive update can replace an active `<video>`. An incoming occurrence is prepared on the hidden layer. The outgoing surface is paused and released when the transition finishes, so two full-screen decoders overlap for the transition and no longer.
 - **Transitions** use the Web Animations API (`transitions/crossfade.ts`). A transition has one clock and one `finished` signal. A takeover or a newer swap cancels it, which puts both layers in their resting state at once.
 - **Video evidence**: `HtmlVideoSurface` reports `video-progress` only while decoded frames are presented, when `requestVideoFrameCallback` is available and has fired. Otherwise it falls back to advancing media time. The API makes evidence stronger; playback never requires it.
-- **Media progress is never rendered.** The Noise Meter marker moves at its sampling rate through a direct style write, outside Lit.
+- **Plugin surfaces** come from the runtime surface host (`src/plugins`). The host finds each runtime plugin when the runtime is built, gives it one container for each surface that it declares, arbitrates each slot by the declared tier and the claimed priority, and sets the content-stage insets and the corner lift. A plugin draws only inside its containers. [plugin-api.md](plugin-api.md#player-runtime) is the contract.
+- **Media progress is never rendered.** The Noise Meter marker moves at its sampling rate through a direct style write, outside any evaluation.
 
 ## 6. Compatibility code and the widget seam
 
@@ -88,7 +89,6 @@ The current widget system is preserved as compatibility code and labelled as suc
 
 - `src/compat/projection`: the server-compiled Widget and Layout projection into the RenderNode tree. The Electron main process imports it through `@tilecast/player-runtime/projection`. The runtime runs it itself when a host sends references and a projection context (`compat/projector.ts`). The context may carry the accepted player configuration's `playback` section; the projector then applies its regional formatting and layout playlist-zone defaults exactly as the Electron main process does. The member is optional and additive, so `TilecastRuntimeHostV1` stays at contract version 1.
 - `src/compat/render-tree-dom.ts`: the RenderNode interpreter.
-- `src/compat/plugins`: the Countdown Bar, Emergency Alerts ticker, Noise Meter and Brand Bug resolvers, plus the overlay controller.
 
 RenderNode is not the Player Runtime's permanent widget API. `src/widgets/contract.ts` defines the seam for first-class widgets. A first-class widget is a custom element, normally a Lit component, that receives typed `config`, `data` and `context` (a corrected clock, locale, time zone and size, and `playback` or `preview` mode). It renders with HTML, CSS, SVG or Canvas. It must stay engine-agnostic, so it runs unchanged under Electron, WPE and the Studio preview. The registry is empty in Edge 1: the widget redesign is not part of Edge 1.
 

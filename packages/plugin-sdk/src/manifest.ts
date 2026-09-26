@@ -69,6 +69,18 @@ export const surfaceSlots = [
 ] as const;
 
 /**
+ * Runtime arbitration tiers, strongest first. A plugin declares one tier for
+ * all of its surfaces; the host compares tiers before any claimed priority,
+ * so no configuration can lift a plugin above a stronger tier.
+ */
+export const surfaceTiers = [
+  "emergency",
+  "live",
+  "scheduled",
+  "ambient",
+] as const;
+
+/**
  * Entry points are conventional, not configurable. The Go registry generator,
  * Studio, and the Player runtime each find plugin code by these fixed paths
  * (Vite `import.meta.glob` is convention-based), so a manifest may only name
@@ -230,6 +242,11 @@ export const pluginManifestSchema = z
           .min(1)
           .describe("Player manifest plugin entry types this runtime renders."),
         surfaces: z.array(z.enum(surfaceSlots)).default([]),
+        tier: z
+          .enum(surfaceTiers)
+          .describe(
+            "Arbitration tier of the plugin's surfaces: emergency, live, scheduled, or ambient. Declared once; a claim cannot choose its own tier.",
+          ),
       })
       .optional(),
     docs: z

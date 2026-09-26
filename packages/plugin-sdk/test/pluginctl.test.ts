@@ -183,6 +183,46 @@ describe("pluginctl", () => {
     );
   });
 
+  it("requires runtime/index.ts for declared surfaces and scoped runtime CSS", async () => {
+    scaffold(root, {
+      id: "transit_alerts",
+      category: "Display",
+      maintainer: "@gbyo",
+      api: false,
+    });
+    editManifest(root, "transit-alerts", (manifest) => {
+      manifest.capabilities = { playerManifest: true };
+      manifest.runtime = {
+        manifestTypes: ["transit_alert"],
+        surfaces: ["strip.bottom"],
+        tier: "live",
+      };
+    });
+    await generateInto(root);
+    expect(await problems(root)).toContain(
+      "a plugin that declares runtime.surfaces must render them in ./runtime/index.ts",
+    );
+
+    mkdirSync(join(root, "plugins/transit-alerts/runtime"));
+    writeFileSync(join(root, "plugins/transit-alerts/runtime/index.ts"), "");
+    writeFileSync(
+      join(root, "plugins/transit-alerts/runtime/transit.css"),
+      ".tc-transit-alerts { color: red; }\n#content-stage { bottom: 0; }\n",
+    );
+    editManifest(root, "transit-alerts", (manifest) => {
+      (manifest.runtime as Record<string, unknown>).entrypoint =
+        "./runtime/index.ts";
+    });
+    await generateInto(root);
+    const found = await problems(root);
+    expect(found).not.toContain(
+      "a plugin that declares runtime.surfaces must render them in ./runtime/index.ts",
+    );
+    expect(found).toContain(
+      'runtime/transit.css: selector "#content-stage" must start with .tc-transit-alerts',
+    );
+  });
+
   it("keeps plugins to the SDK and their own directory", async () => {
     scaffold(root, {
       id: "transit_alerts",
