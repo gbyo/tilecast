@@ -16,7 +16,10 @@ import (
 )
 
 var ErrNoEligibleScreens = errors.New("no eligible screens matched the targets")
-var ErrInactive = errors.New("takeover is no longer active")
+
+// ErrInactive is the host's spelling of plugin.ErrTakeoverInactive, kept so
+// existing core callers do not change. Plugin code uses the SDK sentinel.
+var ErrInactive = plugin.ErrTakeoverInactive
 
 type Notifier interface {
 	Notify(uuid.UUID, map[string]any) bool

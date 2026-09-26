@@ -245,24 +245,32 @@ func (s *Service) RunWorker(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-timer.C:
-			monitor, err := s.Monitor(ctx)
-			installed := false
-			if err == nil && monitor.Enabled {
-				installed, err = s.host.Installation.Installed(ctx)
-			}
-			allowed := s.host.BackgroundJobs == nil || s.host.BackgroundJobs.Allowed()
-			if err == nil && installed && monitor.Enabled && allowed {
-				if err = s.Poll(ctx); err != nil && s.logger != nil {
-					s.logger.Warn("NWS alert poll failed", "error", err)
-				}
-			}
-			delay := 2 * time.Minute
-			if monitor.PollIntervalSeconds >= 60 {
-				delay = time.Duration(monitor.PollIntervalSeconds) * time.Second
-			}
-			timer.Reset(delay)
+			timer.Reset(s.pollIfDue(ctx))
 		}
 	}
+}
+
+// pollIfDue runs one monitor-triggered poll when the plugin is installed,
+// enabled, and background work is allowed, and returns the delay until the
+// next poll. The worker loop calls it on every tick; tests call it directly
+// to prove each gate without waiting for the poll timer.
+func (s *Service) pollIfDue(ctx context.Context) time.Duration {
+	monitor, err := s.Monitor(ctx)
+	installed := false
+	if err == nil && monitor.Enabled {
+		installed, err = s.host.Installation.Installed(ctx)
+	}
+	allowed := s.host.BackgroundJobs == nil || s.host.BackgroundJobs.Allowed()
+	if err == nil && installed && monitor.Enabled && allowed {
+		if err = s.Poll(ctx); err != nil && s.logger != nil {
+			s.logger.Warn("NWS alert poll failed", "error", err)
+		}
+	}
+	delay := 2 * time.Minute
+	if err == nil && monitor.PollIntervalSeconds >= 60 {
+		delay = time.Duration(monitor.PollIntervalSeconds) * time.Second
+	}
+	return delay
 }
 
 func (s *Service) Monitor(ctx context.Context) (Monitor, error) {
