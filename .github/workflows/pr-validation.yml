@@ -74,7 +74,10 @@ jobs:
                   container=true
                   docs=true
                   ;;
-                apps/dashboard/*|packages/*)
+                apps/dashboard/*)
+                  dashboard=true
+                  ;;
+                packages/*)
                   dashboard=true
                   container=true
                   e2e=true
