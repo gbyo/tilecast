@@ -82,6 +82,21 @@ pub struct DaemonStatus {
     pub capability_revision: u64,
     pub systemd_watchdog: bool,
     pub last_legacy_import: Option<ShortToken>,
+    /// Pairing of a fresh installation: the state and the visible code. The
+    /// private poll secret never appears here.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pairing: Option<PairingStatus>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PairingStatus {
+    /// `unpaired`, `waiting`, `renewing` or `paired`.
+    pub state: ShortToken,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub code: Option<ShortText>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<ShortToken>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

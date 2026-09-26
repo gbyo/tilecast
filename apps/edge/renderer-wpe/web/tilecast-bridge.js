@@ -163,8 +163,8 @@
       remoteWeb: null,
       synchronizedPlayback: false,
       setup: !!handlers.tilecastRequest,
-      // Server discovery belongs to tilecastd (Avahi, M5).
-      discovery: false,
+      // tilecastd browses Avahi; an empty list is a valid answer.
+      discovery: !!handlers.tilecastRequest,
       // Noise Meter capture moves to a PipeWire provider in tilecastd (M9);
       // this renderer denies microphone access.
       noiseMeter: null,
@@ -233,6 +233,23 @@
               error: result && result.error,
             }),
             () => ({ ok: false, error: "tilecastd is not reachable." }),
+          );
+      },
+    }),
+    discovery: Object.freeze({
+      list() {
+        if (!handlers.tilecastRequest) return Promise.resolve([]);
+        return handlers.tilecastRequest
+          .postMessage({ type: "discovery.list" })
+          .then(
+            (result) =>
+              Array.isArray(result && result.servers)
+                ? result.servers.slice(0, 32).map((server) => ({
+                    name: text(server.name, 120),
+                    serverUrl: text(server.serverUrl, 512),
+                  }))
+                : [],
+            () => [],
           );
       },
     }),

@@ -1,0 +1,11 @@
+{
+  "frame": {
+    "type": "request",
+    "id": "pair-2",
+    "method": "pairing.start",
+    "params": {
+      "url": "https://signs.example.org",
+      "path": "/etc/shadow"
+    }
+  }
+}

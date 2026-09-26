@@ -170,16 +170,16 @@ impl IpcHandler for DaemonIpc {
                 tracing::info!(component = "ipc", event = "diagnostic_status_shown", uid = session.peer().uid);
                 to_value(&ShowDiagnosticResult { generation: activation.generation })
             }
-            Method::SetupSubmitServerUrl(params) => {
-                // Server URL setup on the TV belongs to the pairing port
-                // (edge-server::url_policy + pairing client). Until then the
-                // renderer's setup surface gets an honest answer.
-                let _ = params;
-                to_value(&SubmitServerUrlResult {
-                    ok: false,
-                    error: Some(SafeText::lossy("Configure this screen with the Tilecast Edge installer.")),
-                })
+            Method::SetupSubmitServerUrl(params) | Method::PairingStart(params) => {
+                let result = crate::pairing::begin(context, params.url.as_str()).await;
+                tracing::info!(component = "ipc", event = "pairing_requested", ok = result.is_ok());
+                to_value(&SubmitServerUrlResult { ok: result.is_ok(), error: result.err().map(SafeText::lossy) })
             }
+            Method::PairingReset(_) => {
+                crate::pairing::reset(context).await;
+                to_value(&serde_json::json!({}))
+            }
+            Method::DiscoveryList(_) => to_value(&crate::discovery::list(context).await),
         }
     }
 
@@ -233,12 +233,23 @@ impl DaemonIpc {
             None => None,
         };
         let renderer = context.presentation.lock().await.status();
+        let player_id = match context.db() {
+            Some(db) => db
+                .run(|c| edge_state::repo::daemon::player_identity(c))
+                .await
+                .ok()
+                .flatten()
+                .map(|identity| identity.player_id),
+            None => None,
+        }
+        .or(context.player_id);
+        let pairing = crate::pairing::view(context);
         DaemonStatus {
             daemon_version: ShortText::lossy(VERSION),
             mode,
             recovery_reason,
             started_at: context.started_at,
-            player_id: context.player_id,
+            player_id,
             server: binding.map(|b| ServerBindingStatus {
                 server_url: ShortText::lossy(&b.server_url),
                 installation_id: b.installation_id,
@@ -266,6 +277,11 @@ impl DaemonIpc {
                     edge_state::repo::legacy::ImportState::Failed => "failed",
                 })
                 .expect("literal")
+            }),
+            pairing: (!pairing.state.is_empty()).then(|| edge_protocol::ipc::status::PairingStatus {
+                state: ShortToken::new(pairing.state).expect("literal"),
+                code: pairing.code.as_deref().map(ShortText::lossy),
+                reason: pairing.reason.as_deref().and_then(|reason| ShortToken::new(reason).ok()),
             }),
         }
     }
