@@ -130,7 +130,10 @@ export default defineConfig({
       expressiveCode: {
         styleOverrides: { borderRadius: "var(--tc-radius-panel)" },
       },
-      head: [{ tag: "script", content: syncTokenTheme }],
+      head: [
+        { tag: "link", attrs: { rel: "sitemap", href: "/sitemap-index.xml" } },
+        { tag: "script", content: syncTokenTheme },
+      ],
       // Keep the top-level order task-first and arrange each section around
       // the reader's work rather than the filesystem or Studio's own menu.
       sidebar: [
