@@ -6,11 +6,12 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
-    "check": "node scripts/generate-content-reference.mjs --check && astro check",
+    "check": "node scripts/generate-content-reference.mjs --check && node --test plugin-docs.test.mjs && astro check",
     "build": "node scripts/generate-content-reference.mjs --check && astro build && node scripts/check-links.mjs",
     "preview": "astro preview",
     "astro": "astro",
-    "generate:content-reference": "node scripts/generate-content-reference.mjs"
+    "generate:content-reference": "node scripts/generate-content-reference.mjs",
+    "test": "node --test plugin-docs.test.mjs"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",

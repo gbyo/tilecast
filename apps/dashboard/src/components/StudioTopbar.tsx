@@ -387,8 +387,6 @@ function breadcrumbQueryKey(resource?: BreadcrumbResource, id?: string) {
       return ["schedules", id] as const;
     case "form":
       return ["form-data-source", id] as const;
-    case "countdown-bar":
-      return ["countdown-bar", id] as const;
     case "brand-bug":
       return ["brand-bug", id] as const;
     case "noise-meter":
@@ -421,8 +419,6 @@ function breadcrumbResource(resource: BreadcrumbResource, id: string) {
       return api.schedule(id);
     case "form":
       return api.getForm(id);
-    case "countdown-bar":
-      return api.countdownBar(id);
     case "brand-bug":
       return api.brandBug(id);
     case "noise-meter":
@@ -437,6 +433,13 @@ function breadcrumbResourceName(entity: { name?: unknown } | null | undefined) {
 }
 
 function useBreadcrumbs(routes: readonly RouteObject[], pathname: string) {
+  const { t } = useTranslation();
+  // Route handles carry keys from any namespace, including plugin namespaces
+  // the typed resources do not list.
+  const translateKey = t as unknown as (
+    key: string,
+    options: { ns: string; defaultValue: string },
+  ) => string;
   const matches = matchRoutes([...routes], pathname) ?? [];
   const breadcrumbMatches = matches.filter(
     (match) => studioRouteHandle(match.route).breadcrumb,
@@ -449,8 +452,14 @@ function useBreadcrumbs(routes: readonly RouteObject[], pathname: string) {
     : undefined;
   const resourceId = resourceMatch?.params.id;
   const resourceName = useQuery({
-    queryKey: breadcrumbQueryKey(resource, resourceId),
-    queryFn: () => breadcrumbResource(resource!, resourceId!),
+    queryKey:
+      typeof resource === "object"
+        ? resource.queryKey(resourceId ?? "")
+        : breadcrumbQueryKey(resource, resourceId),
+    queryFn: () =>
+      typeof resource === "object"
+        ? resource.load(resourceId!)
+        : breadcrumbResource(resource!, resourceId!),
     enabled: Boolean(resource && resourceId),
     staleTime: 30_000,
     select: breadcrumbResourceName,
@@ -462,7 +471,12 @@ function useBreadcrumbs(routes: readonly RouteObject[], pathname: string) {
       label:
         match === resourceMatch && typeof resourceName.data === "string"
           ? resourceName.data
-          : (handle.breadcrumb ?? ""),
+          : handle.breadcrumbKey
+            ? translateKey(handle.breadcrumbKey.key, {
+                ns: handle.breadcrumbKey.ns,
+                defaultValue: handle.breadcrumb ?? "",
+              })
+            : (handle.breadcrumb ?? ""),
       to: match.pathname,
     } satisfies Breadcrumb;
   });

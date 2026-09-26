@@ -148,8 +148,6 @@ import type {
   BrandBug,
   BrandBugInput,
   DependencyGraph,
-  CountdownBar,
-  CountdownBarInput,
   NoiseMeter,
   NoiseMeterInput,
   NoiseHistoryDay,
@@ -179,7 +177,12 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+/**
+ * One request to the Tilecast API below /api/v1, unwrapping the `data`
+ * envelope and raising ApiError for the error envelope. Plugins reach it as
+ * `studioRequest` from `@tilecast/studio`.
+ */
+export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/api/v1${path}`, {
     ...init,
     credentials: "same-origin",
@@ -1288,33 +1291,6 @@ export const api = {
       headers: { "X-CSRF-Token": csrfToken },
     }),
   dependencyGraph: () => request<DependencyGraph>("/plugins/dependency-graph"),
-  countdownBars: () =>
-    request<{ items: CountdownBar[]; total: number }>(
-      "/plugins/countdown-bar/instances",
-    ),
-  countdownBar: (id: string) =>
-    request<CountdownBar>(`/plugins/countdown-bar/instances/${id}`),
-  createCountdownBar: (input: CountdownBarInput, csrfToken: string) =>
-    request<CountdownBar>("/plugins/countdown-bar/instances", {
-      method: "POST",
-      headers: { "X-CSRF-Token": csrfToken },
-      body: JSON.stringify(input),
-    }),
-  updateCountdownBar: (
-    id: string,
-    input: CountdownBarInput,
-    csrfToken: string,
-  ) =>
-    request<CountdownBar>(`/plugins/countdown-bar/instances/${id}`, {
-      method: "PUT",
-      headers: { "X-CSRF-Token": csrfToken },
-      body: JSON.stringify(input),
-    }),
-  deleteCountdownBar: (id: string, csrfToken: string) =>
-    request<void>(`/plugins/countdown-bar/instances/${id}`, {
-      method: "DELETE",
-      headers: { "X-CSRF-Token": csrfToken },
-    }),
   brandBugs: () =>
     request<{ items: BrandBug[]; total: number }>(
       "/plugins/brand-bug/instances",

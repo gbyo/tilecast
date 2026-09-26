@@ -98,6 +98,15 @@ func (s *Service) hostFor(id string) plugin.Host {
 	}
 }
 
+// Host returns the services a hosted plugin receives. Tests use it; the
+// server gives each plugin its Host through Init.
+func (s *Service) Host(id string) (plugin.Host, bool) {
+	if _, ok := s.hostedPlugin(id); !ok {
+		return plugin.Host{}, false
+	}
+	return s.hostFor(id), true
+}
+
 // lookup returns a definition this Service hosts.
 func (s *Service) lookup(id string) (Definition, bool) {
 	for _, definition := range s.definitions {
@@ -331,6 +340,26 @@ func (s *Service) HeartbeatSections() map[string]plugin.HeartbeatSection {
 		}
 	}
 	return out
+}
+
+// ----------------------------------------------------------- demo
+
+// SeedDemo installs every plugin that contributes Demo Mode data and asks it
+// to seed. It is called only while a demo scenario is being built.
+func (s *Service) SeedDemo(ctx context.Context, demo plugin.Demo) error {
+	for _, hosted := range s.hosted {
+		seeder, ok := hosted.plugin.(plugin.DemoSeeder)
+		if !ok {
+			continue
+		}
+		if _, _, err := s.Install(ctx, hosted.manifest.ID, demo.OwnerID); err != nil {
+			return fmt.Errorf("install plugin %s: %w", hosted.manifest.ID, err)
+		}
+		if err := seeder.SeedDemo(ctx, demo); err != nil {
+			return fmt.Errorf("plugin %s: seed demo: %w", hosted.manifest.ID, err)
+		}
+	}
+	return nil
 }
 
 // ----------------------------------------------------------- assets

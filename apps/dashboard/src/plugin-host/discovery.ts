@@ -66,29 +66,35 @@ export function discoverStudioPlugins(
   return out.sort((left, right) => left.id.localeCompare(right.id));
 }
 
-export const studioPlugins = discoverStudioPlugins(
-  import.meta.glob<PluginManifestInput>(
-    "../../../../plugins/*/tilecast.plugin.json",
-    {
-      eager: true,
-      import: "default",
-    },
-  ),
-  import.meta.glob<{ default: StudioPluginDefinition }>(
-    "../../../../plugins/*/studio/index.tsx",
-    {
-      eager: true,
-    },
-  ),
+const manifestModules = import.meta.glob<PluginManifestInput>(
+  "../../../../plugins/*/tilecast.plugin.json",
+  { eager: true, import: "default" },
 );
+const studioModules = import.meta.glob<{ default: StudioPluginDefinition }>(
+  "../../../../plugins/*/studio/index.tsx",
+  { eager: true },
+);
+
+let discovered: DiscoveredStudioPlugin[] | undefined;
+
+/**
+ * Every bundled plugin's Studio contribution. Pairing happens on first use,
+ * not while modules load: a plugin's pages import the Studio kit, which
+ * imports this module, so the plugin modules are not finished evaluating
+ * until after this one is.
+ */
+export function studioPlugins(): DiscoveredStudioPlugin[] {
+  discovered ??= discoverStudioPlugins(manifestModules, studioModules);
+  return discovered;
+}
 
 export function studioPluginById(
   id: string,
 ): DiscoveredStudioPlugin | undefined {
-  return studioPlugins.find((plugin) => plugin.id === id);
+  return studioPlugins().find((plugin) => plugin.id === id);
 }
 
 /** True when this Studio bundle has a page for a plugin's management route. */
 export function hasStudioRoute(path: string): boolean {
-  return studioPlugins.some((plugin) => plugin.route === path);
+  return studioPlugins().some((plugin) => plugin.route === path);
 }

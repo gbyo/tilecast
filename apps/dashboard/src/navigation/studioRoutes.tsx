@@ -11,13 +11,29 @@ export type BreadcrumbResource =
   | "campaign"
   | "schedule"
   | "form"
-  | "countdown-bar"
   | "brand-bug"
   | "noise-meter";
 
+/**
+ * A breadcrumb resource a plugin contributes: how to name the `:id` in its
+ * route. The query key is shared with the plugin's detail page, so `load`
+ * must return the same full entity that page caches.
+ */
+export type BreadcrumbResourceLoader = {
+  queryKey: (id: string) => readonly unknown[];
+  load: (id: string) => Promise<{ name?: unknown } | null | undefined>;
+};
+
 export type StudioRouteHandle = {
+  /** The English breadcrumb, and the fallback for breadcrumbKey. */
   breadcrumb?: string;
-  resource?: BreadcrumbResource;
+  /**
+   * The breadcrumb's translation, resolved with t() at render so it follows
+   * language changes. A plugin route gives a key in its own namespace as a
+   * string; the plugin host qualifies it (see plugin-host/routes.tsx).
+   */
+  breadcrumbKey?: { ns: string; key: string };
+  resource?: BreadcrumbResource | BreadcrumbResourceLoader;
   search?: {
     label: string;
     description: string;
