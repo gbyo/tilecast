@@ -83,28 +83,29 @@ TypeScript import that leaves the plugin directory.
 
 The schema is `packages/plugin-sdk/src/manifest.ts`. The main fields are:
 
-| Field                   | Purpose                                                                      |
-| ----------------------- | ---------------------------------------------------------------------------- |
-| `apiVersion`            | Version of the Tilecast Plugin API. This release supports `1`.               |
-| `id`                    | Stable identifier, stored in `plugin_installations`. It never changes.       |
-| `definitionVersion`     | Version of the plugin's persisted and Player-facing definition.              |
-| `name`, `description`   | Catalog text.                                                                |
-| `category`, `icon`      | Catalog category and a bounded icon hint.                                    |
-| `maintainers`           | Subject-matter stewards (`@user` or `@org/team`).                            |
-| `instanceNoun`          | Singular and plural noun for the instance count.                             |
-| `requirements`          | Advice shown before installation. Never evaluated.                           |
-| `uses`                  | Catalog "what it uses" text. The catalog API publishes it as `capabilities`. |
-| `capabilities`          | Machine-readable declarations. See below.                                    |
-| `server.entrypoint`     | The Go entry point, `./plugin.go`. Required for a bundled plugin.            |
-| `migrations`            | The migration directory.                                                     |
-| `api.basePaths`         | Route prefixes below `/api/v1` that the plugin can register.                 |
-| `api.openapi`           | The OpenAPI fragment that describes those routes.                            |
-| `studio.route`          | The Studio route. It must be `/plugins/<name>`.                              |
-| `runtime.manifestTypes` | Player manifest entry types the plugin projects and renders.                 |
-| `runtime.surfaces`      | Runtime surface slots the plugin draws in.                                   |
-| `runtime.tier`          | Arbitration tier of the plugin's surfaces.                                   |
-| `docs.pages`            | Public docs pages, their slugs, and their sidebar group.                     |
-| `docs.reference`        | The engineering reference, published as the catalog documentation link.      |
+| Field                     | Purpose                                                                                                                                                   |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apiVersion`              | Version of the Tilecast Plugin API. This release supports `1`.                                                                                            |
+| `id`                      | Stable identifier, stored in `plugin_installations`. It never changes.                                                                                    |
+| `definitionVersion`       | Version of the plugin's persisted and Player-facing definition.                                                                                           |
+| `name`, `description`     | Catalog text.                                                                                                                                             |
+| `category`, `icon`        | Catalog category and a bounded icon hint.                                                                                                                 |
+| `maintainers`             | Subject-matter stewards (`@user` or `@org/team`).                                                                                                         |
+| `instanceNoun`            | Singular and plural noun for the instance count.                                                                                                          |
+| `requirements`            | Advice shown before installation. Never evaluated.                                                                                                        |
+| `uses`                    | Catalog "what it uses" text. The catalog API publishes it as `capabilities`.                                                                              |
+| `capabilities`            | Machine-readable declarations. See below.                                                                                                                 |
+| `server.entrypoint`       | The Go entry point, `./plugin.go`. Required for a bundled plugin.                                                                                         |
+| `migrations`              | The migration directory.                                                                                                                                  |
+| `api.basePaths`           | Route prefixes below `/api/v1` that the plugin can register.                                                                                              |
+| `api.openapi`             | The OpenAPI fragment that describes those routes.                                                                                                         |
+| `studio.route`            | The Studio route. It must be `/plugins/<name>`.                                                                                                           |
+| `studio.additionalRoutes` | Absolute Studio routes outside `/plugins/<name>` the plugin owns, such as a portal or inbox. Each must mount through the definition's `standaloneRoutes`. |
+| `runtime.manifestTypes`   | Player manifest entry types the plugin projects and renders.                                                                                              |
+| `runtime.surfaces`        | Runtime surface slots the plugin draws in.                                                                                                                |
+| `runtime.tier`            | Arbitration tier of the plugin's surfaces.                                                                                                                |
+| `docs.pages`              | Public docs pages, their slugs, and their sidebar group.                                                                                                  |
+| `docs.reference`          | The engineering reference, published as the catalog documentation link.                                                                                   |
 
 The entry points are fixed. `server.entrypoint` must be `./plugin.go`,
 `studio.entrypoint` must be `./studio/index.tsx`, and `runtime.entrypoint`
@@ -310,6 +311,18 @@ no central icon map.
 `@tilecast/studio` (`src/plugin-host/kit.ts`) is the Studio surface for
 plugins. It gives `PluginPage` (the shared page chrome), the install gate, the
 Remove menu, and the catalog hooks. Plugins can also give fully custom pages.
+
+A plugin that owns a wider Studio surface (a submitter portal, a reviewer
+inbox) contributes `standaloneRoutes` alongside `routes`. Each entry names its
+absolute path, its install gate (`"install"` wraps the route in the normal
+plugin installation gate; `"none"` renders directly for pages that handle an
+uninstalled plugin themselves), and whether it mounts inside the authenticated
+Studio chrome or as a top-level route with its own shell. Every path must be
+declared in the manifest's `studio.additionalRoutes`. The host refuses
+collisions with core, management, and other plugins' routes, and
+`pluginctl check` refuses overlaps between plugins, so a plugin can never
+silently override an existing Studio route. This is not a generic router
+escape hatch.
 
 ## Player runtime
 
@@ -560,7 +573,7 @@ Plugin API v1 does not load third-party code. The contract keeps a path open:
 | 3         | Generic runtime surface host                                     | Done    |
 | 4         | Retire Brand Bug and Noise Meter with compatibility shims        | Done    |
 | 5         | Emergency Alerts                                                 | Done    |
-| 6         | Forms                                                            | Planned |
+| 6         | Forms                                                            | Done    |
 | 7         | Remove the remaining special cases                               | Planned |
 
 Until a plugin moves, `apps/server/internal/plugins` answers its status,
@@ -571,4 +584,11 @@ remain, but neither is cataloged, configured, projected, or rendered. The
 Emergency Alerts is fully migrated: its server, routes, Studio page, ticker
 runtime, and migrations live in `plugins/emergency-alerts/`, and the core
 answers its status, blockers, projection, polling, and routes through the
-generic provider interfaces.
+generic provider interfaces. Forms is fully migrated: its server, routes,
+OpenAPI fragment, migrations, provider contribution, Studio pages, portal,
+inbox, locales, and styles live in `plugins/forms/`, and the core answers its
+gallery presence, canonical editor and creator routes, provider catalog hints,
+and legacy `/data-sources/...` redirects through the generic provider
+metadata. The core keeps only the nav-visible form summary (the sidebar
+Approvals entry) and the generic Data Source contracts Forms output flows
+through.
