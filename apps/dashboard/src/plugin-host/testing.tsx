@@ -7,6 +7,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 import { catalogPlugin } from "../plugins/catalogFixtures";
+export { i18n } from "../i18n";
 import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { StudioSessionProvider } from "./session";

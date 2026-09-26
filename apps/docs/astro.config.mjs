@@ -343,10 +343,6 @@ export default defineConfig({
               collapsed: true,
               items: [
                 { slug: "operations/plugins" },
-                {
-                  slug: "operations/emergency-alerts",
-                  badge: { text: "US", variant: "note" },
-                },
                 // Pages each plugin declares in its tilecast.plugin.json.
                 ...pluginSidebarItems("plugins"),
               ],

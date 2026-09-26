@@ -14,7 +14,6 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/tilecast/tilecast/apps/server/internal/alerts"
 	"github.com/tilecast/tilecast/apps/server/internal/approvals"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/backup"
@@ -37,6 +36,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/settings"
 	"github.com/tilecast/tilecast/apps/server/internal/snapshots"
 	"github.com/tilecast/tilecast/apps/server/internal/span"
+	"github.com/tilecast/tilecast/apps/server/internal/takeovers"
 	"github.com/tilecast/tilecast/apps/server/internal/updates"
 )
 
@@ -53,7 +53,7 @@ type Dependencies struct {
 	Scheduling           *scheduling.Service
 	Settings             *settings.Service
 	Updates              *updates.Service
-	Alerts               *alerts.Service
+	Takeovers            *takeovers.Service
 	Notifications        *notify.Service
 	ContentHealth        *contenthealth.Service
 	Fleet                *fleetops.Service
@@ -108,7 +108,7 @@ type server struct {
 	operations                    OperationsConfig
 	settings                      *settings.Service
 	updates                       *updates.Service
-	alerts                        *alerts.Service
+	takeovers                     *takeovers.Service
 	notifications                 *notify.Service
 	contentHealthService          *contenthealth.Service
 	fleet                         *fleetops.Service
@@ -176,7 +176,7 @@ func New(deps Dependencies) *API {
 		operations:           deps.Operations,
 		settings:             deps.Settings,
 		updates:              deps.Updates,
-		alerts:               deps.Alerts,
+		takeovers:            deps.Takeovers,
 		notifications:        deps.Notifications,
 		contentHealthService: deps.ContentHealth,
 		fleet:                deps.Fleet,
@@ -208,6 +208,13 @@ func New(deps Dependencies) *API {
 	}
 	if s.operations.MaxTakeoverDurationHours == 0 {
 		s.operations = OperationsConfig{24, 250, 50, 10, 120, 30}
+	}
+	if s.takeovers == nil && s.db != nil && s.playlists != nil {
+		var notifier takeovers.Notifier
+		if s.devices != nil {
+			notifier = s.devices
+		}
+		s.takeovers = takeovers.NewService(s.db, s.playlists, notifier, time.Duration(s.operations.MaxTakeoverDurationHours)*time.Hour)
 	}
 	return &API{Handler: s.routes(), server: s}
 }

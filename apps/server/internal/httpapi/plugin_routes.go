@@ -33,6 +33,9 @@ func (s *server) mountPluginRoutes(api chi.Router) {
 		group.Use(s.requireEnrollment)
 		for _, route := range routes {
 			middlewares := []func(http.Handler) http.Handler{}
+			if route.RateLimit == plugin.RateLimitOperations {
+				middlewares = append(middlewares, s.operationsRateLimit)
+			}
 			unsafe := route.Method != http.MethodGet && route.Method != http.MethodHead
 			switch route.Access {
 			case plugin.AccessManager:

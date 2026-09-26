@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/database"
+	emergency "github.com/tilecast/tilecast/plugins/emergency-alerts/server"
 )
 
 func TestCatalogAndAlertTickerProjection(t *testing.T) {
@@ -75,7 +76,7 @@ func TestCatalogAndAlertTickerProjection(t *testing.T) {
 	}
 
 	service := NewService(pool, nil)
-	installPluginsForTest(t, pool, EmergencyAlertsID)
+	installPluginsForTest(t, pool, "emergency_alerts")
 
 	// The catalog is the list of what Tilecast can do. Emergency Alerts belongs
 	// in it whether or not this installation has configured any of it, which is
@@ -157,9 +158,9 @@ func TestCatalogAndAlertTickerProjection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var ticker *ManifestAlertTickerConfig
+	var ticker *emergency.ManifestAlertTickerConfig
 	for _, plugin := range withTicker {
-		if config, ok := plugin.Config.(ManifestAlertTickerConfig); ok && plugin.Type == "alert_ticker" {
+		if config, ok := plugin.Config.(emergency.ManifestAlertTickerConfig); ok && plugin.Type == "alert_ticker" {
 			if plugin.ID != alertRuleID {
 				t.Fatalf("ticker plugin id = %s, want the rule that raised it", plugin.ID)
 			}
@@ -171,7 +172,7 @@ func TestCatalogAndAlertTickerProjection(t *testing.T) {
 	}
 	if ticker.Message != "Tornado Warning — Tornado observed — Franklin County — Move to an interior room." ||
 		ticker.Severity != "Extreme" || ticker.DisplayMode != "push" ||
-		ticker.HeightPX != 120 || ticker.Speed != "fast" || ticker.Priority != alertTickerPriority {
+		ticker.HeightPX != 120 || ticker.Speed != "fast" || ticker.Priority != 1000 {
 		t.Fatalf("alert ticker config = %#v", *ticker)
 	}
 	// An untargeted screen is not carrying someone else's emergency.

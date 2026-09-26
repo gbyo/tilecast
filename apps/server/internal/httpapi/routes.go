@@ -201,15 +201,6 @@ func (s *server) routes() http.Handler {
 			dashboard.With(s.requireRoles("owner"), s.requireCSRF).Post("/system/settings/import/preview", s.previewSettingsImport)
 			dashboard.With(s.requireRoles("owner"), s.requireCSRF).Post("/system/settings/import/apply", s.applySettingsImport)
 			dashboard.Get("/takeovers", s.listTakeovers)
-			if s.alerts != nil {
-				dashboard.Get("/alerts/nws", s.alertSettings)
-				dashboard.Get("/alerts/nws/zones", s.alertZones)
-				dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF).Put("/alerts/nws/monitor", s.updateAlertMonitor)
-				dashboard.With(s.requireRoles("owner", "administrator"), s.operationsRateLimit, s.requireCSRF).Post("/alerts/nws/poll", s.pollAlerts)
-				dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF).Post("/alerts/nws/rules", s.createAlertRule)
-				dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF).Put("/alerts/nws/rules/{id}", s.updateAlertRule)
-				dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF).Delete("/alerts/nws/rules/{id}", s.deleteAlertRule)
-			}
 			if s.snapshots != nil {
 				// Scoped like every other per-screen route.
 				dashboard.With(s.requireScreenScope).Get("/screens/{id}/snapshots", s.listScreenSnapshots)

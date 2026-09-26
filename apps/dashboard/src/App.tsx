@@ -33,7 +33,6 @@ import { WidgetEditorPage, WidgetsPage } from "./pages/WidgetsPage";
 import { DataSourceEditorPage, DataSourcesPage } from "./pages/DataSourcesPage";
 import { ActivityPage } from "./pages/ActivityPage";
 import { PluginsPage } from "./pages/PluginsPage";
-import { EmergencyAlertsPage } from "./pages/EmergencyAlertsPage";
 import { ApprovalsPage } from "./pages/ApprovalsPage";
 import {
   FormsListPage,
@@ -389,15 +388,6 @@ export const studioRoutes: RouteObject[] = [
           },
           // Routes contributed by plugins/*/studio, discovered at build time.
           ...pluginRouteObjects(),
-          {
-            path: "emergency-alerts",
-            element: (
-              <PluginRouteGate pluginId="emergency_alerts">
-                <EmergencyAlertsPage />
-              </PluginRouteGate>
-            ),
-            handle: { breadcrumb: "Emergency Alerts" },
-          },
           {
             path: "forms",
             handle: { breadcrumb: "Forms" },

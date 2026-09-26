@@ -1,8 +1,6 @@
 /**
- * MIGRATION ONLY. The Emergency Alerts ticker as a runtime plugin, kept in
- * this package until milestone 5 moves it to plugins/emergency-alerts. The
- * host treats it exactly like a discovered plugin: an emergency-tier claim
- * on the bottom strip while a live alert has not expired.
+ * Emergency Alerts ticker: an emergency-tier claim on the bottom strip
+ * while a live alert has not expired.
  */
 import {
   defineRuntimePlugin,

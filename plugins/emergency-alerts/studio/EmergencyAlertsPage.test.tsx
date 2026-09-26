@@ -1,25 +1,20 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api } from "../api/client";
-import { i18n } from "../i18n";
+import { i18n, renderPluginRoute } from "@tilecast/studio/testing";
+import { api } from "./api";
 import {
   emergencyDisplayLabel,
   emergencyPlaylistLabel,
   EmergencyAlertsPage,
 } from "./EmergencyAlertsPage";
 
-const t = i18n.getFixedT("en", "alerts");
+const t = i18n.getFixedT("en", "plugin.emergency_alerts");
 
 let role = "owner";
 
-vi.mock("../auth/AuthProvider", () => ({
-  useAuth: () => ({ status: { csrfToken: "token", user: { role } } }),
-}));
 
 beforeEach(() => {
   role = "owner";
@@ -60,16 +55,7 @@ describe("Emergency Alerts plugin", () => {
       pageSize: 100,
     });
     vi.spyOn(api, "nwsZones").mockResolvedValue({ items: [] });
-    const client = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
-    render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter>
-          <EmergencyAlertsPage />
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
+    renderPluginRoute(<EmergencyAlertsPage />, { path: "/plugins/emergency-alerts", role });
 
     expect(
       await screen.findByRole("heading", {
@@ -159,16 +145,7 @@ describe("Emergency Alerts plugin", () => {
         },
       ],
     });
-    const client = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
-    render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter>
-          <EmergencyAlertsPage />
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
+    renderPluginRoute(<EmergencyAlertsPage />, { path: "/plugins/emergency-alerts", role });
 
     expect(
       (
@@ -242,16 +219,7 @@ describe("Emergency Alerts plugin", () => {
       lastMatchedCount: 0,
       updatedAt: "2026-07-28T12:00:00Z",
     });
-    const client = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
-    render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter>
-          <EmergencyAlertsPage />
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
+    renderPluginRoute(<EmergencyAlertsPage />, { path: "/plugins/emergency-alerts", role });
     const user = userEvent.setup();
     await user.selectOptions(
       await screen.findByLabelText("State or territory"),
@@ -274,7 +242,7 @@ describe("Emergency Alerts plugin", () => {
         zones: ["OHC049"],
         pollIntervalSeconds: 120,
       },
-      "token",
+      "csrf",
     );
   });
 
@@ -359,16 +327,7 @@ describe("Emergency Alerts plugin", () => {
       createdAt: "2026-07-28T12:00:00Z",
       updatedAt: "2026-07-28T12:00:00Z",
     });
-    const client = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
-    render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter>
-          <EmergencyAlertsPage />
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
+    renderPluginRoute(<EmergencyAlertsPage />, { path: "/plugins/emergency-alerts", role });
     const user = userEvent.setup();
     await screen.findByRole("heading", { name: "Weather event rules" });
     await user.type(screen.getByLabelText("Rule name"), "Warnings");
@@ -385,7 +344,7 @@ describe("Emergency Alerts plugin", () => {
         presentationMode: "builtin",
         playlistId: undefined,
       }),
-      "token",
+      "csrf",
     );
 
     // Choosing the ticker reveals the bar's own shape, and saves as a response
@@ -410,7 +369,7 @@ describe("Emergency Alerts plugin", () => {
         tickerSpeed: "fast",
         playlistId: undefined,
       }),
-      "token",
+      "csrf",
     );
   });
 

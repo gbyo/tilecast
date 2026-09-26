@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -30,11 +29,15 @@ type ManifestInvalidator interface {
 }
 
 type Service struct {
-	db          *pgxpool.Pool
-	notifier    Notifier
-	invalidator ManifestInvalidator
-	logger      *slog.Logger
-	clock       plugin.Clock
+	db                   *pgxpool.Pool
+	notifier             Notifier
+	invalidator          ManifestInvalidator
+	logger               *slog.Logger
+	clock                plugin.Clock
+	takeovers            plugin.Takeovers
+	managedPresentations plugin.ManagedPresentations
+	backgroundJobs       plugin.BackgroundJobs
+	publicURL            string
 
 	bundle      []plugin.Plugin
 	definitions []Definition
@@ -109,31 +112,6 @@ type Catalog struct {
 // ticker at the same time. It is the SDK's ManifestEntry,
 // so plugins in plugins/ and the remaining built-ins here share one shape.
 type ManifestPlugin = plugin.ManifestEntry
-
-// ManifestAlertTickerConfig carries one live NWS alert as a bar rather than as a
-// takeover. The message is composed server-side from the same alert fields the
-// built-in fullscreen presentation shows, so a site that switches a rule from
-// fullscreen to ticker reads the same alert either way.
-//
-// `expiresAt` is what ends the bar. The poller clears an activation as soon as
-// the alert stops matching, but a player running on a cached manifest has no
-// poller to hear from: the expiry lets it take the bar down on its own rather
-// than display an alert that may be over.
-type ManifestAlertTickerConfig struct {
-	Name        string    `json:"name"`
-	Message     string    `json:"message"`
-	Severity    string    `json:"severity"`
-	Event       string    `json:"event"`
-	DisplayMode string    `json:"displayMode"`
-	HeightPX    int       `json:"heightPx"`
-	Speed       string    `json:"speed"`
-	Priority    int       `json:"priority"`
-	ExpiresAt   time.Time `json:"expiresAt"`
-}
-
-// An emergency outranks every configured bar. Priority is published rather than
-// implied so a player only has to compare one field to decide what shows.
-const alertTickerPriority = 1000
 
 // pluginStatus is the plugin-specific part of a catalog entry.
 type pluginStatus struct {
@@ -242,28 +220,6 @@ func (s *Service) pluginStatuses(ctx context.Context) (map[string]pluginStatus, 
 	// Emergency Alerts is active when its monitor is switched on, and its rules
 	// are its instances. A monitor with areas chosen but no rule is configured
 	// but will never respond, which is worth pointing out.
-	var alerts pluginStatus
-	var targeted bool
-	var lastError string
-	if err := s.db.QueryRow(ctx, `SELECT
-		COALESCE((SELECT enabled FROM alert_monitor WHERE singleton),FALSE),
-		COALESCE((SELECT cardinality(areas)+cardinality(zones)>0 FROM alert_monitor WHERE singleton),FALSE),
-		COALESCE((SELECT last_error_code FROM alert_monitor WHERE singleton AND enabled),''),
-		(SELECT count(*) FROM alert_rules)`).Scan(&alerts.active, &targeted, &lastError, &alerts.count); err != nil {
-		return nil, err
-	}
-	alerts.configured = targeted || alerts.count > 0
-	if alerts.active && alerts.count == 0 {
-		alerts.attention = append(alerts.attention, PluginAttention{
-			Code: "no_alert_rules", Message: "Monitoring is on but no alert rule will respond to a matching alert.",
-		})
-	}
-	if lastError != "" {
-		alerts.attention = append(alerts.attention, PluginAttention{
-			Code: "poll_failing", Message: "The most recent National Weather Service poll did not succeed.",
-		})
-	}
-	statuses[EmergencyAlertsID] = alerts
 
 	var forms pluginStatus
 	if err := s.db.QueryRow(ctx,
@@ -324,6 +280,30 @@ func bumpAllScreens(ctx context.Context, tx pgx.Tx, reason string) ([]note, erro
 	return notes, rows.Err()
 }
 
+func bumpScreens(ctx context.Context, tx pgx.Tx, screenIDs []uuid.UUID, reason string) ([]note, error) {
+	if len(screenIDs) == 0 {
+		return []note{}, nil
+	}
+	rows, err := tx.Query(ctx, `INSERT INTO screen_manifest_state(screen_id,manifest_version,change_reason)
+		SELECT id,1,$2 FROM screens WHERE id=ANY($1) AND organization_id=(SELECT id FROM organization_settings WHERE singleton) AND deleted_at IS NULL AND archived_at IS NULL
+		ON CONFLICT(screen_id) DO UPDATE SET previous_manifest_version=screen_manifest_state.manifest_version,
+		manifest_version=screen_manifest_state.manifest_version+1,changed_at=now(),change_reason=$2
+		RETURNING screen_id,manifest_version`, screenIDs, reason)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	notes := []note{}
+	for rows.Next() {
+		var n note
+		if err = rows.Scan(&n.id, &n.version); err != nil {
+			return nil, err
+		}
+		notes = append(notes, n)
+	}
+	return notes, rows.Err()
+}
+
 func (s *Service) notify(notes []note) {
 	if s.notifier == nil {
 		return
@@ -356,9 +336,6 @@ func (s *Service) ManifestForScreen(ctx context.Context, screenID uuid.UUID) ([]
 	if err != nil {
 		return nil, err
 	}
-	legacy := map[string]func(context.Context, uuid.UUID) ([]ManifestPlugin, error){
-		EmergencyAlertsID: s.alertTickersForScreen,
-	}
 	out := []ManifestPlugin{}
 	for _, hosted := range s.hosted {
 		id := hosted.manifest.ID
@@ -371,8 +348,6 @@ func (s *Service) ManifestForScreen(ctx context.Context, screenID uuid.UUID) ([]
 			if err == nil {
 				err = checkManifestTypes(hosted.manifest, items)
 			}
-		} else if project, ok := legacy[id]; ok {
-			items, err = project(ctx, screenID)
 		}
 		if err != nil {
 			return nil, err
@@ -396,42 +371,4 @@ func checkManifestTypes(manifest plugin.Manifest, items []ManifestPlugin) error 
 		}
 	}
 	return nil
-}
-
-// alertTickersForScreen projects live Emergency Alerts activations whose rule
-// answers with a bar instead of a Takeover. The message is composed in SQL from
-// the activation the poller already stored, so the ticker needs no managed Data
-// Source, Widget, or playlist — the three resources a fullscreen response has to
-// keep in step with the alert.
-func (s *Service) alertTickersForScreen(ctx context.Context, screenID uuid.UUID) ([]ManifestPlugin, error) {
-	// One bar per rule: two alerts matching the same rule would otherwise stack
-	// two bars from one configured response. The most severe, then the
-	// longest-running, is the one that stays.
-	rows, err := s.db.Query(ctx, `SELECT DISTINCT ON (a.rule_id) a.rule_id,r.name,
-		left(COALESCE(NULLIF(concat_ws(' — ',NULLIF(a.event,''),NULLIF(a.headline,''),NULLIF(a.area_description,''),NULLIF(a.instruction,'')),''),'Active NWS weather alert'),1000),
-		a.severity,a.event,r.ticker_display_mode,r.ticker_height_px,r.ticker_speed,a.expires_at
-		FROM alert_activations a JOIN alert_rules r ON r.id=a.rule_id
-		WHERE a.cleared_at IS NULL AND r.enabled AND r.response_mode='ticker'
-			AND a.expires_at IS NOT NULL AND a.expires_at>now()
-			AND EXISTS(SELECT 1 FROM alert_rule_targets t WHERE t.rule_id=r.id AND (
-				t.screen_id=$1
-				OR EXISTS(SELECT 1 FROM screen_group_memberships m WHERE m.screen_group_id=t.screen_group_id AND m.screen_id=$1)))
-		ORDER BY a.rule_id,
-			CASE a.severity WHEN 'Extreme' THEN 4 WHEN 'Severe' THEN 3 WHEN 'Moderate' THEN 2 WHEN 'Minor' THEN 1 ELSE 0 END DESC,
-			a.first_seen_at`, screenID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := []ManifestPlugin{}
-	for rows.Next() {
-		var id uuid.UUID
-		config := ManifestAlertTickerConfig{Priority: alertTickerPriority}
-		if err = rows.Scan(&id, &config.Name, &config.Message, &config.Severity, &config.Event,
-			&config.DisplayMode, &config.HeightPX, &config.Speed, &config.ExpiresAt); err != nil {
-			return nil, err
-		}
-		out = append(out, ManifestPlugin{ID: id, Type: "alert_ticker", Version: 1, Config: config})
-	}
-	return out, rows.Err()
 }
