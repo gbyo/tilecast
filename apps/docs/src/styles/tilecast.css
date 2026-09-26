@@ -72,7 +72,7 @@
   outline-offset: 2px;
 }
 
-/* Homepage cards: quiet surface, Tilecast radius, accent border on hover. */
+/* Link cards: quiet surface, Tilecast radius, accent border on hover. */
 .sl-link-card {
   border-color: var(--tc-border-default);
   border-radius: var(--tc-radius-card);

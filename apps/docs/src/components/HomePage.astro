@@ -1,0 +1,97 @@
+---
+// The homepage body below the Starlight hero. It is plain Astro markup, not
+// MDX, so paragraph text inside custom elements is not rewrapped in <p> tags.
+// Links are relative to the site root, where index.mdx renders this.
+import "../styles/home.css";
+
+const repository = "https://github.com/gbyo/tilecast";
+const contributing = `${repository}/blob/main/CONTRIBUTING.md`;
+---
+
+<div class="tc-home not-content">
+  <section aria-labelledby="principles">
+    <h2 id="principles">Principles</h2>
+    <dl class="tc-home-principles">
+      <div>
+        <dt>Self-hosted</dt>
+        <dd>
+          Tilecast Server runs on infrastructure you control. Content, accounts,
+          and settings stay in your installation.
+        </dd>
+      </div>
+      <div>
+        <dt>Built for displays</dt>
+        <dd>
+          Studio manages content and screens. Tilecast Player handles playback
+          on each display and reports its status to the server.
+        </dd>
+      </div>
+      <div>
+        <dt>Keeps playing</dt>
+        <dd>
+          Players store prepared content and keep playing it when the server or
+          network is unavailable.
+        </dd>
+      </div>
+    </dl>
+  </section>
+
+  <section aria-labelledby="architecture">
+    <h2 id="architecture">How Tilecast fits together</h2>
+    <ol class="tc-home-flow">
+      <li>
+        <h3><a href="installation/">Tilecast Server</a></h3>
+        <p>
+          Holds the installation's content, accounts, and settings, prepares
+          media for playback, and serves Studio and the Players.
+        </p>
+      </li>
+      <li>
+        <h3><a href="studio/">Tilecast Studio</a></h3>
+        <p>
+          The browser app for managing screens, content, schedules, and users.
+        </p>
+      </li>
+      <li>
+        <h3><a href="players/">Tilecast Player</a></h3>
+        <p>
+          Runs at each display on Android TV, Google TV, Fire TV, or Linux, and
+          plays what is published to it.
+        </p>
+      </li>
+    </ol>
+  </section>
+
+  <section aria-labelledby="open-source">
+    <h2 id="open-source">Open source</h2>
+    <p class="tc-home-prose">
+      Tilecast Server, Studio, and the Players are licensed under AGPL-3.0 and
+      developed in one public repository. An installation doesn't use a
+      Tilecast-hosted service or need a Tilecast account.
+    </p>
+    <p class="tc-home-prose">
+      The source code, releases, and issue tracker are on <a href={repository}
+        >GitHub</a
+      >. The <a href={contributing}>contributing guide</a> explains how to
+      propose a change.
+    </p>
+  </section>
+
+  <section aria-labelledby="get-started">
+    <h2 id="get-started">Get started</h2>
+    <ul class="tc-home-links">
+      <li>
+        <a href="installation/">Install Tilecast</a>
+        <p>Run the server and connect the first display.</p>
+      </li>
+      <li>
+        <a href="getting-started/">Documentation</a>
+        <p>Studio, Players, administration, and integrations.</p>
+      </li>
+      <li>
+        <a href={repository}>GitHub</a>
+        <p>Source code, issues, and releases.</p>
+      </li>
+    </ul>
+  </section>
+</div>

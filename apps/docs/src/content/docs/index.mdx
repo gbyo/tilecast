@@ -1,59 +1,33 @@
 ---
 title: Actually open source signage.
-description: Self-hosted digital signage for Android TV and Linux displays.
+description: Tilecast is open-source, self-hosted digital signage. Run Tilecast Server on your own infrastructure, manage displays in Tilecast Studio, and play content on Android TV and Linux screens with Tilecast Player.
 template: splash
+editUrl: false
+lastUpdated: false
+prev: false
+next: false
 head:
   - tag: title
-    content: Tilecast Docs
+    content: Tilecast — Actually open source signage.
+  - tag: meta
+    attrs:
+      property: og:title
+      content: Tilecast — Actually open source signage.
 hero:
-  tagline: Tilecast is self-hosted digital signage for Android TV and Linux displays. Run the server on your own hardware, manage screens in Studio, and keep your content under your control.
+  tagline: Tilecast is a self-hosted digital signage platform. Run Tilecast Server on infrastructure you control, manage content and displays in Tilecast Studio, and connect Tilecast Player to the screens you operate.
   actions:
-    - text: Get started
-      link: getting-started/
+    - text: Install Tilecast
+      link: installation/
       icon: right-arrow
-    - text: View on GitHub
+    - text: Read the docs
+      link: getting-started/
+      variant: secondary
+    - text: GitHub
       link: https://github.com/gbyo/tilecast
       icon: external
       variant: minimal
 ---
 
-import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+import HomePage from "../../components/HomePage.astro";
 
-## Where to start
-
-<CardGrid>
-  <LinkCard
-    title="Install Tilecast"
-    description="Start Tilecast Server with Docker Compose and create the first Owner account."
-    href="installation/"
-  />
-  <LinkCard
-    title="Connect a display"
-    description="Install Tilecast Player on an Android TV device or a Linux computer, then pair it."
-    href="players/"
-  />
-  <LinkCard
-    title="Use Tilecast Studio"
-    description="Add media, build playlists and layouts, and decide what plays on each screen."
-    href="studio/"
-  />
-  <LinkCard
-    title="Integrate with Tilecast"
-    description="Send data from another system and read fleet health with integration tokens."
-    href="integrations/"
-  />
-</CardGrid>
-
-## How Tilecast fits together
-
-A Tilecast installation has three parts:
-
-- **Tilecast Server** runs on hardware you control. It stores your content and settings in PostgreSQL and serves both Studio and the Player API.
-- **Tilecast Studio** is the management app. You open it in a browser to manage screens, content, and schedules.
-- **Tilecast Player** runs on each display. It downloads its content, keeps playing from its cache if the network drops, and reports its status back to the server.
-
-New to Tilecast? [Getting started](getting-started/) walks through the order to set things up.
-
-## Open source and self-hosted
-
-Tilecast is licensed under AGPL-3.0 and doesn't depend on a paid cloud service. The source code, releases, and issue tracker are in the [Tilecast repository on GitHub](https://github.com/gbyo/tilecast).
+<HomePage />
