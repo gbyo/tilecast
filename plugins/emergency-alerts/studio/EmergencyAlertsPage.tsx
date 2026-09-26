@@ -2,17 +2,19 @@ import { useEffect, useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import {
-  CloudSun,
-  Plus,
-  Siren,
-  TriangleAlert,
-  X,
-} from "lucide-react";
+import { CloudSun, Plus, Siren, TriangleAlert, X } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { Link } from "react-router";
 import { z } from "zod";
-import { ApiError, PluginPage, useConfirm, useFormatLocale, usePluginTranslation, useStudioSession, type PluginT } from "@tilecast/studio";
+import {
+  ApiError,
+  PluginPage,
+  useConfirm,
+  useFormatLocale,
+  usePluginTranslation,
+  useStudioSession,
+  type PluginT,
+} from "@tilecast/studio";
 import { api } from "./api";
 import type { NWSAlertRule, NWSAlertRuleInput, Playlist } from "./types";
 import en from "./locales/en.json";
@@ -307,23 +309,24 @@ export function EmergencyAlertsPage() {
     saveRule.mutate({ ...input, eventNames: labels(eventNamesText) }),
   );
   const removeRule = useMutation({
-    mutationFn: (id: string) =>
-      api.deleteNWSAlertRule(id, session.csrfToken),
+    mutationFn: (id: string) => api.deleteNWSAlertRule(id, session.csrfToken),
     onSuccess: refresh,
   });
   const monitor = settings.data?.monitor;
   return (
     <>
       {confirmDialog}
-      <PluginPage pluginId="emergency_alerts" title={t("title")} description={t("description")}>
+      <PluginPage
+        pluginId="emergency_alerts"
+        title={t("title")}
+        description={t("description")}
+      >
         <Card>
           <CardHeader>
             <CardTitle>
               <h2>{t("prepare.title")}</h2>
             </CardTitle>
-            <CardDescription>
-              {t("prepare.description")}
-            </CardDescription>
+            <CardDescription>{t("prepare.description")}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
             <Link
@@ -352,17 +355,13 @@ export function EmergencyAlertsPage() {
             <CardTitle>
               <h2>{t("monitor.title")}</h2>
             </CardTitle>
-            <CardDescription>
-              {t("monitor.description")}
-            </CardDescription>
+            <CardDescription>{t("monitor.description")}</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-5">
             <Alert>
               <TriangleAlert aria-hidden="true" />
               <AlertTitle>{t("monitor.safetyTitle")}</AlertTitle>
-              <AlertDescription>
-                {t("monitor.safetyBody")}
-              </AlertDescription>
+              <AlertDescription>{t("monitor.safetyBody")}</AlertDescription>
             </Alert>
             <FieldGroup>
               <Field orientation="horizontal">
@@ -383,12 +382,8 @@ export function EmergencyAlertsPage() {
               </Field>
               <FieldSeparator />
               <FieldSet>
-                <FieldLegend>
-                  {t("monitor.coverageLegend")}
-                </FieldLegend>
-                <FieldDescription>
-                  {t("monitor.coverageHint")}
-                </FieldDescription>
+                <FieldLegend>{t("monitor.coverageLegend")}</FieldLegend>
+                <FieldDescription>{t("monitor.coverageHint")}</FieldDescription>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field>
                     <FieldLabel htmlFor="nws-state">
@@ -478,9 +473,7 @@ export function EmergencyAlertsPage() {
                       {t("monitor.addLocation")}
                     </Button>
                     {zoneOptions.isError && (
-                      <FieldError>
-                        {t("monitor.zonesError")}
-                      </FieldError>
+                      <FieldError>{t("monitor.zonesError")}</FieldError>
                     )}
                   </Field>
                 </div>
@@ -563,9 +556,7 @@ export function EmergencyAlertsPage() {
                     {t("monitor.intervals.fifteenMinutes")}
                   </NativeSelectOption>
                 </NativeSelect>
-                <FieldDescription>
-                  {t("monitor.pollHint")}
-                </FieldDescription>
+                <FieldDescription>{t("monitor.pollHint")}</FieldDescription>
               </Field>
             </FieldGroup>
             {errorText(saveMonitor.error ?? poll.error) && (
@@ -600,8 +591,7 @@ export function EmergencyAlertsPage() {
                   },
                   {
                     term: t("monitor.health"),
-                    value:
-                      monitor.lastErrorCode || t("monitor.healthy"),
+                    value: monitor.lastErrorCode || t("monitor.healthy"),
                   },
                 ].map(({ term, value }) => (
                   <div key={term} className="grid gap-0.5">
@@ -629,9 +619,7 @@ export function EmergencyAlertsPage() {
               disabled={!editable || poll.isPending}
               onClick={() => poll.mutate()}
             >
-              {poll.isPending
-                ? t("monitor.checking")
-                : t("monitor.checkNow")}
+              {poll.isPending ? t("monitor.checking") : t("monitor.checkNow")}
             </Button>
           </CardFooter>
         </Card>
@@ -641,9 +629,7 @@ export function EmergencyAlertsPage() {
             <CardTitle>
               <h2>{t("rules.title")}</h2>
             </CardTitle>
-            <CardDescription>
-              {t("rules.description")}
-            </CardDescription>
+            <CardDescription>{t("rules.description")}</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-5">
             {(settings.data?.rules.length ?? 0) > 0 && (
@@ -660,8 +646,7 @@ export function EmergencyAlertsPage() {
                         </Badge>
                       </ItemTitle>
                       <ItemDescription>
-                        {item.eventNames.join(", ") ||
-                          t("rules.allEventTypes")}{" "}
+                        {item.eventNames.join(", ") || t("rules.allEventTypes")}{" "}
                         · {item.minimumSeverity}+ ·{" "}
                         {emergencyDisplayLabel(item, t)}
                       </ItemDescription>
@@ -711,9 +696,7 @@ export function EmergencyAlertsPage() {
                 onSubmit={(event) => void submitRule(event)}
               >
                 <h3 className="text-base font-medium">
-                  {editing
-                    ? t("rules.formTitleEdit")
-                    : t("rules.formTitleAdd")}
+                  {editing ? t("rules.formTitleEdit") : t("rules.formTitleAdd")}
                 </h3>
                 <FieldGroup>
                   <div className="grid gap-4 sm:grid-cols-2">
@@ -992,9 +975,7 @@ export function EmergencyAlertsPage() {
                     {saveRule.isPending && (
                       <Spinner data-icon="inline-start" aria-hidden="true" />
                     )}
-                    {editing
-                      ? t("rules.saveRule")
-                      : t("rules.addRuleButton")}
+                    {editing ? t("rules.saveRule") : t("rules.addRuleButton")}
                   </Button>
                   {editing && (
                     <Button
@@ -1020,9 +1001,7 @@ export function EmergencyAlertsPage() {
             <CardTitle>
               <h2>{t("active.title")}</h2>
             </CardTitle>
-            <CardDescription>
-              {t("active.description")}
-            </CardDescription>
+            <CardDescription>{t("active.description")}</CardDescription>
           </CardHeader>
           <CardContent>
             {(settings.data?.activeAlerts.length ?? 0) === 0 ? (
@@ -1032,9 +1011,7 @@ export function EmergencyAlertsPage() {
                     <CloudSun aria-hidden="true" />
                   </EmptyMedia>
                   <EmptyTitle>{t("active.emptyTitle")}</EmptyTitle>
-                  <EmptyDescription>
-                    {t("active.emptyBody")}
-                  </EmptyDescription>
+                  <EmptyDescription>{t("active.emptyBody")}</EmptyDescription>
                 </EmptyHeader>
               </Empty>
             ) : (
@@ -1177,10 +1154,8 @@ export const emergencyDisplayLabel = (
   >,
   t: EmergencyT,
 ) => {
-  if (rule.responseMode === "ticker")
-    return t("displaySummary.ticker");
-  if (rule.presentationMode === "builtin")
-    return t("displaySummary.builtin");
+  if (rule.responseMode === "ticker") return t("displaySummary.ticker");
+  if (rule.presentationMode === "builtin") return t("displaySummary.builtin");
   return rule.playlistName || t("displaySummary.noPlaylist");
 };
 

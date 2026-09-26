@@ -837,7 +837,6 @@ export type PresentationOverride = {
   stopReason?: string;
 };
 
-
 export type SettingDefinition = {
   key: string;
   category: string;

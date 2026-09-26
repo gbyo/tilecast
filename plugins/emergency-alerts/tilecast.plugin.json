@@ -47,10 +47,12 @@
   },
   "docs": {
     "reference": "docs/plugins.md#emergency-alerts",
-    "pages": [{
-      "source": "./docs/index.mdx",
-      "slug": "operations/emergency-alerts",
-      "sidebar": { "group": "plugins", "badge": "US" }
-    }]
+    "pages": [
+      {
+        "source": "./docs/index.mdx",
+        "slug": "operations/emergency-alerts",
+        "sidebar": { "group": "plugins", "badge": "US" }
+      }
+    ]
   }
 }
