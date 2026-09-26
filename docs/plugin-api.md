@@ -56,7 +56,8 @@ plugins/
     migrations/               optional Goose SQL files
     api/openapi.yaml          OpenAPI fragment for the plugin routes
     studio/index.tsx          defineStudioPlugin(...)
-    runtime/index.ts          Player runtime contribution (milestone 3)
+    runtime/index.ts          defineRuntimePlugin(...) for the shared Player runtime
+    runtime/*.css             runtime stylesheets, scoped to .tc-<name>
     docs/*.mdx                public documentation pages
 packages/plugin-sdk/
   src/manifest.ts             Zod manifest schema
@@ -101,6 +102,7 @@ The schema is `packages/plugin-sdk/src/manifest.ts`. The main fields are:
 | `studio.route`          | The Studio route. It must be `/plugins/<name>`.                              |
 | `runtime.manifestTypes` | Player manifest entry types the plugin projects and renders.                 |
 | `runtime.surfaces`      | Runtime surface slots the plugin draws in.                                   |
+| `runtime.tier`          | Arbitration tier of the plugin's surfaces.                                   |
 | `docs.pages`            | Public docs pages, their slugs, and their sidebar group.                     |
 | `docs.reference`        | The engineering reference, published as the catalog documentation link.      |
 
@@ -301,49 +303,141 @@ Remove menu, and the catalog hooks. Plugins can also give fully custom pages.
 
 ## Player runtime
 
-This section is the accepted design for milestone 3. The contract is
-`@tilecast/plugin-sdk/runtime` (`packages/plugin-sdk/src/runtime.ts`). The
-host that implements it is not complete yet.
+The contract is `@tilecast/plugin-sdk/runtime`
+(`packages/plugin-sdk/src/runtime.ts`). The host that implements it is
+`packages/player-runtime/src/plugins`. Electron and WPE load the same runtime.
 
 A plugin owns what it draws. The runtime host owns everything around it.
 
-| The host owns                                                   | The plugin owns                                |
-| --------------------------------------------------------------- | ---------------------------------------------- |
-| Which plugin holds each slot (arbitration by tier and priority) | How it reads its manifest entries              |
-| Slot geometry, push and overlay, and the bottom-corner lift     | Its elements inside the host containers        |
-| The corrected clock, timers, reduced motion, and frozen frames  | Its own behavior and animation on those clocks |
-| Lifecycle: mount, update, render, sleep and wake, dispose       | The text that the conformance probe reports    |
+| The host owns                                                         | The plugin owns                                   |
+| --------------------------------------------------------------------- | ------------------------------------------------- |
+| Discovery and the check against the manifest                          | How it reads its manifest entries                 |
+| Claim validation and arbitration (tier, then priority, then ID)       | Which of its own instances it claims a slot for   |
+| One long-lived container for each declared surface                    | Its elements inside those containers              |
+| Slot geometry: strip height, push and overlay insets, the corner lift | Its own layout inside the container               |
+| The corrected clock, its timers, reduced motion, and frozen frames    | Its behavior and animation on those clocks        |
+| Evaluation scheduling, sleep and wake, disposal                       | The text that the conformance probe reports       |
+| The microphone (root-mean-square levels only)                         | What it measures from the levels, and its reports |
 
-The host behavior is this:
+### Discovery
 
-1. The runtime build finds `plugins/*/runtime/index.ts` with
-   `import.meta.glob`. It loads no code at run time.
-2. The host gives each plugin one container for each slot that its manifest
-   declares in `runtime.surfaces`. The plugin builds its elements once and
-   keeps them. Thus the host does not decode media again or restart an
-   animation between updates.
-3. After each manifest change, on each tick of about one second, and after
-   `invalidate()`, the host calls `update` with the entries of the plugin's
-   manifest types. The plugin returns its claims.
-4. The host compares claims for each slot. It compares the tier first
-   (`emergency`, then `live`, then `scheduled`, then `ambient`), then the
-   priority, then the plugin ID. A plugin cannot configure its way above a
-   higher tier.
-5. The host calls `render` with the slots that the plugin holds and the lift
-   for the bottom corners. The host sets the push geometry of the content
-   stage. A plugin never changes the content stage.
+The runtime build finds `plugins/*/tilecast.plugin.json` and
+`plugins/*/runtime/index.ts` with `import.meta.glob`. It loads no code at run
+time. `runtime/index.ts` default-exports `defineRuntimePlugin({ id, tier,
+manifestTypes, surfaces, create })`. The ID, the tier, the manifest types, and
+the surfaces must be the same as the manifest's `id`, `runtime.tier`,
+`runtime.manifestTypes`, and `runtime.surfaces`. The host leaves out a
+definition that does not agree, with a diagnostic. It does not stop the
+Player. The runtime tests fail on any discovery diagnostic, so a mismatch
+cannot get into a release.
 
-A plugin stylesheet is `runtime/*.css`. The runtime build appends it to
-`runtime.css`, because the Player document policy refuses inline styles and
-this method works the same on Electron and WPE. A plugin sets dynamic
-properties through the CSSOM (`setStyles`).
+### Tiers and claims
 
-The Emergency Alerts ticker, the Noise Meter, and the Brand Bug move in
-milestones 4 and 5. Until then, they are ported to the same contract as
-modules inside the runtime. Thus the host is generic from milestone 3, and
-the later milestones only move files. The host contract between the runtime
-and Electron or WPE does not change. The microphone service maps to the
-existing `noiseMeter` host members.
+A plugin declares one tier in `runtime.tier`:
+
+| Tier        | For                                  | Example          |
+| ----------- | ------------------------------------ | ---------------- |
+| `emergency` | Safety messages that must be visible | Emergency Alerts |
+| `live`      | Conditions measured now              | Noise Meter      |
+| `scheduled` | Planned, time-bound messages         | Countdown Bar    |
+| `ambient`   | Permanent marks                      | Brand Bug        |
+
+On each evaluation, the host calls `update` with the entries of the plugin's
+manifest types. The plugin returns its claims: at most one for each slot,
+with a `priority` and, for a strip, `heightPx` and `displayMode`. A claim
+cannot name a tier. The plugin selects among its own instances before it
+claims. The host compares plugins, not instances.
+
+The host refuses a claim, with a diagnostic, when:
+
+- the slot is not in the plugin's `runtime.surfaces`, or the plugin already
+  claimed the slot,
+- the claim names a tier,
+- the priority is not a finite number between -1,000,000 and 1,000,000,
+- a strip height is not a finite number above 0 and at most 540 CSS pixels,
+  or the display mode is not `overlay` or `push`,
+- a corner or overlay claim has a strip field.
+
+A refused claim loses. A plugin that throws in `create`, `mount`, `update`,
+`render`, or a timer callback loses its slots. Playback continues.
+
+For each slot independently, the host selects the strongest tier, then the
+highest priority, then the lowest plugin ID. A configured priority cannot
+lift a plugin above a stronger tier.
+
+### Surfaces and geometry
+
+The slots are `strip.top`, `strip.bottom`, `corner.top-left`,
+`corner.top-right`, `corner.bottom-left`, `corner.bottom-right`, and
+`overlay`. The host creates one container for each slot that a plugin
+declares and calls `mount` once for each. The plugin builds its elements
+there and keeps them. A plugin that loses a slot hides its elements; the host
+does not remove them. Thus media is not decoded again and animations do not
+restart.
+
+The host alone changes geometry:
+
+- A strip container is a full-width band at the top or bottom, as tall as
+  its plugin's claim.
+- A `push` strip that holds its slot insets the content stage by its height
+  (`--tc-stage-top`, `--tc-stage-bottom`). An `overlay` strip does not.
+- Corner containers stop clear of the strips that are held: the corner lift
+  (`topLiftPx`, `bottomLiftPx` in the grant).
+- The overlay container covers the screen.
+
+A plugin never changes the content stage.
+
+### Evaluation and time
+
+A manifest change, sleep, and wake evaluate at once. The host tick (about
+one second) and `invalidate()` ask for an evaluation, and requests are
+coalesced into one pass. An `invalidate()` during an evaluation schedules
+exactly one more pass. The host never calls `update` again from inside
+`update`. A plugin that invalidates during every pass waits for the next tick
+after a few passes, with a diagnostic.
+
+A pass calls `update` for every plugin, validates the claims, arbitrates the
+slots, applies the geometry, and then calls `render` with each plugin's grant.
+
+A plugin keeps time with `context.clock`: `now()` is the corrected server
+time, `after` and `every` are timers that belong to the plugin. The host
+cancels them when it disposes the plugin. Conformance runs freeze the wall
+clock, advance it manually, and set `animationScale` to 0.
+`context.reducedMotion()` is true for a frozen run and when the platform asks
+for reduced motion. `context.awake()` is false outside active hours; a plugin
+stops work that it does not need while asleep.
+
+`@tilecast/plugin-sdk/runtime/testing` gives a plugin's own tests a context
+with a manual clock.
+
+### Microphone
+
+A plugin that declares hardware `microphone` gets `context.microphone`.
+`open` gives root-mean-square levels, never audio. The source is the
+renderer's own microphone (`renderer-microphone`) or levels that the host
+process measures (`host-levels`). The host contract between the runtime and
+Electron or WPE does not change: the service uses the existing `noiseMeter`
+host members and `noise-level` messages.
+
+### Stylesheets
+
+A plugin stylesheet is `runtime/*.css`. The Player document policy refuses
+inline styles, so the runtime build appends each plugin stylesheet to the
+fixed `runtime.css` artifact, in path order. A plugin sets dynamic values
+through the CSSOM (`setStyles`), which the policy permits on Electron and WPE.
+Every selector must start with `.tc-<name>` and every `@keyframes` name with
+`tc-<name>-`, where `<name>` is the plugin directory. `pluginctl check`
+refuses other selectors and global rules such as `@import` and `@font-face`.
+
+### Migration adapters
+
+Until milestones 4 and 5, the Emergency Alerts ticker, the Noise Meter, and
+the Brand Bug are adapters in `packages/player-runtime/src/plugins/builtin`.
+They use the same contract, and discovery checks them against their
+manifests. Their manifests declare `runtime.surfaces` and `runtime.tier`
+without `runtime.entrypoint`. `pluginctl check` permits this only for the
+plugins in `TRANSITIONAL_RUNTIME_ADAPTERS`. Every other plugin that declares
+surfaces must have `runtime/index.ts`.
 
 ## Documentation
 
@@ -452,21 +546,19 @@ Plugin API v1 does not load third-party code. The contract keeps a path open:
 
 ## Migration status
 
-| Milestone | Scope                                                            | Status      |
-| --------- | ---------------------------------------------------------------- | ----------- |
-| 1         | Layout, manifest, SDKs, host, discovery, tooling, CODEOWNERS, CI | Done        |
-| 2         | Countdown Bar in `plugins/countdown-bar/`                        | Done        |
-| 3         | Generic runtime surface host                                     | In progress |
-| 4         | Brand Bug and Noise Meter                                        | Planned     |
-| 5         | Emergency Alerts                                                 | Planned     |
-| 6         | Forms                                                            | Planned     |
-| 7         | Remove the remaining special cases                               | Planned     |
+| Milestone | Scope                                                            | Status  |
+| --------- | ---------------------------------------------------------------- | ------- |
+| 1         | Layout, manifest, SDKs, host, discovery, tooling, CODEOWNERS, CI | Done    |
+| 2         | Countdown Bar in `plugins/countdown-bar/`                        | Done    |
+| 3         | Generic runtime surface host                                     | Done    |
+| 4         | Brand Bug and Noise Meter                                        | Planned |
+| 5         | Emergency Alerts                                                 | Planned |
+| 6         | Forms                                                            | Planned |
+| 7         | Remove the remaining special cases                               | Planned |
 
 Until a plugin moves, `apps/server/internal/plugins` answers its status,
 removal blockers, and projection through the legacy functions in that
 package. These are the only places where the server host still names a
-plugin. Countdown Bar has moved: no server or Studio host code names it. Its
-shared Player runtime renderer stays in `packages/player-runtime` until
-milestone 3 gives the runtime a generic surface host. Until then, its manifest
-declares `runtime.manifestTypes` and `runtime.surfaces` without
-`runtime.entrypoint`.
+plugin. Countdown Bar has moved completely, including its Player renderer.
+The runtime surface host names no plugin. Three renderers are still migration
+adapters inside the runtime package; see [Migration adapters](#migration-adapters).
