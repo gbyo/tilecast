@@ -193,6 +193,7 @@ fn activation(present: &Present) -> (ActivationSource, Option<PlaybackIdentity>,
                 takeover: selection.takeover_id.is_some(),
                 generation: 1,
                 synchronized: false,
+                requires: vec![],
             };
             (ActivationSource::ServerManifest, Some(identity), document)
         }

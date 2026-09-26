@@ -51,6 +51,8 @@ async fn daemon_capabilities(context: &DaemonContext) -> Vec<Capability> {
         capability.provider_version = Some(version);
     }
     out.extend(wpe);
+    let (remote_web, connected, restarting) = renderer.remote_web();
+    out.extend(crate::remote_web::capability(remote_web.as_ref(), connected, restarting, context.now()));
     drop(renderer);
 
     let (state, reason) = match &context.state {

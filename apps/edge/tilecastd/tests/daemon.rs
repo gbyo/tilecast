@@ -71,6 +71,7 @@ fn ready_event(features: &[&str]) -> Event {
         },
         features: features.iter().map(|f| ShortToken::new(*f).unwrap()).collect(),
         display: None,
+        remote_web: None,
     })
 }
 

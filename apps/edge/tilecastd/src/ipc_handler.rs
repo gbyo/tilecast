@@ -82,7 +82,13 @@ impl IpcHandler for DaemonIpc {
         let now = self.context.now();
         let mut engine = self.context.presentation.lock().await;
         match event {
-            Event::RendererReady(ready) => engine.renderer_ready(session, ready, now.unix_millis()),
+            Event::RendererReady(ready) => {
+                let remote_web = ready.remote_web.clone();
+                engine.renderer_ready(session, ready, now.unix_millis());
+                drop(engine);
+                crate::remote_web::clear_at_start_if_configured(&self.context, remote_web.as_ref());
+                self.context.report_status_soon();
+            }
             Event::PresentationAccepted(accepted) => {
                 engine.accepted(session, accepted.activation);
                 self.context.manifest_wake.notify_one();
@@ -120,6 +126,10 @@ impl IpcHandler for DaemonIpc {
             }
             Event::RendererHealth(health) => {
                 tracing::debug!(component = "renderer", event = "health", state = ?health.state, terminations = health.web_process_terminations);
+                engine.renderer_health(session, &health);
+            }
+            Event::RendererCommandResult(result) => {
+                self.context.renderer_commands.complete(result);
             }
             Event::PreviewResult(result) => {
                 if result.within_limits() {
@@ -200,6 +210,7 @@ impl IpcHandler for DaemonIpc {
                 registry.unbind_renderer(session.id());
             }
             self.context.presentation.lock().await.renderer_disconnected(session.id());
+            self.context.renderer_commands.renderer_disconnected();
         }
     }
 }

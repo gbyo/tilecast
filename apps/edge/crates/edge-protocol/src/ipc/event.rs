@@ -219,6 +219,9 @@ pub enum RendererCommandKind {
     SkipItem,
     /// Reload the trusted runtime and re-apply the current activation.
     Reload,
+    /// Clear the isolated remote web helper's website data (never the
+    /// trusted runtime's). The renderer answers `renderer.command_result`.
+    ClearWebsiteData,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -227,6 +230,17 @@ pub struct RendererCommand {
     #[serde(with = "canonical_uuid")]
     pub command_id: uuid::Uuid,
     pub command: RendererCommandKind,
+}
+
+/// The outcome of a renderer command that reports one (today only
+/// `clear_website_data`). `code` is a stable token.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RendererCommandResult {
+    #[serde(with = "canonical_uuid")]
+    pub command_id: uuid::Uuid,
+    pub success: bool,
+    pub code: ShortToken,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -300,6 +314,23 @@ pub struct RendererReady {
     pub features: Vec<ShortToken>,
     #[serde(default)]
     pub display: Option<DisplayInfo>,
+    /// The isolated remote web helper as the renderer sees it. Absent from a
+    /// renderer without remote web support.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remote_web: Option<RemoteWebStatus>,
+}
+
+/// Whether remote web works, and why not (docs/tilecast-edge-remote-web-
+/// threat-review.md §16). `available` stays true after a helper crash; the
+/// crash is a degraded health reason, not a missing feature.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RemoteWebStatus {
+    pub available: bool,
+    /// The helper exports GPU (DMA-BUF) frames rather than software frames.
+    pub accelerated: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<ShortToken>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -570,6 +601,7 @@ pub enum Event {
     ItemError(ItemError),
     RendererHealth(RendererHealth),
     PreviewResult(PreviewResult),
+    RendererCommandResult(RendererCommandResult),
     ShutdownAck(ShutdownAck),
     AudioLevel(AudioLevel),
     AudioInventory(AudioInventory),
@@ -642,6 +674,7 @@ events! {
     ItemError => "renderer.item_error", ClientToDaemon, [Renderer];
     RendererHealth => "renderer.health", ClientToDaemon, [Renderer];
     PreviewResult => "renderer.preview", ClientToDaemon, [Renderer];
+    RendererCommandResult => "renderer.command_result", ClientToDaemon, [Renderer];
     ShutdownAck => "renderer.shutdown_ack", ClientToDaemon, [Renderer];
     AudioLevel => "audio.level", ClientToDaemon, [SessionBridge];
     AudioInventory => "audio.inventory", ClientToDaemon, [SessionBridge];

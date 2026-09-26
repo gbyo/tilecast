@@ -128,6 +128,8 @@ pub struct DaemonContext {
     pub report_wake: tokio::sync::Notify,
     /// Live-preview requests waiting for the renderer.
     pub preview_waiters: crate::preview::Waiters,
+    /// Renderer commands that report a result (`clear_website_data`).
+    pub renderer_commands: crate::remote_web::Waiters,
     /// Display Control (M9).
     pub display: Arc<crate::display_control::DisplayControl>,
     /// Wakes the display task (a manifest was committed).
@@ -364,6 +366,7 @@ impl Daemon {
             activity,
             report_wake: tokio::sync::Notify::new(),
             preview_waiters: crate::preview::Waiters::default(),
+            renderer_commands: crate::remote_web::Waiters::default(),
             display: Arc::new(crate::display_control::DisplayControl::new(&config_for_display)),
             display_wake: tokio::sync::Notify::new(),
             status_due: std::sync::atomic::AtomicBool::new(false),

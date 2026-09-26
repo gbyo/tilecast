@@ -8,19 +8,22 @@
  * ignores anything it does not recognize rather than guessing.
  */
 #include "host.h"
+#include "remote-web.h"
 #include "validate.h"
 
 #include <gst/gst.h>
 #include <string.h>
 
 /* Presentation features the trusted DOM runtime implements under WPE.
- * Websites and YouTube need an isolation design first (docs/tilecast-edge.md §10.5), so they
- * are not advertised and tilecastd will not send them. */
+ * Remote web (REMOTE_WEB_FEATURES) is added only once the isolated helper
+ * answered (docs/tilecast-edge-remote-web-threat-review.md §16). */
 static const char *const RENDERER_FEATURES[] = {
   "status-surfaces-v1", "image",           "video",           "render-tree-v1", "layout-v1", "synchronized-playback-v1",
   "span-viewport-v1",   "plugin.brand_bug",   "plugin.countdown_bar", "plugin.alert_ticker",
   NULL,
 };
+
+static const char *const REMOTE_WEB_FEATURES[] = { "remote-web-v1", "website", "youtube", NULL };
 
 static const char *
 platform_name (TcPlatform platform)
@@ -63,7 +66,22 @@ tc_protocol_send_ready (TcHost *host)
   json_builder_begin_array (builder);
   for (guint i = 0; RENDERER_FEATURES[i] != NULL; i++)
     json_builder_add_string_value (builder, RENDERER_FEATURES[i]);
+  gboolean remote_web = tc_remote_web_available (host);
+  for (guint i = 0; remote_web && REMOTE_WEB_FEATURES[i] != NULL; i++)
+    json_builder_add_string_value (builder, REMOTE_WEB_FEATURES[i]);
   json_builder_end_array (builder);
+  json_builder_set_member_name (builder, "remoteWeb");
+  json_builder_begin_object (builder);
+  json_builder_set_member_name (builder, "available");
+  json_builder_add_boolean_value (builder, remote_web);
+  json_builder_set_member_name (builder, "accelerated");
+  json_builder_add_boolean_value (builder, tc_remote_web_accelerated (host));
+  const char *reason = tc_remote_web_reason (host);
+  if (reason != NULL) {
+    json_builder_set_member_name (builder, "reason");
+    json_builder_add_string_value (builder, reason);
+  }
+  json_builder_end_object (builder);
   WPEView *view = webkit_web_view_get_wpe_view (host->view);
   if (view != NULL && wpe_view_get_width (view) > 0) {
     json_builder_set_member_name (builder, "display");
@@ -282,9 +300,15 @@ handle_event (TcHost *host, const char *name, JsonNode *data_node)
     handle_plugins (host, data, data_node);
   } else if (g_strcmp0 (name, "presentation.clear") == 0 || g_strcmp0 (name, "presentation.identify") == 0
              || g_strcmp0 (name, "renderer.command") == 0 || g_strcmp0 (name, "sync.position") == 0) {
-    if (g_strcmp0 (name, "renderer.command") == 0
-        && g_strcmp0 (json_object_get_string_member_with_default (data, "command", ""), "reload") == 0) {
+    const char *command = json_object_get_string_member_with_default (data, "command", "");
+    if (g_strcmp0 (name, "renderer.command") == 0 && g_strcmp0 (command, "reload") == 0) {
       tc_view_reload_runtime (host);
+      return;
+    }
+    if (g_strcmp0 (name, "renderer.command") == 0 && g_strcmp0 (command, "clear_website_data") == 0) {
+      const char *command_id = json_object_get_string_member_with_default (data, "commandId", NULL);
+      if (tc_is_canonical_uuid (command_id))
+        tc_remote_web_clear (host, command_id);
       return;
     }
     if (host->runtime_ready) {

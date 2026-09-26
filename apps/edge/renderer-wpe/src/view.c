@@ -14,6 +14,7 @@
  *     body; nothing is concatenated into JavaScript source.
  */
 #include "host.h"
+#include "remote-web.h"
 
 #include <string.h>
 
@@ -45,8 +46,22 @@ tc_view_deliver (TcHost *host, const char *name, const char *json)
 }
 
 void
+tc_view_reply_json (TcHost *host, WebKitScriptMessageReply *reply, const char *json)
+{
+  JSCContext *context = g_object_get_data (G_OBJECT (host->view), "tc-js-context");
+  if (context == NULL) {
+    webkit_script_message_reply_return_error_message (reply, "runtime context unavailable");
+    return;
+  }
+  g_autoptr (JSCValue) value = jsc_value_new_from_json (context, json);
+  webkit_script_message_reply_return_value (reply, value);
+}
+
+void
 tc_view_reload_runtime (TcHost *host)
 {
+  /* The document that owned the remote web surfaces is going away. */
+  tc_remote_web_reset (host);
   host->runtime_ready = FALSE;
   webkit_web_view_load_uri (host->view, RUNTIME_URI);
 }
@@ -136,6 +151,14 @@ forward_page_message (TcHost *host, JsonObject *message)
     return;
   }
 
+  if (g_str_has_prefix (type, "remote_web.")) {
+    if (g_strcmp0 (type, "remote_web.recovered") == 0)
+      g_message ("view: a remote web surface recovered");
+    else
+      tc_remote_web_page_message (host, type, message);
+    return;
+  }
+
   g_autoptr (JsonBuilder) builder = json_builder_new ();
   json_builder_begin_object (builder);
   const char *event = NULL;
@@ -201,6 +224,12 @@ on_script_request (WebKitUserContentManager *manager, JSCValue *value, WebKitScr
   g_autoptr (JsonParser) parser = json_parser_new_immutable ();
   JsonObject *message = parse_message (value, parser);
   const char *type = message ? json_object_get_string_member_with_default (message, "type", "") : "";
+  g_object_set_data_full (G_OBJECT (host->view), "tc-js-context", g_object_ref (jsc_value_get_context (value)),
+                          g_object_unref);
+  if (g_strcmp0 (type, "remote_web.create") == 0) {
+    tc_remote_web_create (host, message, reply);
+    return TRUE;
+  }
   /* A fixed set of requests, each with a fixed parameter shape. */
   gboolean setup = g_strcmp0 (type, "setup.submit_server_url") == 0;
   gboolean discovery = g_strcmp0 (type, "discovery.list") == 0;
@@ -259,6 +288,7 @@ on_web_process_terminated (WebKitWebView *view, WebKitWebProcessTerminationReaso
   TcHost *host = user_data;
   host->web_process_terminations++;
   g_warning ("view: web process terminated (reason %d); reloading the runtime", (int) reason);
+  tc_remote_web_reset (host);
   tc_protocol_send_health (host, "degraded", "web_process_terminated");
   tc_view_reload_runtime (host);
 }
@@ -296,6 +326,14 @@ tc_view_create (TcHost *host, GError **error)
    * by tilecastd over its capability socket. */
   webkit_web_context_add_path_to_sandbox (host->web_context, host->gst_plugin_dir, TRUE);
   webkit_web_context_add_path_to_sandbox (host->web_context, host->media_socket, TRUE);
+  /* tcwebsrc connects to the helper's frame sockets from the web process.
+   * The directory is the helper's; the renderer unit's supplementary
+   * group tilecast-web is what lets it connect. */
+  /* The directory must exist when the web process starts and keep its
+   * inode across helper restarts: tmpfiles.d creates it and the helper unit
+   * preserves it (RuntimeDirectoryPreserve=yes). */
+  if (g_file_test (host->web_frames_dir, G_FILE_TEST_IS_DIR))
+    webkit_web_context_add_path_to_sandbox (host->web_context, host->web_frames_dir, TRUE);
   host->network_session = webkit_network_session_new_ephemeral ();
   tc_schemes_register (host);
 

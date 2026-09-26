@@ -269,8 +269,13 @@ mod tests {
             organization_name: None,
         };
         assert!(protected(ActivationSource::StatusSurface, &pairing));
-        let playing =
-            PresentationDocument::Playing { items: vec![], takeover: false, generation: 1, synchronized: false };
+        let playing = PresentationDocument::Playing {
+            items: vec![],
+            takeover: false,
+            generation: 1,
+            synchronized: false,
+            requires: vec![],
+        };
         assert!(!protected(ActivationSource::ServerManifest, &playing));
     }
 

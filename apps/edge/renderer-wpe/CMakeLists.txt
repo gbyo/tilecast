@@ -27,6 +27,12 @@ target_link_libraries(tilecast-media-client PUBLIC tilecast-validate PkgConfig::
 target_include_directories(tilecast-media-client PUBLIC src)
 set_target_properties(tilecast-media-client PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
+# The remote web protocol v1, shared with tilecast-web-renderer-wpe.
+set(TC_WEB_HELPER_SRC ${CMAKE_SOURCE_DIR}/../web-renderer-wpe/src)
+add_library(tilecast-rw-protocol STATIC ${TC_WEB_HELPER_SRC}/rw-protocol.c)
+target_link_libraries(tilecast-rw-protocol PUBLIC PkgConfig::GIO PkgConfig::JSONGLIB)
+target_include_directories(tilecast-rw-protocol PUBLIC ${TC_WEB_HELPER_SRC})
+
 add_executable(tilecast-renderer-wpe
   src/main.c
   src/drm-probe.c
@@ -34,8 +40,9 @@ add_executable(tilecast-renderer-wpe
   src/ipc.c
   src/protocol.c
   src/schemes.c
+  src/remote-web.c
   src/view.c)
-target_link_libraries(tilecast-renderer-wpe PRIVATE tilecast-media-client PkgConfig::WPE PkgConfig::JSONGLIB PkgConfig::GIO PkgConfig::GST PkgConfig::DRM)
+target_link_libraries(tilecast-renderer-wpe PRIVATE tilecast-media-client tilecast-rw-protocol PkgConfig::WPE PkgConfig::JSONGLIB PkgConfig::GIO PkgConfig::GST PkgConfig::DRM)
 
 # GStreamer source for tcmedia:// loaded into the web process (see
 # src/gst-tcmedia.c). Installed to lib/gstreamer-1.0 of the Edge release.

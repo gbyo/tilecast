@@ -89,6 +89,26 @@ struct _TcHost {
   char *current_activation_json; /* full presentation.activate data, for re-delivery */
   char *current_plugins_json;
   guint health_source;
+
+  /* Remote web (remote-web.c): the isolated helper's control socket and
+   * frame directory, fixed by options; nothing here comes from a page. */
+  char *web_control_socket;
+  char *web_frames_dir;
+  GSocketConnection *rw_connection;
+  GCancellable *rw_io;
+  guchar rw_header[4];
+  guchar *rw_payload;
+  gsize rw_payload_length;
+  gboolean rw_welcomed;
+  gboolean rw_ever_welcomed;
+  gboolean rw_accelerated;
+  gboolean rw_stopping;
+  const char *rw_reason;
+  guint rw_reconnect_source;
+  guint rw_reconnect_delay_ms;
+  guint64 rw_next_clear;
+  GHashTable *rw_surfaces; /* surface id -> pending or live surface */
+  GHashTable *rw_clears;   /* request id -> clear_website_data command */
 };
 
 /* ipc.c */
@@ -113,6 +133,8 @@ gboolean tc_view_create (TcHost *host, GError **error);
 void tc_view_deliver (TcHost *host, const char *name, const char *json);
 void tc_view_reload_runtime (TcHost *host);
 void tc_view_resolve_reply (TcHost *host, const char *request_id, const char *result_json, const char *error_message);
+/* Answers a page request with a JSON value. */
+void tc_view_reply_json (TcHost *host, WebKitScriptMessageReply *reply, const char *json);
 
 /* schemes.c */
 void tc_schemes_register (TcHost *host);

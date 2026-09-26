@@ -192,6 +192,7 @@ impl Renderer {
                                         height: 2160,
                                         refresh_millihertz: None,
                                     }),
+                                    remote_web: None,
                                 }))
                                 .await;
                         }

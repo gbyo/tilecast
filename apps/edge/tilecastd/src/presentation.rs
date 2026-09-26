@@ -234,7 +234,11 @@ fn is_content_evidence(kind: EvidenceKind, expectation: Expectation) -> bool {
     match expectation {
         Expectation::Still => matches!(kind, EvidenceKind::ImageShown),
         Expectation::Video => matches!(kind, EvidenceKind::VideoProgress | EvidenceKind::FrameChanged),
-        Expectation::Website => matches!(kind, EvidenceKind::WidgetShown),
+        // Widgets and Websites share an expectation (the reference player's
+        // `contentExpectationFor`). A Website's content evidence is its first
+        // rendered page, reported by the runtime only after the page loaded
+        // and a frame arrived; the helper being alive is never evidence.
+        Expectation::Website => matches!(kind, EvidenceKind::WidgetShown | EvidenceKind::WebsiteLoaded),
         Expectation::Layout => matches!(kind, EvidenceKind::LayoutShown | EvidenceKind::LayoutZoneRendered),
         Expectation::Indefinite => false,
     }
@@ -261,6 +265,8 @@ struct RendererLink {
     media: Option<(ActivationRef, HashMap<edge_protocol::Sha256Digest, MediaCapability>)>,
     /// The item the renderer last reported starting, for the heartbeat.
     current_item: Option<(String, Timestamp)>,
+    /// The renderer's remote web helper is restarting (its health reason).
+    remote_web_restarting: bool,
 }
 
 #[derive(Debug)]
@@ -276,7 +282,7 @@ pub struct PresentationEngine {
     restart_count: u64,
     meaningful_current: bool,
     content_progress_current: bool,
-    logged_evidence: std::collections::HashSet<(String, edge_protocol::ipc::event::EvidenceKind)>,
+    logged_evidence: std::collections::HashSet<(String, String, edge_protocol::ipc::event::EvidenceKind)>,
     /// Items of the current activation with content evidence (bounded).
     content_items: BTreeSet<String>,
     /// Proof-of-play signals for the activity task.
@@ -476,6 +482,7 @@ impl PresentationEngine {
             last_error_code: None,
             media: None,
             current_item: None,
+            remote_web_restarting: false,
         });
         // Evidence belongs to the renderer that produced it. A reconnecting
         // renderer must show the activation again before it can count.
@@ -558,13 +565,21 @@ impl PresentationEngine {
         let content_evidence = is_content_evidence(report.kind, expectation) && report.item_id.is_some();
         // Log the first acceptance of each (item, kind) per activation: enough
         // for diagnostics and tests, bounded regardless of playback length.
-        let key = (report.item_id.as_ref().map(|i| i.as_str().to_owned()).unwrap_or_default(), report.kind);
-        if self.logged_evidence.len() < 512 && self.logged_evidence.insert(key) {
+        let key = (
+            report.item_id.as_ref().map(|i| i.as_str().to_owned()).unwrap_or_default(),
+            report.zone_id.as_ref().map(|z| z.as_str().to_owned()).unwrap_or_default(),
+            report.kind,
+        );
+        // A Website load is logged every time (still bounded): a later one
+        // is a recovery after a failure.
+        let fresh = report.kind == EvidenceKind::WebsiteLoaded || !self.logged_evidence.contains(&key);
+        if self.logged_evidence.len() < 512 && fresh && self.logged_evidence.insert(key.clone()) | true {
             tracing::info!(
                 component = "presentation",
                 event = "evidence_accepted",
                 generation = report.activation.generation,
                 item = report.item_id.as_ref().map(SafeText::as_str).unwrap_or(""),
+                zone = report.zone_id.as_ref().map(SafeText::as_str).unwrap_or(""),
                 kind = report.kind.as_str()
             );
         }
@@ -844,6 +859,33 @@ impl PresentationEngine {
         self.renderer.as_ref().and_then(|l| l.ready.as_ref()).map(|r| r.renderer.version.clone())
     }
 
+    /// The connected renderer's remote web status: its `renderer.ready`
+    /// report, whether a renderer is connected, and whether its helper is
+    /// restarting.
+    pub fn remote_web(&self) -> (Option<edge_protocol::ipc::event::RemoteWebStatus>, bool, bool) {
+        match &self.renderer {
+            Some(link) => (
+                link.ready.as_ref().and_then(|ready| ready.remote_web.clone()),
+                link.ready.is_some(),
+                link.remote_web_restarting,
+            ),
+            None => (None, false, false),
+        }
+    }
+
+    /// Records the renderer's health reason that concerns remote web.
+    pub fn renderer_health(&mut self, session: &SessionHandle, health: &edge_protocol::ipc::event::RendererHealth) {
+        if let Some(link) = self.link_for(session) {
+            match health.reason_code.as_ref().map(ShortToken::as_str) {
+                Some("remote_web_helper_restarting") => link.remote_web_restarting = true,
+                _ if health.state == edge_protocol::ipc::event::HealthState::Healthy => {
+                    link.remote_web_restarting = false
+                }
+                _ => {}
+            }
+        }
+    }
+
     pub fn renderer_ready_features(&self) -> Option<Vec<ShortToken>> {
         self.renderer.as_ref().and_then(|l| l.ready.as_ref()).map(|r| r.features.clone())
     }
@@ -931,10 +973,14 @@ impl PresentationEngine {
     /// Sends a playback command to a ready renderer. Returns whether it was
     /// delivered; the renderer's evidence, not this, shows its effect.
     pub fn renderer_command(&self, command: RendererCommandKind) -> bool {
+        self.renderer_command_with_id(uuid::Uuid::new_v4(), command)
+    }
+
+    /// As [`Self::renderer_command`], with the identifier the renderer's
+    /// `renderer.command_result` will carry.
+    pub fn renderer_command_with_id(&self, command_id: uuid::Uuid, command: RendererCommandKind) -> bool {
         let Some(link) = self.renderer.as_ref().filter(|link| link.ready.is_some()) else { return false };
-        link.session
-            .send_event(Event::RendererCommand(RendererCommand { command_id: uuid::Uuid::new_v4(), command }))
-            .is_ok()
+        link.session.send_event(Event::RendererCommand(RendererCommand { command_id, command })).is_ok()
     }
 
     /// Asks the connected renderer to exit so systemd starts a fresh one; the
@@ -967,5 +1013,21 @@ impl PresentationEngine {
     pub fn retry_recovery(&mut self, now_ms: i64) -> HealAction {
         self.supervisor.last_action_at_ms = None;
         self.tick(now_ms)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn website_content_evidence_is_a_rendered_page() {
+        assert!(is_content_evidence(EvidenceKind::WebsiteLoaded, Expectation::Website));
+        assert!(is_content_evidence(EvidenceKind::WidgetShown, Expectation::Website));
+        assert!(!is_content_evidence(EvidenceKind::WebsiteAlive, Expectation::Website));
+        assert!(!is_content_evidence(EvidenceKind::ItemStarted, Expectation::Website));
+        // A Layout zone that shows a remote page reports its zone render.
+        assert!(is_content_evidence(EvidenceKind::LayoutZoneRendered, Expectation::Layout));
+        assert!(!is_content_evidence(EvidenceKind::WebsiteLoaded, Expectation::Still));
     }
 }
