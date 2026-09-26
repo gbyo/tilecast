@@ -553,7 +553,7 @@ func (s *Service) validateDependencies(ctx context.Context, deps []Dependency) e
 	return s.validateDependencyQuery(ctx, s.db, deps)
 }
 func (s *Service) validatePlaybackLimitsTx(ctx context.Context, tx pgx.Tx, document Document) error {
-	videoCapable, audioEmitting := 0, 0
+	videoCapable, audioEmitting, youtubePlacements := 0, 0, 0
 	for _, placement := range document.Placements {
 		if !placement.Visible {
 			continue
@@ -573,6 +573,15 @@ func (s *Service) validatePlaybackLimitsTx(ctx context.Context, tx pgx.Tx, docum
 				return err
 			}
 			video = provider == "website" || provider == "youtube"
+			if provider == "youtube" {
+				youtubePlacements++
+				// The embedded player needs at least 200x200 CSS pixels; the
+				// shared Player Runtime refuses smaller YouTube surfaces with a
+				// typed error, so authoring rejects them first.
+				if placement.Width < 200 || placement.Height < 200 {
+					return errors.New("youtube placements must be at least 200 by 200 pixels")
+				}
+			}
 			muted := false
 			if len(placement.Overrides) > 0 {
 				var overrides struct {
@@ -601,6 +610,9 @@ func (s *Service) validatePlaybackLimitsTx(ctx context.Context, tx pgx.Tx, docum
 	}
 	if videoCapable > 1 {
 		return errors.New("layout may contain only one visible video-capable placement or playlist zone")
+	}
+	if youtubePlacements > 1 {
+		return errors.New("layout may contain only one visible youtube placement")
 	}
 	if audioEmitting > 1 {
 		return errors.New("layout may contain only one audio-emitting placement or playlist zone")

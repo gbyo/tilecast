@@ -225,3 +225,90 @@ func TestLayoutDataSourceBindingAndPlacementRules(t *testing.T) {
 		t.Fatalf("publish with data source binding: %v", err)
 	}
 }
+
+// TestLayoutYouTubePlacementRules verifies the server-side YouTube constraints
+// that mirror the shared Player Runtime: a visible YouTube placement must be
+// at least 200x200 pixels, and a layout may contain only one visible YouTube
+// placement. The runtime refuses the same layouts with typed errors, so
+// authoring rejects them first.
+func TestLayoutYouTubePlacementRules(t *testing.T) {
+	databaseURL := os.Getenv("TEST_DATABASE_URL")
+	if databaseURL == "" {
+		t.Skip("TEST_DATABASE_URL is not set")
+	}
+	ctx := context.Background()
+	lockPool, err := pgxpool.New(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lockPool.Close()
+	lock, err := lockPool.Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lock.Release()
+	if _, err = lock.Exec(ctx, `SELECT pg_advisory_lock(7421999)`); err != nil {
+		t.Fatal(err)
+	}
+	defer lock.Exec(ctx, `SELECT pg_advisory_unlock(7421999)`) //nolint:errcheck
+	if err = database.Migrate(ctx, databaseURL); err != nil {
+		t.Fatal(err)
+	}
+	pool, err := database.Open(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	if _, err = pool.Exec(ctx, `TRUNCATE layouts, data_sources, widgets, assets, sessions, audit_logs, users, organization_settings CASCADE`); err != nil {
+		t.Fatal(err)
+	}
+	owner, err := auth.NewService(pool, time.Hour).Setup(ctx, auth.SetupInput{OrganizationName: "YouTube Test", OwnerName: "Owner", Username: "owner", Password: "correct horse battery staple"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := NewService(pool)
+	var organizationID uuid.UUID
+	if err = pool.QueryRow(ctx, `SELECT id FROM organization_settings WHERE singleton=TRUE`).Scan(&organizationID); err != nil {
+		t.Fatal(err)
+	}
+	youtubeA, youtubeB := uuid.New(), uuid.New()
+	for _, widgetID := range []uuid.UUID{youtubeA, youtubeB} {
+		if _, err = pool.Exec(ctx, `INSERT INTO assets(id,organization_id,name,type,original_filename,detected_mime_type,sha256,original_size,processing_status,created_by)VALUES($1,$2,'YouTube','widget','youtube.json','application/json',$3,100,'ready',$4)`, widgetID, organizationID, make([]byte, 32), owner.User.ID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = pool.Exec(ctx, `INSERT INTO widgets(asset_id,provider,config_version,configuration)VALUES($1,'youtube',1,'{}')`, widgetID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	layout, err := service.Create(ctx, owner.User.ID, "YouTube board", "", "landscape", 1920, 1080)
+	if err != nil {
+		t.Fatal(err)
+	}
+	small := validTestDocument()
+	small.Placements = append(small.Placements, Placement{ID: uuid.New(), Type: "widget", Name: "Trailer", X: 0, Y: 0, Width: 100, Height: 100, Layer: 2, Opacity: 1, Visible: true, WidgetID: &youtubeA})
+	layout, err = service.SaveDraft(ctx, layout.ID, owner.User.ID, layout.DraftRevision, small)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = service.Publish(ctx, layout.ID, owner.User.ID, layout.DraftRevision); err == nil || !strings.Contains(err.Error(), "200 by 200") {
+		t.Fatalf("expected youtube size validation, got %v", err)
+	}
+	sized := validTestDocument()
+	sized.Placements = append(sized.Placements, Placement{ID: uuid.New(), Type: "widget", Name: "Trailer", X: 0, Y: 0, Width: 400, Height: 300, Layer: 2, Opacity: 1, Visible: true, WidgetID: &youtubeA})
+	layout, err = service.SaveDraft(ctx, layout.ID, owner.User.ID, layout.DraftRevision, sized)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = service.Publish(ctx, layout.ID, owner.User.ID, layout.DraftRevision); err != nil {
+		t.Fatalf("a 400x300 youtube placement should publish: %v", err)
+	}
+	pair := sized
+	pair.Placements = append(pair.Placements, Placement{ID: uuid.New(), Type: "widget", Name: "Encore", X: 500, Y: 0, Width: 400, Height: 300, Layer: 3, Opacity: 1, Visible: true, WidgetID: &youtubeB})
+	layout, err = service.SaveDraft(ctx, layout.ID, owner.User.ID, layout.DraftRevision+1, pair)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = service.Publish(ctx, layout.ID, owner.User.ID, layout.DraftRevision); err == nil || !strings.Contains(err.Error(), "only one visible youtube") {
+		t.Fatalf("expected single youtube validation, got %v", err)
+	}
+}

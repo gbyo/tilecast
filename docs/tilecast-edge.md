@@ -104,6 +104,8 @@ The fixed `tilecast` account is used because an existing Electron kiosk already 
 
 `tilecast-renderer-wpe` runs in its own unit, `tilecast-renderer.service`, as the same account with a narrower sandbox. It is disposable: systemd restarts it, and `tilecastd` restores the current presentation when it reconnects.
 
+M11 adds the isolated remote web helper, `tilecast-web-renderer-wpe` in `tilecast-web-renderer.service`, for Websites, YouTube and web Widgets. It runs remote pages as the dedicated `tilecast-web` account with no Tilecast credential, state or content socket; only the trusted renderer joins the `tilecast-web` group to reach its control and frame sockets. The boundary is binding in [`tilecast-edge-remote-web-threat-review.md`](tilecast-edge-remote-web-threat-review.md).
+
 It receives a complete, validated, prepared presentation and returns evidence. It does not receive the device credential, the state database, the identity directory, arbitrary host paths, server API access, or any way to run a program. It cannot see the legacy home directory.
 
 ### 4.3 Privileged helpers
@@ -380,7 +382,7 @@ The installer:
 2. runs the local WPE self-test on the actual display backend, and checks the cached legacy manifest for presentations that the installed renderer reports as incompatible;
 3. stops and disables the legacy unit; the legacy AppImage and data stay in place;
 4. runs `tilecastd import-legacy`;
-5. enables `tilecast-edge.service` and `tilecast-renderer.service`;
+5. enables `tilecast-edge.service`, `tilecast-web-renderer.service` and `tilecast-renderer.service`;
 6. waits for a connected server link and meaningful playback evidence of the current presentation for a bounded settlement window.
 
 Only one stack is enabled at a time. The legacy player is a systemd user unit, so the installer, not a unit dependency, enforces this: it disables the legacy unit before it enables Edge, re-enables it only after it disables Edge, and holds a migration lock for the whole cutover. The importer refuses to run beside a running daemon. Because both stacks use the same device credential, this local mutual exclusion is the control that prevents two processes from acting as one screen.
@@ -437,7 +439,7 @@ The M10 implementation reuses existing parts and adds only the missing ones:
 
 ### 15.3 Activation, confirmation and rollback
 
-- Activation waits for the deployment's maintenance window, for no takeover, and for a live server link. The helper writes a root transaction record first, arms the guard, stops the renderer and then the daemon (WPE WebKit finds its helper processes under `current/lib/wpe`), installs the candidate's units and system files, switches `current` with one `rename(2)`, reloads systemd and starts the candidate. `tilecastd` never replaces its own binaries.
+- Activation waits for the deployment's maintenance window, for no takeover, and for a live server link. The helper writes a root transaction record first, arms the guard, stops the remote web helper, then the renderer and then the daemon (WPE WebKit finds its helper processes under `current/lib/wpe`), installs the candidate's units and system files, switches `current` with one `rename(2)`, reloads systemd and starts the daemon, then the web helper, then the renderer. `tilecastd` never replaces its own binaries.
 - The candidate is provisional. The candidate `tilecastd` asks for confirmation only after 120 s without a break of: a connected server link with fresh contact since it started, a ready renderer that is not in safe mode, and the current presentation accepted with meaningful evidence (and fresh progress for content that plays). The helper checks the running daemon's own status again before it confirms. Only then does the screen report `succeeded`; the server never settles an Edge target from a heartbeat version.
 - The guard runs the previous release's helper, so a candidate that cannot run cannot stop its own rollback. It rolls back a candidate that did not confirm within 600 s, that restarts repeatedly or that systemd gave up on, and, at boot, any candidate that was still provisional when the machine stopped, before the Edge units start. The screen reports `failed` with `installerStatus: "rolled_back"` and the reason.
 - The previous release stays installed through the provisional window. A confirmation keeps the confirmed and the previous release (and anything newer that is staged) and removes older ones.
