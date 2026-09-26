@@ -27,11 +27,6 @@ var salvageableHeartbeatFields = map[string]bool{
 	"currentWidgetId":       true,
 	"activeTakeoverId":      true,
 	"assignedPlaylistId":    true,
-	// The Noise Meter's optional section. It is a plugin's report, and an
-	// unreadable timestamp inside it must not cost the same message's liveness
-	// and playback state. Dropping it leaves the Player's history
-	// unacknowledged, so the batch is simply retried on the next heartbeat.
-	"noiseMeter": true,
 }
 
 // salvageHeartbeatPayload removes malformed optional playback identifiers from a

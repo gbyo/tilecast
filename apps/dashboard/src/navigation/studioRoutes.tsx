@@ -10,9 +10,7 @@ export type BreadcrumbResource =
   | "layout"
   | "campaign"
   | "schedule"
-  | "form"
-  | "brand-bug"
-  | "noise-meter";
+  | "form";
 
 /**
  * A breadcrumb resource a plugin contributes: how to name the `:id` in its

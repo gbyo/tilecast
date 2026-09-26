@@ -51,7 +51,7 @@ Tilecast is an open-source digital signage platform for organizations that want 
 - **Reliability tools** — unattended startup, watchdog recovery, safe mode, kiosk controls, and player health reporting.
 - **Team workflows** — roles, content review, publishing controls, screen scopes, and multi-factor authentication.
 - **Integrations** — API access, integration tokens, webhooks, notifications, and Prometheus-compatible fleet health.
-- **Installable built-in plugins** — add only the optional features an installation needs: submission forms, countdown bars, emergency alerts, watermarks, noise meters. Plugins ship with Tilecast; installing one never downloads code.
+- **Installable built-in plugins** — add only the optional features an installation needs: submission forms, countdown bars, and emergency alerts. Plugins ship with Tilecast; installing one never downloads code.
 
 See [Widgets, Data Sources, and Layouts](docs/widgets-and-layouts.md) for a detailed overview of Tilecast's content system.
 

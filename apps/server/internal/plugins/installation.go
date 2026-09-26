@@ -55,6 +55,9 @@ func (e *InUseError) Error() string {
 type UnsupportedInstallation struct {
 	PluginID    string    `json:"pluginId"`
 	InstalledAt time.Time `json:"installedAt"`
+	// Retired marks a plugin that an earlier release shipped and this release
+	// removed, as opposed to one from a newer release.
+	Retired bool `json:"retired,omitempty"`
 }
 
 // IsInstalled is the top-level runtime gate: the plugin must be known to this
@@ -145,6 +148,7 @@ func (s *Service) installations(ctx context.Context) (map[string]bool, []Unsuppo
 		if _, known := s.lookup(item.PluginID); known {
 			installed[item.PluginID] = true
 		} else {
+			item.Retired = retiredPlugins[item.PluginID]
 			unsupported = append(unsupported, item)
 		}
 	}
@@ -310,10 +314,6 @@ func legacyRemovalBlockers(ctx context.Context, tx pgx.Tx, id string) ([]InUseRe
 	}
 	var err error
 	switch id {
-	case BrandBugID:
-		err = add("brand_bug_instance", "mark", "marks", "delete", `SELECT count(*) FROM brand_bug_instances`)
-	case NoiseMeterID:
-		err = add("noise_meter_instance", "meter", "meters", "delete", `SELECT count(*) FROM noise_meter_instances`)
 	case FormsID:
 		err = add("form", "form", "forms", "delete", `SELECT count(*) FROM data_sources WHERE provider='form' AND deleted_at IS NULL`)
 	case EmergencyAlertsID:

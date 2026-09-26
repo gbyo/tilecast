@@ -6,8 +6,6 @@
 # maintainers keep architecture and merge authority. A maintainer without
 # repository write access is listed in a comment (see plugins/review-eligibility.json).
 
-/plugins/brand-bug/ @gbyo
 /plugins/countdown-bar/ @gbyo
 /plugins/emergency-alerts/ @gbyo
 /plugins/forms/ @gbyo
-/plugins/noise-meter/ @gbyo

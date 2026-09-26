@@ -631,47 +631,6 @@ def main():
             assert len(jpeg) == preview["fileSize"] <= 500 * 1024, (len(jpeg), preview)
             print("preview:", f"{preview['width']}x{preview['height']} JPEG of {len(jpeg)} bytes from the renderer")
 
-            # Noise Meter (M9): the session bridge measures, tilecastd opens
-            # the microphone only while the runtime's meter wants readings,
-            # the runtime turns levels into ten-second history buckets, and
-            # the heartbeat carries them to the server, which stores them.
-            bridge = FakeSessionBridge(os.path.join(runtime, "edge.sock"), rms=0.3)
-            try:
-                client.call("POST", "/api/v1/plugins/noise_meter/install", expect=(200, 201))
-                _, meter = client.call("POST", "/api/v1/plugins/noise-meter/instances", {
-                    "name": "Lobby noise", "message": "Please keep it down", "warningLevel": 60, "loudLevel": 80,
-                    "sensitivity": 100, "triggerHoldMs": 1000, "clearHoldMs": 3000, "displayMode": "overlay",
-                    "heightPx": 96, "historyEnabled": True, "historyRetentionDays": 7,
-                    "historyActiveHoursOnly": False, "scheduleEnabled": False, "scheduleDaysOfWeek": [],
-                    "scheduleTimezone": "UTC", "enabled": True, "targetScope": "all", "targetIds": []},
-                    expect=(200, 201))
-                meter_id = meter["data"]["id"]
-                assert bridge.capturing.wait(timeout=120), \
-                    f"tilecastd never asked the bridge to capture: {bridge.capture_requests}"
-                print("noise meter: the runtime's meter asked for readings; tilecastd opened capture")
-
-                def noise_capability():
-                    listed = json.loads(subprocess.run([tilecastctl, "--socket", socket, "--json", "capabilities"],
-                                                       check=True, capture_output=True, text=True).stdout)
-                    noise = next((c for c in listed["capabilities"] if c["id"] == "audio.noise_meter"), None)
-                    return noise if noise and noise["state"] == "available" else None
-                wait_for(noise_capability, "audio.noise_meter available while capturing", timeout=30)
-
-                def stored_history():
-                    rows = psql("SELECT count(*), coalesce(max(average_level), 0), coalesce(max(monitored_ms), 0) "
-                                f"FROM noise_meter_history WHERE screen_id='{screen_id}'").split("|")
-                    return rows if int(rows[0]) > 0 and float(rows[1]) > 0 else None
-                count, level, monitored = wait_for(stored_history, "Noise Meter history stored by the server",
-                                                   timeout=150)
-                print(f"noise meter: {count} ten-second buckets stored, average level up to {level}, "
-                      f"monitored up to {monitored} ms")
-                client.call("DELETE", f"/api/v1/plugins/noise-meter/instances/{meter_id}", expect=(200, 204))
-                wait_for(lambda: bridge.capture_requests and bridge.capture_requests[-1] is False,
-                         "the microphone released when the meter was removed", timeout=120)
-                print("noise meter: removing the meter released the microphone")
-            finally:
-                bridge.close()
-
             # Offline: the committed Layout plays from the cache with the
             # server stopped and the player restarted.
             server = processes[0]

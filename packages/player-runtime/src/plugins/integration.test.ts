@@ -43,41 +43,6 @@ const ticker: RuntimeManifestEntry = {
   },
 };
 
-const brandBug: RuntimeManifestEntry = {
-  id: "bug-1",
-  type: "brand_bug",
-  version: 1,
-  config: {
-    corner: "bottom_right",
-    text: "Tilecast Academy",
-    imageAssetId: "asset-1",
-    imageVariantId: "variant-1",
-    widthPercent: 14,
-    textSizePercent: 3,
-    opacityPercent: 90,
-    marginPercent: 3,
-    textColor: "#FFFFFF",
-    backgroundStyle: "scrim",
-    priority: 1,
-  },
-};
-
-const noiseMeter: RuntimeManifestEntry = {
-  id: "noise-1",
-  type: "noise_meter",
-  version: 1,
-  config: {
-    message: "Too loud",
-    warningLevel: 60,
-    loudLevel: 80,
-    sensitivity: 100,
-    triggerHoldMs: 0,
-    clearHoldMs: 0,
-    displayMode: "overlay",
-    heightPx: 96,
-  },
-};
-
 function player(
   options: {
     source?: "host-levels" | "renderer-microphone" | null;
@@ -120,15 +85,9 @@ describe("runtime plugin discovery", () => {
         plugin.definition.tier,
       ]),
     ).toEqual([
-      ["brand_bug", "ambient"],
       ["countdown_bar", "scheduled"],
       ["emergency_alerts", "emergency"],
-      ["noise_meter", "live"],
     ]);
-    const meter = runtimeDiscovery.plugins.find(
-      (plugin) => plugin.definition.id === "noise_meter",
-    );
-    expect(meter?.hardware).toEqual(["microphone"]);
   });
 
   const manifest = (
@@ -247,9 +206,9 @@ describe("runtime plugin discovery", () => {
 });
 
 describe("runtime plugins together", () => {
-  it("gives an emergency ticker the strip, pushes content, and lifts the corners", () => {
+  it("gives an emergency ticker the strip and pushes content", () => {
     const { host, stage, clock } = player();
-    host.setEntries([countdown, brandBug], 0);
+    host.setEntries([countdown], 0);
     expect(holder(host, "strip.bottom")).toBe("countdown_bar");
     expect(host.describe().surfaces["strip.bottom"]?.text).toBe(
       "Lunch starts in 10m 0s",
@@ -258,7 +217,7 @@ describe("runtime plugins together", () => {
       "72px",
     );
 
-    host.setEntries([countdown, brandBug, ticker], 0);
+    host.setEntries([countdown, ticker], 0);
     // A countdown priority of 1000 still loses to the emergency tier.
     expect(holder(host, "strip.bottom")).toBe("emergency_alerts");
     expect(host.describe().surfaces["strip.bottom"]?.text).toBe(
@@ -267,9 +226,6 @@ describe("runtime plugins together", () => {
     expect(stage.style.getPropertyValue("--tc-stage-bottom")).toBe("96px");
     expect(host.element.style.getPropertyValue("--tc-corner-lift-bottom")).toBe(
       "96px",
-    );
-    expect(host.describe().surfaces["corner.bottom-right"]?.plugin).toBe(
-      "brand_bug",
     );
 
     // The cached manifest still holds the ticker; its expiry ends it locally.
@@ -282,27 +238,6 @@ describe("runtime plugins together", () => {
     );
   });
 
-  it("keeps one element per surface across updates, and a hidden logo keeps its source", () => {
-    const { host, clock } = player();
-    host.setEntries([brandBug], 0);
-    const logo = document.querySelector<HTMLImageElement>(
-      ".tc-brand-bug--bottom-right .tc-brand-bug__logo",
-    )!;
-    expect(logo.getAttribute("src")).toBe(
-      "tcmedia://variant/asset-1/variant-1",
-    );
-    host.setEntries([], 0);
-    clock.advance(SURFACE_TICK_MS);
-    const mark = document.querySelector(".tc-brand-bug--bottom-right")!;
-    expect(mark.classList.contains("tc-brand-bug--visible")).toBe(false);
-    expect(
-      document.querySelector(".tc-brand-bug--bottom-right .tc-brand-bug__logo"),
-    ).toBe(logo);
-    expect(logo.getAttribute("src")).toBe(
-      "tcmedia://variant/asset-1/variant-1",
-    );
-  });
-
   it("freezes the ticker at a deterministic frame when motion is frozen", () => {
     const { host } = player({ animationScale: 0 });
     host.setEntries([ticker], 0);
@@ -312,69 +247,27 @@ describe("runtime plugins together", () => {
     // jsdom has no layout, so the frame is the fixed point of a 0px bar.
     expect(track.style.getPropertyValue("transform")).toMatch(/^translateX\(/);
   });
-});
 
-describe("Noise Meter on the generic microphone contract", () => {
-  it("tells the host when to open and close its microphone", () => {
-    const { host, reports } = player();
-    host.setEntries([noiseMeter], 0);
-    expect(reports).toEqual(["active"]);
-    host.setEntries([], 0);
-    expect(reports.at(-1)).toBe("inactive");
-  });
-
-  it("takes the strip from a countdown while the room is loud, and gives it back", () => {
-    const { host, clock, microphone } = player();
-    host.setEntries([noiseMeter, countdown], 0);
-    expect(holder(host, "strip.bottom")).toBe("countdown_bar");
-    microphone.hostLevel(0.9);
-    clock.advance(100);
-    microphone.hostLevel(0.9);
-    clock.advance(100);
-    expect(holder(host, "strip.bottom")).toBe("noise_meter");
-    expect(host.describe().surfaces["strip.bottom"]?.text).toBe(
-      "Noise level Too loud",
+  it("ignores entries of removed plugins in a cached manifest", () => {
+    // Brand Bug and Noise Meter were removed; a Player may still hold a
+    // manifest that carries their entries until the next sync.
+    const { host, stage, diagnostics } = player();
+    host.setEntries(
+      [
+        {
+          id: "bug-1",
+          type: "brand_bug",
+          version: 1,
+          config: { corner: "top_left" },
+        },
+        { id: "noise-1", type: "noise_meter", version: 1, config: {} },
+        countdown,
+      ],
+      0,
     );
-    for (let index = 0; index < 20; index += 1) {
-      microphone.hostLevel(0);
-      clock.advance(100);
-    }
+    expect(Object.keys(host.describe().surfaces)).toEqual(["strip.bottom"]);
     expect(holder(host, "strip.bottom")).toBe("countdown_bar");
-  });
-
-  it("loses the strip to an emergency and gets it back when the alert expires", () => {
-    const { host, clock, microphone } = player();
-    host.setEntries([noiseMeter, ticker], 0);
-    for (let index = 0; index < 3; index += 1) {
-      microphone.hostLevel(0.9);
-      clock.advance(100);
-    }
-    expect(holder(host, "strip.bottom")).toBe("emergency_alerts");
-    clock.advance(2 * 60_000);
-    microphone.hostLevel(0.9);
-    clock.advance(100);
-    expect(holder(host, "strip.bottom")).toBe("noise_meter");
-  });
-
-  it("closes the microphone while asleep and opens it again on wake", () => {
-    const { host, reports } = player();
-    host.setEntries([noiseMeter], 0);
-    host.setAwake(false);
-    expect(reports.at(-1)).toBe("inactive");
-    host.setAwake(true);
-    expect(reports.at(-1)).toBe("active");
-  });
-
-  it("never opens a microphone on a Player without one", () => {
-    const { host, reports } = player({ source: null });
-    host.setEntries([noiseMeter], 0);
-    expect(reports).not.toContain("active");
-  });
-
-  it("disposes everything and leaves no timers on stop", () => {
-    const { host, clock } = player();
-    host.setEntries([countdown, brandBug, ticker, noiseMeter], 0);
-    host.stop();
-    expect(clock.pendingTimers).toBe(0);
+    expect(stage.style.getPropertyValue("--tc-stage-bottom")).toBe("0px");
+    expect(diagnostics).toEqual([]);
   });
 });

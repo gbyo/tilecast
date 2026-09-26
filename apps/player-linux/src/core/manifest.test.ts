@@ -199,59 +199,6 @@ describe("requiredDownloads", () => {
     ]);
   });
 
-  it("caches a Brand Bug logo so the mark survives an outage", () => {
-    const m = manifest({
-      assets: [asset({ assetId: "logo", variantId: "logo-v1" })],
-      plugins: [
-        {
-          id: "bug-1",
-          type: "brand_bug",
-          version: 1,
-          config: {
-            name: "Sponsor",
-            corner: "top_right",
-            imageAssetId: "logo",
-            imageVariantId: "logo-v1",
-            widthPercent: 12,
-            textSizePercent: 3,
-            opacityPercent: 90,
-            marginPercent: 3,
-            textColor: "#ffffff",
-            backgroundStyle: "none",
-            priority: 0,
-          },
-        },
-      ],
-    });
-    expect(requiredDownloads(m).map((a) => a.variantId)).toEqual(["logo-v1"]);
-  });
-
-  it("requires nothing for a text-only Brand Bug", () => {
-    const m = manifest({
-      assets: [asset({})],
-      plugins: [
-        {
-          id: "bug-2",
-          type: "brand_bug",
-          version: 1,
-          config: {
-            name: "Legal notice",
-            corner: "bottom_left",
-            text: "© Example",
-            widthPercent: 20,
-            textSizePercent: 2,
-            opacityPercent: 80,
-            marginPercent: 2,
-            textColor: "#ffffff",
-            backgroundStyle: "scrim",
-            priority: 0,
-          },
-        },
-      ],
-    });
-    expect(requiredDownloads(m)).toEqual([]);
-  });
-
   it("deduplicates an asset shared by multiple items", () => {
     const m = manifest({
       playlist: {
