@@ -82,12 +82,17 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
 
   const manualRefresh = useMutation({
     mutationFn: async () => {
-      if (!csrfToken) throw new Error("Your Studio session has expired.");
+      if (!csrfToken) throw new Error(t("livePreview.sessionFailed"));
       await previewApi.renew(screenId, csrfToken, true);
     },
     onSuccess: async () => {
       setRenewalError(null);
       await preview.refetch();
+    },
+    onError: (error) => {
+      setRenewalError(
+        error instanceof Error ? error.message : t("livePreview.sessionFailed"),
+      );
     },
   });
 
@@ -128,7 +133,7 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
             size="sm"
             variant="outline"
             onClick={() => manualRefresh.mutate()}
-            disabled={manualRefresh.isPending}
+            disabled={manualRefresh.isPending || !csrfToken}
           >
             <RefreshCw aria-hidden="true" />
             {manualRefresh.isPending
