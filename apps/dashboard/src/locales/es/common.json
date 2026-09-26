@@ -35,6 +35,10 @@
     "items_many": "{{count}} de elementos",
     "items_other": "{{count}} elementos"
   },
+  "clipboard": {
+    "copied": "{{label}} copiado.",
+    "copyFailed": "No se pudo copiar {{label}}."
+  },
   "filters": {
     "active": "Filtros activos",
     "remove": "Quitar el filtro {{label}}: {{value}}",
