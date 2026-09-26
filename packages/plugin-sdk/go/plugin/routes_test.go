@@ -53,3 +53,20 @@ func TestCollectRoutesRefusesOneShapeTwice(t *testing.T) {
 		t.Fatalf("valid siblings: %v %d", err, len(routes))
 	}
 }
+
+func TestCollectRoutesRateLimit(t *testing.T) {
+	manifest := Manifest{ID: "sample", API: &APIEntry{BasePaths: []string{"/plugins/sample"}}}
+	handler := func(http.ResponseWriter, *http.Request) error { return nil }
+	routes, err := CollectRoutes(manifest, routesFunc(func(r Router) {
+		r.HandleWithRateLimit(http.MethodPost, "/plugins/sample/poll", AccessManager, RateLimitOperations, handler)
+	}))
+	if err != nil || len(routes) != 1 || routes[0].RateLimit != RateLimitOperations {
+		t.Fatalf("operations route: %+v, %v", routes, err)
+	}
+	_, err = CollectRoutes(manifest, routesFunc(func(r Router) {
+		r.HandleWithRateLimit(http.MethodPost, "/plugins/sample/poll", AccessManager, "unknown", handler)
+	}))
+	if err == nil || !strings.Contains(err.Error(), "unsupported rate limit") {
+		t.Fatalf("invalid policy: %v", err)
+	}
+}

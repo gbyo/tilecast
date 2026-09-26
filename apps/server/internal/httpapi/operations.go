@@ -16,6 +16,8 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/displaycontrol"
+	"github.com/tilecast/tilecast/apps/server/internal/takeovers"
+	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
 
 var commandTypes = map[string]bool{
@@ -195,81 +197,16 @@ func (s *server) activateTakeover(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback(r.Context())
-	id := uuid.New()
-	if _, err = tx.Exec(r.Context(), `INSERT INTO takeovers(id,organization_id,name,description,playlist_id,status,activated_by,activated_at,expires_at)VALUES($1,$2,$3,$4,$5,'active',$6,$7,$8)`, id, org, input.Name, input.Description, input.PlaylistID, user.ID, now, input.ExpiresAt); err != nil {
-		s.internalError(w, r, err)
-		return
-	}
-	for _, screen := range uniqueUUIDs(input.ScreenIDs) {
-		if _, err = tx.Exec(r.Context(), `INSERT INTO takeover_targets(takeover_id,target_type,screen_id) SELECT $1,'screen',$2 WHERE EXISTS(SELECT 1 FROM screens WHERE id=$2 AND organization_id=$3)`, id, screen, org); err != nil {
-			s.internalError(w, r, err)
-			return
-		}
-	}
-	for _, group := range uniqueUUIDs(input.GroupIDs) {
-		if _, err = tx.Exec(r.Context(), `INSERT INTO takeover_targets(takeover_id,target_type,screen_group_id) SELECT $1,'group',$2 WHERE EXISTS(SELECT 1 FROM screen_groups WHERE id=$2 AND organization_id=$3 AND deleted_at IS NULL)`, id, group, org); err != nil {
-			s.internalError(w, r, err)
-			return
-		}
-	}
-	screens, err := takeoverScreens(r.Context(), tx, org, input.ScreenIDs, input.GroupIDs)
-	if err != nil {
-		s.internalError(w, r, err)
-		return
-	}
-	if len(screens) == 0 {
+	result, afterCommit, err := s.takeovers.ActivateInTx(r.Context(), tx, plugin.TakeoverRequest{
+		Name: input.Name, Description: input.Description, PlaylistID: input.PlaylistID,
+		Targets:     plugin.ScreenTargets{ScreenIDs: input.ScreenIDs, GroupIDs: input.GroupIDs},
+		ActivatedBy: user.ID, ActivatedAt: now, ExpiresAt: input.ExpiresAt,
+	})
+	if errors.Is(err, takeovers.ErrNoEligibleScreens) {
 		writeError(w, 422, "takeover_target_required", "No eligible screens matched the targets.")
 		return
 	}
-	replacedRows, err := tx.Query(r.Context(), `SELECT DISTINCT es.takeover_id FROM takeover_screen_states es JOIN takeovers e ON e.id=es.takeover_id WHERE es.screen_id=ANY($1) AND e.status='active' AND e.id<>$2 AND es.state NOT IN ('restored','cancelled','expired')`, screens, id)
 	if err != nil {
-		s.internalError(w, r, err)
-		return
-	}
-	replacedIDs := []uuid.UUID{}
-	for replacedRows.Next() {
-		var replaced uuid.UUID
-		if err = replacedRows.Scan(&replaced); err != nil {
-			replacedRows.Close()
-			s.internalError(w, r, err)
-			return
-		}
-		replacedIDs = append(replacedIDs, replaced)
-		if _, err = tx.Exec(r.Context(), `UPDATE takeovers SET status='cancelled',cancelled_at=now(),cancellation_reason='Replaced by another Takeover',updated_at=now() WHERE id=$1 AND status='active'`, replaced); err != nil {
-			replacedRows.Close()
-			s.internalError(w, r, err)
-			return
-		}
-		if _, err = tx.Exec(r.Context(), `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id)VALUES($1,$2,'takeover.replaced','takeover',$3)`, uuid.New(), user.ID, replaced.String()); err != nil {
-			replacedRows.Close()
-			s.internalError(w, r, err)
-			return
-		}
-	}
-	replacedRows.Close()
-	if err = replacedRows.Err(); err != nil {
-		s.internalError(w, r, err)
-		return
-	}
-	versions := map[uuid.UUID]int64{}
-	for _, screen := range screens {
-		if _, err = tx.Exec(r.Context(), `UPDATE takeover_screen_states SET state='restored',restored_at=now(),last_updated_at=now() WHERE screen_id=$1 AND takeover_id=ANY($2) AND state NOT IN ('restored','cancelled','expired')`, screen, replacedIDs); err != nil {
-			s.internalError(w, r, err)
-			return
-		}
-		var version int64
-		if err = tx.QueryRow(r.Context(), `UPDATE screen_manifest_state SET manifest_version=manifest_version+1,changed_at=now(),change_reason='takeover.activated' WHERE screen_id=$1 RETURNING manifest_version`, screen).Scan(&version); err != nil {
-			s.internalError(w, r, err)
-			return
-		}
-		versions[screen] = version
-		_, err = tx.Exec(r.Context(), `INSERT INTO takeover_screen_states(takeover_id,screen_id,manifest_version,state)VALUES($1,$2,$3,'pending')`, id, screen, version)
-		if err != nil {
-			s.internalError(w, r, err)
-			return
-		}
-	}
-	if _, err = tx.Exec(r.Context(), `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id)VALUES($1,$2,'takeover.activated','takeover',$3)`, uuid.New(), user.ID, id.String()); err != nil {
 		s.internalError(w, r, err)
 		return
 	}
@@ -277,15 +214,9 @@ func (s *server) activateTakeover(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, r, err)
 		return
 	}
-	// Emergency takeover preempts the lower-priority external presentation.
-	// For groups this stops every participant through the session's state rows.
-	s.stopAirplayForScreens(r.Context(), screens, user.ID, "emergency_takeover")
-	for _, screen := range screens {
-		version := versions[screen]
-		s.devices.Notify(screen, map[string]any{"type": "takeover.changed", "takeoverId": id, "manifestVersion": version})
-		s.devices.Notify(screen, map[string]any{"type": "manifest.changed", "manifestVersion": version})
-	}
-	writeJSON(w, http.StatusCreated, map[string]any{"data": map[string]any{"id": id, "status": "active", "affectedCount": len(screens), "expiresAt": input.ExpiresAt}})
+	s.stopAirplayForScreens(r.Context(), result.ScreenIDs, user.ID, "emergency_takeover")
+	afterCommit()
+	writeJSON(w, http.StatusCreated, map[string]any{"data": map[string]any{"id": result.ID, "status": "active", "affectedCount": result.AffectedCount, "expiresAt": input.ExpiresAt}})
 }
 
 func (s *server) cancelTakeover(w http.ResponseWriter, r *http.Request) {
@@ -311,45 +242,12 @@ func (s *server) cancelTakeover(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback(r.Context())
 	user := r.Context().Value(sessionContextKey).(auth.Session).User
-	tag, err := tx.Exec(r.Context(), `UPDATE takeovers SET status='cancelled',cancelled_by=$2,cancelled_at=now(),cancellation_reason=$3,updated_at=now() WHERE id=$1 AND status='active'`, id, user.ID, strings.TrimSpace(body.Reason))
-	if err != nil {
-		s.internalError(w, r, err)
-		return
-	}
-	if tag.RowsAffected() == 0 {
+	afterCommit, err := s.takeovers.CancelInTx(r.Context(), tx, id, user.ID, strings.TrimSpace(body.Reason))
+	if errors.Is(err, takeovers.ErrInactive) {
 		writeError(w, 409, "takeover_expired", "Takeover is no longer active.")
 		return
 	}
-	rows, err := tx.Query(r.Context(), `UPDATE takeover_screen_states SET state='cancelled',restored_at=now(),last_updated_at=now() WHERE takeover_id=$1 RETURNING screen_id`, id)
 	if err != nil {
-		s.internalError(w, r, err)
-		return
-	}
-	screens := []uuid.UUID{}
-	for rows.Next() {
-		var screen uuid.UUID
-		if err = rows.Scan(&screen); err != nil {
-			rows.Close()
-			s.internalError(w, r, err)
-			return
-		}
-		screens = append(screens, screen)
-	}
-	rows.Close()
-	if err = rows.Err(); err != nil {
-		s.internalError(w, r, err)
-		return
-	}
-	versions := map[uuid.UUID]int64{}
-	for _, screen := range screens {
-		var version int64
-		if err = tx.QueryRow(r.Context(), `UPDATE screen_manifest_state SET manifest_version=manifest_version+1,changed_at=now(),change_reason='takeover.cancelled' WHERE screen_id=$1 RETURNING manifest_version`, screen).Scan(&version); err != nil {
-			s.internalError(w, r, err)
-			return
-		}
-		versions[screen] = version
-	}
-	if _, err = tx.Exec(r.Context(), `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id)VALUES($1,$2,'takeover.cancelled','takeover',$3)`, uuid.New(), user.ID, id.String()); err != nil {
 		s.internalError(w, r, err)
 		return
 	}
@@ -357,11 +255,7 @@ func (s *server) cancelTakeover(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, r, err)
 		return
 	}
-	for _, screen := range screens {
-		version := versions[screen]
-		s.devices.Notify(screen, map[string]any{"type": "takeover.changed", "takeoverId": id, "manifestVersion": version})
-		s.devices.Notify(screen, map[string]any{"type": "manifest.changed", "manifestVersion": version})
-	}
+	afterCommit()
 	writeJSON(w, 200, map[string]any{"data": map[string]any{"id": id, "status": "cancelled"}})
 }
 

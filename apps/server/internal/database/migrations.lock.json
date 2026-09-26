@@ -350,7 +350,7 @@
   {
     "version": 59,
     "file": "00059_alert_monitoring.sql",
-    "owner": "core",
+    "owner": "emergency_alerts",
     "sha256": "c1f23ec49e039925292479396e3dbae54b3adcc968ae4813af7206dc11ee7729"
   },
   {
@@ -368,7 +368,7 @@
   {
     "version": 62,
     "file": "00062_nws_builtin_presentations.sql",
-    "owner": "core",
+    "owner": "emergency_alerts",
     "sha256": "1f24a4b4ae4fb1fb8e96f3f92ddfdbde53adb226552446e81aa6ca2b8cffbcf1"
   },
   {
@@ -392,7 +392,7 @@
   {
     "version": 66,
     "file": "00066_nws_ticker_response.sql",
-    "owner": "core",
+    "owner": "emergency_alerts",
     "sha256": "567189113b05d24d3dfde44db4eac4b66a10d57f41ae68c5cc5c620db3251e7e"
   },
   {

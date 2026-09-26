@@ -14,8 +14,7 @@ import (
 // built-in plugins move into plugins/. Each one disappears when its plugin no
 // longer needs a core special case.
 const (
-	EmergencyAlertsID = "emergency_alerts"
-	FormsID           = "forms"
+	FormsID = "forms"
 )
 
 // retiredPlugins are plugins that earlier releases shipped and this release

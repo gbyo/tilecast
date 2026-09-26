@@ -22,7 +22,7 @@ func TestRegistryIsValid(t *testing.T) {
 			t.Fatalf("%s should be installable", d.ID)
 		}
 	}
-	for _, id := range []string{"countdown_bar", EmergencyAlertsID, FormsID} {
+	for _, id := range []string{"countdown_bar", "emergency_alerts", FormsID} {
 		if !seen[id] {
 			t.Fatalf("registry is missing %s", id)
 		}

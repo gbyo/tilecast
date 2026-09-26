@@ -25,8 +25,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/database"
+	"github.com/tilecast/tilecast/apps/server/internal/managedpresentations"
+	"github.com/tilecast/tilecast/apps/server/internal/playlists"
 	"github.com/tilecast/tilecast/apps/server/internal/plugins"
+	"github.com/tilecast/tilecast/apps/server/internal/takeovers"
 	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
+	"time"
 )
 
 // Harness is one plugin hosted on a fresh organization.
@@ -106,7 +110,12 @@ func New(t *testing.T, p plugin.Plugin, opts ...Option) *Harness {
 	h := &Harness{Ctx: ctx, Pool: pool, OrgID: uuid.New(), OwnerID: uuid.New(), t: t, id: p.Manifest().ID}
 	h.exec(`INSERT INTO organization_settings(singleton,organization_name,id) VALUES(TRUE,'Plugin Harness',$1)`, h.OrgID)
 	h.exec(`INSERT INTO users(id,name,username,password_hash,role,active) VALUES($1,'Owner','harness-owner','unused','owner',TRUE)`, h.OwnerID)
-	h.service = plugins.NewService(pool, nil, plugins.WithPlugins(p))
+	playlistService := playlists.NewService(pool, nil)
+	h.service = plugins.NewService(pool, nil, plugins.WithPlugins(p),
+		plugins.WithTakeovers(takeovers.NewService(pool, playlistService, nil, 24*time.Hour)),
+		plugins.WithManagedPresentations(managedpresentations.NewService(pool)),
+		plugins.WithBackgroundJobsAllowed(func() bool { return true }),
+		plugins.WithPublicURL("https://tilecast.example"))
 	h.Host, _ = h.service.Host(h.id)
 	return h
 }

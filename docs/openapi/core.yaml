@@ -2738,62 +2738,6 @@ paths:
       responses:
         "200": { description: Quick Present stopped }
         "404": { description: Quick Present is no longer active }
-  /api/v1/alerts/nws:
-    get:
-      summary: Read the NWS monitor, rules, active matches, and poll health
-      responses:
-        "200": { description: NWS alert settings }
-  /api/v1/alerts/nws/zones:
-    get:
-      summary: List official NWS counties and forecast zones for an area
-      parameters:
-        - {
-            in: query,
-            name: area,
-            required: true,
-            schema: { type: string, minLength: 2, maxLength: 2 },
-          }
-      responses:
-        "200": { description: County and forecast-zone choices }
-        "422": { description: Invalid state or territory }
-        "502": { description: NWS zone catalog unavailable }
-  /api/v1/alerts/nws/monitor:
-    put:
-      summary: Configure NWS area and zone monitoring
-      responses:
-        "200": { description: Monitor updated }
-        "422": { description: "Invalid area, zone, or interval" }
-  /api/v1/alerts/nws/poll:
-    post:
-      summary: Retrieve and apply active NWS alerts now
-      responses:
-        "200": { description: Poll completed }
-        "502": { description: NWS retrieval failed }
-  /api/v1/alerts/nws/rules:
-    post:
-      summary: Create an automatic NWS rule answering with a takeover or a ticker bar
-      responses:
-        "201": { description: Rule created }
-        "422":
-          { description: "Invalid rule, response mode, or ticker geometry" }
-  /api/v1/alerts/nws/rules/{id}:
-    parameters:
-      - {
-          in: path,
-          name: id,
-          required: true,
-          schema: { type: string, format: uuid },
-        }
-    put:
-      summary: Replace an automatic NWS rule
-      responses:
-        "200": { description: Rule updated }
-        "422":
-          { description: "Invalid rule, response mode, or ticker geometry" }
-    delete:
-      summary: Delete a rule, ending Takeovers it raised and withdrawing its ticker
-      responses:
-        "200": { description: Rule deleted }
   /api/v1/screens/{id}/commands:
     get:
       summary: List recent screen commands
