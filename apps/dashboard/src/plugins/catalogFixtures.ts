@@ -64,31 +64,4 @@ const catalogDefaults: Record<string, Partial<PluginSummary>> = {
     instanceNounSingular: "form",
     instanceNounPlural: "forms",
   },
-  brand_bug: {
-    name: "Brand Bug / Watermark",
-    // i18n-ignore: development fixture label, not Studio copy
-    description: "Keep a corner mark over content.",
-    category: "Display",
-    icon: "stamp",
-    managementPath: "/plugins/brand-bug",
-    instanceNounSingular: "mark",
-    instanceNounPlural: "marks",
-  },
-  noise_meter: {
-    name: "Noise Meter",
-    // i18n-ignore: development fixture label, not Studio copy
-    description: "Watch room noise on Linux players.",
-    category: "Hardware",
-    icon: "audio-lines",
-    managementPath: "/plugins/noise-meter",
-    instanceNounSingular: "meter",
-    instanceNounPlural: "meters",
-    requirements: [
-      // i18n-ignore: development fixture label, not Studio copy
-      { kind: "platform", label: "Linux Player" },
-      // i18n-ignore: development fixture label, not Studio copy
-      { kind: "hardware", label: "Microphone or audio input" },
-    ],
-    capabilities: ["Player microphone"],
-  },
 };

@@ -65,28 +65,7 @@ func (s *server) runActivityRetentionWorker() {
 	for {
 		<-timer.C
 		s.cleanupActivityBounded(context.Background(), 500)
-		// Noise Meter history expires on its own per-instance window. It shares
-		// this bounded loop rather than running on every heartbeat: pruning is
-		// maintenance, and a player reporting a room's level should not pay for
-		// a delete sweep.
-		s.cleanupNoiseHistoryBounded(context.Background(), 5000)
 		timer.Reset(6 * time.Hour)
-	}
-}
-
-func (s *server) cleanupNoiseHistoryBounded(ctx context.Context, batch int) {
-	if s.plugins == nil {
-		return
-	}
-	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
-	defer cancel()
-	removed, err := s.plugins.PruneNoiseHistory(ctx, batch)
-	if err != nil {
-		s.logger.Warn("noise meter history retention batch failed", "error", err)
-		return
-	}
-	if removed > 0 {
-		s.logger.Info("noise meter history retention batch completed", "rows_removed", removed)
 	}
 }
 

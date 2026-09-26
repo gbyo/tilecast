@@ -283,10 +283,6 @@ func (s *Service) Heartbeat(ctx context.Context, principal DevicePrincipal, hear
 	// fan-out needs. Also optional and also best effort; a player that predates
 	// the feature simply reports nothing and keeps its existing AirPlay behavior.
 	s.updatePresentationNetworkHeartbeat(ctx, principal.ScreenID, heartbeat)
-	// The live Noise Meter's own state. Its historical buckets are stored by
-	// the plugins package after this call, so a malformed optional section can
-	// never disturb the lifecycle fields above.
-	s.updateNoiseMeterHeartbeat(ctx, principal.ScreenID, heartbeat)
 	healthyPlaybackAt := effectiveHealthyPlaybackAt(heartbeat)
 	if heartbeat.ConfiguredReliabilityMode != "" || heartbeat.SafeMode != nil {
 		var previousSafeMode bool

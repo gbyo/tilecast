@@ -4,11 +4,9 @@ package plugins
 
 import (
 	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
-	brandbug "github.com/tilecast/tilecast/plugins/brand-bug"
 	countdownbar "github.com/tilecast/tilecast/plugins/countdown-bar"
 	emergencyalerts "github.com/tilecast/tilecast/plugins/emergency-alerts"
 	forms "github.com/tilecast/tilecast/plugins/forms"
-	noisemeter "github.com/tilecast/tilecast/plugins/noise-meter"
 )
 
 // Bundled returns every first-party plugin compiled into this release, in
@@ -16,10 +14,8 @@ import (
 // list.
 func Bundled() []plugin.Plugin {
 	return []plugin.Plugin{
-		brandbug.New(),
 		countdownbar.New(),
 		emergencyalerts.New(),
 		forms.New(),
-		noisemeter.New(),
 	}
 }
