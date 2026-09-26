@@ -240,6 +240,7 @@ export default defineConfig({
               collapsed: true,
               items: [
                 { slug: "edge/compatibility" },
+                { slug: "edge/updates" },
                 { slug: "edge/offline-resilience" },
                 { slug: "edge/hardware" },
                 { slug: "edge/monitoring" },

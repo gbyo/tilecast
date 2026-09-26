@@ -69,10 +69,8 @@ An Edge screen installs the release beside the current one, restarts into it, an
 
 ## Update Tilecast Edge
 
-An Edge update finishes only when the screen confirms it. In **Deployment history**, an Edge screen moves through downloading, installing, and reconnecting, and becomes succeeded only after the new release has run for two minutes with content on screen.
+An Edge update finishes only when the screen confirms it. In **Deployment history**, an Edge screen moves through downloading, installing, and reconnecting, and becomes succeeded only after the new release has run for two minutes with a server connection and content on screen.
 
-If the new release doesn't start, keeps restarting, can't reconnect, or the screen restarts before it confirms, the screen goes back to the release it ran before. The deployment shows that screen as failed with the reason, and the screen doesn't try that release again for the same deployment. Deploy a fixed release when one is available.
+If the new release doesn't start, keeps restarting, can't reconnect, or the screen restarts before it confirms, the screen goes back to the release it ran before. The deployment shows that screen as failed with the reason, and the same deployment doesn't try that release on that screen again. Deploy a fixed release when one is available.
 
-Each screen keeps its previous release until the new one is confirmed. An update doesn't change the host operating system, and it never needs the screen's pairing to be repeated.
-
-For the update design and its security boundary, see the [Tilecast Edge update threat review](https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-update-threat-review.md).
+An update never needs the screen to be paired again. See [Update Tilecast Edge](../../edge/updates/) for what happens on the screen, the rollback reasons, and recovery.

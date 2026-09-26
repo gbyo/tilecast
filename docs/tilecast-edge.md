@@ -400,6 +400,15 @@ A server-side migration session with a separate candidate credential is not part
 
 Tilecast Edge updates are Player updates. The Tilecast Server authorizes every deployment with the existing Player Updates model (releases, deployments, canary, maintenance windows, cancel and retry), and a screen installs only what a deployment names. `systemd-sysupdate` was prototyped and is not used ([`tilecast-edge-m10-sysupdate-evaluation.md`](tilecast-edge-m10-sysupdate-evaluation.md)): on the tested systemd versions it did not unpack the Tilecast `.tar.zst` archive, it verifies no local source, it cannot send the device credential, and it has no install-without-activation or rollback step. Debian 12 does not ship it. Mender is not a candidate.
 
+The M10 implementation reuses existing parts and adds only the missing ones:
+
+- the Tilecast Server Player Updates model, with an `edge` player family;
+- the M7 release installer, extracted into the `edge-release` crate that `tilecast-edge-migrate` and `tilecast-edge-update` share;
+- the Tilecast Ed25519 release trust model, for the release manifest and for the update envelope;
+- the authenticated server artifact delivery and the Edge content store (CAS), with range resume;
+- the root update helper `tilecast-edge-update`, with a root-owned activation transaction record;
+- an independent rollback guard that runs the previous release's helper.
+
 ```text
  Tilecast Server
    |  install_player_update, update metadata and archive (device credential)
@@ -466,6 +475,8 @@ Telemetry and Activity events use a bounded outbox in SQLite (at most 500 rows, 
 ### 18.1 Edge 1
 
 Edge 1 ships as a sequence of reviewable milestones. Each one keeps the tree releasable.
+
+M1 to M10 are software-complete and merged into `main` (2026-09-26). M11 and M12 are not started. [`tilecast-edge-next.md`](tilecast-edge-next.md) §3 records the state of each milestone.
 
 | Milestone                      | Scope                                                                                                                                                                                                                                                                                                                                           | Exit criteria                                                                                                                                                  |
 | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |

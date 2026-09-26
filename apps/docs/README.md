@@ -23,14 +23,14 @@ shallow clone shows the wrong date. Use a full clone.
 
 ## Files
 
-| Path                       | Contents                                                      |
-| -------------------------- | ------------------------------------------------------------- |
-| `astro.config.mjs`         | Site URL, base path, sidebar, theme, and Starlight settings   |
-| `src/content/docs/`        | Pages. The file path is the URL path.                         |
-| `src/route-middleware.mjs` | Hides page Markdown actions on generated routes               |
-| `src/styles/tilecast.css`  | Starlight theme variables mapped to `@tilecast/design-tokens` |
-| `scripts/check-links.mjs`  | Post-build check for internal links and heading anchors       |
-| `STYLE.md`                 | Writing rules for public pages                                |
+| Path                       | Contents                                                             |
+| -------------------------- | -------------------------------------------------------------------- |
+| `astro.config.mjs`         | Site URL, base path, sidebar, theme, and Starlight settings          |
+| `src/content/docs/`        | Pages. The file path is the URL path.                                |
+| `src/route-middleware.mjs` | Adds the Edge section banner; hides page actions on generated routes |
+| `src/styles/tilecast.css`  | Starlight theme variables mapped to `@tilecast/design-tokens`        |
+| `scripts/check-links.mjs`  | Post-build check for internal links and heading anchors              |
+| `STYLE.md`                 | Writing rules for public pages                                       |
 
 Public pages live below `src/content/docs/`. Engineering specifications and
 contracts live with the code they describe:

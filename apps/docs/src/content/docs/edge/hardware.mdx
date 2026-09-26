@@ -1,28 +1,36 @@
 ---
 title: Hardware and host integrations
-description: See which Linux hardware features Tilecast Edge can use and how they appear in Studio.
+description: See how Tilecast Edge uses HDMI-CEC, DDC/CI, Presentation Network, and host audio for the Noise Meter, and how it reports what each Player can do.
 ---
 
-:::caution[Preview]
-The M9 hardware work is still being tested and has not finished hardware qualification for a production release.
-:::
+Edge reports a hardware feature as available only when it works on that Player. A missing CEC adapter, DDC/CI support, microphone, or Wi-Fi adapter turns that feature off with a reason. Normal playback continues.
 
-Edge reports hardware features only when they are available on that Player. Missing CEC, DDC, microphone, or Presentation Network support should disable that feature without stopping normal playback.
+The Edge software for each of these features is complete. Real TVs, monitors, microphones, and Wi-Fi adapters haven't been qualified yet, so check each feature on your own hardware before you depend on it.
+
+## Check what a Player can do
+
+Studio shows the hardware features each screen reports. On the Edge computer, `tilecastctl capabilities` lists every feature with its state and a reason code:
+
+```sh title="On the Edge computer"
+/opt/tilecast-edge/current/bin/tilecastctl capabilities
+```
+
+A reason such as `cec_adapter_absent`, `ddc_ci_not_responding`, or `no_microphone` tells you what to fix. The [engineering capability matrix](https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-capabilities.md#hardware-capabilities-m9) lists every state and reason.
 
 ## Display Control
 
-The current M9 work moves Edge away from calling `cec-ctl` and `ddcutil` as subprocesses. Edge talks to the Linux CEC and I²C/DDC devices directly for supported power, input, brightness, volume, and mute controls.
+Edge talks to the Linux HDMI-CEC and I²C/DDC devices directly. It doesn't need `cec-ctl` or `ddcutil`. It supports power and input over HDMI-CEC, and brightness, volume, and mute over DDC/CI.
 
-The current stable Linux Player still uses the providers described in [Display Control](../../screens/display-control/).
+Edge reports a display change as confirmed only when the display reads it back. Input switching over CEC has no readback, so Edge reports it as sent. See [Display Control](../../screens/display-control/) for the Studio side.
 
 ## Presentation Network
 
-Edge keeps Presentation Network behind a small helper instead of giving the main Player service unrestricted network-control access.
+Edge uses the same small root helper as the stable Linux Player to set up the Presentation Network through NetworkManager. The main Edge service gets no general network-control access. The computer needs NetworkManager and a Wi-Fi adapter. See [Presentation Networks](../../administration/presentation-networks/).
 
 ## Noise Meter
 
-Noise Meter needs a working audio input on the Linux host. Edge reads level information through the Linux audio stack and does not send microphone recordings to the server.
+The Noise Meter needs an audio input on the Linux computer. A small process in the `tilecast` account's session measures the level through PipeWire, and Edge sends only the levels to Tilecast Server, never audio. The microphone is open only while a Noise Meter is on screen. See [Noise Meter](../../operations/plugins/noise-meter/).
 
-See [Noise Meter](../../operations/plugins/noise-meter/) for setup and privacy details.
+## Device permissions
 
-Hardware permissions should come from the Edge install setup rather than running the whole Player as root.
+The Edge installer gives the `tilecast` account access to the CEC and I²C devices through a dedicated group and udev rule. Don't run `tilecastd` as root to work around a device permission problem.

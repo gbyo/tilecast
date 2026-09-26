@@ -1,26 +1,28 @@
 ---
 title: Monitor Tilecast Edge
-description: Use the same Fleet, Activity, telemetry, and live-preview tools with Edge.
+description: Use Fleet, Activity, proof of play, telemetry, and live preview with Tilecast Edge screens.
 ---
 
-Edge is meant to appear in the same Studio tools as other Tilecast Players. You should not need a separate monitoring workflow just because a screen runs Edge.
+An Edge screen appears in the same Studio tools as every other Tilecast Player. You don't need a separate monitoring workflow.
 
 ## Screen status and Activity
 
-Edge reports connection state, the current presentation and item, schedules, Takeovers, synchronization, playback progress, and available hardware features.
+Edge reports its connection, the current presentation and item, schedules, Takeovers, synchronization, playback progress, and available hardware features. Use [screen status](../../operations/screen-status/) for the Fleet status meanings and [Activity](../../operations/activity/) for proof of play, playback history, and incidents.
 
-Use [screen status](../../operations/screen-status/) for the normal Fleet status meanings and [Activity](../../operations/activity/) for playback history and incidents.
-
-Activity events that cannot be sent during a temporary outage are kept locally and retried after the Player reconnects.
+When the server is unreachable, Edge keeps its Activity events on the computer and sends each one once after it reconnects. A very long outage keeps the newest events and tells the server how many older ones it dropped, so Activity shows a gap instead of invented playback.
 
 ## Telemetry
 
-Edge reports Player health information such as connection and playback state, renderer state, content-cache use, storage, uptime, clock offset, and supported display measurements.
+Edge reports Player health such as connection and playback state, renderer state, content cache use, storage, uptime, and clock offset.
 
 ## Live preview
 
-The M8 work adds live preview from the WPE renderer through Tilecast's existing preview flow. Setup, pairing, and safe-mode screens do not appear as a normal content preview.
+Edge answers Studio's normal [Live preview](../../operations/live-preview/) with a snapshot from the renderer. Setup, pairing, and safe-mode screens aren't captured. If the renderer can't take a snapshot, Edge pauses previews for a while instead of risking playback.
 
-Use the normal [Live preview](../../operations/live-preview/) page.
+**Watch live** isn't available on Edge.
 
-When an Edge screen needs attention, start with Fleet, Activity, and live preview. Check local status and system logs when Studio does not show enough information.
+## Updates
+
+**Deployment history** in **Settings** > **Player updates** shows each Edge screen's update state, including rollbacks and their reasons. See [Update Tilecast Edge](../updates/).
+
+When an Edge screen needs attention, start with Fleet, Activity, and live preview. Use the [local status and logs](../troubleshooting/#local-status-and-logs) when Studio doesn't show enough.

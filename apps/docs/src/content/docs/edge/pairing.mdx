@@ -1,25 +1,30 @@
 ---
 title: Pair an Edge screen
-description: Connect a new Edge Player to Tilecast Server and approve it in Studio.
+description: Connect a new Tilecast Edge Player to Tilecast Server from the setup screen, LAN discovery, or the command line, and approve it in Studio.
 ---
 
-:::caution[Pairing preview]
-The current Linux Player still uses the stable pairing flow. This page describes Edge pairing only.
-:::
+import { Steps } from "@astrojs/starlight/components";
 
-A new Edge Player can use the setup screen, discover a nearby server with Avahi/mDNS, or be pointed at a server from the command line.
+A new Edge Player pairs with the same codes and approval as every other Tilecast Player. A migrated screen keeps its pairing and doesn't need this page.
 
-For a headless setup:
+## Pair a screen
 
-```sh title="Headless Edge pairing"
-tilecastctl pair https://signage.example.org
-tilecastctl status
-```
+<Steps>
 
-`tilecastctl status` can show the pairing code before the Player is enrolled. It does not show the private pairing secret or the Player credential.
+1. Give Edge the server address. Use one of these:
+   - type the address on the Edge setup screen;
+   - choose a server that Edge found on the local network;
+   - on a computer without a keyboard, use the command line:
 
-Approve the request in Studio using the normal [Pair a display](../../players/pair-a-display/) flow.
+     ```sh title="On the Edge computer"
+     /opt/tilecast-edge/current/bin/tilecastctl pair https://signage.example.org
+     ```
 
-The Player keeps its current pairing request through a daemon restart, so restarting Edge does not create a new request every time. If the request expires or is rejected, start a new one.
+2. Read the pairing code on the screen, or run `tilecastctl status` to see it. `status` never shows the private pairing secret or the Player credential.
+3. In Studio, approve the code with the normal [Pair a display](../../players/pair-a-display/) flow.
 
-Server discovery is optional. If multicast is blocked on the network, enter the server address directly.
+</Steps>
+
+Edge keeps its pairing request through a restart, so restarting Edge doesn't create a new code each time. If the request expires or is rejected, Edge starts a new one.
+
+Server discovery uses Avahi (mDNS) and is optional. If the server doesn't appear, for example because multicast is blocked between networks, enter the address directly.

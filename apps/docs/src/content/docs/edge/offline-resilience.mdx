@@ -1,28 +1,37 @@
 ---
 title: Offline playback and recovery
-description: See what Tilecast Edge keeps working when the network or renderer fails.
+description: See what Tilecast Edge keeps doing through server and network outages, crashes, power loss, and interrupted updates.
 ---
 
-Edge keeps Player state and downloaded content outside the renderer. That means the renderer can restart without throwing away the screen's cached presentation or server connection details.
+Edge keeps its state and downloaded content outside the renderer, in its own database and verified content cache. The renderer can restart, and the whole computer can lose power, without losing the screen's presentation or pairing.
 
 ## Offline playback
 
-After Edge downloads and prepares a presentation, it keeps the required files and settings locally. If the Player restarts before the server is reachable, it can start from that saved presentation first and reconnect afterward.
+After Edge downloads and prepares a presentation, it keeps the files and settings on the computer. If Edge restarts before the server is reachable, it starts from the saved presentation first and reconnects afterward.
 
-While the Tilecast Server is unavailable, Edge can keep using content and schedules it already has. It cannot receive a new assignment or download files it never received.
+While Tilecast Server is unreachable, Edge keeps following the schedules it already has. It can't receive a new assignment or download files it never received. When the server returns, Edge reconnects with a gradually increasing delay and catches up with the current Tilecast state.
 
-## Updating content safely
+## Content changes
 
-Edge prepares a new presentation before replacing the one that is already playing. If the new content cannot be downloaded, verified, or started, the previous presentation stays available.
+Edge prepares a new presentation completely before it replaces the one that's playing. If the new content can't be downloaded, verified, or started, the current presentation keeps playing. An interrupted download continues where it stopped, and a damaged file is downloaded again instead of shown.
 
 ## Commands and settings
 
-Commands are saved before Edge runs them. If the Player crashes while a command is running, Edge reports that interruption after restart instead of running the same command again.
+Edge saves each command before it runs it. If Edge stops while a command runs, it reports the interruption after it restarts and doesn't run the command again.
 
-Player settings are also stored locally with a revision number. A bad or older settings revision does not replace the last one Edge accepted.
+Player settings are stored with a revision number. An invalid or older settings revision doesn't replace the last one Edge accepted, and the accepted settings apply at startup before Edge contacts the server.
 
-## Recovery
+## Renderer failures and safe mode
 
-`tilecastd` can restart the WPE renderer without restarting the whole Player. If playback repeatedly fails, Edge can enter safe mode instead of getting stuck in a restart loop.
+`tilecastd` restarts the WPE renderer without restarting the whole Player. If playback keeps failing, Edge enters safe mode instead of restarting in a loop, and stays there until someone sends **Exit safe mode** from Studio.
 
-When the server becomes reachable again, Edge reconnects and gets back in sync with the current Tilecast state.
+## Updates
+
+An Edge update never leaves the screen without a working release:
+
+- an interrupted download continues where it stopped;
+- a downloaded release is installed in its own directory and doesn't replace the release that's playing;
+- after the switch, the new release is provisional, and the previous release stays installed until the new one confirms;
+- a new release that fails, doesn't confirm, or is running when the computer restarts or loses power goes back to the previous release automatically.
+
+One case needs someone at the computer: if the new release upgraded the local state database before it rolled back, the previous release shows its recovery screen. See [Recover after a rollback](../updates/#recover-after-a-rollback-to-an-older-state-database).

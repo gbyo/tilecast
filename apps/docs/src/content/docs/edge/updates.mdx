@@ -1,0 +1,136 @@
+---
+title: Update Tilecast Edge
+description: Deploy a signed Tilecast Edge release from Studio, and learn how Edge confirms a new release, rolls back one that doesn't prove healthy, and recovers after a rollback.
+---
+
+import {
+  Aside,
+  FileTree,
+  LinkButton,
+  Steps,
+} from "@astrojs/starlight/components";
+
+Edge updates itself from your Tilecast Server, the same way other Players do: you add a signed release in Studio and deploy it to screens. What's different is what happens on the screen. Edge keeps the new release on probation for two minutes and goes back to the previous release on its own if the new one doesn't prove healthy.
+
+An Edge update changes only Tilecast Edge. It doesn't update Tilecast Server, the Linux distribution, or other software on the computer.
+
+## How it differs from the AppImage Player
+
+|                            | Stable Linux Player                              | Tilecast Edge                                            |
+| -------------------------- | ------------------------------------------------ | -------------------------------------------------------- |
+| Release                    | One AppImage                                     | One archive for each architecture, `x86_64` or `aarch64` |
+| Install                    | Replaces the running AppImage                    | Installs beside the current release, then switches to it |
+| Studio shows it as updated | After the Player reconnects with the new version | Only after the screen confirms the new release           |
+| A release that fails       | No automatic rollback                            | Edge goes back to the previous release automatically     |
+
+The two Linux Players never receive each other's releases. An Edge release reaches only Edge screens of the same architecture, and an AppImage release never reaches an Edge screen.
+
+## Deploy an Edge update
+
+<Steps>
+
+1. Open **Settings** > **Player updates** and select **Tilecast Edge**.
+2. Add the release for each architecture your screens use. Select **Sync from GitHub**, or select **Upload release** and choose the archive, `tilecast-edge-update.json`, and `tilecast-edge-update.json.sig`.
+3. Select **Deploy update** and choose the Edge screens or Display Groups. A screen that reports a different architecture is listed as incompatible.
+4. Set a few **Canary screens** for a first rollout. A canary that rolls back pauses the rest of the deployment.
+5. Follow each screen in **Deployment history**. An Edge screen moves through downloading, installing, and reconnecting, and becomes succeeded only after it confirms the new release.
+
+</Steps>
+
+<LinkButton
+  href="../../administration/player-updates/"
+  variant="secondary"
+  icon="right-arrow"
+>
+  Read the full Player updates guide
+</LinkButton>
+
+## What happens on the screen
+
+1. Edge downloads the release from your Tilecast Server. An interrupted download continues from where it stopped after a restart or an outage.
+2. Edge checks the release signature and the size and SHA-256 of the archive before it uses the file.
+3. A small update helper checks every file again and installs the release in its own directory. The release that is playing doesn't change. A **Download only** deployment stops here.
+4. At the deployment's maintenance window, and when no Takeover is running and the server is reachable, the helper stops Edge, switches to the new release, and starts it. The new release is now **provisional**.
+5. The new release must stay connected to the server, keep its renderer ready and out of safe mode, and keep playing the current presentation for two minutes without a break. Then it confirms, and the screen reports the update as succeeded.
+
+Until the new release confirms, the previous one stays installed:
+
+<FileTree>
+
+- /opt/tilecast-edge/
+  - 1.4.0/ The previous release, kept until the new one confirms.
+  - 1.5.0/ The new release.
+  - current Points to the release that runs.
+
+</FileTree>
+
+After a confirmation, Edge keeps the confirmed release and the one before it, and removes older releases.
+
+## When Edge rolls back
+
+Edge returns to the previous release when the new one:
+
+- doesn't start, keeps restarting, or enters safe mode;
+- doesn't confirm within ten minutes;
+- was still provisional when the computer restarted or lost power. This happens even if the new release looked healthy, because it never confirmed.
+
+A separate guard from the previous release makes this decision, so a broken release can't prevent its own rollback. The screen then reports the deployment as failed, with a reason:
+
+| Reason                                                         | What happened                                                 |
+| -------------------------------------------------------------- | ------------------------------------------------------------- |
+| `confirmation_timeout`                                         | The new release didn't prove healthy for two minutes in time. |
+| `rebooted_while_provisional`                                   | The computer restarted before the new release confirmed.      |
+| `candidate_daemon_restarting`, `candidate_renderer_restarting` | The new release kept restarting.                              |
+| `candidate_daemon_failed`, `candidate_renderer_failed`         | The new release stopped and systemd gave up on it.            |
+| `candidate_safe_mode`                                          | The new release entered safe mode.                            |
+
+The same deployment doesn't try that release again on that screen. Deploy a fixed release, or create a new deployment if you want to retry after fixing the cause.
+
+To see what happened on the screen, or to go back while an update is still provisional:
+
+```sh title="On the Edge computer"
+sudo /opt/tilecast-edge/current/bin/tilecast-edge-update status
+sudo /opt/tilecast-edge/current/bin/tilecast-edge-update rollback
+```
+
+`status` lists the installed releases, the current one, and the last update with its result and reason. `rollback` works only while the update is provisional.
+
+## Recover after a rollback to an older state database
+
+A new release can upgrade the Player's local state database when it starts. If that release is then rolled back, the previous release can't read the upgraded database. It shows its recovery screen instead of changing or recreating your data, and the screen stops reporting to Studio. Studio shows it as stale and then offline.
+
+<Aside type="caution" title="Studio can't fix this screen">
+
+An update deployment can't reach a Player in recovery mode, and Edge never converts the database back automatically. Recover the screen on the computer. Don't delete `/var/lib/tilecast-edge/` or `state.db` to clear the recovery screen: that removes the Player's pairing and cached content.
+
+</Aside>
+
+<Steps>
+
+1. Confirm the cause. `tilecastctl status` reports recovery mode with `state_db_newer_schema`, and `tilecast-edge-update status` shows the rolled-back update.
+
+   ```sh title="On the Edge computer"
+   /opt/tilecast-edge/current/bin/tilecastctl status
+   sudo /opt/tilecast-edge/current/bin/tilecast-edge-update status
+   ```
+
+2. Get a release for the computer's architecture that is at least as new as the one that rolled back. Use a fixed release when one is available. Unpack it into an empty directory and verify its signature as described in the [packaging guide](https://github.com/gbyo/tilecast/blob/main/apps/edge/packaging/README.md#1-verify-and-install-the-release).
+3. From the unpacked release directory, install it:
+
+   ```sh title="In the unpacked release directory"
+   sudo ./bin/tilecast-edge-migrate install --from .
+   ```
+
+4. Restart Edge:
+
+   ```sh
+   sudo systemctl restart tilecast-edge.service tilecast-renderer.service
+   ```
+
+5. Check that the screen reconnects in Studio and plays its presentation.
+
+</Steps>
+
+If no fixed release is available and you kept a copy of `/var/lib/tilecast-edge/state.db` from before the update, you can restore that copy instead. The [update threat review](https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-update-threat-review.md#8-the-state-database-and-rollback) explains this limit in detail.
+
+For other update problems, see [Player update troubleshooting](../../troubleshooting/player-updates/).

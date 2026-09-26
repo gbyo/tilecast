@@ -41,7 +41,7 @@ If an older Player uses a custom service or obsolete AppImage startup method, mo
 
 If a screen is listed as incompatible, the release was built for another architecture. Upload the release for the screen's architecture (`x86_64` or `aarch64`).
 
-If a screen shows **Failed**, it kept playing its current release. Common reasons:
+If a screen shows **Failed**, it didn't keep the new release and runs its previous one. Common reasons:
 
 - the screen didn't have enough free disk space to download or install the release;
 - the new release didn't start or kept restarting, so the screen returned to its previous release;
@@ -50,7 +50,9 @@ If a screen shows **Failed**, it kept playing its current release. Common reason
 
 To see what happened on the screen, run `sudo /opt/tilecast-edge/current/bin/tilecast-edge-update status`.
 
-If the screen shows its recovery screen after a rollback, the new release changed the local state database to a version the previous release can't read. See [Tilecast Edge troubleshooting](../../edge/troubleshooting/#recovery-screen-after-an-update).
+[Update Tilecast Edge](../../edge/updates/#when-edge-rolls-back) explains each rollback reason.
+
+If the screen shows its recovery screen after a rollback, the new release changed the local state database to a version the previous release can't read. Studio can't fix this; see [Recover after a rollback](../../edge/updates/#recover-after-a-rollback-to-an-older-state-database).
 
 </TabItem>
 

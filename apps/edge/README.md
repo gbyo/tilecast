@@ -31,6 +31,10 @@ service, and neither can read the device credential:
 The Tilecast Server is the only authority. `tilecastd` reconciles directly
 from it and keeps playing from local state when it is unreachable.
 
+Milestones M1 to M10 are software-complete and merged. Physical hardware
+qualification (M11) is not started, so Edge is not qualified for production
+screens yet.
+
 The design is [`docs/tilecast-edge.md`](../../docs/tilecast-edge.md). The
 current state and the next work are in
 [`docs/tilecast-edge-next.md`](../../docs/tilecast-edge-next.md). Review rules

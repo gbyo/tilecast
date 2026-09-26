@@ -1,28 +1,35 @@
 ---
 title: Edge security
-description: Learn how Tilecast Edge handles server trust, credentials, downloaded content, and Linux permissions.
+description: Learn how Tilecast Edge handles server trust, the Player credential, downloaded content, Linux permissions, and signed updates with rollback.
 ---
 
-Tilecast Server remains the source of screen assignments, schedules, settings, and commands. An offline Edge Player can keep using information it already accepted, but it cannot create new organization settings on its own.
+Tilecast Server stays the only source of screen assignments, schedules, settings, commands, and updates. An offline Edge Player keeps using what it already accepted, but it never takes instructions from another screen or device.
 
 ## Server and credentials
 
-Edge verifies that it is talking to the same Tilecast installation before sending a saved Player credential.
+Edge checks that it's talking to the same Tilecast installation before it sends its saved Player credential. A network failure doesn't erase the credential. Edge removes it only when the server says the credential was rejected or revoked.
 
-A temporary network failure does not erase that credential. It is removed only when the relationship is explicitly rejected or revoked.
-
-The visible pairing code is separate from the private pairing secret and one-time enrollment token.
+The visible pairing code is separate from the private pairing secret and the one-time enrollment token.
 
 ## Renderer access
 
-The WPE renderer does not own the Player credential. It should not receive pairing secrets, the full Edge data directory, or unrestricted host controls.
+The WPE renderer doesn't hold the Player credential or pairing secrets, and it can't read the Edge data directory. `tilecastd` gives it only the presentation and the media files it needs, one grant at a time.
 
-`tilecastd` gives the renderer only the presentation information and media it needs.
+## Downloads and permissions
 
-## Downloads and system permissions
+Edge checks every downloaded file against its expected size and SHA-256 before it uses it. An incomplete or damaged download never reaches the screen.
 
-Edge checks downloaded media against its expected hash and size before using it. An incomplete or corrupt download is not promoted into the active content store.
+`tilecastd` and the renderer run as the unprivileged `tilecast` account. Root work is limited to small programs with one job each: the installer, when you start it, the update helper, and the Presentation Network helper. Edge has no remote shell, and no way to run an arbitrary program or write an arbitrary file.
 
-`tilecastd` is intended to run without root privileges. Work that needs elevated access stays in the installer, migration tools, or small helpers.
+## Updates
 
-Tilecast Edge does not provide a general remote shell or an API for running arbitrary executables or writing arbitrary files.
+- **Signed releases.** Tilecast signs each Edge release. Tilecast Server, `tilecastd`, and the update helper each check the signature. An unsigned, modified, older, or wrong-architecture release never installs.
+- **Server authorized.** A screen installs only a release that an Owner or Administrator deployed to it in Studio, and downloads it only from its own Tilecast Server.
+- **Verified before install.** The archive and then every file in it are checked before anything is installed.
+- **Side by side.** A new release is installed in its own directory. It doesn't replace the running release until the switch, and an installed release is never changed afterward.
+- **A narrow update helper.** `tilecastd` never replaces its own files and never runs as root. A separate root helper installs, switches, confirms, and rolls back releases. It accepts requests only from the Edge service, has no network access, and can't read the Player credential.
+- **Provisional until healthy.** A new release stays provisional until it has run healthily for two minutes. A guard from the previous release rolls it back if it doesn't confirm, so a broken release can't prevent its own rollback.
+
+A rollback restores the previous release but never converts the Player's database back. If the new release upgraded the database, the previous release shows a recovery screen that needs someone at the computer. See [Recover after a rollback](../updates/#recover-after-a-rollback-to-an-older-state-database).
+
+A signed release is trusted to run, so the protection for updates is Tilecast's signing key and the server's authority. The [update threat review](https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-update-threat-review.md) has the exact security boundary, and the [migration threat review](https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-migration-threat-review.md) covers the installer.

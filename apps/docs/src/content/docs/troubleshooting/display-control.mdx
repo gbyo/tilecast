@@ -27,8 +27,8 @@ If the Player can read the new state back, Studio can confirm more. Otherwise, t
 
 ## Tilecast Edge works differently
 
-The Edge M9 preview talks to Linux CEC and I²C/DDC devices directly instead of using the stable Player's command-line providers.
+Tilecast Edge talks to Linux CEC and I²C/DDC devices directly instead of using the stable Player's command-line providers. On an Edge computer, run `tilecastctl capabilities` to see the reason a control is unavailable.
 
-Do not remove `cec-ctl` or `ddcutil` from a stable Linux Player because of the Edge preview.
+Do not remove `cec-ctl` or `ddcutil` from a stable Linux Player because of Edge.
 
 See [Display Control](../../screens/display-control/) and [Edge hardware integrations](../../edge/hardware/) for the two Linux Player paths.
