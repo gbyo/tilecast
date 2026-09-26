@@ -6,7 +6,7 @@ Plugins add bounded workflows or affect Player behavior outside normal playlist 
 
 ## Catalog, installation, and removal
 
-The plugin registry (`apps/server/internal/plugins/registry.go`) is compiled Go data. Each definition carries a stable identifier, a definition version, name, description, category (Display, Automation, Workflow, or Hardware), a bounded icon identifier, the Studio route that manages it, instance nouns, and declarative requirements and capabilities. Requirements are advice shown before installation; they are never evaluated, and a plugin may be installed before any compatible Player is paired.
+Each plugin is a directory below `plugins/` with a `tilecast.plugin.json` manifest; [plugin-api.md](plugin-api.md) is the contract. The server registry is generated from those directories and compiled into the binary. Each definition carries a stable identifier, a definition version, name, description, category (Display, Automation, Workflow, or Hardware), a bounded icon identifier, the Studio route that manages it, instance nouns, and declarative requirements and capabilities. Requirements are advice shown before installation; they are never evaluated, and a plugin may be installed before any compatible Player is paired. The catalog lists plugins by name.
 
 Installation state is one row per plugin in `plugin_installations`. The row records only that the organization installed the plugin, who installed it, and when. Each plugin keeps its real configuration in its own tables — Countdown Bar in `countdown_bar_instances`, Emergency Alerts in `alert_monitor` and `alert_rules`, and so on. There is deliberately no generic configuration column and no separate enabled flag: installed is the lifecycle, and enabling or disabling individual instances stays inside each plugin.
 
@@ -24,7 +24,7 @@ An installed Emergency Alerts plugin with monitoring off is a valid state. `atte
 
 **Install** (`POST /api/v1/plugins/{pluginId}/install`) requires Owner or Administrator and the session CSRF token. It answers `201 Created` the first time and `200 OK` with the same representation when repeated, records a `plugin.installed` audit event with the definition version, and revises every screen manifest for a Player-facing plugin. An identifier the release does not know answers `404 plugin_not_found`.
 
-**Remove** (`DELETE /api/v1/plugins/{pluginId}/installation`) has the same authorization and is idempotent. It never deletes plugin data. While plugin-owned resources remain it answers `409 plugin_in_use` with the resources in `error.details`:
+**Remove** (`DELETE /api/v1/plugins/{pluginId}/installation`) has the same authorization and is idempotent. It never deletes plugin data. While plugin-owned resources remain it answers `409 plugin_in_use` with the resources in `error.details`. Each resource has a `resolution`: `delete` (delete it through the plugin's page), `disable` (switch it off), or `wait` (it clears by itself when the others are gone). Studio explains the next step from the resolution:
 
 | Plugin                | Removal is blocked while                                                        |
 | --------------------- | ------------------------------------------------------------------------------- |
@@ -65,7 +65,7 @@ A database restored from a newer release may name a plugin this release does not
 
 **Plugins** lists installed plugins only, each with its instance count and one status — Needs setup, Configured, Active, or Attention. **Add plugin** opens a searchable catalog filtered by category; installed plugins are left out of the default list and reappear, marked, when a search matches them. Choosing a plugin shows its requirements and what it uses before **Install**, and a successful install opens the plugin's page. Remove plugin sits in the overflow menu on each plugin's page and explains what still uses the plugin when removal is blocked.
 
-Plugin routes stay statically registered. Opening an uninstalled plugin's page shows how to install it — with an Install button for Owners and Administrators — and never installs it by opening the link. Global search offers installed plugins as ordinary destinations and uninstalled ones as "Not installed", opening Add plugin on that plugin. Studio renders a registry entry it does not recognize with a generic icon rather than dropping it.
+Studio discovers each plugin's routes and icon from `plugins/<name>/studio/index.tsx` when the bundle is built, so the routes stay registered whether or not the plugin is installed. Opening an uninstalled plugin's page shows how to install it — with an Install button for Owners and Administrators — and never installs it by opening the link. Global search offers installed plugins as ordinary destinations and uninstalled ones as "Not installed", opening Add plugin on that plugin. Studio renders a registry entry it does not recognize with a generic icon rather than dropping it.
 
 ## Forms
 

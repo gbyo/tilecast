@@ -218,7 +218,7 @@ export function PluginCatalogDialog({
                         onClick={() => onSelect(plugin.id)}
                       >
                         <ItemMedia variant="image" className="bg-muted">
-                          <PluginIcon icon={plugin.icon} />
+                          <PluginIcon pluginId={plugin.id} />
                         </ItemMedia>
                         <ItemContent>
                           <ItemTitle>

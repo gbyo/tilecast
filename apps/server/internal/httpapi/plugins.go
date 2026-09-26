@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/plugins"
+	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
 
 func (s *server) listPlugins(w http.ResponseWriter, r *http.Request) {
@@ -276,7 +277,14 @@ func (s *server) deleteNoiseMeter(w http.ResponseWriter, r *http.Request) {
 
 func (s *server) writePluginError(w http.ResponseWriter, r *http.Request, err error) {
 	var inUse *plugins.InUseError
+	var explicit *plugin.APIError
 	switch {
+	case errors.As(err, &explicit):
+		body := map[string]any{"code": explicit.Code, "message": explicit.Message}
+		if len(explicit.Details) > 0 {
+			body["details"] = explicit.Details
+		}
+		writeJSON(w, explicit.Status, map[string]any{"error": body})
 	case errors.As(err, &inUse):
 		writeJSON(w, http.StatusConflict, map[string]any{"error": map[string]any{
 			"code":    "plugin_in_use",

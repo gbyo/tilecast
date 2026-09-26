@@ -1,8 +1,8 @@
 name: Dashboard CodeQL
 
 on:
+  # Every pull request, including one stacked on another PR's branch.
   pull_request:
-    branches: [main]
   push:
     branches: [main]
     paths:
@@ -44,6 +44,8 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
           elif git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- \
             apps/dashboard \
+            apps/docs \
+            plugins \
             packages \
             package.json \
             package-lock.json \

@@ -1,0 +1,4 @@
+{
+  "$comment": "GitHub handles that can be requested for review through CODEOWNERS (they have write access to gbyo/tilecast). Core maintainers update this list. A plugin maintainer who is not listed here stays a maintainer; the generated CODEOWNERS names them in a comment.",
+  "eligible": ["@gbyo"]
+}

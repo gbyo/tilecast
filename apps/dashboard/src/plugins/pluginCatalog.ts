@@ -52,17 +52,7 @@ export function headlineRequirements(plugin: PluginSummary) {
 }
 
 /** True when this Studio bundle has a page for the server's route. */
-export function hasStudioRoute(path: string) {
-  return knownManagementPaths.has(path);
-}
-
-const knownManagementPaths = new Set([
-  "/plugins/countdown-bar",
-  "/plugins/emergency-alerts",
-  "/plugins/forms",
-  "/plugins/brand-bug",
-  "/plugins/noise-meter",
-]);
+export { hasStudioRoute } from "../plugin-host/discovery";
 
 export const pluginsQueryKey = ["plugins"] as const;
 
