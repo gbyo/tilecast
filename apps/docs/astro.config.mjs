@@ -40,8 +40,7 @@ function tilecastDocsPlugin() {
 }
 
 export default defineConfig({
-  site: "https://gbyo.github.io",
-  base: "/tilecast",
+  site: "https://tilecast.org",
   // GitHub Pages serves each page as a directory index and redirects a path
   // without a slash. Match that locally so relative content links resolve
   // the same way in development and in production.
