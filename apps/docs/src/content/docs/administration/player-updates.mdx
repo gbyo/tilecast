@@ -1,6 +1,6 @@
 ---
 title: Update Tilecast Player
-description: Add a verified Android or Linux Player release and deploy it to selected screens.
+description: Add a verified Android, Linux, or Tilecast Edge Player release and deploy it to selected screens.
 ---
 
 Use **Settings** > **Player updates** to deploy signed Tilecast Player releases. This updates Player apps; it does not update Tilecast Server, containers, or the host operating system. Owners manage releases. Owners and Administrators can create deployments.
@@ -11,14 +11,15 @@ import { Steps, TabItem, Tabs } from "@astrojs/starlight/components";
 
 <Steps>
 
-1. Choose **Android** or **Linux** under **Player platform**.
+1. Choose **Android**, **Linux**, or **Tilecast Edge** under **Player platform**.
 2. Select **Sync from GitHub** to import releases from [Tilecast releases](https://github.com/gbyo/tilecast/releases), or select **Upload release** to add signed files directly.
 3. For a direct upload, choose all three files from the same signed release:
 
-   | Platform | Player file                | Manifest                            | Signature                               |
-   | -------- | -------------------------- | ----------------------------------- | --------------------------------------- |
-   | Android  | `tilecast-player.apk`      | `tilecast-player-update.json`       | `tilecast-player-update.json.sig`       |
-   | Linux    | `tilecast-player.AppImage` | `tilecast-player-update-linux.json` | `tilecast-player-update-linux.json.sig` |
+   | Platform      | Player file                              | Manifest                            | Signature                               |
+   | ------------- | ---------------------------------------- | ----------------------------------- | --------------------------------------- |
+   | Android       | `tilecast-player.apk`                    | `tilecast-player-update.json`       | `tilecast-player-update.json.sig`       |
+   | Linux         | `tilecast-player.AppImage`               | `tilecast-player-update-linux.json` | `tilecast-player-update-linux.json.sig` |
+   | Tilecast Edge | `tilecast-edge-<version>-<arch>.tar.zst` | `tilecast-edge-update.json`         | `tilecast-edge-update.json.sig`         |
 
    Select **Upload and verify**. Tilecast verifies the files before adding the release to its update cache.
 
@@ -56,4 +57,22 @@ This update path applies to Players running as a managed AppImage. Each Linux Pl
 
 </TabItem>
 
+<TabItem label="Tilecast Edge">
+
+Tilecast Edge releases are built for one architecture, `x86_64` or `aarch64`. A release reaches only Edge screens that report the same architecture, and never reaches an Electron Linux or Android screen. Upload one release for each architecture you use.
+
+An Edge screen installs the release beside the current one, restarts into it, and keeps it only after it reconnects and shows content for two minutes. If it can't, or if it loses power before then, it returns to its previous release on its own and the deployment shows the screen as failed. See [Update Tilecast Edge](#update-tilecast-edge).
+
+</TabItem>
+
 </Tabs>
+
+## Update Tilecast Edge
+
+An Edge update finishes only when the screen confirms it. In **Deployment history**, an Edge screen moves through downloading, installing, and reconnecting, and becomes succeeded only after the new release has run for two minutes with content on screen.
+
+If the new release doesn't start, keeps restarting, can't reconnect, or the screen restarts before it confirms, the screen goes back to the release it ran before. The deployment shows that screen as failed with the reason, and the screen doesn't try that release again for the same deployment. Deploy a fixed release when one is available.
+
+Each screen keeps its previous release until the new one is confirmed. An update doesn't change the host operating system, and it never needs the screen's pairing to be repeated.
+
+For the update design and its security boundary, see the [Tilecast Edge update threat review](https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-update-threat-review.md).

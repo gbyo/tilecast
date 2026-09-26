@@ -40,6 +40,20 @@ it, stop and write the complete tradeoff first.
   libwireplumber for the audio graph, the existing `tilecast-networkd` helper
   for NetworkManager, systemd-logind for idle inhibition, udev and systemd
   for device access. See `docs/tilecast-edge-m9-reuse-review.md`.
+- Updates are Player releases of the `edge` family (M10). `tilecastd`
+  downloads and verifies them; only the root helper `tilecast-edge-update`
+  installs them, through the one `edge-release` installer that the migrator
+  also uses. Do not add a second installer, `systemd-sysupdate`, a package
+  manager or a subprocess (`tar`, `zstd`, `cp`) to the update path. The
+  evaluation is `docs/tilecast-edge-m10-sysupdate-evaluation.md`.
+- The update helper has five fixed operations and takes no path, unit name
+  or command from a request. It never holds the device credential and has
+  no network. Add a capability or relax its sandbox only with an update to
+  `docs/tilecast-edge-update-threat-review.md`. The guard units share the
+  helper's sandbox; a test compares them line by line.
+- An unconfirmed candidate always rolls back after a reboot, and only the
+  previous release's helper (the guard) decides that. A rollback never
+  migrates `state.db` backwards or recreates it.
 - Peer delivery, mesh, relayed state, the Context Engine and PTP are not part
   of Edge 1 (`docs/tilecast-edge-future.md`). Do not add runtime support for
   them.
@@ -66,6 +80,11 @@ The ones most often relevant here:
    `packages/edge-protocol/fixtures` and tests on the Rust and C sides.
 9. Never infer health from process or socket liveness when meaningful
    playback evidence is available.
+10. Test release I/O in the packaged sandbox, not only in unit tests.
+    systemd's seccomp options change what a syscall returns: for example,
+    `RestrictSUIDSGID=` makes `openat2` fail with `ENOSYS`, so the helper
+    uses `edge_platform::fs::open_regular_no_links`. `ci/run-migrate-e2e.sh`
+    runs the real units.
 
 ## Identity invariants
 
