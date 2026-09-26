@@ -279,7 +279,7 @@ func (targetService) ResolveScreensInTx(ctx context.Context, tx pgx.Tx, targets 
 
 func (t targetService) AppliesToScreen(ctx context.Context, screenID uuid.UUID, targets plugin.ScreenTargets) (bool, error) {
 	var applies bool
-	err := t.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM screens s WHERE s.id=$1 AND s.organization_id=(SELECT id FROM organization_settings WHERE singleton) AND s.deleted_at IS NULL AND s.archived_at IS NULL AND (s.id=ANY($2) OR EXISTS(SELECT 1 FROM screen_group_memberships m WHERE m.screen_id=s.id AND m.screen_group_id=ANY($3))))`, screenID, targets.ScreenIDs, targets.GroupIDs).Scan(&applies)
+	err := t.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM screens s WHERE s.id=$1 AND s.organization_id=(SELECT id FROM organization_settings WHERE singleton) AND s.deleted_at IS NULL AND s.archived_at IS NULL AND (s.id=ANY($2) OR EXISTS(SELECT 1 FROM screen_group_memberships m JOIN screen_groups g ON g.id=m.screen_group_id WHERE m.screen_id=s.id AND m.screen_group_id=ANY($3) AND g.deleted_at IS NULL)))`, screenID, targets.ScreenIDs, targets.GroupIDs).Scan(&applies)
 	return applies, err
 }
 

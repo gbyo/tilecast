@@ -130,6 +130,35 @@ func (s *Service) ActivateInTx(ctx context.Context, tx pgx.Tx, request plugin.Ta
 		}
 	}
 	versions := map[uuid.UUID]int64{}
+	// Screens showing a replaced takeover but outside the new activation also
+	// return to normal playback: retire their states, revise their manifests,
+	// and include them in the notification map.
+	if len(replaced) > 0 {
+		outsideRows, err := tx.Query(ctx, `UPDATE takeover_screen_states SET state='restored',restored_at=$3,last_updated_at=$3 WHERE takeover_id=ANY($1) AND state NOT IN ('restored','cancelled','expired') AND NOT (screen_id=ANY($2)) RETURNING screen_id`, replaced, screens, request.ActivatedAt)
+		if err != nil {
+			return plugin.TakeoverResult{}, nil, err
+		}
+		outside := []uuid.UUID{}
+		for outsideRows.Next() {
+			var screen uuid.UUID
+			if err = outsideRows.Scan(&screen); err != nil {
+				outsideRows.Close()
+				return plugin.TakeoverResult{}, nil, err
+			}
+			outside = append(outside, screen)
+		}
+		outsideRows.Close()
+		if err = outsideRows.Err(); err != nil {
+			return plugin.TakeoverResult{}, nil, err
+		}
+		for _, screen := range outside {
+			var version int64
+			if err = tx.QueryRow(ctx, `INSERT INTO screen_manifest_state(screen_id,manifest_version,change_reason,changed_at) VALUES($1,1,'takeover.replaced',$2) ON CONFLICT(screen_id) DO UPDATE SET previous_manifest_version=screen_manifest_state.manifest_version,manifest_version=screen_manifest_state.manifest_version+1,changed_at=$2,change_reason='takeover.replaced' RETURNING manifest_version`, screen, request.ActivatedAt).Scan(&version); err != nil {
+				return plugin.TakeoverResult{}, nil, err
+			}
+			versions[screen] = version
+		}
+	}
 	for _, screen := range screens {
 		if _, err = tx.Exec(ctx, `UPDATE takeover_screen_states SET state='restored',restored_at=$2,last_updated_at=$2 WHERE screen_id=$1 AND takeover_id=ANY($3) AND state NOT IN ('restored','cancelled','expired')`, screen, request.ActivatedAt, replaced); err != nil {
 			return plugin.TakeoverResult{}, nil, err

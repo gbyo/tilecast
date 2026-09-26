@@ -282,6 +282,54 @@ func TestActivateReplacesActiveTakeover(t *testing.T) {
 	}
 }
 
+// A replacement retires the old takeover's states on screens outside the new
+// activation too: those screens return to normal playback, their manifests
+// are revised, and their players are notified.
+func TestActivateRetiresReplacedTakeoverOutsideNewScreens(t *testing.T) {
+	f := newTakeoverFixture(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	first, afterFirst := f.activate(t,
+		plugin.ScreenTargets{ScreenIDs: []uuid.UUID{f.screenA, f.screenB}},
+		f.playlist, now, now.Add(time.Hour))
+	afterFirst()
+	beforeB := f.manifestVersion(t, f.screenB)
+	second, afterSecond := f.activate(t,
+		plugin.ScreenTargets{ScreenIDs: []uuid.UUID{f.screenA}},
+		f.playlist, now.Add(time.Minute), now.Add(2*time.Hour))
+	afterSecond()
+	if second.AffectedCount != 1 || len(second.ScreenIDs) != 1 || second.ScreenIDs[0] != f.screenA {
+		t.Fatalf("affected=%d screens=%v, want only screen A", second.AffectedCount, second.ScreenIDs)
+	}
+	var state, reason string
+	if err := f.pool.QueryRow(ctx, `SELECT state FROM takeover_screen_states WHERE takeover_id=$1 AND screen_id=$2`, first.ID, f.screenB).Scan(&state); err != nil {
+		t.Fatal(err)
+	}
+	if state != "restored" {
+		t.Fatalf("outside screen state=%q, want restored", state)
+	}
+	if err := f.pool.QueryRow(ctx, `SELECT change_reason FROM screen_manifest_state WHERE screen_id=$1`, f.screenB).Scan(&reason); err != nil {
+		t.Fatal(err)
+	}
+	if reason != "takeover.replaced" {
+		t.Fatalf("outside screen change reason=%q, want takeover.replaced", reason)
+	}
+	if after := f.manifestVersion(t, f.screenB); after <= beforeB {
+		t.Fatalf("screen B manifest %d->%d", beforeB, after)
+	}
+	notifiedB := false
+	for _, call := range f.notifier.calls {
+		if call.screen == f.screenB {
+			if kind, _ := call.message["type"].(string); kind == "manifest.changed" {
+				notifiedB = true
+			}
+		}
+	}
+	if !notifiedB {
+		t.Fatal("screen B was not notified of its manifest change")
+	}
+}
+
 // Cancellation stamps the canonical database time, retires screen states,
 // revises manifests, and reports an already-inactive takeover instead of
 // cancelling it twice.

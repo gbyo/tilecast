@@ -106,12 +106,7 @@ func (s *Service) ProjectManifest(ctx context.Context, screenID uuid.UUID) ([]pl
 	}
 	out := []plugin.ManifestEntry{}
 	for _, item := range items {
-		tx, beginErr := s.db.Begin(ctx)
-		if beginErr != nil {
-			return nil, beginErr
-		}
-		targets, targetErr := ruleTargetsInTx(ctx, tx, item.id)
-		_ = tx.Rollback(ctx)
+		targets, targetErr := ruleTargetsInTx(ctx, s.db, item.id)
 		if targetErr != nil {
 			return nil, targetErr
 		}
