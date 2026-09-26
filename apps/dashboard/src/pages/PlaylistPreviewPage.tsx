@@ -340,6 +340,15 @@ export function PlaylistPreviewPage() {
   }, [advance, current, paused]);
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (
+        target instanceof Element &&
+        target.closest(
+          'button, a, input, select, textarea, [contenteditable="true"], [role="button"], [role="link"]',
+        )
+      )
+        return;
+
       if (event.key === "ArrowRight") move(1);
       else if (event.key === "ArrowLeft") move(-1);
       else if (event.key === " ") {
