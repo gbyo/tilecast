@@ -28,6 +28,18 @@ Add a saved Widget to a Playlist or Layout wherever you need the same visual con
 
 In a Layout, the **Widgets** section opens the Apps picker. Add the Widget to the canvas, then use the inspector to set its position, fit, and unavailable behavior. A Widget can also be selected as a Playlist item.
 
+## Choose a Clock style
+
+The Clock Widget has three styles. Pick one under **Content and behavior**:
+
+- **Standard**: the time in large type, with the seconds and AM/PM beside it. Turn on **Show date** to add the day and date below.
+- **Minimal**: the time alone, as large as it fits.
+- **Analog**: a clock face, with the digital time and the optional date beside or below it.
+
+The Clock arranges itself for the space it has. In a wide strip it becomes a single line, in a tall sidebar it stacks the hours over the minutes, and in a small Layout zone it shows only the time. You do not need to adjust sizes by hand. The live preview in Studio does not show the chosen style yet, so check the result on a screen.
+
+Styles need a current Linux or Tilecast Edge Player. Screens running an older Player, and Android Players, keep showing the time on its own until they are updated. For how Players and the Server agree on this, see [Widgets V2](https://github.com/gbyo/tilecast/blob/main/docs/widgets-v2.md).
+
 ## When a Widget has no current data
 
 Check the Data Source's status and refresh diagnostics in **Content** > **Data Sources**. A Widget may have an empty-state or fallback setting, depending on its definition. The Layout inspector also lets you choose whether an unavailable App placement is shown or hidden. These options vary by Widget; preview the result before publishing.

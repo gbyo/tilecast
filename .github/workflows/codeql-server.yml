@@ -43,6 +43,7 @@ jobs:
             apps/server \
             plugins \
             packages/plugin-sdk/go \
+            widgets \
             go.work \
             .github/workflows/codeql-server.yml; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
@@ -64,7 +65,7 @@ jobs:
       - name: Build Go server, plugins, and plugin SDK
         if: steps.changes.outputs.changed == 'true'
         # go.work joins the three modules; bundled plugins are server code.
-        run: go build ./apps/server/... ./plugins/... ./packages/plugin-sdk/go/...
+        run: go build ./apps/server/... ./plugins/... ./packages/plugin-sdk/go/... ./widgets/...
       - name: Analyze
         if: steps.changes.outputs.changed == 'true'
         uses: github/codeql-action/analyze@v4.37.4

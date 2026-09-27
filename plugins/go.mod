@@ -20,6 +20,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/text v0.40.0 // indirect
+	github.com/tilecast/tilecast/widgets v0.0.0 // indirect
 )
 
 // Plugin integration tests use the server's plugin test harness
@@ -27,4 +28,5 @@ require (
 replace (
 	github.com/tilecast/tilecast/apps/server => ../apps/server
 	github.com/tilecast/tilecast/packages/plugin-sdk/go => ../packages/plugin-sdk/go
+	github.com/tilecast/tilecast/widgets => ../widgets
 )

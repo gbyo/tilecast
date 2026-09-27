@@ -6,6 +6,7 @@
  */
 import type { EvidenceKind, RuntimeItem } from "../host/contract";
 import type { RuntimeClock } from "../clock/scheduler";
+import type { RuntimeWidgetHost } from "../widgets/host";
 
 export interface MediaSurface {
   /** The surface's root node; the stage places it in a layer. */
@@ -53,6 +54,8 @@ export interface SurfaceEnvironment {
   sink: SurfaceSink;
   /** Scale for animations inside surfaces (0 in snapshot conformance runs). */
   animationScale: number;
+  /** First-class Widget mounting; absent where no Widget can run. */
+  widgets?: RuntimeWidgetHost;
 }
 
 export type SurfaceFactory = (

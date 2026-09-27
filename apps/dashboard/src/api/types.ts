@@ -2044,6 +2044,9 @@ export type ClockWidgetConfig = {
   backgroundColor: string;
   textScale?: number;
   contentPadding?: number;
+  /** Clock V2 appearance (docs/widgets-v2.md). Older Players ignore it. */
+  style?: "standard" | "minimal" | "analog";
+  showDate?: boolean;
 };
 export type DateWidgetConfig = {
   timezone: string;

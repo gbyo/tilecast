@@ -1,0 +1,8 @@
+body {
+  margin: 0;
+  background: #05080b;
+}
+.tc-story-frame {
+  position: relative;
+  overflow: hidden;
+}

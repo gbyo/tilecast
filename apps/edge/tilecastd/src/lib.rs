@@ -68,3 +68,4 @@ pub mod server_link;
 pub mod supervisor;
 pub mod telemetry;
 pub mod update;
+pub mod widget_capabilities;

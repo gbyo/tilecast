@@ -29,6 +29,9 @@ import { isRestartable, type MediaSurface, type SurfaceSink } from "./surface";
 import { HtmlVideoSurface } from "./video-surface";
 import { WebviewWebsiteSurface } from "./website-surface";
 import { WidgetSurface } from "./widget-surface";
+import { ComponentWidgetSurface } from "./component-widget-surface";
+import { widgetComponent } from "../engine/model";
+import type { RuntimeWidgetHost } from "../widgets/host";
 
 interface Layer {
   el: HTMLDivElement;
@@ -45,6 +48,7 @@ export interface StageOptions {
   send: (event: SurfaceEvent) => void;
   /** 0 makes transitions instant (snapshot conformance runs). */
   animationScale: number;
+  widgets?: RuntimeWidgetHost;
 }
 
 export class Stage {
@@ -211,6 +215,7 @@ export class Stage {
       clock: this.options.clock,
       sink,
       animationScale: this.options.animationScale,
+      widgets: this.options.widgets,
     };
     const item = entry.item;
     switch (item.kind) {
@@ -219,7 +224,9 @@ export class Stage {
       case "video":
         return new HtmlVideoSurface(item, env, entry.mount);
       case "widget":
-        return new WidgetSurface(item, env);
+        return widgetComponent(item)
+          ? new ComponentWidgetSurface(item, env)
+          : new WidgetSurface(item, env);
       case "layout":
         return new LayoutSurface(item, env);
       case "website":

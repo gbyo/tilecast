@@ -3,8 +3,10 @@
  * its own render evidence, so a layout whose zones have silently died is
  * distinguishable from one that is working.
  *
- * Zone content is compatibility rendering (RenderNode trees and media); the
- * zone playlists run on their own zone actors.
+ * Zone content is a first-class Widget component (mounted exactly as a
+ * fullscreen Widget is), compatibility rendering (RenderNode trees), or
+ * media; the zone playlists run on their own zone actors. Zone evidence is
+ * the Layout's: a Widget only says it rendered.
  */
 import { createActor } from "xstate";
 import type {
@@ -17,12 +19,14 @@ import { layoutPayload, objectFit } from "../engine/model";
 import { zoneEntry, zoneMachine, type ZoneActor } from "../engine/zone-machine";
 import { applyAutoFit, buildRenderNode } from "../compat/render-tree-dom";
 import type { MediaSurface, SurfaceEnvironment } from "./surface";
+import type { WidgetMount } from "@tilecast/widget-sdk/mount";
 
 export class LayoutSurface implements MediaSurface {
   readonly element: HTMLDivElement;
   private readonly timers: TimerGroup;
   private readonly zones: ZoneActor[] = [];
   private readonly zoneTeardowns: (() => void)[] = [];
+  private readonly widgetMounts: WidgetMount[] = [];
   private disposed = false;
 
   constructor(
@@ -89,6 +93,7 @@ export class LayoutSurface implements MediaSurface {
     this.timers.cancelAll();
     for (const zone of this.zones) zone.stop();
     for (const teardown of this.zoneTeardowns) teardown();
+    for (const mount of this.widgetMounts) mount.dispose();
   }
 
   private buildZone(
@@ -110,7 +115,26 @@ export class LayoutSurface implements MediaSurface {
         this.env.sink.evidence("layout-zone-rendered", zone.id);
     };
 
-    if (zone.render) {
+    if (zone.component) {
+      const widgets = this.env.widgets;
+      if (widgets) {
+        let reported = false;
+        this.widgetMounts.push(
+          widgets.mount(el, zone.component, (state) => {
+            // Ready or expected-empty is a rendered zone; an error leaves the
+            // zone outstanding, which is what the Layout evidence is for.
+            if (
+              reported ||
+              (state.state !== "ready" && state.state !== "empty")
+            ) {
+              return;
+            }
+            reported = true;
+            rendered();
+          }),
+        );
+      }
+    } else if (zone.render) {
       const node = buildRenderNode(zone.render, {
         clock: this.env.clock,
         timers: this.timers,

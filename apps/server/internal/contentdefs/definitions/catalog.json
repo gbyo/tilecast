@@ -36,26 +36,6 @@
       "deprecation": {}
     },
     {
-      "id": "clock",
-      "version": 1,
-      "name": "Clock",
-      "description": "Show live local time in a configured timezone.",
-      "category": "Essentials",
-      "icon": "clock",
-      "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
-      "presentationSchemaVersion": 1,
-      "requiredCapabilities": {
-        "layout.surface": 1,
-        "content.text": 1,
-        "binding.core": 1
-      },
-      "emptyStateBehavior": "text",
-      "legacyEditor": true,
-      "deprecation": {}
-    },
-    {
       "id": "date",
       "version": 1,
       "name": "Date",

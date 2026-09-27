@@ -250,6 +250,10 @@ type WidgetDefinition struct {
 	Recipe                    *AppRecipe          `json:"recipe,omitempty"`
 	WebIntegration            *WebIntegration     `json:"webIntegration,omitempty"`
 	Deprecation               Deprecation         `json:"deprecation"`
+	// Component is the Widget's first-class component (docs/widgets-v2.md),
+	// declared by a Widget module below widgets/.
+	Component     *ComponentSpec `json:"component,omitempty"`
+	Compatibility *Compatibility `json:"compatibility,omitempty"`
 }
 
 // Availability lets a release advertise a recognizable integration without claiming
@@ -404,6 +408,17 @@ func load() (*Catalog, error) {
 		catalog.Widgets = append(catalog.Widgets, envelope.Widgets...)
 		catalog.DataSources = append(catalog.DataSources, envelope.DataSources...)
 	}
+	// Widgets V2 modules (widgets/<name>/tilecast.widget.json) are catalog
+	// definitions too; the fingerprint covers them like any definition file.
+	modules, raws, err := loadWidgetModules()
+	if err != nil {
+		return nil, err
+	}
+	for index, definition := range modules {
+		hasher.Write([]byte("widgets/" + definition.ID))
+		hasher.Write(raws[index])
+	}
+	catalog.Widgets = append(catalog.Widgets, modules...)
 	if err := inheritPresentationBases(catalog.Widgets); err != nil {
 		return nil, err
 	}
@@ -449,6 +464,7 @@ func inheritPresentationBases(widgets []WidgetDefinition) error {
 }
 
 func (c *Catalog) validate() error {
+	componentTypes := map[string]string{}
 	for _, definition := range c.Widgets {
 		if err := validateIdentity(definition.ID, definition.Version, definition.Name, definition.Category); err != nil {
 			return fmt.Errorf("Widget definition %q: %w", definition.ID, err)
@@ -477,7 +493,17 @@ func (c *Catalog) validate() error {
 		if err := validateCapabilities(definition.RequiredCapabilities); err != nil {
 			return fmt.Errorf("Widget definition %q: %w", definition.ID, err)
 		}
-		if !definition.LegacyEditor {
+		if err := validateComponent(definition); err != nil {
+			return fmt.Errorf("Widget definition %q: %w", definition.ID, err)
+		}
+		if definition.Component != nil {
+			if owner, taken := componentTypes[definition.Component.Type]; taken {
+				return fmt.Errorf("Widget definitions %q and %q declare component %q", owner, definition.ID, definition.Component.Type)
+			}
+			componentTypes[definition.Component.Type] = definition.ID
+		}
+		// A component-only Widget has no compatibility presentation to validate.
+		if !definition.LegacyEditor && definition.HasFallback() {
 			if definition.Runtime == "native" {
 				if len(definition.PresentationTemplate) == 0 {
 					return fmt.Errorf("Widget definition %q is missing a presentation template", definition.ID)

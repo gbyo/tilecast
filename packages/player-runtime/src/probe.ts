@@ -13,6 +13,7 @@ import type { ManualClock } from "./clock/scheduler";
 import type { PlaybackController } from "./engine/controller";
 import type { RuntimeSurfaceHost } from "./plugins/host";
 import type { PlayerRoot } from "./views/player-root";
+import type { RuntimeWidgetHost } from "./widgets/host";
 
 export interface ProbeOptions {
   version: string;
@@ -21,6 +22,7 @@ export interface ProbeOptions {
   surfaces: RuntimeSurfaceHost;
   view: PlayerRoot;
   manual: ManualClock | null;
+  widgets: RuntimeWidgetHost;
 }
 
 const frames = () =>
@@ -28,8 +30,28 @@ const frames = () =>
     requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
   );
 
-function text(element: Element | null): string {
+function text(element: Node | null): string {
   return (element?.textContent ?? "").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * First-class Widgets on screen: the visible layer, including Layout zones.
+ * Their text lives in shadow roots, which the layer's text cannot see.
+ */
+function describeWidgets(layer: HTMLElement | null): Record<string, unknown>[] {
+  if (!layer) return [];
+  return Array.from(
+    layer.querySelectorAll<HTMLElement>("[data-tilecast-widget]"),
+  ).map((element) => {
+    const shadow = element.shadowRoot;
+    return {
+      type: element.getAttribute("data-tilecast-widget"),
+      shadow: shadow !== null,
+      adoptedStyleSheets: shadow?.adoptedStyleSheets?.length ?? 0,
+      styleElements: shadow?.querySelectorAll("style").length ?? 0,
+      text: text(shadow).slice(0, 200),
+    };
+  });
 }
 
 function visibleLayer(): HTMLElement | null {
@@ -63,6 +85,8 @@ export function installProbe(options: ProbeOptions): void {
     contractVersion: options.host.contractVersion,
     host: { ...options.host.info },
     capabilities: { ...options.host.capabilities },
+    /** `widget.<type>` → version for every bundled first-class Widget. */
+    widgetCapabilities: options.widgets.capabilities(),
     describe() {
       const state = controller.state;
       const message = document.getElementById("message");
@@ -87,6 +111,7 @@ export function installProbe(options: ProbeOptions): void {
         engine: controller.describe(),
         stage: view.describeStage(),
         front: describeLayer(visibleLayer()),
+        widgets: describeWidgets(visibleLayer()),
         message: {
           visible: message?.classList.contains("visible") ?? false,
           text: text(message),

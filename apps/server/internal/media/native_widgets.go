@@ -31,6 +31,9 @@ func (clockWidgetProvider) Normalize(_ context.Context, raw json.RawMessage) (an
 	if c.Format != "locale" && c.Format != "12" && c.Format != "24" {
 		return nil, errors.New("clock format is invalid")
 	}
+	if c.Style != "" && c.Style != "standard" && c.Style != "minimal" && c.Style != "analog" {
+		return nil, errors.New("clock style is invalid")
+	}
 	if err := normalizeWidgetColors(&c.ForegroundColor, &c.BackgroundColor); err != nil {
 		return nil, err
 	}

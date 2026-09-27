@@ -143,6 +143,26 @@ describe("Widget editor experience", () => {
     expect(contentSection).toContainElement(screen.getByText("Timezone"));
   });
 
+  it("offers the Clock V2 style and date controls", async () => {
+    renderEditor(
+      <NativeAppEditor
+        provider="clock"
+        csrf="csrf"
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+        page
+      />,
+    );
+
+    const style = screen.getByRole("combobox", { name: "Style" });
+    expect(style).toHaveTextContent("Standard");
+    expect(screen.getByText(/Analog shows a dial/)).toBeTruthy();
+    const showDate = screen.getByRole("switch", { name: /Show date/ });
+    expect(showDate).not.toBeChecked();
+    await userEvent.click(showDate);
+    expect(showDate).toBeChecked();
+  });
+
   it("presents appearance controls as consistent subsections instead of a one-off fieldset", () => {
     renderEditor(
       <NativeAppEditor
