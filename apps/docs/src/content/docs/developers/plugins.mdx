@@ -1,0 +1,77 @@
+---
+title: Build a first-party plugin
+description: Add a bundled Tilecast plugin as one directory, with its server code, Studio pages, migrations, API description, and documentation in one place.
+---
+
+import { FileTree, Steps } from "@astrojs/starlight/components";
+
+A Tilecast plugin is one directory below `plugins/`. Everything that belongs only to that plugin lives there, and Tilecast finds it when it builds. You don't register a plugin in a central list; the few files that name every plugin are generated.
+
+Plugins are compiled into the Tilecast release. Tilecast doesn't download or run plugin code from anywhere else.
+
+## What a plugin contains
+
+<FileTree>
+
+- plugins/
+  - transit-alerts/
+    - tilecast.plugin.json The manifest: identity, maintainers, capabilities, entry points.
+    - plugin.go The Go entry point, with `func New() plugin.Plugin`.
+    - plugin_test.go Runs the conformance checks.
+    - server/ Optional Go packages for the plugin's logic.
+    - migrations/ Optional database migrations.
+    - api/openapi.yaml The plugin's API description.
+    - studio/index.tsx The plugin's Studio pages.
+    - docs/index.mdx The plugin's page on this site.
+
+</FileTree>
+
+The directory name is the plugin ID with hyphens, so `transit_alerts` lives in `plugins/transit-alerts/`.
+
+Entry points always sit at these paths: `plugin.go` for the server and `studio/index.tsx` for Studio. The build finds plugin code by these names, so the manifest can't point anywhere else. See the [Plugin API reference](https://github.com/gbyo/tilecast/blob/main/docs/plugin-api.md#manifest) for the exact contract.
+
+## Create a plugin
+
+<Steps>
+
+1. Scaffold the plugin:
+
+   ```sh title="Repository root · Create a plugin"
+   npm run plugins:new -- transit_alerts --category Automation --api
+   ```
+
+   This creates the directory and regenerates the Go registry, `CODEOWNERS`, and the API description.
+
+2. Describe the plugin in `tilecast.plugin.json`: its name, description, maintainers, what it uses, and the capabilities it needs, such as network access from Tilecast Server or a background worker.
+
+3. Implement only the parts the plugin needs. A plugin that shows nothing on screens doesn't project manifest entries; a plugin with no background work doesn't declare a worker.
+
+4. If the plugin needs tables, reserve a migration:
+
+   ```sh title="Repository root · Add a migration"
+   npm run plugins:migration -- transit_alerts create_feeds
+   ```
+
+   Plugin migrations share Tilecast's single migration sequence, so they run during a Tilecast upgrade, not when someone installs the plugin.
+
+5. Check the plugin:
+
+   ```sh title="Repository root · Check plugins"
+   npm run plugins:check
+   ```
+
+</Steps>
+
+## What the check covers
+
+`plugins:check` validates the manifest, confirms that the directory and entry points match it, and keeps the plugin to its own files and the plugin SDK. It also checks migration numbers, the API description, the documentation slug, and that every generated file is current. Each plugin's Go test runs the rest of the conformance suite, and the server tests check installation, status, removal, and routes.
+
+The result is pass or fail. There are no quality tiers.
+
+## Maintainers
+
+The `maintainers` in a manifest are stewards for the plugin's subject. Anyone can contribute to any plugin, and Tilecast's core maintainers review architecture and merge changes. GitHub requests a maintainer's review through the generated `CODEOWNERS` file when that person has access to the repository.
+
+## Reference
+
+The exact contract, including every contribution point and host service, is in [`docs/plugin-api.md`](https://github.com/gbyo/tilecast/blob/main/docs/plugin-api.md).

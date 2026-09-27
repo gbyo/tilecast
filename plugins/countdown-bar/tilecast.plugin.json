@@ -1,0 +1,27 @@
+{
+  "$schema": "../../packages/plugin-sdk/schema/tilecast-plugin.schema.json",
+  "apiVersion": 1,
+  "id": "countdown_bar",
+  "definitionVersion": 1,
+  "name": "Countdown Bar",
+  "description": "Show a timed bottom bar without interrupting the content already playing.",
+  "category": "Display",
+  "icon": "clock",
+  "maintainers": ["@gbyo"],
+  "instanceNoun": { "singular": "instance", "plural": "instances" },
+  "requirements": [
+    {
+      "kind": "player",
+      "label": "Player plugin support",
+      "description": "Target screens need a Player build that renders plugin bars."
+    }
+  ],
+  "uses": ["Player manifest plugin state", "Scheduled overlay bar"],
+  "capabilities": { "playerManifest": true },
+  "server": { "entrypoint": "./plugin.go" },
+  "studio": {
+    "route": "/plugins/countdown-bar",
+    "entrypoint": "./studio/index.tsx"
+  },
+  "docs": { "reference": "docs/plugins.md#countdown-bar" }
+}

@@ -1,0 +1,36 @@
+{
+  "$schema": "../../packages/plugin-sdk/schema/tilecast-plugin.schema.json",
+  "apiVersion": 1,
+  "id": "noise_meter",
+  "definitionVersion": 1,
+  "name": "Noise Meter",
+  "description": "Watch room noise with a microphone on the Linux Player and show a bottom bar only while the room stays too loud.",
+  "category": "Hardware",
+  "icon": "audio-lines",
+  "maintainers": ["@gbyo"],
+  "instanceNoun": { "singular": "meter", "plural": "meters" },
+  "requirements": [
+    { "kind": "platform", "label": "Linux Player" },
+    {
+      "kind": "hardware",
+      "label": "Microphone or audio input",
+      "description": "Audio is processed locally by the Player; samples are never uploaded."
+    }
+  ],
+  "uses": [
+    "Player microphone",
+    "Player manifest plugin state",
+    "Derived noise history"
+  ],
+  "capabilities": {
+    "playerManifest": true,
+    "hardware": ["microphone"],
+    "heartbeat": ["noiseMeter"]
+  },
+  "server": { "entrypoint": "./plugin.go" },
+  "studio": {
+    "route": "/plugins/noise-meter",
+    "entrypoint": "./studio/index.tsx"
+  },
+  "docs": { "reference": "docs/plugins.md#noise-meter" }
+}

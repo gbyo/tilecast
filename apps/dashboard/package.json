@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tsc -b && vite build",
     "dev": "vite",
-    "lint": "eslint . --max-warnings=0",
+    "lint": "eslint . --max-warnings=0 && eslint --max-warnings=0 ../../plugins",
     "test": "vitest run",
     "i18n:scan": "node scripts/i18n-scan.mjs"
   },

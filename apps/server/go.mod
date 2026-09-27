@@ -15,6 +15,8 @@ require (
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/oklog/ulid/v2 v2.1.2
 	github.com/pressly/goose/v3 v3.27.3
+	github.com/tilecast/tilecast/packages/plugin-sdk/go v0.0.0
+	github.com/tilecast/tilecast/plugins v0.0.0
 	golang.org/x/crypto v0.54.0
 	golang.org/x/image v0.44.0
 	golang.org/x/text v0.40.0
@@ -43,4 +45,12 @@ require (
 	golang.org/x/net v0.57.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
+)
+
+// First-party plugins and the plugin SDK are separate modules in this
+// repository (see go.work). The replacements keep a build without the
+// workspace, such as the server container, resolving them locally.
+replace (
+	github.com/tilecast/tilecast/packages/plugin-sdk/go => ../../packages/plugin-sdk/go
+	github.com/tilecast/tilecast/plugins => ../../plugins
 )

@@ -1,0 +1,66 @@
+{
+  "$schema": "../../../schema/tilecast-plugin.schema.json",
+  "apiVersion": 1,
+  "id": "transit_alerts",
+  "definitionVersion": 3,
+  "name": "Transit Alerts",
+  "description": "Show service alerts from a transit agency as a bottom bar.",
+  "category": "Automation",
+  "icon": "bus",
+  "maintainers": ["@gbyo", "@tilecast/transit"],
+  "installable": true,
+  "instanceNoun": {
+    "singular": "feed",
+    "plural": "feeds"
+  },
+  "requirements": [
+    {
+      "kind": "network",
+      "label": "Internet access from Tilecast Server"
+    },
+    {
+      "kind": "player",
+      "label": "Player plugin support",
+      "description": "Target screens need a Player that renders plugin bars."
+    }
+  ],
+  "uses": ["Background polling", "Player manifest plugin state"],
+  "capabilities": {
+    "playerManifest": true,
+    "backgroundWorkers": true,
+    "network": ["api.transit.example.org"],
+    "hardware": [],
+    "heartbeat": []
+  },
+  "server": {
+    "entrypoint": "./cmd/plugin.go"
+  },
+  "migrations": "./migrations",
+  "api": {
+    "basePaths": ["/plugins/transit-alerts"],
+    "openapi": "./api/openapi.yaml"
+  },
+  "studio": {
+    "route": "/plugins/transit-alerts",
+    "entrypoint": "./studio/index.tsx"
+  },
+  "runtime": {
+    "entrypoint": "./runtime/index.ts",
+    "manifestTypes": ["transit_alert"],
+    "surfaces": ["strip.bottom"]
+  },
+  "docs": {
+    "reference": "docs/plugins.md#transit-alerts",
+    "pages": [
+      {
+        "source": "./docs/index.mdx",
+        "slug": "operations/plugins/transit-alerts",
+        "label": "Transit Alerts",
+        "sidebar": {
+          "group": "plugins",
+          "badge": "US"
+        }
+      }
+    ]
+  }
+}

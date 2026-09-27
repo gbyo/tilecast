@@ -1174,6 +1174,8 @@ export type PluginInUseResource = {
   kind: string;
   count: number;
   label: string;
+  /** How the operator resolves it: delete it, switch it off, or wait. */
+  resolution: "delete" | "disable" | "wait";
 };
 
 export type DependencyNodeType =

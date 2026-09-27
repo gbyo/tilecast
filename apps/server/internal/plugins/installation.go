@@ -15,12 +15,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
 
 var (
 	ErrPluginNotFound       = errors.New("plugin not found")
 	ErrPluginNotInstallable = errors.New("plugin is not installable")
-	ErrPluginNotInstalled   = errors.New("plugin is not installed")
+	ErrPluginNotInstalled   = plugin.ErrNotInstalled
 )
 
 // InUseError reports why a plugin cannot be removed yet.
@@ -31,10 +32,13 @@ type InUseError struct {
 }
 
 // InUseResource is one kind of plugin-owned resource that still exists.
+// Resolution tells Studio what the operator does about it: delete it, switch
+// it off, or wait for it to clear.
 type InUseResource struct {
-	Kind  string `json:"kind"`
-	Count int    `json:"count"`
-	Label string `json:"label"`
+	Kind       string `json:"kind"`
+	Count      int    `json:"count"`
+	Label      string `json:"label"`
+	Resolution string `json:"resolution"`
 }
 
 func (e *InUseError) Error() string {
@@ -53,16 +57,13 @@ type UnsupportedInstallation struct {
 	InstalledAt time.Time `json:"installedAt"`
 }
 
-// playerFacing plugins contribute manifest entries, so installing or removing
-// one changes what a screen should receive.
-var playerFacing = map[string]bool{
-	CountdownBarID: true, EmergencyAlertsID: true, BrandBugID: true, NoiseMeterID: true,
-}
-
 // IsInstalled is the top-level runtime gate: the plugin must be known to this
 // release and recorded as installed. Feature data alone never activates it.
 func (s *Service) IsInstalled(ctx context.Context, id string) (bool, error) {
-	return Installed(ctx, s.db, id)
+	if _, known := s.lookup(id); !known {
+		return false, nil
+	}
+	return isInstalled(ctx, s.db, id)
 }
 
 type queryRower interface {
@@ -98,6 +99,17 @@ func LockInstallation(ctx context.Context, tx pgx.Tx, id string) error {
 	if _, known := Lookup(id); !known {
 		return ErrPluginNotFound
 	}
+	return lockInstallationRow(ctx, tx, id)
+}
+
+func (s *Service) lockInstallation(ctx context.Context, tx pgx.Tx, id string) error {
+	if _, known := s.lookup(id); !known {
+		return ErrPluginNotFound
+	}
+	return lockInstallationRow(ctx, tx, id)
+}
+
+func lockInstallationRow(ctx context.Context, tx pgx.Tx, id string) error {
 	var locked string
 	err := tx.QueryRow(ctx, `SELECT plugin_id FROM plugin_installations WHERE plugin_id=$1 FOR SHARE`, id).Scan(&locked)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -130,7 +142,7 @@ func (s *Service) installations(ctx context.Context) (map[string]bool, []Unsuppo
 		if err = rows.Scan(&item.PluginID, &item.InstalledAt); err != nil {
 			return nil, nil, err
 		}
-		if _, known := Lookup(item.PluginID); known {
+		if _, known := s.lookup(item.PluginID); known {
 			installed[item.PluginID] = true
 		} else {
 			unsupported = append(unsupported, item)
@@ -142,7 +154,7 @@ func (s *Service) installations(ctx context.Context) (map[string]bool, []Unsuppo
 // Install records a release-owned plugin as installed. It is idempotent and
 // reports whether this call created the installation.
 func (s *Service) Install(ctx context.Context, id string, userID uuid.UUID) (CatalogPlugin, bool, error) {
-	definition, known := Lookup(id)
+	definition, known := s.lookup(id)
 	if !known {
 		return CatalogPlugin{}, false, ErrPluginNotFound
 	}
@@ -166,7 +178,7 @@ func (s *Service) Install(ctx context.Context, id string, userID uuid.UUID) (Cat
 		if err = auditInstallation(ctx, tx, "plugin.installed", definition, userID); err != nil {
 			return CatalogPlugin{}, false, err
 		}
-		if playerFacing[id] {
+		if definition.PlayerFacing {
 			if notes, err = bumpAllScreens(ctx, tx, "plugin.installed"); err != nil {
 				return CatalogPlugin{}, false, err
 			}
@@ -186,7 +198,7 @@ func (s *Service) Install(ctx context.Context, id string, userID uuid.UUID) (Cat
 // deletes the row alone and never touches tables this release cannot reason
 // about.
 func (s *Service) Remove(ctx context.Context, id string, userID uuid.UUID) error {
-	definition, known := Lookup(id)
+	definition, known := s.lookup(id)
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return err
@@ -217,7 +229,7 @@ func (s *Service) Remove(ctx context.Context, id string, userID uuid.UUID) error
 	if err != nil {
 		return err
 	}
-	resources, err := removalBlockers(ctx, tx, id)
+	resources, err := s.removalBlockers(ctx, tx, id)
 	if err != nil {
 		return err
 	}
@@ -231,7 +243,7 @@ func (s *Service) Remove(ctx context.Context, id string, userID uuid.UUID) error
 		return err
 	}
 	var notes []note
-	if playerFacing[id] {
+	if definition.PlayerFacing {
 		if notes, err = bumpAllScreens(ctx, tx, "plugin.removed"); err != nil {
 			return err
 		}
@@ -243,17 +255,46 @@ func (s *Service) Remove(ctx context.Context, id string, userID uuid.UUID) error
 	return nil
 }
 
-// removalBlockers lists the plugin-owned resources that must be deleted through
-// the plugin's own UI before its installation can go. Every table named here is
-// a literal owned by this release.
-func removalBlockers(ctx context.Context, tx pgx.Tx, id string) ([]InUseResource, error) {
+// removalBlockers lists the plugin-owned resources that must be deleted
+// through the plugin's own UI before its installation can go. A plugin that
+// implements RemovalGuard answers for itself.
+func (s *Service) removalBlockers(ctx context.Context, tx pgx.Tx, id string) ([]InUseResource, error) {
+	hosted, ok := s.hostedPlugin(id)
+	if !ok {
+		return nil, ErrPluginNotFound
+	}
+	guard, ok := hosted.plugin.(plugin.RemovalGuard)
+	if !ok {
+		return legacyRemovalBlockers(ctx, tx, id)
+	}
+	blockers, err := guard.RemovalBlockers(ctx, tx)
+	if err != nil {
+		return nil, fmt.Errorf("plugin %s: removal blockers: %w", id, err)
+	}
+	resources := []InUseResource{}
+	for _, blocker := range blockers {
+		if blocker.Count <= 0 {
+			continue
+		}
+		resolution := blocker.Resolution
+		if resolution == "" {
+			resolution = plugin.ResolveDelete
+		}
+		resources = append(resources, InUseResource{Kind: blocker.Kind, Count: blocker.Count, Label: blocker.Label(), Resolution: string(resolution)})
+	}
+	return resources, nil
+}
+
+// legacyRemovalBlockers covers the built-in plugins that have not moved into
+// plugins/ yet. Every table named here is a literal owned by this release.
+func legacyRemovalBlockers(ctx context.Context, tx pgx.Tx, id string) ([]InUseResource, error) {
 	count := func(query string) (int, error) {
 		var n int
 		err := tx.QueryRow(ctx, query).Scan(&n)
 		return n, err
 	}
 	resources := []InUseResource{}
-	add := func(kind, one, many, query string) error {
+	add := func(kind, one, many, resolution, query string) error {
 		n, err := count(query)
 		if err != nil {
 			return err
@@ -263,28 +304,28 @@ func removalBlockers(ctx context.Context, tx pgx.Tx, id string) ([]InUseResource
 			if n == 1 {
 				label = one
 			}
-			resources = append(resources, InUseResource{Kind: kind, Count: n, Label: label})
+			resources = append(resources, InUseResource{Kind: kind, Count: n, Label: label, Resolution: resolution})
 		}
 		return nil
 	}
 	var err error
 	switch id {
 	case CountdownBarID:
-		err = add("countdown_bar_instance", "countdown bar", "countdown bars", `SELECT count(*) FROM countdown_bar_instances`)
+		err = add("countdown_bar_instance", "countdown bar", "countdown bars", "delete", `SELECT count(*) FROM countdown_bar_instances`)
 	case BrandBugID:
-		err = add("brand_bug_instance", "mark", "marks", `SELECT count(*) FROM brand_bug_instances`)
+		err = add("brand_bug_instance", "mark", "marks", "delete", `SELECT count(*) FROM brand_bug_instances`)
 	case NoiseMeterID:
-		err = add("noise_meter_instance", "meter", "meters", `SELECT count(*) FROM noise_meter_instances`)
+		err = add("noise_meter_instance", "meter", "meters", "delete", `SELECT count(*) FROM noise_meter_instances`)
 	case FormsID:
-		err = add("form", "form", "forms", `SELECT count(*) FROM data_sources WHERE provider='form' AND deleted_at IS NULL`)
+		err = add("form", "form", "forms", "delete", `SELECT count(*) FROM data_sources WHERE provider='form' AND deleted_at IS NULL`)
 	case EmergencyAlertsID:
-		if err = add("alert_monitor", "enabled monitor", "enabled monitors", `SELECT count(*) FROM alert_monitor WHERE enabled`); err != nil {
+		if err = add("alert_monitor", "enabled monitor", "enabled monitors", "disable", `SELECT count(*) FROM alert_monitor WHERE enabled`); err != nil {
 			return nil, err
 		}
-		if err = add("alert_rule", "alert rule", "alert rules", `SELECT count(*) FROM alert_rules`); err != nil {
+		if err = add("alert_rule", "alert rule", "alert rules", "delete", `SELECT count(*) FROM alert_rules`); err != nil {
 			return nil, err
 		}
-		err = add("alert_activation", "active alert", "active alerts", `SELECT count(*) FROM alert_activations WHERE cleared_at IS NULL`)
+		err = add("alert_activation", "active alert", "active alerts", "wait", `SELECT count(*) FROM alert_activations WHERE cleared_at IS NULL`)
 	}
 	if err != nil {
 		return nil, err

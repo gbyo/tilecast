@@ -61,10 +61,10 @@
     "blockedEmpty": "This plugin is still in use.",
     "blockedSentence_one": "{{list}} still uses this plugin.",
     "blockedSentence_other": "{{list}} still use this plugin.",
-    "blockedWait": "Wait for active alerts to clear, then remove the plugin.",
-    "blockedMonitor": "Turn monitoring off on this page, then remove the plugin.",
+    "blockedWait": "Wait for the {{labels}} to clear, then remove the plugin.",
+    "blockedDisable": "Turn off the {{disable}} on this page, then remove the plugin.",
     "blockedDelete": "Delete the remaining {{labels}} on this page, then remove the plugin.",
-    "blockedMonitorDelete": "Turn monitoring off and delete the remaining {{labels}} on this page, then remove the plugin."
+    "blockedDisableDelete": "Turn off the {{disable}} and delete the remaining {{labels}} on this page, then remove the plugin."
   },
   "gate": {
     "notInstalled": "{{name}} isn't installed",

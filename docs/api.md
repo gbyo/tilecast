@@ -216,7 +216,7 @@ Screens reference an optional `locationId` and carry independent optional `roomN
 - `PATCH /api/v1/locations/{id}`
 - `DELETE /api/v1/locations/{id}`
 
-The machine-readable subset is in [`openapi.yaml`](openapi.yaml).
+The machine-readable subset is in [`openapi.yaml`](openapi.yaml). `pluginctl` generates that file from [`openapi/core.yaml`](openapi/core.yaml) and the `api/openapi.yaml` fragment of each plugin. Edit the source files, then run `npm run plugins:generate`. Refer to [`plugin-api.md`](plugin-api.md#openapi).
 
 ## Media uploads and library
 

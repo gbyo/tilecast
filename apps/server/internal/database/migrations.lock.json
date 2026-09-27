@@ -1,0 +1,626 @@
+[
+  {
+    "version": 1,
+    "file": "00001_foundation.sql",
+    "owner": "core",
+    "sha256": "2a5956cc7370e632884c60f1ea472e6a1017ea27f8475865da293f6d0f4c54ec"
+  },
+  {
+    "version": 2,
+    "file": "00002_device_pairing.sql",
+    "owner": "core",
+    "sha256": "afb446887eed214a317013efa53acbd335e5ad7da659d7a419b187b9145a39bc"
+  },
+  {
+    "version": 3,
+    "file": "00003_media_library.sql",
+    "owner": "core",
+    "sha256": "c0723ab6c371b3499b09ac088ba5d9384ba538e0930ced25142d45d4ff14cbcd"
+  },
+  {
+    "version": 4,
+    "file": "00004_playlists_and_manifests.sql",
+    "owner": "core",
+    "sha256": "b2b761dc0d326f38dd6f0dc0c87170ba317b34caa630b1d9dd22f58cf1921397"
+  },
+  {
+    "version": 5,
+    "file": "00005_screen_groups_and_schedules.sql",
+    "owner": "core",
+    "sha256": "3c42eefecea49845c7a3ec545fde18dd6863c0cbf7d0a588342e85dcb7734451"
+  },
+  {
+    "version": 6,
+    "file": "00006_website_content.sql",
+    "owner": "core",
+    "sha256": "34622c0703aac0782fe2070a9f9e25574ee57bbf7398e35a9813e154b9847de7"
+  },
+  {
+    "version": 7,
+    "file": "00007_emergencies_and_player_commands.sql",
+    "owner": "core",
+    "sha256": "1db67d441b336da851b10fc75ee89a41876582a11df2e91f09e6f2a31d0303d6"
+  },
+  {
+    "version": 8,
+    "file": "00008_settings_and_player_policies.sql",
+    "owner": "core",
+    "sha256": "6f618636609251a67a0c6d2e4b20cd5636f7af71b216617840b8ac252aa0c8eb"
+  },
+  {
+    "version": 9,
+    "file": "00009_github_player_updates.sql",
+    "owner": "core",
+    "sha256": "7aaa09008611e7e4254c2d37176a4f22f8c1e061014b2d4117726cd2fd146a87"
+  },
+  {
+    "version": 10,
+    "file": "00010_android_reliability.sql",
+    "owner": "core",
+    "sha256": "0b18bc8967708c25291fd8d389020a1826b440462c059b8871051e5685cbe74f"
+  },
+  {
+    "version": 11,
+    "file": "00011_pairing_recovery.sql",
+    "owner": "core",
+    "sha256": "14f20d143dfe049d3a5a60097431fca27b5a1c8047cf157a08a41b7ad52da44e"
+  },
+  {
+    "version": 12,
+    "file": "00012_sources.sql",
+    "owner": "core",
+    "sha256": "a4858500290fc185685efc30f2dd71733a5bba255e3b856f55778b2a35a0127e"
+  },
+  {
+    "version": 13,
+    "file": "00013_direct_player_release_uploads.sql",
+    "owner": "core",
+    "sha256": "ba1a7a751a287e15475f815b74e609a8a4a4106ef3a3a53d12dd0815845ec199"
+  },
+  {
+    "version": 14,
+    "file": "00014_hardened_player_commissioning.sql",
+    "owner": "core",
+    "sha256": "5364c65be2de264e2ab0501e406b71aef01c03da8dac0e3fac5859d209a8149b"
+  },
+  {
+    "version": 15,
+    "file": "00015_screen_previews.sql",
+    "owner": "core",
+    "sha256": "de5b61cced85a03e0e690fbbb874ca3bff0ff266d1c5bae29386bf64e31d0a55"
+  },
+  {
+    "version": 16,
+    "file": "00016_login_background.sql",
+    "owner": "core",
+    "sha256": "2d53f90c64794d6d3670fcabe2f3df9d739d1e35c3dff74d89e82d13cd8c1da8"
+  },
+  {
+    "version": 17,
+    "file": "00017_player_update_schema_repair.sql",
+    "owner": "core",
+    "sha256": "296e4843eb70e66033e06dae9684e1f2c15de7af92a4e650ede09e9f50503524"
+  },
+  {
+    "version": 18,
+    "file": "00018_screen_target_soft_delete_columns.sql",
+    "owner": "core",
+    "sha256": "2dd5c938f1980386f56b4c77f713350ca11b41682f92a8c469f18141d43fd850"
+  },
+  {
+    "version": 19,
+    "file": "00019_json_bytea_assignment.sql",
+    "owner": "core",
+    "sha256": "fd5b96fccbd469ba20d20c84421ff7ba174f8d3b76de84297e57904c01a29207"
+  },
+  {
+    "version": 20,
+    "file": "00020_remove_json_bytea_assignment.sql",
+    "owner": "core",
+    "sha256": "732c7f119d580732ad06733c683c696b535eeb3e67a7aa0b57ff6c014d6b3da2"
+  },
+  {
+    "version": 21,
+    "file": "00021_sync_groups.sql",
+    "owner": "core",
+    "sha256": "4c7ea3f12f5cbf4cdc6296684e52109f626e2107e9d21eb7593a4de0718f22c7"
+  },
+  {
+    "version": 22,
+    "file": "00022_calendar_sources.sql",
+    "owner": "core",
+    "sha256": "38a9d2512f0d51d6b48b0e93314fc7428edaf97a7f3c1d9f6ba2244dc028e480"
+  },
+  {
+    "version": 23,
+    "file": "00023_content_organization.sql",
+    "owner": "core",
+    "sha256": "5dcb4188a8a38642e4ab4edb5bb4a4482fb334df465d4bc09e3d545256eb8b8c"
+  },
+  {
+    "version": 24,
+    "file": "00024_structured_sources.sql",
+    "owner": "core",
+    "sha256": "4e9d70648036121d7b491ffa96da9b8f9cde25ceb71c40d08195b2cc53c9a017"
+  },
+  {
+    "version": 25,
+    "file": "00025_native_apps.sql",
+    "owner": "core",
+    "sha256": "77e040eeaebcabe15a6f45d04054fc49d9393643aa5c2a9221b2f6a4a99749c6"
+  },
+  {
+    "version": 26,
+    "file": "00026_layouts.sql",
+    "owner": "core",
+    "sha256": "187dcd3b5b350b0f6a7d74e1742ba0174aebece708440395f6a7a0b666c3d179"
+  },
+  {
+    "version": 27,
+    "file": "00027_display_apps.sql",
+    "owner": "core",
+    "sha256": "27df1cf70ec211500ba1e0ff96d4da080d6ad9ea9cf22ccb96ff9d48520b0216"
+  },
+  {
+    "version": 28,
+    "file": "00028_layout_presentations.sql",
+    "owner": "core",
+    "sha256": "468cc65d9d01e95c75bf9a7bc154cad6c367711166089cb66d1d3deab8ed678b"
+  },
+  {
+    "version": 29,
+    "file": "00029_widgets_and_data_sources.sql",
+    "owner": "core",
+    "sha256": "ddf18755a416f59d7f86e8af001cb7e290b33fb53713e7d66f81abbfd571b12c"
+  },
+  {
+    "version": 30,
+    "file": "00030_player_activity.sql",
+    "owner": "core",
+    "sha256": "07bf9b4d7ea5c13129baa04a3141654bc9ba9408fde1def603a8fb2b57ed903d"
+  },
+  {
+    "version": 31,
+    "file": "00031_activity_sessions.sql",
+    "owner": "core",
+    "sha256": "219abc80ba425eae5c6779f414a3cac762217a18b9d7bcc90839782ef14affdc"
+  },
+  {
+    "version": 32,
+    "file": "00032_activity_retention.sql",
+    "owner": "core",
+    "sha256": "7e6101837fa262a989be6f20c7239b02f2a00efcb35b2d648882f6e03ed782f0"
+  },
+  {
+    "version": 33,
+    "file": "00033_activity_derivation_guards.sql",
+    "owner": "core",
+    "sha256": "bdfe9f93b0443e71dc01525e7df709ddd025e0a052d0bf8da08b62115a1063ff"
+  },
+  {
+    "version": 34,
+    "file": "00034_activity_audit.sql",
+    "owner": "core",
+    "sha256": "615d40d095242856d78322f5b252c3510e371a0d1af168817a616d3d33d97502"
+  },
+  {
+    "version": 35,
+    "file": "00035_widget_data_expansion.sql",
+    "owner": "core",
+    "sha256": "c761e8e47227dd9c0845edc268eb500dda6bcd8d1f573a5a2b888f717826ed92"
+  },
+  {
+    "version": 36,
+    "file": "00036_declarative_widget_runtime.sql",
+    "owner": "core",
+    "sha256": "a17e258223482546cbd80043e0c4ba5f8c2e0438aaff9c07a3ac6b114270e8c2"
+  },
+  {
+    "version": 37,
+    "file": "00037_universal_information_widgets.sql",
+    "owner": "core",
+    "sha256": "4facb68508eeb8833e83c8d28731e56f39d91cada6d25d5a688a625ca9fc70e9"
+  },
+  {
+    "version": 38,
+    "file": "00038_release_content_definitions.sql",
+    "owner": "core",
+    "sha256": "22042a07aa83d53a1e8360c748118b0b20beb807585066dc88b43693ce33b48a"
+  },
+  {
+    "version": 39,
+    "file": "00039_provider_id_shape_constraints.sql",
+    "owner": "core",
+    "sha256": "a16de71bce37e4d773f4059727dcb93f4e8ab11053992587c39c0c6ef4e4bf1e"
+  },
+  {
+    "version": 40,
+    "file": "00040_playlist_layout_items.sql",
+    "owner": "core",
+    "sha256": "7d3d9e1c096b9e851194103a249b2a09bfe655c70d7809bc6a4babd7b52922a4"
+  },
+  {
+    "version": 41,
+    "file": "00041_sync_group_membership_snapshots.sql",
+    "owner": "core",
+    "sha256": "7fe23d4d6d5872b18189a169e87e92b7d69c42d6262f782dd413f6b6914b9786"
+  },
+  {
+    "version": 42,
+    "file": "00042_playlist_crossfade.sql",
+    "owner": "core",
+    "sha256": "f8ca053478daa60be60f4c812aeb249d3a99f0e1d27ab7f51ac52defd333862c"
+  },
+  {
+    "version": 43,
+    "file": "00043_backups.sql",
+    "owner": "core",
+    "sha256": "08c34698287e64a7fbed40c06e951489c7ab9b0c7233a02f217222f042a321d7"
+  },
+  {
+    "version": 44,
+    "file": "00044_form_data_source.sql",
+    "owner": "core",
+    "sha256": "1537e16cf46cfe7dd7f20e81d57a38535edfa5f05bee825eb3d7167a913fcfbd"
+  },
+  {
+    "version": 45,
+    "file": "00045_form_record_state_fk.sql",
+    "owner": "core",
+    "sha256": "c6401bd2bbc2c6c09876f24b893920a53c246984bbeb8bc9cc3f8e528081818e"
+  },
+  {
+    "version": 46,
+    "file": "00046_linux_player_updates.sql",
+    "owner": "core",
+    "sha256": "b849726da3bb4c568c498c899c166d5b2f3a9c2e3f4ed71a71ade5f787c06d37"
+  },
+  {
+    "version": 47,
+    "file": "00047_form_attachment_field_unique.sql",
+    "owner": "core",
+    "sha256": "8ea1ac1d3d4c04f1a8bbccc9b6dbb3a2c2d65d17b7b48a74b5190f1ac944e711"
+  },
+  {
+    "version": 48,
+    "file": "00048_widget_preview_images.sql",
+    "owner": "core",
+    "sha256": "650bb74ef3a43644deb083e3b04122389be21e3c7348775a707d567da6b3d014"
+  },
+  {
+    "version": 49,
+    "file": "00049_layout_preview_images.sql",
+    "owner": "core",
+    "sha256": "de99102b1449c50cb0872f84e93e1b1013a70127705f9cd1aa843532f338cc2e"
+  },
+  {
+    "version": 50,
+    "file": "00050_content_availability_and_tag_playlists.sql",
+    "owner": "core",
+    "sha256": "32b5bfd431667534398bfbebfc7ff8e28dd4b4f646addc8d892aefaf61083177"
+  },
+  {
+    "version": 51,
+    "file": "00051_reusable_locations.sql",
+    "owner": "core",
+    "sha256": "001e151a4a8f79a20321648059aece94504b8663a725628c472468db3ba5c449"
+  },
+  {
+    "version": 52,
+    "file": "00052_screen_archive.sql",
+    "owner": "core",
+    "sha256": "6a0e5d82f5dc433ef02101b3c509e017794f97a96b350a51d9075a1c98d26917"
+  },
+  {
+    "version": 53,
+    "file": "00053_playback_session_semantics.sql",
+    "owner": "core",
+    "sha256": "eaf2bbc05ce1635dff15280cd7669e1a34ecc0b5eed2e736b24c8967087fd7ce"
+  },
+  {
+    "version": 54,
+    "file": "00054_incidents.sql",
+    "owner": "core",
+    "sha256": "97cb100e6b40b4c63a58d553227a3d6ad8c9957ff37aecf02afdb452d1cf9664"
+  },
+  {
+    "version": 55,
+    "file": "00055_expected_playback.sql",
+    "owner": "core",
+    "sha256": "44153f2d9c7adf73b59d1f099282d1a60fd28ceb8474a5f37ff522b8821d41dc"
+  },
+  {
+    "version": 56,
+    "file": "00056_player_telemetry.sql",
+    "owner": "core",
+    "sha256": "74916fd2400424e4e86a6e2c1fd18cf1cdc39cad7211a404cbbc13277e550897"
+  },
+  {
+    "version": 57,
+    "file": "00057_mfa_and_passkeys.sql",
+    "owner": "core",
+    "sha256": "f17aa42524796ceda28b3b3dbe3e371a36f988b75d1ec817098640c028a4a9fa"
+  },
+  {
+    "version": 58,
+    "file": "00058_takeover_rename.sql",
+    "owner": "core",
+    "sha256": "dff637c1ddd012ed6f492acfd1e6de72349251fd46fde57e24693d714f4bff9a"
+  },
+  {
+    "version": 59,
+    "file": "00059_alert_monitoring.sql",
+    "owner": "core",
+    "sha256": "c1f23ec49e039925292479396e3dbae54b3adcc968ae4813af7206dc11ee7729"
+  },
+  {
+    "version": 60,
+    "file": "00060_permanent_user_deletion.sql",
+    "owner": "core",
+    "sha256": "6233d0a077c955c40d28803c4591e72f2274262b15acbea8de03c4762b34ba10"
+  },
+  {
+    "version": 61,
+    "file": "00061_linux_autostart.sql",
+    "owner": "core",
+    "sha256": "060cc2fb59748b211b8dd8274e0c0e621f445ed34fc74a432d340d8f5d6633ce"
+  },
+  {
+    "version": 62,
+    "file": "00062_nws_builtin_presentations.sql",
+    "owner": "core",
+    "sha256": "1f24a4b4ae4fb1fb8e96f3f92ddfdbde53adb226552446e81aa6ca2b8cffbcf1"
+  },
+  {
+    "version": 63,
+    "file": "00063_countdown_bar_plugin.sql",
+    "owner": "core",
+    "sha256": "408f133074fc3873e115ed391364195e5a12e94a5b65d117b528365e76b76333"
+  },
+  {
+    "version": 64,
+    "file": "00064_countdown_bar_progress_fill.sql",
+    "owner": "core",
+    "sha256": "9d028772dae6dd07ea1714d7cade10b1d99a52d61fb9050dda6e0e39b30c444f"
+  },
+  {
+    "version": 65,
+    "file": "00065_countdown_bar_text_metrics.sql",
+    "owner": "core",
+    "sha256": "a03af9eeeafa92b7b23e65d16f155b49784c5ba35df14af51aa382de00ec7674"
+  },
+  {
+    "version": 66,
+    "file": "00066_nws_ticker_response.sql",
+    "owner": "core",
+    "sha256": "567189113b05d24d3dfde44db4eac4b66a10d57f41ae68c5cc5c620db3251e7e"
+  },
+  {
+    "version": 67,
+    "file": "00067_countdown_bar_confetti.sql",
+    "owner": "core",
+    "sha256": "406144dda53d8c4f6ccc8267c035350d73c74b91ebff77e5affeecd85477357b"
+  },
+  {
+    "version": 68,
+    "file": "00068_notifications.sql",
+    "owner": "core",
+    "sha256": "3a0ae1d26294754e1a7d3fb42e98e075bf7267162df015f4721197b4bf9b0a66"
+  },
+  {
+    "version": 69,
+    "file": "00069_content_health.sql",
+    "owner": "core",
+    "sha256": "5302b3556dab427b40cab42b976149320c4722270c7eaf0192138ece1f846b8a"
+  },
+  {
+    "version": 70,
+    "file": "00070_bulk_operations.sql",
+    "owner": "core",
+    "sha256": "f576b5147d6baef02a8ea9cf3b230ff3bd1f125fcad7cd1e4223779e99484399"
+  },
+  {
+    "version": 71,
+    "file": "00071_integration_tokens.sql",
+    "owner": "core",
+    "sha256": "954a3c716f633178d374d0ea1fd04614fe3fbb0d78110eabf4f4b990f96041ad"
+  },
+  {
+    "version": 72,
+    "file": "00072_content_review.sql",
+    "owner": "core",
+    "sha256": "9293f4b218fb48c9ea8ddd474207a487c29dd7afe0758d9aff0d92a91dad72ed"
+  },
+  {
+    "version": 73,
+    "file": "00073_screen_scopes.sql",
+    "owner": "core",
+    "sha256": "b3505df25e49d345d59c2c29d91bd40c2c781142fc6bf5b12859a2c7beefb875"
+  },
+  {
+    "version": 74,
+    "file": "00074_screen_snapshots.sql",
+    "owner": "core",
+    "sha256": "99c3cbb73ae147b3ce5cc2c8f184788d63beb6106f4d30c9a6209ef07bd051a4"
+  },
+  {
+    "version": 75,
+    "file": "00075_playlist_revisions.sql",
+    "owner": "core",
+    "sha256": "ad1adc47d29946dda6fe06fe485553e7e6f142ca2a84aa623bb6330f16f7562d"
+  },
+  {
+    "version": 76,
+    "file": "00076_brand_bug_plugin.sql",
+    "owner": "core",
+    "sha256": "c4f590f8610a16ed2bd06390602acb9ea70071a1231c0405e1196003d9e90483"
+  },
+  {
+    "version": 77,
+    "file": "00077_player_release_download_progress.sql",
+    "owner": "core",
+    "sha256": "8777d44b1eb830e9d7a7cb032bd19512d6f2a8fd0dfd4c491e5d2bdb5b3e5f85"
+  },
+  {
+    "version": 78,
+    "file": "00078_asset_archive.sql",
+    "owner": "core",
+    "sha256": "1dcbe2ab341ae4199efba1a1697f82ab51b9ec6a944cf4ef650807ee86b71322"
+  },
+  {
+    "version": 79,
+    "file": "00079_telemetry_diagnostics.sql",
+    "owner": "core",
+    "sha256": "3f771e60b8ce95c7d6585eeee04bc683c853289e12d07c1b8ffa582e6b5ba609"
+  },
+  {
+    "version": 80,
+    "file": "00080_countdown_bar_urgency.sql",
+    "owner": "core",
+    "sha256": "d49fe3f2fe72c350f9565316171d0bf7493c48ecca598d5d3b73efec9e6f053c"
+  },
+  {
+    "version": 82,
+    "file": "00082_validate_player_release_download_progress.sql",
+    "owner": "core",
+    "sha256": "ba390e76fa9fa7d92af774e849048112881483b1e73cfafc8297e5302de69297"
+  },
+  {
+    "version": 83,
+    "file": "00083_external_presentations.sql",
+    "owner": "core",
+    "sha256": "ce3c7e2e076c956338e5cf229c3c8927d2185761624a37e6b784a6dea5a7e37f"
+  },
+  {
+    "version": 84,
+    "file": "00084_airplay_limitation.sql",
+    "owner": "core",
+    "sha256": "d077879fda3b06b31b6f7a3e1bfcd5a5bb4280ecb1076c450f0c4ead4ac09e73"
+  },
+  {
+    "version": 85,
+    "file": "00085_display_groups.sql",
+    "owner": "core",
+    "sha256": "02028295d90409dd7e46fec02a53c21e0690fc7e3412bbf44b96c98fdd531914"
+  },
+  {
+    "version": 86,
+    "file": "00086_screen_replacement.sql",
+    "owner": "core",
+    "sha256": "f320786dfec638ff685a5907311db28d0da0bef19a732ffb264ce8de5093a140"
+  },
+  {
+    "version": 87,
+    "file": "00087_presentation_overrides.sql",
+    "owner": "core",
+    "sha256": "43e0795d879db98584bd4824815989c58bd2731806131e7c1f1bc327d7d80f2f"
+  },
+  {
+    "version": 88,
+    "file": "00088_display_control.sql",
+    "owner": "core",
+    "sha256": "36b93ce9cf0138580fce07016bfd12a267f5adafcd9c343d2fe30cfa019c9360"
+  },
+  {
+    "version": 89,
+    "file": "00089_span_video_walls.sql",
+    "owner": "core",
+    "sha256": "69c74011eb13070f82eb5bded947a62d409edffef689c891aa0ce8965443c8cc"
+  },
+  {
+    "version": 90,
+    "file": "00090_airplay_prepare_deadline.sql",
+    "owner": "core",
+    "sha256": "f9f17524370507e46a9304d5bb4910a2cb90d235a4a1fbff3d79ebbdbc12359e"
+  },
+  {
+    "version": 91,
+    "file": "00091_activity_open_interval_guard.sql",
+    "owner": "core",
+    "sha256": "74d10822fcf2af4acf5d42f7c65d750f1a74bb2b598a5f5cc81ec61550f790a2"
+  },
+  {
+    "version": 92,
+    "file": "00092_upload_finalization_recovery.sql",
+    "owner": "core",
+    "sha256": "6ad8750be5145b80fe4c0bd9ed028316286e2aa2d98242826c20c6d44515bc24"
+  },
+  {
+    "version": 93,
+    "file": "00093_upload_finalization_identity.sql",
+    "owner": "core",
+    "sha256": "ebce716b79fd3d92bd6a7f2b56d26853e127e33eee8f3731176a560b33d2e964"
+  },
+  {
+    "version": 94,
+    "file": "00094_playlist_player_defaults.sql",
+    "owner": "core",
+    "sha256": "875aec04a658413549b231019bd1c47529ce3482e095da61aef247c9bf07bc8f"
+  },
+  {
+    "version": 95,
+    "file": "00095_upload_finalization_cleanup.sql",
+    "owner": "core",
+    "sha256": "86d3f899e60e9530254fcd1cda97d8f2123f3be59f55879edd1211a73ac4881d"
+  },
+  {
+    "version": 96,
+    "file": "00096_editorial_workflow.sql",
+    "owner": "core",
+    "sha256": "02d8d47be8caf170b39d233c503f4cd17b3caa538d4abbbb4fac9e7221409753"
+  },
+  {
+    "version": 97,
+    "file": "00097_presentation_networks.sql",
+    "owner": "core",
+    "sha256": "542e05a6779c01b32156bb4cfe045c9f0d44426b36abec3ebb0f3be367650e3e"
+  },
+  {
+    "version": 98,
+    "file": "00098_widget_app_recipes.sql",
+    "owner": "core",
+    "sha256": "a0a3234afe5540ef03fcd9f920823438587f66cc0e1ee87c37020d4711328920"
+  },
+  {
+    "version": 99,
+    "file": "00099_noise_meter_plugin.sql",
+    "owner": "core",
+    "sha256": "4f5d928b4f8ecaf31c2a262bf5131cd6286dd2dd48faeb73331e5db30096a5f7"
+  },
+  {
+    "version": 100,
+    "file": "00100_noise_meter_history.sql",
+    "owner": "core",
+    "sha256": "1b709f1911b0bb8d255ef39e8e32d2a843c698b66c64f0bbb647bdb6231411a7"
+  },
+  {
+    "version": 101,
+    "file": "00101_noise_meter_schedule.sql",
+    "owner": "core",
+    "sha256": "b3b34ad7194c6d95896db4cb9ce61cca20838c2e744d62061e54667bfadc091d"
+  },
+  {
+    "version": 102,
+    "file": "00102_plugin_installations.sql",
+    "owner": "core",
+    "sha256": "275950af92845a7edc47f72a8735bc39cf4234427e79ec0b98b4dce6cb44634d"
+  },
+  {
+    "version": 103,
+    "file": "00103_preserve_week_selection.sql",
+    "owner": "core",
+    "sha256": "06c256b14731fb19395486af43a15bc57bfae252b2e5dfe4f1db597f703e0b45"
+  },
+  {
+    "version": 104,
+    "file": "00104_sync_group_layout_snapshots.sql",
+    "owner": "core",
+    "sha256": "3e5aa7a4308e1cd8f3d0b251360e2b97fb0d0dff2fc92741490625d9aa0f91ae"
+  },
+  {
+    "version": 105,
+    "file": "00105_player_release_families.sql",
+    "owner": "core",
+    "sha256": "809a9949a86edc5b2992fcb7a79052823156dacc5c601405bf95afab34f3adc7"
+  }
+]

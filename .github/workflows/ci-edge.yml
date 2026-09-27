@@ -2,13 +2,16 @@ name: Edge CI
 
 # Tilecast Edge is developed as a stack of pull requests whose bases are other
 # Edge branches, so this workflow runs for pull requests against any base.
-# (Pull request validation runs only for pull requests against main.)
+# (Pull request validation also runs for pull requests against any base.)
 on:
   pull_request:
     paths:
       - "apps/edge/**"
       - "packages/edge-protocol/**"
       - "packages/player-runtime/**"
+      # The shared runtime bundles plugin runtime code and the SDK contract.
+      - "plugins/**"
+      - "packages/plugin-sdk/**"
       - "packages/api-schema/activity/**"
       - "apps/player-linux/**"
       - "apps/server/**"
