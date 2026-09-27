@@ -9,7 +9,6 @@
 
 use std::collections::HashMap;
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use edge_protocol::Timestamp;
@@ -25,12 +24,44 @@ use crate::daemon::DaemonContext;
 pub const CLEAR_TIMEOUT: Duration = Duration::from_secs(40);
 const MAX_PENDING: usize = 8;
 
+/// `website.clearOnRestart` for this daemon start. Only a successful clear
+/// completes it: any failure returns to `Idle` so the next
+/// `renderer.ready` (a reconnect, or the helper appearing later) retries.
+/// Event-driven retries only; there is no loop and nothing to go busy.
+#[derive(Debug, Default, PartialEq, Eq)]
+enum StartupClear {
+    #[default]
+    Idle,
+    /// A startup clear is running; further `renderer.ready` events wait.
+    InFlight,
+    /// A startup clear succeeded; never clear again for this process.
+    Done,
+}
+
+impl StartupClear {
+    /// Claim the single startup-clear slot. `false` means one already runs
+    /// or one already succeeded: no duplicate simultaneous clears.
+    fn begin(&mut self) -> bool {
+        if *self == StartupClear::Idle {
+            *self = StartupClear::InFlight;
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Record the outcome. Only success completes the startup clear; a
+    /// disconnect, a timeout, or a helper failure leaves it idle to retry.
+    fn finish(&mut self, ok: bool) {
+        *self = if ok { StartupClear::Done } else { StartupClear::Idle };
+    }
+}
+
 /// Renderer commands waiting for a result.
 #[derive(Debug, Default)]
 pub struct Waiters {
     pending: Mutex<HashMap<uuid::Uuid, oneshot::Sender<RendererCommandResult>>>,
-    /// `website.clearOnRestart` ran for this daemon start.
-    cleared_at_start: AtomicBool,
+    startup_clear: Mutex<StartupClear>,
 }
 
 impl Waiters {
@@ -82,18 +113,39 @@ pub async fn clear_website_data(context: &DaemonContext) -> CommandResult {
     }
 }
 
+/// Whether this `renderer.ready` should start the startup clear.
+fn should_clear_at_start(status: Option<&RemoteWebStatus>, clear_on_restart: bool, state: &mut StartupClear) -> bool {
+    status.is_some_and(|status| status.available) && clear_on_restart && state.begin()
+}
+
+/// Record what the startup clear did. Only the renderer's success answer
+/// completes it; anything else (a disconnect, a timeout, the helper being
+/// gone) leaves it idle so recovery retries. Manual `clear_website_data`
+/// commands never touch this state.
+fn note_startup_clear_result(state: &mut StartupClear, result: &CommandResult) {
+    state.finish(result.success);
+}
+
 /// `website.clearOnRestart`: once per daemon start, when a renderer with
-/// remote web is first ready (the reference player clears at startup).
+/// remote web is ready (the reference player clears at startup). The
+/// renderer re-sends `renderer.ready` after a reconnect and when the helper
+/// appears later, so a failed startup clear retries on recovery; a
+/// successful one never runs again for this process.
 pub fn clear_at_start_if_configured(context: &std::sync::Arc<DaemonContext>, status: Option<&RemoteWebStatus>) {
-    if !status.is_some_and(|status| status.available)
-        || !crate::config_sync::effective(context).website.clear_on_restart
-        || context.renderer_commands.cleared_at_start.swap(true, Ordering::AcqRel)
+    let clear_on_restart = crate::config_sync::effective(context).website.clear_on_restart;
     {
-        return;
+        let mut state = context.renderer_commands.startup_clear.lock().unwrap_or_else(|e| e.into_inner());
+        if !should_clear_at_start(status, clear_on_restart, &mut state) {
+            return;
+        }
     }
     let context = std::sync::Arc::clone(context);
     tokio::spawn(async move {
         let result = clear_website_data(&context).await;
+        {
+            let mut state = context.renderer_commands.startup_clear.lock().unwrap_or_else(|e| e.into_inner());
+            note_startup_clear_result(&mut state, &result);
+        }
         tracing::info!(component = "remote_web", event = "website_data_cleared_at_start", code = result.code.as_str());
     });
 }
@@ -176,6 +228,67 @@ mod tests {
             (CapabilityState::Degraded, Some("remote_web_software_frames".into()))
         );
         assert_eq!(state(Some(&status(true, true)), true, false), (CapabilityState::Available, None));
+    }
+
+    fn ready(available: bool) -> RemoteWebStatus {
+        status(available, true)
+    }
+
+    fn failed(code: &str) -> CommandResult {
+        CommandResult::failed(code, "not cleared")
+    }
+
+    #[test]
+    fn startup_clear_completes_only_after_success() {
+        // A successful first clear runs once; later ready events do nothing.
+        let mut state = StartupClear::default();
+        assert!(should_clear_at_start(Some(&ready(true)), true, &mut state));
+        assert_eq!(state, StartupClear::InFlight);
+        // No duplicate simultaneous clear while one runs.
+        assert!(!should_clear_at_start(Some(&ready(true)), true, &mut state));
+        note_startup_clear_result(&mut state, &CommandResult::ok("website_data_cleared", ""));
+        assert_eq!(state, StartupClear::Done);
+        assert!(!should_clear_at_start(Some(&ready(true)), true, &mut state));
+    }
+
+    #[test]
+    fn startup_clear_waits_for_the_helper_then_runs_once() {
+        // Helper unavailable at first ready: nothing starts.
+        let mut state = StartupClear::default();
+        assert!(!should_clear_at_start(Some(&ready(false)), true, &mut state));
+        assert!(!should_clear_at_start(None, true, &mut state));
+        assert!(!should_clear_at_start(Some(&ready(true)), false, &mut state));
+        assert_eq!(state, StartupClear::Idle);
+        // Recovery (the helper appears, ready re-sent): the clear runs.
+        assert!(should_clear_at_start(Some(&ready(true)), true, &mut state));
+        note_startup_clear_result(&mut state, &CommandResult::ok("website_data_cleared", ""));
+        assert_eq!(state, StartupClear::Done);
+        assert!(!should_clear_at_start(Some(&ready(true)), true, &mut state));
+    }
+
+    #[test]
+    fn startup_clear_retries_after_disconnect_timeout_or_helper_failure() {
+        // Renderer disconnect during the clear.
+        let mut state = StartupClear::default();
+        assert!(should_clear_at_start(Some(&ready(true)), true, &mut state));
+        note_startup_clear_result(&mut state, &failed("renderer_disconnected"));
+        assert_eq!(state, StartupClear::Idle);
+        // Timeout waiting for the answer.
+        assert!(should_clear_at_start(Some(&ready(true)), true, &mut state));
+        note_startup_clear_result(&mut state, &failed("renderer_timeout"));
+        assert_eq!(state, StartupClear::Idle);
+        // Helper restarted or unavailable mid-clear.
+        assert!(should_clear_at_start(Some(&ready(true)), true, &mut state));
+        note_startup_clear_result(&mut state, &failed("remote_web_helper_restarted"));
+        assert_eq!(state, StartupClear::Idle);
+        assert!(should_clear_at_start(Some(&ready(true)), true, &mut state));
+        note_startup_clear_result(&mut state, &failed("remote_web_unavailable"));
+        assert_eq!(state, StartupClear::Idle);
+        // Recovery finally succeeds: done, exactly once.
+        assert!(should_clear_at_start(Some(&ready(true)), true, &mut state));
+        note_startup_clear_result(&mut state, &CommandResult::ok("website_data_cleared", ""));
+        assert_eq!(state, StartupClear::Done);
+        assert!(!should_clear_at_start(Some(&ready(true)), true, &mut state));
     }
 
     #[test]
