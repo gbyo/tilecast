@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"context"
-
 	"github.com/spf13/cobra"
 
 	apiclient "github.com/tilecast/tilecast/packages/api-client"
@@ -17,10 +15,7 @@ func newWhoamiCommand(env *environment) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			bearer := resolved.Bearer
-			transport, err := apiclient.New(resolved.ServerURL, func(ctx context.Context) (string, error) {
-				return bearer, nil
-			})
+			transport, err := apiclient.New(resolved.ServerURL, resolved.BearerFunc())
 			if err != nil {
 				return err
 			}

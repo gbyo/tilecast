@@ -32,8 +32,9 @@ direct database access.
   `playlist list|get|publish`, `schedule list|get|create`,
   `token list|create`, and `activity overview|uptime|incidents|compliance`
   cover the current handwritten core command set.
-- Installed plugins with `automation.yaml` add commands and MCP tools at
-  runtime. The CLI has no bundled plugin identifier table.
+- Installed plugins with `automation.yaml` add commands below
+  `tilecast plugin` and MCP tools at runtime. The CLI has no bundled
+  plugin identifier table.
 - `tilecast mcp [--read-only]` serves semantic tools over MCP stdio.
   Sensitive tools require an explicit confirmation argument. Break-glass
   administration is excluded.
