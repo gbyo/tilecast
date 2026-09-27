@@ -15,7 +15,7 @@ import {
 export const MANIFEST_FILE = "tilecast.widget.json";
 
 /** Tooling directories below widgets/ that are not Widget modules. */
-export const RESERVED_DIRS = new Set(["visual"]);
+export const RESERVED_DIRS = new Set(["visual", "storybook-static"]);
 
 export interface Problem {
   widget?: string;
