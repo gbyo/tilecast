@@ -84,6 +84,26 @@ export function isRemoteUrl(value: string): boolean {
   }
 }
 
+/**
+ * Website failure policies, shared by every remote web surface. Unknown
+ * values fail safe as a placeholder, never as a skip: dropping an item
+ * silently is the one behavior that must stay explicit.
+ */
+export const FAILURE_BEHAVIORS = [
+  "skip",
+  "fallback_image",
+  "placeholder",
+  "last_success",
+] as const;
+
+export type FailureBehavior = (typeof FAILURE_BEHAVIORS)[number];
+
+export function normalizeFailureBehavior(value: unknown): FailureBehavior {
+  return (FAILURE_BEHAVIORS as readonly string[]).includes(String(value))
+    ? (value as FailureBehavior)
+    : "placeholder";
+}
+
 function presentation(
   partial: Partial<RemoteWebPresentationV1>,
 ): RemoteWebPresentationV1 {
@@ -103,7 +123,7 @@ function presentation(
       partial.lifecycle === "keep_warm" ? "keep_warm" : "destroy_on_hide",
     warmSeconds: clamp(partial.warmSeconds, 0, MAX_WARM_SECONDS, 0),
     onlineOnly: partial.onlineOnly === true,
-    failureBehavior: String(partial.failureBehavior || "placeholder"),
+    failureBehavior: normalizeFailureBehavior(partial.failureBehavior),
     fallbackSrc: partial.fallbackSrc ?? null,
     playUntilEnd: partial.playUntilEnd === true,
   };

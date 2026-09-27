@@ -22,8 +22,9 @@ import type {
 } from "../host/contract";
 import { TimerGroup } from "../clock/scheduler";
 import type { RemoteWebPort } from "../remote-web/port";
-import { YOUTUBE_MIN_EDGE } from "../remote-web/spec";
+import { YOUTUBE_MIN_EDGE, normalizeFailureBehavior } from "../remote-web/spec";
 import type { MediaSurface, SurfaceEnvironment } from "./surface";
+import { showFallbackImage, showWebsitePlaceholder } from "./website-failure";
 
 /** A media-URI stream that shows no frame this long has stalled. The host
  * repeats the last frame of a still page every second. */
@@ -58,10 +59,13 @@ export class HostRemoteWebSurface implements MediaSurface {
   private lastFrameAt = 0;
   private loaded = false;
   private streamReady = false;
+  /** At least one usable frame reached this element (or the host layer shows the page). */
+  private hasVisibleContent = false;
   private shown = false;
   private failed = false;
   private disposed = false;
   private resolveReady: (() => void) | null = null;
+  private rejectReady: ((reason: Error) => void) | null = null;
 
   constructor(options: RemoteWebSurfaceOptions) {
     this.spec = options.spec;
@@ -85,13 +89,27 @@ export class HostRemoteWebSurface implements MediaSurface {
   }
 
   prepare(): Promise<void> {
-    const ready = new Promise<void>((resolve) => (this.resolveReady = resolve));
+    const ready = new Promise<void>((resolve, reject) => {
+      this.resolveReady = resolve;
+      this.rejectReady = reject;
+    });
     const presentation = this.spec.presentation;
     this.loadTimer.after(presentation.loadTimeoutSeconds * 1_000, () =>
       this.fail("load timeout"),
     );
     void this.open();
     return ready;
+  }
+
+  /** Settle a still-pending prepare: content shows, or it never can. */
+  private settleReady(error: Error | null): void {
+    const resolve = this.resolveReady;
+    const reject = this.rejectReady;
+    this.resolveReady = null;
+    this.rejectReady = null;
+    if (!resolve || !reject) return;
+    if (error) reject(error);
+    else resolve();
   }
 
   activate(): Promise<void> {
@@ -261,11 +279,15 @@ export class HostRemoteWebSurface implements MediaSurface {
     const onFrame = () => {
       if (this.disposed || this.video !== video) return;
       this.lastFrameAt = this.env.clock.monotonicNow();
+      // A usable frame reached this element: `last_success` must keep it.
+      this.hasVisibleContent = true;
       if (!this.streamReady) {
         this.streamReady = true;
         this.maybeReady();
       }
-      this.frameCallback = video.requestVideoFrameCallback(onFrame);
+      if (typeof video.requestVideoFrameCallback === "function") {
+        this.frameCallback = video.requestVideoFrameCallback(onFrame);
+      }
     };
     if (typeof video.requestVideoFrameCallback === "function") {
       this.frameCallback = video.requestVideoFrameCallback(onFrame);
@@ -316,6 +338,8 @@ export class HostRemoteWebSurface implements MediaSurface {
         if (this.targetUri !== null && this.video === null) {
           this.attach(this.targetUri);
         } else if (this.hostLayer) {
+          // The host shows the page at our viewport; that is our content.
+          this.hasVisibleContent = true;
           this.streamReady = true;
           this.maybeReady();
         }
@@ -340,11 +364,9 @@ export class HostRemoteWebSurface implements MediaSurface {
       return;
     if (!this.resolveReady) return;
     this.loadTimer.cancelAll();
-    const resolve = this.resolveReady;
-    this.resolveReady = null;
     if (this.port.takeRecovery()) this.env.sink.websiteRecovered();
     this.scheduleReload();
-    resolve();
+    this.settleReady(null);
   }
 
   private scheduleReload(): void {
@@ -361,25 +383,43 @@ export class HostRemoteWebSurface implements MediaSurface {
     this.failed = true;
     this.loadTimer.cancelAll();
     this.timers.cancelAll();
-    if (this.surfaceId !== null) this.port.setMuted(this.surfaceId, true);
-    this.releaseVideo();
     const presentation = this.spec.presentation;
-    const fallback =
-      presentation.failureBehavior !== "skip" && !!presentation.fallbackSrc;
-    this.env.sink.websiteFailed(reason, fallback);
-    if (!fallback) {
-      this.element.replaceChildren();
+    const behavior = normalizeFailureBehavior(presentation.failureBehavior);
+    if (behavior === "last_success" && this.hasVisibleContent) {
+      // The last rendered frame stays on screen, as on Android: report the
+      // failure without finishing the item, and never release the video
+      // that shows it. A still-pending prepare resolves: content shows.
+      this.env.sink.websiteFailed(reason, true);
+      this.settleReady(null);
       return;
     }
-    const image = document.createElement("img");
-    image.alt = "";
-    image.style.width = "100%";
-    image.style.height = "100%";
-    image.style.objectFit = "contain";
-    image.onload = () => {
-      if (!this.disposed) this.env.sink.fallbackShown();
-    };
-    image.src = presentation.fallbackSrc!;
-    this.element.replaceChildren(image);
+    if (this.surfaceId !== null) this.port.setMuted(this.surfaceId, true);
+    this.releaseVideo();
+    if (behavior === "fallback_image" && presentation.fallbackSrc) {
+      const image = showFallbackImage(this.element, presentation.fallbackSrc);
+      this.env.sink.websiteFailed(reason, true);
+      image.onload = () => {
+        if (this.disposed) return;
+        this.env.sink.fallbackShown();
+        this.settleReady(null);
+      };
+      image.onerror = () => {
+        if (this.disposed) return;
+        // The promised fallback cannot be shown: fail deterministically
+        // instead of waiting for a fallback that never arrives.
+        this.settleReady(new Error("fallback_unavailable"));
+      };
+      return;
+    }
+    if (behavior === "placeholder" || behavior === "last_success") {
+      // `last_success` before the first usable frame follows the
+      // reference player: a placeholder, never an empty surface.
+      showWebsitePlaceholder(this.element);
+    } else {
+      // `skip`: report the failure and let the item finish.
+      this.element.replaceChildren();
+    }
+    this.env.sink.websiteFailed(reason, false);
+    this.settleReady(new Error(reason));
   }
 }

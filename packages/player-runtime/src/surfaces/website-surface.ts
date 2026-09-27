@@ -11,8 +11,13 @@
  */
 import type { RemoteWebPresentationV1, RuntimeItem } from "../host/contract";
 import { TimerGroup } from "../clock/scheduler";
-import { remoteWebSpecOf, youtubeEmbedUrl } from "../remote-web/spec";
+import {
+  normalizeFailureBehavior,
+  remoteWebSpecOf,
+  youtubeEmbedUrl,
+} from "../remote-web/spec";
 import type { MediaSurface, SurfaceEnvironment } from "./surface";
+import { showFallbackImage, showWebsitePlaceholder } from "./website-failure";
 
 interface WebviewElement extends HTMLElement {
   setZoomFactor?(factor: number): void;
@@ -34,6 +39,7 @@ export class WebviewWebsiteSurface implements MediaSurface {
   private failed = false;
   private disposed = false;
   private resolveReady: (() => void) | null = null;
+  private rejectReady: ((reason: Error) => void) | null = null;
 
   constructor(
     private readonly item: RuntimeItem,
@@ -82,7 +88,10 @@ export class WebviewWebsiteSurface implements MediaSurface {
 
   prepare(): Promise<void> {
     const webview = this.webview;
-    const ready = new Promise<void>((resolve) => (this.resolveReady = resolve));
+    const ready = new Promise<void>((resolve, reject) => {
+      this.resolveReady = resolve;
+      this.rejectReady = reject;
+    });
     this.loadTimer.after(this.presentation.loadTimeoutSeconds * 1_000, () =>
       this.fail("load timeout"),
     );
@@ -107,7 +116,7 @@ export class WebviewWebsiteSurface implements MediaSurface {
             )
             .catch(() => undefined);
         }
-        this.resolveReady?.();
+        this.settleReady(null);
       } else {
         this.env.sink.websiteRecovered();
       }
@@ -154,21 +163,48 @@ export class WebviewWebsiteSurface implements MediaSurface {
     });
   }
 
+  /** Settle a still-pending prepare: content shows, or it never can. */
+  private settleReady(error: Error | null): void {
+    const resolve = this.resolveReady;
+    const reject = this.rejectReady;
+    this.resolveReady = null;
+    this.rejectReady = null;
+    if (!resolve || !reject) return;
+    if (error) reject(error);
+    else resolve();
+  }
+
   private fail(reason: string): void {
     if (this.failed || this.disposed) return;
     this.failed = true;
     this.loadTimer.cancelAll();
     const config = this.presentation;
-    const fallback = config.failureBehavior !== "skip" && !!config.fallbackSrc;
-    this.env.sink.websiteFailed(reason, fallback);
-    if (!fallback) return;
-    const image = document.createElement("img");
-    image.alt = "";
-    image.style.objectFit = "contain";
-    image.onload = () => {
-      if (!this.disposed) this.env.sink.fallbackShown();
-    };
-    image.src = config.fallbackSrc!;
-    this.element.replaceChildren(image);
+    const behavior = normalizeFailureBehavior(config.failureBehavior);
+    if (behavior === "last_success" && this.loaded) {
+      // The loaded page stays composed, as on Android: report the failure
+      // without finishing the item.
+      this.env.sink.websiteFailed(reason, true);
+      this.settleReady(null);
+      return;
+    }
+    if (behavior === "fallback_image" && config.fallbackSrc) {
+      const image = showFallbackImage(this.element, config.fallbackSrc);
+      this.env.sink.websiteFailed(reason, true);
+      image.onload = () => {
+        if (this.disposed) return;
+        this.env.sink.fallbackShown();
+        this.settleReady(null);
+      };
+      image.onerror = () => {
+        if (this.disposed) return;
+        this.settleReady(new Error("fallback_unavailable"));
+      };
+      return;
+    }
+    if (behavior === "placeholder" || behavior === "last_success") {
+      showWebsitePlaceholder(this.element);
+    }
+    this.env.sink.websiteFailed(reason, false);
+    this.settleReady(new Error(reason));
   }
 }

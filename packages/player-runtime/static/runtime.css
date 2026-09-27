@@ -323,6 +323,37 @@ tc-outside-hours {
   display: contents;
 }
 /*
+ * The Website failure placeholder and fallback image, rendered by the
+ * remote web surfaces. The same visual language as the status surface:
+ * the Tilecast UI face, light text on the website's own background (the
+ * surface element behind this box keeps the author's backgroundColor).
+ * Relative sizing so the placeholder works in a Layout zone of any size,
+ * not only fullscreen.
+ */
+.tc-website-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 1em;
+  box-sizing: border-box;
+}
+.tc-website-placeholder__message {
+  margin: 0;
+  font-size: 1.5em;
+  font-weight: 600;
+  color: #f5f7fa;
+}
+.tc-website-fallback {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  background: #000;
+}
+/*
  * Conformance runs freeze CSS motion at a deterministic frame so engine
  * snapshots compare the same instant. Production never sets this class.
  */
