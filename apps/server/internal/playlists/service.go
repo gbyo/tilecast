@@ -2124,8 +2124,9 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 	}
 	compiled := make([]*WidgetPresentation, len(manifest.Widgets))
 	canCompileV13 := true
+	allowPrivateHTTP := s.orgPrivateHTTP(ctx)
 	for index := range manifest.Widgets {
-		compiled[index], _ = s.compileWidgetPresentationForPreset(manifest.Widgets[index].Provider, manifest.Widgets[index].PresetID, manifest.Widgets[index].Configuration)
+		compiled[index], _ = s.compileWidgetPresentationForPreset(manifest.Widgets[index].Provider, manifest.Widgets[index].PresetID, manifest.Widgets[index].Configuration, allowPrivateHTTP)
 		if compiled[index] == nil {
 			canCompileV13 = false
 			break

@@ -40,7 +40,7 @@ func (s *server) compileWidgetPreview(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "runtime_unavailable", "The presentation compiler is unavailable.")
 		return
 	}
-	presentation, err := s.playlists.CompileWidgetPresentation(body.Provider, body.Configuration)
+	presentation, err := s.playlists.CompileWidgetPresentation(body.Provider, body.Configuration, s.orgPrivateHTTP(r))
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_presentation", err.Error())
 		return
@@ -306,6 +306,22 @@ func (s *server) updateWidget(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": asset})
+}
+
+// orgPrivateHTTP reports website.private_http_enabled for the organization,
+// false when the settings service is unavailable. It carries the website
+// asset policy into Widget presentation compile paths, which otherwise
+// reject private HTTP the organization enabled.
+func (s *server) orgPrivateHTTP(r *http.Request) bool {
+	if s.settings == nil {
+		return false
+	}
+	document, err := s.settings.Organization(r.Context())
+	if err != nil {
+		return false
+	}
+	enabled, _ := document.Values["website.private_http_enabled"].(bool)
+	return enabled
 }
 
 func (s *server) widgetPrivateHTTPAllowed(r *http.Request, configuration json.RawMessage) bool {
