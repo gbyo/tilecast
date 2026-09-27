@@ -24,13 +24,13 @@ paths:
   /install.sh:
     get:
       operationId: installLinuxPlayerScript
-      description: Public, rate-limited Linux Player provisioning script with this server's URL embedded.
+      description: Public. Rate-limited Linux Player provisioning script with this server's URL embedded.
       responses:
         "200": { description: Shell installer }
   /install-airplay.sh:
     get:
       operationId: installAirPlayScript
-      description: Public, rate-limited AirPlay provisioning script with this server's URL embedded.
+      description: Public. Rate-limited AirPlay provisioning script with this server's URL embedded.
       responses:
         "200": { description: Shell installer }
   /install/tilecast-player.service:
@@ -66,7 +66,7 @@ paths:
   /api/v1/install/airplay/uxplay:
     get:
       operationId: installableUxPlayArtifact
-      description: Public, rate-limited, pinned UxPlay 1.73.6 source archive embedded in Tilecast Server.
+      description: Public. Rate-limited, pinned UxPlay 1.73.6 source archive embedded in Tilecast Server.
       responses:
         "200": { description: Verified UxPlay 1.73.6 source archive }
     head:
@@ -453,8 +453,8 @@ paths:
     post:
       operationId: revokeOAuthCredential
       description: >-
-        Public and rate-limited. Revokes the grant behind a presented access
-        or refresh credential. The credential itself is the authorization.
+        Public. Rate-limited. Revokes the grant behind a presented access or
+        refresh credential. The credential itself is the authorization.
       requestBody:
         required: true
         content:
@@ -2009,7 +2009,13 @@ paths:
   /api/v1/assets/websites:
     post:
       operationId: createWebsiteAsset
-      description: Creates configuration-only public website content without fetching the page.
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: >-
+        Requires an authenticated content author with the write scope. Cookie
+        requests additionally require the X-CSRF-Token header; Bearer grants
+        never send it. Creates configuration-only public website content
+        without fetching the page.
+      parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
       responses:
         {
           "201": { description: Website asset created },
