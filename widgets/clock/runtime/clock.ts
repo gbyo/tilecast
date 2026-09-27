@@ -447,14 +447,14 @@ export class TilecastClockWidget extends TilecastWidgetElement<
             meta
               ? html`<span class="meta"
                   >${
-                  parts.dayPeriod
-                    ? html`<span class="period">${parts.dayPeriod}</span>`
-                    : nothing
-                }${
-                  showSeconds
-                    ? html`<span class="seconds">${parts.second}</span>`
-                    : nothing
-                }</span
+                    parts.dayPeriod
+                      ? html`<span class="period">${parts.dayPeriod}</span>`
+                      : nothing
+                  }${
+                    showSeconds
+                      ? html`<span class="seconds">${parts.second}</span>`
+                      : nothing
+                  }</span
                 >`
               : nothing
           }
