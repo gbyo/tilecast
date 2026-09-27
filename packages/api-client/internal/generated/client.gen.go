@@ -5314,12 +5314,12 @@ type ClientInterface interface {
 
 	// InstallPlugin performs a POST /api/v1/plugins/{pluginId}/install (the `InstallPlugin` operationId) request.
 	//
-	// Requires the Owner or Administrator role and an enrolled dashboard session. Records a release-owned plugin as installed. Idempotent. Never downloads or runs code.
+	// Requires the Owner or Administrator role and an authenticated user with the admin scope. Cookie requests also require CSRF. Records a release-owned plugin as installed. Idempotent. Never downloads or runs code.
 	InstallPlugin(ctx context.Context, pluginId PluginID, params *InstallPluginParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RemovePlugin performs a DELETE /api/v1/plugins/{pluginId}/installation (the `RemovePlugin` operationId) request.
 	//
-	// Requires the Owner or Administrator role and an enrolled dashboard session. Deletes the installation record. Never deletes plugin data; refuses while plugin-owned resources remain. Idempotent for a plugin that is not installed. An installation row for a plugin this release does not know may also be removed; only the row is deleted.
+	// Requires the Owner or Administrator role and an authenticated user with the admin scope. Cookie requests also require CSRF. Deletes the installation record. Never deletes plugin data; refuses while plugin-owned resources remain. Idempotent for a plugin that is not installed. An installation row for a plugin this release does not know may also be removed; only the row is deleted.
 	RemovePlugin(ctx context.Context, pluginId PluginID, params *RemovePluginParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListPresentationNetworks List Presentation Networks
@@ -5440,13 +5440,13 @@ type ClientInterface interface {
 	// CreateScheduleWithBody performs a POST /api/v1/schedules (the `CreateSchedule` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Requires the Owner or Administrator role and an enrolled dashboard session. The request contains exactly one of playlistId, layoutId, or displayAction. Display Control actions use the closed typed command registry; display_probe is not schedulable.
+	// Requires the Owner or Administrator role and an authenticated user with the write scope. Cookie requests also require CSRF. The request contains exactly one of playlistId, layoutId, or displayAction. Display Control actions use the closed typed command registry; display_probe is not schedulable.
 	CreateScheduleWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateSchedule performs a POST /api/v1/schedules (the `CreateSchedule` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
-	// Requires the Owner or Administrator role and an enrolled dashboard session. The request contains exactly one of playlistId, layoutId, or displayAction. Display Control actions use the closed typed command registry; display_probe is not schedulable.
+	// Requires the Owner or Administrator role and an authenticated user with the write scope. Cookie requests also require CSRF. The request contains exactly one of playlistId, layoutId, or displayAction. Display Control actions use the closed typed command registry; display_probe is not schedulable.
 	CreateSchedule(ctx context.Context, body CreateScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PreviewSchedule performs a POST /api/v1/schedules/preview (the `PreviewSchedule` operationId) request.
@@ -5618,7 +5618,7 @@ type ClientInterface interface {
 
 	// GetEffectivePolicy performs a GET /api/v1/screens/{id}/effective-policy (the `GetEffectivePolicy` operationId) request.
 	//
-	// Requires an enrolled dashboard session. Reports the effective player policy for one screen with inheritance sources. A screen outside the caller's scope answers 404.
+	// Requires an authenticated user with the read scope. Reports the effective player policy for one screen with inheritance sources. A screen outside the caller's scope answers 404.
 	GetEffectivePolicy(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// EnableScreen performs a POST /api/v1/screens/{id}/enable (the `EnableScreen` operationId) request.
@@ -9414,7 +9414,7 @@ func (c *Client) GetPluginAutomation(ctx context.Context, pluginId PluginID, req
 
 // InstallPlugin performs a POST /api/v1/plugins/{pluginId}/install (the `InstallPlugin` operationId) request.
 //
-// Requires the Owner or Administrator role and an enrolled dashboard session. Records a release-owned plugin as installed. Idempotent. Never downloads or runs code.
+// Requires the Owner or Administrator role and an authenticated user with the admin scope. Cookie requests also require CSRF. Records a release-owned plugin as installed. Idempotent. Never downloads or runs code.
 func (c *Client) InstallPlugin(ctx context.Context, pluginId PluginID, params *InstallPluginParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewInstallPluginRequest(c.Server, pluginId, params)
 	if err != nil {
@@ -9429,7 +9429,7 @@ func (c *Client) InstallPlugin(ctx context.Context, pluginId PluginID, params *I
 
 // RemovePlugin performs a DELETE /api/v1/plugins/{pluginId}/installation (the `RemovePlugin` operationId) request.
 //
-// Requires the Owner or Administrator role and an enrolled dashboard session. Deletes the installation record. Never deletes plugin data; refuses while plugin-owned resources remain. Idempotent for a plugin that is not installed. An installation row for a plugin this release does not know may also be removed; only the row is deleted.
+// Requires the Owner or Administrator role and an authenticated user with the admin scope. Cookie requests also require CSRF. Deletes the installation record. Never deletes plugin data; refuses while plugin-owned resources remain. Idempotent for a plugin that is not installed. An installation row for a plugin this release does not know may also be removed; only the row is deleted.
 func (c *Client) RemovePlugin(ctx context.Context, pluginId PluginID, params *RemovePluginParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRemovePluginRequest(c.Server, pluginId, params)
 	if err != nil {
@@ -9730,7 +9730,7 @@ func (c *Client) ListSchedules(ctx context.Context, params *ListSchedulesParams,
 // CreateScheduleWithBody performs a POST /api/v1/schedules (the `CreateSchedule` operationId) request,
 // with any type of body and a specified content type.
 //
-// Requires the Owner or Administrator role and an enrolled dashboard session. The request contains exactly one of playlistId, layoutId, or displayAction. Display Control actions use the closed typed command registry; display_probe is not schedulable.
+// Requires the Owner or Administrator role and an authenticated user with the write scope. Cookie requests also require CSRF. The request contains exactly one of playlistId, layoutId, or displayAction. Display Control actions use the closed typed command registry; display_probe is not schedulable.
 func (c *Client) CreateScheduleWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateScheduleRequestWithBody(c.Server, contentType, body)
 	if err != nil {
@@ -9746,7 +9746,7 @@ func (c *Client) CreateScheduleWithBody(ctx context.Context, contentType string,
 // CreateSchedule performs a POST /api/v1/schedules (the `CreateSchedule` operationId) request.
 // Takes a body of the `application/json` content type.
 //
-// Requires the Owner or Administrator role and an enrolled dashboard session. The request contains exactly one of playlistId, layoutId, or displayAction. Display Control actions use the closed typed command registry; display_probe is not schedulable.
+// Requires the Owner or Administrator role and an authenticated user with the write scope. Cookie requests also require CSRF. The request contains exactly one of playlistId, layoutId, or displayAction. Display Control actions use the closed typed command registry; display_probe is not schedulable.
 func (c *Client) CreateSchedule(ctx context.Context, body CreateScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateScheduleRequest(c.Server, body)
 	if err != nil {
@@ -10318,7 +10318,7 @@ func (c *Client) DisableScreen(ctx context.Context, id openapi_types.UUID, reqEd
 
 // GetEffectivePolicy performs a GET /api/v1/screens/{id}/effective-policy (the `GetEffectivePolicy` operationId) request.
 //
-// Requires an enrolled dashboard session. Reports the effective player policy for one screen with inheritance sources. A screen outside the caller's scope answers 404.
+// Requires an authenticated user with the read scope. Reports the effective player policy for one screen with inheritance sources. A screen outside the caller's scope answers 404.
 func (c *Client) GetEffectivePolicy(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetEffectivePolicyRequest(c.Server, id)
 	if err != nil {
@@ -24584,14 +24584,14 @@ type ClientWithResponsesInterface interface {
 
 	// InstallPluginWithResponse performs a POST /api/v1/plugins/{pluginId}/install (the `InstallPlugin` operationId) request.
 	//
-	// Requires the Owner or Administrator role and an enrolled dashboard session. Records a release-owned plugin as installed. Idempotent. Never downloads or runs code.
+	// Requires the Owner or Administrator role and an authenticated user with the admin scope. Cookie requests also require CSRF. Records a release-owned plugin as installed. Idempotent. Never downloads or runs code.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	InstallPluginWithResponse(ctx context.Context, pluginId PluginID, params *InstallPluginParams, reqEditors ...RequestEditorFn) (*InstallPluginResponse, error)
 
 	// RemovePluginWithResponse performs a DELETE /api/v1/plugins/{pluginId}/installation (the `RemovePlugin` operationId) request.
 	//
-	// Requires the Owner or Administrator role and an enrolled dashboard session. Deletes the installation record. Never deletes plugin data; refuses while plugin-owned resources remain. Idempotent for a plugin that is not installed. An installation row for a plugin this release does not know may also be removed; only the row is deleted.
+	// Requires the Owner or Administrator role and an authenticated user with the admin scope. Cookie requests also require CSRF. Deletes the installation record. Never deletes plugin data; refuses while plugin-owned resources remain. Idempotent for a plugin that is not installed. An installation row for a plugin this release does not know may also be removed; only the row is deleted.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	RemovePluginWithResponse(ctx context.Context, pluginId PluginID, params *RemovePluginParams, reqEditors ...RequestEditorFn) (*RemovePluginResponse, error)
@@ -24728,7 +24728,7 @@ type ClientWithResponsesInterface interface {
 	// CreateScheduleWithBodyWithResponse performs a POST /api/v1/schedules (the `CreateSchedule` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Requires the Owner or Administrator role and an enrolled dashboard session. The request contains exactly one of playlistId, layoutId, or displayAction. Display Control actions use the closed typed command registry; display_probe is not schedulable.
+	// Requires the Owner or Administrator role and an authenticated user with the write scope. Cookie requests also require CSRF. The request contains exactly one of playlistId, layoutId, or displayAction. Display Control actions use the closed typed command registry; display_probe is not schedulable.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	CreateScheduleWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateScheduleResponse, error)
@@ -24736,7 +24736,7 @@ type ClientWithResponsesInterface interface {
 	// CreateScheduleWithResponse performs a POST /api/v1/schedules (the `CreateSchedule` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Requires the Owner or Administrator role and an enrolled dashboard session. The request contains exactly one of playlistId, layoutId, or displayAction. Display Control actions use the closed typed command registry; display_probe is not schedulable.
+	// Requires the Owner or Administrator role and an authenticated user with the write scope. Cookie requests also require CSRF. The request contains exactly one of playlistId, layoutId, or displayAction. Display Control actions use the closed typed command registry; display_probe is not schedulable.
 	CreateScheduleWithResponse(ctx context.Context, body CreateScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateScheduleResponse, error)
 
 	// PreviewScheduleWithResponse performs a POST /api/v1/schedules/preview (the `PreviewSchedule` operationId) request.
@@ -24972,7 +24972,7 @@ type ClientWithResponsesInterface interface {
 
 	// GetEffectivePolicyWithResponse performs a GET /api/v1/screens/{id}/effective-policy (the `GetEffectivePolicy` operationId) request.
 	//
-	// Requires an enrolled dashboard session. Reports the effective player policy for one screen with inheritance sources. A screen outside the caller's scope answers 404.
+	// Requires an authenticated user with the read scope. Reports the effective player policy for one screen with inheritance sources. A screen outside the caller's scope answers 404.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	GetEffectivePolicyWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*GetEffectivePolicyResponse, error)
@@ -38517,7 +38517,7 @@ func (c *ClientWithResponses) GetPluginAutomationWithResponse(ctx context.Contex
 
 // InstallPluginWithResponse performs a POST /api/v1/plugins/{pluginId}/install (the `InstallPlugin` operationId) request.
 //
-// Requires the Owner or Administrator role and an enrolled dashboard session. Records a release-owned plugin as installed. Idempotent. Never downloads or runs code.
+// Requires the Owner or Administrator role and an authenticated user with the admin scope. Cookie requests also require CSRF. Records a release-owned plugin as installed. Idempotent. Never downloads or runs code.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) InstallPluginWithResponse(ctx context.Context, pluginId PluginID, params *InstallPluginParams, reqEditors ...RequestEditorFn) (*InstallPluginResponse, error) {
@@ -38530,7 +38530,7 @@ func (c *ClientWithResponses) InstallPluginWithResponse(ctx context.Context, plu
 
 // RemovePluginWithResponse performs a DELETE /api/v1/plugins/{pluginId}/installation (the `RemovePlugin` operationId) request.
 //
-// Requires the Owner or Administrator role and an enrolled dashboard session. Deletes the installation record. Never deletes plugin data; refuses while plugin-owned resources remain. Idempotent for a plugin that is not installed. An installation row for a plugin this release does not know may also be removed; only the row is deleted.
+// Requires the Owner or Administrator role and an authenticated user with the admin scope. Cookie requests also require CSRF. Deletes the installation record. Never deletes plugin data; refuses while plugin-owned resources remain. Idempotent for a plugin that is not installed. An installation row for a plugin this release does not know may also be removed; only the row is deleted.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) RemovePluginWithResponse(ctx context.Context, pluginId PluginID, params *RemovePluginParams, reqEditors ...RequestEditorFn) (*RemovePluginResponse, error) {
@@ -38775,7 +38775,7 @@ func (c *ClientWithResponses) ListSchedulesWithResponse(ctx context.Context, par
 // CreateScheduleWithBodyWithResponse performs a POST /api/v1/schedules (the `CreateSchedule` operationId) request,
 // with any type of body and a specified content type.
 //
-// Requires the Owner or Administrator role and an enrolled dashboard session. The request contains exactly one of playlistId, layoutId, or displayAction. Display Control actions use the closed typed command registry; display_probe is not schedulable.
+// Requires the Owner or Administrator role and an authenticated user with the write scope. Cookie requests also require CSRF. The request contains exactly one of playlistId, layoutId, or displayAction. Display Control actions use the closed typed command registry; display_probe is not schedulable.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) CreateScheduleWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateScheduleResponse, error) {
@@ -38789,7 +38789,7 @@ func (c *ClientWithResponses) CreateScheduleWithBodyWithResponse(ctx context.Con
 // CreateScheduleWithResponse performs a POST /api/v1/schedules (the `CreateSchedule` operationId) request.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Requires the Owner or Administrator role and an enrolled dashboard session. The request contains exactly one of playlistId, layoutId, or displayAction. Display Control actions use the closed typed command registry; display_probe is not schedulable.
+// Requires the Owner or Administrator role and an authenticated user with the write scope. Cookie requests also require CSRF. The request contains exactly one of playlistId, layoutId, or displayAction. Display Control actions use the closed typed command registry; display_probe is not schedulable.
 func (c *ClientWithResponses) CreateScheduleWithResponse(ctx context.Context, body CreateScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateScheduleResponse, error) {
 	rsp, err := c.CreateSchedule(ctx, body, reqEditors...)
 	if err != nil {
@@ -39265,7 +39265,7 @@ func (c *ClientWithResponses) DisableScreenWithResponse(ctx context.Context, id 
 
 // GetEffectivePolicyWithResponse performs a GET /api/v1/screens/{id}/effective-policy (the `GetEffectivePolicy` operationId) request.
 //
-// Requires an enrolled dashboard session. Reports the effective player policy for one screen with inheritance sources. A screen outside the caller's scope answers 404.
+// Requires an authenticated user with the read scope. Reports the effective player policy for one screen with inheritance sources. A screen outside the caller's scope answers 404.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) GetEffectivePolicyWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*GetEffectivePolicyResponse, error) {

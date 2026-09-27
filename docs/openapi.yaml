@@ -1007,6 +1007,7 @@ paths:
   /api/v1/plugins:
     get:
       operationId: listPlugins
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
       description: Every plugin the running release offers, joined with this installation's state. Readable by any signed-in account.
       responses:
         "200":
@@ -1022,7 +1023,8 @@ paths:
   /api/v1/plugins/{pluginId}/install:
     post:
       operationId: installPlugin
-      description: Requires the Owner or Administrator role and an enrolled dashboard session. Records a release-owned plugin as installed. Idempotent. Never downloads or runs code.
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: Requires the Owner or Administrator role and an authenticated user with the admin scope. Cookie requests also require CSRF. Records a release-owned plugin as installed. Idempotent. Never downloads or runs code.
       parameters:
         - { $ref: "#/components/parameters/PluginID" }
         - { $ref: "#/components/parameters/CSRFToken" }
@@ -1047,7 +1049,8 @@ paths:
   /api/v1/plugins/{pluginId}/installation:
     delete:
       operationId: removePlugin
-      description: Requires the Owner or Administrator role and an enrolled dashboard session. Deletes the installation record. Never deletes plugin data; refuses while plugin-owned resources remain. Idempotent for a plugin that is not installed. An installation row for a plugin this release does not know may also be removed; only the row is deleted.
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: Requires the Owner or Administrator role and an authenticated user with the admin scope. Cookie requests also require CSRF. Deletes the installation record. Never deletes plugin data; refuses while plugin-owned resources remain. Idempotent for a plugin that is not installed. An installation row for a plugin this release does not know may also be removed; only the row is deleted.
       parameters:
         - { $ref: "#/components/parameters/PluginID" }
         - { $ref: "#/components/parameters/CSRFToken" }
@@ -1063,6 +1066,7 @@ paths:
   /api/v1/plugins/{pluginId}/automation:
     get:
       operationId: getPluginAutomation
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
       description: A known, installed plugin's resolved automation document. Readable by any signed-in account. Operator clients dispatch generic commands on it without naming the plugin. Unknown plugins answer plugin_not_found, known-but-uninstalled ones plugin_not_installed, and plugins with no automation mapping plugin_automation_not_found.
       parameters:
         - { $ref: "#/components/parameters/PluginID" }
@@ -1415,6 +1419,7 @@ paths:
   /api/v1/playlists:
     get:
       operationId: listPlaylists
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
       parameters:
         - { in: query, name: search, schema: { type: string } }
         - { in: query, name: page, schema: { type: integer, minimum: 1 } }
@@ -1453,6 +1458,7 @@ paths:
     get:
       {
         operationId: getPlaylist,
+        security: [{ sessionCookie: [] }, { userBearer: [] }],
         responses: { "200": { description: Playlist and ordered items } },
       }
     patch:
@@ -1471,6 +1477,7 @@ paths:
   /api/v1/playlists/{id}/publish:
     post:
       operationId: publishPlaylist
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
       description: >-
         Requires a content manager (Owner, Administrator, or Editor) with the write scope. Publishes the draft the CLI read first: the request carries the draft revision it saw, and a 409 means someone else published first. A playlist under editorial review answers 202 with the submission instead of publishing.
       parameters:
@@ -1846,8 +1853,9 @@ paths:
         "401": { description: Dashboard authentication required }
     post:
       operationId: createSchedule
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
       description: >-
-        Requires the Owner or Administrator role and an enrolled dashboard session. The request contains exactly one of playlistId, layoutId, or displayAction. Display Control actions use the closed typed command registry; display_probe is not schedulable.
+        Requires the Owner or Administrator role and an authenticated user with the write scope. Cookie requests also require CSRF. The request contains exactly one of playlistId, layoutId, or displayAction. Display Control actions use the closed typed command registry; display_probe is not schedulable.
       requestBody:
         required: true
         content:
@@ -1856,11 +1864,15 @@ paths:
       responses:
         {
           "201": { description: Validated schedule created },
+          "401": { description: Authentication required },
+          "403":
+            { description: Role, scope, or cookie CSRF requirement not met },
           "422": { description: Schedule or target validation failed },
         }
   /api/v1/schedules/{id}:
     get:
       operationId: getSchedule
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses: { "200": { description: Schedule and normalized targets } }
@@ -3104,8 +3116,9 @@ paths:
   /api/v1/screens/{id}/effective-policy:
     get:
       operationId: getEffectivePolicy
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
       description: >-
-        Requires an enrolled dashboard session. Reports the effective player policy for one screen with inheritance sources. A screen outside the caller's scope answers 404.
+        Requires an authenticated user with the read scope. Reports the effective player policy for one screen with inheritance sources. A screen outside the caller's scope answers 404.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses:
