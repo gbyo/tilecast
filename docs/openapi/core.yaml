@@ -3141,8 +3141,7 @@ paths:
       description: >-
         Requires the Owner or Administrator role with the write scope.
         Cookie requests additionally require the X-CSRF-Token header;
-        Bearer [REDACTED] never send it.
-        bearer requests never send it. Applies only the given keys
+        Bearer grants never send it. Applies only the given keys
         against the expected revision; a stale revision fails with 409 and
         changes nothing.
       parameters:
@@ -3161,18 +3160,21 @@ paths:
   /api/v1/me/preferences:
     get:
       operationId: getPreferences
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
       description: >-
-        Requires an enrolled dashboard session. Reads the calling user's
-        own preferences.
+        Requires an authenticated user with the read scope. Reads the calling
+        user's own preferences.
       responses:
         "200": { description: Preference document }
         "401": { description: Dashboard authentication required }
     patch:
       operationId: updatePreferences
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
       description: >-
-        Requires an enrolled dashboard session and the X-CSRF-Token
-        header. Updates the calling user's own preferences against the
-        expected revision.
+        Requires an authenticated user with the write scope. Cookie requests
+        additionally require the X-CSRF-Token header; Bearer grants never send
+        it. Updates the calling user's own preferences against the expected
+        revision.
       parameters:
         - { $ref: "#/components/parameters/CSRFToken" }
       requestBody:
@@ -5172,6 +5174,22 @@ components:
         installationId: { type: string, format: uuid }
         organizationName: { type: string }
         pairingEnabled: { type: boolean }
+    User:
+      type: object
+      additionalProperties: false
+      required: [id, name, username, role, active, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        username: { type: string }
+        role:
+          {
+            type: string,
+            enum: [owner, administrator, editor, contributor, viewer],
+          }
+        active: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        lastLoginAt: { type: string, format: date-time }
     AuthStatus:
       type: object
       additionalProperties: false
@@ -5182,7 +5200,7 @@ components:
         passkeysAvailable: { type: boolean }
         passkeysUnavailableReason: { type: string }
         demoMode: { type: boolean }
-        user: { type: object }
+        user: { $ref: "#/components/schemas/User" }
         csrfToken: { type: string }
         authMethod: { type: string }
         mfaEnrollmentRequired: { type: boolean }
