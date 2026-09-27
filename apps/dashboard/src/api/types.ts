@@ -1646,6 +1646,18 @@ export type ContentDefinitionField = {
   // source supplies this field list. A definition with exactly one `data_source` field may omit
   // it. Required to disambiguate when a definition references more than one Data Source.
   dataSourceKey?: string;
+  /**
+   * V2 authoring hints driving the generic Widget inspector: inspector
+   * section, ordering, conditional visibility, visual style-card
+   * presentation, and semantic-field suggestion.
+   */
+  ui?: {
+    section?: "data" | "content" | "appearance" | "behavior";
+    order?: number;
+    visibleWhen?: { key: string; equals?: unknown; notEquals?: unknown };
+    styleCard?: boolean;
+    semanticRole?: string;
+  };
   mediaTypes?: string[];
   maximumItems?: number;
   itemFields?: ContentDefinitionField[];
@@ -1666,6 +1678,17 @@ export type WidgetDefinition = {
   apiVersion?: number;
   /** Where the definition came from; absent means release-owned core. */
   source?: ExtensionSource;
+  /** First-class V2 component for migrated Widgets; absent otherwise. */
+  component?: {
+    type: string;
+    version: number;
+    tagName: string;
+    entrypoint: string;
+    configTemplate: Record<string, unknown>;
+    dataSourceFields?: string[];
+    empty: "render" | "skip-eligible";
+  };
+  compatibility?: { fallback: "legacy" | "template" | "none" };
   name: string;
   description: string;
   category: string;

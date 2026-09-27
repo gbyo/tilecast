@@ -51,6 +51,64 @@ function catalogWidgetIds(root: string): Map<string, string> {
   return ids;
 }
 
+const AUTHORING_SECTIONS = ["data", "content", "appearance", "behavior"];
+
+/** Why a configuration field's authoring `ui` metadata is invalid, or null. */
+export function authoringUiProblem(
+  key: string | undefined,
+  control: string | undefined,
+  ui: unknown,
+): string | null {
+  if (ui === undefined) return null;
+  const where = key ? `field ${key}` : "a configuration field";
+  if (!ui || typeof ui !== "object" || Array.isArray(ui)) {
+    return `${where} has invalid authoring metadata`;
+  }
+  const record = ui as Record<string, unknown>;
+  if (
+    record["section"] !== undefined &&
+    !AUTHORING_SECTIONS.includes(record["section"] as string)
+  ) {
+    return `${where} names an unknown authoring section`;
+  }
+  if (
+    record["order"] !== undefined &&
+    (typeof record["order"] !== "number" || !Number.isFinite(record["order"]))
+  ) {
+    return `${where} has a non-numeric authoring order`;
+  }
+  const visibleWhen = record["visibleWhen"];
+  if (visibleWhen !== undefined) {
+    if (
+      !visibleWhen ||
+      typeof visibleWhen !== "object" ||
+      Array.isArray(visibleWhen) ||
+      typeof (visibleWhen as Record<string, unknown>)["key"] !== "string"
+    ) {
+      return `${where} has an invalid authoring visibility rule`;
+    }
+    const rule = visibleWhen as Record<string, unknown>;
+    if (rule["equals"] === undefined && rule["notEquals"] === undefined) {
+      return `${where} has a visibility rule with nothing to compare`;
+    }
+  }
+  if (record["styleCard"] !== undefined) {
+    if (record["styleCard"] !== true && record["styleCard"] !== false) {
+      return `${where} has a non-boolean style-card flag`;
+    }
+    if (record["styleCard"] === true && control !== "select") {
+      return `${where} renders style cards for a non-select control`;
+    }
+  }
+  if (
+    record["semanticRole"] !== undefined &&
+    (typeof record["semanticRole"] !== "string" || !record["semanticRole"])
+  ) {
+    return `${where} has an invalid semantic role`;
+  }
+  return null;
+}
+
 export async function check(repo: Repo): Promise<Problem[]> {
   const problems: Problem[] = [...repo.problems];
   const catalog = catalogWidgetIds(repo.root);
@@ -127,6 +185,14 @@ export async function check(repo: Repo): Promise<Problem[]> {
           `component.dataSourceFields names ${key}, which is not a data_source control`,
         );
       }
+    }
+    for (const field of manifest.configurationSchema.fields as {
+      key?: string;
+      control?: string;
+      ui?: unknown;
+    }[]) {
+      const problem = authoringUiProblem(field.key, field.control, field.ui);
+      if (problem) add(problem);
     }
     const compile = (configuration: Record<string, unknown>, file?: string) => {
       try {

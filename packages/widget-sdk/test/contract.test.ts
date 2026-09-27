@@ -10,7 +10,11 @@ import {
   validTimeZone,
   WidgetRegistry,
 } from "../src/index.ts";
-import { discoverSourcedWidgets, discoverWidgets } from "../src/discovery.ts";
+import {
+  discoverSourcedWidgets,
+  discoverWidgets,
+  pairSourcedEntries,
+} from "../src/discovery.ts";
 import {
   compileComponentConfig,
   configLimitProblem,
@@ -188,6 +192,62 @@ describe("discovery", () => {
     );
     expect(result.problems).toEqual([
       "widgets/b: type tilecast.a is also declared by widgets/a",
+    ]);
+  });
+
+  it("pairs glob records into sourced entries", () => {
+    const clockManifest = manifest("tilecast.clock", "tc-widget-clock");
+    const clockModule = {
+      default: definition("tilecast.clock", "tc-widget-clock"),
+    };
+    const entries = pairSourcedEntries(
+      {
+        "../../widgets/clock/tilecast.widget.json": clockManifest,
+        "../../plugins/athletics/widgets/scoreboard/tilecast.widget.json": {
+          ...manifest("athletics.scoreboard", "acme-scoreboard"),
+          id: "scoreboard",
+        },
+      },
+      {
+        "../../widgets/clock/runtime/index.ts": clockModule,
+        "../../plugins/athletics/widgets/scoreboard/runtime/index.ts": {
+          default: definition("athletics.scoreboard", "acme-scoreboard"),
+        },
+        "../../widgets/orphan/runtime/index.ts": {
+          default: definition("tilecast.orphan", "tc-widget-orphan"),
+        },
+      },
+    );
+    expect(
+      entries.map((entry) => [
+        entry.manifestPath,
+        entry.modulePath,
+        entry.source,
+      ]),
+    ).toEqual([
+      [
+        "../../widgets/clock/tilecast.widget.json",
+        "../../widgets/clock/runtime/index.ts",
+        { kind: "core" },
+      ],
+      [
+        "../../plugins/athletics/widgets/scoreboard/tilecast.widget.json",
+        "../../plugins/athletics/widgets/scoreboard/runtime/index.ts",
+        { kind: "plugin", pluginId: "athletics" },
+      ],
+      [
+        "../../widgets/orphan/tilecast.widget.json",
+        "../../widgets/orphan/runtime/index.ts",
+        { kind: "core" },
+      ],
+    ]);
+    const discovery = discoverSourcedWidgets(entries);
+    expect(discovery.widgets.map((widget) => widget.dir)).toEqual([
+      "plugins/athletics/widgets/scoreboard",
+      "widgets/clock",
+    ]);
+    expect(discovery.problems).toEqual([
+      "widgets/orphan: has runtime/index.ts but no tilecast.widget.json",
     ]);
   });
 

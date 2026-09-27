@@ -788,6 +788,38 @@
           "lastUpdateNever": "Last successful update: not yet"
         }
       },
+      "v2": {
+        "unavailable": "This Widget's preview component is not part of this Studio build, so it cannot be edited here yet.",
+        "unsaved": "Unsaved changes",
+        "noControls": "This section has no controls for the current configuration.",
+        "zonePreview": "Live Widget preview",
+        "sizeLabel": "Preview size",
+        "customWidth": "Custom width (px)",
+        "customHeight": "Custom height (px)",
+        "statusReady": "Preview ready.",
+        "statusEmpty": "Preview is empty: {{reason}}",
+        "statusError": "Preview cannot render: {{code}}",
+        "sections": {
+          "data": "Data",
+          "content": "Content",
+          "appearance": "Appearance",
+          "behavior": "Behavior"
+        },
+        "hints": {
+          "data": "Choose the information this Widget should display.",
+          "content": "Choose what appears on screen.",
+          "appearance": "Choose how it appears on screen.",
+          "behavior": "Choose how it behaves on screen."
+        },
+        "sizes": {
+          "landscape": "Landscape 16:9",
+          "portrait": "Portrait 9:16",
+          "strip": "Wide strip",
+          "sidebar": "Tall sidebar",
+          "small": "Small zone",
+          "custom": "Custom"
+        }
+      },
       "youtube": {
         "editTitle": "Edit YouTube Widget",
         "createTitle": "Create YouTube Widget",

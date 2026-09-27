@@ -6,9 +6,15 @@ import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
-import type { WidgetDefinition, WidgetPresentation } from "../api/types";
+import type {
+  ContentDefinitionField,
+  WidgetDefinition,
+  WidgetPresentation,
+} from "../api/types";
 import { GenericWidgetEditor } from "./GenericDefinitionEditors";
-import { NativeAppEditor, WidgetProviderGallery } from "./SourceEditors";
+import { WidgetProviderGallery } from "./SourceEditors";
+import { V2WidgetEditor } from "./V2WidgetEditor";
+import clockManifest from "../../../../widgets/clock/tilecast.widget.json";
 
 afterEach(() => {
   cleanup();
@@ -108,78 +114,73 @@ describe("Widget editor experience", () => {
     expect(screen.queryByRole("button", { name: /ESPN/ })).toBeNull();
   });
 
-  it("groups built-in Widget settings and keeps a named live preview", () => {
+  it("edits Clock through the generic V2 editor and its real preview", async () => {
+    vi.spyOn(api, "settings").mockResolvedValue({ values: {} } as never);
+    const definition: WidgetDefinition = {
+      id: "clock",
+      version: 1,
+      name: "Clock",
+      description: "Show live local time in a configured timezone.",
+      category: "Essentials",
+      icon: "clock",
+      runtime: "native",
+      configurationSchema: clockManifest.configurationSchema as {
+        fields: ContentDefinitionField[];
+      },
+      defaultConfiguration: clockManifest.defaultConfiguration,
+      component: {
+        type: "tilecast.clock",
+        version: 1,
+        tagName: "tc-widget-clock",
+        entrypoint: "./runtime/index.ts",
+        configTemplate: clockManifest.component.configTemplate,
+        dataSourceFields: [],
+        empty: "render",
+      },
+      compatibility: { fallback: "legacy" },
+      presentationSchemaVersion: 1,
+      requiredCapabilities: {},
+      emptyStateBehavior: "text",
+    };
     renderEditor(
-      <NativeAppEditor
-        provider="clock"
+      <V2WidgetEditor
+        definition={definition}
+        catalog={{
+          revision: "test",
+          compilerVersion: "99",
+          fingerprint: "test",
+          widgets: [definition],
+          dataSources: [],
+        }}
         csrf="csrf"
         onClose={vi.fn()}
         onSaved={vi.fn()}
-        page
       />,
     );
 
+    // The generic inspector replaces the old per-Widget sections.
     expect(
       screen.getByRole("heading", { name: "Widget details" }),
     ).toBeTruthy();
-    expect(
-      screen.getByRole("heading", { name: "Content and behavior" }),
-    ).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Content" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Appearance" })).toBeTruthy();
-    expect(
-      screen.getByRole("complementary", { name: "Live preview" }),
-    ).toBeTruthy();
-    expect(
-      screen.getByText("Used to find this Widget in Content and playlists."),
-    ).toBeTruthy();
     expect(
       screen.getByText(/Leave blank to use the organization timezone/),
     ).toBeTruthy();
-
-    const contentSection = screen
-      .getByRole("heading", { name: "Content and behavior" })
-      .closest("section");
-    expect(contentSection).toHaveClass("widget-editor__section");
-    expect(contentSection).toContainElement(screen.getByText("Timezone"));
-  });
-
-  it("offers the Clock V2 style and date controls", async () => {
-    renderEditor(
-      <NativeAppEditor
-        provider="clock"
-        csrf="csrf"
-        onClose={vi.fn()}
-        onSaved={vi.fn()}
-        page
-      />,
-    );
-
-    const style = screen.getByRole("combobox", { name: "Style" });
-    expect(style).toHaveTextContent("Standard");
-    expect(screen.getByText(/Analog shows a dial/)).toBeTruthy();
-    const showDate = screen.getByRole("switch", { name: /Show date/ });
-    expect(showDate).not.toBeChecked();
-    await userEvent.click(showDate);
-    expect(showDate).toBeChecked();
-  });
-
-  it("presents appearance controls as consistent subsections instead of a one-off fieldset", () => {
-    renderEditor(
-      <NativeAppEditor
-        provider="clock"
-        csrf="csrf"
-        onClose={vi.fn()}
-        onSaved={vi.fn()}
-        page
-      />,
-    );
-
-    expect(screen.getByText("Size and spacing")).toBeTruthy();
-    expect(screen.getByText("Colors")).toBeTruthy();
-    expect(screen.queryByRole("group", { name: "Content sizing" })).toBeNull();
+    // The style select renders as visual cards with the manifest copy.
     expect(
-      document.querySelectorAll(".widget-editor__subsection"),
-    ).toHaveLength(2);
+      screen.getByRole("radiogroup", { name: "Style" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Analog shows a dial/)).toBeTruthy();
+    // The preview is the real Web Component, not a Studio drawing.
+    const frame = await screen.findByRole("img", { name: "Live preview" });
+    await screen.findByText("Preview ready.");
+    expect(frame.querySelector("tc-widget-clock")).toBeTruthy();
+    // Minimal hides the date toggle through manifest visibility metadata.
+    await userEvent.click(screen.getByRole("radio", { name: "Minimal" }));
+    expect(
+      screen.queryByRole("switch", { name: "Show date" }),
+    ).not.toBeInTheDocument();
   });
 
   it("uses the same guided structure for catalog-defined Widgets", () => {

@@ -805,6 +805,38 @@
           "lastUpdateNever": "Última actualización correcta: aún no."
         }
       },
+      "v2": {
+        "unavailable": "El componente de vista previa de este Widget no forma parte de esta compilación de Studio, por lo que aún no se puede editar aquí.",
+        "unsaved": "Cambios sin guardar",
+        "noControls": "Esta sección no tiene controles para la configuración actual.",
+        "zonePreview": "Vista previa del Widget",
+        "sizeLabel": "Tamaño de vista previa",
+        "customWidth": "Ancho personalizado (px)",
+        "customHeight": "Alto personalizado (px)",
+        "statusReady": "Vista previa lista.",
+        "statusEmpty": "La vista previa está vacía: {{reason}}",
+        "statusError": "La vista previa no se puede mostrar: {{code}}",
+        "sections": {
+          "data": "Datos",
+          "content": "Contenido",
+          "appearance": "Apariencia",
+          "behavior": "Comportamiento"
+        },
+        "hints": {
+          "data": "Elige la información que debe mostrar el Widget.",
+          "content": "Elige lo que aparece en pantalla.",
+          "appearance": "Elige cómo aparece en pantalla.",
+          "behavior": "Elige cómo se comporta en pantalla."
+        },
+        "sizes": {
+          "landscape": "Horizontal 16:9",
+          "portrait": "Vertical 9:16",
+          "strip": "Franja ancha",
+          "sidebar": "Barra lateral",
+          "small": "Zona pequeña",
+          "custom": "Personalizado"
+        }
+      },
       "youtube": {
         "editTitle": "Editar widget de YouTube",
         "createTitle": "Crear widget de YouTube",
