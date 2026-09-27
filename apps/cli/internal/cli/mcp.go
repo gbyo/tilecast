@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/jsonschema"
@@ -92,6 +94,13 @@ type mcpParam struct {
 	name        string
 	description string
 	required    bool
+	// schemaType is the OpenAPI-derived scalar type (string, integer,
+	// number, boolean); empty leaves the value untyped.
+	schemaType string
+	enum       []any
+	// schema carries a full JSON Schema for document bodies, derived
+	// from the operation's OpenAPI request body where practical.
+	schema *jsonschema.Schema
 }
 
 type mcpToolDef struct {
@@ -672,6 +681,9 @@ func (b *mcpBackend) pluginOp(ctx context.Context, operation automationOp, args 
 	if err != nil {
 		return nil, err
 	}
+	if query := mcpQuery(operation.QueryParams, args); query != "" {
+		path += "?" + query
+	}
 	var reader io.Reader
 	if method == http.MethodPost || method == http.MethodPut || method == http.MethodPatch {
 		raw, ok := args["document"]
@@ -696,7 +708,9 @@ func (b *mcpBackend) pluginOp(ctx context.Context, operation automationOp, args 
 }
 
 // mcpFillPath substitutes {params} from tool arguments in path order,
-// like the generic CLI fills them from positional arguments.
+// like the generic CLI fills them from positional arguments. Each value
+// becomes exactly one path segment through path-segment escaping, so
+// reserved characters cannot alter the route.
 func mcpFillPath(template string, args map[string]any) (string, error) {
 	path := template
 	for _, segment := range strings.Split(template, "/") {
@@ -704,13 +718,38 @@ func mcpFillPath(template string, args map[string]any) (string, error) {
 			continue
 		}
 		name := strings.Trim(segment, "{}")
-		value := strArg(args, name)
+		value := mcpScalar(args[name])
 		if value == "" {
 			return "", fmt.Errorf("tool needs %q", name)
 		}
-		path = strings.Replace(path, "{"+name+"}", value, 1)
+		path = strings.Replace(path, "{"+name+"}", url.PathEscape(value), 1)
 	}
 	return path, nil
+}
+
+// mcpScalar renders one tool argument as its path/query string form.
+// Strings pass through; booleans and numbers use their JSON spelling so
+// typed MCP inputs still address the same resource.
+func mcpScalar(value any) string {
+	switch typed := value.(type) {
+	case nil:
+		return ""
+	case string:
+		return typed
+	case bool:
+		if typed {
+			return "true"
+		}
+		return "false"
+	case float64:
+		return strconv.FormatFloat(typed, 'f', -1, 64)
+	case int:
+		return strconv.Itoa(typed)
+	case int64:
+		return strconv.FormatInt(typed, 10)
+	default:
+		return ""
+	}
 }
 
 func idOrNameParam() mcpParam {
@@ -851,22 +890,51 @@ func coreMCPTools() []mcpToolDef {
 // pluginMCPTools builds the generic per-plugin tool families for
 // installed plugins only. Tool names prefix the plugin ID, so families
 // never collide; excluded operations never appear because the resolved
-// document omits them.
+// document omits them. Path and query parameters carry their
+// OpenAPI-derived types, and request bodies use the operation's schema
+// where the server supplied one.
 func pluginMCPTools(documents []automationDoc) []mcpToolDef {
 	tools := []mcpToolDef{}
 	for _, document := range documents {
 		for _, operation := range document.Operations {
 			operation := operation
+			types := map[string]automationParam{}
+			for _, param := range operation.PathParams {
+				types[param.Name] = param
+			}
 			params := []mcpParam{}
 			for _, segment := range strings.Split(operation.Path, "/") {
 				if !strings.HasPrefix(segment, "{") || !strings.HasSuffix(segment, "}") {
 					continue
 				}
 				name := strings.Trim(segment, "{}")
-				params = append(params, mcpParam{name: name, description: "Path value for " + name, required: true})
+				meta := types[name]
+				params = append(params, mcpParam{
+					name:        name,
+					description: paramDescription(meta.Description, "Path value for "+name),
+					required:    true,
+					schemaType:  meta.Type,
+					enum:        meta.Enum,
+				})
+			}
+			for _, param := range operation.QueryParams {
+				params = append(params, mcpParam{
+					name:        param.Name,
+					description: paramDescription(param.Description, "Query value for "+param.Name),
+					required:    param.Required,
+					schemaType:  param.Type,
+					enum:        param.Enum,
+				})
 			}
 			if operation.Method == "post" || operation.Method == "put" || operation.Method == "patch" {
-				params = append(params, mcpParam{name: "document", description: "JSON request body", required: true})
+				document := mcpParam{name: "document", description: "JSON request body", required: true}
+				if operation.RequestBody != nil {
+					document.schema = mcpSchemaFromGeneric(operation.RequestBody.Schema)
+					if document.schema != nil {
+						document.description = "JSON request body for " + operation.OperationID
+					}
+				}
+				params = append(params, document)
 			}
 			description := operation.Description
 			if description == "" {
@@ -887,6 +955,169 @@ func pluginMCPTools(documents []automationDoc) []mcpToolDef {
 	return tools
 }
 
+// paramDescription prefers the OpenAPI text and falls back to the generic
+// label when the operation carries none.
+func paramDescription(described, fallback string) string {
+	if described != "" {
+		return described
+	}
+	return fallback
+}
+
+// mcpQuery encodes the tool arguments declared as query parameters.
+// Only metadata-declared names travel; anything else is the caller's own
+// document content, never a query string.
+func mcpQuery(params []automationParam, args map[string]any) string {
+	query := url.Values{}
+	for _, param := range params {
+		raw, ok := args[param.Name]
+		if !ok || raw == nil {
+			continue
+		}
+		if str, isStr := raw.(string); isStr && str == "" {
+			continue
+		}
+		query.Set(param.Name, mcpScalar(raw))
+	}
+	return query.Encode()
+}
+
+// mcpSchemaFromGeneric converts one pluginctl-derived JSON Schema map
+// into an MCP input schema. Only the scalar/object/array shapes
+// generation emits are mapped; anything else yields nil so the document
+// parameter stays a free-form JSON value instead of a broken schema.
+func mcpSchemaFromGeneric(schema map[string]any) *jsonschema.Schema {
+	out, ok := mcpSchemaValue(schema)
+	if !ok {
+		return nil
+	}
+	return out
+}
+
+func mcpSchemaValue(node map[string]any) (*jsonschema.Schema, bool) {
+	converted := &jsonschema.Schema{}
+	if raw, ok := node["type"].(string); ok {
+		switch raw {
+		case "string", "integer", "number", "boolean", "object", "array", "null":
+			converted.Type = raw
+		default:
+			return nil, false
+		}
+	}
+	if raw, ok := node["description"].(string); ok {
+		converted.Description = raw
+	}
+	if raw, ok := node["format"].(string); ok {
+		converted.Format = raw
+	}
+	if raw, ok := node["pattern"].(string); ok {
+		converted.Pattern = raw
+	}
+	if raw, ok := node["default"]; ok {
+		encoded, err := json.Marshal(raw)
+		if err != nil {
+			return nil, false
+		}
+		converted.Default = encoded
+	}
+	for key, assign := range map[string]func(float64){
+		"minimum": func(value float64) { converted.Minimum = &value },
+		"maximum": func(value float64) { converted.Maximum = &value },
+	} {
+		if raw, ok := mcpNumber(node[key]); ok {
+			assign(raw)
+		}
+	}
+	for key, assign := range map[string]func(int){
+		"minLength": func(value int) { converted.MinLength = &value },
+		"maxLength": func(value int) { converted.MaxLength = &value },
+		"minItems":  func(value int) { converted.MinItems = &value },
+		"maxItems":  func(value int) { converted.MaxItems = &value },
+	} {
+		if raw, ok := mcpInteger(node[key]); ok {
+			assign(raw)
+		}
+	}
+	if raw, ok := node["uniqueItems"].(bool); ok && raw {
+		converted.UniqueItems = true
+	}
+	if raw, ok := node["enum"].([]any); ok {
+		converted.Enum = append([]any(nil), raw...)
+	}
+	if raw, ok := node["required"].([]any); ok {
+		for _, item := range raw {
+			name, ok := item.(string)
+			if !ok {
+				return nil, false
+			}
+			converted.Required = append(converted.Required, name)
+		}
+	}
+	if raw, ok := node["properties"].(map[string]any); ok {
+		converted.Properties = map[string]*jsonschema.Schema{}
+		for name, prop := range raw {
+			child, ok := prop.(map[string]any)
+			if !ok {
+				return nil, false
+			}
+			schema, ok := mcpSchemaValue(child)
+			if !ok {
+				return nil, false
+			}
+			converted.Properties[name] = schema
+		}
+	}
+	if raw, ok := node["items"].(map[string]any); ok {
+		schema, ok := mcpSchemaValue(raw)
+		if !ok {
+			return nil, false
+		}
+		converted.Items = schema
+	}
+	if raw, ok := node["additionalProperties"]; ok {
+		switch typed := raw.(type) {
+		case bool:
+			if !typed {
+				converted.AdditionalProperties = &jsonschema.Schema{Not: &jsonschema.Schema{}}
+			}
+		case map[string]any:
+			schema, ok := mcpSchemaValue(typed)
+			if !ok {
+				return nil, false
+			}
+			converted.AdditionalProperties = schema
+		default:
+			return nil, false
+		}
+	}
+	return converted, true
+}
+
+func mcpNumber(value any) (float64, bool) {
+	switch typed := value.(type) {
+	case float64:
+		return typed, true
+	case int:
+		return float64(typed), true
+	default:
+		return 0, false
+	}
+}
+
+func mcpInteger(value any) (int, bool) {
+	switch typed := value.(type) {
+	case float64:
+		if typed != float64(int(typed)) {
+			return 0, false
+		}
+		return int(typed), true
+	case int:
+		return typed, true
+	default:
+		return 0, false
+	}
+}
+
 // buildMCPTools converts definitions to SDK tools, enforcing required
 // arguments and the explicit confirm gate for sensitive classes.
 // readOnly drops everything outside the read class.
@@ -900,19 +1131,32 @@ func buildMCPTools(backend *mcpBackend, documents []automationDoc, readOnly bool
 			continue
 		}
 		// Tool inputs are dynamic maps, which the SDK cannot infer
-		// properties for, so the schema is built directly.
+		// properties for, so the schema is built directly. Generic plugin
+		// parameters carry their OpenAPI-derived types.
 		schema := &jsonschema.Schema{Type: "object", Properties: map[string]*jsonschema.Schema{}}
-		addParam := func(name, description string, required bool) {
-			schema.Properties[name] = &jsonschema.Schema{Description: description}
-			if required {
-				schema.Required = append(schema.Required, name)
+		addParam := func(param mcpParam) {
+			property := &jsonschema.Schema{Description: param.description}
+			if param.schema != nil {
+				property = param.schema
+				if property.Description == "" {
+					property.Description = param.description
+				}
+			} else {
+				property.Type = param.schemaType
+				if len(param.enum) > 0 {
+					property.Enum = append([]any(nil), param.enum...)
+				}
+			}
+			schema.Properties[param.name] = property
+			if param.required {
+				schema.Required = append(schema.Required, param.name)
 			}
 		}
 		for _, param := range def.params {
-			addParam(param.name, param.description, param.required)
+			addParam(param)
 		}
 		if def.needsConfirm() {
-			addParam("confirm", "Pass true to run this "+def.risk+" action", true)
+			addParam(mcpParam{name: "confirm", description: "Pass true to run this " + def.risk + " action", required: true, schemaType: "boolean"})
 		}
 		description := def.description + " (risk: " + def.risk + ")"
 		handler := func(ctx context.Context, _ *mcp.ServerSession, params *mcp.CallToolParamsFor[map[string]any]) (*mcp.CallToolResultFor[struct{}], error) {

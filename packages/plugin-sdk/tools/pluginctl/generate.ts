@@ -16,7 +16,7 @@ import {
   migrationLock,
   MIGRATION_LOCK,
 } from "./migrations.ts";
-import { composeOpenAPI, COMPOSED_OPENAPI } from "./openapi.ts";
+import { composeOpenAPI, COMPOSED_OPENAPI, CORE_OPENAPI } from "./openapi.ts";
 import type { Problem, Repo } from "./repo.ts";
 
 export const GO_REGISTRY = "plugins/registry_gen.go";
@@ -108,7 +108,11 @@ export async function generate(
   // Resolved automation documents ride into the release inside each
   // plugin directory, so the server embeds and serves them without
   // parsing YAML at runtime. Only files that validate resolve; anything
-  // else is a check problem, not a silent omission.
+  // else is a check problem, not a silent omission. OpenAPI-derived
+  // parameter metadata rides in the same artifact so automation.yaml
+  // itself never grows HTTP details.
+  const corePath = join(repo.root, CORE_OPENAPI);
+  const coreText = existsSync(corePath) ? readFileSync(corePath, "utf8") : null;
   for (const plugin of repo.plugins) {
     const id = plugin.manifest.id;
     const automationPath = join(plugin.path, AUTOMATION_FILENAME);
@@ -122,6 +126,7 @@ export async function generate(
       fragmentPath !== null && existsSync(fragmentPath)
         ? readFileSync(fragmentPath, "utf8")
         : null,
+      coreText,
     );
     problems.push(...resolvedProblems);
     if (!resolved) continue;

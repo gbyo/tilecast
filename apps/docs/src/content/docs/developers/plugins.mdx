@@ -74,12 +74,15 @@ growing flag language. The contract schema lives in
 is the worked example.
 
 Once the plugin is installed, its mapped operations are immediately
-usable from the terminal: the CLI builds the command tree from the
-server's resolved document at runtime (`tilecast countdown-bar
-instance list`), with path parameters filled positionally and JSON
-bodies via `--input` or `--file`. `sensitive` and higher risk confirms
-before running. Nothing about the plugin is handwritten in the CLI, so
-no CLI change ships with the plugin.
+usable from the terminal under `tilecast plugin`: the CLI dispatches
+from the server's resolved document at runtime
+(`tilecast plugin countdown-bar instance list`). You fill path
+parameters positionally and pass JSON bodies with `--input` or
+`--file`; operations that declare query parameters take them as flags.
+`sensitive` and higher risk asks you to confirm before running.
+Nothing about the plugin is handwritten in the CLI, so no CLI change
+ships with the plugin. For the exact contract, see the
+[programmable control-plane reference](https://github.com/gbyo/tilecast/blob/main/docs/programmable-control-plane.md).
 
 ## Use the existing plugins as examples
 

@@ -305,6 +305,39 @@ operations:
     expect(checkAutomationFiles(repo, fragments)).toEqual([]);
   });
 
+  it("treats CLI paths as relative to the plugin namespace", () => {
+    // No central registry of plugin roots: any non-lifecycle root mounts
+    // below `tilecast plugin` without competing with core commands.
+    const { repo, fragments } = makeRepo();
+    addPlugin(
+      repo,
+      fragments,
+      "alpha-one",
+      "alpha_one",
+      ["listAlphas"],
+      automation("listAlphas", ["alpha", "things", "list"], "list_alphas"),
+    );
+    expect(checkAutomationFiles(repo, fragments)).toEqual([]);
+  });
+
+  it("rejects CLI roots colliding with lifecycle commands", () => {
+    const { repo, fragments } = makeRepo();
+    addPlugin(
+      repo,
+      fragments,
+      "list",
+      "list",
+      ["listLists"],
+      automation("listLists", ["list", "run"], "run"),
+    );
+    const problems = checkAutomationFiles(repo, fragments);
+    expect(
+      problems.some((problem) =>
+        problem.message.includes("collides with the handwritten plugin lifecycle"),
+      ),
+    ).toBe(true);
+  });
+
   it("fails drift when the fragment renames an operation", () => {
     const { repo, fragments } = makeRepo();
     addPlugin(
@@ -368,5 +401,109 @@ operations:
     expect(problems[0]?.file).toBe(
       join("plugins", "alpha-one", "automation.yaml"),
     );
+  });
+});
+
+describe("automation resolution against OpenAPI", () => {
+  const coreText = readFileSync(join(repoRoot, "docs", "openapi", "core.yaml"), "utf8");
+  const fragmentText = readFileSync(
+    join(repoRoot, "plugins", "countdown-bar", "api", "openapi.yaml"),
+    "utf8",
+  );
+  const automationText = readFileSync(
+    join(repoRoot, "plugins", "countdown-bar", "automation.yaml"),
+    "utf8",
+  );
+
+  it("derives mechanical metadata without growing automation.yaml", async () => {
+    const { resolveAutomation } = await import("../tools/pluginctl/automation.ts");
+    const { problems, resolved } = resolveAutomation(
+      "countdown_bar",
+      automationText,
+      fragmentText,
+      coreText,
+    );
+    expect(problems).toEqual([]);
+    expect(resolved?.operations).toHaveLength(5);
+    const byId = new Map(resolved!.operations.map((op) => [op.operationId, op]));
+    expect(byId.get("getCountdownBarInstance")?.pathParams).toEqual([
+      { name: "id", required: true, type: "string", format: "uuid" },
+    ]);
+    expect(byId.get("listCountdownBarInstances")?.pathParams).toEqual([]);
+    const schema = byId.get("createCountdownBarInstance")?.requestBody?.schema as {
+      properties?: Record<string, { type?: string }>;
+    };
+    expect(schema?.properties?.["name"]?.type).toBe("string");
+    expect(schema?.properties?.["showConfetti"]?.type).toBe("boolean");
+    expect(automationText).not.toContain("queryParams");
+    expect(automationText).not.toContain("requestBody");
+  });
+
+  it("keeps break-glass out of automation", async () => {
+    const { parseAutomationDocument } = await import("../src/automation.ts");
+    expect(() =>
+      parseAutomationDocument(
+        YAML.parse(readFileSync(join(fixtures, "invalid", "break-glass-risk.yaml"), "utf8")),
+      ),
+    ).toThrow();
+  });
+
+  it("fails clearly on fields input", async () => {
+    const { resolveAutomation } = await import("../tools/pluginctl/automation.ts");
+    const yamlText = `apiVersion: 1
+operations:
+  - operationId: listCountdownBarInstances
+    risk: read
+    cli:
+      path: [countdown-bar, instance, list]
+    mcp:
+      action: list_instances
+    input: fields
+`;
+    const { problems, resolved } = resolveAutomation(
+      "countdown_bar",
+      yamlText,
+      fragmentText,
+      coreText,
+    );
+    expect(resolved).toBeUndefined();
+    expect(problems.some((p) => p.message.includes('input "fields"'))).toBe(true);
+  });
+
+  it("fails clearly on unsupported OpenAPI shapes", async () => {
+    const { extractOperationMetadata } = await import(
+      "../tools/pluginctl/automation-params.ts"
+    );
+    const fragment = `openapi: 3.1.0
+info:
+  title: T
+  version: "1"
+paths:
+  /api/v1/plugins/example/things:
+    get:
+      operationId: listThings
+      parameters:
+        - name: filter
+          in: query
+          required: false
+          schema:
+            type: object
+      responses:
+        "200": { description: Things }
+  /api/v1/plugins/example/blob:
+    post:
+      operationId: uploadBlob
+      requestBody:
+        required: true
+        content:
+          image/png:
+            schema: { type: string, format: binary }
+      responses:
+        "201": { description: Created }
+`;
+    const { metadata, problems } = extractOperationMetadata("example", "f", fragment, null);
+    expect(metadata.size).toBe(0);
+    expect(problems.some((p) => p.message.includes("non-scalar type"))).toBe(true);
+    expect(problems.some((p) => p.message.includes("only application/json"))).toBe(true);
   });
 });

@@ -60,6 +60,13 @@ func timeoutContext(cmd *cobra.Command) (context.Context, context.CancelFunc, er
 	if raw == "" {
 		raw, _ = cmd.InheritedFlags().GetString("timeout")
 	}
+	return timeoutWithValue(cmd.Context(), raw)
+}
+
+// timeoutWithValue bounds server calls by an explicit duration string,
+// shared by Cobra-parsed commands and the dynamic plugin dispatcher,
+// which parses the fixed global set itself.
+func timeoutWithValue(base context.Context, raw string) (context.Context, context.CancelFunc, error) {
 	if raw == "" {
 		raw = (30 * time.Second).String()
 	}
@@ -68,8 +75,8 @@ func timeoutContext(cmd *cobra.Command) (context.Context, context.CancelFunc, er
 		return nil, nil, fmt.Errorf("invalid --timeout %q: %w", raw, err)
 	}
 	if parsed <= 0 {
-		return cmd.Context(), func() {}, nil
+		return base, func() {}, nil
 	}
-	ctx, cancel := context.WithTimeout(cmd.Context(), parsed)
+	ctx, cancel := context.WithTimeout(base, parsed)
 	return ctx, cancel, nil
 }
