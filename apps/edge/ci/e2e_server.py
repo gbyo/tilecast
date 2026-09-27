@@ -159,9 +159,11 @@ class WebHelper:
     with User=tilecast-web (the client uid is the harness user, as the
     renderer's tilecast account is the helper's client in production)."""
 
-    def __init__(self, binary, work):
-        self.binary, self.work = binary, work
-        self.web = os.path.join(work, "web")
+    def __init__(self, binary, web_root):
+        # web_root is a dedicated short tree, not work: work is 0700 root
+        # and the helper runs unprivileged, so it could not even traverse
+        # into work/web. Mirrors web-renderer-wpe/tests/security_test.py.
+        self.binary, self.web = binary, web_root
         self.process = None
 
     def start(self):
@@ -175,7 +177,7 @@ class WebHelper:
             os.chown(path, WEB_UID, WEB_UID)
         os.chmod(self.web, 0o755)
         os.chmod(os.path.join(self.web, "xdg"), 0o700)
-        log_path = os.path.join(self.work, "web-helper.log")
+        log_path = os.path.join(self.web, "web-helper.log")
         log = open(log_path, "a")
         # XDG_RUNTIME_DIR as in web-renderer-wpe/tests/security_test.py: a
         # cold WebKit first start can take a while, and without a runtime
@@ -323,6 +325,11 @@ def main():
     # under the 108-byte sun_path limit (frames dir + 70 bytes of socket
     # name), and the helper refuses to start otherwise.
     work = tempfile.mkdtemp(prefix="tce-")
+    # The helper tree lives outside work so the unprivileged helper can
+    # traverse it, and stays short for the 108-byte socket path limit.
+    web_root = tempfile.mkdtemp(prefix="tcw-") if args.web_helper else None
+    if web_root is not None:
+        os.chmod(web_root, 0o755)
     processes = []
     try:
         run("dropdb", "--if-exists", DATABASE)
@@ -514,10 +521,10 @@ def main():
             daemon_log_path = os.path.join(work, "tilecastd.log")
             helper = None
             if args.web_helper:
-                helper = WebHelper(args.web_helper, work)
+                helper = WebHelper(args.web_helper, web_root)
                 processes.append(helper.start())
             renderer = Renderer(args, runtime, work,
-                                web_dir=os.path.join(work, "web") if args.web_helper else None)
+                                web_dir=web_root if args.web_helper else None)
             processes.append(renderer.start())
 
             last_assignment = {}
@@ -898,6 +905,8 @@ def main():
                 process.kill()
         subprocess.run(["dropdb", "--if-exists", DATABASE], check=False)
         shutil.rmtree(work, ignore_errors=True)
+        if web_root is not None:
+            shutil.rmtree(web_root, ignore_errors=True)
 
 
 if __name__ == "__main__":
