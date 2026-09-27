@@ -12,8 +12,10 @@ import (
 // Output conventions for the first CLI slice, established here and reused
 // by every later command: stdout carries result data, stderr carries
 // progress and warnings, --json switches the data rendering, and --quiet
-// suppresses everything but data and errors. No command here prompts, so
-// non-TTY invocations are safe by construction.
+// suppresses everything but data and errors. Read-only commands never
+// prompt, so non-TTY invocations are safe by construction; explicit
+// mutations (plugin install/remove, sensitive+ automation operations)
+// prompt on a TTY and refuse off-TTY unless --yes is given.
 
 // addOutputFlags registers the shared rendering flags.
 func addOutputFlags(cmd *cobra.Command) {

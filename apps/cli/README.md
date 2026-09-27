@@ -41,10 +41,26 @@ direct database access.
 Output conventions: `--json` renders result data as JSON on stdout,
 `--plain` drops table framing, `--quiet` leaves data and errors only,
 and `--timeout` bounds server calls (default 30s). Progress and warnings
-go to stderr, and no command prompts, so non-TTY runs are safe.
+go to stderr. Read-only commands never prompt, so non-TTY runs are safe;
+explicit mutations prompt on a TTY and refuse off-TTY unless `--yes`
+is given.
 
-Management commands (screens, settings, plugins, and the rest) arrive in
-later control-plane phases. See `docs/programmable-control-plane.md`.
+- `tilecast plugin list|get|install|remove` manages the plugin catalog.
+  Install and remove are idempotent, confirm on a TTY (`--yes` skips),
+  and surface typed server errors (`plugin_not_found`, `plugin_in_use`).
+- Installed plugins with an automation mapping contribute their own
+  command roots, built at runtime from the server's resolved documents:
+  `tilecast countdown-bar instance list`, for example. Nothing about any
+  plugin is handwritten here; adding a plugin with an API and an
+  `automation.yaml` needs no CLI change. Path parameters fill
+  positionally in path order, request bodies travel as `--input` JSON or
+  `--file`, `sensitive` and higher risk confirms like install/remove,
+  and generic commands always emit JSON. Shell completion covers the
+  handwritten tree only.
+
+Further management commands (screen credentials, content, schedules,
+fleet bulk, users, activity) arrive in later control-plane phases.
+See `docs/programmable-control-plane.md`.
 
 ## Authentication and storage
 

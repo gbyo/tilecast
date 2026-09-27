@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	if err := cli.NewRootCommand().Execute(); err != nil {
+	if err := cli.Main(os.Args[1:]); err != nil {
 		os.Exit(1)
 	}
 }

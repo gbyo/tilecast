@@ -73,6 +73,14 @@ growing flag language. The contract schema lives in
 `schema/tilecast-automation.schema.json`); `plugins/countdown-bar/automation.yaml`
 is the worked example.
 
+Once the plugin is installed, its mapped operations are immediately
+usable from the terminal: the CLI builds the command tree from the
+server's resolved document at runtime (`tilecast countdown-bar
+instance list`), with path parameters filled positionally and JSON
+bodies via `--input` or `--file`. `sensitive` and higher risk confirms
+before running. Nothing about the plugin is handwritten in the CLI, so
+no CLI change ships with the plugin.
+
 ## Use the existing plugins as examples
 
 The three bundled plugins cover different parts of the API:

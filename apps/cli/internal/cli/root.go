@@ -53,5 +53,18 @@ server host for that.`,
 	root.AddCommand(newStatusCommand(env))
 	root.AddCommand(newScreenCommand(env))
 	root.AddCommand(newSettingsCommand(env))
+	root.AddCommand(newPluginCommand(env))
 	return root
+}
+
+// Main is the process entry point: it builds the production environment
+// and dispatches static commands directly or installed plugins'
+// automation trees otherwise. See plugin.go.
+func Main(args []string) error {
+	path, _ := config.DefaultPath()
+	env := &environment{
+		config:  config.NewStore(path),
+		secrets: secret.KeyringStore{},
+	}
+	return Execute(NewRootCommandWithEnv(env), env, args)
 }

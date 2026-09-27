@@ -16,9 +16,10 @@ import (
 )
 
 type cliFixture struct {
-	env     *environment
-	revoked []string
-	server  *httptest.Server
+	env                *environment
+	revoked            []string
+	server             *httptest.Server
+	lastAutomationCall string
 }
 
 func newFixture(t *testing.T) *cliFixture {
@@ -115,6 +116,126 @@ func newFixture(t *testing.T) *cliFixture {
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		f.revoked = append(f.revoked, body["token"])
 		w.WriteHeader(http.StatusNoContent)
+	})
+	// Synthetic plugin surface. "gizmo" exists only in this fixture: no
+	// production code names it, so these routes prove the generic
+	// dispatcher works from server data alone.
+	gizmoInstalled := true
+	dormantInstalled := false
+	pluginEntry := func(id, name string, installed bool) map[string]any {
+		return map[string]any{"id": id, "name": name, "version": 1, "description": name,
+			"category": "Display", "icon": "box", "managementPath": "/plugins/" + id,
+			"instanceNounSingular": "widget", "instanceNounPlural": "widgets",
+			"requirements": []any{}, "capabilities": []any{},
+			"installed": installed, "installable": true, "configured": installed,
+			"active": installed, "instanceCount": 0, "attention": []any{}}
+	}
+	mux.HandleFunc("/api/v1/plugins", func(w http.ResponseWriter, r *http.Request) {
+		write(w, map[string]any{"items": []any{
+			pluginEntry("gizmo_plugin", "Gizmo", gizmoInstalled),
+			pluginEntry("dormant_plugin", "Dormant", dormantInstalled),
+		}, "unsupportedInstallations": []any{}})
+	})
+	automationDoc := map[string]any{"apiVersion": 1, "plugin": "gizmo_plugin",
+		"operations": []any{
+			map[string]any{"operationId": "listGizmoWidgets", "method": "get",
+				"path": "/api/v1/plugins/gizmo/widgets", "risk": "read",
+				"cliPath": []any{"gizmo", "widget", "list"}, "mcpAction": "list_widgets",
+				"description": "List gizmo widgets."},
+			map[string]any{"operationId": "getGizmoWidget", "method": "get",
+				"path": "/api/v1/plugins/gizmo/widgets/{name}", "risk": "read",
+				"cliPath": []any{"gizmo", "widget", "get"}, "mcpAction": "get_widget",
+				"description": "Show one gizmo widget."},
+			map[string]any{"operationId": "createGizmoWidget", "method": "post",
+				"path": "/api/v1/plugins/gizmo/widgets", "risk": "routine", "input": "document",
+				"cliPath": []any{"gizmo", "widget", "create"}, "mcpAction": "create_widget",
+				"description": "Create a gizmo widget from a JSON document."},
+			map[string]any{"operationId": "deleteGizmoWidget", "method": "delete",
+				"path": "/api/v1/plugins/gizmo/widgets/{name}", "risk": "sensitive",
+				"cliPath": []any{"gizmo", "widget", "delete"}, "mcpAction": "delete_widget",
+				"description": "Delete a gizmo widget."},
+		}, "exclusions": []any{}}
+	mux.HandleFunc("/api/v1/plugins/", func(w http.ResponseWriter, r *http.Request) {
+		rest := strings.TrimPrefix(r.URL.Path, "/api/v1/plugins/")
+		parts := strings.Split(rest, "/")
+		switch {
+		case len(parts) == 2 && parts[1] == "automation" && r.Method == http.MethodGet:
+			switch parts[0] {
+			case "gizmo_plugin":
+				if !gizmoInstalled {
+					w.WriteHeader(http.StatusConflict)
+					_, _ = w.Write([]byte(`{"error":{"code":"plugin_not_installed","message":"no"}}`))
+					return
+				}
+				write(w, automationDoc)
+				return
+			case "dormant_plugin":
+				w.WriteHeader(http.StatusConflict)
+				_, _ = w.Write([]byte(`{"error":{"code":"plugin_not_installed","message":"no"}}`))
+				return
+			}
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"error":{"code":"plugin_not_found","message":"no"}}`))
+			return
+		case len(parts) == 2 && parts[1] == "install" && r.Method == http.MethodPost:
+			switch parts[0] {
+			case "dormant_plugin":
+				if dormantInstalled {
+					write(w, pluginEntry("dormant_plugin", "Dormant", true))
+					return
+				}
+				dormantInstalled = true
+				w.WriteHeader(http.StatusCreated)
+				write(w, pluginEntry("dormant_plugin", "Dormant", true))
+				return
+			case "gizmo_plugin":
+				write(w, pluginEntry("gizmo_plugin", "Gizmo", true))
+				return
+			}
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"error":{"code":"plugin_not_found","message":"no"}}`))
+			return
+		case len(parts) == 2 && parts[1] == "installation" && r.Method == http.MethodDelete:
+			if parts[0] == "gizmo_plugin" {
+				gizmoInstalled = false
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"error":{"code":"plugin_not_found","message":"no"}}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"error":{"code":"not_found","message":"no"}}`))
+	})
+	mux.HandleFunc("/api/v1/plugins/gizmo/widgets", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			write(w, map[string]any{"widgets": []any{
+				map[string]any{"name": "w-1"}, map[string]any{"name": "w-2"}}})
+			return
+		}
+		if r.Method == http.MethodPost {
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			body["name"] = "w-3"
+			w.WriteHeader(http.StatusCreated)
+			write(w, body)
+			return
+		}
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	})
+	mux.HandleFunc("/api/v1/plugins/gizmo/widgets/", func(w http.ResponseWriter, r *http.Request) {
+		name := strings.TrimPrefix(r.URL.Path, "/api/v1/plugins/gizmo/widgets/")
+		f.lastAutomationCall = r.Method + " " + r.URL.Path
+		switch r.Method {
+		case http.MethodGet:
+			write(w, map[string]any{"name": name})
+			return
+		case http.MethodDelete:
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		w.WriteHeader(http.StatusMethodNotAllowed)
 	})
 	f.server = httptest.NewServer(mux)
 	t.Cleanup(f.server.Close)

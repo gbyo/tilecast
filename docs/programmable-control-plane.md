@@ -437,8 +437,13 @@ after it:
     request IDs, audit attribution, revision conflicts, and non-TTY safety.
 11. Phase 12 finalizes Plugin Automation Contract v1 from Phase 11
     experience. Phase 13 adds `pluginctl` automation validation. Phase 14
-    ships the generic plugin CLI. Phase 15 expands core resource groups
-    deliberately.
+    ships the generic plugin CLI: handwritten `tilecast plugin`
+    lifecycle commands plus a dynamic dispatcher that builds installed
+    plugins' command trees from their resolved automation documents at
+    runtime, with `--input`/`--file` bodies, sensitive+ confirmations,
+    and JSON output. No plugin identifier appears in CLI source; a new
+    conforming plugin with an API and `automation.yaml` works without a
+    CLI change. Phase 15 expands core resource groups deliberately.
 12. MCP starts only after the API, client, and CLI have substantial real
     use: `tilecast mcp` over stdio with the official MCP Go SDK, semantic
     core tools, generic per-plugin tool families for installed plugins
