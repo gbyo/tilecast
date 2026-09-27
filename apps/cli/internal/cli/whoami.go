@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"context"
+
 	"github.com/spf13/cobra"
 
-	"github.com/tilecast/tilecast/apps/cli/internal/authflow"
+	apiclient "github.com/tilecast/tilecast/packages/api-client"
 )
 
 func newWhoamiCommand(env *environment) *cobra.Command {
@@ -15,15 +17,22 @@ func newWhoamiCommand(env *environment) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			status, err := authflow.FetchStatus(cmd.Context(), resolved.ServerURL, resolved.Bearer)
+			bearer := resolved.Bearer
+			transport, err := apiclient.New(resolved.ServerURL, func(ctx context.Context) (string, error) {
+				return bearer, nil
+			})
 			if err != nil {
 				return err
 			}
-			if !status.Authenticated {
+			caps, err := transport.WithAgent("tilecast-cli").Probe(cmd.Context())
+			if err != nil {
+				return err
+			}
+			if !caps.Authenticated {
 				return silentError("the server did not accept this credential; run \"tilecast auth login\" again")
 			}
-			cmd.Printf("%s (%s) on %s\n", status.User.Username, status.User.Role, resolved.ServerURL)
-			if status.EnrollMFA {
+			cmd.Printf("%s (%s) on %s\n", caps.Username, caps.Role, resolved.ServerURL)
+			if caps.EnrollMFA {
 				cmd.Printf("Warning: this account still owes the organization a second factor.\n")
 			}
 			return nil

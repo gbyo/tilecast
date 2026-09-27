@@ -34,7 +34,7 @@ func newFixture(t *testing.T) *cliFixture {
 		_, _ = w.Write(raw)
 	}
 	mux.HandleFunc("/api/v1/system/identity", func(w http.ResponseWriter, r *http.Request) {
-		write(w, map[string]any{"product": "tilecast", "installationId": "inst-1", "organizationName": "Test Org", "apiVersion": "v1"})
+		write(w, map[string]any{"product": "tilecast", "installationId": "123e4567-e89b-12d3-a456-426614174000", "organizationName": "Test Org", "apiVersion": "v1"})
 	})
 	mux.HandleFunc("/api/v1/auth/status", func(w http.ResponseWriter, r *http.Request) {
 		bearer := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
@@ -122,7 +122,7 @@ func TestContextCommands(t *testing.T) {
 
 func TestWhoamiPrecedence(t *testing.T) {
 	f := newFixture(t)
-	if err := f.env.config.Upsert(config.Context{Name: "home", ServerURL: f.server.URL, InstallationID: "inst-1"}, true); err != nil {
+	if err := f.env.config.Upsert(config.Context{Name: "home", ServerURL: f.server.URL, InstallationID: "123e4567-e89b-12d3-a456-426614174000"}, true); err != nil {
 		t.Fatal(err)
 	}
 	// Explicit flag beats a bad environment value.
@@ -145,7 +145,7 @@ func TestWhoamiPrecedence(t *testing.T) {
 
 func TestWhoamiRotatesStoredPair(t *testing.T) {
 	f := newFixture(t)
-	if err := f.env.config.Upsert(config.Context{Name: "home", ServerURL: f.server.URL, InstallationID: "inst-1"}, true); err != nil {
+	if err := f.env.config.Upsert(config.Context{Name: "home", ServerURL: f.server.URL, InstallationID: "123e4567-e89b-12d3-a456-426614174000"}, true); err != nil {
 		t.Fatal(err)
 	}
 	stale, _ := json.Marshal(storedCredential{Kind: credentialOAuth, AccessToken: "tca_old", RefreshToken: "tcr_r1", ExpiresAt: time.Now().Add(-time.Hour)})
@@ -173,7 +173,7 @@ func TestTokenStdinLogin(t *testing.T) {
 		t.Fatalf("stored = %+v, %v", stored, err)
 	}
 	current, err := f.env.config.Current()
-	if err != nil || current.InstallationID != "inst-1" || current.ServerURL != f.server.URL {
+	if err != nil || current.InstallationID != "123e4567-e89b-12d3-a456-426614174000" || current.ServerURL != f.server.URL {
 		t.Fatalf("context = %+v, %v", current, err)
 	}
 	// Re-login under the same name against a different installation refuses.
@@ -227,7 +227,7 @@ func TestBrowserLoginLoop(t *testing.T) {
 
 func TestAuthLogoutRevokesAndForgets(t *testing.T) {
 	f := newFixture(t)
-	if err := f.env.config.Upsert(config.Context{Name: "home", ServerURL: f.server.URL, InstallationID: "inst-1"}, true); err != nil {
+	if err := f.env.config.Upsert(config.Context{Name: "home", ServerURL: f.server.URL, InstallationID: "123e4567-e89b-12d3-a456-426614174000"}, true); err != nil {
 		t.Fatal(err)
 	}
 	pair, _ := json.Marshal(storedCredential{Kind: credentialOAuth, AccessToken: "tca_a1", RefreshToken: "tcr_r1", ExpiresAt: time.Now().Add(time.Hour)})
@@ -251,7 +251,7 @@ func TestAuthStatusStates(t *testing.T) {
 	if _, err := f.execute(t, "", "auth", "status"); err == nil {
 		t.Fatal("status without context succeeded")
 	}
-	if err := f.env.config.Upsert(config.Context{Name: "home", ServerURL: f.server.URL, InstallationID: "inst-1"}, true); err != nil {
+	if err := f.env.config.Upsert(config.Context{Name: "home", ServerURL: f.server.URL, InstallationID: "123e4567-e89b-12d3-a456-426614174000"}, true); err != nil {
 		t.Fatal(err)
 	}
 	out, err := f.execute(t, "", "auth", "status")
