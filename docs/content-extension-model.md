@@ -254,10 +254,16 @@ protocols, specialized polling, or domain workflows.
 Those belong to a plugin and use the existing
 `plugin.DataSourceProvider`/Host boundary.
 
-Plugin API v1 is not changed for this plan. A later Plugin API version may make
-a static Data Source descriptor authoritative for catalog metadata while the
-server contribution supplies only behavior, but that is not required to let a
-plugin bundle declarative Data Sources.
+Plugin API v1 is not changed for this plan. Its current executable provider
+shape does not need to become a multi-provider framework merely because a
+plugin can bundle many declarative Data Source definitions. If a real plugin
+later needs several executable providers, that is evidence for a versioned
+Plugin API change rather than a reason to widen v1 speculatively.
+
+A later Plugin API version may also make a static Data Source descriptor
+authoritative for catalog metadata while the server contribution supplies only
+behavior, but that is not required to let a plugin bundle declarative Data
+Sources.
 
 ## 3. Plugin is the application and integration unit
 
@@ -812,7 +818,40 @@ npm run extensions:generate
 
 It orchestrates existing tools. It is not a fourth manifest format.
 
-### 10.6 Shared tooling implementation
+### 10.6 Future external author workflow
+
+When independently distributed packages are implemented, external authors
+should not have to clone the Tilecast monorepo.
+
+Provide a supported scaffold/CLI with a flow conceptually like:
+
+```sh
+npx @tilecast/create-extension
+npm run dev
+npm run check
+npm run build
+npm run publish
+```
+
+The scaffold asks which contributions the package contains and creates only
+those pieces:
+
+```text
+Widget
+Declarative Data Source
+Plugin behavior (when the external runtime exists)
+Bundle/application
+```
+
+A Widget-only package should launch Storybook/fixture preview without a
+Tilecast Server. A declarative Data Source package should run its adapter
+fixtures locally without PostgreSQL. Full Tilecast integration remains
+available for packages that need it, but it is not the first step.
+
+The same schemas and conformance suites used by the monorepo are published for
+external tooling. Do not maintain a separate "community Widget" API.
+
+### 10.7 Shared tooling implementation
 
 When Data Source tooling arrives, extract common build-time functions only
 where duplication is real:
