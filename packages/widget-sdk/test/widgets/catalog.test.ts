@@ -33,7 +33,7 @@ const stories = Object.keys(
 );
 
 const discovery = discoverWidgets(manifests, modules);
-const dirOf = (path: string) => /\/widgets\/([^/]+)\//.exec(path)![1]!;
+const dirOf = (path: string) => /(widgets\/[^/]+)\//.exec(path)![1]!;
 
 afterEach(() => document.body.replaceChildren());
 

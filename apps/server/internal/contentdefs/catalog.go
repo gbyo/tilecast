@@ -220,12 +220,18 @@ type OutputField struct {
 }
 
 type WidgetDefinition struct {
-	ID          string `json:"id"`
-	Version     int    `json:"version"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Category    string `json:"category"`
-	Icon        string `json:"icon"`
+	ID      string `json:"id"`
+	Version int    `json:"version"`
+	// APIVersion is the manifest API version: the shape and semantics of
+	// tilecast.widget.json. It is required for component modules and kept
+	// separate from the persisted definition/config version (Version), the
+	// component runtime version, and any future package version.
+	APIVersion  int             `json:"apiVersion,omitempty"`
+	Source      ExtensionSource `json:"source,omitempty"`
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Category    string          `json:"category"`
+	Icon        string          `json:"icon"`
 	// Thumbnail names the Studio catalog preview drawn for this Widget. Studio falls back
 	// to a generic preview when the name is empty or unknown, so a definition never has to
 	// ship one and an unknown name never breaks the gallery.
@@ -354,6 +360,9 @@ func New(widgets []WidgetDefinition, dataSources []DataSourceDefinition) (*Catal
 	if catalog.DataSources == nil {
 		catalog.DataSources = []DataSourceDefinition{}
 	}
+	for index := range catalog.Widgets {
+		catalog.Widgets[index].Source = catalog.Widgets[index].Source.Normalized()
+	}
 	if err := inheritPresentationBases(catalog.Widgets); err != nil {
 		return nil, err
 	}
@@ -415,10 +424,13 @@ func load() (*Catalog, error) {
 		return nil, err
 	}
 	for index, definition := range modules {
-		hasher.Write([]byte("widgets/" + definition.ID))
+		hasher.Write([]byte("widgets/" + definition.ID + "\x00" + definition.Source.FingerprintString()))
 		hasher.Write(raws[index])
 	}
 	catalog.Widgets = append(catalog.Widgets, modules...)
+	for index := range catalog.Widgets {
+		catalog.Widgets[index].Source = catalog.Widgets[index].Source.Normalized()
+	}
 	if err := inheritPresentationBases(catalog.Widgets); err != nil {
 		return nil, err
 	}
@@ -465,7 +477,11 @@ func inheritPresentationBases(widgets []WidgetDefinition) error {
 
 func (c *Catalog) validate() error {
 	componentTypes := map[string]string{}
+	componentTags := map[string]string{}
 	for _, definition := range c.Widgets {
+		if err := definition.Source.validate(); err != nil {
+			return fmt.Errorf("Widget definition %q: %w", definition.ID, err)
+		}
 		if err := validateIdentity(definition.ID, definition.Version, definition.Name, definition.Category); err != nil {
 			return fmt.Errorf("Widget definition %q: %w", definition.ID, err)
 		}
@@ -497,10 +513,21 @@ func (c *Catalog) validate() error {
 			return fmt.Errorf("Widget definition %q: %w", definition.ID, err)
 		}
 		if definition.Component != nil {
+			source := definition.Source.Normalized()
+			if strings.HasPrefix(definition.Component.Type, "tilecast.") && source.Kind != SourceKindCore {
+				return fmt.Errorf("Widget definition %q uses the reserved tilecast namespace from a non-core source", definition.ID)
+			}
+			if source.Kind == SourceKindPackage && !packageOwnsType(source.PackageID, definition.Component.Type) {
+				return fmt.Errorf("Widget definition %q declares component %q outside package namespace %q", definition.ID, definition.Component.Type, source.PackageID)
+			}
 			if owner, taken := componentTypes[definition.Component.Type]; taken {
 				return fmt.Errorf("Widget definitions %q and %q declare component %q", owner, definition.ID, definition.Component.Type)
 			}
 			componentTypes[definition.Component.Type] = definition.ID
+			if owner, taken := componentTags[definition.Component.TagName]; taken {
+				return fmt.Errorf("Widget definitions %q and %q declare component tag %q", owner, definition.ID, definition.Component.TagName)
+			}
+			componentTags[definition.Component.TagName] = definition.ID
 		}
 		// A component-only Widget has no compatibility presentation to validate.
 		if !definition.LegacyEditor && definition.HasFallback() {

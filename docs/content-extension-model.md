@@ -447,8 +447,8 @@ Conceptually:
 
 The exact validation remains deliberately conservative: lowercase ASCII
 letters, digits and hyphens per segment, at least two segments, and a maximum
-component type length of 72 so `widget.<type>` remains inside the heartbeat
-limit.
+full `widget.<type>` capability length of 80 characters so it remains
+inside the heartbeat capability-name bound.
 
 ### 5.2 Existing persisted provider IDs do not change
 
@@ -1280,8 +1280,8 @@ Do this before too much Studio/runtime code assumes root-only discovery:
 
 1. add an explicit Widget manifest `apiVersion`;
 2. document the four Widget version concepts;
-3. permit multi-segment qualified component types while keeping the 72-character
-   total bound;
+3. permit multi-segment qualified component types while keeping the
+   80-character `widget.<type>` capability bound;
 4. establish the rule that new component-only provider IDs are qualified;
 5. add `ExtensionSource`/provenance to Widget discovery and registry entries;
 6. refactor Widget discovery to consume structured sources;

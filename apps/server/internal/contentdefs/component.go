@@ -19,9 +19,9 @@ const (
 	// kind "component" presentations. Native and web presentations use 1.
 	ComponentPresentationSchemaVersion = 2
 	maxComponentVersion                = 100
-	// maxComponentTypeLength keeps "widget.<type>" within the heartbeat's
-	// 80-character capability names.
-	maxComponentTypeLength   = 72
+	// maxWidgetCapabilityLen is the heartbeat's capability-name bound. The
+	// full "widget.<type>" capability must fit within it.
+	maxWidgetCapabilityLen   = 80
 	maxComponentConfigBytes  = 8 * 1024
 	maxComponentConfigDepth  = 6
 	maxComponentConfigKeys   = 64
@@ -32,7 +32,7 @@ const (
 )
 
 var (
-	componentTypePattern = regexp.MustCompile(`^[a-z][a-z0-9]{1,31}\.[a-z][a-z0-9-]{0,47}$`)
+	componentTypePattern = regexp.MustCompile(`^[a-z][a-z0-9]{1,31}(\.[a-z][a-z0-9-]{0,47})+$`)
 	componentTagPattern  = regexp.MustCompile(`^[a-z][a-z0-9]*(-[a-z0-9]+)+$`)
 )
 
@@ -85,6 +85,7 @@ func loadWidgetModules() ([]WidgetDefinition, [][]byte, error) {
 		if definition.Component == nil || definition.Compatibility == nil {
 			return nil, nil, fmt.Errorf("widgets/%s: a Widget module must declare component and compatibility", manifest.Dir)
 		}
+		definition.Source = CoreSource()
 		definitions = append(definitions, definition)
 		raws = append(raws, manifest.JSON)
 	}
@@ -99,11 +100,14 @@ func validateComponent(definition WidgetDefinition) error {
 		}
 		return nil
 	}
-	if !componentTypePattern.MatchString(spec.Type) {
-		return fmt.Errorf("component type %q must be <namespace>.<name>", spec.Type)
+	if definition.APIVersion != 1 {
+		return fmt.Errorf("Widget manifest apiVersion must be 1")
 	}
-	if len(spec.Type) > maxComponentTypeLength {
-		return fmt.Errorf("component type %q is longer than %d characters", spec.Type, maxComponentTypeLength)
+	if !componentTypePattern.MatchString(spec.Type) {
+		return fmt.Errorf("component type %q must be a qualified identity", spec.Type)
+	}
+	if len(spec.Capability()) > maxWidgetCapabilityLen {
+		return fmt.Errorf("component capability %q is longer than %d characters", spec.Capability(), maxWidgetCapabilityLen)
 	}
 	if spec.Version < 1 || spec.Version > maxComponentVersion {
 		return fmt.Errorf("component version must be from 1 to %d", maxComponentVersion)
@@ -111,8 +115,8 @@ func validateComponent(definition WidgetDefinition) error {
 	if !componentTagPattern.MatchString(spec.TagName) {
 		return fmt.Errorf("component tag %q is not a custom-element name", spec.TagName)
 	}
-	if name, ok := strings.CutPrefix(spec.Type, "tilecast."); ok && spec.TagName != tilecastTagPrefix+name {
-		return fmt.Errorf("component tag must be %s%s", tilecastTagPrefix, name)
+	if name, ok := strings.CutPrefix(spec.Type, "tilecast."); ok && spec.TagName != tilecastTagPrefix+strings.ReplaceAll(name, ".", "-") {
+		return fmt.Errorf("component tag must be %s%s", tilecastTagPrefix, strings.ReplaceAll(name, ".", "-"))
 	}
 	if spec.Entrypoint != "./runtime/index.ts" {
 		return errors.New("component entrypoint must be ./runtime/index.ts")

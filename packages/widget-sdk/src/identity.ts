@@ -6,11 +6,14 @@
  */
 
 /**
- * `<namespace>.<name>`. Built-in Widgets use the `tilecast` namespace; a
- * future plugin release contributes Widgets under its own namespace.
+ * Qualified component identity. Built-in Widgets use the `tilecast`
+ * namespace; a future plugin release contributes Widgets under its own
+ * namespace. More than one dot-separated segment is allowed (for example
+ * `gbyo.athletics.scoreboard`), subject to the heartbeat capability-name
+ * bound enforced below.
  */
 export const COMPONENT_TYPE_PATTERN =
-  /^[a-z][a-z0-9]{1,31}\.[a-z][a-z0-9-]{0,47}$/;
+  /^[a-z][a-z0-9]{1,31}(\.[a-z][a-z0-9-]{0,47})+$/;
 
 /** A valid custom-element name without uppercase or unusual characters. */
 export const TAG_NAME_PATTERN = /^[a-z][a-z0-9]*(-[a-z0-9]+)+$/;
@@ -19,10 +22,11 @@ export const TAG_NAME_PATTERN = /^[a-z][a-z0-9]*(-[a-z0-9]+)+$/;
 export const TILECAST_TAG_PREFIX = "tc-widget-";
 
 /**
- * The heartbeat accepts capability names of at most 80 characters, so
- * `widget.<type>` bounds the type to 72.
+ * The heartbeat accepts capability names of at most 80 characters, so the
+ * full `widget.<type>` capability must fit within that limit (the type
+ * itself may be at most 73 characters).
  */
-export const MAX_COMPONENT_TYPE_LENGTH = 72;
+export const MAX_COMPONENT_CAPABILITY_LENGTH = 80;
 
 /** Component versions share the capability version bounds of the heartbeat. */
 export const MAX_COMPONENT_VERSION = 100;
@@ -40,10 +44,11 @@ export function identityProblem(identity: {
 }): string | null {
   const { type, version, tagName } = identity;
   if (typeof type !== "string" || !COMPONENT_TYPE_PATTERN.test(type)) {
-    return `type ${String(type)} must match <namespace>.<name>`;
+    return `type ${String(type)} must be a qualified identity`;
   }
-  if (type.length > MAX_COMPONENT_TYPE_LENGTH) {
-    return `type ${type} is longer than ${MAX_COMPONENT_TYPE_LENGTH} characters`;
+  const capability = componentCapability(type);
+  if (capability.length > MAX_COMPONENT_CAPABILITY_LENGTH) {
+    return `capability ${capability} is longer than ${MAX_COMPONENT_CAPABILITY_LENGTH} characters`;
   }
   if (
     typeof version !== "number" ||
@@ -57,7 +62,8 @@ export function identityProblem(identity: {
     return `tag name ${String(tagName)} is not a valid custom-element name`;
   }
   if (type.startsWith("tilecast.")) {
-    const expected = TILECAST_TAG_PREFIX + type.slice("tilecast.".length);
+    const expected =
+      TILECAST_TAG_PREFIX + type.slice("tilecast.".length).replaceAll(".", "-");
     if (tagName !== expected) {
       return `tag name ${tagName} must be ${expected} for a tilecast Widget`;
     }

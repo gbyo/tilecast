@@ -36,7 +36,7 @@ export type WidgetElementConstructor<Config, Data> = new () => WidgetElement<
 >;
 
 export interface WidgetDefinition<Config, Data> {
-  /** Component type, `<namespace>.<name>`, for example "tilecast.clock". */
+  /** Qualified component type, for example "tilecast.clock". */
   readonly type: string;
   /** Component version; must equal tilecast.widget.json component.version. */
   readonly version: number;

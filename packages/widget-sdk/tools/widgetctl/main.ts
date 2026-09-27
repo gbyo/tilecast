@@ -31,9 +31,7 @@ const CATALOG_DEFINITIONS = "apps/server/internal/contentdefs/definitions";
 
 function report(problems: Problem[]): number {
   for (const problem of problems) {
-    const where = [problem.widget && `widgets/${problem.widget}`, problem.file]
-      .filter(Boolean)
-      .join(" ");
+    const where = [problem.widget, problem.file].filter(Boolean).join(" ");
     console.error(`✗ ${where ? `${where}: ` : ""}${problem.message}`);
   }
   return problems.length === 0 ? 0 : 1;
@@ -66,24 +64,35 @@ export async function check(repo: Repo): Promise<Problem[]> {
     const { component } = manifest;
 
     for (const [value, owners, label] of [
-      [manifest.id, ids, "id"],
+      [manifest.id, ids, "provider identity"],
       [component.type, types, "component type"],
       [component.tagName, tags, "tag"],
     ] as const) {
       const owner = owners.get(value);
-      if (owner) add(`${label} ${value} is also declared by widgets/${owner}`);
+      if (owner) add(`${label} ${value} is also declared by ${owner}`);
       owners.set(value, dir);
+    }
+    if (
+      widget.source.kind !== "core" &&
+      component.type.startsWith("tilecast.")
+    ) {
+      add(
+        `type ${component.type} uses the reserved tilecast namespace but comes from a non-core source`,
+      );
+    }
+    if (
+      widget.source.kind === "core" &&
+      component.type.startsWith("tilecast.") &&
+      component.type !== `tilecast.${dir.split("/").pop()}`
+    ) {
+      add(
+        `a tilecast Widget in ${dir} must have type tilecast.${dir.split("/").pop()}`,
+      );
     }
     if (catalog.has(manifest.id)) {
       add(
         `id ${manifest.id} is also defined in ${CATALOG_DEFINITIONS}/${catalog.get(manifest.id)}; a Widget module replaces its catalog entry`,
       );
-    }
-    if (
-      component.type.startsWith("tilecast.") &&
-      component.type !== `tilecast.${dir}`
-    ) {
-      add(`a tilecast Widget in widgets/${dir} must have type tilecast.${dir}`);
     }
     if (!existsSync(join(widget.path, component.entrypoint))) {
       add(`component.entrypoint ${component.entrypoint} does not exist`);
@@ -156,6 +165,7 @@ function scaffold(root: string, name: string, displayName: string): string[] {
     "tilecast.widget.json": `${JSON.stringify(
       {
         $schema: "../../packages/widget-sdk/schema/tilecast-widget.schema.json",
+        apiVersion: 1,
         id: name,
         version: 1,
         name: displayName,

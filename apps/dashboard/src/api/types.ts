@@ -1650,9 +1650,22 @@ export type ContentDefinitionField = {
   maximumItems?: number;
   itemFields?: ContentDefinitionField[];
 };
+export type ExtensionSource =
+  | { kind: "core" }
+  | { kind: "plugin"; pluginId: string }
+  | {
+      kind: "package";
+      packageId: string;
+      packageVersion: string;
+      digest: string;
+    };
 export type WidgetDefinition = {
   id: WidgetProvider;
   version: number;
+  /** Manifest API version for component modules; absent for legacy definitions. */
+  apiVersion?: number;
+  /** Where the definition came from; absent means release-owned core. */
+  source?: ExtensionSource;
   name: string;
   description: string;
   category: string;
