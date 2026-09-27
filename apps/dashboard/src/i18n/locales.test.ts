@@ -4,6 +4,7 @@
 import { describe, expect, it } from "vitest";
 import { SUPPORTED_LANGUAGES } from "./languages";
 import { NAMESPACES, PLUGIN_NAMESPACES } from "./resources";
+import { pluginLocalePaths } from ".";
 
 const files = import.meta.glob<Record<string, unknown>>("../locales/*/*.json", {
   eager: true,
@@ -15,14 +16,16 @@ const pluginFiles = import.meta.glob<Record<string, unknown>>(
   { eager: true, import: "default" },
 );
 
+const pluginLocales = pluginLocalePaths(pluginFiles);
+
 const PLURAL_SUFFIX = /_(zero|one|two|few|many|other)$/;
 
 function locale(language: string, namespace: string) {
   if (namespace.startsWith("plugin.")) {
-    const directory = namespace.slice("plugin.".length).replaceAll("_", "-");
-    return pluginFiles[
-      `../../../../plugins/${directory}/studio/locales/${language}.json`
-    ];
+    const hit = pluginLocales[namespace]?.find((path) =>
+      path.endsWith(`/studio/locales/${language}.json`),
+    );
+    return hit === undefined ? undefined : pluginFiles[hit];
   }
   return files[`../locales/${language}/${namespace}.json`];
 }

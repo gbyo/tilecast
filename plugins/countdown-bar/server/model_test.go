@@ -2,6 +2,7 @@ package server
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -118,5 +119,24 @@ func TestValidateCountdownBarRejectsInvalidScheduleAndTargets(t *testing.T) {
 	input.Timezone = "not/a-zone"
 	if err := Validate(input); !errors.Is(err, plugin.ErrInvalid) {
 		t.Fatalf("expected invalid timezone to be rejected, got %v", err)
+	}
+}
+
+func TestValidateCountdownBarCountsCharactersNotBytes(t *testing.T) {
+	input := validInput()
+	input.Name = strings.Repeat("é", 180)
+	input.Message = strings.Repeat("漢", 280)
+	if err := Validate(input); err != nil {
+		t.Fatalf("expected 180- and 280-character multibyte values to pass, got %v", err)
+	}
+	input = validInput()
+	input.Name = strings.Repeat("é", 181)
+	if err := Validate(input); !errors.Is(err, plugin.ErrInvalid) {
+		t.Fatalf("expected a 181-character name to be rejected, got %v", err)
+	}
+	input = validInput()
+	input.CompletionText = strings.Repeat("é", 281)
+	if err := Validate(input); !errors.Is(err, plugin.ErrInvalid) {
+		t.Fatalf("expected a 281-character completion text to be rejected, got %v", err)
 	}
 }
