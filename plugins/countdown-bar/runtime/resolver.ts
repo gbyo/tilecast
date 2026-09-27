@@ -1,23 +1,12 @@
-import { tilecastCountdownDisplay } from "./countdown-display";
 /**
- * Countdown Bar schedule resolution: which configured bar — if any — should be
- * on screen right now. Kept as a tiny global beside the countdown display
- * because renderer scripts run directly in the sandboxed page without module
- * imports, and shared so the renderer surface and its tests evaluate the exact
- * same weekly, one-time, DST, completion, and priority behavior.
+ * Countdown Bar schedule resolution: which configured bar, if any, should be
+ * on screen now. The Android Player mirrors these rules in
+ * CountdownBarResolver.kt: weekly, one-time, DST, completion, and priority.
  */
-/**
- * One entry of the manifest's plugin array as it arrives, before any resolver
- * has claimed it. A resolver narrows by `type` and `version` and then reads its
- * own configuration shape, so an entry belonging to another plugin — or to a
- * plugin this Player predates — travels through untouched.
- */
-export interface TilecastManifestPluginEntry {
-  id: string;
-  type: string;
-  version: number;
-  config: unknown;
-}
+import {
+  compactDuration,
+  type RuntimeManifestEntry,
+} from "@tilecast/plugin-sdk/runtime";
 
 export interface TilecastCountdownBarPlugin {
   id: string;
@@ -75,7 +64,7 @@ export interface TilecastActiveCountdownBar {
 
 export interface TilecastCountdownBarResolver {
   resolve(
-    plugins: TilecastManifestPluginEntry[] | null | undefined,
+    plugins: readonly RuntimeManifestEntry[] | null | undefined,
     localNow: Date,
     clockOffsetMs?: number,
   ): TilecastActiveCountdownBar | null;
@@ -212,7 +201,7 @@ export const tilecastCountdownBar: TilecastCountdownBarResolver = (() => {
 
   return Object.freeze({
     resolve(
-      plugins: TilecastManifestPluginEntry[] | null | undefined,
+      plugins: readonly RuntimeManifestEntry[] | null | undefined,
       localNow: Date,
       clockOffsetMs = 0,
     ): TilecastActiveCountdownBar | null {
@@ -274,7 +263,7 @@ export const tilecastCountdownBar: TilecastCountdownBarResolver = (() => {
             value: completionVisible
               ? completionText
               : remaining > 0
-                ? tilecastCountdownDisplay.compact(remaining)
+                ? compactDuration(remaining)
                 : "",
             displayMode: plugin.config.displayMode,
             heightPx: Math.round(baseHeight * finalScale),

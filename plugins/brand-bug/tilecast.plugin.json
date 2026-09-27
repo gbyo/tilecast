@@ -23,5 +23,15 @@
     "route": "/plugins/brand-bug",
     "entrypoint": "./studio/index.tsx"
   },
+  "runtime": {
+    "manifestTypes": ["brand_bug"],
+    "surfaces": [
+      "corner.top-left",
+      "corner.top-right",
+      "corner.bottom-left",
+      "corner.bottom-right"
+    ],
+    "tier": "ambient"
+  },
   "docs": { "reference": "docs/plugins.md#brand-bug--watermark" }
 }

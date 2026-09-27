@@ -1,4 +1,4 @@
-import { tilecastBrandBug } from "./brand-bug-resolver";
+import { tilecastBrandBug } from "./resolver";
 import { describe, expect, it } from "vitest";
 
 interface BrandBugPlugin {

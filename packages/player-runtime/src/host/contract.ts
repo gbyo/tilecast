@@ -274,7 +274,10 @@ export interface PresentationMessage {
   projection?: ProjectionContextV1;
 }
 
-/** Built-in plugin surfaces (compatibility shapes; see compat/plugins). */
+/**
+ * One Player manifest plugin entry. The runtime surface host routes each entry
+ * to the runtime plugin that declares its type; an unknown type is ignored.
+ */
 export interface RuntimePluginV1 {
   id: string;
   type: string;

@@ -19,9 +19,43 @@ const copy = (from, to) => {
   fs.copyFileSync(from, path.join(out, to));
 };
 
-for (const name of ["index.html", "runtime.css", "tilecast-logo-white.svg"]) {
+for (const name of ["index.html", "tilecast-logo-white.svg"]) {
   copy(path.join(root, "static", name), name);
 }
+
+// runtime.css keeps its fixed name: hosts validate the artifact set. It is
+// the base stylesheet, then each runtime plugin's stylesheets, in path order
+// so every build is byte-identical. The document policy refuses inline
+// styles, so a plugin's rules must arrive here. `pluginctl check` keeps each
+// plugin's selectors inside its own .tc-<name> namespace.
+const repo = path.join(root, "..", "..");
+const stylesheets = (dir) =>
+  fs.existsSync(dir)
+    ? fs
+        .readdirSync(dir, { recursive: true })
+        .filter((name) => String(name).endsWith(".css"))
+        .map((name) => path.join(dir, String(name)))
+    : [];
+const pluginStylesheets = [
+  // MIGRATION ONLY: renderers not yet moved into their plugins.
+  ...stylesheets(path.join(root, "src", "plugins", "builtin")),
+  ...fs
+    .readdirSync(path.join(repo, "plugins"), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .flatMap((entry) =>
+      stylesheets(path.join(repo, "plugins", entry.name, "runtime")),
+    ),
+]
+  .map((file) => path.relative(repo, file).split(path.sep).join("/"))
+  .sort();
+const css = [
+  fs.readFileSync(path.join(root, "static", "runtime.css"), "utf8"),
+  ...pluginStylesheets.map(
+    (file) =>
+      `/* ${file} */\n${fs.readFileSync(path.join(repo, file), "utf8")}`,
+  ),
+].join("\n");
+fs.writeFileSync(path.join(out, "runtime.css"), css);
 copy(path.join(root, "static", "fonts", "OFL.txt"), "fonts/OFL.txt");
 const geist = path.dirname(
   require.resolve("@fontsource-variable/geist/package.json"),

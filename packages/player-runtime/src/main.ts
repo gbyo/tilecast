@@ -2,7 +2,7 @@
  * Entry point of the shared Tilecast Player Runtime (runtime.js).
  *
  * Finds the host's TilecastRuntimeHostV1 bridge, starts the playback engine
- * and the plugin overlays, binds the views, and tells the host it is ready.
+ * and the plugin surface host, binds the views, and tells the host it is ready.
  * If the bridge is missing or speaks another contract version, the display
  * says so on screen instead of staying silently black.
  */
@@ -19,7 +19,9 @@ import {
   type RuntimeClock,
 } from "./clock/scheduler";
 import { PlaybackController } from "./engine/controller";
-import { PluginOverlayController } from "./compat/plugins/overlay-controller";
+import { runtimeDiscovery } from "./plugins/discovery";
+import { RuntimeSurfaceHost } from "./plugins/host";
+import { MicrophoneService } from "./plugins/microphone";
 import { installProbe } from "./probe";
 import { PlayerRoot } from "./views/player-root";
 
@@ -74,22 +76,34 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
       websiteRecovered: () => host.remoteWeb?.reportRecovered(),
     },
   });
-  const overlay = new PluginOverlayController({
+  for (const problem of runtimeDiscovery.problems) {
+    console.error(`tilecast runtime: plugin discovery: ${problem}`);
+  }
+  const microphone = new MicrophoneService({
+    source: capabilities.noiseMeter,
     clock,
-    noiseSource: capabilities.noiseMeter,
-    reports: {
-      noiseMeter: (report) => host.noiseMeter?.report(report),
-      noiseDiagnostic: (message, detail) =>
-        host.noiseMeter?.diagnostic(message, detail),
-    },
+    report: (report) => host.noiseMeter?.report(report),
+    diagnostic: (message, detail) =>
+      host.noiseMeter?.diagnostic(message, detail),
+  });
+  const surfaces = new RuntimeSurfaceHost({
+    clock,
+    plugins: runtimeDiscovery.plugins,
+    animationScale,
     reducedMotion: () =>
       animationScale === 0 ||
       matchMedia("(prefers-reduced-motion: reduce)").matches,
+    microphone,
+    mediaUrl: (assetId, variantId) =>
+      `tcmedia://variant/${assetId}/${variantId}`,
+    stage: () => document.getElementById("content-stage"),
+    diagnostic: (pluginId, message) =>
+      console.warn(`tilecast runtime: plugin ${pluginId}: ${message}`),
   });
 
   view.bind({
     controller,
-    overlay,
+    surfaces,
     clock,
     capabilities,
     animationScale,
@@ -106,7 +120,7 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
     version: RUNTIME_VERSION,
     host,
     controller,
-    overlay,
+    surfaces,
     view,
     manual,
   });
@@ -114,11 +128,11 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
   const receive = (message: HostMessageV1) => {
     switch (message.type) {
       case "presentation":
-        overlay.setAwake(message.presentation.state !== "sleep");
+        surfaces.setAwake(message.presentation.state !== "sleep");
         controller.present(message);
         break;
       case "plugins":
-        overlay.setPlugins(message.plugins, message.clockOffsetMs);
+        surfaces.setEntries(message.plugins, message.clockOffsetMs);
         break;
       case "identify":
         view.identify(String(message.name), Number(message.durationSeconds));
@@ -131,7 +145,7 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
         view.addServer(message.server);
         break;
       case "noise-level":
-        overlay.hostNoiseLevel(message.rms);
+        microphone.hostLevel(message.rms);
         break;
     }
   };
@@ -149,7 +163,7 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
       .catch(() => undefined);
   }
   // A reload replaces this document; the microphone goes with it.
-  addEventListener("pagehide", () => overlay.stop());
+  addEventListener("pagehide", () => surfaces.stop());
 
   // Ready once the first frame is painted with the bundled font available,
   // so the host never activates content into a document that cannot draw.

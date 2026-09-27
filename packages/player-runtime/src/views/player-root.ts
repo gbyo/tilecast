@@ -6,7 +6,7 @@
  * bindings at all: the Stage owns their contents and their `visible` class, so
  * a render here can never disturb media that is playing.
  */
-import { LitElement, html } from "lit";
+import { LitElement, html, nothing } from "lit";
 import { classMap } from "lit/directives/class-map.js";
 import type {
   DiscoveredServerV1,
@@ -18,20 +18,16 @@ import type {
   PlaybackController,
   RuntimeViewState,
 } from "../engine/controller";
-import type {
-  OverlayModel,
-  PluginOverlayController,
-} from "../compat/plugins/overlay-controller";
+import type { RuntimeSurfaceHost } from "../plugins/host";
 import { Stage } from "../surfaces/stage";
-import type { PluginSurfaces } from "./plugin-surfaces";
 import type { SetupBridge, StatusSurface } from "./status-surface";
 import "./outside-hours";
-import "./plugin-surfaces";
 import "./status-surface";
 
 export interface PlayerRootBindings {
   controller: PlaybackController;
-  overlay: PluginOverlayController;
+  /** Runtime plugin surfaces. Their layer is host-owned DOM. */
+  surfaces: RuntimeSurfaceHost;
   clock: RuntimeClock;
   capabilities: RuntimeCapabilitiesV1;
   setup: SetupBridge;
@@ -49,7 +45,6 @@ export class PlayerRoot extends LitElement {
     sleep: { state: true },
     problem: { state: true },
     servers: { state: true },
-    overlayModel: { state: true },
     identifyName: { state: true },
   };
 
@@ -57,7 +52,6 @@ export class PlayerRoot extends LitElement {
   declare sleep: Sleep | null;
   declare problem: string | null;
   declare servers: DiscoveredServerV1[];
-  declare overlayModel: OverlayModel | null;
   declare identifyName: string | null;
 
   private bindings: PlayerRootBindings | null = null;
@@ -71,7 +65,6 @@ export class PlayerRoot extends LitElement {
     this.sleep = null;
     this.problem = null;
     this.servers = [];
-    this.overlayModel = null;
     this.identifyName = null;
   }
 
@@ -82,6 +75,7 @@ export class PlayerRoot extends LitElement {
   /** Connect to the engine. Called once by the runtime entry point. */
   bind(bindings: PlayerRootBindings): void {
     this.bindings = bindings;
+    this.requestUpdate();
     void this.updateComplete.then(() => {
       const layerA = this.querySelector<HTMLDivElement>("#layer-a")!;
       const layerB = this.querySelector<HTMLDivElement>("#layer-b")!;
@@ -95,12 +89,6 @@ export class PlayerRoot extends LitElement {
         bindings.controller.subscribe((view) => this.onView(view)),
         bindings.controller.onSyncPosition((position) =>
           this.stage?.correct(position),
-        ),
-        bindings.overlay.subscribe((model) => (this.overlayModel = model)),
-        bindings.overlay.onNoiseLevel((level) =>
-          this.querySelector<PluginSurfaces>(
-            "tc-plugin-surfaces",
-          )?.setNoiseLevel(level),
         ),
       );
     });
@@ -152,11 +140,7 @@ export class PlayerRoot extends LitElement {
           .setup=${b?.setup ?? null}
         ></tc-status-surface>
       </div>
-      <tc-plugin-surfaces
-        .model=${this.overlayModel}
-        .animationScale=${b?.animationScale ?? 1}
-        .clock=${b?.clock}
-      ></tc-plugin-surfaces>
+      ${b?.surfaces.element ?? nothing}
       <div
         id="identify"
         class=${classMap({ visible: this.identifyName !== null })}
