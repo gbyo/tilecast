@@ -4,6 +4,7 @@ import {
   createTestContext,
   mountForTest,
 } from "@tilecast/widget-sdk/testing";
+import { timeParts } from "@tilecast/widget-kit";
 import clock from "./index.ts";
 import { parseClockConfig, type ClockConfig } from "./clock.ts";
 
@@ -166,20 +167,36 @@ describe("Clock element", () => {
     test.dispose();
   });
 
-  it("places the hands correctly late in the hour", async () => {
-    const late = createManualClock(Date.parse("2026-09-28T14:47:38Z"));
+  it("keeps parsed time parts and analog hand angles in sync", async () => {
+    const instant = Date.parse("2026-09-28T14:37:45Z");
+    const parts = timeParts(instant, {
+      locale: "en-US",
+      timeZone: "UTC",
+      hourCycle: "h23",
+    });
+    expect(parts).toMatchObject({
+      hour: "14",
+      minute: "37",
+      second: "45",
+      clock: { hours: 14, minutes: 37, seconds: 45 },
+    });
+
+    const manual = createManualClock(instant);
     const test = mountForTest(clock, {
       config: { style: "analog", showSeconds: true },
-      context: createTestContext({ clock: late }),
+      context: createTestContext({
+        clock: manual,
+        timeZone: "UTC",
+        hourCycle: "h23",
+      }),
     });
     const element = test.element as ClockElement;
     await element.updateComplete;
     const rotation = (selector: string) =>
       element.shadowRoot!.querySelector(selector)?.getAttribute("transform");
-    // 9:47:38 in Chicago.
-    expect(rotation(".hand.hour")).toBe("rotate(293.5 100 100)");
-    expect(rotation(".hand.minute")).toBe("rotate(285.8 100 100)");
-    expect(rotation(".hand.second")).toBe("rotate(228 100 100)");
+    expect(rotation(".hand.hour")).toBe("rotate(78.5 100 100)");
+    expect(rotation(".hand.minute")).toBe("rotate(226.5 100 100)");
+    expect(rotation(".hand.second")).toBe("rotate(270 100 100)");
     test.dispose();
   });
 

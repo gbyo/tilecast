@@ -18,11 +18,8 @@ export const TAG_NAME_PATTERN = /^[a-z][a-z0-9]*(-[a-z0-9]+)+$/;
 /** Tilecast's own Widgets use this prefix so they cannot collide with views. */
 export const TILECAST_TAG_PREFIX = "tc-widget-";
 
-/**
- * The heartbeat accepts capability names of at most 80 characters, so
- * `widget.<type>` bounds the type to 72.
- */
-export const MAX_COMPONENT_TYPE_LENGTH = 72;
+/** The heartbeat accepts capability names of at most 80 characters. */
+export const MAX_COMPONENT_CAPABILITY_LENGTH = 80;
 
 /** Component versions share the capability version bounds of the heartbeat. */
 export const MAX_COMPONENT_VERSION = 100;
@@ -42,8 +39,9 @@ export function identityProblem(identity: {
   if (typeof type !== "string" || !COMPONENT_TYPE_PATTERN.test(type)) {
     return `type ${String(type)} must match <namespace>.<name>`;
   }
-  if (type.length > MAX_COMPONENT_TYPE_LENGTH) {
-    return `type ${type} is longer than ${MAX_COMPONENT_TYPE_LENGTH} characters`;
+  const capability = componentCapability(type);
+  if (capability.length > MAX_COMPONENT_CAPABILITY_LENGTH) {
+    return `capability ${capability} is longer than ${MAX_COMPONENT_CAPABILITY_LENGTH} characters`;
   }
   if (
     typeof version !== "number" ||

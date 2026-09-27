@@ -208,7 +208,7 @@ For each screen, the Server compiles each reachable Widget:
 
 A manifest that contains at least one component presentation is v16. Every other manifest keeps the schema that it had before. Assignment validation and manifest generation use the same rules.
 
-The heartbeat accepts at most 128 capability entries (earlier: 64). A Player must not report more than 64 entries until the minimum supported Server accepts 128. A capability name is at most 80 characters, so a component type is at most 72.
+The heartbeat accepts at most 128 capability entries (earlier: 64). A Player must not report more than 64 entries until the minimum supported Server accepts 128. A capability name is at most 80 characters, so the full `widget.<type>` capability must fit within that limit (the type may be at most 73 ASCII characters).
 
 ## 8. Lifecycle and evidence
 

@@ -65,6 +65,12 @@ describe("identity", () => {
       }),
     ).toBeNull();
     expect(componentCapability("tilecast.clock")).toBe("widget.tilecast.clock");
+
+    const boundaryType = `${"a".repeat(25)}.${"b".repeat(47)}`;
+    expect(componentCapability(boundaryType)).toHaveLength(80);
+    expect(
+      identityProblem({ type: boundaryType, version: 1, tagName: "acme-boundary" }),
+    ).toBeNull();
   });
 
   it.each([
@@ -77,7 +83,7 @@ describe("identity", () => {
     [{ type: "tilecast.clock", version: 1, tagName: "tc-widget-weather" }],
     [
       {
-        type: `acme.${"a".repeat(44)}${"b".repeat(24)}`,
+        type: `${"a".repeat(25)}.${"b".repeat(48)}`,
         version: 1,
         tagName: "acme-x",
       },

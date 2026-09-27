@@ -57,11 +57,21 @@ func TestComponentValidation(t *testing.T) {
 	if _, err := New([]WidgetDefinition{componentDefinition(nil)}, nil); err != nil {
 		t.Fatalf("valid component rejected: %v", err)
 	}
+	boundaryType := strings.Repeat("a", 25) + "." + strings.Repeat("b", 47)
+	if len("widget."+boundaryType) != 80 {
+		t.Fatalf("test component capability has length %d, want 80", len("widget."+boundaryType))
+	}
+	if _, err := New([]WidgetDefinition{componentDefinition(func(d *WidgetDefinition) {
+		d.Component.Type = boundaryType
+		d.Component.TagName = "acme-boundary"
+	})}, nil); err != nil {
+		t.Fatalf("80-character component capability rejected: %v", err)
+	}
 	cases := map[string]func(*WidgetDefinition){
 		"unnamespaced type": func(d *WidgetDefinition) { d.Component.Type = "probe" },
 		"version zero":      func(d *WidgetDefinition) { d.Component.Version = 0 },
 		"type too long": func(d *WidgetDefinition) {
-			d.Component.Type = "acme." + strings.Repeat("a", 68)
+			d.Component.Type = strings.Repeat("a", 25) + "." + strings.Repeat("b", 48)
 			d.Component.TagName = "acme-long"
 		},
 		"version above 100":   func(d *WidgetDefinition) { d.Component.Version = 101 },
