@@ -9,6 +9,7 @@ import {
   directionForLocale,
   formatLocale,
   i18n,
+  pluginLocalePaths,
   readCachedLanguagePreference,
   resolveLanguage,
   setDocumentLanguage,
@@ -86,6 +87,34 @@ describe("interface text direction", () => {
     i18n.emit("languageChanged", "ar");
     expect(document.documentElement.lang).toBe("ar");
     expect(document.documentElement.dir).toBe("rtl");
+  });
+});
+
+describe("plugin locale resolution", () => {
+  it("resolves namespaces through the shipped files, not string replacement", () => {
+    // An underscore directory maps to the same namespace as a hyphen one,
+    // so reversing the mapping with replaceAll would point my_plugin at
+    // my-plugin, a file that does not exist.
+    expect(
+      pluginLocalePaths({
+        "../locales/es/common.json": {},
+        "../../../../plugins/my_plugin/studio/locales/es.json": {},
+        "../../../../plugins/countdown-bar/studio/locales/es.json": {},
+        "../../../../plugins/countdown-bar/studio/locales/ru.json": {},
+      }),
+    ).toEqual({
+      "plugin.my_plugin": [
+        "../../../../plugins/my_plugin/studio/locales/es.json",
+      ],
+      "plugin.countdown_bar": [
+        "../../../../plugins/countdown-bar/studio/locales/es.json",
+        "../../../../plugins/countdown-bar/studio/locales/ru.json",
+      ],
+    });
+  });
+
+  it("ignores non-plugin loaders", () => {
+    expect(pluginLocalePaths({ "../locales/es/common.json": {} })).toEqual({});
   });
 });
 

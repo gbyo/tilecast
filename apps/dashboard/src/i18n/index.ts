@@ -17,6 +17,7 @@ import {
   englishResources,
   pluginEnglishResources,
 } from "./resources";
+import { pluginNamespaceFromPath } from "../plugin-host/translation";
 
 export * from "./languages";
 export { NAMESPACES, type Namespace } from "./resources";
@@ -30,10 +31,33 @@ const localeLoaders = import.meta.glob<{ default: Record<string, unknown> }>([
   "!../../../../plugins/*/studio/locales/en.json",
 ]);
 
+/**
+ * Plugin locale files by namespace, from the locale files the bundler ships.
+ * Namespaces resolve through this map instead of reversing the
+ * directory-to-namespace mapping, which cannot round-trip: a directory name
+ * with an underscore maps to the same namespace as one with a hyphen, so
+ * string replacement can point at a file that does not exist.
+ */
+export function pluginLocalePaths(
+  loaders: Record<string, unknown>,
+): Record<string, string[]> {
+  const byNamespace: Record<string, string[]> = {};
+  for (const path of Object.keys(loaders)) {
+    if (!path.includes("/plugins/")) continue;
+    (byNamespace[pluginNamespaceFromPath(path)] ??= []).push(path);
+  }
+  return byNamespace;
+}
+
+const pluginLocales = pluginLocalePaths(localeLoaders);
+
 function localePath(language: string, namespace: string) {
   if (namespace.startsWith("plugin.")) {
-    const directory = namespace.slice("plugin.".length).replaceAll("_", "-");
-    return `../../../../plugins/${directory}/studio/locales/${language}.json`;
+    return (
+      pluginLocales[namespace]?.find((path) =>
+        path.endsWith(`/studio/locales/${language}.json`),
+      ) ?? ""
+    );
   }
   return `../locales/${language}/${namespace}.json`;
 }
