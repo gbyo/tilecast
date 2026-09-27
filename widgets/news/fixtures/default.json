@@ -21,19 +21,53 @@
           "id": "records",
           "kind": "records",
           "fields": [
-            { "key": "title", "label": "Title", "type": "text", "role": "headline" },
-            { "key": "description", "label": "Description", "type": "text", "role": "summary" },
-            { "key": "date", "label": "Publication time", "type": "datetime", "role": "published_at" },
-            { "key": "source", "label": "Source", "type": "text", "role": "source_name" },
-            { "key": "author", "label": "Author", "type": "text", "role": "author" }
+            {
+              "key": "title",
+              "label": "Title",
+              "type": "text",
+              "role": "headline"
+            },
+            {
+              "key": "description",
+              "label": "Description",
+              "type": "text",
+              "role": "summary"
+            },
+            {
+              "key": "date",
+              "label": "Publication time",
+              "type": "datetime",
+              "role": "published_at"
+            },
+            {
+              "key": "source",
+              "label": "Source",
+              "type": "text",
+              "role": "source_name"
+            },
+            {
+              "key": "author",
+              "label": "Author",
+              "type": "text",
+              "role": "author"
+            }
           ],
           "records": [
             {
               "id": "s1",
               "values": {
-                "title": { "kind": "text", "text": "Library extends weekend hours" },
-                "description": { "kind": "text", "text": "The main branch opens Sundays from noon." },
-                "date": { "kind": "datetime", "datetime": "2026-09-27T14:00:00Z" },
+                "title": {
+                  "kind": "text",
+                  "text": "Library extends weekend hours"
+                },
+                "description": {
+                  "kind": "text",
+                  "text": "The main branch opens Sundays from noon."
+                },
+                "date": {
+                  "kind": "datetime",
+                  "datetime": "2026-09-27T14:00:00Z"
+                },
                 "source": { "kind": "text", "text": "City Wire" },
                 "author": { "kind": "text", "text": "R. Alvarez" }
               }
@@ -41,9 +75,18 @@
             {
               "id": "s2",
               "values": {
-                "title": { "kind": "text", "text": "School board approves new calendar" },
-                "description": { "kind": "text", "text": "Fall term starts August 18." },
-                "date": { "kind": "datetime", "datetime": "2026-09-26T09:30:00Z" },
+                "title": {
+                  "kind": "text",
+                  "text": "School board approves new calendar"
+                },
+                "description": {
+                  "kind": "text",
+                  "text": "Fall term starts August 18."
+                },
+                "date": {
+                  "kind": "datetime",
+                  "datetime": "2026-09-26T09:30:00Z"
+                },
                 "source": { "kind": "text", "text": "City Wire" },
                 "author": { "kind": "text", "text": "" }
               }
@@ -51,9 +94,15 @@
             {
               "id": "s3",
               "values": {
-                "title": { "kind": "text", "text": "Farmers market moves indoors" },
+                "title": {
+                  "kind": "text",
+                  "text": "Farmers market moves indoors"
+                },
                 "description": { "kind": "text", "text": "" },
-                "date": { "kind": "datetime", "datetime": "2026-09-25T16:45:00Z" },
+                "date": {
+                  "kind": "datetime",
+                  "datetime": "2026-09-25T16:45:00Z"
+                },
                 "source": { "kind": "text", "text": "Market Desk" },
                 "author": { "kind": "text", "text": "J. Park" }
               }

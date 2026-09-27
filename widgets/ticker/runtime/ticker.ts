@@ -93,9 +93,7 @@ function boundedText(
   return text === "" ? fallback : text;
 }
 
-export function parseTickerConfig(
-  value: unknown,
-): ConfigResult<TickerConfig> {
+export function parseTickerConfig(value: unknown): ConfigResult<TickerConfig> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return { ok: false, problem: "configuration must be an object" };
   }
@@ -206,14 +204,24 @@ export function resolveTickerData(
   // without any primary text carries nothing to scroll.
   const items: TickerItem[] = [];
   for (const record of records.slice(0, config.maxItems)) {
-    const primary = formatWidgetValue(record.values[primaryKey], fields[primaryKey], {
-      locale: "en",
-    });
+    const primary = formatWidgetValue(
+      record.values[primaryKey],
+      fields[primaryKey],
+      {
+        locale: "en",
+      },
+    );
     if (primary === "") continue;
     items.push({ id: record.id, values: record.values });
   }
   if (items.length === 0) return empty("no_records");
-  return ready({ items, primaryKey, secondaryKey, fields, total: records.length });
+  return ready({
+    items,
+    primaryKey,
+    secondaryKey,
+    fields,
+    total: records.length,
+  });
 }
 
 export class TilecastTickerWidget extends TilecastWidgetElement<
@@ -326,22 +334,29 @@ export class TilecastTickerWidget extends TilecastWidgetElement<
     // One half ends with its separator, and the line renders twice, so the
     // -50% loop has no visible seam.
     const half = html`${entries.map(
-      (entry) => html`<span class="item"
-          >${entry.primary}${entry.secondary
-            ? html`<span class="secondary"
-                >${this.config.fieldSeparator}${entry.secondary}</span
-              >`
-            : nothing}</span
-        ><span class="gap" aria-hidden="true">${this.config.separator}</span>`,
+      (entry) =>
+        html`<span class="item"
+            >${entry.primary}${
+            entry.secondary
+              ? html`<span class="secondary"
+                  >${this.config.fieldSeparator}${entry.secondary}</span
+                >`
+              : nothing
+          }</span
+          ><span class="gap" aria-hidden="true"
+            >${this.config.separator}</span
+          >`,
     )}`;
     return html`<div
       class="ticker"
       data-direction=${this.config.direction}
       style="--tc-ticker-seconds:${SPEED_SECONDS[this.config.speed]}s"
     >
-      ${this.config.leadingLabel
-        ? html`<span class="label">${this.config.leadingLabel}</span>`
-        : nothing}
+      ${
+        this.config.leadingLabel
+          ? html`<span class="label">${this.config.leadingLabel}</span>`
+          : nothing
+      }
       <div class="viewport">
         <div class="track">${half}${half}</div>
       </div>

@@ -31,9 +31,18 @@
             {
               "id": "s1",
               "values": {
-                "title": { "kind": "text", "text": "Night market returns downtown" },
-                "description": { "kind": "text", "text": "Forty vendors line Main Street." },
-                "date": { "kind": "datetime", "datetime": "2026-09-27T19:00:00Z" },
+                "title": {
+                  "kind": "text",
+                  "text": "Night market returns downtown"
+                },
+                "description": {
+                  "kind": "text",
+                  "text": "Forty vendors line Main Street."
+                },
+                "date": {
+                  "kind": "datetime",
+                  "datetime": "2026-09-27T19:00:00Z"
+                },
                 "source": { "kind": "text", "text": "City Wire" },
                 "author": { "kind": "text", "text": "T. Nguyen" }
               }

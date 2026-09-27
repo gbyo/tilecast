@@ -138,13 +138,17 @@ describe("Ticker data resolution", () => {
         items: [{ id: "s1" }],
       },
     });
-    if (resolved.state === "ready")
-      expect(resolved.data.items).toHaveLength(1);
+    if (resolved.state === "ready") expect(resolved.data.items).toHaveLength(1);
   });
 
   it("resolves persisted ordered field lists through legacy fields", () => {
     const resolved = resolveTickerData(
-      { ...base, primaryField: "", secondaryField: "", legacyFields: ["title", "source"] },
+      {
+        ...base,
+        primaryField: "",
+        secondaryField: "",
+        legacyFields: ["title", "source"],
+      },
       fixtureResources({ documents: documentWith([...records]) }),
     );
     expect(resolved).toMatchObject({
@@ -229,14 +233,12 @@ describe("Ticker element", () => {
     expect(root.querySelectorAll(".item")).toHaveLength(4);
     expect(text(".track")).toContain("Library extends weekend hours");
     expect(text(".track")).toContain("City Wire");
-    expect(
-      root.querySelector(".ticker")?.getAttribute("data-direction"),
-    ).toBe("left");
-    expect(
-      root
-        .querySelector(".ticker")
-        ?.getAttribute("style"),
-    ).toContain("--tc-ticker-seconds:40s");
+    expect(root.querySelector(".ticker")?.getAttribute("data-direction")).toBe(
+      "left",
+    );
+    expect(root.querySelector(".ticker")?.getAttribute("style")).toContain(
+      "--tc-ticker-seconds:40s",
+    );
     expect(test.states).toEqual([{ state: "ready" }]);
     test.dispose();
   });

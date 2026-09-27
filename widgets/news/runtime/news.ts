@@ -74,11 +74,20 @@ interface StorySlot {
   readonly keys: readonly string[];
 }
 
-const SLOTS: Record<"headline" | "summary" | "published" | "sourceName" | "author", StorySlot> = {
+const SLOTS: Record<
+  "headline" | "summary" | "published" | "sourceName" | "author",
+  StorySlot
+> = {
   headline: { roles: ["headline"], keys: ["title", "headline", "name"] },
   summary: { roles: ["summary"], keys: ["description", "summary", "subtitle"] },
-  published: { roles: ["published_at"], keys: ["date", "published", "publishedAt", "updated"] },
-  sourceName: { roles: ["source_name"], keys: ["source", "sourceName", "publisher"] },
+  published: {
+    roles: ["published_at"],
+    keys: ["date", "published", "publishedAt", "updated"],
+  },
+  sourceName: {
+    roles: ["source_name"],
+    keys: ["source", "sourceName", "publisher"],
+  },
   author: { roles: ["author"], keys: ["author", "creator", "byline"] },
 };
 
@@ -146,7 +155,10 @@ export function parseNewsConfig(value: unknown): ConfigResult<NewsConfig> {
     return { ok: false, problem: "display toggles must be booleans" };
   }
   // The legacy News Feed style was named "featured"; it renders as the lead story.
-  const style = raw["displayStyle"] === "featured" ? "lead" : (raw["displayStyle"] ?? "headlines");
+  const style =
+    raw["displayStyle"] === "featured"
+      ? "lead"
+      : (raw["displayStyle"] ?? "headlines");
   if (!NEWS_STYLES.includes(style as never)) {
     return { ok: false, problem: "displayStyle is not a News style" };
   }
@@ -395,8 +407,9 @@ export class TilecastNewsWidget extends TilecastWidgetElement<
     const story = (item: NewsStory, lead: boolean): TemplateResult => {
       const headline = cell(item, data.keys.headline);
       if (!headline) return html``;
-      const summary =
-        this.config.showSummary ? cell(item, data.keys.summary) : "";
+      const summary = this.config.showSummary
+        ? cell(item, data.keys.summary)
+        : "";
       const metaLine = meta(item);
       return html`<article class="story${lead ? " lead-story" : ""}">
         <div class="headline">${headline}</div>
@@ -408,16 +421,20 @@ export class TilecastNewsWidget extends TilecastWidgetElement<
       this.config.displayStyle === "lead" ? data.stories[0] : undefined;
     const rest = lead ? data.stories.slice(1) : data.stories;
     return html`<div class="news" data-style=${this.config.displayStyle}>
-      ${this.config.heading
-        ? html`<div class="heading">${this.config.heading}</div>`
-        : nothing}
+      ${
+        this.config.heading
+          ? html`<div class="heading">${this.config.heading}</div>`
+          : nothing
+      }
       <div class="stories">
-        ${lead
-          ? html`${story(lead, true)}
-              <div class="supporting">
-                ${rest.map((item) => story(item, false))}
-              </div>`
-          : rest.map((item) => story(item, false))}
+        ${
+          lead
+            ? html`${story(lead, true)}
+                <div class="supporting">
+                  ${rest.map((item) => story(item, false))}
+                </div>`
+            : rest.map((item) => story(item, false))
+        }
       </div>
     </div>`;
   }

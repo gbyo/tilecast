@@ -16,10 +16,7 @@ import {
   type WidgetDiscovery,
 } from "@tilecast/widget-sdk/discovery";
 import type { WidgetManifestInput } from "@tilecast/widget-sdk/manifest";
-import type {
-  ContentDefinitionCatalog,
-  WidgetDefinition,
-} from "../api/types";
+import type { ContentDefinitionCatalog, WidgetDefinition } from "../api/types";
 
 const coreManifests = import.meta.glob<WidgetManifestInput>(
   "../../../../widgets/*/tilecast.widget.json",

@@ -21,8 +21,18 @@
           "id": "records",
           "kind": "records",
           "fields": [
-            { "key": "title", "label": "Title", "type": "text", "role": "headline" },
-            { "key": "description", "label": "Description", "type": "text", "role": "summary" }
+            {
+              "key": "title",
+              "label": "Title",
+              "type": "text",
+              "role": "headline"
+            },
+            {
+              "key": "description",
+              "label": "Description",
+              "type": "text",
+              "role": "summary"
+            }
           ],
           "records": [
             {
@@ -43,7 +53,10 @@
               "id": "s3",
               "values": {
                 "title": { "kind": "text", "text": "Book sale this weekend" },
-                "description": { "kind": "text", "text": "Friends of the Library host the sale." }
+                "description": {
+                  "kind": "text",
+                  "text": "Friends of the Library host the sale."
+                }
               }
             }
           ]

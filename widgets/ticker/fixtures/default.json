@@ -23,33 +23,66 @@
           "id": "records",
           "kind": "records",
           "fields": [
-            { "key": "title", "label": "Title", "type": "text", "role": "headline" },
-            { "key": "source", "label": "Source", "type": "text", "role": "source_name" },
-            { "key": "date", "label": "Date", "type": "datetime", "role": "published_at" }
+            {
+              "key": "title",
+              "label": "Title",
+              "type": "text",
+              "role": "headline"
+            },
+            {
+              "key": "source",
+              "label": "Source",
+              "type": "text",
+              "role": "source_name"
+            },
+            {
+              "key": "date",
+              "label": "Date",
+              "type": "datetime",
+              "role": "published_at"
+            }
           ],
           "records": [
             {
               "id": "s1",
               "values": {
-                "title": { "kind": "text", "text": "Library extends weekend hours" },
+                "title": {
+                  "kind": "text",
+                  "text": "Library extends weekend hours"
+                },
                 "source": { "kind": "text", "text": "City Wire" },
-                "date": { "kind": "datetime", "datetime": "2026-09-27T14:00:00Z" }
+                "date": {
+                  "kind": "datetime",
+                  "datetime": "2026-09-27T14:00:00Z"
+                }
               }
             },
             {
               "id": "s2",
               "values": {
-                "title": { "kind": "text", "text": "School board approves new calendar" },
+                "title": {
+                  "kind": "text",
+                  "text": "School board approves new calendar"
+                },
                 "source": { "kind": "text", "text": "Schools Desk" },
-                "date": { "kind": "datetime", "datetime": "2026-09-26T09:30:00Z" }
+                "date": {
+                  "kind": "datetime",
+                  "datetime": "2026-09-26T09:30:00Z"
+                }
               }
             },
             {
               "id": "s3",
               "values": {
-                "title": { "kind": "text", "text": "Farmers market moves indoors" },
+                "title": {
+                  "kind": "text",
+                  "text": "Farmers market moves indoors"
+                },
                 "source": { "kind": "text", "text": "Market Desk" },
-                "date": { "kind": "datetime", "datetime": "2026-09-25T16:45:00Z" }
+                "date": {
+                  "kind": "datetime",
+                  "datetime": "2026-09-25T16:45:00Z"
+                }
               }
             }
           ]

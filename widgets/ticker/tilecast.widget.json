@@ -24,18 +24,46 @@
         "label": "Primary text field",
         "description": "The main text of each scrolled item.",
         "control": "data_source_field",
-        "dataSourceFieldTypes": ["text", "number", "integer", "currency", "boolean", "date", "datetime", "url"],
+        "dataSourceFieldTypes": [
+          "text",
+          "number",
+          "integer",
+          "currency",
+          "boolean",
+          "date",
+          "datetime",
+          "url"
+        ],
         "default": "",
-        "ui": { "section": "data", "order": 2, "semanticRole": "headline", "legacyKeys": ["title", "headline", "field", "name"] }
+        "ui": {
+          "section": "data",
+          "order": 2,
+          "semanticRole": "headline",
+          "legacyKeys": ["title", "headline", "field", "name"]
+        }
       },
       {
         "key": "secondaryField",
         "label": "Secondary text field",
         "description": "A quieter value after the primary one.",
         "control": "data_source_field",
-        "dataSourceFieldTypes": ["text", "number", "integer", "currency", "boolean", "date", "datetime", "url"],
+        "dataSourceFieldTypes": [
+          "text",
+          "number",
+          "integer",
+          "currency",
+          "boolean",
+          "date",
+          "datetime",
+          "url"
+        ],
         "default": "",
-        "ui": { "section": "data", "order": 3, "semanticRole": "summary", "legacyKeys": ["description", "summary", "source", "date"] }
+        "ui": {
+          "section": "data",
+          "order": 3,
+          "semanticRole": "summary",
+          "legacyKeys": ["description", "summary", "source", "date"]
+        }
       },
       {
         "key": "leadingLabel",
@@ -154,17 +182,26 @@
     "entrypoint": "./runtime/index.ts",
     "configTemplate": {
       "dataSourceId": { "$config": "dataSourceId", "default": "" },
-      "primaryField": { "$config": "primaryField", "default": { "$config": "field", "default": "" } },
+      "primaryField": {
+        "$config": "primaryField",
+        "default": { "$config": "field", "default": "" }
+      },
       "secondaryField": { "$config": "secondaryField", "default": "" },
       "legacyFields": { "$config": "fields", "default": [] },
       "legacyContentMode": { "$config": "contentMode", "default": "" },
       "leadingLabel": { "$config": "leadingLabel", "default": "" },
       "separator": { "$config": "separator", "default": " • " },
       "fieldSeparator": { "$config": "fieldSeparator", "default": " — " },
-      "maxItems": { "$config": "maxItems", "default": { "$config": "maxStories", "default": 15 } },
+      "maxItems": {
+        "$config": "maxItems",
+        "default": { "$config": "maxStories", "default": 15 }
+      },
       "direction": { "$config": "direction", "default": "left" },
       "speed": { "$config": "speed", "default": "normal" },
-      "emptyText": { "$config": "emptyText", "default": { "$config": "emptyState", "default": "" } },
+      "emptyText": {
+        "$config": "emptyText",
+        "default": { "$config": "emptyState", "default": "" }
+      },
       "background": { "$config": "backgroundColor", "default": "" },
       "foreground": { "$config": "foregroundColor", "default": "" }
     },

@@ -123,13 +123,22 @@
     "tagName": "tc-widget-news",
     "entrypoint": "./runtime/index.ts",
     "configTemplate": {
-      "dataSourceId": { "$config": "dataSourceId", "default": { "$config": "sourceId", "default": "" } },
+      "dataSourceId": {
+        "$config": "dataSourceId",
+        "default": { "$config": "sourceId", "default": "" }
+      },
       "heading": { "$config": "heading", "default": "Latest news" },
       "maxStories": { "$config": "maxStories", "default": 8 },
-      "showSummary": { "$config": "showSummary", "default": { "$config": "showDescription", "default": true } },
+      "showSummary": {
+        "$config": "showSummary",
+        "default": { "$config": "showDescription", "default": true }
+      },
       "showTime": { "$config": "showPublicationTime", "default": true },
       "showSource": { "$config": "showSource", "default": true },
-      "emptyText": { "$config": "emptyText", "default": { "$config": "emptyState", "default": "" } },
+      "emptyText": {
+        "$config": "emptyText",
+        "default": { "$config": "emptyState", "default": "" }
+      },
       "displayStyle": { "$config": "displayStyle", "default": "headlines" },
       "background": { "$config": "backgroundColor", "default": "" },
       "foreground": { "$config": "foregroundColor", "default": "" }

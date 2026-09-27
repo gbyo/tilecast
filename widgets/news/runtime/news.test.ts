@@ -36,7 +36,12 @@ const feedFields = [
 
 function documentWith(
   records: WidgetDataDocument["datasets"][number]["records"],
-  fields = feedFields,
+  fields: {
+    key: string;
+    label: string;
+    type: string;
+    role?: string;
+  }[] = feedFields,
 ): Record<string, WidgetDataDocument> {
   return {
     [SOURCE]: {
@@ -138,9 +143,9 @@ describe("News slot resolution", () => {
         { key: "title", label: "Title", type: "text" },
       ].map((field) => [field.key, field]),
     );
-    expect(
-      slotFieldKey(fields, { roles: ["headline"], keys: ["title"] }),
-    ).toBe("headline");
+    expect(slotFieldKey(fields, { roles: ["headline"], keys: ["title"] })).toBe(
+      "headline",
+    );
   });
 
   it("falls back to long-standing feed field names", () => {
@@ -150,9 +155,9 @@ describe("News slot resolution", () => {
         { key: "description", label: "Description", type: "text" },
       ].map((field) => [field.key, field]),
     );
-    expect(
-      slotFieldKey(fields, { roles: ["headline"], keys: ["title"] }),
-    ).toBe("title");
+    expect(slotFieldKey(fields, { roles: ["headline"], keys: ["title"] })).toBe(
+      "title",
+    );
     expect(slotFieldKey(fields, { roles: ["nope"], keys: ["missing"] })).toBe(
       "",
     );
@@ -169,13 +174,15 @@ describe("News data resolution", () => {
       state: "ready",
       data: { total: 2, stories: [{ id: "s1" }] },
     });
-    if (resolved.state === "ready") expect(resolved.data.stories).toHaveLength(1);
+    if (resolved.state === "ready")
+      expect(resolved.data.stories).toHaveLength(1);
   });
 
   it("reports a source with no headline-like field as an error", () => {
-    const documents = documentWith([...records], [
-      { key: "date", label: "Date", type: "datetime" },
-    ]);
+    const documents = documentWith(
+      [...records],
+      [{ key: "date", label: "Date", type: "datetime" }],
+    );
     expect(
       resolveNewsData(base, fixtureResources({ documents })),
     ).toMatchObject({ state: "error", code: "incompatible_source" });
