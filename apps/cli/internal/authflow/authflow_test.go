@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 )
@@ -21,6 +22,37 @@ func TestChallengeVector(t *testing.T) {
 	state, err := NewState()
 	if err != nil || state == "" {
 		t.Fatal(err)
+	}
+}
+
+func TestAuthorizeURLUsesStudioApprovalRoute(t *testing.T) {
+	got := AuthorizeURL(
+		"https://tilecast.example.com/",
+		"http://127.0.0.1:56723/callback",
+		"read write",
+		"state-1",
+		"challenge-1",
+	)
+	parsed, err := url.Parse(got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parsed.Path != "/oauth/approve" {
+		t.Fatalf("approval path = %q, want /oauth/approve", parsed.Path)
+	}
+	query := parsed.Query()
+	want := map[string]string{
+		"client_id":             ClientID,
+		"redirect_uri":          "http://127.0.0.1:56723/callback",
+		"scope":                 "read write",
+		"state":                 "state-1",
+		"code_challenge":        "challenge-1",
+		"code_challenge_method": "S256",
+	}
+	for key, value := range want {
+		if query.Get(key) != value {
+			t.Fatalf("%s = %q, want %q", key, query.Get(key), value)
+		}
 	}
 }
 
