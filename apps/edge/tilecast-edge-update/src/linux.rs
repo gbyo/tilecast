@@ -138,14 +138,15 @@ impl UpdateHost for LinuxHost {
         // from start_unit is already gone by the time a second call runs,
         // and ActiveState carries the answer. Type=notify units report
         // active only after their readiness notification, which is the
-        // ordering activation needs; anything else waits, failed fails.
+        // ordering activation needs. A failed unit settles too: the guard
+        // owns broken candidates (candidate_daemon_failed), so failing
+        // here would only misroute the reason.
         let deadline = tokio::time::Instant::now() + JOB_TIMEOUT;
         loop {
             let path = self.manager().await?.load_unit(unit).await.map_err(|e| failed(unit, e))?;
             let state: String = self.property(&path, "org.freedesktop.systemd1.Unit", "ActiveState").await?;
             match state.as_str() {
-                "active" => return Ok(()),
-                "failed" => return Err(HostError::failed(format!("{unit} did not start"))),
+                "active" | "failed" => return Ok(()),
                 _ => {}
             }
             if tokio::time::Instant::now() >= deadline {
