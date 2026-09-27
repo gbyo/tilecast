@@ -1,84 +1,54 @@
 ---
 title: Build a first-party plugin
-description: Add a bundled Tilecast plugin as one directory, with its server code, Studio pages, migrations, API description, and documentation in one place.
+description: Add a bundled Tilecast plugin without adding plugin-specific wiring to the rest of Tilecast.
 ---
 
-import { FileTree, Steps } from "@astrojs/starlight/components";
+import { FileTree } from "@astrojs/starlight/components";
 
-A Tilecast plugin is one directory below `plugins/`. Everything that belongs only to that plugin lives there, and Tilecast finds it when it builds. You don't register a plugin in a central list; the few files that name every plugin are generated.
+A Tilecast plugin is one directory below `plugins/`. Tilecast discovers its server code, Studio pages, Player runtime, migrations, API description, and public docs from that directory.
 
-Plugins are compiled into the Tilecast release. Tilecast doesn't download or run plugin code from anywhere else.
+Plugins ship with Tilecast. Plugin API v1 does not download or run third-party code.
 
-## What a plugin contains
+## Pick the part you need
+
+- [Create a plugin](./create/) starts with `plugins:new` and gets a new plugin to a clean conformance check.
+- [Write the manifest](./manifest/) explains the fields in `tilecast.plugin.json`.
+- [Add server behavior](./server/) covers Host services, routes, workers, status, removal blockers, and Demo Mode.
+- [Add Studio pages](./studio/) covers management routes, standalone routes, translations, and secondary navigation.
+- [Draw on the Player](./player/) covers manifest projection, surfaces, tiers, CSS, and runtime tests.
+- [Publish a Data Source or private asset](./data-sources/) covers `DataSourceProvider`, `Host.DataSources`, and `Host.PluginAssets`.
+- [Add migrations and tests](./testing/) covers the global migration sequence, conformance, PostgreSQL tests, and generated files.
+
+For the exact API contract, use the [Plugin API v1 engineering reference](https://github.com/gbyo/tilecast/blob/main/docs/plugin-api.md).
+
+## What belongs in a plugin
 
 <FileTree>
 
 - plugins/
   - transit-alerts/
-    - tilecast.plugin.json The manifest: identity, maintainers, capabilities, entry points.
-    - plugin.go The Go entry point, with `func New() plugin.Plugin`.
-    - plugin_test.go Runs the conformance checks.
-    - server/ Optional Go packages for the plugin's logic.
-    - migrations/ Optional database migrations.
-    - api/openapi.yaml The plugin's API description.
-    - studio/index.tsx The plugin's Studio pages.
-    - runtime/index.ts Optional. What the plugin draws on screens that run the shared Player runtime.
-    - docs/index.mdx The plugin's page on this site.
+    - tilecast.plugin.json Identity, capabilities, and entry points.
+    - plugin.go Go entry point.
+    - plugin_test.go Conformance test.
+    - server/ Optional server implementation.
+    - migrations/ Optional Goose migrations.
+    - api/openapi.yaml Optional API description.
+    - studio/ Optional Studio pages and translations.
+    - runtime/ Optional Player runtime and styles.
+    - docs/ Optional public docs pages.
 
 </FileTree>
 
-The directory name is the plugin ID with hyphens, so `transit_alerts` lives in `plugins/transit-alerts/`.
+The plugin ID uses underscores. The directory uses hyphens, so `transit_alerts` lives in `plugins/transit-alerts/`.
 
-Entry points always sit at these paths: `plugin.go` for the server, `studio/index.tsx` for Studio, and `runtime/index.ts` for the Player. The build finds plugin code by these names, so the manifest can't point anywhere else. See the [Plugin API reference](https://github.com/gbyo/tilecast/blob/main/docs/plugin-api.md#manifest) for the exact contract.
+The build owns the few files that list every plugin. Run `npm run plugins:generate` instead of editing those files by hand.
 
-## Create a plugin
+## Use the existing plugins as examples
 
-<Steps>
+The three bundled plugins cover different parts of the API:
 
-1. Scaffold the plugin:
+- [Countdown Bar](https://github.com/gbyo/tilecast/tree/main/plugins/countdown-bar) is the smallest Player-facing example. It has Studio configuration, a manifest projector, and shared-runtime surfaces.
+- [Emergency Alerts](https://github.com/gbyo/tilecast/tree/main/plugins/emergency-alerts) shows routes, background work, network access, Takeovers, and an emergency Player surface.
+- [Forms](https://github.com/gbyo/tilecast/tree/main/plugins/forms) shows a larger workflow plugin with standalone Studio routes, secondary navigation, a Data Source provider, private assets, and PostgreSQL-heavy tests.
 
-   ```sh title="Repository root · Create a plugin"
-   npm run plugins:new -- transit_alerts --category Automation --api
-   ```
-
-   This creates the directory and regenerates the Go registry, `CODEOWNERS`, and the API description.
-
-2. Describe the plugin in `tilecast.plugin.json`: its name, description, maintainers, what it uses, and the capabilities it needs, such as network access from Tilecast Server or a background worker.
-
-3. Implement only the parts the plugin needs. A plugin that shows nothing on screens doesn't project manifest entries; a plugin with no background work doesn't declare a worker.
-
-4. If the plugin needs tables, reserve a migration:
-
-   ```sh title="Repository root · Add a migration"
-   npm run plugins:migration -- transit_alerts create_feeds
-   ```
-
-   Plugin migrations share Tilecast's single migration sequence, so they run during a Tilecast upgrade, not when someone installs the plugin.
-
-5. Check the plugin:
-
-   ```sh title="Repository root · Check plugins"
-   npm run plugins:check
-   ```
-
-</Steps>
-
-## What the check covers
-
-`plugins:check` validates the manifest, confirms that the directory and entry points match it, and keeps the plugin to its own files and the plugin SDK. It also checks migration numbers, the API description, the documentation slug, and that every generated file is current. Each plugin's Go test runs the rest of the conformance suite, and the server tests check installation, status, removal, and routes.
-
-The result is pass or fail. There are no quality tiers.
-
-## Maintainers
-
-The `maintainers` in a manifest are stewards for the plugin's subject. Anyone can contribute to any plugin, and Tilecast's core maintainers review architecture and merge changes. GitHub requests a maintainer's review through the generated `CODEOWNERS` file when that person has access to the repository.
-
-## Reference
-
-## Draw on the Player
-
-A plugin that shows something on screens declares a tier and the places it draws in its manifest, for example `"runtime": { "entrypoint": "./runtime/index.ts", "manifestTypes": ["transit_alert"], "surfaces": ["strip.bottom"], "tier": "scheduled" }`. The tier decides who wins a shared place: an emergency message always beats a scheduled one, whatever priorities they're given. The Player gives your plugin its own area to draw in, sizes it, and moves the rest of the screen out of the way when a bar asks to push content. Your plugin only draws inside the area it's given.
-
-Styles go in `runtime/*.css`, and every selector starts with `.tc-<directory>`, for example `.tc-transit-alerts`. `plugins:check` refuses styles that could reach another plugin or the Player itself. Tests can use `@tilecast/plugin-sdk/runtime/testing`, which gives a plugin a clock you move by hand.
-
-The exact contract, including every contribution point and host service, is in [`docs/plugin-api.md`](https://github.com/gbyo/tilecast/blob/main/docs/plugin-api.md).
+Start with the example closest to what you are building. Don't copy a contribution interface that your plugin does not need.

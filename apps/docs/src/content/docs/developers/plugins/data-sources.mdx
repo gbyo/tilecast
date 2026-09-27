@@ -1,0 +1,50 @@
+---
+title: Publish Data Sources and private assets
+description: Give a plugin a typed Data Source provider or private media without bypassing core Tilecast ownership.
+---
+
+Use these APIs when a plugin needs to publish structured data to Widgets or store private uploads. They are core boundaries, not shortcuts around Media or Data Sources.
+
+## Contribute a Data Source provider
+
+Implement `plugin.DataSourceProvider` when the plugin owns a stored Data Source provider.
+
+The contribution defines the stable provider ID, compatibility traits, configuration normalization, field discovery, catalog wording, canonical authoring routes, and whether the provider appears in the generic gallery.
+
+The host discovers contributed providers at startup and rejects duplicate IDs or collisions with core providers.
+
+Forms contributes the stored provider ID `form` and keeps it hidden from the generic creation gallery.
+
+## Use the bound Data Source service
+
+A provider plugin receives `Host.DataSources` bound to its provider.
+
+The service handles core `data_sources` rows, refresh-state storage, cached typed datasets, usage checks, and normal manifest invalidation. The plugin owns its domain tables and decides what goes into each projected dataset.
+
+The provider is bound by the host, so the plugin cannot use this service to operate on another provider's rows. A plugin without a `DataSourceProvider` cannot use the provider-scoped service.
+
+## Publish projection data
+
+Write output through `Host.DataSources`, then invalidate through the same service so Widgets and Layout bindings receive the new data through the normal manifest path.
+
+Use the due-work claim API when a worker needs the refresh-state schedule and `SKIP LOCKED` behavior.
+
+Forms uses this model to turn approved submissions into typed datasets. It does not need a separate Forms renderer on the Player.
+
+## Store private plugin assets
+
+`Host.PluginAssets` is for uploads that belong to a plugin workflow rather than the public Media library.
+
+The service is bound to the plugin's identity. Ingest records the owner; claim, delivery, and discard verify it.
+
+The plugin still decides whether the signed-in user may access the record or object that refers to the asset.
+
+Private plugin assets do not appear in the normal Media library or generic Media routes.
+
+Historical Forms attachments keep the `form_attachment` storage classification for compatibility. Plugin ownership is enforced separately.
+
+## Keep domain rules in the plugin
+
+Core services answer core questions such as whether a user exists or whether a private asset belongs to this plugin.
+
+The plugin still owns product rules such as record membership, workflow permissions, and which records are eligible for output.
