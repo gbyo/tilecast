@@ -208,6 +208,12 @@ func (auditService) RecordInTx(ctx context.Context, tx pgx.Tx, event plugin.Audi
 		actor := event.UserID
 		record.Actor = &actor
 	}
+	if audit.SurfaceFrom(ctx) == "" {
+		// Worker callbacks have no HTTP principal. Name the server as the
+		// initiating client instead of inventing a browser or API caller.
+		record.Surface = audit.SurfaceSystem
+		record.ClientID = "tilecast-server"
+	}
 	return audit.RecordTx(ctx, tx, record)
 }
 

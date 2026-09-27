@@ -419,7 +419,7 @@ func TestPlaybackGapAppearsInOverviewAndClosesProofUnknown(t *testing.T) {
 func TestAuditFilteringRedactionAndCSV(t *testing.T) {
 	withActivityDatabase(t, func(env activityTestEnvironment) {
 		auditID := uuid.New()
-		_, err := env.pool.Exec(context.Background(), `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,resource_name,result,ip_address,request_id,summary,metadata,metadata_sensitive) VALUES($1,$2,'layouts.published','layout',$3,'Morning Layout','success','192.0.2.10','request-1','Activity Owner published Morning Layout','{"revision":4,"diagnosticPayload":"private"}'::jsonb,TRUE)`, auditID, env.owner.User.ID, uuid.NewString())
+		_, err := env.pool.Exec(context.Background(), `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,resource_name,result,ip_address,request_id,summary,metadata,metadata_sensitive,created_at) VALUES($1,$2,'layouts.published','layout',$3,'Morning Layout','success','192.0.2.10','request-1','Activity Owner published Morning Layout','{"revision":4,"diagnosticPayload":"private"}'::jsonb,TRUE,now()-interval '1 second')`, auditID, env.owner.User.ID, uuid.NewString())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -769,8 +769,8 @@ func TestScreenTimelineMergesEverySource(t *testing.T) {
 			},
 		}}, http.StatusAccepted)
 		if _, err := env.pool.Exec(ctx, `
-			INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,result,summary)
-			VALUES($1,$2,'screen.updated','screen',$3,'success','Renamed the screen')`,
+			INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,result,summary,created_at)
+			VALUES($1,$2,'screen.updated','screen',$3,'success','Renamed the screen',now()-interval '1 second')`,
 			uuid.New(), env.owner.User.ID, env.screenID.String()); err != nil {
 			t.Fatal(err)
 		}

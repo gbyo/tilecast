@@ -128,6 +128,10 @@ func TestRecordValidation(t *testing.T) {
 	if err := Record(context.Background(), db, system); err == nil {
 		t.Fatal("system event without actor succeeded, want an error")
 	}
+	system.ClientID = "tilecast-server"
+	if err := Record(context.Background(), db, system); err != nil {
+		t.Fatalf("identified server event rejected: %v", err)
+	}
 }
 
 // TestSurfaceHasNoDefault proves silence is never Studio: an unset

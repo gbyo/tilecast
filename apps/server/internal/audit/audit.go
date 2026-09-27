@@ -42,7 +42,7 @@ const (
 	// must name a real surface; Record refuses an empty one.
 	SurfaceLegacy Surface = "legacy"
 	// SurfaceSystem is server background work with an explicit identity.
-	// System events must name their actor; the helper refuses them without one.
+	// System events must name a human actor or the initiating server client.
 	SurfaceSystem Surface = "system"
 )
 
@@ -131,8 +131,8 @@ const recordColumns = `INSERT INTO audit_logs(id,user_id,action,resource_type,re
 	VALUES($1,$2,$3,$4,$5,$6,$7,NULLIF($8,'')::inet,NULLIF($9,''),$10,$11::jsonb,$12,$13,NULLIF($14,''),NULLIF($15,''))`
 
 // Record writes one audit row, enriching the event from the context. The
-// human user always comes from the context principal (or an explicit actor
-// for system work); writers never invent attribution.
+// human user comes from the context principal or an explicit actor. System
+// work can instead name the server client without inventing a human actor.
 func Record(ctx context.Context, db DB, event Event) error {
 	if event.Action == "" || event.ResourceType == "" {
 		return errors.New("audit event needs an action and a resource type")
@@ -151,9 +151,6 @@ func Record(ctx context.Context, db DB, event Event) error {
 		id := principal.User.ID
 		actor = &id
 	}
-	if surface == SurfaceSystem && actor == nil {
-		return errors.New("system audit events need an explicit actor identity")
-	}
 	result := event.Result
 	if result == "" {
 		result = ResultSuccess
@@ -165,6 +162,9 @@ func Record(ctx context.Context, db DB, event Event) error {
 	clientID := event.ClientID
 	if clientID == "" {
 		clientID = stringFrom(ctx, clientKey)
+	}
+	if surface == SurfaceSystem && actor == nil && clientID == "" {
+		return errors.New("system audit events need an explicit actor or client identity")
 	}
 	instance := event.ClientInstance
 	if instance == "" {
