@@ -104,27 +104,27 @@ The protocol is JSON over the control socket with the Edge framing: a big-endian
 
 The limits come from the spike measurements (software path, one 720p surface costs about 100 MB in the trusted process and more than two cores at 60 fps) and from the Layout limits.
 
-| Item                        | Bound                                                                            |
-| --------------------------- | -------------------------------------------------------------------------------- |
-| Live surfaces               | 4, including warm surfaces                                                       |
-| Warm surfaces               | 2, each for at most 300 s                                                        |
-| Pixels of one surface       | 3840 × 2160 at most, each edge at least 16                                       |
-| Pixels of all live surfaces | 8 294 400 (one 4K frame)                                                         |
-| URL                         | 2048 bytes, `https:` or `http:`, no user information                             |
+| Item                        | Bound                                                                                                                                                         |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Live surfaces               | 4, including warm surfaces                                                                                                                                    |
+| Warm surfaces               | 2, each for at most 300 s                                                                                                                                     |
+| Pixels of one surface       | 3840 × 2160 at most, each edge at least 16                                                                                                                    |
+| Pixels of all live surfaces | 8 294 400 (one 4K frame)                                                                                                                                      |
+| URL                         | 2048 bytes, `https:` or `http:`, no user information                                                                                                          |
 | Allowed hosts               | 25 entries, each at most 253 bytes, lowercase DNS names or IPv4 literals; IPv6 literals are rejected at authoring because no remote web player navigates them |
-| Custom User-Agent           | 256 printable ASCII bytes                                                        |
-| Zoom                        | 25 to 500 percent                                                                |
-| Scroll offset               | 0 to 100 000 pixels                                                              |
-| Surface identifier          | `[a-z0-9-]{1,48}`, chosen by the runtime                                         |
-| Requests in flight          | 8 creates or clears; more closes the connection                                  |
-| Events                      | 32 a second to the renderer; the helper coalesces repeated events of one surface |
-| Trusted-side inbound budget | 64 frames a second from the helper; sustained excess closes the connection       |
-| Renderer outbound queue     | 16 frames; resize/visible/mute/reload coalesce per surface, a full queue closes the connection |
-| Renderer write deadline     | 2 s for the head frame; a helper that stops consuming data is disconnected       |
-| Frame queue                 | 1 frame (leaky), the latest frame wins                                           |
-| Frame rate                  | 60 fps with a GPU; 30 fps on the software path                                   |
-| Idle repeat                 | the latest frame again after 1 s without a new frame                             |
-| Control frame               | 64 KiB                                                                           |
+| Custom User-Agent           | 256 printable ASCII bytes                                                                                                                                     |
+| Zoom                        | 25 to 500 percent                                                                                                                                             |
+| Scroll offset               | 0 to 100 000 pixels                                                                                                                                           |
+| Surface identifier          | `[a-z0-9-]{1,48}`, chosen by the runtime                                                                                                                      |
+| Requests in flight          | 8 creates or clears; more closes the connection                                                                                                               |
+| Events                      | 32 a second to the renderer; the helper coalesces repeated events of one surface                                                                              |
+| Trusted-side inbound budget | 64 frames a second from the helper; sustained excess closes the connection                                                                                    |
+| Renderer outbound queue     | 16 frames; resize/visible/mute/reload coalesce per surface, a full queue closes the connection                                                                |
+| Renderer write deadline     | 2 s for the head frame; a helper that stops consuming data is disconnected                                                                                    |
+| Frame queue                 | 1 frame (leaky), the latest frame wins                                                                                                                        |
+| Frame rate                  | 60 fps with a GPU; 30 fps on the software path                                                                                                                |
+| Idle repeat                 | the latest frame again after 1 s without a new frame                                                                                                          |
+| Control frame               | 64 KiB                                                                                                                                                        |
 
 The runtime has the same bounds for reload interval (30 s to 86 400 s) and load timeout (5 s to 120 s), because it owns those timers.
 
@@ -229,7 +229,8 @@ The credential and state are files of `tilecast` in `/var/lib/tilecast-edge` (07
 
 ## 14. Denial of service
 
-- The helper has `MemoryHigh=` and `MemoryMax=` (1 GiB and 1.5 GiB), `TasksMax=512` and `CPUWeight=50`, so a page cannot take memory or CPU from the trusted renderer. When the kernel kills a WebKit web process, the view's `web-process-terminated` signal fails that surface with `renderer_crash`.
+- The helper has `MemoryHigh=` and `MemoryMax=` (1 GiB and 1.5 GiB) and `TasksMax=512`: a page cannot take more than 1.5 GiB of memory or more than 512 processes from the machine, whatever it does. When the kernel kills a WebKit web process, the view's `web-process-terminated` signal fails that surface with `renderer_crash`.
+- `CPUWeight=50` is a scheduler weight, not a quota: under contention the helper is deprioritized relative to the trusted renderer, but it is not capped, because any cap low enough to bound a hostile page would also throttle legitimate software rendering (the software path costs more than two cores at 60 fps). CPU is bounded instead by behavior, not by quota: the renderer's trusted-side inbound budget disconnects a flooding helper (64 frames a second), the outbound channel is bounded with a write deadline, the runtime fails pages that never load or stop producing frames, and a crashed web process fails only its surface. A page can still spend CPU inside its own helper; it cannot spend the renderer's main loop or its memory.
 - The trusted side keeps only the latest frame. A slow page produces fewer frames; it never fills a queue in the renderer. The renderer's control reads are asynchronous, and a reply that never comes is bounded by the runtime's load timeout.
 - The renderer's control writes never block its main loop either: they are queued on a bounded (16-frame) asynchronous channel with a 2 s write deadline (`apps/edge/renderer-wpe/src/rw-channel.c`). A helper that stops consuming data, or update chatter past the queue bound, disconnects into the existing reconnect path instead of stalling unrelated playback. Resize/visible/mute/reload updates coalesce per surface so chatter cannot grow the queue.
 - The software path sends at most 30 frames a second, because the trusted compositor pays the upload cost (spike §3.1).
@@ -267,7 +268,7 @@ The credential and state are files of `tilecast` in `/var/lib/tilecast-edge` (07
 | Navigation, redirects, schemes, popups, downloads, permissions, dialogs, TLS | helper security test against a local fixture server                                  |
 | Pure policy                                                                  | `test-policy` (C unit test)                                                          |
 | Protocol bounds and closed messages                                          | `test-protocol` against the fixtures, oversized frames, huge allowlists              |
-| Renderer backpressure and inbound flood budget                             | `test-rw-channel`: non-reading helper, queue bound, coalescing, stale callbacks      |
+| Renderer backpressure and inbound flood budget                               | `test-rw-channel`: non-reading helper, queue bound, coalescing, stale callbacks      |
 | Capability guessing and use after destroy                                    | helper security test                                                                 |
 | Data profiles and clearing                                                   | helper data test: cookies and local storage per policy, `clear-data`                 |
 | Unit sandbox (credential, state, sockets, devices)                           | `ci/run-migrate-e2e.sh` runs the helper unit under real systemd and probes each path |

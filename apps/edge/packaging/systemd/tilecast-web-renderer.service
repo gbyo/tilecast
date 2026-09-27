@@ -77,8 +77,10 @@ DeviceAllow=char-alsa rw
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
 SystemCallArchitectures=native
 
-# A compromised page must not take memory, CPU or processes from the
-# trusted renderer (threat review §14).
+# A compromised page must not take memory or processes from the machine,
+# and stays deprioritized under CPU contention (threat review §14:
+# MemoryMax and TasksMax are hard bounds; CPUWeight is a weight, not a
+# quota, because a quota would also throttle legitimate web rendering).
 MemoryHigh=1G
 MemoryMax=1536M
 TasksMax=512
