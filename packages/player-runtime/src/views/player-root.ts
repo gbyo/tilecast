@@ -14,6 +14,7 @@ import type {
   RuntimePresentation,
 } from "../host/contract";
 import type { RuntimeClock } from "../clock/scheduler";
+import type { RemoteWebPort } from "../remote-web/port";
 import type {
   PlaybackController,
   RuntimeViewState,
@@ -33,6 +34,8 @@ export interface PlayerRootBindings {
   capabilities: RuntimeCapabilitiesV1;
   setup: SetupBridge;
   animationScale: number;
+  /** Present when the host advertises `remoteWeb: "host-view"`. */
+  remoteWeb: RemoteWebPort | null;
   widgets: RuntimeWidgetHost;
 }
 
@@ -86,6 +89,7 @@ export class PlayerRoot extends LitElement {
         capabilities: bindings.capabilities,
         send: (event) => bindings.controller.surface(event),
         animationScale: bindings.animationScale,
+        remoteWeb: bindings.remoteWeb,
         widgets: bindings.widgets,
       });
       this.unsubscribers.push(

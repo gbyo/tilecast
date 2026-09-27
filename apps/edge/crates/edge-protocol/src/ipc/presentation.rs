@@ -94,6 +94,30 @@ pub struct PresentationItem {
     pub layout: Option<serde_json::Value>,
 }
 
+/// Renderer features a presentation needs beyond what its item kinds say.
+///
+/// The daemon's projection knows what a presentation needs (a Widget item
+/// whose server-compiled presentation is `kind: "web"`, a Layout with a web
+/// Widget placement) and records it here, so the renderer never infers it
+/// from provider names.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum PresentationFeature {
+    RemoteWebV1,
+    Website,
+    Youtube,
+}
+
+impl PresentationFeature {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::RemoteWebV1 => "remote-web-v1",
+            Self::Website => "website",
+            Self::Youtube => "youtube",
+        }
+    }
+}
+
 /// Fields shared by the idle, disabled and unavailable status surfaces.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -148,7 +172,19 @@ pub enum PresentationDocument {
         /// follows `sync.position`.
         #[serde(default)]
         synchronized: bool,
+        /// Explicit requirements from the projection; see
+        /// [`PresentationFeature`]. At most one of each.
+        #[serde(default, skip_serializing_if = "Vec::is_empty", deserialize_with = "features")]
+        requires: Vec<PresentationFeature>,
     },
+}
+
+fn features<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<PresentationFeature>, D::Error> {
+    let list = Vec::<PresentationFeature>::deserialize(d)?;
+    if list.len() > 8 {
+        return Err(serde::de::Error::custom("too many presentation features"));
+    }
+    Ok(list)
 }
 
 impl PresentationDocument {
@@ -172,19 +208,30 @@ impl PresentationDocument {
     /// of silently dropping content (docs/tilecast-edge.md §10.4).
     pub fn required_features(&self) -> Vec<&'static str> {
         let mut features = vec!["status-surfaces-v1"];
-        if let Self::Playing { items, synchronized, .. } = self {
-            for item in items {
-                let feature = match item.kind {
-                    ItemKind::Image => "image",
-                    ItemKind::Video => "video",
-                    ItemKind::Website => "website",
-                    ItemKind::Widget => "render-tree-v1",
-                    ItemKind::Layout => "layout-v1",
-                    ItemKind::Youtube => "youtube",
-                };
+        if let Self::Playing { items, synchronized, requires, .. } = self {
+            let mut add = |feature: &'static str| {
                 if !features.contains(&feature) {
                     features.push(feature);
                 }
+            };
+            for item in items {
+                match item.kind {
+                    ItemKind::Image => add("image"),
+                    ItemKind::Video => add("video"),
+                    ItemKind::Website => {
+                        add("website");
+                        add("remote-web-v1");
+                    }
+                    ItemKind::Widget => add("render-tree-v1"),
+                    ItemKind::Layout => add("layout-v1"),
+                    ItemKind::Youtube => {
+                        add("youtube");
+                        add("remote-web-v1");
+                    }
+                }
+            }
+            for feature in requires {
+                add(feature.as_str());
             }
             if *synchronized && !features.contains(&"synchronized-playback-v1") {
                 features.push("synchronized-playback-v1");

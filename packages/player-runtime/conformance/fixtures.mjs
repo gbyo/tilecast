@@ -23,6 +23,75 @@ const item = (id, overrides = {}) => ({
   ...overrides,
 });
 
+/** A Website item with a complete configuration, as the server compiles it. */
+const websiteItem = (id, overrides = {}) => ({
+  id,
+  kind: "website",
+  src: "https://example.org/",
+  durationMs: 10_000,
+  fitMode: "contain",
+  audioEnabled: false,
+  volume: 1,
+  videoStartOffsetMs: null,
+  videoEndOffsetMs: null,
+  website: {
+    loadTimeoutSeconds: 10,
+    refreshIntervalSeconds: null,
+    zoomPercent: 100,
+    javascriptEnabled: true,
+    domStorageEnabled: true,
+    cookiePolicy: "first_party",
+    reloadPolicy: "never",
+    customUserAgent: "",
+    scrollX: 0,
+    scrollY: 0,
+    backgroundColor: "#000000",
+    failureBehavior: "placeholder",
+    fallbackSrc: null,
+    allowedHosts: [],
+  },
+  ...overrides,
+});
+
+/** A YouTube item with its server-compiled remote web spec. */
+const youtubeItem = (id, overrides = {}) => ({
+  id,
+  kind: "youtube",
+  src: "",
+  durationMs: 10_000,
+  fitMode: "contain",
+  audioEnabled: false,
+  volume: 1,
+  videoStartOffsetMs: null,
+  videoEndOffsetMs: null,
+  remoteWeb: {
+    content: {
+      kind: "youtube",
+      videoId: "M7lc1UVf-VE",
+      playlistId: null,
+      startSeconds: 0,
+      endSeconds: null,
+      loop: false,
+      muted: true,
+      volume: 100,
+      captions: false,
+      captionLanguage: "",
+      controls: false,
+    },
+    presentation: {
+      loadTimeoutSeconds: 30,
+      reloadIntervalSeconds: null,
+      lifecycle: "destroy_on_hide",
+      warmSeconds: 0,
+      onlineOnly: false,
+      failureBehavior: "placeholder",
+      fallbackSrc: null,
+      playUntilEnd: false,
+    },
+  },
+  ...overrides,
+});
+
 /** Half of a 1920 × 1080 Span canvas, unrotated. */
 const panel = (x) => ({
   x,
@@ -811,6 +880,41 @@ export const fixtures = [
       { checkpoint: "identify", visual: true },
       { advance: 10_000 },
       { checkpoint: "identify-gone" },
+    ],
+  },
+  {
+    name: "remote-web-guards",
+    // No isolated remote web host exists in conformance (the fake host
+    // leaves capabilities.remoteWeb null), so every remote surface must
+    // fail closed here on every engine. Checkpoints are state-only: remote
+    // web content is never pixel-compared.
+    legacy: false,
+    description:
+      "A Website and YouTube without an isolated host fail with a typed error and never take the screen; other content plays on.",
+    steps: [
+      {
+        present: {
+          presentation: playing([websiteItem("site")]),
+          activation: activation(1),
+        },
+      },
+      { advance: 1_000 },
+      { checkpoint: "website-unavailable" },
+      {
+        present: {
+          presentation: playing([youtubeItem("trailer")]),
+          activation: activation(2),
+        },
+      },
+      { advance: 1_000 },
+      { checkpoint: "youtube-unavailable" },
+      {
+        present: {
+          presentation: playing([item("ok", { src: "media:square" })]),
+          activation: activation(3),
+        },
+      },
+      { checkpoint: "image-plays" },
     ],
   },
   {

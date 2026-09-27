@@ -120,6 +120,22 @@ impl Default for Playback {
     }
 }
 
+/// The `website` section: player-wide Website defaults and overrides, read
+/// as the reference Linux player reads them (`core/player.ts`, website items).
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Website {
+    /// Overrides a Website's own load timeout.
+    pub timeout_seconds: Option<u64>,
+    /// Applies when a Website has no zoom of its own.
+    pub default_zoom_percent: Option<u64>,
+    /// Overrides a Website's own cookie policy.
+    pub cookie_policy: Option<String>,
+    /// Applies when a Website has no failure behavior of its own.
+    pub default_failure_behavior: Option<String>,
+    /// Clear remote website data when the player starts.
+    pub clear_on_restart: bool,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Cache {
     pub maximum_bytes: Option<u64>,
@@ -186,6 +202,7 @@ pub struct PlayerConfig {
     pub reliability: Option<Reliability>,
     pub power: Power,
     pub linux_kiosk: LinuxKiosk,
+    pub website: Website,
     /// The `presentationNetwork` section as sent, for the Presentation
     /// Network reconciliation to parse strictly. `None` when the server sent
     /// none (a server older than the feature): nothing is removed then.
@@ -210,6 +227,7 @@ impl Default for PlayerConfig {
                 outside_text: "Powered by Tilecast".to_owned(),
             },
             linux_kiosk: LinuxKiosk::default(),
+            website: Website::default(),
             presentation_network: None,
         }
     }
@@ -383,6 +401,27 @@ impl PlayerConfig {
         };
 
         let presentation_network = object.get("presentationNetwork").filter(|value| value.is_object()).cloned();
+        let website_section = section(object, "website");
+        let token = |key: &str, allowed: &[&str]| {
+            text(website_section, key, 32).filter(|value| allowed.contains(&value.as_str()))
+        };
+        let website = Website {
+            timeout_seconds: number(website_section, "timeoutSeconds")
+                .filter(|seconds| *seconds >= 1.0 && *seconds <= 600.0)
+                .map(|seconds| seconds as u64),
+            default_zoom_percent: number(website_section, "defaultZoomPercent")
+                .filter(|percent| *percent >= 25.0 && *percent <= 500.0)
+                .map(|percent| percent as u64),
+            cookie_policy: token("cookiePolicy", &["disabled", "first_party", "first_and_third_party"]),
+            default_failure_behavior: token(
+                "defaultFailureBehavior",
+                &["placeholder", "fallback_image", "skip", "last_success"],
+            ),
+            clear_on_restart: website_section
+                .and_then(|values| values.get("clearOnRestart"))
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
+        };
 
         Ok(Self {
             schema_version,
@@ -394,6 +433,7 @@ impl PlayerConfig {
             reliability,
             power,
             linux_kiosk,
+            website,
             presentation_network,
         })
     }
@@ -539,6 +579,30 @@ mod tests {
             value[key] = field.clone();
         }
         value
+    }
+
+    #[test]
+    fn website_section_reads_like_the_reference_player() {
+        let config = PlayerConfig::parse(&document(json!({"website": {
+            "timeoutSeconds": 45, "defaultZoomPercent": 150, "cookiePolicy": "first_and_third_party",
+            "defaultFailureBehavior": "skip", "clearOnRestart": true}})))
+        .unwrap();
+        assert_eq!(
+            config.website,
+            Website {
+                timeout_seconds: Some(45),
+                default_zoom_percent: Some(150),
+                cookie_policy: Some("first_and_third_party".to_owned()),
+                default_failure_behavior: Some("skip".to_owned()),
+                clear_on_restart: true,
+            }
+        );
+        // A value of the wrong type or outside its range falls back to the default.
+        let config = PlayerConfig::parse(&document(json!({"website": {
+            "timeoutSeconds": "45", "defaultZoomPercent": 5000, "cookiePolicy": "everything",
+            "clearOnRestart": "yes"}})))
+        .unwrap();
+        assert_eq!(config.website, Website::default());
     }
 
     #[test]

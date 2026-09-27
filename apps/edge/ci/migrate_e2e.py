@@ -40,6 +40,7 @@ LEGACY_DIR = f"/home/{KIOSK}/.local/share/tilecast-player"
 MIGRATE = "/opt/tilecast-edge/current/bin/tilecast-edge-migrate"
 TARGET = "/target/cargo-qual"
 RENDERER_BUILD = "/target/renderer"
+WEB_BUILD = "/target/web-renderer"
 BRIDGE_BUILD = "/target/bridge"
 RUNTIME = "/target/runtime"
 DROPINS = "/etc/systemd/system"
@@ -116,11 +117,12 @@ def start_server():
 
 def assert_legacy_restored(context):
     e2e.wait_for(lambda: legacy_state() == ("enabled", "active"), f"{context}: the legacy player runs again", 90)
-    for unit in ("tilecast-edge.service", "tilecast-renderer.service", "tilecast-edge-migrate-recover.service"):
+    for unit in ("tilecast-edge.service", "tilecast-web-renderer.service", "tilecast-renderer.service",
+                   "tilecast-edge-migrate-recover.service"):
         state = unit_state(unit)
         assert state[0] == "disabled" and state[1] in ("inactive", "failed"), f"{context}: {unit} {state}"
     assert not os.path.exists("/run/tilecast-edge-migrate/probation"), f"{context}: probation ended"
-    for unit in ("tilecast-edge.service", "tilecast-renderer.service"):
+    for unit in ("tilecast-edge.service", "tilecast-web-renderer.service", "tilecast-renderer.service"):
         link = f"{DROPINS}/{unit}.requires/tilecast-edge-migrate-recover.service"
         assert not os.path.lexists(link), f"{context}: {unit} no longer requires the recovery"
     assert not os.path.exists("/var/lib/tilecast-edge/legacy-copy"), f"{context}: the legacy copy was removed"
@@ -136,7 +138,8 @@ def migrate(expect_code, settle=120):
         print(result.stderr[-3000:])
         subprocess.run(["journalctl", "--no-pager", "-n", "200", "-u", "tilecast-edge-migrate.service",
                         "-u", "tilecast-edge-import.service", "-u", "tilecast-edge-selftest.service",
-                        "-u", "tilecast-edge.service", "-u", "tilecast-renderer.service"], check=False)
+                        "-u", "tilecast-edge.service", "-u", "tilecast-web-renderer.service",
+                        "-u", "tilecast-renderer.service"], check=False)
         raise AssertionError(f"migrate exited {result.returncode}, expected {expect_code}")
     return attempt(), time.monotonic() - started
 
@@ -152,6 +155,9 @@ def setup():
     run("cmake", "-S", os.path.join(EDGE, "renderer-wpe"), "-B", RENDERER_BUILD, "-G", "Ninja",
         stdout=subprocess.DEVNULL)
     run("cmake", "--build", RENDERER_BUILD)
+    run("cmake", "-S", os.path.join(EDGE, "web-renderer-wpe"), "-B", WEB_BUILD, "-G", "Ninja",
+        stdout=subprocess.DEVNULL)
+    run("cmake", "--build", WEB_BUILD)
     run("cmake", "-S", os.path.join(EDGE, "session-bridge"), "-B", BRIDGE_BUILD, "-G", "Ninja",
         stdout=subprocess.DEVNULL)
     run("cmake", "--build", BRIDGE_BUILD)
@@ -164,6 +170,7 @@ def setup():
     wpe = output("pkg-config", "--modversion", "wpe-webkit-2.0").strip()
     run(os.path.join(EDGE, "release", "stage-release.py"), "--out", RELEASE, "--version", "0.1.0",
         "--bin-dir", os.path.join(TARGET, "debug"), "--renderer", os.path.join(RENDERER_BUILD, "tilecast-renderer-wpe"),
+        "--web-renderer", os.path.join(WEB_BUILD, "tilecast-web-renderer-wpe"),
         "--session-bridge", os.path.join(BRIDGE_BUILD, "tilecast-session-bridge"),
         "--gst-plugin-dir", os.path.join(RENDERER_BUILD, "gstreamer-1.0"), "--runtime-dir", RUNTIME,
         "--sbom", sbom, "--wpe-version", wpe, "--base-distribution", "debian-sid-ci")
@@ -197,7 +204,7 @@ def setup():
 
     # Test-only drop-ins: the headless output, and no bubblewrap sandbox in a
     # container. Production units use DRM and keep the sandbox.
-    for unit in ("tilecast-renderer.service", "tilecast-renderer-selftest.service"):
+    for unit in ("tilecast-renderer.service", "tilecast-renderer-selftest.service", "tilecast-web-renderer.service"):
         os.makedirs(f"{DROPINS}/{unit}.d", exist_ok=True)
         with open(f"{DROPINS}/{unit}.d/50-e2e.conf", "w") as handle:
             handle.write("[Service]\nEnvironment=WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1\n")
@@ -385,7 +392,7 @@ def start_settling():
     state = e2e.wait_for(settling, "the migration to settle", 300)
     assert os.path.exists("/run/tilecast-edge-migrate/probation"), "probation holds commands while settling"
     assert unit_state("tilecast-edge-migrate-recover.service")[0] == "enabled"
-    for unit in ("tilecast-edge.service", "tilecast-renderer.service"):
+    for unit in ("tilecast-edge.service", "tilecast-web-renderer.service", "tilecast-renderer.service"):
         assert os.path.lexists(f"{DROPINS}/{unit}.requires/tilecast-edge-migrate-recover.service"), unit
     print(f"start-settling: attempt {state['attemptId']} is settling; the driver now cuts the power")
 
@@ -418,7 +425,7 @@ def accept():
     presentation = result["settlement"]["presentation"]
     assert presentation["source"] == "server_manifest" and presentation["accepted"] and presentation["evidence"]
     assert legacy_state() == ("disabled", "inactive"), legacy_state()
-    for unit in ("tilecast-edge.service", "tilecast-renderer.service"):
+    for unit in ("tilecast-edge.service", "tilecast-web-renderer.service", "tilecast-renderer.service"):
         assert unit_state(unit) == ("enabled", "active"), (unit, unit_state(unit))
     assert unit_state("tilecast-edge-migrate-recover.service")[0] == "disabled"
     assert not os.path.lexists(f"{DROPINS}/tilecast-edge.service.requires/tilecast-edge-migrate-recover.service")
@@ -563,6 +570,99 @@ def check_hardware_packaging():
     audio = [c["id"] for c in capabilities["capabilities"] if c["id"].startswith("audio.")]
     assert not audio, f"retired audio capabilities still reported: {audio}"
     print("accept: the session bridge runs sandboxed in the tilecast session; no audio capabilities remain")
+    check_web_helper_packaging()
+
+
+def check_web_helper_packaging():
+    """M11 remote web on a real systemd: the dedicated account, the runtime
+    directory the trusted renderer shares, the helper sandbox, and the
+    daemon→helper→renderer start order."""
+    import pwd
+    web = pwd.getpwnam("tilecast-web")
+    assert web.pw_shell in ("/usr/sbin/nologin", "/bin/false"), web.pw_shell
+    assert web.pw_dir == "/var/lib/tilecast-web", web.pw_dir
+    web_groups = output("id", "-nG", "tilecast-web").split()
+    assert sorted(web_groups) == ["audio", "render", "tilecast-web"], web_groups
+    for forbidden in ("tilecast", "tilecast-display", "tilecast-network", "video", "input"):
+        assert forbidden not in web_groups, (forbidden, web_groups)
+    renderer_groups = output("systemctl", "show", "--property=SupplementaryGroups",
+                             "tilecast-renderer.service")
+    assert "tilecast-web" in renderer_groups, renderer_groups
+    # The daemon, helper, renderer start order lives in the units, not in
+    # start call timing, so boot, the migrator, activation and the guard
+    # converge on it (and the guard never waits on units ordered after it).
+    web_after = output("systemctl", "show", "--property=After", "tilecast-web-renderer.service")
+    assert "tilecast-edge.service" in web_after, web_after
+    renderer_after = output("systemctl", "show", "--property=After", "tilecast-renderer.service")
+    assert "tilecast-edge.service" in renderer_after and "tilecast-web-renderer.service" in renderer_after, renderer_after
+    data = os.stat("/var/lib/tilecast-web")
+    assert data.st_uid == web.pw_uid and (data.st_mode & 0o777) == 0o700, oct(data.st_mode)
+    runtime = os.stat("/run/tilecast-web")
+    assert runtime.st_uid == web.pw_uid and (runtime.st_mode & 0o777) == 0o750, oct(runtime.st_mode)
+    sandbox = output("systemctl", "show", "--property=User,Group,NoNewPrivileges,ProtectSystem,ProtectHome,"
+                     "PrivateTmp,InaccessiblePaths,RestrictAddressFamilies,MemoryHigh,MemoryMax,TasksMax,"
+                     "DevicePolicy,DeviceAllow",
+                     "tilecast-web-renderer.service")
+    for expected in ("User=tilecast-web", "Group=tilecast-web", "NoNewPrivileges=yes",
+                     "ProtectSystem=strict", "ProtectHome=yes", "PrivateTmp=yes",
+                     "MemoryHigh=1073741824", "MemoryMax=1610612736", "TasksMax=512",
+                     "DevicePolicy=closed", "DeviceAllow=char-drm rw", "DeviceAllow=char-alsa rw"):
+        assert expected in sandbox, (expected, sandbox)
+    # systemd normalizes the address-family list (sorts and dedupes), so
+    # compare as a set rather than a string.
+    families = dict(line.split("=", 1) for line in sandbox.splitlines() if "=" in line)
+    assert set(families.get("RestrictAddressFamilies", "").split()) == {"AF_UNIX", "AF_INET", "AF_INET6", "AF_NETLINK"}, sandbox
+    for hidden in ("-/var/lib/tilecast-edge", "-/run/tilecast-edge", "-/run/tilecast-edge-update",
+                   "-/run/tilecast", "-/var/cache/tilecast-renderer"):
+        assert hidden in sandbox, (hidden, sandbox)
+    probe_helper_devices()
+    print("accept: the remote web helper runs as tilecast-web with its sandbox and shared runtime directory")
+
+
+def probe_helper_devices():
+    """The helper's account-level device boundary: tilecast-web's group
+    memberships must not open any camera/input node beyond what an ordinary
+    unprivileged account can already open. Nodes the OS leaves
+    world-readable (such as a host's /dev/input/js0) are readable by every
+    local user and are not Tilecast's to chmod; the live unit's
+    DevicePolicy=closed, asserted on the running unit above, is what keeps
+    even those closed at runtime. /dev/null still opens as a positive
+    control that the probe itself ran end to end."""
+    import glob
+    import pwd
+    import shutil
+    pwd.getpwnam("nobody")  # baseline unprivileged account; Debian always ships it
+    nodes = sorted(glob.glob("/dev/video*") + glob.glob("/dev/input/event*") + glob.glob("/dev/input/js*"))
+    probe = (
+        "import os, sys\n"
+        "for path in sys.argv[1:]:\n"
+        "    try:\n"
+        "        fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK)\n"
+        "    except OSError:\n"
+        "        continue\n"
+        "    else:\n"
+        "        os.close(fd)\n"
+        "        print(path)\n"
+        "fd = os.open('/dev/null', os.O_RDONLY)\n"
+        "os.close(fd)\n"
+        "print('probe ok')\n"
+    )
+    runuser = shutil.which("runuser")
+    assert runuser is not None, "runuser is required for the helper device probe"
+
+    def readable_as(user):
+        result = subprocess.run([runuser, "-u", user, "--", "python3", "-c", probe] + nodes,
+                                capture_output=True, text=True)
+        assert result.returncode == 0, (user, result.returncode, result.stdout, result.stderr)
+        assert "probe ok" in result.stdout, (user, result.stdout, result.stderr)
+        return {line for line in result.stdout.splitlines() if line != "probe ok"}
+
+    web_readable = readable_as("tilecast-web")
+    base_readable = readable_as("nobody")
+    extra = web_readable - base_readable
+    assert not extra, (f"tilecast-web opens camera/input nodes beyond an ordinary account: {sorted(extra)}",
+                       f"baseline nobody reads: {sorted(base_readable)}")
+    print(f"accept: tilecast-web opens nothing beyond the nobody baseline ({len(web_readable)} shared nodes)")
 
 
 PHASES = {"setup": setup, "import-failure": import_failure, "crash": crash, "start-settling": start_settling,

@@ -7,11 +7,14 @@
 //! 1. checks the manifest's identity, bounds and every media claim;
 //! 2. decides compatibility with the installed WPE renderer profile before
 //!    anything is prepared. A manifest that needs a capability this renderer
-//!    does not safely provide (websites, YouTube, server-streamed media,
-//!    synchronized groups, Span walls, display control) is
-//!    rejected as a whole with a typed reason, so the last usable presentation
-//!    stays on screen and nothing is silently omitted (docs/tilecast-edge.md
-//!    §8.4, §10.5);
+//!    does not safely provide (a newer declarative Widget capability, a web
+//!    bundle, an unknown content type or plugin, malformed Span geometry) is
+//!    rejected as a whole with a typed reason, so the last usable
+//!    presentation stays on screen and nothing is silently omitted
+//!    (docs/tilecast-edge.md §8.4). Remote web (Websites, YouTube and web
+//!    Widgets) is compatible with the profile; whether the connected renderer
+//!    can show it is decided at activation from the presentation's explicit
+//!    `requires` and the renderer's `renderer.ready` features;
 //! 3. resolves, at one corrected instant, what the renderer shows: the same
 //!    selection the reference player makes (`core/schedule.ts`), projected
 //!    into the shared renderer contract. Widgets and layouts travel as
@@ -26,7 +29,7 @@ use edge_cas::{BlobSource, CasError, FetchError, FetchObserver, FetchRequest, Fe
 use edge_protocol::bounded::{SafeText, ShortToken};
 use edge_protocol::ipc::event::{MediaAlias, ProjectionContext};
 use edge_protocol::ipc::presentation::{
-    ContentRef, ItemKind, PresentationDocument, PresentationItem, StatusSurface, content_uri,
+    ContentRef, ItemKind, PresentationDocument, PresentationFeature, PresentationItem, StatusSurface, content_uri,
 };
 use edge_protocol::{ScreenId, Sha256Digest};
 use edge_server::AuthenticatedServer;
@@ -71,6 +74,12 @@ pub mod profile {
         "plugin.brand_bug",
         "plugin.countdown_bar",
         "plugin.alert_ticker",
+        // Remote web in the isolated tilecast-web-renderer-wpe
+        // (docs/tilecast-edge-remote-web-threat-review.md). The renderer
+        // advertises these only while its helper answers.
+        "remote-web-v1",
+        "website",
+        "youtube",
     ];
 
     /// Declarative widget capabilities of the reference projection code the
@@ -109,9 +118,9 @@ pub mod profile {
         ("environment.time", 1),
     ];
 
-    /// Remote web content is not supported until the WPE website isolation is
-    /// qualified (docs/tilecast-edge.md §10.5).
-    pub const WEB_RUNTIME_VERSION: u32 = 0;
+    /// The `web.remote` declarative capability: remote web in the isolated
+    /// helper, shown through the renderer's remote web surface.
+    pub const WEB_RUNTIME_VERSION: u32 = 1;
 
     /// Presentation schemas the runtime renders: 1 (declarative and web)
     /// and 2 (first-class Widget components, docs/widgets-v2.md).
@@ -218,9 +227,6 @@ impl ManifestError {
 /// A precise reason a presentation cannot run on this renderer.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Incompatibility {
-    Website,
-    YouTube,
-    WebWidget,
     SynchronizedPlayback,
     SpanViewport,
     Plugin(String),
@@ -232,9 +238,6 @@ pub enum Incompatibility {
 impl Incompatibility {
     pub fn code(&self) -> &'static str {
         match self {
-            Self::Website => "presentation_incompatible_website",
-            Self::YouTube => "presentation_incompatible_youtube",
-            Self::WebWidget => "presentation_incompatible_web_widget",
             Self::SynchronizedPlayback => "presentation_incompatible_synchronized_playback",
             Self::SpanViewport => "presentation_incompatible_span",
             Self::Plugin(_) => "presentation_incompatible_plugin",
@@ -248,15 +251,46 @@ impl Incompatibility {
 impl std::fmt::Display for Incompatibility {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Website => f.write_str("websites need the WPE website isolation that is not qualified yet"),
-            Self::YouTube => f.write_str("YouTube needs the WPE website isolation that is not qualified yet"),
-            Self::WebWidget => f.write_str("web widgets need the WPE website isolation that is not qualified yet"),
             Self::SynchronizedPlayback => f.write_str("synchronized group playback is not supported by this renderer"),
             Self::SpanViewport => f.write_str("the Span canvas or panel geometry is malformed"),
             Self::Plugin(kind) => write!(f, "the {kind} plugin is not supported by this renderer"),
             Self::WidgetCapability(name) => write!(f, "a widget needs renderer capability {name}"),
             Self::ContentType(kind) => write!(f, "content type {kind} is not supported by this renderer"),
             Self::Requirement(name) => write!(f, "the presentation requires {name}"),
+        }
+    }
+}
+
+/// The shape check of a Website URL: http or https, a host, no user
+/// information, printable ASCII, at most 2048 bytes. The runtime, the
+/// renderer and the isolated helper each parse and check it again.
+fn is_remote_url(url: &str) -> bool {
+    let rest = url.strip_prefix("https://").or_else(|| url.strip_prefix("http://"));
+    let Some(rest) = rest else { return false };
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
+    url.len() <= 2048
+        && url.bytes().all(|byte| byte.is_ascii_graphic())
+        && !authority.is_empty()
+        && !authority.contains('@')
+        && !authority.starts_with(':')
+}
+
+/// What a Widget needs from the renderer, from its server-compiled
+/// presentation (never from anything the renderer would have to guess).
+fn widget_requires(widget: &Value) -> &'static [PresentationFeature] {
+    if widget.get("provider").and_then(Value::as_str) == Some("youtube") {
+        &[PresentationFeature::RemoteWebV1, PresentationFeature::Youtube]
+    } else if widget.get("presentation").and_then(|p| p.get("kind")).and_then(Value::as_str) == Some("web") {
+        &[PresentationFeature::RemoteWebV1, PresentationFeature::Website]
+    } else {
+        &[]
+    }
+}
+
+fn add_requires(requires: &mut Vec<PresentationFeature>, features: &[PresentationFeature]) {
+    for feature in features {
+        if !requires.contains(feature) {
+            requires.push(*feature);
         }
     }
 }
@@ -451,20 +485,19 @@ pub fn incompatibilities(document: &Value, assets: &[Asset]) -> Vec<Incompatibil
             out.push(reason);
         }
     };
-    if document.get("websites").and_then(Value::as_array).is_some_and(|sites| !sites.is_empty()) {
-        push(Incompatibility::Website);
-    }
     for widget in document.get("widgets").and_then(Value::as_array).into_iter().flatten() {
-        if widget.get("provider").and_then(Value::as_str) == Some("youtube") {
-            push(Incompatibility::YouTube);
-        }
         if let Some(presentation) = widget.get("presentation").filter(|value| !value.is_null()) {
             match presentation.get("kind").and_then(Value::as_str) {
                 Some("native") => {}
                 // The runtime mounts the component; its required
                 // `widget.<type>` capability is checked below.
                 Some("component") => {}
-                Some("web") => push(Incompatibility::WebWidget),
+                // Only remote pages run in the isolated helper; a bundled web
+                // Widget needs a verified package runtime Edge does not have.
+                Some("web")
+                    if presentation.get("web").and_then(|web| web.get("mode")).and_then(Value::as_str)
+                        == Some("remote") => {}
+                Some("web") => push(Incompatibility::Requirement("web bundle".to_owned())),
                 _ => push(Incompatibility::WidgetCapability("presentation kind".to_owned())),
             }
             if let Some(required) = presentation.get("requiredCapabilities").and_then(Value::as_object) {
@@ -491,8 +524,7 @@ pub fn incompatibilities(document: &Value, assets: &[Asset]) -> Vec<Incompatibil
                 continue;
             }
             match kind {
-                "website" => push(Incompatibility::Website),
-                "youtube" => push(Incompatibility::YouTube),
+                "website" => continue,
                 "image" | "video" => {}
                 other => push(Incompatibility::ContentType(other.chars().take(32).collect())),
             }
@@ -758,6 +790,109 @@ impl Candidate {
             .find(|widget| widget.get("assetId").and_then(Value::as_str) == Some(asset_id))
     }
 
+    /// Remote web a Layout's Widget placements need (a web or YouTube Widget
+    /// in a zone).
+    fn layout_requires(&self, layout_id: &str, requires: &mut Vec<PresentationFeature>) {
+        let layout = self
+            .document
+            .get("layouts")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .chain(["layout", "directFallbackLayout"].into_iter().filter_map(|key| self.document.get(key)))
+            .find(|layout| layout.get("id").and_then(Value::as_str) == Some(layout_id));
+        let placements = layout
+            .and_then(|layout| layout.get("document"))
+            .and_then(|document| document.get("placements"))
+            .and_then(Value::as_array);
+        for placement in placements.into_iter().flatten() {
+            if placement.get("type").and_then(Value::as_str) != Some("widget") {
+                continue;
+            }
+            if let Some(widget) = placement.get("widgetId").and_then(Value::as_str).and_then(|id| self.widget(id)) {
+                add_requires(requires, widget_requires(widget));
+            }
+        }
+    }
+
+    /// A Website asset as the reference player builds it (`core/player.ts`):
+    /// the server's Website configuration, with the player configuration's
+    /// `website` overrides. Returns `false` when the manifest has no usable
+    /// Website for the asset; the reference player then skips the item.
+    fn website_item(
+        &self,
+        built: &mut PresentationItem,
+        asset_id: &str,
+        config: &PlayerConfig,
+        now_ms: i64,
+        content: &mut BTreeMap<Sha256Digest, ContentRef>,
+    ) -> Result<bool, ManifestError> {
+        let Some(site) = self
+            .document
+            .get("websites")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .find(|site| site.get("assetId").and_then(Value::as_str) == Some(asset_id))
+        else {
+            return Ok(false);
+        };
+        let url = site.get("url").and_then(Value::as_str).unwrap_or("");
+        if !is_remote_url(url) {
+            return Ok(false);
+        }
+        let string = |key: &str| site.get(key).and_then(Value::as_str).unwrap_or("");
+        let positive = |key: &str| site.get(key).and_then(Value::as_u64).filter(|value| *value > 0);
+        let website = &config.website;
+        let mut fallback_src = Value::Null;
+        if let Some(fallback) = site.get("fallbackImageAssetId").and_then(Value::as_str) {
+            let variant = site.get("fallbackVariantId").and_then(Value::as_str);
+            let asset = self.assets.iter().find(|asset| {
+                asset.asset_id.to_string() == fallback
+                    && variant.is_none_or(|variant| asset.variant_id.to_string() == variant)
+                    && self.asset_value(asset).is_some_and(|value| available_at(value, now_ms).unwrap_or(false))
+            });
+            if let Some(asset) = asset {
+                fallback_src = Value::String(content_uri(&asset.digest));
+                content.entry(asset.digest).or_insert(Self::content_ref(asset)?);
+            }
+        }
+        let hosts: Vec<Value> = site
+            .get("allowedHosts")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .take(25)
+            .map(|host| Value::String(host.chars().take(253).collect()))
+            .collect();
+        built.kind = ItemKind::Website;
+        built.src = text(url)?;
+        built.website = Some(serde_json::json!({
+            "loadTimeoutSeconds": website.timeout_seconds.or(positive("loadTimeoutSeconds")).unwrap_or(20),
+            "refreshIntervalSeconds": site.get("refreshIntervalSeconds").and_then(Value::as_u64),
+            "zoomPercent": positive("zoomPercent").or(website.default_zoom_percent).unwrap_or(100),
+            "javascriptEnabled": site.get("javascriptEnabled").and_then(Value::as_bool).unwrap_or(true),
+            "domStorageEnabled": site.get("domStorageEnabled").and_then(Value::as_bool).unwrap_or(true),
+            "cookiePolicy": website.cookie_policy.as_deref().unwrap_or(match string("cookiePolicy") {
+                "" => "first_party",
+                policy => policy,
+            }),
+            "reloadPolicy": match string("reloadPolicy") { "" => "on_each_activation", policy => policy },
+            "customUserAgent": string("customUserAgent").chars().take(256).collect::<String>(),
+            "scrollX": site.get("scrollX").and_then(Value::as_u64).unwrap_or(0),
+            "scrollY": site.get("scrollY").and_then(Value::as_u64).unwrap_or(0),
+            "backgroundColor": match string("backgroundColor") { "" => "#0E141B", color => color },
+            "failureBehavior": match string("failureBehavior") {
+                "" => website.default_failure_behavior.as_deref().unwrap_or("placeholder"),
+                behavior => behavior,
+            },
+            "fallbackSrc": fallback_src,
+            "allowedHosts": hosts,
+        }));
+        Ok(true)
+    }
+
     /// Resolves the manifest with default player configuration.
     pub fn presentation(&self, now_ms: i64) -> Result<ResolvedPresentation, ManifestError> {
         self.presentation_with(now_ms, &PlayerConfig::default())
@@ -813,11 +948,14 @@ impl Candidate {
                 layout: Some(serde_json::json!({ "layoutId": layout_id.to_string() })),
             };
             let (projection, content) = self.projection(now_ms, config)?;
+            let mut requires = Vec::new();
+            self.layout_requires(&layout_id.to_string(), &mut requires);
             let document = PresentationDocument::Playing {
                 items: vec![item],
                 takeover: false,
                 generation: self.version.max(0) as u64,
                 synchronized: false,
+                requires,
             };
             return Ok(finish(document, content, Some(projection), selection));
         }
@@ -841,6 +979,7 @@ impl Candidate {
         let mut items = Vec::with_capacity(source_items.len());
         let mut content_by_digest = BTreeMap::new();
         let mut needs_projection = false;
+        let mut requires = Vec::new();
         // Images are cropped to the panel, as on Electron; Layouts are
         // clipped by the shared projector; Span video is a server-made panel
         // variant and is played as it is.
@@ -887,6 +1026,7 @@ impl Candidate {
                 layout: None,
             };
             if let Some(layout_id) = item.get("layoutId").and_then(Value::as_str) {
+                self.layout_requires(layout_id, &mut requires);
                 built.kind = ItemKind::Layout;
                 built.layout = Some(serde_json::json!({ "layoutId": layout_id }));
                 needs_projection = true;
@@ -896,11 +1036,11 @@ impl Candidate {
             let asset_id = item.get("assetId").and_then(Value::as_str).ok_or(ManifestError::Reference)?;
             if asset_type == "widget" || self.widget(asset_id).is_some() {
                 let widget = self.widget(asset_id).ok_or(ManifestError::Reference)?;
-                if widget.get("provider").and_then(Value::as_str) == Some("youtube")
-                    || widget.get("presentation").and_then(|p| p.get("kind")).and_then(Value::as_str) == Some("web")
-                {
-                    return Err(ManifestError::Incompatible(Incompatibility::WebWidget));
-                }
+                // A web or YouTube Widget still travels as a reference: the
+                // runtime's shared projection makes it a remote web item from
+                // the server-compiled presentation. What it needs from the
+                // renderer is recorded here, explicitly.
+                add_requires(&mut requires, widget_requires(widget));
                 built.kind = ItemKind::Widget;
                 built.widget = Some(serde_json::json!({ "widgetAssetId": asset_id }));
                 needs_projection = true;
@@ -908,7 +1048,10 @@ impl Candidate {
                 continue;
             }
             if asset_type == "website" {
-                return Err(ManifestError::Incompatible(Incompatibility::Website));
+                if self.website_item(&mut built, asset_id, config, now_ms, &mut content_by_digest)? {
+                    items.push(built);
+                }
+                continue;
             }
             let variant_id = item.get("variantId").and_then(Value::as_str).ok_or(ManifestError::Reference)?;
             let asset = self.asset(asset_id, variant_id).ok_or(ManifestError::Reference)?;
@@ -962,6 +1105,7 @@ impl Candidate {
             takeover: selection.source == Source::Takeover,
             generation: self.version.max(0) as u64,
             synchronized: timing.is_some(),
+            requires,
         };
         let mut resolved = finish(document, content, projection, selection);
         resolved.timing = timing;
@@ -1426,10 +1570,6 @@ mod tests {
         type Mutate = Box<dyn Fn(&mut Value)>;
         let cases: Vec<(Mutate, &str)> = vec![
             (
-                Box::new(|v| v["websites"] = serde_json::json!([{"assetId": ASSET}])),
-                "presentation_incompatible_website",
-            ),
-            (
                 // A group without an epoch cannot be placed on a shared timeline.
                 Box::new(|v| v["syncGroup"] = serde_json::json!({"id": ITEM})),
                 "presentation_incompatible_synchronized_playback",
@@ -1443,9 +1583,19 @@ mod tests {
             ),
             (
                 Box::new(|v| {
-                    v["widgets"] = serde_json::json!([{"assetId": WIDGET, "name": "Clip", "provider": "youtube"}]);
+                    v["widgets"] = serde_json::json!([{"assetId": WIDGET, "name": "Packaged",
+                        "presentation": {"schemaVersion": 1, "kind": "web", "requiredCapabilities": {"web.remote": 1},
+                            "web": {"mode": "bundle", "integritySha256": DIGEST}}}]);
                 }),
-                "presentation_incompatible_youtube",
+                "presentation_incompatible_requirement",
+            ),
+            (
+                Box::new(|v| {
+                    v["widgets"] = serde_json::json!([{"assetId": WIDGET, "name": "Next",
+                        "presentation": {"schemaVersion": 1, "kind": "web", "requiredCapabilities": {"web.remote": 2},
+                            "web": {"mode": "remote", "url": "https://next.example.org/"}}}]);
+                }),
+                "presentation_incompatible_widget_capability",
             ),
             (
                 Box::new(|v| {
@@ -1463,6 +1613,115 @@ mod tests {
             let reasons = incompatibilities(&candidate.document, &candidate.assets);
             assert_eq!(reasons.first().map(Incompatibility::code), Some(code));
         }
+    }
+
+    const WEBSITE: &str = "2f1c0e3d-5a7b-4c9d-8e1f-0a2b3c4d5e6f";
+
+    fn website_manifest(site: Value) -> Value {
+        let mut value = manifest();
+        value["schemaVersion"] = serde_json::json!(15);
+        value["websites"] = serde_json::json!([site]);
+        value["playlist"]["items"] = serde_json::json!([{
+            "id": ITEM, "assetId": WEBSITE, "assetType": "website", "deliveryPolicy": "stream",
+            "durationMs": 45000, "fitMode": "cover", "transition": "fade", "audioEnabled": false, "volume": 1
+        }]);
+        value
+    }
+
+    fn site() -> Value {
+        serde_json::json!({"assetId": WEBSITE, "name": "Menu", "url": "https://menu.example.org/today",
+            "allowedHosts": ["menu.example.org"], "javascriptEnabled": true, "domStorageEnabled": false,
+            "cookiePolicy": "first_party", "reloadPolicy": "interval", "refreshIntervalSeconds": 120,
+            "loadTimeoutSeconds": 25, "zoomPercent": 0, "scrollX": 0, "scrollY": 300, "customUserAgent": "",
+            "backgroundColor": "#101820", "failureBehavior": "fallback_image",
+            "fallbackImageAssetId": ASSET, "fallbackVariantId": VARIANT})
+    }
+
+    #[test]
+    fn website_assets_play_from_the_server_configuration() {
+        let candidate = parse(website_manifest(site())).unwrap();
+        assert!(incompatibilities(&candidate.document, &candidate.assets).is_empty());
+        let mut config = PlayerConfig::default();
+        config.website.cookie_policy = Some("disabled".to_owned());
+        config.website.default_zoom_percent = Some(125);
+        let resolved = candidate.presentation_with(1_000, &config).unwrap();
+        let PresentationDocument::Playing { items, .. } = &resolved.document else { panic!("playing") };
+        assert_eq!(items[0].kind, ItemKind::Website);
+        assert_eq!(items[0].src.as_str(), "https://menu.example.org/today");
+        let website = items[0].website.as_ref().unwrap();
+        assert_eq!(website["cookiePolicy"], "disabled", "the player configuration overrides the policy");
+        assert_eq!(website["zoomPercent"], 125, "a Website without its own zoom takes the default");
+        assert_eq!(website["loadTimeoutSeconds"], 25);
+        assert_eq!(website["refreshIntervalSeconds"], 120);
+        assert_eq!(website["allowedHosts"], serde_json::json!(["menu.example.org"]));
+        // The fallback image travels as content, like any other media.
+        assert_eq!(website["fallbackSrc"], format!("tcmedia://sha256/{DIGEST}"));
+        assert!(resolved.content.iter().any(|reference| reference.sha256.to_hex() == DIGEST));
+        let features = resolved.document.required_features();
+        assert!(features.contains(&"website") && features.contains(&"remote-web-v1"));
+    }
+
+    #[test]
+    fn a_website_without_a_usable_url_is_skipped_like_the_reference_player() {
+        for url in ["file:///var/lib/tilecast-edge/state.db", "https://user@menu.example.org/", "javascript:x"] {
+            let mut bad = site();
+            bad["url"] = serde_json::json!(url);
+            let resolved = parse(website_manifest(bad)).unwrap().presentation(1_000).unwrap();
+            assert!(matches!(resolved.document, PresentationDocument::Unavailable(_)), "{url}");
+        }
+    }
+
+    #[test]
+    fn web_widgets_are_references_with_an_explicit_requirement() {
+        let mut value = manifest();
+        value["schemaVersion"] = serde_json::json!(13);
+        let youtube = "7a6b5c4d-3e2f-4a1b-9c8d-7e6f5a4b3c2d";
+        value["widgets"] = serde_json::json!([
+            {"assetId": WIDGET, "name": "News", "provider": "website", "configVersion": 1, "configuration": {},
+             "presentation": {"schemaVersion": 1, "kind": "web", "requiredCapabilities": {"web.remote": 1},
+                "web": {"mode": "remote", "url": "https://news.example.org/", "allowedHosts": ["news.example.org"]}}},
+            {"assetId": youtube, "name": "Clip", "provider": "youtube", "configVersion": 1,
+             "configuration": {"kind": "video", "videoId": "M7lc1UVf-VE"}}
+        ]);
+        value["playlist"]["items"] = serde_json::json!([
+            {"id": ITEM, "assetId": WIDGET, "assetType": "widget", "deliveryPolicy": "stream", "durationMs": 30000},
+            {"id": "b8c0e7a6-2f3d-4c5b-9e1a-7d6c5b4a3f2e", "assetId": youtube, "assetType": "widget",
+             "deliveryPolicy": "stream", "durationMs": null}
+        ]);
+        let candidate = parse(value).unwrap();
+        assert!(incompatibilities(&candidate.document, &candidate.assets).is_empty());
+        let resolved = candidate.presentation(1_000).unwrap();
+        let PresentationDocument::Playing { items, requires, .. } = &resolved.document else { panic!("playing") };
+        assert!(items.iter().all(|item| item.kind == ItemKind::Widget && item.widget.is_some()));
+        assert_eq!(
+            requires,
+            &vec![PresentationFeature::RemoteWebV1, PresentationFeature::Website, PresentationFeature::Youtube]
+        );
+        let features = resolved.document.required_features();
+        for feature in ["remote-web-v1", "website", "youtube"] {
+            assert!(features.contains(&feature), "{feature}");
+        }
+        assert!(resolved.projection.is_some(), "the runtime projects the Widgets");
+    }
+
+    #[test]
+    fn a_layout_with_a_web_widget_placement_requires_remote_web() {
+        let mut value = manifest();
+        value["schemaVersion"] = serde_json::json!(13);
+        value["widgets"] = serde_json::json!([
+            {"assetId": WIDGET, "name": "Clip", "provider": "youtube", "configVersion": 1,
+             "configuration": {"kind": "video", "videoId": "M7lc1UVf-VE"}}]);
+        value["layouts"] = serde_json::json!([{"id": LAYOUT, "revisionId": LAYOUT, "revision": 1,
+            "documentSha256": DIGEST, "document": {"schemaVersion": 2,
+            "canvas": {"width": 1920, "height": 1080, "orientation": "landscape", "backgroundColor": "#000000"},
+            "placements": [{"id": "zone", "type": "widget", "name": "zone", "widgetId": WIDGET,
+                "x": 0, "y": 0, "width": 960, "height": 540, "layer": 0, "opacity": 1, "visible": true,
+                "locked": false}]}}]);
+        value["playlist"]["items"] = serde_json::json!([{"id": ITEM, "assetId": LAYOUT, "layoutId": LAYOUT,
+            "assetType": "layout", "deliveryPolicy": "stream", "durationMs": 30000}]);
+        let resolved = parse(value).unwrap().presentation(1_000).unwrap();
+        let PresentationDocument::Playing { requires, .. } = &resolved.document else { panic!("playing") };
+        assert_eq!(requires, &vec![PresentationFeature::RemoteWebV1, PresentationFeature::Youtube]);
     }
 
     #[test]

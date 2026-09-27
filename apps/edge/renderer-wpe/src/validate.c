@@ -185,3 +185,10 @@ tc_is_clean_absolute_path (const char *path)
   }
   return TRUE;
 }
+
+gboolean
+tc_is_web_capability_uri (const char *value)
+{
+  static const char prefix[] = "tcweb://cap/";
+  return value != NULL && g_str_has_prefix (value, prefix) && tc_is_sha256_hex (value + sizeof prefix - 1);
+}

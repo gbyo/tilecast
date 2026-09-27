@@ -85,6 +85,19 @@ test_clean_paths (void)
   g_assert_false (tc_is_clean_absolute_path (NULL));
 }
 
+static void
+test_web_capabilities (void)
+{
+  const char *good = "tcweb://cap/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+  g_assert_true (tc_is_web_capability_uri (good));
+  g_assert_false (tc_is_web_capability_uri ("tcweb://cap/0123456789ABCDEF0123456789abcdef0123456789abcdef0123456789abcdef"));
+  g_assert_false (tc_is_web_capability_uri ("tcweb://cap/../../run/tilecast-edge/edge"));
+  g_assert_false (tc_is_web_capability_uri ("tcweb://cap/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef/x"));
+  g_assert_false (tc_is_web_capability_uri ("tcmedia://cap/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
+  g_assert_false (tc_is_web_capability_uri ("tcweb://cap/"));
+  g_assert_false (tc_is_web_capability_uri (NULL));
+}
+
 int
 main (int argc, char **argv)
 {
@@ -94,5 +107,6 @@ main (int argc, char **argv)
   g_test_add_func ("/validate/runtime-paths", test_runtime_paths);
   g_test_add_func ("/validate/ranges", test_ranges);
   g_test_add_func ("/validate/clean-paths", test_clean_paths);
+  g_test_add_func ("/validate/web-capabilities", test_web_capabilities);
   return g_test_run ();
 }

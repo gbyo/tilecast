@@ -13,16 +13,25 @@ exactly as an operator would. Scenarios:
   selftest   `tilecastd self-test` (the migration's release self-test) passes
              only after the renderer proves every fixture item, and fails
              with a typed reason when no renderer connects
+  website    remote web through the isolated tilecast-web-renderer-wpe: a
+             fullscreen Website, a Layout with two remote zones, website
+             evidence, and a helper crash that fails only the web surfaces
+             while other content plays on, then recovers (needs root and
+             --web-helper)
 
 Usage: e2e_headless.py --bin-dir DIR --renderer PATH --runtime-dir DIR
-                       [--scenario status|fixture|reconnect|all]
+                       [--web-helper PATH]
+                       [--scenario status|fixture|reconnect|selftest|website|all]
 """
 import argparse
+import http.server
 import json
 import os
+import signal
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 
 
@@ -99,11 +108,31 @@ class Stack:
                 f"--gst-plugin-dir={self.args.gst_plugin_dir}",
                 "--headless-size=1280x720",
                 "--console",
+                f"--web-control-socket={os.path.join(self.workdir, 'web', 'control.sock')}",
+                f"--web-frames-dir={os.path.join(self.workdir, 'web', 'frames')}",
             ],
             stdout=log,
             stderr=subprocess.STDOUT,
             env=env,
         )
+
+    def start_web_helper(self):
+        """The isolated helper as an unprivileged account (it refuses root)."""
+        web = os.path.join(self.workdir, "web")
+        for sub in ("", "frames", "data", "cache", "home"):
+            os.makedirs(os.path.join(web, sub), exist_ok=True)
+            os.chown(os.path.join(web, sub), WEB_UID, WEB_UID)
+        os.chmod(web, 0o755)
+        log = open(os.path.join(self.workdir, "web-helper.log"), "a", encoding="utf-8")
+        self.logs.append(log.name)
+        env = dict(os.environ, HOME=os.path.join(web, "home"))
+        env.setdefault("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1")
+        self.web_helper = subprocess.Popen(
+            ["setpriv", f"--reuid={WEB_UID}", f"--regid={WEB_UID}", "--clear-groups", self.args.web_helper,
+             f"--control-socket={web}/control.sock", f"--frames-dir={web}/frames", f"--data-dir={web}/data",
+             f"--cache-dir={web}/cache", f"--client-uid={os.getuid()}"],
+            stdout=log, stderr=subprocess.STDOUT, env=env)
+        wait_for("web helper socket", lambda: os.path.exists(os.path.join(web, "control.sock")), timeout=30)
 
     def ctl(self, *command):
         output = subprocess.run(
@@ -119,7 +148,7 @@ class Stack:
         return self.ctl("status")
 
     def stop(self):
-        for process in (self.renderer, self.daemon):
+        for process in (self.renderer, getattr(self, "web_helper", None), self.daemon):
             if process and process.poll() is None:
                 process.terminate()
                 try:
@@ -294,6 +323,142 @@ def scenario_selftest(args):
         print("selftest: without a renderer it fails with renderer_not_ready")
 
 
+WEB_UID = 4242
+WEB_PAGES = {
+    "/page.html": b"<!doctype html><body style='margin:0;background:#1a4'><h1 id=n>0</h1>"
+                  b"<script>let n=0;setInterval(()=>{document.getElementById('n').textContent=++n},200)</script>",
+    "/zone.html": b"<!doctype html><body style='margin:0;background:#a41'><h1>zone</h1></body>",
+}
+
+
+class WebHandler(http.server.BaseHTTPRequestHandler):
+    def log_message(self, *args):
+        pass
+
+    def do_GET(self):  # noqa: N802
+        body = WEB_PAGES.get(self.path)
+        self.send_response(200 if body else 404)
+        self.send_header("Content-Type", "text/html")
+        self.send_header("Content-Length", str(len(body or b"")))
+        self.end_headers()
+        self.wfile.write(body or b"")
+
+
+def page_content(path):
+    return {"kind": "page", "url": f"http://127.0.0.1{path}", "allowedHosts": ["127.0.0.1"],
+            "javascriptEnabled": True, "domStorageEnabled": True, "cookiePolicy": "disabled", "userAgent": "",
+            "zoomPercent": 100, "scrollX": 0, "scrollY": 0, "backgroundColor": "#000000"}
+
+
+def remote_spec(path):
+    return {"content": page_content(path), "presentation": {
+        "loadTimeoutSeconds": 20, "reloadIntervalSeconds": None, "lifecycle": "destroy_on_hide",
+        "warmSeconds": 0, "onlineOnly": False, "failureBehavior": "placeholder", "fallbackSrc": None,
+        "playUntilEnd": False}}
+
+
+def build_website_fixture(workdir):
+    fixture_dir = os.path.join(workdir, "fixture")
+    os.makedirs(os.path.join(fixture_dir, "media"))
+    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc=size=1280x720:rate=1",
+                    "-frames:v", "1", os.path.join(fixture_dir, "media", "still.png")], check=True)
+    item = lambda **kw: {"src": "", "durationMs": 6000, "fitMode": "contain", "audioEnabled": False,  # noqa: E731
+                         "volume": 1.0, "videoStartOffsetMs": None, "videoEndOffsetMs": None, **kw}
+    zone = lambda zone_id, x, width, **kw: {"id": zone_id, "x": x, "y": 0, "width": width, "height": 1080,  # noqa: E731
+                                            "layer": 0, "opacity": 1, **kw}
+    presentation = {
+        "state": "playing", "takeover": False, "generation": 1, "synchronized": False,
+        "requires": ["remote-web-v1", "website"],
+        "items": [
+            item(id="item-website", kind="website", src="http://127.0.0.1/page.html",
+                 website={"loadTimeoutSeconds": 20, "refreshIntervalSeconds": None, "zoomPercent": 100,
+                          "javascriptEnabled": True, "domStorageEnabled": True, "cookiePolicy": "first_party",
+                          "reloadPolicy": "on_each_activation", "customUserAgent": "", "scrollX": 0, "scrollY": 0,
+                          "backgroundColor": "#000000", "failureBehavior": "placeholder", "fallbackSrc": None,
+                          "allowedHosts": ["127.0.0.1"]}),
+            item(id="item-layout", kind="layout", layout={
+                "canvasWidth": 1920, "canvasHeight": 1080, "background": "#000000",
+                "zones": [zone("zone-a", 0, 800, remoteWeb=remote_spec("/page.html")),
+                          zone("zone-b", 800, 640, remoteWeb=remote_spec("/zone.html")),
+                          zone("zone-c", 1440, 480, render={"t": "text", "value": "native"})]}),
+            item(id="item-image", kind="image", src="media:still"),
+        ],
+    }
+    path = os.path.join(fixture_dir, "playlist.json")
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump({"media": [{"id": "still", "file": "media/still.png", "mimeType": "image/png"}],
+                   "presentation": presentation}, handle)
+    return path
+
+
+def accepted_evidence(stack, since=0):
+    """(kind, item, zone) of every meaningful evidence the daemon accepted."""
+    seen = []
+    with open(os.path.join(stack.workdir, "tilecastd.log"), encoding="utf-8", errors="replace") as handle:
+        for index, line in enumerate(handle):
+            if index < since or "evidence_accepted" not in line:
+                continue
+            fields = dict(part.split("=", 1) for part in line.split() if "=" in part)
+            seen.append((fields.get("kind", "").strip('"'), fields.get("item", "").strip('"'),
+                         fields.get("zone", "").strip('"')))
+    return seen
+
+
+def log_lines(stack):
+    with open(os.path.join(stack.workdir, "tilecastd.log"), encoding="utf-8", errors="replace") as handle:
+        return sum(1 for _ in handle)
+
+
+def scenario_website(args):
+    if not args.web_helper:
+        raise ValueError("website scenario requires --web-helper")
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 80), WebHandler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    with tempfile.TemporaryDirectory(dir="/tmp", prefix="tcw") as workdir:
+        os.chmod(workdir, 0o755)
+        fixture = build_website_fixture(workdir)
+        stack = Stack(args, workdir, fixture=fixture)
+        try:
+            stack.start_daemon()
+            stack.start_web_helper()
+            stack.start_renderer()
+            wait_for("remote web advertised", lambda: [c for c in stack.ctl("capabilities")["capabilities"]
+                     if c["id"] == "renderer.remote_web" and c["state"] in ("available", "degraded")], timeout=90)
+            wait_for("a fullscreen Website loaded", lambda: [e for e in accepted_evidence(stack)
+                     if e[0] == "website_loaded" and e[1] == "item-website"], timeout=90, interval=1)
+            zones = wait_for("both remote Layout zones rendered", lambda: (lambda z: z if {"zone-a", "zone-b"} <= z
+                             else None)({e[2] for e in accepted_evidence(stack) if e[0] == "layout_zone_rendered"}),
+                             timeout=90, interval=1)
+            print(f"website: fullscreen page and Layout zones {sorted(zones)} rendered through the helper")
+            capabilities = stack.ctl("capabilities")
+            remote = [c for c in capabilities["capabilities"] if c["id"] == "renderer.remote_web"]
+            assert remote and remote[0]["state"] in ("available", "degraded"), remote
+            print(f"website: renderer.remote_web is {remote[0]['state']} ({remote[0].get('reasonCode')})")
+
+            # The helper ends: web surfaces fail over, other content plays on,
+            # and the trusted renderer is never restarted or reloaded.
+            renderer_pid = stack.renderer.pid
+            mark = log_lines(stack)
+            stack.web_helper.send_signal(signal.SIGKILL)
+            stack.web_helper.wait(timeout=10)
+            wait_for("an image shown while the helper is down", lambda: [e for e in accepted_evidence(stack, mark)
+                     if e[0] == "image_shown"], timeout=60, interval=1)
+            assert stack.renderer.poll() is None and stack.renderer.pid == renderer_pid, "renderer untouched"
+            with open(os.path.join(workdir, "renderer.log"), encoding="utf-8", errors="replace") as handle:
+                assert "web process terminated" not in handle.read(), "the trusted runtime never reloaded"
+            stack.start_web_helper()
+            mark = log_lines(stack)
+            wait_for("a Website loads again after the helper restarted", lambda: [e for e in accepted_evidence(
+                stack, mark) if e[0] == "website_loaded"], timeout=120, interval=1)
+            print("website: helper crash failed only the web surfaces; the next Website recovered")
+        except Exception:
+            stack.dump_logs()
+            raise
+        finally:
+            stack.stop()
+            server.shutdown()
+
+
 def fixture_evidence(stack):
     # The daemon logs each meaningful evidence kind it accepts once per item.
     seen = set()
@@ -314,12 +479,14 @@ def main():
     parser.add_argument("--runtime-dir", required=True)
     parser.add_argument("--gst-plugin-dir", required=True)
     parser.add_argument("--scenario", default="all")
+    parser.add_argument("--web-helper", default="")
     args = parser.parse_args()
     scenarios = {
         "status": scenario_status,
         "reconnect": scenario_reconnect,
         "fixture": scenario_fixture,
         "selftest": scenario_selftest,
+        "website": scenario_website,
     }
     selected = scenarios.values() if args.scenario == "all" else [scenarios[args.scenario]]
     for scenario in selected:

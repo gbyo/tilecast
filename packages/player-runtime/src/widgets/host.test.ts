@@ -69,6 +69,8 @@ function environment() {
     websiteFailed: () => undefined,
     websiteRecovered: () => undefined,
     fallbackShown: () => undefined,
+    zoneFailed: (zoneId, message) =>
+      log.push(`zoneFailed:${zoneId}:${message}`),
   };
   const env: SurfaceEnvironment = { clock, sink, animationScale: 0, widgets };
   return { clock, widgets, env, log };

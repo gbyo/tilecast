@@ -19,6 +19,7 @@ This directory has the system integration files for Tilecast Edge. `tilecast-edg
 | `systemd/tilecast-edge-import.service`          | `/etc/systemd/system/`                   | never (a migration task)                                                                         |
 | `systemd/tilecast-edge-update.socket`           | `/etc/systemd/system/`                   | by the migrator, at the cutover, with Edge                                                       |
 | `systemd/tilecast-edge-update.service`          | `/etc/systemd/system/`                   | never (started by its socket)                                                                    |
+| `systemd/tilecast-web-renderer.service`         | `/etc/systemd/system/`                   | by the migrator, at the cutover, with Edge                                                       |
 | `sysusers.d/tilecast-edge.conf`                 | `/usr/lib/sysusers.d/tilecast-edge.conf` |                                                                                                  |
 | `tmpfiles.d/tilecast-edge.conf`                 | `/usr/lib/tmpfiles.d/tilecast-edge.conf` |                                                                                                  |
 | `udev/70-tilecast-display.rules`                | `/usr/lib/udev/rules.d/`                 |                                                                                                  |
@@ -40,6 +41,7 @@ While an update is provisional, the helper also writes `tilecast-edge-update-gua
 
 - `tilecastd` runs as the fixed `tilecast` account (`sysusers.d`). On a machine migrated from the Electron player the account can already exist as the kiosk login; `systemd-sysusers` leaves an existing account unchanged.
 - The renderer runs as the same account in its own unit, which makes all of `/var/lib/tilecast-edge` inaccessible to it. It reads media only through daemon-granted capabilities on `/run/tilecast-edge/media.sock`.
+- The remote web helper (M11) runs remote pages as the dedicated `tilecast-web` account in `tilecast-web-renderer.service` (`sysusers.d`, `tmpfiles.d`). Only the trusted renderer joins the `tilecast-web` group, so only it can reach the helper's control and frame sockets in `/run/tilecast-web`; the helper's website profiles stay `0700 tilecast-web`. Updates stop the helper before the renderer and daemon and start the daemon, then the helper, then the renderer. The design is in [`docs/tilecast-edge-remote-web-threat-review.md`](../../../docs/tilecast-edge-remote-web-threat-review.md).
 - `tilecast-edge-migrate` runs as root only when an operator starts it or at boot to finish an interrupted attempt. It has no listener, sends nothing to the network and never reads the device credential.
 - `tilecast-edge-update` runs as root only when its socket starts it for a request from `tilecastd`, or as the update guard. It refuses every peer that is not in `tilecast-edge.service`, has no network, and cannot see the device credential's directory. The migration tasks (self-test, output probe, compatibility check, import) run as `tilecast` in their own units.
 

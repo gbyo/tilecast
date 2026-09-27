@@ -29,7 +29,6 @@ pub const SYNC_TIMEOUT: Duration = Duration::from_secs(45);
 /// Why a known command type is not available on Edge yet.
 pub fn unsupported_reason(command_type: &str) -> Option<&'static str> {
     Some(match command_type {
-        "clear_website_data" => "Website playback on Tilecast Edge arrives with website isolation (M11).",
         // Power Assist is the Android player's device sleep; the reference
         // Linux player answers it the same way. Linux players control the
         // display through Display Control.
@@ -242,6 +241,9 @@ impl Handlers for DaemonHandlers {
             }
             "identify_screen" => self.identify(command).await,
             "clear_media_cache" => self.clear_media_cache().await,
+            // The isolated remote web helper's data, through the renderer;
+            // tilecastd never opens it (crate::remote_web).
+            "clear_website_data" => crate::remote_web::clear_website_data(&self.context).await,
             "disable_playback" => match self.set_playback_disabled(true).await {
                 Ok(()) => CommandResult::ok("playback_disabled", ""),
                 Err(failure) => failure,

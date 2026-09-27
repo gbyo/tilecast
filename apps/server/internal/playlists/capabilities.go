@@ -110,7 +110,25 @@ func (s *Service) validatePresentationForScreens(ctx context.Context, q presenta
 // mirrors manifest generation: playlist items, nested playlists, Layout widget,
 // data_source, and playlist dependencies, and every Data Source referenced by a
 // reachable Widget's configuration.
+// orgPrivateHTTP reports website.private_http_enabled for the singleton
+// organization, false when unreadable. It mirrors
+// settings.Service.Organization without depending on the settings package:
+// the merged default is false, so an absent key fails closed the same way.
+func (s *Service) orgPrivateHTTP(ctx context.Context) bool {
+	var values []byte
+	if err := s.db.QueryRow(ctx, `SELECT settings FROM organization_runtime_settings`).Scan(&values); err != nil {
+		return false
+	}
+	var v map[string]any
+	if err := json.Unmarshal(values, &v); err != nil {
+		return false
+	}
+	enabled, _ := v["website.private_http_enabled"].(bool)
+	return enabled
+}
+
 func (s *Service) presentationRequirements(ctx context.Context, q presentationQuery, playlistID, layoutID *uuid.UUID) ([]presentationWidgetRequirement, string, error) {
+	allowPrivateHTTP := s.orgPrivateHTTP(ctx)
 	rows, err := q.Query(ctx, `
 		WITH RECURSIVE refs(kind,id) AS (
 			SELECT 'playlist', $1::uuid WHERE $1::uuid IS NOT NULL
@@ -164,7 +182,7 @@ func (s *Service) presentationRequirements(ctx context.Context, q presentationQu
 			return nil, "", err
 		}
 		sourceIDs = append(sourceIDs, s.widgetDataSourceIDs(requirement.Provider, requirement.Configuration)...)
-		requirement.Presentation, err = s.compileWidgetPresentationForPreset(requirement.Provider, requirement.PresetID, requirement.Configuration)
+		requirement.Presentation, err = s.compileWidgetPresentationForPreset(requirement.Provider, requirement.PresetID, requirement.Configuration, allowPrivateHTTP)
 		if err != nil {
 			return nil, "", fmt.Errorf("compile Widget %q: %w", requirement.Name, err)
 		}

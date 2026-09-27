@@ -1,4 +1,5 @@
 #include "host.h"
+#include "remote-web.h"
 #include "validate.h"
 
 #include <execinfo.h>
@@ -91,6 +92,8 @@ main (int argc, char **argv)
   g_autofree char *size = NULL;
   g_autofree char *media_socket = NULL;
   g_autofree char *gst_plugin_dir = NULL;
+  g_autofree char *web_control_socket = NULL;
+  g_autofree char *web_frames_dir = NULL;
   gboolean console = FALSE;
   gboolean probe_drm = FALSE;
   gboolean crash_backtrace = FALSE;
@@ -102,6 +105,10 @@ main (int argc, char **argv)
     { "media-socket", 0, 0, G_OPTION_ARG_FILENAME, &media_socket, "tilecastd media capability socket", "PATH" },
     { "gst-plugin-dir", 0, 0, G_OPTION_ARG_FILENAME, &gst_plugin_dir, "Directory holding the tcmedia GStreamer plugin", "PATH" },
     { "headless-size", 0, 0, G_OPTION_ARG_STRING, &size, "Headless view size (default 1920x1080)", "WxH" },
+    { "web-control-socket", 0, 0, G_OPTION_ARG_FILENAME, &web_control_socket,
+      "Remote web helper control socket (default /run/tilecast-web/control.sock)", "PATH" },
+    { "web-frames-dir", 0, 0, G_OPTION_ARG_FILENAME, &web_frames_dir,
+      "Remote web helper frame sockets (default /run/tilecast-web/frames)", "PATH" },
     { "console", 0, 0, G_OPTION_ARG_NONE, &console, "Write page console messages to stderr (development)", NULL },
     { "exit-after", 0, 0, G_OPTION_ARG_INT, &exit_after, "Exit after N seconds (CI)", "N" },
     { "probe-drm", 0, 0, G_OPTION_ARG_NONE, &probe_drm, "Print the DRM/KMS outputs as JSON and exit (read-only)", NULL },
@@ -141,8 +148,11 @@ main (int argc, char **argv)
   host.runtime_dir = g_strdup (runtime_dir ? runtime_dir : "/opt/tilecast-edge/current/share/tilecast/renderer-web");
   host.media_socket = g_strdup (media_socket ? media_socket : "/run/tilecast-edge/media.sock");
   host.gst_plugin_dir = g_strdup (gst_plugin_dir ? gst_plugin_dir : "/opt/tilecast-edge/current/lib/gstreamer-1.0");
+  host.web_control_socket = g_strdup (web_control_socket ? web_control_socket : "/run/tilecast-web/control.sock");
+  host.web_frames_dir = g_strdup (web_frames_dir ? web_frames_dir : "/run/tilecast-web/frames");
   if (!tc_is_clean_absolute_path (host.socket_path) || !tc_is_clean_absolute_path (host.runtime_dir)
-      || !tc_is_clean_absolute_path (host.media_socket) || !tc_is_clean_absolute_path (host.gst_plugin_dir)) {
+      || !tc_is_clean_absolute_path (host.media_socket) || !tc_is_clean_absolute_path (host.gst_plugin_dir)
+      || !tc_is_clean_absolute_path (host.web_control_socket) || !tc_is_clean_absolute_path (host.web_frames_dir)) {
     g_printerr ("tilecast-renderer-wpe: path options must be clean absolute paths\n");
     return 2;
   }
@@ -158,12 +168,15 @@ main (int argc, char **argv)
 
   /* Media playback. Web processes inherit this environment:
    *   - WebKit's GStreamer backend loads media only from allowlisted URI
-   *     protocols; the renderer plays CAS objects only, so the allowlist is
-   *     exactly tcmedia;
+   *     protocols: tcmedia (CAS objects) and tcweb (remote web streams);
    *   - tcmediasrc (gst-tcmedia.c) serves opaque tcmedia URLs through the
-   *     daemon's bounded media socket. */
-  g_setenv ("WEBKIT_GST_ALLOWED_URI_PROTOCOLS", "tcmedia", TRUE);
+   *     daemon's bounded media socket;
+   *   - tcwebsrc (gst-tcmedia.c) receives a remote web surface's frames
+   *     from the helper's frame socket named by an opaque capability. */
+  g_setenv ("WEBKIT_GST_ALLOWED_URI_PROTOCOLS", "tcmedia,tcweb", TRUE);
   g_setenv ("TILECAST_MEDIA_SOCKET", host.media_socket, TRUE);
+  /* tcwebsrc (gst-tcmedia.c) resolves tcweb://cap/<capability> here. */
+  g_setenv ("TILECAST_WEB_FRAMES_DIR", host.web_frames_dir, TRUE);
   const char *existing = g_getenv ("GST_PLUGIN_PATH");
   g_autofree char *plugin_path =
     existing && *existing ? g_strjoin (":", host.gst_plugin_dir, existing, NULL) : g_strdup (host.gst_plugin_dir);
@@ -181,6 +194,7 @@ main (int argc, char **argv)
   }
 
   tc_ipc_start (&host);
+  tc_remote_web_start (&host);
   host.health_source = g_timeout_add_seconds (60, on_health, &host);
   g_unix_signal_add (SIGTERM, on_terminate, &host);
   g_unix_signal_add (SIGINT, on_terminate, &host);
@@ -188,6 +202,7 @@ main (int argc, char **argv)
     g_timeout_add_seconds (host.exit_after_seconds, on_exit_timer, &host);
 
   g_main_loop_run (host.loop);
+  tc_remote_web_stop (&host);
 
   g_clear_object (&host.view);
   g_clear_object (&host.network_session);

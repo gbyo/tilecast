@@ -21,6 +21,7 @@ import {
 import { PlaybackController } from "./engine/controller";
 import { runtimeDiscovery } from "./plugins/discovery";
 import { RuntimeSurfaceHost } from "./plugins/host";
+import { RemoteWebPort } from "./remote-web/port";
 import { installProbe } from "./probe";
 import { PlayerRoot } from "./views/player-root";
 import { RuntimeWidgetHost, widgetDiscovery } from "./widgets/host";
@@ -102,12 +103,18 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
       console.warn(`tilecast runtime: plugin ${pluginId}: ${message}`),
   });
 
+  const remoteWeb =
+    capabilities.remoteWeb === "host-view" && host.remoteWeb
+      ? new RemoteWebPort(host.remoteWeb, clock)
+      : null;
+
   view.bind({
     controller,
     surfaces,
     clock,
     capabilities,
     animationScale,
+    remoteWeb,
     widgets,
     setup: {
       available: capabilities.setup && !!host.setup,
@@ -150,6 +157,9 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
         break;
       case "discovered-server":
         view.addServer(message.server);
+        break;
+      case "remote-web":
+        remoteWeb?.receive(message.event);
         break;
     }
   };

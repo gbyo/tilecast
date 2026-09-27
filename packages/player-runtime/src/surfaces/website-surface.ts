@@ -1,15 +1,23 @@
 /**
- * A remote website in an Electron `<webview>`: an isolated guest in its own
- * partitioned, sandboxed session (the host enforces the session policy when
- * the guest attaches). The page never runs in the trusted runtime document.
+ * The legacy Electron adapter for remote web: an Electron `<webview>`, an
+ * isolated guest in its own partitioned, sandboxed session (the host enforces
+ * the session policy when the guest attaches). The page never runs in the
+ * trusted runtime document.
  *
- * Used only when the host advertises `remoteWeb: "electron-webview"`. Hosts
- * without an isolated mechanism advertise no website capability and never
- * receive website items.
+ * Used only when the host advertises `remoteWeb: "electron-webview"`. It
+ * reads the same normalized remote web spec as HostRemoteWebSurface, the
+ * permanent surface, so Electron keeps working while it migrates to a
+ * host-owned view behind the `host-view` contract.
  */
-import type { RuntimeItem, RuntimeWebsiteConfig } from "../host/contract";
+import type { RemoteWebPresentationV1, RuntimeItem } from "../host/contract";
 import { TimerGroup } from "../clock/scheduler";
+import {
+  normalizeFailureBehavior,
+  remoteWebSpecOf,
+  youtubeEmbedUrl,
+} from "../remote-web/spec";
 import type { MediaSurface, SurfaceEnvironment } from "./surface";
+import { showFallbackImage, showWebsitePlaceholder } from "./website-failure";
 
 interface WebviewElement extends HTMLElement {
   setZoomFactor?(factor: number): void;
@@ -20,7 +28,10 @@ interface WebviewElement extends HTMLElement {
 export class WebviewWebsiteSurface implements MediaSurface {
   readonly element: HTMLDivElement;
   private readonly webview: WebviewElement;
-  private readonly config: RuntimeWebsiteConfig;
+  private readonly presentation: RemoteWebPresentationV1;
+  private readonly src: string;
+  private readonly zoomPercent: number;
+  private readonly scroll: [number, number];
   private readonly timers: TimerGroup;
   /** The load deadline, cancelled separately from the refresh interval. */
   private readonly loadTimer: TimerGroup;
@@ -28,20 +39,28 @@ export class WebviewWebsiteSurface implements MediaSurface {
   private failed = false;
   private disposed = false;
   private resolveReady: (() => void) | null = null;
+  private rejectReady: ((reason: Error) => void) | null = null;
 
   constructor(
     private readonly item: RuntimeItem,
     private readonly env: SurfaceEnvironment,
     mount: number,
   ) {
-    this.config = item.website!;
+    const spec = remoteWebSpecOf(item);
+    if (!spec) throw new Error("website configuration missing");
+    const content = spec.content;
+    const page = content.kind === "page" ? content : null;
+    this.presentation = spec.presentation;
+    this.src = page ? page.url : youtubeEmbedUrl(content as never);
+    this.zoomPercent = page?.zoomPercent ?? 100;
+    this.scroll = [page?.scrollX ?? 0, page?.scrollY ?? 0];
     this.timers = new TimerGroup(env.clock);
     this.loadTimer = new TimerGroup(env.clock);
     const container = document.createElement("div");
     container.style.width = "100%";
     container.style.height = "100%";
     const webview = document.createElement("webview") as WebviewElement;
-    const policy = this.config.cookiePolicy;
+    const policy = page?.cookiePolicy ?? "first_party";
     const partition =
       policy === "disabled"
         ? `tilecast-websites-disabled-${item.id}-${mount}`
@@ -53,25 +72,27 @@ export class WebviewWebsiteSurface implements MediaSurface {
     webview.setAttribute(
       "webpreferences",
       [
-        `javascript=${this.config.javascriptEnabled ? "yes" : "no"}`,
+        `javascript=${page?.javascriptEnabled === false ? "no" : "yes"}`,
         `webSecurity=yes`,
-        `domStorage=${this.config.domStorageEnabled ? "yes" : "no"}`,
+        `domStorage=${page?.domStorageEnabled === false ? "no" : "yes"}`,
       ].join(","),
     );
-    if (this.config.customUserAgent.trim()) {
-      webview.setAttribute("useragent", this.config.customUserAgent.trim());
+    if (page?.userAgent) {
+      webview.setAttribute("useragent", page.userAgent);
     }
-    webview.style.backgroundColor = this.config.backgroundColor || "#000";
+    webview.style.backgroundColor = page?.backgroundColor || "#000";
     container.appendChild(webview);
     this.webview = webview;
     this.element = container;
   }
 
   prepare(): Promise<void> {
-    const config = this.config;
     const webview = this.webview;
-    const ready = new Promise<void>((resolve) => (this.resolveReady = resolve));
-    this.loadTimer.after(Math.max(config.loadTimeoutSeconds, 5) * 1_000, () =>
+    const ready = new Promise<void>((resolve, reject) => {
+      this.resolveReady = resolve;
+      this.rejectReady = reject;
+    });
+    this.loadTimer.after(this.presentation.loadTimeoutSeconds * 1_000, () =>
       this.fail("load timeout"),
     );
     this.scheduleRefresh();
@@ -80,21 +101,22 @@ export class WebviewWebsiteSurface implements MediaSurface {
       if (!this.loaded) {
         this.loaded = true;
         this.loadTimer.cancelAll();
-        if (config.zoomPercent && config.zoomPercent !== 100) {
+        if (this.zoomPercent !== 100) {
           try {
-            webview.setZoomFactor?.(config.zoomPercent / 100);
+            webview.setZoomFactor?.(this.zoomPercent / 100);
           } catch {
             /* zoom is cosmetic */
           }
         }
-        if (config.scrollX || config.scrollY) {
+        const [scrollX, scrollY] = this.scroll;
+        if (scrollX || scrollY) {
           webview
             .executeJavaScript?.(
-              `window.scrollTo(${Math.trunc(config.scrollX)},${Math.trunc(config.scrollY)})`,
+              `window.scrollTo(${Math.trunc(scrollX)},${Math.trunc(scrollY)})`,
             )
             .catch(() => undefined);
         }
-        this.resolveReady?.();
+        this.settleReady(null);
       } else {
         this.env.sink.websiteRecovered();
       }
@@ -106,7 +128,7 @@ export class WebviewWebsiteSurface implements MediaSurface {
       }
     });
     webview.addEventListener("crashed", () => this.fail("renderer crashed"));
-    webview.setAttribute("src", this.item.src);
+    webview.setAttribute("src", this.src);
     return ready;
   }
 
@@ -128,37 +150,61 @@ export class WebviewWebsiteSurface implements MediaSurface {
   }
 
   private scheduleRefresh(): void {
-    const config = this.config;
-    if (config.reloadPolicy !== "interval" || !config.refreshIntervalSeconds) {
+    const interval = this.presentation.reloadIntervalSeconds;
+    if (!interval) {
       return;
     }
-    this.timers.every(
-      Math.max(config.refreshIntervalSeconds, 30) * 1_000,
-      () => {
-        try {
-          this.webview.reload?.();
-        } catch {
-          /* reload is best-effort */
-        }
-      },
-    );
+    this.timers.every(interval * 1_000, () => {
+      try {
+        this.webview.reload?.();
+      } catch {
+        /* reload is best-effort */
+      }
+    });
+  }
+
+  /** Settle a still-pending prepare: content shows, or it never can. */
+  private settleReady(error: Error | null): void {
+    const resolve = this.resolveReady;
+    const reject = this.rejectReady;
+    this.resolveReady = null;
+    this.rejectReady = null;
+    if (!resolve || !reject) return;
+    if (error) reject(error);
+    else resolve();
   }
 
   private fail(reason: string): void {
     if (this.failed || this.disposed) return;
     this.failed = true;
     this.loadTimer.cancelAll();
-    const config = this.config;
-    const fallback = config.failureBehavior !== "skip" && !!config.fallbackSrc;
-    this.env.sink.websiteFailed(reason, fallback);
-    if (!fallback) return;
-    const image = document.createElement("img");
-    image.alt = "";
-    image.style.objectFit = "contain";
-    image.onload = () => {
-      if (!this.disposed) this.env.sink.fallbackShown();
-    };
-    image.src = config.fallbackSrc!;
-    this.element.replaceChildren(image);
+    const config = this.presentation;
+    const behavior = normalizeFailureBehavior(config.failureBehavior);
+    if (behavior === "last_success" && this.loaded) {
+      // The loaded page stays composed, as on Android: report the failure
+      // without finishing the item.
+      this.env.sink.websiteFailed(reason, true);
+      this.settleReady(null);
+      return;
+    }
+    if (behavior === "fallback_image" && config.fallbackSrc) {
+      const image = showFallbackImage(this.element, config.fallbackSrc);
+      this.env.sink.websiteFailed(reason, true);
+      image.onload = () => {
+        if (this.disposed) return;
+        this.env.sink.fallbackShown();
+        this.settleReady(null);
+      };
+      image.onerror = () => {
+        if (this.disposed) return;
+        this.settleReady(new Error("fallback_unavailable"));
+      };
+      return;
+    }
+    if (behavior === "placeholder" || behavior === "last_success") {
+      showWebsitePlaceholder(this.element);
+    }
+    this.env.sink.websiteFailed(reason, false);
+    this.settleReady(new Error(reason));
   }
 }

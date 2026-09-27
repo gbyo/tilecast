@@ -28,6 +28,7 @@ import {
   type CompletionSource,
   type PlaybackAuthority,
 } from "./playback-policy";
+import { remoteWebSpecOf } from "../remote-web/spec";
 import {
   layoutPayload,
   widgetComponent,
@@ -83,7 +84,8 @@ export type SurfaceEvent =
   | OnMount<"SURFACE_EVIDENCE", { kind: EvidenceKind; zoneId?: string }>
   | OnMount<"WEBSITE_FAILED", { reason: string; fallback: boolean }>
   | OnMount<"WEBSITE_RECOVERED">
-  | OnMount<"FALLBACK_SHOWN">;
+  | OnMount<"FALLBACK_SHOWN">
+  | OnMount<"ZONE_FAILED", { zoneId: string; message: string }>;
 
 export type PresentationEvent =
   | SurfaceEvent
@@ -111,7 +113,10 @@ export function missingPayloadReason(item: RuntimeItem): string | null {
   if (item.kind === "layout" && !layoutPayload(item)) {
     return "layout payload missing";
   }
-  if ((item.kind === "website" || item.kind === "youtube") && !item.website) {
+  if (
+    (item.kind === "website" || item.kind === "youtube") &&
+    !remoteWebSpecOf(item)
+  ) {
     return "website configuration missing";
   }
   return null;
@@ -214,7 +219,12 @@ export const presentationMachine = setup({
         // A fixed duration (rare for video) also bounds the item.
         due(item.durationMs);
       } else if (item.kind === "website" || item.kind === "youtube") {
-        due(item.durationMs ?? WEBSITE_DEFAULT_MS);
+        // YouTube "play until the video ends" completes on the player's own
+        // end signal (SURFACE_ENDED), not on a timer.
+        const untilEnd =
+          item.durationMs == null &&
+          remoteWebSpecOf(item)?.presentation.playUntilEnd === true;
+        if (!untilEnd) due(item.durationMs ?? WEBSITE_DEFAULT_MS);
       }
     },
     nextIndex: assign(({ context }) => ({
@@ -350,6 +360,13 @@ export const presentationMachine = setup({
           ? 0
           : context.consecutiveEmptySkips,
     })),
+    reportZoneFailure: ({ context, event }) => {
+      if (event.type !== "ZONE_FAILED") return;
+      context.reporter.playbackError(
+        currentItem(context)?.id ?? null,
+        `zone ${event.zoneId}: ${event.message}`,
+      );
+    },
     reportSurfaceEvidence: ({ context, event }) => {
       if (event.type !== "SURFACE_EVIDENCE") return;
       context.reporter.evidence(
@@ -412,6 +429,7 @@ export const presentationMachine = setup({
     // it back within milliseconds.
     SKIP: { guard: "canSkip", target: ".advancing", reenter: true },
     SURFACE_EVIDENCE: { guard: "isCurrent", actions: "reportSurfaceEvidence" },
+    ZONE_FAILED: { guard: "isCurrent", actions: "reportZoneFailure" },
   },
   states: {
     start: {

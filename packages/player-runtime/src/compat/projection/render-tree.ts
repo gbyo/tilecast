@@ -13,6 +13,8 @@
  */
 import type { RuntimeWidgetComponentPayload } from "../../host/contract";
 
+import type { RuntimeRemoteWebSpecV1 } from "../../host/contract";
+
 export interface BoxStyle {
   /** Absolute placement (layout zones); omitted for flow children. */
   x?: number;
@@ -141,6 +143,8 @@ export interface LayoutZone {
   component?: RuntimeWidgetComponentPayload; // first-class Widget
   image?: { src: string; fit: string }; // asset placement
   playlistItems?: LayoutPlaylistItem[]; // playlistZone: rotates locally
+  /** A web or YouTube Widget placement, shown by the host's remote web surface. */
+  remoteWeb?: RuntimeRemoteWebSpecV1;
 }
 
 export interface LayoutPlaylistItem {

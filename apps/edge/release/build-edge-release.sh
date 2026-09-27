@@ -39,7 +39,14 @@ cmake -S "$edge/renderer-wpe" -B /cache/renderer -G Ninja -DCMAKE_BUILD_TYPE=Rel
 cmake --build /cache/renderer
 ctest --test-dir /cache/renderer --output-on-failure
 
-# 2b. The session bridge (system GStreamer and WirePlumber).
+# 2b. The isolated remote web helper (M11): the same private WPE WebKit (see
+# PKG_CONFIG_PATH above), its own protocol/policy/frame tests, then the
+# helper binary for the release.
+cmake -S "$edge/web-renderer-wpe" -B /cache/web-renderer -G Ninja -DCMAKE_BUILD_TYPE=Release >/dev/null
+cmake --build /cache/web-renderer
+ctest --test-dir /cache/web-renderer --output-on-failure
+
+# 2c. The session bridge (system GStreamer and WirePlumber).
 cmake -S "$edge/session-bridge" -B /cache/bridge -G Ninja -DCMAKE_BUILD_TYPE=Release >/dev/null
 cmake --build /cache/bridge
 ctest --test-dir /cache/bridge --output-on-failure
@@ -60,6 +67,7 @@ fi
 stage() {
   python3 "$release/stage-release.py" --out /out/tree --version "$version" \
     --bin-dir "$CARGO_TARGET_DIR/release" --renderer /cache/renderer/tilecast-renderer-wpe \
+    --web-renderer /cache/web-renderer/tilecast-web-renderer-wpe \
     --session-bridge /cache/bridge/tilecast-session-bridge \
     --gst-plugin-dir /cache/renderer/gstreamer-1.0 --runtime-dir /cache/runtime --sbom "$1" \
     --wpe-version "$wpe_version" --base-distribution "debian-13-snapshot-$snapshot" --wpe-lib-dir "$wpe_prefix"

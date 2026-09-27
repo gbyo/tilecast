@@ -29,11 +29,11 @@ The Edge column shows what the Edge software does today. Every Edge feature stil
 | Player self-update                                         | Supported, no automatic rollback          | <Badge text="Implemented" variant="success" /> With automatic rollback. Needs testing on real hardware                    |
 | Display Control (HDMI-CEC and DDC/CI)                      | Supported through `cec-ctl` and `ddcutil` | <Badge text="Hardware dependent" variant="caution" /> Talks to Linux CEC and DDC devices directly                         |
 | Presentation Network                                       | Supported when provisioned                | <Badge text="Hardware dependent" variant="caution" /> Needs a supported Wi-Fi adapter and NetworkManager                  |
-| Remote Websites and YouTube                                | Supported by Electron webviews            | <Badge text="Not available" variant="note" /> Waits for the website isolation work                                        |
+| Remote Websites and YouTube                                | Supported by Electron webviews            | <Badge text="Implemented" variant="success" /> Isolated helper; needs hardware testing                                    |
 | AirPlay receiver                                           | Supported when provisioned                | <Badge text="Not available" variant="note" /> Not part of Edge 1                                                          |
 | Android Managed Kiosk, Power Assist, Accessibility Control | Android only                              | Not applicable                                                                                                            |
 
-When a newer presentation needs something Edge can't show, such as a Website, Edge keeps playing the last presentation it could show and tells Studio why. See [content compatibility](../compatibility/).
+When a newer presentation needs something Edge can't show, Edge keeps playing the last presentation it could show and tells Studio why. See [content compatibility](../compatibility/).
 
 `tilecastctl capabilities` on the Edge computer lists each hardware feature with its current state and a reason, such as a missing adapter or a display that doesn't respond. The [engineering capability matrix](https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-capabilities.md) has the full list of states, reasons, and tests.
 

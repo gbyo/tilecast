@@ -1,0 +1,5 @@
+{
+  "type": "created",
+  "surfaceId": "s-1",
+  "capability": "../../run/tilecast-edge/edge.sock"
+}

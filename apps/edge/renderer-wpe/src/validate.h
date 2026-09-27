@@ -16,6 +16,9 @@ gboolean tc_is_sha256_hex (const char *value);
 /* Exact opaque tcmedia URI form accepted from a daemon activation. */
 gboolean tc_is_media_capability_uri (const char *value);
 
+/* Exact opaque tcweb://cap/<64 lowercase hex> URI of a remote web stream. */
+gboolean tc_is_web_capability_uri (const char *value);
+
 /* A canonical lowercase hyphenated UUID (8-4-4-4-12). */
 gboolean tc_is_canonical_uuid (const char *value);
 

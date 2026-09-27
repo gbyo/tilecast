@@ -41,7 +41,7 @@ func TestComponentOnlyWidgetCompilesWithoutFallback(t *testing.T) {
 	preset := "leaderboard"
 	// A preset on a Widget without a compatibility presentation must not
 	// dereference the missing native tree.
-	fallback, err := service.compileWidgetPresentationForPreset("probe", &preset, raw)
+	fallback, err := service.compileWidgetPresentationForPreset("probe", &preset, raw, false)
 	if err != nil || fallback != nil {
 		t.Fatalf("fallback = %+v, err = %v", fallback, err)
 	}

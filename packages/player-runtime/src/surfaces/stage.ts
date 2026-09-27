@@ -27,7 +27,11 @@ import { ImageSurface } from "./image-surface";
 import { LayoutSurface } from "./layout-surface";
 import { isRestartable, type MediaSurface, type SurfaceSink } from "./surface";
 import { HtmlVideoSurface } from "./video-surface";
+import { HostRemoteWebSurface } from "./remote-web-surface";
 import { WebviewWebsiteSurface } from "./website-surface";
+import type { RemoteWebPort } from "../remote-web/port";
+import { remoteWebSpecOf } from "../remote-web/spec";
+import type { RuntimeItem } from "../host/contract";
 import { WidgetSurface } from "./widget-surface";
 import { ComponentWidgetSurface } from "./component-widget-surface";
 import { widgetComponent } from "../engine/model";
@@ -48,6 +52,8 @@ export interface StageOptions {
   send: (event: SurfaceEvent) => void;
   /** 0 makes transitions instant (snapshot conformance runs). */
   animationScale: number;
+  /** Present when the host advertises `remoteWeb: "host-view"`. */
+  remoteWeb?: RemoteWebPort | null;
   widgets?: RuntimeWidgetHost;
 }
 
@@ -210,11 +216,43 @@ export class Stage {
     layer.el.replaceChildren();
   }
 
+  /** The isolated remote web surface this host supports, if any. */
+  private remoteSurface(
+    item: RuntimeItem,
+    sink: SurfaceSink,
+    mount: number,
+  ): MediaSurface | null {
+    const env = {
+      clock: this.options.clock,
+      sink,
+      animationScale: this.options.animationScale,
+    };
+    switch (this.options.capabilities.remoteWeb) {
+      case "host-view": {
+        const spec = remoteWebSpecOf(item);
+        const port = this.options.remoteWeb;
+        if (!spec || !port) return null;
+        return new HostRemoteWebSurface({
+          spec,
+          audioEnabled: item.audioEnabled,
+          port,
+          env,
+        });
+      }
+      case "electron-webview":
+        return new WebviewWebsiteSurface(item, env, mount);
+      default:
+        return null;
+    }
+  }
+
   private create(entry: StageEntry, sink: SurfaceSink): MediaSurface {
     const env = {
       clock: this.options.clock,
       sink,
       animationScale: this.options.animationScale,
+      remoteWeb: (item: RuntimeItem, zoneSink: SurfaceSink) =>
+        this.remoteSurface(item, zoneSink, entry.mount),
       widgets: this.options.widgets,
     };
     const item = entry.item;
@@ -230,11 +268,11 @@ export class Stage {
       case "layout":
         return new LayoutSurface(item, env);
       case "website":
-      case "youtube":
-        if (this.options.capabilities.remoteWeb === "electron-webview") {
-          return new WebviewWebsiteSurface(item, env, entry.mount);
-        }
+      case "youtube": {
+        const surface = this.remoteSurface(item, sink, entry.mount);
+        if (surface) return surface;
         throw new Error("website playback is not available on this display");
+      }
       default:
         throw new Error(`unsupported item kind ${String(item.kind)}`);
     }
@@ -253,6 +291,8 @@ export class Stage {
         send({ type: "WEBSITE_FAILED", mount, reason, fallback }),
       websiteRecovered: () => send({ type: "WEBSITE_RECOVERED", mount }),
       fallbackShown: () => send({ type: "FALLBACK_SHOWN", mount }),
+      zoneFailed: (zoneId, message) =>
+        send({ type: "ZONE_FAILED", mount, zoneId, message }),
     };
   }
 }

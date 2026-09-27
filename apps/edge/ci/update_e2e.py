@@ -53,7 +53,7 @@ STATE = "/var/lib/tilecast-edge-update"
 SOCKET = "/run/tilecast-edge-update/update.sock"
 GUARD_SERVICE = "/etc/systemd/system/tilecast-edge-update-guard.service"
 GUARD_TIMER = "/etc/systemd/system/tilecast-edge-update-guard.timer"
-EDGE_UNITS = ("tilecast-edge.service", "tilecast-renderer.service")
+EDGE_UNITS = ("tilecast-edge.service", "tilecast-web-renderer.service", "tilecast-renderer.service")
 ARCH = os.uname().machine
 # CAP_CHOWN, CAP_DAC_OVERRIDE, CAP_DAC_READ_SEARCH, CAP_FOWNER, CAP_FSETID.
 HELPER_CAPABILITIES = "000000000000001f"
@@ -180,8 +180,8 @@ def units_match(version):
     """The installed units and system files are the ones `version` carries."""
     release = f"{INSTALL}/{version}/packaging"
     pairs = [(f"{release}/systemd/{unit}", f"/etc/systemd/system/{unit}")
-             for unit in ("tilecast-edge.service", "tilecast-renderer.service", "tilecast-edge-update.service",
-                          "tilecast-edge-update.socket")]
+             for unit in ("tilecast-edge.service", "tilecast-web-renderer.service", "tilecast-renderer.service",
+                          "tilecast-edge-update.service", "tilecast-edge-update.socket")]
     pairs += [(f"{release}/tmpfiles.d/tilecast-edge.conf", "/usr/lib/tmpfiles.d/tilecast-edge.conf"),
               (f"{release}/sysusers.d/tilecast-edge.conf", "/usr/lib/sysusers.d/tilecast-edge.conf")]
     for source, installed in pairs:
@@ -193,7 +193,9 @@ def units_match(version):
 
 def assert_running(version, context):
     """Exactly one Edge stack runs, from the immutable version directory."""
-    for unit, binary in (("tilecast-edge.service", "tilecastd"), ("tilecast-renderer.service", "tilecast-renderer-wpe")):
+    for unit, binary in (("tilecast-edge.service", "tilecastd"),
+                           ("tilecast-web-renderer.service", "tilecast-web-renderer-wpe"),
+                           ("tilecast-renderer.service", "tilecast-renderer-wpe")):
         assert show(unit, "ActiveState")["ActiveState"] == "active", f"{context}: {unit} is not active"
         path = exe(main_pid(unit))
         assert path == f"{INSTALL}/{version}/bin/{binary}", f"{context}: {unit} runs {path}"
@@ -252,7 +254,8 @@ def assert_guard_armed(previous, context):
     props = show("tilecast-edge-update-guard.service", "Before", "UnitFileState", "ProtectSystem",
                  "CapabilityBoundingSet", "RestrictAddressFamilies")
     before = props["Before"].split()
-    assert "tilecast-edge.service" in before and "tilecast-renderer.service" in before, f"{context}: {props}"
+    assert "tilecast-edge.service" in before and "tilecast-web-renderer.service" in before \
+        and "tilecast-renderer.service" in before, f"{context}: {props}"
     assert props["UnitFileState"] == "enabled", f"{context}: the guard runs at boot: {props}"
     assert props["ProtectSystem"] == "strict" and props["RestrictAddressFamilies"] == "AF_UNIX", props
     timer = show("tilecast-edge-update-guard.timer", "ActiveState", "UnitFileState")
@@ -344,9 +347,10 @@ def own_entries(unit, *argv):
 
 
 def assert_switch_order(since_usec, version, helper_unit, context, candidate_was_running=True):
-    """The renderer and then the daemon stopped before `current` moved to
-    `version` (WPE finds its helper processes under current/lib/wpe), and the
-    daemon started again before the renderer."""
+    """The web helper, the renderer and then the daemon stopped before
+    `current` moved to `version` (WPE finds its helper processes under
+    current/lib/wpe), and the daemon started again before the web helper and
+    the renderer."""
     def job_done(unit, kind):
         return [int(e["__REALTIME_TIMESTAMP"]) for e in journal("-u", unit, f"--since=@{since_usec // 1_000_000}")
                 if e.get("JOB_TYPE") == kind and e.get("JOB_RESULT") == "done"
@@ -356,17 +360,22 @@ def assert_switch_order(since_usec, version, helper_unit, context, candidate_was
                 if '"current_switched"' in str(e.get("MESSAGE", "")) and f'"{version}"' in str(e.get("MESSAGE", ""))]
     assert switched, f"{context}: {helper_unit} logged no switch to {version}"
     switch = switched[0]
+    web_stop = [t for t in job_done("tilecast-web-renderer.service", "stop") if t < switch]
     renderer_stop = [t for t in job_done("tilecast-renderer.service", "stop") if t < switch]
     daemon_stop = [t for t in job_done("tilecast-edge.service", "stop") if t < switch]
     # A unit that systemd already gave up on has nothing left to stop.
     if candidate_was_running:
-        assert renderer_stop and daemon_stop, f"{context}: the Edge units were not stopped before the switch"
-    if renderer_stop and daemon_stop:
-        assert renderer_stop[-1] <= daemon_stop[-1], f"{context}: the renderer stops first"
+        assert web_stop and renderer_stop and daemon_stop, f"{context}: the Edge units were not stopped before the switch"
+    if web_stop and renderer_stop and daemon_stop:
+        assert web_stop[-1] <= renderer_stop[-1] <= daemon_stop[-1], f"{context}: the web helper stops first"
     daemon_start = [t for t in job_done("tilecast-edge.service", "start") if t > switch]
+    web_start = [t for t in job_done("tilecast-web-renderer.service", "start") if t > switch]
     renderer_start = [t for t in job_done("tilecast-renderer.service", "start") if t > switch]
-    assert daemon_start and renderer_start, f"{context}: the candidate did not start after the switch"
-    assert daemon_start[0] <= renderer_start[0], f"{context}: the daemon starts before the renderer"
+    assert daemon_start and web_start and renderer_start, f"{context}: the candidate did not start after the switch"
+    order = (f"daemon={[t - switch for t in sorted(daemon_start)[:3]]} "
+             f"web={[t - switch for t in sorted(web_start)[:3]]} "
+             f"renderer={[t - switch for t in sorted(renderer_start)[:3]]} (usec after the switch)")
+    assert daemon_start[0] <= web_start[0] <= renderer_start[0], f"{context}: the daemon starts before the web helper; {order}"
 
 
 def artifact_of(version):
@@ -382,6 +391,7 @@ def stage_tree(version, bin_dir, out):
     wpe = output("pkg-config", "--modversion", "wpe-webkit-2.0").strip()
     run(os.path.join(EDGE, "release", "stage-release.py"), "--out", out, "--version", version,
         "--bin-dir", bin_dir, "--renderer", os.path.join(m.RENDERER_BUILD, "tilecast-renderer-wpe"),
+        "--web-renderer", os.path.join(m.WEB_BUILD, "tilecast-web-renderer-wpe"),
         "--session-bridge", os.path.join(m.BRIDGE_BUILD, "tilecast-session-bridge"),
         "--gst-plugin-dir", os.path.join(m.RENDERER_BUILD, "gstreamer-1.0"), "--runtime-dir", m.RUNTIME,
         "--sbom", sbom, "--wpe-version", wpe, "--base-distribution", "debian-sid-ci", stdout=subprocess.DEVNULL)

@@ -20,12 +20,16 @@ use crate::state::{FileDigest, KioskRecord, ReleaseRef};
 
 pub const EDGE_DAEMON: &str = "tilecast-edge.service";
 pub const EDGE_RENDERER: &str = "tilecast-renderer.service";
-pub const EDGE_UNITS: [&str; 2] = [EDGE_DAEMON, EDGE_RENDERER];
+/// The isolated remote web helper (M11). It is enabled with Edge and starts
+/// between the daemon and the trusted renderer
+/// (docs/tilecast-edge-remote-web-threat-review.md §17).
+pub const EDGE_WEB: &str = "tilecast-web-renderer.service";
+pub const EDGE_UNITS: [&str; 3] = [EDGE_DAEMON, EDGE_WEB, EDGE_RENDERER];
 /// The update helper's socket (M10). It is enabled with Edge and disabled
 /// with it, so a rolled-back migration leaves no Edge unit enabled.
 pub const UPDATE_SOCKET: &str = "tilecast-edge-update.socket";
 /// Everything the cutover enables.
-pub const EDGE_ENABLED_UNITS: [&str; 3] = [EDGE_DAEMON, EDGE_RENDERER, UPDATE_SOCKET];
+pub const EDGE_ENABLED_UNITS: [&str; 4] = [EDGE_DAEMON, EDGE_WEB, EDGE_RENDERER, UPDATE_SOCKET];
 pub const RECOVER_UNIT: &str = "tilecast-edge-migrate-recover.service";
 pub const MIGRATE_UNIT: &str = "tilecast-edge-migrate.service";
 pub const SELFTEST_HOST_UNIT: &str = "tilecast-edge-selftest.service";

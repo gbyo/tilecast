@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/netip"
 	"net/url"
 	"strconv"
 	"strings"
@@ -378,6 +379,13 @@ func coerceDocumentValue(kind, raw string) DocumentValue {
 // Widgets V2 renders. A Widget whose component has no compatibility fallback
 // returns nil; compileWidgetComponent compiles its component.
 func (s *Service) compileWidgetPresentation(provider string, raw json.RawMessage) (*WidgetPresentation, error) {
+	return s.compileWidgetPresentationWithPolicy(provider, raw, false)
+}
+
+// compileWidgetPresentationWithPolicy is the HTTPS-default compiler with an
+// explicit private HTTP allowance. Tests use compileWidgetPresentation and
+// keep the default; request paths pass the organization's flag.
+func (s *Service) compileWidgetPresentationWithPolicy(provider string, raw json.RawMessage, allowPrivateHTTP bool) (*WidgetPresentation, error) {
 	if definition, ok := s.definitions.Widget(provider); ok && !definition.HasFallback() {
 		return nil, nil
 	}
@@ -394,7 +402,7 @@ func (s *Service) compileWidgetPresentation(provider string, raw json.RawMessage
 		return nil, err
 	}
 	if provider == "website" || provider == "youtube" {
-		return compileWebPresentation(provider, c)
+		return compileWebPresentation(provider, c, allowPrivateHTTP)
 	}
 	root, capabilities, err := compileNativeRoot(provider, c)
 	if err != nil {
@@ -566,8 +574,8 @@ func resolveDefinitionTemplate(value any, configuration map[string]any) (any, bo
 	}
 }
 
-func (s *Service) compileWidgetPresentationForPreset(provider string, presetID *string, raw json.RawMessage) (*WidgetPresentation, error) {
-	presentation, err := s.compileWidgetPresentation(provider, raw)
+func (s *Service) compileWidgetPresentationForPreset(provider string, presetID *string, raw json.RawMessage, allowPrivateHTTP bool) (*WidgetPresentation, error) {
+	presentation, err := s.compileWidgetPresentationWithPolicy(provider, raw, allowPrivateHTTP)
 	// A Widget without a compatibility presentation compiles to nil.
 	if err != nil || presetID == nil || presentation == nil || presentation.Native == nil {
 		return presentation, err
@@ -611,11 +619,31 @@ func promoteLastTextToBadge(node *PresentationNode) bool {
 	return false
 }
 
-func (s *Service) CompileWidgetPresentation(provider string, raw json.RawMessage) (*WidgetPresentation, error) {
-	return s.compileWidgetPresentation(provider, raw)
+func (s *Service) CompileWidgetPresentation(provider string, raw json.RawMessage, allowPrivateHTTP bool) (*WidgetPresentation, error) {
+	return s.compileWidgetPresentationWithPolicy(provider, raw, allowPrivateHTTP)
 }
 
-func compileWebPresentation(provider string, c map[string]any) (*WidgetPresentation, error) {
+// privateHost mirrors media.privateHost: the loopback, private, link-local,
+// localhost and .local destinations the private HTTP policy covers.
+func privateHost(host string) bool {
+	h := strings.ToLower(host)
+	if h == "localhost" || strings.HasSuffix(h, ".local") {
+		return true
+	}
+	ip, err := netip.ParseAddr(h)
+	return err == nil && (ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast())
+}
+
+// webSchemeAllowed mirrors the website asset policy: HTTPS always, plain
+// HTTP only for private destinations when the organization enables it.
+func webSchemeAllowed(parsed *url.URL, allowPrivateHTTP bool) bool {
+	if parsed.Scheme == "https" {
+		return true
+	}
+	return allowPrivateHTTP && parsed.Scheme == "http" && privateHost(parsed.Hostname())
+}
+
+func compileWebPresentation(provider string, c map[string]any, allowPrivateHTTP bool) (*WidgetPresentation, error) {
 	rawURL, _ := c["url"].(string)
 	if provider == "youtube" {
 		videoID := stringValue(c, "videoId", "")
@@ -627,7 +655,7 @@ func compileWebPresentation(provider string, c map[string]any) (*WidgetPresentat
 		}
 	}
 	parsed, err := url.Parse(rawURL)
-	if err != nil || parsed.Scheme != "https" || parsed.Hostname() == "" {
+	if err != nil || parsed.Hostname() == "" || !webSchemeAllowed(parsed, allowPrivateHTTP) {
 		return nil, errors.New("web presentation URL is invalid")
 	}
 	hosts := stringSlice(c["allowedHosts"])

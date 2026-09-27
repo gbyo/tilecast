@@ -9,7 +9,7 @@ with a throwaway key.
 
 Usage:
   stage-release.py --out DIR --version X.Y.Z --bin-dir DIR --renderer PATH
-                   --session-bridge PATH --gst-plugin-dir DIR --runtime-dir DIR --sbom PATH
+                   --web-renderer PATH --session-bridge PATH --gst-plugin-dir DIR --runtime-dir DIR --sbom PATH
                    --wpe-version V --base-distribution NAME
                    [--wpe-lib-dir DIR]
 """
@@ -27,6 +27,7 @@ EDGE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 UNITS = [
     "tilecast-edge.service",
     "tilecast-renderer.service",
+    "tilecast-web-renderer.service",
     "tilecast-edge-migrate.service",
     "tilecast-edge-migrate-recover.service",
     "tilecast-edge-selftest.service",
@@ -112,8 +113,8 @@ def self_test_fixture(out):
 
 def main():
     parser = argparse.ArgumentParser()
-    for name in ("--out", "--version", "--bin-dir", "--renderer", "--session-bridge", "--gst-plugin-dir",
-                 "--runtime-dir", "--sbom",
+    for name in ("--out", "--version", "--bin-dir", "--renderer", "--web-renderer", "--session-bridge",
+                 "--gst-plugin-dir", "--runtime-dir", "--sbom",
                  "--wpe-version", "--base-distribution"):
         parser.add_argument(name, required=True)
     parser.add_argument("--wpe-lib-dir", help="a private WPE WebKit build to carry under lib/wpe")
@@ -126,6 +127,7 @@ def main():
     for name in ("tilecastd", "tilecastctl", "tilecast-edge-migrate", "tilecast-edge-update"):
         copy(os.path.join(args.bin_dir, name), out, f"bin/{name}", 0o755)
     copy(args.renderer, out, "bin/tilecast-renderer-wpe", 0o755)
+    copy(args.web_renderer, out, "bin/tilecast-web-renderer-wpe", 0o755)
     copy(args.session_bridge, out, "bin/tilecast-session-bridge", 0o755)
     copy(os.path.join(args.gst_plugin_dir, "libgsttcmedia.so"), out, "lib/gstreamer-1.0/libgsttcmedia.so", 0o644)
     for root, _, names in os.walk(args.runtime_dir):

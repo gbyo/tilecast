@@ -47,6 +47,11 @@ export interface SurfaceSink {
   websiteFailed(reason: string, fallback: boolean): void;
   websiteRecovered(): void;
   fallbackShown(): void;
+  /**
+   * Content inside one Layout zone failed. The Layout keeps playing; the
+   * failure is reported for the Layout item with the zone's identity.
+   */
+  zoneFailed(zoneId: string, message: string): void;
 }
 
 export interface SurfaceEnvironment {
@@ -54,6 +59,12 @@ export interface SurfaceEnvironment {
   sink: SurfaceSink;
   /** Scale for animations inside surfaces (0 in snapshot conformance runs). */
   animationScale: number;
+  /**
+   * Creates the remote web surface for a website or youtube item (a root
+   * item, or a synthetic one for a Layout zone), or null when this host has
+   * no isolated remote web mechanism.
+   */
+  remoteWeb?: (item: RuntimeItem, sink: SurfaceSink) => MediaSurface | null;
   /** First-class Widget mounting; absent where no Widget can run. */
   widgets?: RuntimeWidgetHost;
 }

@@ -100,6 +100,7 @@ fn ready() -> Event {
         },
         features: vec![ShortToken::new("image").unwrap()],
         display: None,
+        remote_web: None,
     })
 }
 

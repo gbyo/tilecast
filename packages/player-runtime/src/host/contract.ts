@@ -31,7 +31,12 @@ export const RUNTIME_HOST_GLOBAL = "tilecastRuntimeHost" as const;
 export type RemoteWebMechanism =
   /** Electron `<webview>` in its own partitioned, sandboxed session. */
   | "electron-webview"
-  /** A separate host-owned web view positioned by the runtime (WPE, M11). */
+  /**
+   * An isolated host-owned web surface behind the typed `remoteWeb` members.
+   * The host returns a render target: a media URI the runtime composites
+   * itself (WPE), or a host layer the runtime positions (a future native
+   * view). Behavior follows the target, never the host's name.
+   */
   | "host-view";
 
 export interface RuntimeCapabilitiesV1 {
@@ -92,6 +97,132 @@ export interface RuntimeWebsiteConfig {
 }
 
 /** Compatibility render tree (see compat/render-tree). */
+// ------------------------------------------------------------ remote web
+
+export type RemoteWebCookiePolicyV1 =
+  "disabled" | "first_party" | "first_and_third_party";
+
+/** A remote page. The host enforces all of it; nothing here is a header. */
+export interface RemoteWebPageContentV1 {
+  kind: "page";
+  url: string;
+  /** Exact host names; the host refuses main-frame documents elsewhere. */
+  allowedHosts: string[];
+  javascriptEnabled: boolean;
+  domStorageEnabled: boolean;
+  cookiePolicy: RemoteWebCookiePolicyV1;
+  /** Empty for the engine default. */
+  userAgent: string;
+  zoomPercent: number;
+  scrollX: number;
+  scrollY: number;
+  backgroundColor: string;
+}
+
+/**
+ * A YouTube video or playlist in the host's own player wrapper, with the
+ * documented embed settings only. Exactly one of `videoId`, `playlistId`.
+ */
+export interface RemoteWebYouTubeContentV1 {
+  kind: "youtube";
+  videoId: string | null;
+  playlistId: string | null;
+  startSeconds: number;
+  endSeconds: number | null;
+  loop: boolean;
+  /** The author's mute; the runtime's audio decision is `setMuted`. */
+  muted: boolean;
+  /** 0 to 100, applied by the player. */
+  volume: number;
+  captions: boolean;
+  captionLanguage: string;
+  controls: boolean;
+}
+
+export type RemoteWebContentV1 =
+  RemoteWebPageContentV1 | RemoteWebYouTubeContentV1;
+
+/**
+ * Where the surface is, in CSS pixels of the trusted document's viewport,
+ * and the device pixel ratio. A media-URI host needs only the size; a
+ * host-layer host places its view here.
+ */
+export interface RemoteWebViewportV1 {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  deviceScale: number;
+}
+
+export interface RemoteWebSurfaceSpecV1 {
+  /** Chosen by the runtime: [a-z0-9-]{1,48}, unique while the surface lives. */
+  surfaceId: string;
+  content: RemoteWebContentV1;
+  viewport: RemoteWebViewportV1;
+  muted: boolean;
+  visible: boolean;
+}
+
+/**
+ * How the runtime shows a created surface:
+ *   - `media-uri`: an opaque URI the runtime puts in a <video> of its own
+ *     DOM, so Layout clipping, transitions and preview capture apply;
+ *   - `host-layer`: the host shows its own view at the viewport the runtime
+ *     sends. No host needs to imitate another host's frame transport.
+ */
+export type RemoteWebRenderTargetV1 =
+  { kind: "media-uri"; uri: string } | { kind: "host-layer" };
+
+export type RemoteWebCreateResultV1 =
+  { ok: true; target: RemoteWebRenderTargetV1 } | { ok: false; code: string };
+
+export type RemoteWebEventKindV1 =
+  /** The first frame of the surface is available to the runtime. */
+  | "stream-ready"
+  /** The page (or the YouTube player) finished loading. */
+  | "loaded"
+  /** The main frame tried to leave the allowlist. */
+  | "navigation-blocked"
+  | "failed"
+  /** The host's remote web process ended; every live surface failed. */
+  | "process-terminated"
+  /** YouTube: the video (or playlist) ended. */
+  | "media-ended"
+  /** The host's remote web process is available again. */
+  | "recovered";
+
+export interface RemoteWebEventV1 {
+  /** Null for host-wide events (`process-terminated`, `recovered`). */
+  surfaceId: string | null;
+  kind: RemoteWebEventKindV1;
+  /** A stable reason token for failures. */
+  code?: string;
+}
+
+/**
+ * Runtime-side policy for one remote web surface. The runtime owns these
+ * timers and decisions; the host never sees them.
+ */
+export interface RemoteWebPresentationV1 {
+  loadTimeoutSeconds: number;
+  reloadIntervalSeconds: number | null;
+  lifecycle: "destroy_on_hide" | "keep_warm";
+  warmSeconds: number;
+  onlineOnly: boolean;
+  /** placeholder | fallback_image | skip | last_success */
+  failureBehavior: string;
+  fallbackSrc: string | null;
+  /** YouTube "play until the video ends": completion is `media-ended`. */
+  playUntilEnd: boolean;
+}
+
+/** One remote web surface as projection produces it. */
+export interface RuntimeRemoteWebSpecV1 {
+  content: RemoteWebContentV1;
+  presentation: RemoteWebPresentationV1;
+}
+
 export interface RenderNodeV1 {
   t: string;
   [key: string]: unknown;
@@ -158,6 +289,8 @@ export interface RuntimeLayoutZone {
   opacity: number;
   radius?: number;
   render?: RenderNodeV1;
+  /** A Website or Web Widget placed in the zone. */
+  remoteWeb?: RuntimeRemoteWebSpecV1;
   /** A first-class Widget component placed in this zone. */
   component?: RuntimeWidgetComponentPayload;
   image?: { src: string; fit: string };
@@ -207,6 +340,12 @@ export interface RuntimeItem {
   videoEndOffsetMs: number | null;
   viewport?: RuntimeViewport;
   website?: RuntimeWebsiteConfig;
+  /**
+   * The normalized remote web spec of a website or youtube item. Hosts that
+   * send only `website` (older Electron builds, Edge Website assets) are
+   * normalized by the runtime (remote-web/spec.ts).
+   */
+  remoteWeb?: RuntimeRemoteWebSpecV1;
   widget?:
     RuntimeWidgetPayload | RuntimeWidgetComponentPayload | WidgetReference;
   layout?: RuntimeLayoutPayload | LayoutReference;
@@ -341,7 +480,14 @@ export interface DiscoveredServerMessage {
   server: DiscoveredServerV1;
 }
 
+/** A host remote web event (capability `remoteWeb: "host-view"`). */
+export interface RemoteWebMessage {
+  type: "remote-web";
+  event: RemoteWebEventV1;
+}
+
 export type HostMessageV1 =
+  | RemoteWebMessage
   | PresentationMessage
   | PluginsMessage
   | IdentifyMessage
@@ -428,9 +574,20 @@ export interface TilecastRuntimeHostV1 {
   readonly discovery?: {
     list(): Promise<DiscoveredServerV1[]>;
   };
-  /** Present when `capabilities.remoteWeb` is set. */
+  /**
+   * Present when `capabilities.remoteWeb` is set. The surface members are
+   * required when it is `"host-view"`: each is a closed, typed request, and
+   * there is no member that runs script in, or sends a message to, a page.
+   */
   readonly remoteWeb?: {
     reportRecovered(): void;
+    create?(spec: RemoteWebSurfaceSpecV1): Promise<RemoteWebCreateResultV1>;
+    /** Event-driven (a Layout or size change), never per animation frame. */
+    updateViewport?(surfaceId: string, viewport: RemoteWebViewportV1): void;
+    setVisible?(surfaceId: string, visible: boolean): void;
+    setMuted?(surfaceId: string, muted: boolean): void;
+    reload?(surfaceId: string): void;
+    destroy?(surfaceId: string): void;
   };
   /**
    * Deterministic-run controls for the conformance suite only. A production
@@ -454,6 +611,16 @@ const FUNCTION_MEMBERS = [
   "presentationResult",
   "reportEvidence",
   "reportPlaybackError",
+] as const;
+
+/** Required when `capabilities.remoteWeb === "host-view"`. */
+export const HOST_VIEW_MEMBERS = [
+  "create",
+  "updateViewport",
+  "setVisible",
+  "setMuted",
+  "reload",
+  "destroy",
 ] as const;
 
 /**
@@ -489,6 +656,14 @@ export function hostContractProblem(value: unknown): string | null {
     const group = host[member] as Record<string, unknown> | undefined;
     if (!group || typeof group[method] !== "function") {
       return `capability ${capability} is advertised without ${member}.${method}()`;
+    }
+  }
+  if (capabilities["remoteWeb"] === "host-view") {
+    const group = host["remoteWeb"] as Record<string, unknown>;
+    for (const method of HOST_VIEW_MEMBERS) {
+      if (typeof group[method] !== "function") {
+        return `capability remoteWeb "host-view" is advertised without remoteWeb.${method}()`;
+      }
     }
   }
   return null;

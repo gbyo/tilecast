@@ -18,6 +18,10 @@ use edge_protocol::ipc::status::DaemonStatus;
 
 pub const EDGE_DAEMON: &str = "tilecast-edge.service";
 pub const EDGE_RENDERER: &str = "tilecast-renderer.service";
+/// The isolated remote web helper (M11). It maps files under `current` like
+/// the renderer, so it stops first and starts between the daemon and the
+/// renderer (docs/tilecast-edge-remote-web-threat-review.md §17).
+pub const EDGE_WEB: &str = "tilecast-web-renderer.service";
 pub const GUARD_SERVICE: &str = "tilecast-edge-update-guard.service";
 pub const GUARD_TIMER: &str = "tilecast-edge-update-guard.timer";
 
@@ -55,7 +59,10 @@ pub trait UpdateHost: Send + Sync {
     /// Clears the unit's failed state, which also sets systemd's restart
     /// counter (`NRestarts`) to zero, queues a start job and returns: the
     /// candidate may take a while, and the guard, not this call, decides
-    /// whether it came up.
+    /// whether it came up. Start order lives in the units themselves
+    /// (daemon, then web helper, then renderer), never in waiting here: a
+    /// wait would deadlock the guard against its own `Before=` ordering and
+    /// misroute broken candidates past the guard's failure detection.
     async fn start(&self, unit: &str) -> Result<(), HostError>;
     async fn activity(&self, unit: &str) -> Result<UnitActivity, HostError>;
     /// `systemctl daemon-reload`.

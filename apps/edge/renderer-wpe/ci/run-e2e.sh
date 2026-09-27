@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds tilecastd, tilecastctl and tilecast-renderer-wpe for Linux and runs
+# Builds tilecastd, tilecastctl and both WPE renderers for Linux and runs
 # the headless end-to-end scenarios. Run inside the tilecast-edge-dev image
 # with the repository mounted at /src:
 #
@@ -17,6 +17,11 @@ cargo build --locked -p tilecastd -p tilecastctl
 cmake -S renderer-wpe -B /target/renderer -G Ninja >/dev/null
 cmake --build /target/renderer
 ctest --test-dir /target/renderer --output-on-failure
+cmake -S web-renderer-wpe -B /target/web-renderer -G Ninja >/dev/null
+cmake --build /target/web-renderer
+ctest --test-dir /target/web-renderer --output-on-failure
+WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1 \
+  python3 web-renderer-wpe/tests/security_test.py --helper /target/web-renderer/tilecast-web-renderer-wpe
 cmake -S session-bridge -B /target/bridge -G Ninja >/dev/null
 cmake --build /target/bridge
 ctest --test-dir /target/bridge --output-on-failure
@@ -27,4 +32,5 @@ python3 renderer-wpe/tests/e2e_headless.py \
   --renderer /target/renderer/tilecast-renderer-wpe \
   --runtime-dir "$runtime" \
   --gst-plugin-dir /target/renderer/gstreamer-1.0 \
+  --web-helper /target/web-renderer/tilecast-web-renderer-wpe \
   --scenario "$scenario"

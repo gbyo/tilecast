@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { ManualClock } from "../clock/scheduler";
 import type { EvidenceKind, RuntimeItem } from "../host/contract";
 import { presentationMachine } from "./presentation-machine";
+import { specFromYouTube } from "../remote-web/spec";
 
 function item(id: string, overrides: Partial<RuntimeItem> = {}): RuntimeItem {
   return {
@@ -283,5 +284,72 @@ describe("presentation machine", () => {
     h.clock.advance(10_000);
     h.clock.flush();
     expect(h.stage()!.transition).toBe("none");
+  });
+
+  it("plays YouTube until the video ends, with no duration timer", () => {
+    const remoteWeb = specFromYouTube(
+      { videoId: "M7lc1UVf-VE", playlistPlaybackMode: "until_end" },
+      null,
+    )!;
+    const h = harness([
+      item("yt", { kind: "youtube", src: "", remoteWeb }),
+      item("b"),
+    ]);
+    h.ready();
+    h.clock.advance(10 * 60_000);
+    expect(h.stage()!.item.id).toBe("yt");
+    h.actor.send({ type: "SURFACE_ENDED", mount: h.mount(), source: "ended" });
+    h.clock.flush();
+    expect(h.stage()!.item.id).toBe("b");
+    expect(h.log).toContain("website-loaded:yt");
+  });
+
+  it("keeps the Website duration for YouTube with a fixed duration", () => {
+    const remoteWeb = specFromYouTube(
+      { videoId: "M7lc1UVf-VE", fixedDurationSeconds: 20 },
+      null,
+    )!;
+    const h = harness([
+      item("yt", { kind: "youtube", src: "", remoteWeb, durationMs: 20_000 }),
+      item("b"),
+    ]);
+    h.ready();
+    h.clock.advance(20_000);
+    h.clock.flush();
+    expect(h.stage()!.item.id).toBe("b");
+  });
+
+  it("reports a failed Layout zone without failing the Layout", () => {
+    const h = harness([
+      item("l", {
+        kind: "layout",
+        src: "",
+        durationMs: 30_000,
+        layout: {
+          canvasWidth: 1920,
+          canvasHeight: 1080,
+          background: "#000",
+          zones: [],
+        },
+      }),
+    ]);
+    h.ready();
+    h.actor.send({
+      type: "ZONE_FAILED",
+      mount: h.mount(),
+      zoneId: "zone-menu",
+      message: "website failed: renderer_crash",
+    });
+    h.actor.send({
+      type: "ZONE_FAILED",
+      mount: 999,
+      zoneId: "stale",
+      message: "x",
+    });
+    expect(h.state()).toBe("showing");
+    expect(h.log).toContain(
+      "error:l:zone zone-menu: website failed: renderer_crash",
+    );
+    expect(h.log.some((entry) => entry.includes("stale"))).toBe(false);
   });
 });

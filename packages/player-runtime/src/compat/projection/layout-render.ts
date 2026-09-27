@@ -9,6 +9,7 @@
  * null so the previously active presentation stays up.
  */
 
+import { isRemoteWebWidget, remoteWebForWidget } from "./web-widget";
 import {
   formatValue,
   resolveRegionalFormatting,
@@ -218,6 +219,14 @@ function renderPlacement(
         : undefined;
       if (!widget) {
         return null;
+      }
+      if (isRemoteWebWidget(widget)) {
+        const remoteWeb = remoteWebForWidget(
+          widget,
+          ctx.manifest.assets,
+          ctx.at,
+        );
+        return remoteWeb ? { ...base, remoteWeb } : null;
       }
       // A first-class component renders itself in the zone; it is never
       // converted back into a render tree because it is in a Layout.

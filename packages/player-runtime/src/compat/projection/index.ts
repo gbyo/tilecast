@@ -19,6 +19,7 @@ export * from "./content-types";
 export * from "./render-tree";
 export { renderLayout, spanViewport } from "./layout-render";
 export { renderWidget } from "./widget-render";
+export { isRemoteWebWidget, remoteWebForWidget } from "./web-widget";
 export {
   COMPONENT_PRESENTATION_SCHEMA,
   isComponentWidget,

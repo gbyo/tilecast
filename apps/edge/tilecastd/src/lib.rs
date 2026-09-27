@@ -62,6 +62,7 @@ pub mod player_config;
 pub mod presentation;
 pub mod presentation_network;
 pub mod preview;
+pub mod remote_web;
 pub mod schedule;
 pub mod self_test;
 pub mod server_link;
