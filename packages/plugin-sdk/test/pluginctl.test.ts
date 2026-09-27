@@ -15,6 +15,11 @@ import { collectMigrations } from "../tools/pluginctl/migrations.ts";
 import { discover, repoRoot } from "../tools/pluginctl/repo.ts";
 import { createMigration } from "../tools/pluginctl/scaffold-migration.ts";
 import { scaffold } from "../tools/pluginctl/scaffold.ts";
+import {
+  checkFragmentOperationIds,
+  checkSupportedOperations,
+} from "../tools/pluginctl/supported.ts";
+import YAML from "yaml";
 
 let root: string;
 
@@ -30,10 +35,7 @@ function makeRepo(): string {
     "-- +goose Up\nSELECT 1;\n-- +goose Down\nSELECT 1;\n",
   );
   mkdirSync(join(dir, "docs/openapi"), { recursive: true });
-  writeFileSync(
-    join(dir, "docs/openapi/core.yaml"),
-    "openapi: 3.1.0\ninfo:\n  title: Core\n  version: 1.0.0\npaths:\n  /healthz:\n    get:\n      responses:\n        '200':\n          description: ok\ncomponents:\n  schemas:\n    Error:\n      type: object\n",
-  );
+  writeFileSync(join(dir, "docs/openapi/core.yaml"), fixtureCore());
   writeFileSync(
     join(dir, "plugins/review-eligibility.json"),
     JSON.stringify({ eligible: ["@gbyo"] }),
@@ -82,6 +84,161 @@ beforeEach(() => {
 afterEach(() => {
   rmSync(root, { recursive: true, force: true });
 });
+
+/** Minimal core contract carrying the supported slice under test. */
+function fixtureCore(): string {
+  const unauthorized =
+    "        '401': { description: Authentication required }";
+  const ok = (description: string, extra = "") =>
+    `        '200':\n          description: ${description}\n${extra}`;
+  const schemaRef = (ref: string) =>
+    `          content:\n            application/json:\n              schema: { $ref: "#/components/schemas/${ref}" }`;
+  const csrf =
+    '      parameters:\n        - { $ref: "#/components/parameters/CSRFToken" }';
+  const op = (id: string, description: string, body: string) =>
+    `      operationId: ${id}\n      description: ${description}\n${body}`;
+  // [path, method, operationId, description, body]
+  const entries: [string, string, string, string, string][] = [
+    [
+      "/api/v1/system/identity",
+      "get",
+      "installationIdentity",
+      "Public installation identity.",
+      `      responses:\n${ok("Identity", `${schemaRef("InstallationIdentity")}\n`)}`,
+    ],
+    [
+      "/api/v1/system/status",
+      "get",
+      "systemStatus",
+      "Requires the Owner or Administrator role and an enrolled dashboard session.",
+      `      responses:\n${ok("Status")}\n${unauthorized}\n        '403': { description: Owner or Administrator required }`,
+    ],
+    [
+      "/api/v1/auth/status",
+      "get",
+      "authStatus",
+      "Public installation state and current user.",
+      `      responses:\n${ok("Status", `${schemaRef("AuthStatus")}\n`)}`,
+    ],
+    [
+      "/api/v1/screens",
+      "get",
+      "listScreens",
+      "Requires an enrolled dashboard session.",
+      `      responses:\n${ok("Screens")}\n${unauthorized}`,
+    ],
+    [
+      "/api/v1/screens/{id}",
+      "get",
+      "getScreen",
+      "Requires an enrolled dashboard session.",
+      `      parameters:\n        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }\n      responses:\n${ok("Screen")}\n${unauthorized}\n        '404': { description: Unknown }`,
+    ],
+    [
+      "/api/v1/settings",
+      "get",
+      "getSettings",
+      "Requires an enrolled dashboard session.",
+      `      responses:\n${ok("Settings")}\n${unauthorized}`,
+    ],
+    [
+      "/api/v1/settings",
+      "patch",
+      "updateSettings",
+      "Requires the Owner or Administrator role and the X-CSRF-Token header.",
+      `${csrf}\n      requestBody:\n        required: true\n        content:\n          application/json:\n            schema: { $ref: "#/components/schemas/SettingsUpdate" }\n      responses:\n${ok("Updated")}\n${unauthorized}\n        '403': { description: Forbidden }\n        '409': { description: Conflict }\n        '422': { description: Invalid }`,
+    ],
+    [
+      "/api/v1/screens/{id}/effective-policy",
+      "get",
+      "getEffectivePolicy",
+      "Requires an enrolled dashboard session.",
+      `      parameters:\n        - { $ref: "#/components/parameters/ResourceID" }\n      responses:\n${ok("Policy")}\n${unauthorized}\n        '404': { description: Unknown }`,
+    ],
+    [
+      "/api/v1/plugins",
+      "get",
+      "listPlugins",
+      "Readable by any signed-in account with a dashboard session.",
+      `      responses:\n${ok("Catalog", `${schemaRef("PluginCatalog")}\n`)}\n${unauthorized}`,
+    ],
+    [
+      "/api/v1/plugins/{pluginId}/install",
+      "post",
+      "installPlugin",
+      "Requires the Owner or Administrator role and an enrolled dashboard session.",
+      `      parameters:\n        - { in: path, name: pluginId, required: true, schema: { type: string } }\n        - { $ref: "#/components/parameters/CSRFToken" }\n      responses:\n        '201':\n          description: Installed\n${schemaRef("CatalogPlugin")}\n        '403': { description: Forbidden }\n        '404': { description: Unknown }\n        '409': { description: Conflict }`,
+    ],
+    [
+      "/api/v1/plugins/{pluginId}/installation",
+      "delete",
+      "removePlugin",
+      "Requires the Owner or Administrator role and an enrolled dashboard session.",
+      `      parameters:\n        - { in: path, name: pluginId, required: true, schema: { type: string } }\n        - { $ref: "#/components/parameters/CSRFToken" }\n      responses:\n        '204': { description: Removed }\n        '403': { description: Forbidden }\n        '404': { description: Unknown }\n        '409': { description: Conflict }`,
+    ],
+    [
+      "/api/v1/me/preferences",
+      "get",
+      "getPreferences",
+      "Requires an enrolled dashboard session.",
+      `      responses:\n${ok("Preferences")}\n${unauthorized}`,
+    ],
+    [
+      "/api/v1/me/preferences",
+      "patch",
+      "updatePreferences",
+      "Requires an enrolled dashboard session and the X-CSRF-Token header.",
+      `${csrf}\n      requestBody:\n        required: true\n        content:\n          application/json:\n            schema: { $ref: "#/components/schemas/SettingsUpdate" }\n      responses:\n${ok("Updated")}\n${unauthorized}\n        '403': { description: Forbidden }\n        '409': { description: Conflict }`,
+    ],
+  ];
+  const byPath = new Map<string, string[]>();
+  for (const [path, method, id, description, body] of entries) {
+    const block = `    ${method}:\n${op(id, description, body)}`;
+    byPath.set(path, [...(byPath.get(path) ?? []), block]);
+  }
+  const paths = [...byPath]
+    .map(([path, blocks]) => `  ${path}:\n${blocks.join("\n")}`)
+    .join("\n");
+  return [
+    "openapi: 3.1.0",
+    "info:",
+    "  title: Core",
+    "  version: 1.0.0",
+    "paths:",
+    "  /healthz:",
+    "    get:",
+    "      responses:",
+    "        '200':",
+    "          description: ok",
+    paths,
+    "components:",
+    "  parameters:",
+    "    ResourceID:",
+    "      in: path",
+    "      name: id",
+    "      required: true",
+    "      schema: { type: string, format: uuid }",
+    "    CSRFToken:",
+    "      in: header",
+    "      name: X-CSRF-Token",
+    "      required: true",
+    "      schema: { type: string }",
+    "  schemas:",
+    "    Error:",
+    "      type: object",
+    "    InstallationIdentity:",
+    "      type: object",
+    "    AuthStatus:",
+    "      type: object",
+    "    SettingsUpdate:",
+    "      type: object",
+    "    PluginCatalog:",
+    "      type: object",
+    "    CatalogPlugin:",
+    "      type: object",
+    "",
+  ].join("\n");
+}
 
 describe("pluginctl", () => {
   it("scaffolds a sixth plugin that passes every check without touching core files", async () => {
@@ -306,6 +463,7 @@ describe("pluginctl", () => {
         "paths:",
         "  /api/v1/plugins/transit-alerts/feeds:",
         "    get:",
+        "      operationId: listTransitFeeds",
         "      responses:",
         "        '200': { description: Feeds }",
         "        '404': { $ref: '../../../docs/openapi/core.yaml#/components/responses/NotFound' }",

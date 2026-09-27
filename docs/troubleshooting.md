@@ -154,7 +154,7 @@ is audit-logged. Only an Owner may reset an Owner or Administrator.
 When the only Owner is locked out, run on the server host:
 
 ```sh
-tilecast mfa reset owner@example.org
+tilecast-server mfa reset owner@example.org
 ```
 
 It reads the same `TILECAST_*` variables as the server and asks for

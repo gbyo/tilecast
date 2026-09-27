@@ -6,6 +6,8 @@ info:
   version: 0.10.0
   license:
     name: AGPL-3.0-only
+  description: >-
+    Management authentication accepts either an enrolled dashboard session cookie or a bearer user grant (an OAuth access token or a personal access token), and both produce the same user principal with the live role and screen scope. Grants additionally carry a scope ceiling of read, write, or admin (admin implies write implies read): reads take read, mutations take write, and user, token, grant, backup, and security administration take admin. CSRF is cookie-only: unsafe browser requests require X-CSRF-Token, bearer requests never send it. Browser security ceremonies (MFA, passkeys, logout, OAuth approval) stay session-only.
 paths:
   /healthz:
     get:
@@ -74,8 +76,14 @@ paths:
   /api/v1/auth/status:
     get:
       operationId: authStatus
+      description: >-
+        Public. Reports whether one-time setup is still required and, when a valid dashboard session cookie is present, the current user, their role, the CSRF token for unsafe browser requests, the auth method, and whether MFA enrollment is still pending. This is the current-user read for Studio and for future API clients.
       responses:
-        "200": { description: Installation and session state }
+        "200":
+          description: Installation state and, when authenticated, the current user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthStatus" }
   /api/v1/demo:
     get:
       operationId: demoState
@@ -330,6 +338,169 @@ paths:
         "204": { description: Passkey removed }
         "403": { description: The password was not correct }
         "409": { description: Policy requires a remaining factor }
+  /api/v1/oauth/authorize:
+    get:
+      operationId: describeOAuthApproval
+      description: >-
+        Requires an enrolled dashboard session. Describes one loopback authorization request (client, scopes, redirect) for the approval screen. Stores nothing; approval revalidates the same parameters.
+      parameters:
+        - {
+            in: query,
+            name: client_id,
+            required: true,
+            schema: { type: string },
+          }
+        - {
+            in: query,
+            name: redirect_uri,
+            required: true,
+            schema: { type: string, format: uri },
+          }
+        - { in: query, name: scope, required: true, schema: { type: string } }
+        - { in: query, name: state, required: false, schema: { type: string } }
+        - {
+            in: query,
+            name: code_challenge,
+            required: true,
+            schema: { type: string },
+          }
+        - {
+            in: query,
+            name: code_challenge_method,
+            required: false,
+            schema: { type: string, enum: [S256] },
+          }
+      responses:
+        "200": { description: Approval description }
+        "400": { description: Unknown client, redirect, scope, or challenge }
+        "401": { description: Dashboard authentication required }
+  /api/v1/oauth/approve:
+    post:
+      operationId: approveOAuthRequest
+      description: >-
+        Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the loopback redirect carrying the single-use authorization code.
+      parameters:
+        - { $ref: "#/components/parameters/CSRFToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OAuthDecision" }
+      responses:
+        "200": { description: Loopback redirect carrying the code }
+        "400": { description: Unknown client, redirect, scope, or challenge }
+        "401": { description: Dashboard authentication required }
+        "403": { description: CSRF token required }
+  /api/v1/oauth/deny:
+    post:
+      operationId: denyOAuthRequest
+      description: >-
+        Requires an enrolled dashboard session and the X-CSRF-Token header. Records nothing and returns the loopback redirect carrying access_denied.
+      parameters:
+        - { $ref: "#/components/parameters/CSRFToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OAuthDecision" }
+      responses:
+        "200": { description: Loopback redirect carrying access_denied }
+        "400": { description: The authorization request is not valid }
+        "401": { description: Dashboard authentication required }
+        "403": { description: CSRF token required }
+  /api/v1/oauth/token:
+    post:
+      operationId: issueOAuthTokens
+      description: >-
+        Public and rate-limited. Exchanges a single-use code with its PKCE verifier, or rotates a refresh token. PKCE is the client authentication for loopback clients. Reusing a rotated refresh token revokes the whole grant.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OAuthTokenRequest" }
+      responses:
+        "200": { description: Opaque access and refresh tokens }
+        "400": { description: Expired, used, mismatched, or revoked grant }
+        "429": { description: Too many authentication attempts }
+  /api/v1/oauth/revoke:
+    post:
+      operationId: revokeOAuthCredential
+      description: >-
+        Public and rate-limited. Revokes the grant behind a presented access or refresh credential. The credential itself is the authorization.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string }
+      responses:
+        "204": { description: Grant revoked }
+        "400": { description: Unknown token }
+        "429": { description: Too many authentication attempts }
+  /api/v1/me/security/grants:
+    get:
+      operationId: listOAuthGrants
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: >-
+        Requires an authenticated user with the admin scope. Lists the caller's authorization grants newest first, revoked included.
+      responses:
+        "200": { description: Grant list }
+        "401": { description: Dashboard authentication required }
+  /api/v1/me/security/grants/{id}:
+    delete:
+      operationId: revokeOAuthGrant
+      description: >-
+        Requires an authenticated user with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Revokes one of the caller's grants and every token under it. Personal access tokens are revoked through this same endpoint.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      responses:
+        "204": { description: Grant revoked }
+        "401": { description: Dashboard authentication required }
+        "403": { description: CSRF token required }
+        "404": { description: Grant unknown }
+  /api/v1/me/security/pats:
+    get:
+      operationId: listPersonalAccessTokens
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: >-
+        Requires an authenticated user with the admin scope. Lists the caller's personal access tokens newest first with display metadata only — never secrets. Expired and revoked tokens stay listed until explicitly revoked. An optional search query filters by name, case-insensitively.
+      parameters:
+        - in: query
+          name: search
+          required: false
+          schema: { type: string }
+      responses:
+        "200": { description: PAT list }
+        "401": { description: Dashboard authentication required }
+    post:
+      operationId: createPersonalAccessToken
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: >-
+        Requires an authenticated user with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Creates a named personal access token with a fixed lifetime of 7, 30, 90, or 365 days; there is no permanent token. The plaintext secret (tcp_ prefix) is returned exactly once in this response and is never shown or listed again. Only SHA-256 hashes are stored.
+      parameters:
+        - { $ref: "#/components/parameters/CSRFToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, scopes, expiresInDays]
+              properties:
+                name: { type: string, maxLength: 100 }
+                scopes:
+                  type: array
+                  items: { type: string, enum: [read, write, admin] }
+                expiresInDays: { type: integer, enum: [7, 30, 90, 365] }
+      responses:
+        "201": { description: PAT created with one-time secret }
+        "400": { description: Invalid name, scopes, or lifetime }
+        "401": { description: Dashboard authentication required }
+        "403": { description: CSRF token required }
   /api/v1/users/{id}/security/reset:
     post:
       operationId: resetUserSecurity
@@ -385,8 +556,18 @@ paths:
   /api/v1/system/identity:
     get:
       operationId: installationIdentity
+      description: >-
+        Public. Safe installation identity for pairing and discovery: product, API version, installation ID, organization name, and whether pairing is enabled. Never includes secrets. Players read this before sending any stored credential.
       responses:
-        "200": { description: Safe Tilecast installation identity }
+        "200":
+          description: Safe Tilecast installation identity
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/InstallationIdentity" }
   /api/v1/content-folders:
     get:
       operationId: listContentFolders
@@ -526,12 +707,18 @@ paths:
   /api/v1/screens:
     get:
       operationId: listScreens
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: >-
+        Requires an authenticated user with the read scope. A scoped account sees only its own screens; the list and per-screen authorization use the same predicate. Status values are computed server-side, never stored.
       responses:
         "200": { description: Computed screen status list }
         "401": { description: Dashboard authentication required }
   /api/v1/screens/{id}:
     get:
       operationId: getScreen
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: >-
+        Requires an authenticated user with the read scope. A screen outside the caller's scope answers 404, indistinguishable from unknown.
       parameters:
         - {
             in: path,
@@ -541,6 +728,8 @@ paths:
           }
       responses:
         "200": { description: Screen details }
+        "401": { description: Dashboard authentication required }
+        "404": { description: Screen unknown or outside caller scope }
     patch:
       operationId: updateScreen
       parameters:
@@ -668,10 +857,11 @@ paths:
                 required: [data]
                 properties:
                   data: { $ref: "#/components/schemas/PluginCatalog" }
+        "401": { description: Dashboard authentication required }
   /api/v1/plugins/{pluginId}/install:
     post:
       operationId: installPlugin
-      description: Records a release-owned plugin as installed. Idempotent. Never downloads or runs code.
+      description: Requires the Owner or Administrator role and an enrolled dashboard session. Records a release-owned plugin as installed. Idempotent. Never downloads or runs code.
       parameters:
         - { $ref: "#/components/parameters/PluginID" }
         - { $ref: "#/components/parameters/CSRFToken" }
@@ -696,7 +886,7 @@ paths:
   /api/v1/plugins/{pluginId}/installation:
     delete:
       operationId: removePlugin
-      description: Deletes the installation record. Never deletes plugin data; refuses while plugin-owned resources remain. Idempotent for a plugin that is not installed. An installation row for a plugin this release does not know may also be removed; only the row is deleted.
+      description: Requires the Owner or Administrator role and an enrolled dashboard session. Deletes the installation record. Never deletes plugin data; refuses while plugin-owned resources remain. Idempotent for a plugin that is not installed. An installation row for a plugin this release does not know may also be removed; only the row is deleted.
       parameters:
         - { $ref: "#/components/parameters/PluginID" }
         - { $ref: "#/components/parameters/CSRFToken" }
@@ -1198,6 +1388,8 @@ paths:
   /api/v1/player/span-panels/{id}:
     get:
       operationId: getPlayerSpanPanel
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
       security: [{ deviceBearer: [] }]
       responses:
         "200": { description: Authenticated prepared H.264 panel variant }
@@ -1205,6 +1397,8 @@ paths:
         "404": { description: Panel is unavailable or not ready }
     head:
       operationId: headPlayerSpanPanel
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
       security: [{ deviceBearer: [] }]
       responses: { "200": { description: Prepared panel exists } }
   /api/v1/screen-groups:
@@ -1236,6 +1430,8 @@ paths:
   /api/v1/screen-groups/{id}:
     get:
       operationId: getScreenGroup
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
       responses:
         {
           "200":
@@ -1244,14 +1440,20 @@ paths:
         }
     patch:
       operationId: updateScreenGroup
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
       responses: { "200": { description: Display Group updated } }
     delete:
       operationId: deleteScreenGroup
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
       responses:
         { "204": { description: Display Group soft deleted; screens retained } }
   /api/v1/screen-groups/{id}/span:
     get:
       operationId: getSpanGeometryAndPreparation
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
       responses:
         {
           "200":
@@ -1260,14 +1462,8 @@ paths:
     put:
       operationId: updateSpanGeometry
       parameters:
-        [
-          {
-            in: header,
-            name: X-CSRF-Token,
-            required: true,
-            schema: { type: string },
-          },
-        ]
+        - { $ref: "#/components/parameters/ResourceID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
       requestBody:
         required: true
         content:
@@ -1282,6 +1478,7 @@ paths:
     get:
       operationId: previewDisplayGroupControl
       parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
         - in: query
           name: commandType
           required: true
@@ -1302,6 +1499,7 @@ paths:
     post:
       operationId: applyDisplayGroupControl
       parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
         - in: header
           name: X-CSRF-Token
           required: true
@@ -1332,6 +1530,8 @@ paths:
   /api/v1/screen-groups/{id}/screens:
     post:
       operationId: addScreenGroupMember
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
       responses:
         {
           "200": { description: Screen added and member manifests revised },
@@ -1340,11 +1540,19 @@ paths:
   /api/v1/screen-groups/{id}/screens/{screenId}:
     delete:
       operationId: removeScreenGroupMember
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+        - in: path
+          name: screenId
+          required: true
+          schema: { type: string, format: uuid }
       responses:
         { "204": { description: Screen removed and affected manifest revised } }
   /api/v1/screen-groups/{id}/playlist-assignment:
     put:
       operationId: assignSyncGroupPresentation
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
       requestBody:
         required: true
         content:
@@ -1359,6 +1567,8 @@ paths:
         }
     delete:
       operationId: unassignSyncGroupPlaylist
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
       responses:
         {
           "200":
@@ -1382,9 +1592,13 @@ paths:
   /api/v1/schedules/{id}:
     get:
       operationId: getSchedule
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
       responses: { "200": { description: Schedule and normalized targets } }
     patch:
       operationId: updateSchedule
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
       responses:
         {
           "200":
@@ -1392,14 +1606,20 @@ paths:
         }
     delete:
       operationId: deleteSchedule
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
       responses: { "204": { description: Schedule soft deleted } }
   /api/v1/schedules/{id}/enable:
     post:
       operationId: enableSchedule
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
       responses: { "200": { description: Schedule enabled } }
   /api/v1/schedules/{id}/disable:
     post:
       operationId: disableSchedule
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
       responses: { "200": { description: Schedule disabled } }
   /api/v1/schedules/preview:
     post:
@@ -1424,6 +1644,9 @@ paths:
   /api/v1/assets/{id}/website:
     patch:
       operationId: updateWebsiteAsset
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
       responses:
         {
           "200":
@@ -1435,6 +1658,8 @@ paths:
   /api/v1/assets/{id}/website/diagnostics:
     get:
       operationId: websiteDiagnostics
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
       responses:
         { "200": { description: Safe categorized player website diagnostics } }
   /api/v1/widgets:
@@ -1475,6 +1700,8 @@ paths:
   /api/v1/widgets/{id}:
     patch:
       operationId: updateWidget
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
       requestBody:
         required: true
         content:
@@ -1486,6 +1713,8 @@ paths:
   /api/v1/widgets/{id}/preview-image:
     put:
       operationId: updateWidgetPreviewImage
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
       description: Stores the frozen image captured from the actual Widget editor render. Requires an editor-capable dashboard session and CSRF token. The server accepts only a 960 by 540 JPEG no larger than 500 KB; Widget configuration updates clear the prior snapshot so stale renders are never shown.
       requestBody:
         required: true
@@ -1500,6 +1729,8 @@ paths:
   /api/v1/widgets/{id}/duplicate:
     post:
       operationId: duplicateWidget
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
       responses:
         "201": { description: Widget duplicated }
   /api/v1/data-sources:
@@ -1521,6 +1752,8 @@ paths:
   /api/v1/data-sources/{id}:
     get:
       operationId: getDataSource
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
       responses:
         "200":
           {
@@ -1529,6 +1762,8 @@ paths:
         "404": { description: Data Source not found }
     patch:
       operationId: updateDataSource
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
       requestBody:
         required: true
         content:
@@ -1540,6 +1775,8 @@ paths:
         "422": { description: Provider configuration rejected }
     delete:
       operationId: deleteDataSource
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
       responses:
         "204": { description: Data Source deleted }
         "409":
@@ -1549,11 +1786,15 @@ paths:
   /api/v1/data-sources/{id}/duplicate:
     post:
       operationId: duplicateDataSource
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
       responses:
         "201": { description: Data Source duplicated }
   /api/v1/data-sources/{id}/diagnostics:
     get:
       operationId: dataSourceRefreshDiagnostics
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
       responses:
         "200": { description: Current bounded Data Source refresh diagnostics }
         "404": { description: Data Source refresh diagnostics unavailable }
@@ -1599,6 +1840,8 @@ paths:
   /api/v1/data-sources/{id}/inspect:
     get:
       operationId: inspectSavedDataSource
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
       description: Detects fields for a saved RSS, Atom, JSON, or CSV Source using its stored configuration, including uploaded CSV bytes that detail responses strip. Same response shape as the provider inspect route.
       responses:
         "200": { description: Detected fields for the saved Data Source }
@@ -1646,6 +1889,8 @@ paths:
   /api/v1/layouts/{id}:
     get:
       operationId: getLayout
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
       responses:
         "200":
           {
@@ -1654,16 +1899,22 @@ paths:
         "404": { description: Layout not found }
     patch:
       operationId: updateLayout
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
       responses:
         "200": { description: Layout metadata updated }
     delete:
       operationId: deleteLayout
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
       responses:
         "204": { description: Unused Layout deleted }
         "409": { description: Layout is assigned or scheduled }
   /api/v1/layouts/{id}/draft:
     put:
       operationId: saveLayoutDraft
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
       description: Saves a validated draft using expectedDraftRevision optimistic concurrency.
       responses:
         "200": { description: Draft saved with a new revision and ETag }
@@ -1672,6 +1923,8 @@ paths:
   /api/v1/layouts/{id}/preview-image:
     get:
       operationId: getLayoutPreviewImage
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
       description: Serves the authenticated, frozen JPEG captured from the real Layout editor canvas.
       responses:
         "200": { description: Current Layout preview JPEG }
@@ -1680,6 +1933,7 @@ paths:
       operationId: updateLayoutPreviewImage
       description: Stores an aspect-preserving JPEG of at most 500 KB when draftRevision still matches the current Layout draft.
       parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
         - name: draftRevision
           in: query
           required: true
@@ -1692,22 +1946,34 @@ paths:
   /api/v1/layouts/{id}/publish:
     post:
       operationId: publishLayout
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
       responses:
         "201": { description: Immutable published revision created }
         "409": { description: Draft revision conflict }
   /api/v1/layouts/{id}/duplicate:
     post:
       operationId: duplicateLayout
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
       responses:
         "201": { description: Independent Layout draft created }
   /api/v1/layouts/{id}/revisions:
     get:
       operationId: listLayoutRevisions
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
       responses:
         "200": { description: Paginated immutable revision history }
   /api/v1/layouts/{id}/revisions/{revisionId}/restore:
     post:
       operationId: restoreLayoutRevision
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+        - in: path
+          name: revisionId
+          required: true
+          schema: { type: string }
       responses:
         "200": { description: Revision copied into a new draft revision }
         "409": { description: Draft revision conflict }
@@ -2440,6 +2706,8 @@ paths:
         "200": { description: Quick Present stopped }
         "404": { description: Quick Present is no longer active }
   /api/v1/screens/{id}/commands:
+    parameters:
+      - { $ref: "#/components/parameters/ResourceID" }
     get:
       summary: List recent screen commands
       responses:
@@ -2457,11 +2725,15 @@ paths:
       responses:
         "200": { description: Stable command list }
   /api/v1/player/commands/{id}/acknowledge:
+    parameters:
+      - { $ref: "#/components/parameters/ResourceID" }
     post:
       summary: Acknowledge a player command
       responses:
         "200": { description: Command acknowledged }
   /api/v1/player/commands/{id}/result:
+    parameters:
+      - { $ref: "#/components/parameters/ResourceID" }
     post:
       summary: Report a safe command result
       responses:
@@ -2469,36 +2741,58 @@ paths:
         "409": { description: Command expired or cancelled }
   /api/v1/settings:
     get:
-      {
-        summary: Read typed organization settings,
-        responses: { "200": { description: Settings document and registry } },
-      }
+      operationId: getSettings
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: >-
+        Requires an authenticated user with the read scope. Reads the typed organization settings document with its registry and revision.
+      responses:
+        "200": { description: Settings document and registry }
+        "401": { description: Dashboard authentication required }
     patch:
-      {
-        summary: Update settings with optimistic revision,
-        responses:
-          {
-            "200": { description: Updated settings },
-            "409": { description: Settings revision conflict },
-            "422": { description: "Unknown, invalid, or hard-limit setting" },
-          },
-      }
+      operationId: updateSettings
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: >-
+        Requires the Owner or Administrator role with the write scope. Cookie requests additionally require the X-CSRF-Token header; bearer requests never send it. Applies only the given keys against the expected revision; a stale revision fails with 409 and changes nothing.
+      parameters:
+        - { $ref: "#/components/parameters/CSRFToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SettingsUpdate" }
+      responses:
+        "200": { description: Updated settings }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Owner or Administrator and CSRF token required }
+        "409": { description: Settings revision conflict }
+        "422": { description: "Unknown, invalid, or hard-limit setting" }
   /api/v1/me/preferences:
     get:
-      {
-        summary: Read current user preferences,
-        responses: { "200": { description: Preference document } },
-      }
+      operationId: getPreferences
+      description: >-
+        Requires an enrolled dashboard session. Reads the calling user's own preferences.
+      responses:
+        "200": { description: Preference document }
+        "401": { description: Dashboard authentication required }
     patch:
-      {
-        summary: Update current user preferences,
-        responses:
-          {
-            "200": { description: Updated preferences },
-            "409": { description: Revision conflict },
-          },
-      }
+      operationId: updatePreferences
+      description: >-
+        Requires an enrolled dashboard session and the X-CSRF-Token header. Updates the calling user's own preferences against the expected revision.
+      parameters:
+        - { $ref: "#/components/parameters/CSRFToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SettingsUpdate" }
+      responses:
+        "200": { description: Updated preferences }
+        "401": { description: Dashboard authentication required }
+        "403": { description: CSRF token required }
+        "409": { description: Revision conflict }
   /api/v1/screen-groups/{id}/policy:
+    parameters:
+      - { $ref: "#/components/parameters/ResourceID" }
     get:
       {
         summary: Read group player policy,
@@ -2519,6 +2813,8 @@ paths:
         responses: { "204": { description: Policy reset } },
       }
   /api/v1/screens/{id}/policy:
+    parameters:
+      - { $ref: "#/components/parameters/ResourceID" }
     get:
       {
         summary: Read screen player policy,
@@ -2536,11 +2832,18 @@ paths:
       }
   /api/v1/screens/{id}/effective-policy:
     get:
-      {
-        summary: Inspect effective values and inheritance sources,
-        responses: { "200": { description: Effective policy } },
-      }
+      operationId: getEffectivePolicy
+      description: >-
+        Requires an enrolled dashboard session. Reports the effective player policy for one screen with inheritance sources. A screen outside the caller's scope answers 404.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+      responses:
+        "200": { description: Effective policy }
+        "401": { description: Dashboard authentication required }
+        "404": { description: Screen unknown or outside caller scope }
   /api/v1/screens/{id}/reliability:
+    parameters:
+      - { $ref: "#/components/parameters/ResourceID" }
     get:
       {
         summary: "Read commissioning, zero-touch readiness, Android reliability, and Power Assist state",
@@ -2551,6 +2854,8 @@ paths:
           },
       }
   /api/v1/screens/{id}/power-assist:
+    parameters:
+      - { $ref: "#/components/parameters/ResourceID" }
     put:
       {
         summary: "Store administrator-confirmed sleep, wake, CEC, input, and startup test results",
@@ -2572,11 +2877,19 @@ paths:
       }
   /api/v1/system/status:
     get:
-      {
-        summary: Safe system diagnostics,
-        responses: { "200": { description: Secret-free status } },
-      }
+      operationId: systemStatus
+      description: >-
+        Requires the Owner or Administrator role and an enrolled dashboard session. Secret-free system diagnostics: migration version, database, connectivity, and queue depths.
+      responses:
+        "200": { description: Secret-free status }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Owner or Administrator required }
   /api/v1/system/maintenance/{action}:
+    parameters:
+      - in: path
+        name: action
+        required: true
+        schema: { type: string }
     post:
       {
         summary: Run a fixed safe maintenance action,
@@ -2694,6 +3007,8 @@ paths:
         "413": { description: Upload exceeds configured limits }
         "422": { description: Missing file or verification failure }
   /api/v1/player-releases/{id}/cache:
+    parameters:
+      - { $ref: "#/components/parameters/ResourceID" }
     post:
       summary: Download and verify a signed Player APK into private cache
       responses:
@@ -2714,6 +3029,8 @@ paths:
           "422": { description: Invalid or unverified release/targets },
         }
   /api/v1/update-deployments/{id}:
+    parameters:
+      - { $ref: "#/components/parameters/ResourceID" }
     get:
       summary: Read the deployment header, release artifact size, and per-screen update state for the screens in the caller's scope
       responses:
@@ -2725,6 +3042,8 @@ paths:
             },
         }
   /api/v1/update-deployments/{id}/cancel:
+    parameters:
+      - { $ref: "#/components/parameters/ResourceID" }
     post:
       summary: Cancel pending update work on every screen the deployment reaches
       responses:
@@ -2741,6 +3060,12 @@ paths:
             },
         }
   /api/v1/update-deployments/{id}/screens/{screenId}/retry:
+    parameters:
+      - { $ref: "#/components/parameters/ResourceID" }
+      - in: path
+        name: screenId
+        required: true
+        schema: { type: string, format: uuid }
     post:
       summary: Retry a failed screen update idempotently
       responses:
@@ -2750,6 +3075,11 @@ paths:
           "409": { description: Retry not allowed },
         }
   /api/v1/player/updates/{releaseId}:
+    parameters:
+      - in: path
+        name: releaseId
+        required: true
+        schema: { type: string }
     get:
       summary: Get targeted verified Player update metadata
       responses:
@@ -2763,6 +3093,11 @@ paths:
                   data: { $ref: "#/components/schemas/PlayerUpdateMetadata" }
         "404": { description: Not targeted }
   /api/v1/player/updates/{releaseId}/artifact:
+    parameters:
+      - in: path
+        name: releaseId
+        required: true
+        schema: { type: string }
     get:
       summary: Download or resume the authenticated cached release artifact
       description: >-
@@ -2776,6 +3111,11 @@ paths:
           "416": { description: Invalid range },
         }
   /api/v1/player/updates/{releaseId}/apk:
+    parameters:
+      - in: path
+        name: releaseId
+        required: true
+        schema: { type: string }
     head:
       summary: Inspect authenticated APK range metadata
       responses:
@@ -2792,6 +3132,11 @@ paths:
           "416": { description: Invalid range },
         }
   /api/v1/player/update-deployments/{deploymentId}/status:
+    parameters:
+      - in: path
+        name: deploymentId
+        required: true
+        schema: { type: string, format: uuid }
     post:
       summary: Report bounded Player update preparation and installer status
       requestBody:
@@ -2892,11 +3237,13 @@ paths:
         "404": { description: Instance not found }
   /api/v1/alerts/nws:
     get:
+      operationId: getNwsMonitor
       summary: Read the NWS monitor, rules, active matches, and poll health
       responses:
         "200": { description: NWS alert settings }
   /api/v1/alerts/nws/zones:
     get:
+      operationId: listNwsZones
       summary: List official NWS counties and forecast zones for an area
       parameters:
         - {
@@ -2911,18 +3258,21 @@ paths:
         "502": { description: NWS zone catalog unavailable }
   /api/v1/alerts/nws/monitor:
     put:
+      operationId: updateNwsMonitor
       summary: Configure NWS area and zone monitoring
       responses:
         "200": { description: Monitor updated }
         "422": { description: "Invalid area, zone, or interval" }
   /api/v1/alerts/nws/poll:
     post:
+      operationId: pollNwsAlerts
       summary: Retrieve and apply active NWS alerts now
       responses:
         "200": { description: Poll completed }
         "502": { description: NWS retrieval failed }
   /api/v1/alerts/nws/rules:
     post:
+      operationId: createNwsRule
       summary: Create an automatic NWS rule answering with a takeover or a ticker bar
       responses:
         "201": { description: Rule created }
@@ -2937,12 +3287,14 @@ paths:
           schema: { type: string, format: uuid },
         }
     put:
+      operationId: updateNwsRule
       summary: Replace an automatic NWS rule
       responses:
         "200": { description: Rule updated }
         "422":
           { description: "Invalid rule, response mode, or ticker geometry" }
     delete:
+      operationId: deleteNwsRule
       summary: Delete a rule, ending Takeovers it raised and withdrawing its ticker
       responses:
         "200": { description: Rule deleted }
@@ -2975,6 +3327,13 @@ paths:
   /api/v1/data-sources/{id}/form:
     get:
       operationId: getForm
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Returns the Form detail with draft schema, published revision, workflow, saved views, and the caller's granted capabilities. Each workflow state carries recordCount and a removable flag (false once any record or saved view references it) so the Workflow editor can lock keys/deletion. Non-managers receive the published schema as the visible draft schema so unpublished edits are never exposed.
       responses:
         "200": { description: Form detail }
@@ -2982,6 +3341,13 @@ paths:
         "404": { description: Form not found }
     patch:
       operationId: updateFormMetadata
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Updates only the parent Data Source name and description. An omitted description preserves the stored value; provider and configuration cannot be changed here. Requires the manage capability.
       requestBody:
         required: true
@@ -3000,6 +3366,13 @@ paths:
   /api/v1/data-sources/{id}/form/draft:
     patch:
       operationId: updateFormDraft
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Replaces the editable draft schema without publishing. Existing submissions are untouched. Requires the manage capability.
       requestBody:
         required: true
@@ -3017,6 +3390,13 @@ paths:
   /api/v1/data-sources/{id}/form/publish:
     post:
       operationId: publishForm
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Snapshots the current draft into a new immutable revision after conservative compatibility checks (a previously published output field cannot be removed or change its output type). Existing submissions remain tied to their original revisions. Requires the manage capability.
       responses:
         "200": { description: The newly published revision }
@@ -3028,6 +3408,13 @@ paths:
   /api/v1/data-sources/{id}/form/workflow:
     put:
       operationId: configureFormWorkflow
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Reconciles the form's bounded, script-free approval workflow in place. State keys referenced by existing records are immutable; transitions are replaced wholesale. Requires the manage capability.
       responses:
         "200": { description: Refreshed Form detail with the saved workflow }
@@ -3038,6 +3425,12 @@ paths:
       operationId: listFormRecords
       description: Returns a filtered, paginated page of a form's records. Callers with view_all, review, approve, or manage see every record; a submitter without those sees only their own submissions. `mine=true` scopes the page to the caller's own submissions even for privileged callers (the Forms portal's "your submissions"). Supports states, search, sort, mine, page, and pageSize query parameters.
       parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
         - {
             name: states,
             in: query,
@@ -3066,6 +3459,13 @@ paths:
         "403": { description: No visibility into this form's records }
     post:
       operationId: createFormRecord
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Creates a draft submission bound to the form's current published revision. Requires the submit capability. Image field values are never accepted here — they are set only by the attachment upload/remove endpoints — and a client-supplied image value is rejected. Display metadata dates are tri-state (omitted preserves, null clears, a value sets).
       responses:
         "201": { description: Draft record created }
@@ -3074,12 +3474,38 @@ paths:
   /api/v1/data-sources/{id}/records/{recordId}:
     get:
       operationId: getFormRecord
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
+        - {
+            name: recordId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Returns a record with its immutable revision schema, history, comments, attachments, and the server-calculated actions the caller may take (canEdit, canComment, canDelete, and availableTransitions with destination, label, required capability, and whether a note is required). Authorization is resolved server-side so clients never re-implement it. Visible only to a manager, reviewer/approver, view_all holder, or the record's own submitter.
       responses:
         "200": { description: Decorated record detail }
         "404": { description: Record not found or not visible to the caller }
     patch:
       operationId: updateFormRecord
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
+        - {
+            name: recordId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Edits a record's values and display metadata under optimistic concurrency (a version is required). Image field values are preserved server-side and cannot be changed here (a client-supplied image value is rejected); only the attachment endpoints modify them. Display dates are tri-state. A manager may edit any record; a submitter may edit their own record only while it is in a submitter-editable state.
       responses:
         "200": { description: Updated record }
@@ -3087,6 +3513,19 @@ paths:
         "422": { description: Values rejected }
     delete:
       operationId: deleteFormRecord
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
+        - {
+            name: recordId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Soft-deletes a record. Requires the manage capability.
       responses:
         "204": { description: Record deleted }
@@ -3094,6 +3533,19 @@ paths:
   /api/v1/data-sources/{id}/records/{recordId}/transitions:
     post:
       operationId: transitionFormRecord
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
+        - {
+            name: recordId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Moves a record to a new workflow state, enforcing the configured transition, per-form capability and record ownership, optimistic concurrency (version), and required-field completeness (including required images, satisfied only by a bound attachment) before any submit transition or any transition into an output-eligible state. A note is recorded as a comment; a transition that requires a note (the default changes_requested path, derived from the workflow) is rejected with 422 when the note is empty. A 409 means the record changed; reload, preserving any unsent note.
       responses:
         "200": { description: Record after the transition }
@@ -3102,6 +3554,19 @@ paths:
   /api/v1/data-sources/{id}/records/{recordId}/comments:
     post:
       operationId: addFormRecordComment
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
+        - {
+            name: recordId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Adds a reviewer or submitter comment. Available to a reviewer/approver or the record's own submitter.
       responses:
         "201": { description: Comment created }
@@ -3109,6 +3574,19 @@ paths:
   /api/v1/data-sources/{id}/records/{recordId}/attachments:
     post:
       operationId: uploadFormRecordAttachment
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
+        - {
+            name: recordId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Uploads a base64-encoded image as a dedicated form attachment bound to an image field, returning the updated record detail with its incremented version. Uses optimistic concurrency — the request body must carry the record's current `version`, and a mismatch returns 409. Because image fields are single-valued, uploading to a field that already has an attachment replaces it. Authorization matches record editing. Form attachments are never exposed through the general Media library.
       requestBody:
         required: true
@@ -3136,6 +3614,24 @@ paths:
       description: Unbinds an attachment, clears the field value it backed, and soft-deletes the underlying asset. Uses optimistic concurrency — the record's current `version` is required as a query parameter and a mismatch returns 409. Authorization matches record editing. Returns the updated record detail.
       parameters:
         - {
+            name: attachmentId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
+        - {
+            name: recordId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
+        - {
             name: version,
             in: query,
             required: true,
@@ -3152,6 +3648,25 @@ paths:
   /api/v1/data-sources/{id}/records/{recordId}/attachments/{attachmentId}/content:
     get:
       operationId: serveFormRecordAttachment
+      parameters:
+        - {
+            name: attachmentId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
+        - {
+            name: recordId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Streams a record's image attachment through this form-record-authorized endpoint (the only way to view a form attachment; they are never served from the Media library). Applies the same visibility rules as reading the record.
       responses:
         "200": { description: The attachment image bytes }
@@ -3174,12 +3689,26 @@ paths:
   /api/v1/data-sources/{id}/views:
     get:
       operationId: listFormViews
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Returns the saved views of a Form Data Source as stored on the form, with per-view inclusion states, filters, sort, and output fields. Requires the view_all capability.
       responses:
         "200": { description: Saved views under data }
         "403": { description: view_all or manage required }
     put:
       operationId: upsertFormView
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Creates or replaces one saved view of a Form Data Source by key, validating included states against the published workflow, output fields against published output, and sort keys against declared sortables. Requires the manage capability and CSRF.
       requestBody:
         required: true
@@ -3202,6 +3731,19 @@ paths:
   /api/v1/data-sources/{id}/views/{viewId}:
     delete:
       operationId: deleteFormView
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
+        - {
+            name: viewId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Deletes one saved view of a Form Data Source by view id, in a single transaction with an audit entry. Requires the manage capability and CSRF.
       responses:
         "204": { description: View deleted }
@@ -3210,6 +3752,13 @@ paths:
   /api/v1/data-sources/{id}/views/preview:
     post:
       operationId: previewFormView
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Projects an unsaved, proposed saved view and returns the resulting typed dataset without persisting anything or altering the cached projection. Only output-eligible records in the view's included states are returned, so a preview never exposes unapproved records. Requires the manage capability.
       responses:
         "200":
@@ -3219,6 +3768,13 @@ paths:
   /api/v1/data-sources/{id}/outputs:
     get:
       operationId: getFormOutputs
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Returns the generated dataset for each saved view (dataset key, output fields and types, current record count, preview records) plus form-level projection status (last successful projection, next scheduled refresh/time-window boundary, using-cached/stale flag, projection error) and per-view Widget usage. Preview records come from the cached payload, so only output-eligible records appear. Available to view_all or manage.
       responses:
         "200": { description: Per-view datasets and projection status }
@@ -3226,6 +3782,13 @@ paths:
   /api/v1/data-sources/{id}/outputs/rebuild:
     post:
       operationId: rebuildFormOutputs
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Manually re-runs the form projection and returns the refreshed Outputs status. Invalidates affected manifests. Requires the manage capability and CSRF.
       responses:
         "200": { description: Refreshed Outputs status }
@@ -3233,12 +3796,26 @@ paths:
   /api/v1/data-sources/{id}/grants:
     get:
       operationId: listFormGrants
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Returns every per-form capability grant for a Form Data Source. Requires the manage capability.
       responses:
         "200": { description: Grants under data }
         "403": { description: Manage capability required }
     put:
       operationId: setFormGrant
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Adds one capability grant for a user on a Form Data Source (idempotent on form, user, and capability), in a single transaction with an audit entry. The target must be an existing user. Requires the manage capability and CSRF.
       requestBody:
         required: true
@@ -3257,6 +3834,19 @@ paths:
   /api/v1/data-sources/{id}/grants/{grantId}:
     delete:
       operationId: revokeFormGrant
+      parameters:
+        - {
+            name: grantId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Revokes one capability grant by grant id, in a single transaction with an audit entry. Requires the manage capability and CSRF.
       responses:
         "204": { description: Grant revoked }
@@ -3265,6 +3855,13 @@ paths:
   /api/v1/data-sources/{id}/access:
     get:
       operationId: listFormAccess
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Returns one entry per user with effective access to the form — the creator and all active global Owners as implicit, uneditable managers, followed by each granted user with their collapsed (non-redundant) capability set. Requires the manage capability.
       responses:
         "200": { description: Access entries under data.entries }
@@ -3272,6 +3869,19 @@ paths:
   /api/v1/data-sources/{id}/access/{userId}:
     put:
       operationId: replaceFormGrants
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
+        - {
+            name: userId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Atomically replaces one user's grants on the form with the supplied capabilities (submit, view_own, view_all, review, approve, manage), collapsing implied capabilities to a minimal set, in a single transaction with an audit entry. The form creator and global Owners cannot be edited here, and a manager cannot remove their own only management path. Requires the manage capability and CSRF.
       requestBody:
         required: true
@@ -3294,6 +3904,12 @@ paths:
       operationId: searchFormUsers
       description: A bounded, manager-safe user directory for granting form access, returning only id, name, username, and global role for active users. Authorized to the form's managers (per-form), never the Owner/Admin-only user administration API.
       parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
         - { name: search, in: query, schema: { type: string } }
         - { name: limit, in: query, schema: { type: integer } }
       responses:
@@ -3317,11 +3933,21 @@ components:
       name: X-CSRF-Token
       required: true
       schema: { type: string }
+      description: Cookie-backed browser requests only. Bearer grants never send it.
   securitySchemes:
     deviceBearer:
       type: http
       scheme: bearer
       bearerFormat: Tilecast device credential
+    userBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: Tilecast user grant (tca_ OAuth access token or tcp_ personal access token)
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: tilecast_session
+      description: Enrolled dashboard session cookie
   schemas:
     PluginRequirement:
       type: object
@@ -4063,35 +4689,36 @@ components:
         edges:
           type: array
           items: { $ref: "#/components/schemas/DependencyEdge" }
+    DependencyNodeType:
+      type: string
+      enum:
+        [
+          data_source,
+          asset,
+          widget,
+          layout,
+          playlist,
+          campaign,
+          schedule,
+          screen_group,
+          screen,
+        ]
     DependencyNode:
       type: object
       additionalProperties: false
       required: [id, type, name]
       properties:
         id: { type: string, format: uuid }
-        type:
-          enum:
-            [
-              data_source,
-              asset,
-              widget,
-              layout,
-              playlist,
-              campaign,
-              schedule,
-              screen_group,
-              screen,
-            ]
+        type: { $ref: "#/components/schemas/DependencyNodeType" }
         name: { type: string }
     DependencyEdge:
       type: object
       additionalProperties: false
       required: [fromType, fromId, toType, toId, relationship]
       properties:
-        fromType:
-          { $ref: "#/components/schemas/DependencyNode/properties/type" }
+        fromType: { $ref: "#/components/schemas/DependencyNodeType" }
         fromId: { type: string, format: uuid }
-        toType: { $ref: "#/components/schemas/DependencyNode/properties/type" }
+        toType: { $ref: "#/components/schemas/DependencyNodeType" }
         toId: { type: string, format: uuid }
         relationship: { type: string }
     PlayerFamily:
@@ -4743,6 +5370,60 @@ components:
         ownerName: { type: string, minLength: 2, maxLength: 120 }
         username: { type: string, minLength: 3, maxLength: 254 }
         password: { type: string, minLength: 12, maxLength: 1024 }
+    OAuthDecision:
+      type: object
+      additionalProperties: false
+      required: [client, redirectUri, scope, challenge]
+      properties:
+        client: { type: string }
+        redirectUri: { type: string, format: uri }
+        scope: { type: string }
+        state: { type: string }
+        challenge: { type: string }
+        method: { type: string, enum: [S256] }
+    OAuthTokenRequest:
+      type: object
+      additionalProperties: false
+      required: [grant_type]
+      properties:
+        grant_type: { type: string, enum: [authorization_code, refresh_token] }
+        client_id: { type: string }
+        code: { type: string }
+        redirect_uri: { type: string, format: uri }
+        code_verifier: { type: string }
+        refresh_token: { type: string }
+    InstallationIdentity:
+      type: object
+      additionalProperties: false
+      required:
+        [product, apiVersion, installationId, organizationName, pairingEnabled]
+      properties:
+        product: { type: string, example: tilecast }
+        apiVersion: { type: string, example: v1 }
+        installationId: { type: string, format: uuid }
+        organizationName: { type: string }
+        pairingEnabled: { type: boolean }
+    AuthStatus:
+      type: object
+      additionalProperties: false
+      required: [setupRequired, authenticated, passkeysAvailable]
+      properties:
+        setupRequired: { type: boolean }
+        authenticated: { type: boolean }
+        passkeysAvailable: { type: boolean }
+        passkeysUnavailableReason: { type: string }
+        demoMode: { type: boolean }
+        user: { type: object }
+        csrfToken: { type: string }
+        authMethod: { type: string }
+        mfaEnrollmentRequired: { type: boolean }
+    SettingsUpdate:
+      type: object
+      additionalProperties: false
+      required: [revision, values]
+      properties:
+        revision: { type: integer, format: int64, minimum: 0 }
+        values: { type: object }
     CountdownBarInput:
       type: object
       additionalProperties: false

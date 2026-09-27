@@ -20,25 +20,29 @@ import (
 )
 
 func printUsage() {
-	fmt.Print(`Tilecast server
+	fmt.Print(`Tilecast server administration
+
+This is the local server and recovery utility. It runs on the server host
+with direct database access. Remote management from an operator machine is
+the tilecast CLI, which is a separate application.
 
 Usage:
-  tilecast                          Run the Tilecast server (default)
-  tilecast serve                    Run the Tilecast server
-  tilecast backup create            Create a full backup into TILECAST_BACKUP_ROOT
-  tilecast backup verify <file>     Fully verify a backup archive
-  tilecast backup inspect <file>    Show a backup archive's manifest
-  tilecast restore verify <file>    Verify an archive and show the restore plan
-  tilecast restore apply <file>     Restore a backup (stop the server first)
-  tilecast mfa reset <username>     Clear a user's multi-factor enrollment
+  tilecast-server                          Run the Tilecast server (default)
+  tilecast-server serve                    Run the Tilecast server
+  tilecast-server backup create            Create a full backup into TILECAST_BACKUP_ROOT
+  tilecast-server backup verify <file>     Fully verify a backup archive
+  tilecast-server backup inspect <file>    Show a backup archive's manifest
+  tilecast-server restore verify <file>    Verify an archive and show the restore plan
+  tilecast-server restore apply <file>     Restore a backup (stop the server first)
+  tilecast-server mfa reset <username>     Clear a user's multi-factor enrollment
 
-Restore flags (tilecast restore apply):
+Restore flags (tilecast-server restore apply):
   --yes                             Skip the interactive confirmation
   --confirm-identity-mismatch       Restore an archive from a different installation
   --skip-pre-restore-backup         Do not create a pre-restore backup first
   --force                           Proceed even if a running server holds the database lock
 
-Multi-factor reset flags (tilecast mfa reset):
+Multi-factor reset flags (tilecast-server mfa reset):
   --yes                             Skip the interactive confirmation
 
 Use "mfa reset" only when no Owner or Administrator can perform the reset in

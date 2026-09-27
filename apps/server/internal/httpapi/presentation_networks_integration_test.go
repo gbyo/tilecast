@@ -60,7 +60,7 @@ func withPresentationNetworkDatabase(t *testing.T, run func(activityTestEnvironm
 
 func presentationNetworkRequest(method, path string, body []byte, session auth.Session, csrf bool, params map[string]string) *http.Request {
 	request := httptest.NewRequest(method, path, bytes.NewReader(body))
-	request = request.WithContext(context.WithValue(request.Context(), sessionContextKey, session))
+	request = requestWithTestPrincipal(request, session)
 	if csrf {
 		request.Header.Set("X-CSRF-Token", session.CSRFToken)
 	}

@@ -52,12 +52,12 @@ Tilecast has no email delivery, so there is no self-service reset link. Three pa
 3. **Break-glass on the server.** When the only Owner is locked out and no other administrator can help, run on the server host:
 
    ```sh
-   tilecast mfa reset owner@example.org
+   tilecast-server mfa reset owner@example.org
    ```
 
    It reads the same `TILECAST_*` environment variables as the server, prompts for confirmation, and does the same thing as the Studio reset. It requires shell access and database credentials, which is a materially higher bar than a password.
 
-   Add `--yes` to skip the prompt in a script. Like `tilecast restore apply`, flags come **before** the username. `tilecast mfa reset --yes owner@example.org`. The reverse order is parsed as two positional arguments and prints usage.
+   Add `--yes` to skip the prompt in a script. Like `tilecast-server restore apply`, flags come **before** the username. `tilecast-server mfa reset --yes owner@example.org`. The reverse order is parsed as two positional arguments and prints usage.
 
 After any reset the account signs in with its password alone and is asked to enroll again if a policy covers it.
 

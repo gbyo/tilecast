@@ -112,7 +112,7 @@ func (f *edgeFixture) deploy(t *testing.T, release uuid.UUID, screens ...uuid.UU
 	t.Helper()
 	body, _ := json.Marshal(deploymentInput{ReleaseID: release, Name: "Rollout", Mode: "install_now", ScreenIDs: screens})
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/update-deployments", bytes.NewReader(body))
-	request = request.WithContext(context.WithValue(request.Context(), sessionContextKey, auth.Session{User: auth.User{ID: f.user, Role: "owner"}}))
+	request = requestWithTestPrincipal(request, auth.Session{User: auth.User{ID: f.user, Role: "owner"}})
 	response := httptest.NewRecorder()
 	f.server.createUpdateDeployment(response, request)
 	if response.Code == http.StatusUnprocessableEntity {
@@ -270,7 +270,7 @@ func TestEdgeRollbackIsAFailureThatPausesACanary(t *testing.T) {
 	second := f.screen(t, "Edge 2", "linux", "edge", "x86_64", 1000)
 	body, _ := json.Marshal(deploymentInput{ReleaseID: f.edgeRelease(t, "x86_64"), Name: "Canary", Mode: "install_now", ScreenIDs: []uuid.UUID{first, second}, CanarySize: 1})
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/update-deployments", bytes.NewReader(body))
-	request = request.WithContext(context.WithValue(request.Context(), sessionContextKey, auth.Session{User: auth.User{ID: f.user, Role: "owner"}}))
+	request = requestWithTestPrincipal(request, auth.Session{User: auth.User{ID: f.user, Role: "owner"}})
 	response := httptest.NewRecorder()
 	f.server.createUpdateDeployment(response, request)
 	var created struct {

@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
+	"github.com/tilecast/tilecast/apps/server/internal/audit"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 )
@@ -112,8 +113,8 @@ func (s *server) rateLimit(limiter *rateLimiter, includeUser bool, next http.Han
 			key = addrPort.Addr().String()
 		}
 		if includeUser {
-			if session, ok := r.Context().Value(sessionContextKey).(auth.Session); ok {
-				key += ":" + session.User.ID.String()
+			if principal, ok := principalOf(r); ok {
+				key += ":" + principal.User.ID.String()
 			}
 		}
 		if !limiter.allow(key, time.Now()) {
@@ -129,6 +130,24 @@ func (s *server) rateLimit(limiter *rateLimiter, includeUser bool, next http.Han
 	})
 }
 
+// withAuditContext records the calling surface and request ID for the
+// shared audit path. Browser sessions are Tilecast Studio; bearer grants
+// already carry their surface from requireUser, so this keeps a surface
+// that is already set. The CLI and MCP servers set their own surface
+// instead of passing through here.
+func (s *server) withAuditContext(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		if audit.SurfaceFrom(ctx) == audit.SurfaceStudio {
+			if principal, ok := principalOf(r); ok && principal.CredentialKind == auth.CredentialKindGrant {
+				ctx = audit.WithSurface(ctx, auditSurfaceForGrant(principal.ClientName))
+			}
+		}
+		ctx = audit.WithRequest(ctx, middleware.GetReqID(ctx))
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
 // requireScreenScope refuses an operation on a screen outside the account's
 // assigned scope.
 //
@@ -137,7 +156,7 @@ func (s *server) rateLimit(limiter *rateLimiter, includeUser bool, next http.Han
 // unscoped account, and every Owner, passes through untouched.
 func (s *server) requireScreenScope(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		session, ok := r.Context().Value(sessionContextKey).(auth.Session)
+		principal, ok := principalOf(r)
 		if !ok {
 			// Fail closed. This middleware is only mounted inside the
 			// authenticated subtree today, but the whole point is that a screen
@@ -152,7 +171,7 @@ func (s *server) requireScreenScope(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		if err := s.devices.AuthorizeScreen(r.Context(), session.User.ID, session.User.Role, id); err != nil {
+		if err := s.devices.AuthorizeScreen(r.Context(), principal.User.ID, principal.User.Role, id); err != nil {
 			if errors.Is(err, devices.ErrOutOfScope) {
 				// 404 rather than 403: a scoped operator has no business
 				// learning which screens exist outside their scope.
@@ -170,12 +189,12 @@ func (s *server) requireScreenScope(next http.Handler) http.Handler {
 // than the {id} path parameter, such as the screen inside an update deployment.
 // It returns false when it has already written the response.
 func (s *server) authorizeScreen(w http.ResponseWriter, r *http.Request, screen uuid.UUID) bool {
-	session, ok := r.Context().Value(sessionContextKey).(auth.Session)
+	principal, ok := principalOf(r)
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "unauthenticated", "Sign in to continue.")
 		return false
 	}
-	if err := s.devices.AuthorizeScreen(r.Context(), session.User.ID, session.User.Role, screen); err != nil {
+	if err := s.devices.AuthorizeScreen(r.Context(), principal.User.ID, principal.User.Role, screen); err != nil {
 		if errors.Is(err, devices.ErrOutOfScope) {
 			// 404 for the same reason requireScreenScope reports one.
 			writeError(w, http.StatusNotFound, "screen_not_found", "Screen was not found.")
@@ -191,23 +210,23 @@ func (s *server) authorizeScreen(w http.ResponseWriter, r *http.Request, screen 
 // have to filter their SQL rather than refuse outright. It returns false when it
 // has already written the response.
 func (s *server) callerScope(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool, bool) {
-	session, ok := r.Context().Value(sessionContextKey).(auth.Session)
+	principal, ok := principalOf(r)
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "unauthenticated", "Sign in to continue.")
 		return uuid.Nil, false, false
 	}
-	scoped, err := s.devices.Scoped(r.Context(), session.User.ID, session.User.Role)
+	scoped, err := s.devices.Scoped(r.Context(), principal.User.ID, principal.User.Role)
 	if err != nil {
 		s.internalError(w, r, err)
 		return uuid.Nil, false, false
 	}
-	return session.User.ID, scoped, true
+	return principal.User.ID, scoped, true
 }
 
 // authorizeScreenList checks a set of screens and groups named in a request
 // body. It returns false when it has already written the response.
 func (s *server) authorizeScreenList(w http.ResponseWriter, r *http.Request, screens []uuid.UUID, groups []uuid.UUID) bool {
-	session, ok := r.Context().Value(sessionContextKey).(auth.Session)
+	principal, ok := principalOf(r)
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "unauthenticated", "Sign in to continue.")
 		return false
@@ -237,7 +256,7 @@ func (s *server) authorizeScreenList(w http.ResponseWriter, r *http.Request, scr
 			return false
 		}
 	}
-	if err := s.devices.AuthorizeScreens(r.Context(), session.User.ID, session.User.Role, targets); err != nil {
+	if err := s.devices.AuthorizeScreens(r.Context(), principal.User.ID, principal.User.Role, targets); err != nil {
 		if errors.Is(err, devices.ErrOutOfScope) {
 			writeError(w, http.StatusForbidden, "out_of_scope",
 				"Some of the selected screens are outside your assigned scope.")

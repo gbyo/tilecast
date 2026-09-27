@@ -79,7 +79,12 @@ func (s *server) updateSettings(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 400, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	document, err := s.settings.UpdateOrganization(r.Context(), user.ID, body.Revision, body.Values)
 	if err != nil {
 		s.writeSettingsError(w, r, err)
@@ -112,7 +117,12 @@ func (s *server) resetSettings(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	updated, err := s.settings.UpdateOrganization(r.Context(), user.ID, body.Revision, values)
 	if err != nil {
 		s.writeSettingsError(w, r, err)
@@ -122,7 +132,12 @@ func (s *server) resetSettings(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"data": updated})
 }
 func (s *server) getPreferences(w http.ResponseWriter, r *http.Request) {
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	d, err := s.settings.Preferences(r.Context(), user.ID)
 	if err != nil {
 		s.internalError(w, r, err)
@@ -136,7 +151,12 @@ func (s *server) updatePreferences(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 400, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	d, err := s.settings.UpdatePreferences(r.Context(), user.ID, body.Revision, body.Values)
 	if err != nil {
 		s.writeSettingsError(w, r, err)
@@ -166,7 +186,12 @@ func (s *server) putGroupPolicy(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 400, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	d, err := s.settings.PutGroupPolicy(r.Context(), user.ID, id, body.Revision, body.Priority, body.Values)
 	if err != nil {
 		s.writeSettingsError(w, r, err)
@@ -179,7 +204,12 @@ func (s *server) deleteGroupPolicy(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	if err := s.settings.DeleteGroupPolicy(r.Context(), user.ID, id); err != nil {
 		s.internalError(w, r, err)
 		return
@@ -208,7 +238,12 @@ func (s *server) putScreenPolicy(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 400, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	d, err := s.settings.PutScreenPolicy(r.Context(), user.ID, id, body.Revision, body.Values)
 	if err != nil {
 		s.writeSettingsError(w, r, err)
@@ -221,7 +256,12 @@ func (s *server) deleteScreenPolicy(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	if err := s.settings.DeleteScreenPolicy(r.Context(), user.ID, id); err != nil {
 		s.internalError(w, r, err)
 		return
@@ -365,7 +405,12 @@ func (s *server) systemMaintenance(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, r, operationErr)
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	_, _ = s.db.Exec(r.Context(), `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id)VALUES($1,$2,'system.maintenance_requested','system',$3)`, uuid.New(), user.ID, action)
 	writeJSON(w, 202, map[string]any{"data": map[string]any{"action": action, "status": "accepted"}})
 }
@@ -483,7 +528,12 @@ func (s *server) applySettingsImport(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, r, err)
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	updated, err := s.settings.UpdateOrganization(r.Context(), user.ID, current.Revision, body.Organization.Values)
 	if err != nil {
 		s.writeSettingsError(w, r, err)

@@ -7,11 +7,13 @@ info:
 paths:
   /api/v1/alerts/nws:
     get:
+      operationId: getNwsMonitor
       summary: Read the NWS monitor, rules, active matches, and poll health
       responses:
         "200": { description: NWS alert settings }
   /api/v1/alerts/nws/zones:
     get:
+      operationId: listNwsZones
       summary: List official NWS counties and forecast zones for an area
       parameters:
         - {
@@ -26,18 +28,21 @@ paths:
         "502": { description: NWS zone catalog unavailable }
   /api/v1/alerts/nws/monitor:
     put:
+      operationId: updateNwsMonitor
       summary: Configure NWS area and zone monitoring
       responses:
         "200": { description: Monitor updated }
         "422": { description: "Invalid area, zone, or interval" }
   /api/v1/alerts/nws/poll:
     post:
+      operationId: pollNwsAlerts
       summary: Retrieve and apply active NWS alerts now
       responses:
         "200": { description: Poll completed }
         "502": { description: NWS retrieval failed }
   /api/v1/alerts/nws/rules:
     post:
+      operationId: createNwsRule
       summary: Create an automatic NWS rule answering with a takeover or a ticker bar
       responses:
         "201": { description: Rule created }
@@ -52,12 +57,14 @@ paths:
           schema: { type: string, format: uuid },
         }
     put:
+      operationId: updateNwsRule
       summary: Replace an automatic NWS rule
       responses:
         "200": { description: Rule updated }
         "422":
           { description: "Invalid rule, response mode, or ticker geometry" }
     delete:
+      operationId: deleteNwsRule
       summary: Delete a rule, ending Takeovers it raised and withdrawing its ticker
       responses:
         "200": { description: Rule deleted }

@@ -26,6 +26,7 @@ import {
   ScheduleEditorPage,
 } from "./pages/SchedulesPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { OAuthApprovalPage } from "./pages/OAuthApprovalPage";
 import { MyAccountPage } from "./pages/MyAccountPage";
 import { LayoutsPage } from "./pages/LayoutsPage";
 import { LayoutEditorPage } from "./pages/LayoutEditorPage";
@@ -421,6 +422,19 @@ export const studioRoutes: RouteObject[] = [
               "appearance",
               "density",
             ],
+          ),
+        },
+      },
+      {
+        path: "oauth/approve",
+        element: <OAuthApprovalPage />,
+        handle: {
+          breadcrumb: "Authorize access",
+          search: search(
+            "Authorize access",
+            "Approve a loopback operator such as the Tilecast CLI",
+            "/oauth/approve",
+            ["oauth", "cli", "authorize", "grant", "token"],
           ),
         },
       },
