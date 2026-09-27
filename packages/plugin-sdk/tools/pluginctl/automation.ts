@@ -5,23 +5,28 @@
  * validates it against the contract schema, and checks the references
  * a single file can prove on its own (duplicates, unknown operation
  * IDs, operation/exclusion overlap). Cross-plugin checks (CLI path or
- * MCP action collisions between plugins) belong to the Phase 14
- * generic CLI, which sees every file. Wiring into `plugins:check`
- * arrives in Phase 13.
+ * MCP action collisions between plugins) live in `checkAutomationFiles`,
+ * which sees every file. The generic CLI (Phase 14) consumes only
+ * files that pass there.
  *
  * The file maps existing OpenAPI operations to automation
  * presentation. It redefines no HTTP path, schema, authorization, or
  * validation, so the validator never reads those facets: an
  * operationId either exists in the plugin's own fragment or it does
- * not.
+ * not. `checkAutomationFiles` runs every present file plus the
+ * cross-plugin uniqueness rules; `check.ts` wires it into
+ * `plugins:check`.
  */
-import YAML from "yaml";
+import { existsSync, readFileSync } from "node:fs";
+import { join, relative } from "node:path";
+import YAML, { type Document } from "yaml";
 import {
   AUTOMATION_FILENAME,
   parseAutomationDocument,
   type AutomationDocument,
 } from "../../src/automation.ts";
-import type { Problem } from "./repo.ts";
+import type { Problem, Repo } from "./repo.ts";
+import { collectOperations } from "./supported.ts";
 
 export { AUTOMATION_FILENAME };
 
@@ -117,6 +122,104 @@ export function checkAutomationFile(
 
   if (problems.length > 0) return { problems };
   return { problems, document };
+}
+
+/**
+ * Validate every `automation.yaml` in the repository. A plugin without
+ * one is silent: automation is opt-in per plugin, so a missing file is
+ * not drift. A present file must parse, satisfy the contract, reference
+ * only its own fragment's operation IDs, and share no CLI path or MCP
+ * action with another plugin. Wire into `plugins:check`; the generic
+ * CLI (Phase 14) consumes only files that pass here.
+ */
+export function checkAutomationFiles(
+  repo: Repo,
+  fragments: { plugin: string; text: string }[],
+): Problem[] {
+  const problems: Problem[] = [];
+  const idsByPlugin = new Map<string, Set<string>>();
+  for (const fragment of fragments) {
+    let doc: Document;
+    try {
+      doc = YAML.parseDocument(fragment.text);
+    } catch {
+      continue;
+    }
+    const ids = idsByPlugin.get(fragment.plugin) ?? new Set<string>();
+    for (const entry of collectOperations(doc)) {
+      const id = entry.operation.get("operationId");
+      if (typeof id === "string") ids.add(id);
+    }
+    idsByPlugin.set(fragment.plugin, ids);
+  }
+
+  const parsed: {
+    plugin: string;
+    file: string;
+    document: AutomationDocument;
+  }[] = [];
+  for (const plugin of repo.plugins) {
+    const id = plugin.manifest.id;
+    const absolute = join(plugin.path, AUTOMATION_FILENAME);
+    if (!existsSync(absolute)) continue;
+    const file = relative(repo.root, absolute);
+    const result = checkAutomationFile({
+      plugin: id,
+      file,
+      text: readFileSync(absolute, "utf8"),
+      ownOperationIds: idsByPlugin.get(id) ?? new Set<string>(),
+    });
+    problems.push(...result.problems);
+    if (result.document)
+      parsed.push({ plugin: id, file, document: result.document });
+  }
+
+  const cliPaths = new Map<string, { plugin: string; file: string }[]>();
+  const mcpActions = new Map<string, { plugin: string; file: string }[]>();
+  for (const entry of parsed) {
+    for (const operation of entry.document.operations) {
+      const path = operation.cli.path.join(" ");
+      pushOwner(cliPaths, path, entry);
+      pushOwner(mcpActions, operation.mcp.action, entry);
+    }
+  }
+  for (const [path, owners] of cliPaths) {
+    if (owners.length < 2) continue;
+    for (const owner of owners) {
+      problems.push({
+        plugin: owner.plugin,
+        file: owner.file,
+        message: `CLI path "${path}" is also automated by ${owners
+          .filter((other) => other.plugin !== owner.plugin)
+          .map((other) => other.plugin)
+          .join(", ")}; automation paths must be unique across plugins`,
+      });
+    }
+  }
+  for (const [action, owners] of mcpActions) {
+    if (owners.length < 2) continue;
+    for (const owner of owners) {
+      problems.push({
+        plugin: owner.plugin,
+        file: owner.file,
+        message: `MCP action "${action}" is also automated by ${owners
+          .filter((other) => other.plugin !== owner.plugin)
+          .map((other) => other.plugin)
+          .join(", ")}; automation actions must be unique across plugins`,
+      });
+    }
+  }
+  return problems;
+}
+
+function pushOwner(
+  owners: Map<string, { plugin: string; file: string }[]>,
+  key: string,
+  entry: { plugin: string; file: string },
+): void {
+  const list = owners.get(key) ?? [];
+  if (!list.some((owner) => owner.plugin === entry.plugin)) list.push(entry);
+  owners.set(key, list);
 }
 
 function schemaMessage(error: unknown): string {

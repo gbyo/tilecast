@@ -1,13 +1,25 @@
-import { readdirSync, readFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Ajv2020 } from "ajv/dist/2020.js";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import YAML from "yaml";
 import {
   automationDocumentJSONSchema,
   parseAutomationDocument,
 } from "../src/automation.ts";
-import { checkAutomationFile } from "../tools/pluginctl/automation.ts";
+import {
+  checkAutomationFile,
+  checkAutomationFiles,
+} from "../tools/pluginctl/automation.ts";
+import type { DiscoveredPlugin, Repo } from "../tools/pluginctl/repo.ts";
 import { collectOperations } from "../tools/pluginctl/supported.ts";
 
 const fixtures = join(import.meta.dirname, "..", "testdata", "automation");
@@ -194,5 +206,167 @@ describe("automation file references", () => {
     });
     expect(result.document).toBeUndefined();
     expect(result.problems).toHaveLength(1);
+  });
+});
+
+describe("repository automation validation", () => {
+  let root: string;
+  const roots: string[] = [];
+  afterEach(() => {
+    for (const dir of roots.splice(0))
+      rmSync(dir, { recursive: true, force: true });
+  });
+
+  function fragment(operationIds: string[]): string {
+    const paths = operationIds
+      .map(
+        (id, index) => `  /api/v1/plugins/example/things${index}:
+    get:
+      operationId: ${id}
+      responses:
+        "200": { description: Things }`,
+      )
+      .join("\n");
+    return `openapi: 3.1.0\ninfo:\n  title: T\n  version: "1"\npaths:\n${paths}\n`;
+  }
+
+  function automation(
+    operationId: string,
+    path: string[],
+    action: string,
+  ): string {
+    return `apiVersion: 1
+operations:
+  - operationId: ${operationId}
+    risk: read
+    cli:
+      path: [${path.join(", ")}]
+    mcp:
+      action: ${action}
+`;
+  }
+
+  function addPlugin(
+    repo: Repo,
+    fragments: { plugin: string; text: string }[],
+    dir: string,
+    id: string,
+    operationIds: string[],
+    automationText?: string,
+  ): void {
+    const path = join(repo.root, "plugins", dir);
+    mkdirSync(join(path, "api"), { recursive: true });
+    const fragmentText = fragment(operationIds);
+    writeFileSync(join(path, "api", "openapi.yaml"), fragmentText);
+    fragments.push({ plugin: id, text: fragmentText });
+    if (automationText !== undefined) {
+      writeFileSync(join(path, "automation.yaml"), automationText);
+    }
+    repo.plugins.push({
+      dir,
+      path,
+      manifest: { id } as DiscoveredPlugin["manifest"],
+      goPackage: null,
+    });
+  }
+
+  function makeRepo(): {
+    repo: Repo;
+    fragments: { plugin: string; text: string }[];
+  } {
+    root = mkdtempSync(join(tmpdir(), "automation-"));
+    roots.push(root);
+    const repo: Repo = {
+      root,
+      pluginsDir: join(root, "plugins"),
+      plugins: [],
+      problems: [],
+    };
+    return { repo, fragments: [] };
+  }
+
+  it("stays silent when no plugin opts in", () => {
+    const { repo, fragments } = makeRepo();
+    addPlugin(repo, fragments, "alpha-one", "alpha_one", ["listAlphas"]);
+    addPlugin(repo, fragments, "beta-two", "beta_two", ["listBetas"]);
+    expect(checkAutomationFiles(repo, fragments)).toEqual([]);
+  });
+
+  it("accepts a valid file", () => {
+    const { repo, fragments } = makeRepo();
+    addPlugin(
+      repo,
+      fragments,
+      "alpha-one",
+      "alpha_one",
+      ["listAlphas"],
+      automation("listAlphas", ["alpha", "list"], "list_alphas"),
+    );
+    expect(checkAutomationFiles(repo, fragments)).toEqual([]);
+  });
+
+  it("fails drift when the fragment renames an operation", () => {
+    const { repo, fragments } = makeRepo();
+    addPlugin(
+      repo,
+      fragments,
+      "alpha-one",
+      "alpha_one",
+      ["searchAlphas"],
+      automation("listAlphas", ["alpha", "list"], "list_alphas"),
+    );
+    const problems = checkAutomationFiles(repo, fragments);
+    expect(problems).toHaveLength(1);
+    expect(problems[0]?.message).toContain(
+      "outside this plugin's OpenAPI fragment",
+    );
+  });
+
+  it("rejects CLI path and MCP action collisions across plugins", () => {
+    const { repo, fragments } = makeRepo();
+    addPlugin(
+      repo,
+      fragments,
+      "alpha-one",
+      "alpha_one",
+      ["runAlpha"],
+      automation("runAlpha", ["shared", "run"], "shared_run"),
+    );
+    addPlugin(
+      repo,
+      fragments,
+      "beta-two",
+      "beta_two",
+      ["runBeta"],
+      automation("runBeta", ["shared", "run"], "shared_run"),
+    );
+    const problems = checkAutomationFiles(repo, fragments);
+    expect(
+      problems.filter((problem) =>
+        problem.message.includes('CLI path "shared run"'),
+      ),
+    ).toHaveLength(2);
+    expect(
+      problems.filter((problem) =>
+        problem.message.includes('MCP action "shared_run"'),
+      ),
+    ).toHaveLength(2);
+  });
+
+  it("reports a broken file without throwing", () => {
+    const { repo, fragments } = makeRepo();
+    addPlugin(
+      repo,
+      fragments,
+      "alpha-one",
+      "alpha_one",
+      ["listAlphas"],
+      "apiVersion: [unclosed\n",
+    );
+    const problems = checkAutomationFiles(repo, fragments);
+    expect(problems).toHaveLength(1);
+    expect(problems[0]?.file).toBe(
+      join("plugins", "alpha-one", "automation.yaml"),
+    );
   });
 });

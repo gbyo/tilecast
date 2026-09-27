@@ -8,6 +8,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import YAML from "yaml";
 import { conventionalEntrypoints } from "../../src/manifest.ts";
+import { checkAutomationFiles } from "./automation.ts";
 import { checkBoundaries } from "./boundaries.ts";
 import { checkCssScope } from "./css-scope.ts";
 import { generate, stale } from "./generate.ts";
@@ -164,7 +165,9 @@ export async function check(repo: Repo): Promise<Problem[]> {
       ),
     );
   }
-  problems.push(...checkFragmentOperationIds(readApiFragments(repo)));
+  const fragments = readApiFragments(repo);
+  problems.push(...checkFragmentOperationIds(fragments));
+  problems.push(...checkAutomationFiles(repo, fragments));
   for (const path of stale(repo, generated.files)) {
     problems.push({
       file: path,
