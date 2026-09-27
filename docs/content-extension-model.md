@@ -183,6 +183,10 @@ The following contracts from Widgets V2 PR 1 remain the foundation:
 This plan generalizes discovery and ownership. It does not replace those
 contracts.
 
+The first implementation of that model in Studio and the first redesigned
+native Widget family are specified in
+[Widgets V2 authoring and first-wave migration](widgets-v2-authoring-and-first-wave.md).
+
 ## 2. Data Source is the data extension unit
 
 A Data Source owns:
