@@ -45,9 +45,6 @@ Multi-zone layouts and proof-of-play were deferred through milestone 9 and have 
 ```text
 apps/server/                 Go application and embedded dashboard host
   cmd/tilecast-server/     process startup, backup, restore, MFA reset
-apps/cli/                    remote management CLI (Cobra, no server internals)
-  cmd/tilecast/              CLI entrypoint
-  internal/cli/              handwritten command tree
   internal/auth/             local users, passwords, dashboard sessions, MFA
   internal/config/           validated environment configuration
   internal/database/         pgx pool and embedded Goose migrations
@@ -55,6 +52,9 @@ apps/cli/                    remote management CLI (Cobra, no server internals)
   internal/discovery/        optional mDNS/DNS-SD advertisement
   internal/httpapi/          Chi routes, middleware, JSON contracts, WebSocket
   internal/web/              embedded dashboard files and SPA fallback
+apps/cli/                    remote management CLI (Cobra, no server internals)
+  cmd/tilecast/              CLI entrypoint
+  internal/cli/              handwritten command tree
 plugins/                     bundled first-party plugins, one directory each
   <name>/tilecast.plugin.json  the plugin manifest (see docs/plugin-api.md)
   registry_gen.go            generated Go registry; never edit
