@@ -50,5 +50,8 @@ server host for that.`,
 	root.AddCommand(newAuthCommand(env))
 	root.AddCommand(newContextCommand(env))
 	root.AddCommand(newWhoamiCommand(env))
+	root.AddCommand(newStatusCommand(env))
+	root.AddCommand(newScreenCommand(env))
+	root.AddCommand(newSettingsCommand(env))
 	return root
 }

@@ -44,4 +44,6 @@ func addGlobalFlags(root *cobra.Command) {
 	root.PersistentFlags().String("server", "", "Tilecast server URL (overrides TILECAST_URL and the current context)")
 	root.PersistentFlags().String("token", "", "Bearer credential (overrides TILECAST_TOKEN and the stored credential)")
 	root.PersistentFlags().String("context", "", "Use this saved context (overrides TILECAST_CONTEXT and the current context)")
+	root.PersistentFlags().Bool("quiet", false, "Suppress informational output; data and errors only")
+	root.PersistentFlags().String("timeout", "", "Bound server calls (Go duration, default 30s)")
 }

@@ -58,6 +58,58 @@ func newFixture(t *testing.T) *cliFixture {
 			_, _ = w.Write([]byte(`{"error":{"code":"invalid_grant","message":"no"}}`))
 		}
 	})
+	settingsRevision := 7
+	settingsValues := map[string]any{"power.active_hours_end": "17:00"}
+	mux.HandleFunc("/api/v1/screens", func(w http.ResponseWriter, r *http.Request) {
+		write(w, map[string]any{"screens": []any{
+			map[string]any{"id": "11111111-1111-1111-1111-111111111111", "name": "lobby", "status": "online"},
+			map[string]any{"id": "22222222-2222-2222-2222-222222222222", "name": "hall", "status": "stale"},
+			map[string]any{"id": "33333333-3333-3333-3333-333333333333", "name": "hall", "status": "offline"},
+		}})
+	})
+	mux.HandleFunc("/api/v1/screens/", func(w http.ResponseWriter, r *http.Request) {
+		rest := strings.TrimPrefix(r.URL.Path, "/api/v1/screens/")
+		parts := strings.Split(rest, "/")
+		if len(parts) == 1 {
+			switch parts[0] {
+			case "11111111-1111-1111-1111-111111111111":
+				write(w, map[string]any{"id": parts[0], "name": "lobby", "status": "online"})
+				return
+			}
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"error":{"code":"not_found","message":"no"}}`))
+			return
+		}
+		if len(parts) == 2 && parts[1] == "effective-policy" && parts[0] == "11111111-1111-1111-1111-111111111111" {
+			write(w, map[string]any{"screenId": parts[0], "policy": map[string]any{"mode": "scheduled"}})
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"error":{"code":"not_found","message":"no"}}`))
+	})
+	mux.HandleFunc("/api/v1/settings", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			write(w, map[string]any{"revision": settingsRevision, "values": settingsValues})
+			return
+		}
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		revision, _ := body["revision"].(float64)
+		if int(revision) != settingsRevision {
+			w.WriteHeader(http.StatusConflict)
+			raw, _ := json.Marshal(map[string]any{"error": map[string]any{"code": "revision_conflict", "message": "stale"},
+				"data": map[string]any{"expectedRevision": revision, "currentRevision": settingsRevision}})
+			_, _ = w.Write(raw)
+			return
+		}
+		if values, ok := body["values"].(map[string]any); ok {
+			for k, v := range values {
+				settingsValues[k] = v
+			}
+		}
+		settingsRevision++
+		write(w, map[string]any{"revision": settingsRevision, "values": settingsValues})
+	})
 	mux.HandleFunc("/api/v1/oauth/revoke", func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]string
 		_ = json.NewDecoder(r.Body).Decode(&body)

@@ -28,6 +28,20 @@ direct database access.
   whether a credential is kept, without touching the network.
 - `tilecast context list|current|use|rename|remove` manages saved servers.
 - `tilecast whoami` shows who the resolved credential signs in as.
+- `tilecast status` shows the server identity and the signed-in user.
+- `tilecast screen list` and `tilecast screen get <id-or-name>` list and
+  inspect the screens visible to the credential. Names resolve only when
+  unique; ambiguous names are errors, never guesses.
+- `tilecast settings get`, `settings set key=value [...]`, and
+  `settings effective <screen>` read and change organization settings.
+  `set` keeps the document revision, changes only the requested keys,
+  and surfaces a clean retry message on conflict. The server stays
+  authoritative: no inheritance or validation lives here.
+
+Output conventions: `--json` renders result data as JSON on stdout,
+`--plain` drops table framing, `--quiet` leaves data and errors only,
+and `--timeout` bounds server calls (default 30s). Progress and warnings
+go to stderr, and no command prompts, so non-TTY runs are safe.
 
 Management commands (screens, settings, plugins, and the rest) arrive in
 later control-plane phases. See `docs/programmable-control-plane.md`.

@@ -273,6 +273,92 @@ func NewIdempotencyKey() (string, error) {
 	return hex.EncodeToString(raw), nil
 }
 
+// rawCall runs one generated call and returns its status and body. The
+// helpers below keep the generated types inside this module: callers work
+// in strings and generic payloads, never in generated shapes.
+func (c *Client) rawCall(ctx context.Context, call func(editor gen.RequestEditorFn) (int, []byte, error)) (int, []byte, error) {
+	editor, err := c.editor(ctx)
+	if err != nil {
+		return 0, nil, err
+	}
+	return call(editor)
+}
+
+// ListScreens returns the raw screens list payload.
+func (c *Client) ListScreens(ctx context.Context) (int, []byte, error) {
+	return c.rawCall(ctx, func(editor gen.RequestEditorFn) (int, []byte, error) {
+		response, err := c.inner.ListScreensWithResponse(ctx, editor)
+		if err != nil {
+			return 0, nil, err
+		}
+		return response.StatusCode(), response.Body, nil
+	})
+}
+
+// parseID validates a UUID path parameter into the generated ID type.
+func parseID(raw string) (gen.ResourceID, error) {
+	id, err := uuid.Parse(raw)
+	if err != nil {
+		return gen.ResourceID{}, fmt.Errorf("invalid ID %q: not a UUID", raw)
+	}
+	var out gen.ResourceID
+	copy(out[:], id[:])
+	return out, nil
+}
+
+// GetScreen returns the raw payload for one screen.
+func (c *Client) GetScreen(ctx context.Context, id string) (int, []byte, error) {
+	parsed, err := parseID(id)
+	if err != nil {
+		return 0, nil, err
+	}
+	return c.rawCall(ctx, func(editor gen.RequestEditorFn) (int, []byte, error) {
+		response, err := c.inner.GetScreenWithResponse(ctx, parsed, editor)
+		if err != nil {
+			return 0, nil, err
+		}
+		return response.StatusCode(), response.Body, nil
+	})
+}
+
+// GetEffectivePolicy returns the raw effective player policy for a screen.
+func (c *Client) GetEffectivePolicy(ctx context.Context, id string) (int, []byte, error) {
+	parsed, err := parseID(id)
+	if err != nil {
+		return 0, nil, err
+	}
+	return c.rawCall(ctx, func(editor gen.RequestEditorFn) (int, []byte, error) {
+		response, err := c.inner.GetEffectivePolicyWithResponse(ctx, parsed, editor)
+		if err != nil {
+			return 0, nil, err
+		}
+		return response.StatusCode(), response.Body, nil
+	})
+}
+
+// GetSettings returns the raw organization settings document.
+func (c *Client) GetSettings(ctx context.Context) (int, []byte, error) {
+	return c.rawCall(ctx, func(editor gen.RequestEditorFn) (int, []byte, error) {
+		response, err := c.inner.GetSettingsWithResponse(ctx, editor)
+		if err != nil {
+			return 0, nil, err
+		}
+		return response.StatusCode(), response.Body, nil
+	})
+}
+
+// UpdateSettings submits values against the expected revision and returns
+// the raw answer. A 409 surfaces as *ConflictError through DecodeBody.
+func (c *Client) UpdateSettings(ctx context.Context, revision int64, values map[string]any) (int, []byte, error) {
+	return c.rawCall(ctx, func(editor gen.RequestEditorFn) (int, []byte, error) {
+		response, err := c.inner.UpdateSettingsWithResponse(ctx, nil, gen.SettingsUpdate{Revision: revision, Values: values}, editor)
+		if err != nil {
+			return 0, nil, err
+		}
+		return response.StatusCode(), response.Body, nil
+	})
+}
+
 // Download streams an authenticated GET body to the caller, who closes it.
 // It exists for artifact and export endpoints whose payloads must never be
 // buffered whole into memory by the transport.
