@@ -593,7 +593,7 @@ def check_web_helper_packaging():
     runtime = os.stat("/run/tilecast-web")
     assert runtime.st_uid == web.pw_uid and (runtime.st_mode & 0o777) == 0o750, oct(runtime.st_mode)
     sandbox = output("systemctl", "show", "--property=User,Group,NoNewPrivileges,ProtectSystem,ProtectHome,"
-                     "PrivateTmp,RestrictAddressFamilies,MemoryHigh,MemoryMax,TasksMax",
+                     "PrivateTmp,InaccessiblePaths,RestrictAddressFamilies,MemoryHigh,MemoryMax,TasksMax",
                      "tilecast-web-renderer.service")
     for expected in ("User=tilecast-web", "Group=tilecast-web", "NoNewPrivileges=yes",
                      "ProtectSystem=strict", "ProtectHome=yes", "PrivateTmp=yes",
