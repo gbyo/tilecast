@@ -18,6 +18,7 @@ typedef struct {
   guint disconnects;
   char last_reason[128];
   guint ticks;
+  GMainLoop *loop;
 } Fixture;
 
 static void
@@ -27,6 +28,8 @@ on_disconnect (TcRwChannel *channel, const char *reason, gpointer user_data)
   (void) channel;
   fixture->disconnects++;
   g_strlcpy (fixture->last_reason, reason, sizeof fixture->last_reason);
+  if (fixture->loop != NULL)
+    g_main_loop_quit (fixture->loop);
 }
 
 static GSocketConnection *
@@ -231,15 +234,18 @@ test_non_reading_helper (void)
   g_assert_false (tc_rw_channel_send (channel, TC_RW_FRAME_CREATE, "overflow", "{}"));
 
   GMainLoop *loop = g_main_loop_new (NULL, FALSE);
+  fixture.loop = loop;
   guint tick_source = g_timeout_add (20, tick, &fixture);
-  g_timeout_add (3000, quit_loop, loop);
+  g_timeout_add (5000, quit_loop, loop);
   gint64 start = g_get_monotonic_time ();
   g_main_loop_run (loop);
   gint64 elapsed = g_get_monotonic_time () - start;
   g_source_remove (tick_source);
+  fixture.loop = NULL;
   g_main_loop_unref (loop);
 
-  /* The deadline fired (not the 3 s guard): degraded, not blocked. */
+  /* The write deadline fired promptly (not the 5 s guard): the stuck
+   * helper degrades the channel instead of blocking the loop. */
   g_assert_cmpuint (fixture.disconnects, ==, 1);
   g_assert_cmpint (elapsed, <, 2500 * 1000);
   /* Unrelated main-loop activity continued while the helper was stuck. */
@@ -276,6 +282,29 @@ test_stale_completion (void)
   tc_rw_channel_free (channel);
 }
 
+/* Free a channel with a write still outstanding, then create a new one: the
+ * abandoned completion must not drive the new channel even if the allocator
+ * reuses the same address (every channel takes a fresh identity). */
+static void
+test_abandoned_write_after_free (void)
+{
+  Fixture fixture = { .peer = -1, .disconnects = 0 };
+  int peer = -1;
+  TcRwChannel *dead = connected (&fixture, 0, 0, &peer);
+  g_assert_true (tc_rw_channel_send (dead, TC_RW_FRAME_CREATE, "s1", "{\"n\":1}"));
+  close (peer);
+  tc_rw_channel_free (dead);
+
+  int fresh_peer = -1;
+  TcRwChannel *channel = connected (&fixture, 0, 0, &fresh_peer);
+  g_assert_true (tc_rw_channel_send (channel, TC_RW_FRAME_CREATE, "s1", "{\"n\":2}"));
+  drain (channel);
+  g_assert_cmpstr (read_frame (fresh_peer), ==, "{\"n\":2}");
+  g_assert_cmpuint (fixture.disconnects, ==, 0);
+  close (fresh_peer);
+  tc_rw_channel_free (channel);
+}
+
 int
 main (int argc, char **argv)
 {
@@ -286,5 +315,6 @@ main (int argc, char **argv)
   g_test_add_func ("/rw-channel/flood-budget", test_flood_budget);
   g_test_add_func ("/rw-channel/non-reading-helper", test_non_reading_helper);
   g_test_add_func ("/rw-channel/stale-completion", test_stale_completion);
+  g_test_add_func ("/rw-channel/abandoned-write-after-free", test_abandoned_write_after_free);
   return g_test_run ();
 }

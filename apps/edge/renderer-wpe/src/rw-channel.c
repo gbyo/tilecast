@@ -14,10 +14,20 @@ typedef struct {
 
 typedef struct {
   TcRwChannel *channel;
+  guint64 id;
   guint64 generation;
 } Ticket;
 
+/* Identity for async tickets. The generation alone cannot tell a stale
+ * callback from a live one when the channel struct itself is freed and its
+ * memory reused by a new channel at the same address with a coincidentally
+ * equal generation: every channel takes a fresh process-wide identity, so a
+ * ticket from a dead channel can never drive a new one. All channel use is
+ * on one thread, so a plain counter suffices. */
+static guint64 next_channel_id = 1;
+
 struct _TcRwChannel {
+  guint64 id;
   guint max_queued;
   guint write_timeout_ms;
   TcRwChannelDisconnect on_disconnect;
@@ -56,6 +66,7 @@ tc_rw_channel_new_full (guint max_queued, guint write_timeout_ms,
                         TcRwChannelDisconnect on_disconnect, gpointer user_data)
 {
   TcRwChannel *channel = g_new0 (TcRwChannel, 1);
+  channel->id = next_channel_id++;
   channel->max_queued = max_queued == 0 ? TC_RW_MAX_OUTGOING : max_queued;
   channel->write_timeout_ms = write_timeout_ms == 0 ? TC_RW_WRITE_TIMEOUT_MS : write_timeout_ms;
   channel->on_disconnect = on_disconnect;
@@ -198,7 +209,7 @@ on_written (GObject *source, GAsyncResult *result, gpointer user_data)
 {
   Ticket *ticket = user_data;
   TcRwChannel *channel = ticket->channel;
-  gboolean stale = ticket->generation != channel->generation;
+  gboolean stale = ticket->id != channel->id || ticket->generation != channel->generation;
   g_free (ticket);
   if (stale)
     return;
@@ -231,7 +242,7 @@ on_write_timeout (gpointer user_data)
 {
   Ticket *ticket = user_data;
   TcRwChannel *channel = ticket->channel;
-  gboolean stale = ticket->generation != channel->generation;
+  gboolean stale = ticket->id != channel->id || ticket->generation != channel->generation;
   if (ticket == channel->timeout_ticket) {
     channel->timeout_source = 0;
     channel->timeout_ticket = NULL;
@@ -259,12 +270,14 @@ pump_head (TcRwChannel *channel)
     clear_timeout (channel);
     Ticket *timeout = g_new (Ticket, 1);
     timeout->channel = channel;
+    timeout->id = channel->id;
     timeout->generation = channel->generation;
     channel->timeout_ticket = timeout;
     channel->timeout_source = g_timeout_add_once (channel->write_timeout_ms, on_write_timeout, timeout);
   }
   Ticket *write_ticket = g_new (Ticket, 1);
   write_ticket->channel = channel;
+  write_ticket->id = channel->id;
   write_ticket->generation = channel->generation;
   g_output_stream_write_async (out, head->buffer + head->offset, head->length - head->offset,
                                G_PRIORITY_DEFAULT, NULL, on_written, write_ticket);
