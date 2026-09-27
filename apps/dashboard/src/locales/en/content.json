@@ -646,24 +646,10 @@
         "emptyLabel": "Message when there is no data",
         "emptyHint": "Shown on screen when the source returns no usable records."
       },
-      "list": {
-        "primaryField": "Primary field",
-        "leadingField": "Leading field",
-        "trailingField": "Trailing field",
-        "showDividers": "Show row dividers"
-      },
       "menu": {
         "presentation": "Presentation",
         "modeSingle": "Fields from one record",
         "modeRows": "Label and value rows"
-      },
-      "table": {
-        "showHeader": "Show column headers",
-        "alternating": "Alternate row backgrounds",
-        "columnPresentation": "Column presentation",
-        "columnWidth": "Width %",
-        "formatFor": "Format for {{field}}",
-        "alignmentFor": "Alignment for {{field}}"
       },
       "agenda": {
         "timeField": "Time field",
@@ -676,14 +662,6 @@
         "prefix": "Prefix",
         "suffix": "Suffix",
         "emptyState": "Empty state"
-      },
-      "cards": {
-        "subtitleLabel": "subtitle",
-        "bodyLabel": "body",
-        "badgeLabel": "badge",
-        "density": "Density",
-        "densityComfortable": "Comfortable",
-        "densityCompact": "Compact"
       },
       "weather": {
         "showLocation": "Location",

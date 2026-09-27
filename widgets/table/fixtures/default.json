@@ -1,0 +1,68 @@
+{
+  "name": "Default",
+  "description": "A Table comparing project budgets with an explicit header row.",
+  "configuration": {
+    "dataSourceId": "11111111-1111-4111-8111-111111111111",
+    "columns": [
+      { "field": "title", "label": "Project", "align": "auto" },
+      { "field": "owner", "label": "Owner", "align": "auto" },
+      { "field": "budget", "label": "Budget", "align": "auto" }
+    ],
+    "heading": "Budgets",
+    "maximumRows": 10,
+    "emptyText": "",
+    "showHeader": true,
+    "density": "comfortable",
+    "alternatingRows": false,
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "documents": {
+    "11111111-1111-4111-8111-111111111111": {
+      "schemaVersion": 1,
+      "datasets": [
+        {
+          "id": "records",
+          "kind": "records",
+          "fields": [
+            { "key": "title", "label": "Title", "type": "text" },
+            { "key": "owner", "label": "Owner", "type": "text" },
+            {
+              "key": "budget",
+              "label": "Budget",
+              "type": "currency",
+              "currency": "USD"
+            }
+          ],
+          "records": [
+            {
+              "id": "r1",
+              "values": {
+                "title": { "kind": "text", "text": "Lobby screen refresh" },
+                "owner": { "kind": "text", "text": "Content team" },
+                "budget": { "kind": "number", "number": 1200 }
+              }
+            },
+            {
+              "id": "r2",
+              "values": {
+                "title": { "kind": "text", "text": "Library kiosk" },
+                "owner": { "kind": "text", "text": "Facilities" },
+                "budget": { "kind": "number", "number": 850 }
+              }
+            },
+            {
+              "id": "r3",
+              "values": {
+                "title": { "kind": "text", "text": "Gym display" },
+                "owner": { "kind": "text", "text": "Athletics" },
+                "budget": { "kind": "number", "number": 2300 }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expect": "ready"
+}

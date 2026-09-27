@@ -10,11 +10,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import {
-  createWidgetResources,
-  resolveTheme,
-  type WidgetContext,
-} from "@tilecast/widget-sdk";
+import { resolveTheme, type WidgetContext } from "@tilecast/widget-sdk";
 import { compileComponentConfig } from "@tilecast/widget-sdk/manifest";
 import type { WidgetComponentRef } from "@tilecast/widget-sdk/mount";
 import { api } from "../../api/client";
@@ -23,7 +19,11 @@ import { useOrganizationRegionalProfile } from "../../settings/regionalProfile";
 import { PreviewClock } from "../../content/previewClock";
 import { studioWidgetComponent } from "../../content/studioWidgets";
 import { WidgetPreviewHost } from "../../content/WidgetPreviewHost";
-import { widgetPreviewConfiguration } from "../../content/widgetPreviewSources";
+import { useWidgetPreviewResources } from "../../content/widgetPreviewResources";
+import {
+  widgetPreviewConfiguration,
+  widgetPreviewDataSourceIds,
+} from "../../content/widgetPreviewSources";
 
 export function V2ZonePreview({
   provider,
@@ -47,6 +47,12 @@ export function V2ZonePreview({
     () => studioWidgetComponent(definitions.data, provider),
     [definitions.data, provider],
   );
+  const definitionFields = useMemo(
+    () =>
+      definitions.data?.widgets.find((entry) => entry.id === provider)
+        ?.configurationSchema.fields ?? [],
+    [definitions.data, provider],
+  );
   const configuration = useMemo(
     () =>
       widgetPreviewConfiguration(
@@ -57,25 +63,31 @@ export function V2ZonePreview({
       ),
     [asset],
   );
+  const dataSourceIds = useMemo(
+    () =>
+      widgetPreviewDataSourceIds(
+        definitionFields,
+        configuration,
+        asset?.widget?.managedDataSourceId,
+      ),
+    [definitionFields, configuration, asset],
+  );
+  const { resources, loading: sourcesLoading } = useWidgetPreviewResources(
+    dataSourceIds,
+    dataSourceIds,
+  );
   const compiled = useMemo((): WidgetComponentRef | null => {
     if (!component) return null;
     try {
       return {
         type: component.type,
         version: component.version,
-        config: compileComponentConfig(
-          component.configTemplate,
-          configuration,
-        ),
+        config: compileComponentConfig(component.configTemplate, configuration),
       };
     } catch {
       return null;
     }
   }, [component, configuration]);
-  const resources = useMemo(
-    () => createWidgetResources({ documents: new Map() }, { dataSources: [] }),
-    [],
-  );
   const clock = useMemo(() => new PreviewClock(), []);
   const context: WidgetContext = useMemo(
     () => ({
@@ -95,10 +107,17 @@ export function V2ZonePreview({
       motion: { reduced: false },
       mode: "preview" as const,
     }),
-    [clock, regional.locale, regional.timezone, regional.timeFormat, configuration],
+    [
+      clock,
+      regional.locale,
+      regional.timezone,
+      regional.timeFormat,
+      configuration,
+    ],
   );
 
   if (definitions.isLoading) return null;
+  if (sourcesLoading) return null;
   if (!compiled) return null;
   return (
     <WidgetPreviewHost

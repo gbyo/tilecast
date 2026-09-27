@@ -97,6 +97,16 @@ export const ready = <Data>(data: Data): WidgetResolution<Data> => ({
   data,
 });
 
+/** The first records dataset in a prepared document, if the source has one. */
+export function firstRecordsDataset(
+  document: WidgetDataDocument,
+): WidgetDataset | null {
+  for (const dataset of document.datasets) {
+    if (dataset.kind === "records") return dataset;
+  }
+  return null;
+}
+
 /** Expected absence of content. Never a failure. */
 export const empty = <Data = never>(
   reason: string,

@@ -4,6 +4,8 @@
  * are cached because constructing one costs far more than formatting.
  */
 
+import type { WidgetField, WidgetValue } from "@tilecast/widget-sdk";
+
 const CACHE_LIMIT = 64;
 const cache = new Map<string, Intl.DateTimeFormat | Intl.NumberFormat>();
 
@@ -182,6 +184,66 @@ export function formatNumber(value: number, options: NumberOptions): string {
     },
   );
   return format.format(value);
+}
+
+/**
+ * Render one prepared Data Document value as display text, following the
+ * field's typed metadata and the Widget locale. Raw format strings are
+ * never exposed: numbers, currencies, dates and durations format through
+ * Intl, and every string is bounded as untrusted display data.
+ */
+export interface DisplayValueOptions {
+  readonly locale: string;
+  readonly timeZone?: string;
+  /** Per-value display bound; defaults to 280 characters. */
+  readonly maximum?: number;
+}
+
+export function formatWidgetValue(
+  value: WidgetValue | null | undefined,
+  field: Pick<WidgetField, "type" | "currency"> | undefined,
+  options: DisplayValueOptions,
+): string {
+  const maximum = options.maximum ?? 280;
+  if (!value) return "";
+  if (typeof value.text === "string") return boundText(value.text, maximum);
+  if (typeof value.url === "string") return boundText(value.url, maximum);
+  const numeric =
+    typeof value.number === "number"
+      ? value.number
+      : typeof value.integer === "number"
+        ? value.integer
+        : null;
+  if (numeric !== null) {
+    const currency = field?.type === "currency" ? field.currency : undefined;
+    return formatNumber(numeric, {
+      locale: options.locale,
+      style: currency ? "currency" : "decimal",
+      currency,
+    });
+  }
+  if (typeof value.boolean === "boolean") return value.boolean ? "Yes" : "No";
+  if (typeof value.date === "string" || typeof value.datetime === "string") {
+    const at = Date.parse(value.datetime ?? value.date ?? "");
+    if (Number.isNaN(at)) return "";
+    // A bare date names no zone, so it formats in UTC; otherwise screens
+    // west of Greenwich would show the previous day.
+    const timeZone = value.datetime !== undefined ? options.timeZone : "UTC";
+    return dateFormat(options.locale, {
+      dateStyle: "medium",
+      ...(value.datetime !== undefined && { timeStyle: "short" }),
+      ...(timeZone !== undefined && { timeZone }),
+    }).format(at);
+  }
+  if (typeof value.durationSeconds === "number") {
+    const total = Math.max(0, Math.floor(value.durationSeconds));
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    if (minutes > 0) return `${minutes}m`;
+    return `${total % 60}s`;
+  }
+  return "";
 }
 
 /** Truncate untrusted display text to a bound, on a code-point boundary. */

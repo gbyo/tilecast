@@ -58,9 +58,7 @@ import type {
   CountdownWidgetConfig,
   TickerWidgetConfig,
   DisplayWidgetConfig,
-  FieldFormat,
   MetricWidgetConfig,
-  CardsWidgetConfig,
   WeatherWidgetConfig,
   SpotlightWidgetConfig,
   StatGridWidgetConfig,
@@ -386,7 +384,6 @@ type NativeConfig =
   | TickerWidgetConfig
   | DisplayWidgetConfig
   | MetricWidgetConfig
-  | CardsWidgetConfig
   | WeatherWidgetConfig
   | SpotlightWidgetConfig
   | StatGridWidgetConfig
@@ -427,16 +424,6 @@ const nativeDefault = (provider: NativeProvider, t: WidgetsT): NativeConfig => {
       precision: 0,
       alignment: "center",
       emptyState: t("widgets.defaults.noValue"),
-      ...colors,
-    };
-  if (provider === "cards")
-    return {
-      dataSourceId: "",
-      titleField: "",
-      columns: 2,
-      maximumItems: 6,
-      density: "comfortable",
-      emptyState: t("widgets.defaults.noItems"),
       ...colors,
     };
   if (provider === "weather")
@@ -523,7 +510,7 @@ const nativeDefault = (provider: NativeProvider, t: WidgetsT): NativeConfig => {
       columns: 1,
       ...colors,
     };
-  if (["menu", "list", "table", "agenda"].includes(provider))
+  if (["menu", "agenda"].includes(provider))
     return {
       dataSourceId: "",
       fields: ["title", "subtitle"],
@@ -549,11 +536,8 @@ function nativeWidgetGuidance(provider: NativeProvider, t: WidgetsT) {
     [
       "ticker",
       "menu",
-      "list",
-      "table",
       "agenda",
       "metric",
-      "cards",
       "weather",
       "spotlight",
       "stat_grid",
@@ -571,11 +555,8 @@ function nativeWidgetContentGuidance(provider: NativeProvider, t: WidgetsT) {
     [
       "ticker",
       "menu",
-      "list",
-      "table",
       "agenda",
       "metric",
-      "cards",
       "weather",
       "spotlight",
       "stat_grid",
@@ -648,11 +629,8 @@ export function NativeAppEditor({
     enabled: [
       "ticker",
       "menu",
-      "list",
-      "table",
       "agenda",
       "metric",
-      "cards",
       "weather",
       "spotlight",
       "stat_grid",
@@ -678,11 +656,8 @@ export function NativeAppEditor({
   const acceptedProviders: Record<string, string[]> = {
     ticker: ["rss", "atom", "calendar", "json", "csv", "manual", "weather"],
     menu: ["calendar", "rss", "atom", "json", "csv", "manual", "weather"],
-    list: ["calendar", "rss", "atom", "json", "csv", "manual", "weather"],
-    table: ["calendar", "rss", "atom", "json", "csv", "manual", "weather"],
     agenda: ["calendar", "json", "csv", "manual", "weather"],
     metric: ["json", "csv", "manual", "weather"],
-    cards: ["calendar", "rss", "atom", "json", "csv", "manual", "weather"],
     weather: ["weather"],
     spotlight: [
       "calendar",
@@ -719,11 +694,8 @@ export function NativeAppEditor({
   const selectedDataSourceId = [
     "ticker",
     "menu",
-    "list",
-    "table",
     "agenda",
     "metric",
-    "cards",
     "weather",
     "spotlight",
     "stat_grid",
@@ -736,7 +708,6 @@ export function NativeAppEditor({
           | TickerWidgetConfig
           | DisplayWidgetConfig
           | MetricWidgetConfig
-          | CardsWidgetConfig
           | WeatherWidgetConfig
           | SpotlightWidgetConfig
           | StatGridWidgetConfig
@@ -1467,7 +1438,7 @@ export function NativeAppEditor({
                   </div>
                 </>
               )}
-              {["menu", "list", "table", "agenda"].includes(provider) && (
+              {["menu", "agenda"].includes(provider) && (
                 <>
                   <DataSourceSelect
                     value={(configuration as DisplayWidgetConfig).dataSourceId}
@@ -1531,58 +1502,6 @@ export function NativeAppEditor({
                       </div>
                     )}
                   </fieldset>
-                  {provider === "list" && (
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {(
-                        [
-                          ["primaryField", "widgets.editors.list.primaryField"],
-                          [
-                            "secondaryField",
-                            "widgets.editors.shared.secondaryField",
-                          ],
-                          ["leadingField", "widgets.editors.list.leadingField"],
-                          [
-                            "trailingField",
-                            "widgets.editors.list.trailingField",
-                          ],
-                        ] as const
-                      ).map(([key, labelKey]) => (
-                        <FieldSelect
-                          key={key}
-                          label={t(labelKey)}
-                          value={
-                            (configuration as DisplayWidgetConfig)[key] ?? ""
-                          }
-                          fields={availableFields}
-                          allowEmpty={key !== "primaryField"}
-                          disabled={readOnly}
-                          onChange={(value) =>
-                            setConfiguration((current) => ({
-                              ...current,
-                              [key]: value,
-                            }))
-                          }
-                        />
-                      ))}
-                      <label className="flex items-center gap-2 text-sm">
-                        <Switch
-                          checked={
-                            (configuration as DisplayWidgetConfig)
-                              .showDividers ?? false
-                          }
-                          disabled={readOnly}
-                          onCheckedChange={(checked) =>
-                            setConfiguration((current) => ({
-                              ...current,
-                              showDividers: checked === true,
-                            }))
-                          }
-                          aria-label={t("widgets.editors.list.showDividers")}
-                        />
-                        <span>{t("widgets.editors.list.showDividers")}</span>
-                      </label>
-                    </div>
-                  )}
                   {provider === "menu" && (
                     <div className="grid gap-3 sm:grid-cols-2">
                       <Field>
@@ -1664,296 +1583,6 @@ export function NativeAppEditor({
                         </>
                       )}
                     </div>
-                  )}
-                  {provider === "table" && (
-                    <>
-                      <div className="flex flex-wrap gap-x-4 gap-y-2">
-                        <label className="flex items-center gap-2 text-sm">
-                          <Checkbox
-                            checked={
-                              (configuration as DisplayWidgetConfig)
-                                .showHeader ?? false
-                            }
-                            disabled={readOnly}
-                            onCheckedChange={(checked) =>
-                              setConfiguration((current) => ({
-                                ...current,
-                                showHeader: checked === true,
-                              }))
-                            }
-                            aria-label={t("widgets.editors.table.showHeader")}
-                          />
-                          <span>{t("widgets.editors.table.showHeader")}</span>
-                        </label>
-                        <label className="flex items-center gap-2 text-sm">
-                          <Checkbox
-                            checked={
-                              (configuration as DisplayWidgetConfig)
-                                .alternatingRows ?? false
-                            }
-                            disabled={readOnly}
-                            onCheckedChange={(checked) =>
-                              setConfiguration((current) => ({
-                                ...current,
-                                alternatingRows: checked === true,
-                              }))
-                            }
-                            aria-label={t("widgets.editors.table.alternating")}
-                          />
-                          <span>{t("widgets.editors.table.alternating")}</span>
-                        </label>
-                      </div>
-                      <fieldset className="grid gap-2">
-                        <legend className="text-sm font-medium">
-                          {t("widgets.editors.table.columnPresentation")}
-                        </legend>
-                        {(configuration as DisplayWidgetConfig).fields.map(
-                          (fieldKey) => {
-                            const config = configuration as DisplayWidgetConfig;
-                            const existing = config.columns?.find(
-                              (column) => column.field === fieldKey,
-                            ) ?? {
-                              field: fieldKey,
-                              label:
-                                availableFields.find(
-                                  (field) => field.key === fieldKey,
-                                )?.label ?? fieldKey,
-                              format: "text" as const,
-                              alignment: "left" as const,
-                              width: 0,
-                            };
-                            const updateColumn = (
-                              patch: Partial<FieldFormat>,
-                            ) =>
-                              setConfiguration((current) => {
-                                const table = current as DisplayWidgetConfig;
-                                const columns = table.fields.map((key) => {
-                                  const column = table.columns?.find(
-                                    (item) => item.field === key,
-                                  ) ?? { field: key };
-                                  return key === fieldKey
-                                    ? { ...column, ...existing, ...patch }
-                                    : column;
-                                });
-                                return { ...table, columns };
-                              });
-                            return (
-                              <div
-                                className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
-                                key={fieldKey}
-                              >
-                                <Field>
-                                  <FieldLabel
-                                    htmlFor={`column-label-${fieldKey}`}
-                                  >
-                                    {t("widgets.editors.shared.label")}
-                                  </FieldLabel>
-                                  <Input
-                                    id={`column-label-${fieldKey}`}
-                                    value={existing.label ?? ""}
-                                    disabled={readOnly}
-                                    onChange={(event) =>
-                                      updateColumn({
-                                        label: event.target.value,
-                                      })
-                                    }
-                                  />
-                                </Field>
-                                <Field>
-                                  <FieldLabel
-                                    htmlFor={`column-format-${fieldKey}`}
-                                  >
-                                    {t("widgets.editors.shared.format")}
-                                  </FieldLabel>
-                                  <Select
-                                    items={[
-                                      {
-                                        value: "text",
-                                        label: t(
-                                          "widgets.editors.options.formatText",
-                                        ),
-                                      },
-                                      {
-                                        value: "number",
-                                        label: t(
-                                          "widgets.editors.options.formatNumber",
-                                        ),
-                                      },
-                                      {
-                                        value: "integer",
-                                        label: t(
-                                          "widgets.editors.options.formatInteger",
-                                        ),
-                                      },
-                                      {
-                                        value: "percent",
-                                        label: t(
-                                          "widgets.editors.options.formatPercent",
-                                        ),
-                                      },
-                                      {
-                                        value: "currency",
-                                        label: t(
-                                          "widgets.editors.options.formatCurrency",
-                                        ),
-                                      },
-                                      {
-                                        value: "date-short",
-                                        label: t(
-                                          "widgets.editors.options.formatDateShort",
-                                        ),
-                                      },
-                                      {
-                                        value: "date-long",
-                                        label: t(
-                                          "widgets.editors.options.formatDateLong",
-                                        ),
-                                      },
-                                    ]}
-                                    value={existing.format ?? "text"}
-                                    disabled={readOnly}
-                                    onValueChange={(next) =>
-                                      updateColumn({
-                                        format: next as FieldFormat["format"],
-                                      })
-                                    }
-                                  >
-                                    <SelectTrigger
-                                      id={`column-format-${fieldKey}`}
-                                      aria-label={t(
-                                        "widgets.editors.table.formatFor",
-                                        { field: fieldKey },
-                                      )}
-                                    >
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="text">
-                                        {t(
-                                          "widgets.editors.options.formatText",
-                                        )}
-                                      </SelectItem>
-                                      <SelectItem value="number">
-                                        {t(
-                                          "widgets.editors.options.formatNumber",
-                                        )}
-                                      </SelectItem>
-                                      <SelectItem value="integer">
-                                        {t(
-                                          "widgets.editors.options.formatInteger",
-                                        )}
-                                      </SelectItem>
-                                      <SelectItem value="percent">
-                                        {t(
-                                          "widgets.editors.options.formatPercent",
-                                        )}
-                                      </SelectItem>
-                                      <SelectItem value="currency">
-                                        {t(
-                                          "widgets.editors.options.formatCurrency",
-                                        )}
-                                      </SelectItem>
-                                      <SelectItem value="date-short">
-                                        {t(
-                                          "widgets.editors.options.formatDateShort",
-                                        )}
-                                      </SelectItem>
-                                      <SelectItem value="date-long">
-                                        {t(
-                                          "widgets.editors.options.formatDateLong",
-                                        )}
-                                      </SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                </Field>
-                                <Field>
-                                  <FieldLabel
-                                    htmlFor={`column-alignment-${fieldKey}`}
-                                  >
-                                    {t("widgets.editors.shared.alignment")}
-                                  </FieldLabel>
-                                  <Select
-                                    items={[
-                                      {
-                                        value: "left",
-                                        label: t(
-                                          "widgets.editors.options.alignLeft",
-                                        ),
-                                      },
-                                      {
-                                        value: "center",
-                                        label: t(
-                                          "widgets.editors.options.alignCenter",
-                                        ),
-                                      },
-                                      {
-                                        value: "right",
-                                        label: t(
-                                          "widgets.editors.options.alignRight",
-                                        ),
-                                      },
-                                    ]}
-                                    value={existing.alignment ?? "left"}
-                                    disabled={readOnly}
-                                    onValueChange={(next) =>
-                                      updateColumn({
-                                        alignment:
-                                          next as FieldFormat["alignment"],
-                                      })
-                                    }
-                                  >
-                                    <SelectTrigger
-                                      id={`column-alignment-${fieldKey}`}
-                                      aria-label={t(
-                                        "widgets.editors.table.alignmentFor",
-                                        { field: fieldKey },
-                                      )}
-                                    >
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="left">
-                                        {t("widgets.editors.options.alignLeft")}
-                                      </SelectItem>
-                                      <SelectItem value="center">
-                                        {t(
-                                          "widgets.editors.options.alignCenter",
-                                        )}
-                                      </SelectItem>
-                                      <SelectItem value="right">
-                                        {t(
-                                          "widgets.editors.options.alignRight",
-                                        )}
-                                      </SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                </Field>
-                                <Field>
-                                  <FieldLabel
-                                    htmlFor={`column-width-${fieldKey}`}
-                                  >
-                                    {t("widgets.editors.table.columnWidth")}
-                                  </FieldLabel>
-                                  <Input
-                                    id={`column-width-${fieldKey}`}
-                                    type="number"
-                                    min={0}
-                                    max={100}
-                                    value={existing.width ?? 0}
-                                    disabled={readOnly}
-                                    onChange={(event) =>
-                                      updateColumn({
-                                        width: Number(event.target.value),
-                                      })
-                                    }
-                                  />
-                                </Field>
-                              </div>
-                            );
-                          },
-                        )}
-                      </fieldset>
-                    </>
                   )}
                   {provider === "agenda" && (
                     <div className="grid gap-3 sm:grid-cols-2">
@@ -2294,144 +1923,6 @@ export function NativeAppEditor({
                       }
                     />
                   </Field>
-                </>
-              )}
-              {provider === "cards" && (
-                <>
-                  <DataSourceSelect
-                    value={(configuration as CardsWidgetConfig).dataSourceId}
-                    sources={compatibleDataSources}
-                    createProviders={acceptedCreateProviders}
-                    csrf={csrf}
-                    disabled={readOnly}
-                    onChange={(dataSourceId) =>
-                      setConfiguration((current) => ({
-                        ...current,
-                        dataSourceId,
-                      }))
-                    }
-                  />
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <FieldSelect
-                      label={t("widgets.editors.shared.titleField")}
-                      value={(configuration as CardsWidgetConfig).titleField}
-                      fields={availableFields}
-                      disabled={readOnly}
-                      onChange={(titleField) =>
-                        setConfiguration((current) => ({
-                          ...current,
-                          titleField,
-                        }))
-                      }
-                    />
-                    {(
-                      [
-                        [
-                          "subtitleField",
-                          "widgets.editors.cards.subtitleLabel",
-                        ],
-                        ["bodyField", "widgets.editors.cards.bodyLabel"],
-                        ["badgeField", "widgets.editors.cards.badgeLabel"],
-                      ] as const
-                    ).map(([key, labelKey]) => (
-                      <FieldSelect
-                        key={key}
-                        label={t(labelKey)}
-                        value={(configuration as CardsWidgetConfig)[key] ?? ""}
-                        fields={availableFields}
-                        allowEmpty
-                        disabled={readOnly}
-                        onChange={(value) =>
-                          setConfiguration((current) => ({
-                            ...current,
-                            [key]: value,
-                          }))
-                        }
-                      />
-                    ))}
-                    <Field>
-                      <FieldLabel htmlFor="columns">
-                        {t("widgets.editors.shared.columns")}
-                      </FieldLabel>
-                      <Input
-                        id="columns"
-                        type="number"
-                        min={1}
-                        max={4}
-                        value={(configuration as CardsWidgetConfig).columns}
-                        disabled={readOnly}
-                        onChange={(event) =>
-                          setConfiguration((current) => ({
-                            ...(current as CardsWidgetConfig),
-                            columns: Number(event.target.value),
-                          }))
-                        }
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor="maximum-items">
-                        {t("widgets.editors.shared.maximumItems")}
-                      </FieldLabel>
-                      <Input
-                        id="maximum-items"
-                        type="number"
-                        min={1}
-                        max={12}
-                        value={
-                          (configuration as CardsWidgetConfig).maximumItems
-                        }
-                        disabled={readOnly}
-                        onChange={(event) =>
-                          setConfiguration((current) => ({
-                            ...current,
-                            maximumItems: Number(event.target.value),
-                          }))
-                        }
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor="cards-density">
-                        {t("widgets.editors.cards.density")}
-                      </FieldLabel>
-                      <Select
-                        items={[
-                          {
-                            value: "comfortable",
-                            label: t(
-                              "widgets.editors.cards.densityComfortable",
-                            ),
-                          },
-                          {
-                            value: "compact",
-                            label: t("widgets.editors.cards.densityCompact"),
-                          },
-                        ]}
-                        value={(configuration as CardsWidgetConfig).density}
-                        disabled={readOnly}
-                        onValueChange={(next) =>
-                          setConfiguration((current) => ({
-                            ...current,
-                            density: next as CardsWidgetConfig["density"],
-                          }))
-                        }
-                      >
-                        <SelectTrigger
-                          id="cards-density"
-                          aria-label={t("widgets.editors.cards.density")}
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="comfortable">
-                            {t("widgets.editors.cards.densityComfortable")}
-                          </SelectItem>
-                          <SelectItem value="compact">
-                            {t("widgets.editors.cards.densityCompact")}
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                  </div>
                 </>
               )}
               {provider === "weather" && (

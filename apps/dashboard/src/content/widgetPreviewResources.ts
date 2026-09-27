@@ -31,11 +31,7 @@ import type {
 export type SavedSourcePreview =
   StructuredPreview | CalendarPreview | TypedRecordData | TypedDatasetPayload;
 
-function typedValue(
-  fieldType: string,
-  raw: string,
-  currency?: string,
-): WidgetValue {
+function typedValue(fieldType: string, raw: string): WidgetValue {
   switch (fieldType) {
     case "integer": {
       const integer = Number.parseInt(raw, 10);
@@ -48,13 +44,12 @@ function typedValue(
     case "currency": {
       const number = Number(raw);
       if (!Number.isFinite(number)) return { kind: "text", text: raw };
-      const value: WidgetValue =
-        fieldType === "currency"
-          ? { kind: "currency", number }
-          : fieldType === "percent"
-            ? { kind: "percent", number }
-            : { kind: "number", number };
-      return currency ? { ...value, text: currency } : value;
+      // The currency code travels in the field metadata, never in the
+      // value: formatWidgetValue renders value.text before any numeric
+      // branch, so stamping it here would hide the amount.
+      if (fieldType === "currency") return { kind: "currency", number };
+      if (fieldType === "percent") return { kind: "percent", number };
+      return { kind: "number", number };
     }
     case "boolean":
       return raw === "true"
@@ -95,7 +90,7 @@ function recordValues(
   for (const [key, raw] of Object.entries(values)) {
     const field = byKey.get(key);
     out[key] = field
-      ? typedValue(field.type, raw, field.currency)
+      ? typedValue(field.type, raw)
       : { kind: "text", text: raw };
   }
   return out;

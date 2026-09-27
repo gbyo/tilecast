@@ -58,10 +58,15 @@ describe("previewToDataDocument", () => {
       kind: "datetime",
       datetime: "2026-09-28T14:00:00Z",
     });
-    expect(first?.["price"]).toEqual({
-      kind: "currency",
-      number: 12.5,
-      text: "USD",
+    // The currency code travels in the field metadata (asserted below),
+    // never in the value: formatWidgetValue renders value.text before any
+    // numeric branch, so stamping it here would hide the amount.
+    expect(first?.["price"]).toEqual({ kind: "currency", number: 12.5 });
+    expect(dataset?.fields?.find((field) => field.key === "price")).toEqual({
+      key: "price",
+      label: "Price",
+      type: "currency",
+      currency: "USD",
     });
     // Unparseable values degrade to text instead of failing the preview.
     const second = dataset?.records?.[1]?.values;

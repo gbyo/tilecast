@@ -12,6 +12,7 @@ import type {
 } from "../../api/types";
 import clockManifest from "../../../../../widgets/clock/tilecast.widget.json";
 import qrManifest from "../../../../../widgets/qr-code/tilecast.widget.json";
+import listManifest from "../../../../../widgets/list/tilecast.widget.json";
 import { V2ZonePreview } from "./V2ZonePreview";
 
 afterEach(() => {
@@ -109,12 +110,47 @@ function legacyQrCodeDefinition(): WidgetDefinition {
   };
 }
 
+function listDefinition(): WidgetDefinition {
+  return {
+    id: "list",
+    version: 1,
+    apiVersion: 1,
+    name: "List",
+    description: "Show records as flexible primary and secondary rows.",
+    category: "Data display",
+    icon: "list",
+    runtime: "native",
+    configurationSchema: listManifest.configurationSchema as {
+      fields: ContentDefinitionField[];
+    },
+    defaultConfiguration: listManifest.defaultConfiguration,
+    component: {
+      type: "tilecast.list",
+      version: 1,
+      tagName: "tc-widget-list",
+      entrypoint: "./runtime/index.ts",
+      configTemplate: listManifest.component.configTemplate,
+      dataSourceFields: listManifest.component.dataSourceFields,
+      empty: "skip-eligible",
+    },
+    compatibility: { fallback: "legacy" },
+    presentationSchemaVersion: 1,
+    requiredCapabilities: {},
+    emptyStateBehavior: "text",
+  };
+}
+
 function catalog(): ContentDefinitionCatalog {
   return {
     revision: "test",
     compilerVersion: "99",
     fingerprint: "test",
-    widgets: [clockDefinition(), qrCodeDefinition(), legacyQrCodeDefinition()],
+    widgets: [
+      clockDefinition(),
+      qrCodeDefinition(),
+      legacyQrCodeDefinition(),
+      listDefinition(),
+    ],
     dataSources: [],
   };
 }
@@ -190,6 +226,62 @@ describe("V2ZonePreview", () => {
     const code = container.querySelector("tc-widget-qr-code");
     expect(code).toBeInTheDocument();
     expect(code?.shadowRoot?.querySelector("svg.code")).not.toBeNull();
+  });
+
+  it("mounts the real List element for saved legacy display content", async () => {
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue(catalog());
+    vi.spyOn(api, "settings").mockResolvedValue({ values: {} } as never);
+    vi.spyOn(api, "previewSavedDataSource").mockResolvedValue({
+      fields: [
+        { key: "title", label: "Title", type: "text" },
+        { key: "budget", label: "Budget", type: "currency", currency: "USD" },
+      ],
+      records: [
+        {
+          id: "r1",
+          values: { title: "Lobby screen refresh", budget: "1200" },
+        },
+      ],
+      cachedAt: "2026-09-28T15:00:00Z",
+      usingCachedData: false,
+      attribution: "Projects sheet",
+      unavailable: false,
+    });
+    // Saved content keeps its persisted legacy keys, including superseded
+    // layout tuning the V2 component intentionally ignores.
+    const asset = {
+      widget: {
+        authorConfiguration: {
+          dataSourceId: "source-1",
+          primaryField: "title",
+          trailingField: "budget",
+          maximumItems: 8,
+          rowSpacing: "comfortable",
+          showDividers: true,
+          textScale: 2,
+        },
+      },
+    } as unknown as Asset;
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const { container } = render(
+      <QueryClientProvider client={client}>
+        <V2ZonePreview provider="list" asset={asset} width={480} height={270} />
+      </QueryClientProvider>,
+    );
+    const frame = await screen.findByRole("img", {
+      name: "Live Widget preview",
+    });
+    await waitFor(() => frame.querySelector("tc-widget-list"));
+    const list = container.querySelector("tc-widget-list");
+    expect(list).toBeInTheDocument();
+    expect(list?.shadowRoot?.querySelector(".row .primary")?.textContent).toBe(
+      "Lobby screen refresh",
+    );
+    expect(list?.shadowRoot?.querySelector(".row .trailing")?.textContent).toBe(
+      "$1,200.00",
+    );
   });
 
   it("renders nothing while definitions load or the provider is unknown", () => {

@@ -661,24 +661,10 @@
         "emptyLabel": "Mensaje sin datos",
         "emptyHint": "Se muestra cuando la fuente no devuelve registros útiles."
       },
-      "list": {
-        "primaryField": "Campo principal",
-        "leadingField": "Campo inicial",
-        "trailingField": "Campo final",
-        "showDividers": "Mostrar divisores de fila"
-      },
       "menu": {
         "presentation": "Presentación",
         "modeSingle": "Campos de un registro",
         "modeRows": "Filas de etiqueta y valor"
-      },
-      "table": {
-        "showHeader": "Mostrar encabezados de columna",
-        "alternating": "Alternar fondos de fila",
-        "columnPresentation": "Presentación de columnas",
-        "columnWidth": "Ancho %",
-        "formatFor": "Formato de {{field}}",
-        "alignmentFor": "Alineación de {{field}}"
       },
       "agenda": {
         "timeField": "Campo de hora",
@@ -691,14 +677,6 @@
         "prefix": "Prefijo",
         "suffix": "Sufijo",
         "emptyState": "Estado vacío"
-      },
-      "cards": {
-        "subtitleLabel": "subtítulo",
-        "bodyLabel": "cuerpo",
-        "badgeLabel": "insignia",
-        "density": "Densidad",
-        "densityComfortable": "Amplia",
-        "densityCompact": "Compacta"
       },
       "weather": {
         "showLocation": "Ubicación",
