@@ -23,12 +23,12 @@ continues on its existing stack.
 
 Tilecast has three extension units and one distribution unit.
 
-| Unit | Owns | May exist alone | May be bundled by a plugin |
-| --- | --- | --- | --- |
-| Widget | Presentation | Yes | Yes |
-| Data Source | Data acquisition and typed output | Yes, when declarative | Yes |
-| Plugin | Application behavior and integration | Yes | n/a |
-| Package | Distribution, version, provenance, and trust | n/a | Can carry any supported contribution |
+| Unit        | Owns                                         | May exist alone       | May be bundled by a plugin           |
+| ----------- | -------------------------------------------- | --------------------- | ------------------------------------ |
+| Widget      | Presentation                                 | Yes                   | Yes                                  |
+| Data Source | Data acquisition and typed output            | Yes, when declarative | Yes                                  |
+| Plugin      | Application behavior and integration         | Yes                   | n/a                                  |
+| Package     | Distribution, version, provenance, and trust | n/a                   | Can carry any supported contribution |
 
 The dependency model is:
 
@@ -507,12 +507,12 @@ Do not make one integer mean four different things.
 
 ### Widget
 
-| Version | Meaning |
-| --- | --- |
-| manifest API version | Shape and semantics of `tilecast.widget.json` |
-| definition/config version | Persisted Widget configuration contract |
-| component version | Player/runtime rendering contract |
-| package version | Release version of an independently distributed package |
+| Version                   | Meaning                                                 |
+| ------------------------- | ------------------------------------------------------- |
+| manifest API version      | Shape and semantics of `tilecast.widget.json`           |
+| definition/config version | Persisted Widget configuration contract                 |
+| component version         | Player/runtime rendering contract                       |
+| package version           | Release version of an independently distributed package |
 
 Widgets V2 currently has `version` and `component.version`. Add an explicit
 manifest `apiVersion` before external authors depend on the file format.
