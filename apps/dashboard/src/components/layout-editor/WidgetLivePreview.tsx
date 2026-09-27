@@ -21,7 +21,6 @@ import type {
   Playlist,
   PlaylistItem,
   StructuredRecord,
-  TickerWidgetConfig,
 } from "../../api/types";
 
 // Resolved live data for one Data Source, keyed by its id, shared by every
@@ -412,18 +411,6 @@ export function dateText(
   }).format(now);
 }
 
-export function tickerText(
-  cfg: TickerWidgetConfig,
-  source?: LivePreviewSource,
-): string {
-  const parts = (source?.records ?? [])
-    .map((record) => structuredFieldValue(record, cfg.field || "title"))
-    .filter((value) => value.trim().length > 0);
-  return parts.length
-    ? parts.join(cfg.separator || " • ")
-    : source?.emptyState || "No items available";
-}
-
 export function widgetContentArea(
   item: Pick<LayoutPlacement, "width" | "height">,
   cfg: { contentPadding?: number },
@@ -525,7 +512,6 @@ export function CenteredWidget({
 export function WidgetLivePreview({
   asset,
   item,
-  live,
   scale,
 }: {
   asset: Asset;
@@ -538,8 +524,6 @@ export function WidgetLivePreview({
   const cfg = widget.configuration as Record<string, unknown>;
   const fg = colorToCss(cfg.foregroundColor as string, "#F5F7FA");
   const bg = colorToCss(cfg.backgroundColor as string, "#0E141B");
-  const sourceId = cfg.dataSourceId as string | undefined;
-  const source = sourceId ? live[sourceId] : undefined;
   const settings = useQuery({ queryKey: ["settings"], queryFn: api.settings });
   const regional = settings.data?.values ?? {};
   const regionalLocale = regionalSetting(
@@ -563,6 +547,16 @@ export function WidgetLivePreview({
     case "menu":
     case "agenda":
     case "weather":
+    case "news":
+    case "news-feed":
+    case "custom-rss":
+    case "atom-feed":
+    case "espn":
+    case "bbc-news":
+    case "sky-news":
+    case "the-guardian":
+    case "ticker":
+    case "rss-ticker":
       // Migrated V2 Widgets render the real Web Component through the
       // shared preview host. Each migration deletes its hand-written branch
       // here; zone-specific renderers are never added.
@@ -593,24 +587,6 @@ export function WidgetLivePreview({
             fontPx={Math.max(item.width, item.height) * scale}
             weight={500}
             textScale={(cfg as unknown as DateWidgetConfig).textScale}
-          />
-        </CenteredWidget>
-      );
-    case "ticker":
-      return (
-        <CenteredWidget
-          background={bg}
-          item={item}
-          scale={scale}
-          contentPadding={(cfg as unknown as TickerWidgetConfig).contentPadding}
-        >
-          <FittedText
-            text={tickerText(cfg as unknown as TickerWidgetConfig, source)}
-            color={fg}
-            fontPx={Math.max(item.width, item.height) * scale}
-            weight={400}
-            maxLines={2}
-            textScale={(cfg as unknown as TickerWidgetConfig).textScale}
           />
         </CenteredWidget>
       );

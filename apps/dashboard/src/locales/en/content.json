@@ -918,6 +918,7 @@
       "calendar": "Public Google, Microsoft, Apple, or other ICS calendars.",
       "capAlerts": "Active public emergency alerts and instructions.",
       "csv": "Upload a spreadsheet export or connect a hosted CSV URL.",
+      "feed": "RSS or Atom headlines normalized into one records contract.",
       "form": "Collect submissions, approve them, and publish records to Widgets.",
       "json": "Public API data mapped with simple JSON Pointer paths.",
       "manual": "Maintain a small typed dataset directly in Studio.",
@@ -1139,6 +1140,7 @@
       "capAlerts": "CAP Alerts",
       "csv": "CSV",
       "dataSource": "Data Source",
+      "feed": "RSS / Atom Feed",
       "form": "Form",
       "json": "JSON",
       "manual": "Manual Table",
@@ -1196,6 +1198,16 @@
           "step3": "Preview the mapped rows, then save."
         },
         "tip": "Column names must match the first row of the CSV. Start with the title column; the others are optional."
+      },
+      "feed": {
+        "eyebrow": "News and headlines",
+        "description": "Turn an RSS or Atom feed into clean, cached records for News, tickers, lists, and layouts.",
+        "tip": "Paste the direct feed URL. It often ends in /feed, .xml, or .rss. Publisher presets fill in a trusted address.",
+        "steps": {
+          "step1": "Pick a publisher preset or paste a custom feed URL.",
+          "step2": "Choose the fields, item limit, and sort order.",
+          "step3": "Preview the mapped stories, then save."
+        }
       },
       "json": {
         "description": "Connect a public JSON endpoint, map its record paths, and verify the normalized result before saving.",
@@ -1289,6 +1301,12 @@
       "feedItemsRead_one": "{{count}} item read from this feed. Fields it does not publish are not listed.",
       "feedItemsRead_other": "{{count}} items read from this feed. Fields it does not publish are not listed.",
       "feedUrl": "Feed URL",
+      "feedPreset": "Publisher preset",
+      "feedPresetAttribution": "Feed content belongs to its publisher. Confirm you may display it and credit the publisher on screen.",
+      "feedPresetNames": {
+        "nyt-top-stories": "New York Times — Top Stories",
+        "custom": "Custom URL"
+      },
       "fieldAuthor": "Author",
       "fieldDate": "Date",
       "fieldDescription": "Description",

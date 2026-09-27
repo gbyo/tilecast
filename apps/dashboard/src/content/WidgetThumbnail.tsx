@@ -343,6 +343,7 @@ const newsPreview: Shape[] = [
   ...rows(3, 54, 10, [118, 102, 110], 14, 5),
 ];
 Object.assign(THUMBNAILS, {
+  news: newsPreview,
   "news-feed": newsPreview,
   espn: newsPreview,
   "bbc-news": newsPreview,

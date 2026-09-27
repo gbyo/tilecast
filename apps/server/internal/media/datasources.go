@@ -604,7 +604,7 @@ func (s *Service) GetDataSourceDetail(ctx context.Context, id uuid.UUID) (DataSo
 	detail.Fields = s.availableDataSourceFields(raw.Provider, raw.Configuration)
 	detail.CachedRecords = detail.Diagnostics.AvailableEventCount + detail.Diagnostics.AvailableItemCount
 	detail.Status = dataSourceStatus(detail.Diagnostics)
-	if raw.Provider == "rss" || raw.Provider == "atom" || raw.Provider == "json" || raw.Provider == "csv" {
+	if raw.Provider == "rss" || raw.Provider == "atom" || raw.Provider == "feed" || raw.Provider == "json" || raw.Provider == "csv" {
 		var config StructuredSourceConfig
 		if json.Unmarshal(raw.Configuration, &config) == nil && config.DateSelection.Enabled {
 			selection := config.DateSelection
@@ -746,21 +746,31 @@ func (s *Service) availableDataSourceFields(provider string, raw json.RawMessage
 	}
 	var config StructuredSourceConfig
 	_ = json.Unmarshal(raw, &config)
+	// Feed records share one normalized contract (docs/widgets-v2-authoring-and-first-wave.md
+	// §5.8): each fixed feed field declares its semantic role so News, Ticker,
+	// and other feed-driven Widgets map by role instead of by column name.
+	feedRoles := map[string]string{}
+	if provider == "rss" || provider == "atom" || provider == "feed" {
+		feedRoles = map[string]string{
+			"title": "headline", "description": "summary", "date": "published_at",
+			"source": "source_name", "author": "author", "link": "link", "imageUrl": "image",
+		}
+	}
 	add := func(on bool, key, label, typ string) {
 		if on {
-			fields = append(fields, DataSourceField{Key: key, Label: label, Type: typ})
+			fields = append(fields, DataSourceField{Key: key, Label: label, Type: typ, Role: feedRoles[key]})
 		}
 	}
 	add(config.Fields.Title, "title", "Title", "text")
 	add(config.Fields.Subtitle, "subtitle", "Subtitle", "text")
 	dateType := "date"
-	if provider == "rss" || provider == "atom" {
+	if provider == "rss" || provider == "atom" || provider == "feed" {
 		dateType = "datetime"
 	}
 	add(config.Fields.Date, "date", "Publication time", dateType)
 	add(config.Fields.Author, "author", "Author", "text")
 	add(config.Fields.Description, "description", "Description", "text")
-	add(provider == "rss" || provider == "atom", "source", "Source", "text")
+	add(provider == "rss" || provider == "atom" || provider == "feed", "source", "Source", "text")
 	add(config.Fields.Image, "imageUrl", "Image", "url")
 	add(config.Fields.Link, "link", "Link", "url")
 	if config.Mapping != nil {

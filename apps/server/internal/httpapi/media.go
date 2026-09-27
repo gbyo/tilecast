@@ -631,7 +631,7 @@ func (s *server) previewDataSource(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"data": preview})
 		return
 	}
-	if provider != "rss" && provider != "atom" && provider != "json" && provider != "csv" {
+	if provider != "rss" && provider != "atom" && provider != "feed" && provider != "json" && provider != "csv" {
 		writeError(w, http.StatusNotFound, "data_source_provider_not_found", "The requested Data Source provider was not found.")
 		return
 	}
@@ -643,13 +643,13 @@ func (s *server) previewDataSource(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"data": preview})
 }
 
-// inspectDataSource reports the fields a candidate RSS, Atom, JSON, or CSV connection
+// inspectDataSource reports the fields a candidate RSS, Atom, Feed, JSON, or CSV connection
 // contains, so Studio can offer detected fields instead of asking an author to type column
 // names or JSON Pointer paths from memory. It runs before a mapping exists and therefore
 // does not require one.
 func (s *server) inspectDataSource(w http.ResponseWriter, r *http.Request) {
 	provider := chi.URLParam(r, "provider")
-	if provider != "rss" && provider != "atom" && provider != "json" && provider != "csv" {
+	if provider != "rss" && provider != "atom" && provider != "feed" && provider != "json" && provider != "csv" {
 		writeError(w, http.StatusNotFound, "data_source_provider_not_found", "This Data Source provider does not support field detection.")
 		return
 	}

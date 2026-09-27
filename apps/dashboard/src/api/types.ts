@@ -1602,6 +1602,7 @@ export type LegacyDataSourceProvider =
   | "calendar"
   | "rss"
   | "atom"
+  | "feed"
   | "json"
   | "csv"
   | "manual"
@@ -1754,6 +1755,15 @@ export type DataSourceDefinition = {
   legacyEditor?: boolean;
   requiresManifestV13?: boolean;
   setup?: ContentDefinitionSetup;
+  /**
+   * Superseded providers stay resolvable for saved content but disappear
+   * from new creation once their replacement proves parity.
+   */
+  deprecation?: {
+    deprecated?: boolean;
+    replacement?: string;
+    message?: string;
+  };
 };
 export type ContentDefinitionCatalog = {
   revision: string;

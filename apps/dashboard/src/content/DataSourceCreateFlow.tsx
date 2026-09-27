@@ -37,9 +37,12 @@ function useDataSourceDefinitions(
     isLoading: definitions.isLoading,
     all,
     // An empty or absent list means "everything in the catalog"; a Widget that accepts
-    // only some providers must not be offered the rest.
+    // only some providers must not be offered the rest. Superseded providers
+    // remain editable for saved content but leave new creation once their
+    // replacement proves parity.
     offered: all.filter(
       (definition) =>
+        !definition.deprecation?.deprecated &&
         (!providers?.length || providers.includes(definition.id)) &&
         !exclude?.includes(definition.id),
     ),

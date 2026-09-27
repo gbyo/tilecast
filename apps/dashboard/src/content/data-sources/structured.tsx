@@ -37,7 +37,20 @@ import { formatRegionalDateTimeValue } from "../../settings/regionalFormatting";
 import { CsvSourceInput } from "../CsvSourceInput";
 import { optionLabel } from "./shared";
 
-export type StructuredProvider = "rss" | "atom" | "json" | "csv";
+export type StructuredProvider = "rss" | "atom" | "feed" | "json" | "csv";
+
+// Publisher presets are configuration for the Feed Data Source, not Widgets.
+// A preset fills in a trusted, release-verified feed address; the author can
+// still edit the URL into a custom address afterwards.
+export const FEED_PRESETS = [
+  {
+    id: "nyt-top-stories",
+    url: "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml",
+  },
+  { id: "custom", url: "" },
+] as const;
+
+export type FeedPresetId = (typeof FEED_PRESETS)[number]["id"];
 
 // A mapped provider starts with an empty mapping on purpose. Guessing "title" or "/title"
 // before the data has been read produces a mapping that looks configured, silently misses
@@ -56,7 +69,10 @@ const defaultStructured = (
   provider: StructuredProvider,
 ): StructuredSourceConfig => ({
   url: "https://",
-  presentation: provider === "rss" || provider === "atom" ? "list" : "cards",
+  presentation:
+    provider === "rss" || provider === "atom" || provider === "feed"
+      ? "list"
+      : "cards",
   maxItems: 20,
   fields: {
     title: true,
@@ -64,8 +80,9 @@ const defaultStructured = (
     date: true,
     // Only feeds publish an author and a description; a mapped Source fills its display
     // slots from the mapping alone.
-    author: provider === "rss" || provider === "atom",
-    description: provider === "rss" || provider === "atom",
+    author: provider === "rss" || provider === "atom" || provider === "feed",
+    description:
+      provider === "rss" || provider === "atom" || provider === "feed",
     image: false,
     link: false,
   },
@@ -131,6 +148,7 @@ const mappingPlaceholders: Record<
   },
   rss: {},
   atom: {},
+  feed: {},
 };
 
 // How long a URL or pasted payload must stay unchanged before it is read.
@@ -787,6 +805,59 @@ export function StructuredDataSourceEditor({
               readOnly={readOnly}
               onChange={updateConfiguration}
             />
+          )}
+          {provider === "feed" && (
+            <Field>
+              <FieldLabel htmlFor="structured-feed-preset">
+                {t("dataSources.structured.feedPreset")}
+              </FieldLabel>
+              <Select
+                value={
+                  FEED_PRESETS.some(
+                    (preset) =>
+                      preset.url !== "" &&
+                      preset.url === (configuration.url ?? ""),
+                  )
+                    ? (configuration.url ?? "")
+                    : "custom"
+                }
+                disabled={readOnly}
+                onValueChange={(next) =>
+                  setConfiguration((c) => ({
+                    ...c,
+                    url: (next === "custom" ? "https://" : next) ?? "https://",
+                    uploadedContent: undefined,
+                    uploaded: false,
+                  }))
+                }
+                items={FEED_PRESETS.map((preset) => ({
+                  value: preset.url === "" ? "custom" : preset.url,
+                  label: t(
+                    `dataSources.structured.feedPresetNames.${preset.id}`,
+                  ),
+                }))}
+              >
+                <SelectTrigger
+                  id="structured-feed-preset"
+                  aria-label={t("dataSources.structured.feedPreset")}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {FEED_PRESETS.map((preset) => (
+                    <SelectItem
+                      key={preset.id}
+                      value={preset.url === "" ? "custom" : preset.url}
+                    >
+                      {t(`dataSources.structured.feedPresetNames.${preset.id}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {t("dataSources.structured.feedPresetAttribution")}
+              </p>
+            </Field>
           )}
           {provider !== "csv" && (
             <Field>

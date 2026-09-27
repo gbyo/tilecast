@@ -133,6 +133,62 @@ func TestLegacyDisplayProvidersProjectIntoV2(t *testing.T) {
 	}
 }
 
+// TestFeedProvidersProjectIntoV2 keeps every persisted feed and news
+// provider compiling into its V2 component: news-feed keys project
+// directly, source-specific Apps resolve their recipe-managed source into
+// the component grant, and rss-ticker content modes become ticker field
+// slots, while the template fallback keeps serving older Players.
+func TestFeedProvidersProjectIntoV2(t *testing.T) {
+	service := &Service{definitions: contentdefs.MustLoad()}
+	news := json.RawMessage(`{"sourceId":"11111111-1111-4111-8111-111111111111","heading":"Top stories","maxStories":5,"displayStyle":"featured","showDescription":false,"emptyState":"Quiet today."}`)
+	component, err := service.compileWidgetComponent("news-feed", news)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if component.Component.Type != "tilecast.news" || component.Component.Config["dataSourceId"] != "11111111-1111-4111-8111-111111111111" || component.Component.Config["displayStyle"] != "featured" || component.Component.Config["showSummary"] != false || component.Component.Config["emptyText"] != "Quiet today." {
+		t.Fatalf("news-feed config did not project: %+v", component.Component)
+	}
+	if len(component.Component.DataSources) != 1 || component.Component.DataSources[0] != "11111111-1111-4111-8111-111111111111" {
+		t.Fatalf("news-feed source grant missing: %+v", component.Component)
+	}
+	app := json.RawMessage(`{"managedDataSourceId":"22222222-2222-4222-8222-222222222222","feedUrl":"https://example.com/feed.xml","heading":"BBC","maxStories":6,"showDescription":true}`)
+	component, err = service.compileWidgetComponent("bbc-news", app)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if component.Component.Type != "tilecast.news" || component.Component.Config["dataSourceId"] != "22222222-2222-4222-8222-222222222222" || component.Component.Config["heading"] != "BBC" {
+		t.Fatalf("news app config did not project: %+v", component.Component)
+	}
+	if len(component.Component.DataSources) != 1 || component.Component.DataSources[0] != "22222222-2222-4222-8222-222222222222" {
+		t.Fatalf("news app managed source grant missing: %+v", component.Component)
+	}
+	ticker := json.RawMessage(`{"managedDataSourceId":"33333333-3333-4333-8333-333333333333","feedUrl":"https://example.com/feed.xml","leadingLabel":"NEWS","contentMode":"title_time","separator":" /// ","speed":"fast","direction":"right","maxStories":12}`)
+	component, err = service.compileWidgetComponent("rss-ticker", ticker)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if component.Component.Type != "tilecast.ticker" || component.Component.Config["primaryField"] != "title" || component.Component.Config["legacyContentMode"] != "title_time" || component.Component.Config["separator"] != " /// " || component.Component.Config["speed"] != "fast" || component.Component.Config["maxItems"] != float64(12) {
+		t.Fatalf("rss-ticker config did not project: %+v", component.Component)
+	}
+	if len(component.Component.DataSources) != 1 || component.Component.DataSources[0] != "33333333-3333-4333-8333-333333333333" {
+		t.Fatalf("rss-ticker managed source grant missing: %+v", component.Component)
+	}
+	if component.RequiredCapabilities["widget.tilecast.ticker"] != 1 {
+		t.Fatalf("ticker capability missing: %+v", component.RequiredCapabilities)
+	}
+	legacy := json.RawMessage(`{"dataSourceId":"44444444-4444-4444-8444-444444444444","fields":["title","source"],"separator":" • "}`)
+	component, err = service.compileWidgetComponent("ticker", legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if component.Component.Type != "tilecast.ticker" {
+		t.Fatalf("ticker config did not project: %+v", component.Component)
+	}
+	if fields, ok := component.Component.Config["legacyFields"].([]any); !ok || len(fields) != 2 || fields[0] != "title" {
+		t.Fatalf("ticker legacy fields did not project: %+v", component.Component)
+	}
+}
+
 // TestLegacyDomainProvidersProjectIntoV2 keeps every persisted domain
 // provider compiling into its V2 component: legacy DisplayWidget label and
 // value keys, agenda date/time keys and weather toggles all normalize for

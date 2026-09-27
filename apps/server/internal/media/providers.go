@@ -53,6 +53,7 @@ var dataSourceProviderRegistry = map[string]ProviderDescriptor{
 	"calendar":    {ID: "calendar", Role: RoleDataSource, ProducesFields: true, RecordBased: true, Temporal: true},
 	"rss":         {ID: "rss", Role: RoleDataSource, ProducesFields: true, SupportsDateSelection: true, RecordBased: true},
 	"atom":        {ID: "atom", Role: RoleDataSource, ProducesFields: true, SupportsDateSelection: true, RecordBased: true},
+	"feed":        {ID: "feed", Role: RoleDataSource, ProducesFields: true, SupportsDateSelection: true, RecordBased: true},
 	"json":        {ID: "json", Role: RoleDataSource, ProducesFields: true, SupportsDateSelection: true, RecordBased: true, Temporal: true, Numeric: true},
 	"csv":         {ID: "csv", Role: RoleDataSource, ProducesFields: true, SupportsDateSelection: true, RecordBased: true, Temporal: true, Numeric: true},
 	"manual":      {ID: "manual", Role: RoleDataSource, ProducesFields: true, SupportsDateSelection: true, RecordBased: true, Temporal: true, Numeric: true},
@@ -195,7 +196,7 @@ func (s *Service) ProviderCatalog() []ProviderCatalogEntry {
 			RequiredCapabilities: required, UIHints: map[string]string{"editor": id, "preview": "compiled"},
 		})
 	}
-	for _, id := range []string{"calendar", "rss", "atom", "json", "csv", "manual", "weather", "transit", "cap_alerts", "air_quality"} {
+	for _, id := range []string{"calendar", "rss", "atom", "feed", "json", "csv", "manual", "weather", "transit", "cap_alerts", "air_quality"} {
 		descriptor := dataSourceProviderRegistry[id]
 		label, group, description := providerCopy(id, RoleDataSource)
 		result = append(result, ProviderCatalogEntry{
@@ -256,6 +257,7 @@ func providerCopy(id string, role ProviderRole) (string, string, string) {
 		"calendar":    {"Calendar", "Feeds", "Project public calendar events into typed records."},
 		"rss":         {"RSS", "Feeds", "Project a public RSS feed into typed records."},
 		"atom":        {"Atom", "Feeds", "Project a public Atom feed into typed records."},
+		"feed":        {"RSS / Atom Feed", "Feeds", "Project a public RSS or Atom feed into typed records."},
 		"json":        {"JSON", "Structured", "Map public JSON into typed records."},
 		"csv":         {"CSV", "Structured", "Map uploaded or public CSV into typed records."},
 		"manual":      {"Manual Table", "Structured", "Maintain a bounded typed table in Studio."},

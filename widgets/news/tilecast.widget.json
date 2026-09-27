@@ -1,0 +1,143 @@
+{
+  "$schema": "../../packages/widget-sdk/schema/tilecast-widget.schema.json",
+  "apiVersion": 1,
+  "id": "news",
+  "version": 1,
+  "name": "News",
+  "description": "Present normalized feed and news records in a TV-ready typography-first layout. News ships without article images until managed remote feed images are safe and cached by Tilecast.",
+  "category": "Data display",
+  "icon": "newspaper",
+  "runtime": "native",
+  "configurationSchema": {
+    "fields": [
+      {
+        "key": "dataSourceId",
+        "label": "Data Source",
+        "description": "The feed or records source this News reads. Feed sources declare headline, summary, publication time, source, and author roles; other sources map by field name.",
+        "control": "data_source",
+        "acceptedDataSourceKinds": ["records"],
+        "default": "",
+        "ui": { "section": "data", "order": 1 }
+      },
+      {
+        "key": "heading",
+        "label": "Heading",
+        "control": "text",
+        "maxLength": 80,
+        "default": "Latest news",
+        "ui": { "section": "content", "order": 1 }
+      },
+      {
+        "key": "maxStories",
+        "label": "Maximum stories",
+        "control": "integer",
+        "minimum": 1,
+        "maximum": 20,
+        "default": 8,
+        "ui": { "section": "content", "order": 2 }
+      },
+      {
+        "key": "showSummary",
+        "label": "Show summary",
+        "control": "boolean",
+        "default": true,
+        "ui": { "section": "content", "order": 3 }
+      },
+      {
+        "key": "showPublicationTime",
+        "label": "Show publication time",
+        "control": "boolean",
+        "default": true,
+        "ui": { "section": "content", "order": 4 }
+      },
+      {
+        "key": "showSource",
+        "label": "Show source",
+        "control": "boolean",
+        "default": true,
+        "ui": { "section": "content", "order": 5 }
+      },
+      {
+        "key": "emptyText",
+        "label": "Empty message",
+        "description": "Shown when the source returns no usable stories.",
+        "control": "text",
+        "maxLength": 160,
+        "default": "",
+        "ui": { "section": "content", "order": 6 }
+      },
+      {
+        "key": "displayStyle",
+        "label": "Style",
+        "control": "select",
+        "options": [
+          { "value": "lead", "label": "Lead story" },
+          { "value": "headlines", "label": "Headlines" },
+          { "value": "compact", "label": "Compact" }
+        ],
+        "default": "headlines",
+        "ui": { "section": "appearance", "order": 1, "styleCard": true }
+      },
+      {
+        "key": "backgroundColor",
+        "label": "Background color",
+        "control": "color",
+        "default": "",
+        "ui": { "section": "appearance", "order": 2 }
+      },
+      {
+        "key": "foregroundColor",
+        "label": "Text color",
+        "control": "color",
+        "default": "",
+        "ui": { "section": "appearance", "order": 3 }
+      }
+    ]
+  },
+  "defaultConfiguration": {
+    "dataSourceId": "",
+    "heading": "Latest news",
+    "maxStories": 8,
+    "showSummary": true,
+    "showPublicationTime": true,
+    "showSource": true,
+    "emptyText": "",
+    "displayStyle": "headlines",
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "presentationSchemaVersion": 1,
+  "requiredCapabilities": {
+    "layout.surface": 1,
+    "layout.column": 1,
+    "collection.repeat": 2,
+    "content.text": 1,
+    "binding.core": 2
+  },
+  "emptyStateBehavior": "text",
+  "legacyEditor": true,
+  "deprecation": {},
+  "component": {
+    "type": "tilecast.news",
+    "version": 1,
+    "tagName": "tc-widget-news",
+    "entrypoint": "./runtime/index.ts",
+    "configTemplate": {
+      "dataSourceId": { "$config": "dataSourceId", "default": { "$config": "sourceId", "default": "" } },
+      "heading": { "$config": "heading", "default": "Latest news" },
+      "maxStories": { "$config": "maxStories", "default": 8 },
+      "showSummary": { "$config": "showSummary", "default": { "$config": "showDescription", "default": true } },
+      "showTime": { "$config": "showPublicationTime", "default": true },
+      "showSource": { "$config": "showSource", "default": true },
+      "emptyText": { "$config": "emptyText", "default": { "$config": "emptyState", "default": "" } },
+      "displayStyle": { "$config": "displayStyle", "default": "headlines" },
+      "background": { "$config": "backgroundColor", "default": "" },
+      "foreground": { "$config": "foregroundColor", "default": "" }
+    },
+    "dataSourceFields": ["dataSourceId"],
+    "empty": "skip-eligible"
+  },
+  "compatibility": {
+    "fallback": "none"
+  }
+}

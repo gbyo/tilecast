@@ -38,8 +38,21 @@ export const AGENDA_FIELD_ROLES = [
   "category",
 ] as const;
 
+/** Feed/news concepts (§5.8 suggested roles). */
+export const FEED_FIELD_ROLES = [
+  "headline",
+  "summary",
+  "published_at",
+  "source_name",
+  "author",
+  "link",
+  "image",
+] as const;
+
 export type SemanticFieldRole =
-  (typeof MENU_FIELD_ROLES)[number] | (typeof AGENDA_FIELD_ROLES)[number];
+  | (typeof MENU_FIELD_ROLES)[number]
+  | (typeof AGENDA_FIELD_ROLES)[number]
+  | (typeof FEED_FIELD_ROLES)[number];
 
 /** The field shape mapping needs: a key, a type, an optional role. */
 export interface MappableField {

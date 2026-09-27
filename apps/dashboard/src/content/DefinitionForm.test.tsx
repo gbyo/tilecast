@@ -105,7 +105,7 @@ function form(
   fields: ContentDefinitionField[],
   value: Record<string, unknown> = {},
 ) {
-  const onChange = vi.fn();
+  const onChange = vi.fn<(next: Record<string, unknown>) => void>();
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -685,6 +685,66 @@ describe("DefinitionForm automatic semantic mapping", () => {
       expect(onChange).toHaveBeenCalledWith(
         expect.objectContaining({ titleField: "dish" }),
       ),
+    );
+  });
+
+  it("maps feed roles onto ticker text slots when a feed connects", async () => {
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue(
+      catalog([
+        definition("feed", [{ key: "title", label: "Title", type: "text" }]),
+      ]),
+    );
+    vi.spyOn(api, "listDataSources").mockResolvedValue({
+      items: [source("s-feed", "feed", "Morning wire")],
+      total: 1,
+      page: 1,
+      pageSize: 100,
+    });
+    vi.spyOn(api, "getDataSource").mockResolvedValue(
+      detail("s-feed", [
+        { key: "title", label: "Title", type: "text", role: "headline" },
+        {
+          key: "description",
+          label: "Description",
+          type: "text",
+          role: "summary",
+        },
+        { key: "date", label: "Date", type: "datetime", role: "published_at" },
+        { key: "source", label: "Source", type: "text", role: "source_name" },
+      ]),
+    );
+    const primaryPicker: ContentDefinitionField = {
+      key: "primaryField",
+      label: "Primary text field",
+      control: "data_source_field",
+      dataSourceFieldTypes: ["text"],
+      ui: {
+        section: "data",
+        semanticRole: "headline",
+        legacyKeys: ["title", "headline", "field", "name"],
+      },
+    };
+    const secondaryPicker: ContentDefinitionField = {
+      key: "secondaryField",
+      label: "Secondary text field",
+      control: "data_source_field",
+      dataSourceFieldTypes: ["text"],
+      ui: {
+        section: "data",
+        semanticRole: "summary",
+        legacyKeys: ["description", "summary", "source", "date"],
+      },
+    };
+    const { onChange } = form([sourceControl, primaryPicker, secondaryPicker], {
+      dataSourceId: "s-feed",
+    });
+    // Each empty picker maps independently, so the changes arrive separately.
+    await waitFor(() => expect(onChange).toHaveBeenCalledTimes(2));
+    expect(onChange.mock.calls.map(([next]) => next)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ primaryField: "title" }),
+        expect.objectContaining({ secondaryField: "description" }),
+      ]),
     );
   });
 

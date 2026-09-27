@@ -1,0 +1,44 @@
+{
+  "name": "Legacy fields",
+  "description": "A persisted ticker naming an ordered field list scrolls its first two fields.",
+  "configuration": {
+    "dataSourceId": "11111111-1111-4111-8111-111111111111",
+    "primaryField": "",
+    "secondaryField": "",
+    "fields": ["title", "source"],
+    "leadingLabel": "",
+    "separator": " • ",
+    "fieldSeparator": " — ",
+    "maxItems": 15,
+    "direction": "left",
+    "speed": "normal",
+    "emptyText": "",
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "documents": {
+    "11111111-1111-4111-8111-111111111111": {
+      "schemaVersion": 1,
+      "datasets": [
+        {
+          "id": "records",
+          "kind": "records",
+          "fields": [
+            { "key": "title", "label": "Title", "type": "text" },
+            { "key": "source", "label": "Source", "type": "text" }
+          ],
+          "records": [
+            {
+              "id": "s1",
+              "values": {
+                "title": { "kind": "text", "text": "Pool reopens Monday" },
+                "source": { "kind": "text", "text": "City Wire" }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expect": "ready"
+}

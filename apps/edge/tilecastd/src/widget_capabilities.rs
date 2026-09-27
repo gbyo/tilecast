@@ -15,7 +15,9 @@ pub const WIDGET_COMPONENTS: &[(&str, u32)] = &[
     ("widget.tilecast.clock", 1),
     ("widget.tilecast.list", 1),
     ("widget.tilecast.menu-board", 1),
+    ("widget.tilecast.news", 1),
     ("widget.tilecast.qr-code", 1),
     ("widget.tilecast.table", 1),
+    ("widget.tilecast.ticker", 1),
     ("widget.tilecast.weather", 1),
 ];
