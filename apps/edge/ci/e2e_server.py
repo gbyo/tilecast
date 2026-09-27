@@ -180,7 +180,7 @@ class WebHelper:
              f"--control-socket={self.web}/control.sock", f"--frames-dir={self.web}/frames",
              f"--data-dir={self.web}/data", f"--cache-dir={self.web}/cache", f"--client-uid={os.getuid()}"],
             stdout=log, stderr=subprocess.STDOUT, env=env)
-        wait_for("web helper socket", lambda: os.path.exists(os.path.join(self.web, "control.sock")), timeout=30)
+        wait_for(lambda: os.path.exists(os.path.join(self.web, "control.sock")), "web helper socket", timeout=30)
         return self.process
 
 
