@@ -102,7 +102,12 @@ import {
 } from "./schedule";
 import { PlayerSocket } from "./socket";
 import { activeHoursFromConfig, evaluateActiveHours } from "./active-hours";
-import { renderWidget } from "@tilecast/player-runtime/projection";
+import {
+  projectWidgetComponent,
+  renderWidget,
+} from "@tilecast/player-runtime/projection";
+import { WIDGET_COMPONENT_CAPABILITIES } from "@tilecast/player-runtime/widget-capabilities";
+import type { RuntimeWidgetComponentPayload } from "@tilecast/player-runtime/host-contract";
 import {
   renderLayout,
   spanViewport,
@@ -203,8 +208,11 @@ export interface PresentationItem {
     fallbackSrc: string | null;
     allowedHosts: string[];
   };
-  /** Pre-resolved render tree for widget / declarative-presentation items. */
-  widget?: WidgetRenderPayload;
+  /**
+   * Pre-resolved render tree for widget / declarative-presentation items, or
+   * a first-class Widget component (manifest v16) the runtime mounts itself.
+   */
+  widget?: WidgetRenderPayload | RuntimeWidgetComponentPayload;
   /** Pre-resolved multi-zone layout. */
   layout?: LayoutRenderPayload;
 }
@@ -2217,14 +2225,24 @@ export class PlayerRuntime {
           },
         };
       }
-      const payload = renderWidget(widget, {
-        dataSources: maps.dataSources,
-        at,
-        assets: manifest.assets,
-        regionalFormat: resolveRegionalFormatting(
-          this.config?.playback?.["regionalFormat"],
-        ),
-      });
+      const regionalFormat = resolveRegionalFormatting(
+        this.config?.playback?.["regionalFormat"],
+      );
+      // A first-class component renders itself in the runtime; its payload
+      // has no time-dependent value, so re-selection never restarts it.
+      const payload =
+        widget.presentation?.kind === "component"
+          ? projectWidgetComponent(widget, {
+              dataSources: maps.dataSources,
+              assets: manifest.assets,
+              regionalFormat,
+            })
+          : renderWidget(widget, {
+              dataSources: maps.dataSources,
+              at,
+              assets: manifest.assets,
+              regionalFormat,
+            });
       if (!payload) {
         return null;
       }
@@ -2731,7 +2749,8 @@ export class PlayerRuntime {
       screenHeight: size.height,
       playerVersion: this.options.playerVersion,
       playerVersionCode: parseVersionCode(this.options.playerVersion),
-      presentationSchemaVersions: [1],
+      // 1: declarative presentations; 2: first-class Widget components.
+      presentationSchemaVersions: [1, 2],
       nativePresentationCapabilities: {
         "layout.surface": 1,
         "layout.box": 1,
@@ -2762,6 +2781,9 @@ export class PlayerRuntime {
         // The shared projection keeps Clock, Countdown and World Clock
         // ticking in place, so time-bound widgets are supported.
         "environment.time": 1,
+        // widget.<type> for every Widget the bundled runtime renders
+        // (generated from widgets/*/tilecast.widget.json).
+        ...WIDGET_COMPONENT_CAPABILITIES,
       },
       webRuntimeVersion: 2,
       webBundleLimitBytes: 20 * 1024 * 1024,

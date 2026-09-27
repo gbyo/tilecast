@@ -4,6 +4,12 @@ import type {
   LoginResult,
   SessionResult,
   SecurityStatus,
+  OAuthApproval,
+  OAuthDecision,
+  OAuthGrant,
+  PersonalAccessToken,
+  PersonalAccessTokenCreated,
+  PersonalAccessTokenInput,
   TOTPEnrollment,
   PasskeyCeremony,
   Passkey,
@@ -1097,6 +1103,40 @@ export const api = {
       method: "POST",
       headers: { "X-CSRF-Token": csrfToken },
       body: JSON.stringify({ password }),
+    }),
+  describeOAuthApproval: (params: URLSearchParams) =>
+    request<OAuthApproval>(`/oauth/authorize?${params.toString()}`),
+  approveOAuth: (decision: OAuthDecision, csrfToken: string) =>
+    request<{ redirectUri: string }>("/oauth/approve", {
+      method: "POST",
+      headers: { "X-CSRF-Token": csrfToken },
+      body: JSON.stringify(decision),
+    }),
+  denyOAuth: (decision: OAuthDecision, csrfToken: string) =>
+    request<{ redirectUri: string }>("/oauth/deny", {
+      method: "POST",
+      headers: { "X-CSRF-Token": csrfToken },
+      body: JSON.stringify(decision),
+    }),
+  listOAuthGrants: () =>
+    request<{ grants: OAuthGrant[] }>("/me/security/grants"),
+  revokeOAuthGrant: (id: string, csrfToken: string) =>
+    request<void>(`/me/security/grants/${id}`, {
+      method: "DELETE",
+      headers: { "X-CSRF-Token": csrfToken },
+    }),
+  listPersonalAccessTokens: (search: string) =>
+    request<{ pats: PersonalAccessToken[] }>(
+      `/me/security/pats${search ? `?search=${encodeURIComponent(search)}` : ""}`,
+    ),
+  createPersonalAccessToken: (
+    input: PersonalAccessTokenInput,
+    csrfToken: string,
+  ) =>
+    request<PersonalAccessTokenCreated>("/me/security/pats", {
+      method: "POST",
+      headers: { "X-CSRF-Token": csrfToken },
+      body: JSON.stringify(input),
     }),
   resetUserSecurity: (id: string, csrfToken: string) =>
     request<void>(`/users/${id}/security/reset`, {

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/scheduling"
 	"net/http"
 	"strconv"
@@ -38,7 +37,12 @@ func (s *server) createScreenGroup(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", e.Error())
 		return
 	}
-	u := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	u := principal.User
 	x, e := s.scheduling.CreateGroup(r.Context(), u.ID, b.Name, b.Description)
 	s.scheduleResponse(w, r, x, e, http.StatusCreated)
 }
@@ -52,7 +56,12 @@ func (s *server) updateScreenGroup(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", e.Error())
 		return
 	}
-	u := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	u := principal.User
 	x, e := s.scheduling.UpdateGroup(r.Context(), id, u.ID, b.Name, b.Description, b.PresentationGatewayScreenID, b.ClearPresentationGateway)
 	s.scheduleResponse(w, r, x, e, http.StatusOK)
 }
@@ -61,7 +70,12 @@ func (s *server) deleteScreenGroup(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	u := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	u := principal.User
 	e := s.scheduling.DeleteGroup(r.Context(), id, u.ID)
 	if e != nil {
 		s.writeScheduleError(w, r, e)
@@ -81,7 +95,12 @@ func (s *server) addScreenGroupMember(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", e.Error())
 		return
 	}
-	u := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	u := principal.User
 	e := s.scheduling.AddScreen(r.Context(), id, b.ScreenID, u.ID)
 	if e != nil {
 		s.writeScheduleError(w, r, e)
@@ -106,7 +125,12 @@ func (s *server) removeScreenGroupMember(w http.ResponseWriter, r *http.Request)
 		writeError(w, 404, "screen_not_found", "Screen was not found.")
 		return
 	}
-	u := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	u := principal.User
 	e = s.scheduling.RemoveScreen(r.Context(), id, screen, u.ID)
 	if e != nil {
 		s.writeScheduleError(w, r, e)
@@ -133,7 +157,12 @@ func (s *server) assignSyncGroupPlaylist(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	if err := s.playlists.AssignGroupPresentation(r.Context(), id, body.PlaylistID, body.LayoutID, user.ID); err != nil {
 		s.writePlaylistError(w, r, err)
 		return
@@ -146,7 +175,12 @@ func (s *server) unassignSyncGroupPlaylist(w http.ResponseWriter, r *http.Reques
 	if !ok {
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	if err := s.playlists.UnassignGroup(r.Context(), id, user.ID); err != nil {
 		s.writePlaylistError(w, r, err)
 		return
@@ -178,7 +212,12 @@ func (s *server) createSchedule(w http.ResponseWriter, r *http.Request) {
 		s.writePlaylistError(w, r, err)
 		return
 	}
-	u := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	u := principal.User
 	x, e := s.scheduling.Create(r.Context(), u.ID, b)
 	s.scheduleResponse(w, r, x, e, http.StatusCreated)
 }
@@ -196,7 +235,12 @@ func (s *server) updateSchedule(w http.ResponseWriter, r *http.Request) {
 		s.writePlaylistError(w, r, err)
 		return
 	}
-	u := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	u := principal.User
 	x, e := s.scheduling.Update(r.Context(), id, u.ID, b)
 	s.scheduleResponse(w, r, x, e, http.StatusOK)
 }
@@ -225,7 +269,12 @@ func (s *server) deleteSchedule(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	u := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	u := principal.User
 	e := s.scheduling.Delete(r.Context(), id, u.ID)
 	if e != nil {
 		s.writeScheduleError(w, r, e)
@@ -244,7 +293,12 @@ func (s *server) setScheduleEnabled(w http.ResponseWriter, r *http.Request, v bo
 	if !ok {
 		return
 	}
-	u := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	u := principal.User
 	x, e := s.scheduling.SetEnabled(r.Context(), id, u.ID, v)
 	s.scheduleResponse(w, r, x, e, http.StatusOK)
 }

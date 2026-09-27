@@ -4,7 +4,7 @@ Tilecast begins as a modular monolith. The server compiles into one Go binary, s
 
 ## Boundaries
 
-- `cmd/tilecast` owns process startup and graceful shutdown.
+- `cmd/tilecast-server` owns process startup, graceful shutdown, local backup and restore, and emergency MFA reset. The remote `tilecast` CLI lives in `apps/cli` and never links server code.
 - `internal/config` validates environment configuration.
 - `internal/database` owns the connection pool and Goose migrations.
 - `internal/auth` owns password hashing, first-owner setup, users, opaque sessions, and multi-factor authentication.
@@ -87,6 +87,8 @@ Layouts place generic references to Widgets, Media, and playlists; custom text p
 Manifest v12 introduces a renderer-neutral typed record boundary between Data Sources and native Widgets. Provider-specific acquisition and authoring configuration stays on the server; the Player receives only bounded fields, records, cache state, date policy, and attribution.
 
 Manifest v13 extends that boundary into a declarative presentation runtime. The Server-owned release catalog in `internal/contentdefs` is the runtime source of truth for Widget and Data Source metadata, form schemas, output schemas, adapter IDs, presentation templates, and exact capability requirements. `internal/media` validates release-defined configuration and dispatches trusted acquisition through adapter IDs; `internal/playlists` resolves trusted placeholders into a provider-neutral native node tree before the manifest is sent. Android validates capabilities and interprets final documents instead of selecting a renderer from the provider name.
+
+Widgets V2 (manifest v16) add first-class Widget components. A Widget module below `widgets/` carries its catalog entry and its component in one `tilecast.widget.json`; the Server embeds those files through the `widgets` Go module, and the Player Runtime and Studio discover the same modules when they are built. For each screen, `internal/playlists` sends the component to a Player that reports its exact `widget.<type>` capability and the Widget's compatibility presentation to every other Player. See [widgets-v2.md](widgets-v2.md).
 
 Catalog Apps extend that boundary without collapsing it. An App recipe atomically provisions a Widget and an explicitly owned, hidden Data Source, then stores the source ID in the compiled Widget configuration so the existing relational usage, invalidation, readiness, and manifest paths remain authoritative. Release-defined Web Integrations compile a closed host policy and built-in URL normalization into the provider-neutral web descriptor; manifest v15 adds bounded periodic reload and requires web runtime 2. Players remain provider-agnostic. See [Adding a Tilecast App](adding-a-tilecast-app.md).
 

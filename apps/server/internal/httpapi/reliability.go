@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/tilecast/tilecast/apps/server/internal/auth"
 )
 
 var powerResultValues = map[string]bool{"untested": true, "confirmed_working": true, "partially_working": true, "failed": true, "unsupported": true}
@@ -131,7 +130,12 @@ func (s *server) confirmPowerAssist(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	tag, err := s.db.Exec(r.Context(), `INSERT INTO screen_power_assist_results(screen_id,device_sleep,tv_standby,device_wake,tv_wake,input_selection,tilecast_startup,last_tested_at,updated_by) SELECT $1,$2,$3,$4,$5,$6,$7,now(),$8 WHERE EXISTS(SELECT 1 FROM screens WHERE id=$1) ON CONFLICT(screen_id) DO UPDATE SET device_sleep=$2,tv_standby=$3,device_wake=$4,tv_wake=$5,input_selection=$6,tilecast_startup=$7,last_tested_at=now(),updated_by=$8,updated_at=now()`, id, input.DeviceSleep, input.TVStandby, input.DeviceWake, input.TVWake, input.InputSelection, input.TilecastStartup, user.ID)
 	if err != nil {
 		s.internalError(w, r, err)
@@ -147,6 +151,6 @@ func (s *server) confirmPowerAssist(w http.ResponseWriter, r *http.Request) {
 }
 
 func detailedDiagnostics(r *http.Request) bool {
-	session, ok := r.Context().Value(sessionContextKey).(auth.Session)
-	return ok && (session.User.Role == "owner" || session.User.Role == "administrator")
+	principal, ok := principalOf(r)
+	return ok && principal.CanManage()
 }

@@ -117,7 +117,7 @@ func TestUptimeCountsSilentPlayerAsDownRatherThanStillHealthy(t *testing.T) {
 		}
 
 		request := httptest.NewRequest(http.MethodGet, "/api/v1/activity/uptime?window=24h", nil)
-		request = request.WithContext(context.WithValue(request.Context(), sessionContextKey, env.owner))
+		request = requestWithTestPrincipal(request, env.owner)
 		response := httptest.NewRecorder()
 		env.server.activityUptime(response, request)
 		if response.Code != http.StatusOK {
@@ -179,7 +179,7 @@ func TestUptimeSeparatesHeartbeatGapsFromContentFailures(t *testing.T) {
 		}
 
 		request := httptest.NewRequest(http.MethodGet, "/api/v1/activity/uptime?window=7d", nil)
-		request = request.WithContext(context.WithValue(request.Context(), sessionContextKey, env.owner))
+		request = requestWithTestPrincipal(request, env.owner)
 		response := httptest.NewRecorder()
 		env.server.activityUptime(response, request)
 		if response.Code != http.StatusOK {
@@ -334,7 +334,7 @@ func TestUptimeExcludesDisabledRevokedAndRemovedScreens(t *testing.T) {
 		}
 
 		request := httptest.NewRequest(http.MethodGet, "/api/v1/activity/uptime?window=24h", nil)
-		request = request.WithContext(context.WithValue(request.Context(), sessionContextKey, env.owner))
+		request = requestWithTestPrincipal(request, env.owner)
 		response := httptest.NewRecorder()
 		env.server.activityUptime(response, request)
 		if response.Code != http.StatusOK {
@@ -368,7 +368,7 @@ func TestUptimeUsesThirtyDailyBuckets(t *testing.T) {
 		}
 
 		request := httptest.NewRequest(http.MethodGet, "/api/v1/activity/uptime?window=30d", nil)
-		request = request.WithContext(context.WithValue(request.Context(), sessionContextKey, env.owner))
+		request = requestWithTestPrincipal(request, env.owner)
 		response := httptest.NewRecorder()
 		env.server.activityUptime(response, request)
 		if response.Code != http.StatusOK {

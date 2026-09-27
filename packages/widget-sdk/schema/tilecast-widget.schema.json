@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/gbyo/tilecast/packages/widget-sdk/schema/tilecast-widget.schema.json",
+  "type": "object",
+  "properties": {
+    "$schema": { "type": "string" },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{0,79}$" },
+    "version": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "description": { "type": "string", "minLength": 1, "maxLength": 280 },
+    "category": { "type": "string", "minLength": 1, "maxLength": 40 },
+    "icon": { "type": "string", "minLength": 1, "maxLength": 40 },
+    "thumbnail": { "type": "string", "maxLength": 40 },
+    "kind": { "type": "string", "enum": ["widget", "app"] },
+    "featured": { "type": "boolean" },
+    "keywords": {
+      "maxItems": 16,
+      "type": "array",
+      "items": { "type": "string", "maxLength": 40 }
+    },
+    "runtime": { "type": "string", "const": "native" },
+    "configurationSchema": {
+      "type": "object",
+      "properties": {
+        "fields": { "type": "array", "items": { "$ref": "#/$defs/__schema0" } }
+      },
+      "required": ["fields"],
+      "additionalProperties": false
+    },
+    "defaultConfiguration": {
+      "type": "object",
+      "propertyNames": { "type": "string" },
+      "additionalProperties": { "$ref": "#/$defs/__schema0" }
+    },
+    "acceptedDataSourceKinds": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "requiredFieldTypes": {
+      "type": "object",
+      "propertyNames": { "type": "string" },
+      "additionalProperties": { "type": "string" }
+    },
+    "presentationSchemaVersion": { "type": "number", "const": 1 },
+    "presentationTemplate": { "$ref": "#/$defs/__schema0" },
+    "requiredCapabilities": {
+      "type": "object",
+      "propertyNames": { "type": "string" },
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      }
+    },
+    "emptyStateBehavior": { "type": "string", "minLength": 1 },
+    "legacyEditor": { "type": "boolean" },
+    "requiresManifestV13": { "type": "boolean" },
+    "setup": {
+      "type": "object",
+      "propertyNames": { "type": "string" },
+      "additionalProperties": { "$ref": "#/$defs/__schema0" }
+    },
+    "deprecation": {
+      "type": "object",
+      "propertyNames": { "type": "string" },
+      "additionalProperties": { "$ref": "#/$defs/__schema0" }
+    },
+    "component": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "maxLength": 72,
+          "pattern": "^[a-z][a-z0-9]{1,31}\\.[a-z][a-z0-9-]{0,47}$",
+          "description": "Component type; the Player capability is widget.<type>."
+        },
+        "version": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "tagName": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)+$"
+        },
+        "entrypoint": {
+          "type": "string",
+          "const": "./runtime/index.ts",
+          "description": "Module that default-exports defineWidget(...)."
+        },
+        "configTemplate": {
+          "type": "object",
+          "propertyNames": { "type": "string" },
+          "additionalProperties": { "$ref": "#/$defs/__schema0" },
+          "description": "Compiles the persisted Widget configuration into the component config. Values may be {\"$config\": key, \"default\": value}."
+        },
+        "dataSourceFields": {
+          "description": "Configuration keys that hold Data Source IDs the component may read.",
+          "maxItems": 8,
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 80 }
+        },
+        "empty": {
+          "type": "string",
+          "enum": ["render", "skip-eligible"],
+          "description": "render: an empty Widget shows its empty presentation. skip-eligible: a later release may skip it in unsynchronized playlists."
+        }
+      },
+      "required": [
+        "type",
+        "version",
+        "tagName",
+        "entrypoint",
+        "configTemplate",
+        "empty"
+      ],
+      "additionalProperties": false
+    },
+    "compatibility": {
+      "type": "object",
+      "properties": {
+        "fallback": {
+          "type": "string",
+          "enum": ["legacy", "template", "none"],
+          "description": "How Players without the component render this Widget: the Server's built-in compiler (legacy), presentationTemplate (template), or not at all (none)."
+        }
+      },
+      "required": ["fallback"],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "id",
+    "version",
+    "name",
+    "description",
+    "category",
+    "icon",
+    "runtime",
+    "configurationSchema",
+    "defaultConfiguration",
+    "presentationSchemaVersion",
+    "requiredCapabilities",
+    "emptyStateBehavior",
+    "deprecation",
+    "component",
+    "compatibility"
+  ],
+  "additionalProperties": false,
+  "description": "Tilecast Widget manifest (tilecast.widget.json), Widgets V2.",
+  "$defs": {
+    "__schema0": {
+      "anyOf": [
+        { "type": "string" },
+        { "type": "number" },
+        { "type": "boolean" },
+        { "type": "null" },
+        { "type": "array", "items": { "$ref": "#/$defs/__schema0" } },
+        {
+          "type": "object",
+          "propertyNames": { "type": "string" },
+          "additionalProperties": { "$ref": "#/$defs/__schema0" }
+        }
+      ]
+    }
+  }
+}

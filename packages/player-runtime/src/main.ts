@@ -24,6 +24,7 @@ import { RuntimeSurfaceHost } from "./plugins/host";
 import { RemoteWebPort } from "./remote-web/port";
 import { installProbe } from "./probe";
 import { PlayerRoot } from "./views/player-root";
+import { RuntimeWidgetHost, widgetDiscovery } from "./widgets/host";
 
 declare const __RUNTIME_VERSION__: string;
 const RUNTIME_VERSION =
@@ -79,13 +80,22 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
   for (const problem of runtimeDiscovery.problems) {
     console.error(`tilecast runtime: plugin discovery: ${problem}`);
   }
+  for (const problem of widgetDiscovery.problems) {
+    console.error(`tilecast runtime: widget discovery: ${problem}`);
+  }
+  const reducedMotion = () =>
+    animationScale === 0 ||
+    matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const widgets = new RuntimeWidgetHost({
+    clock,
+    animationScale,
+    reducedMotion,
+  });
   const surfaces = new RuntimeSurfaceHost({
     clock,
     plugins: runtimeDiscovery.plugins,
     animationScale,
-    reducedMotion: () =>
-      animationScale === 0 ||
-      matchMedia("(prefers-reduced-motion: reduce)").matches,
+    reducedMotion,
     mediaUrl: (assetId, variantId) =>
       `tcmedia://variant/${assetId}/${variantId}`,
     stage: () => document.getElementById("content-stage"),
@@ -105,6 +115,7 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
     capabilities,
     animationScale,
     remoteWeb,
+    widgets,
     setup: {
       available: capabilities.setup && !!host.setup,
       submit: (url) =>
@@ -121,15 +132,20 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
     surfaces,
     view,
     manual,
+    widgets,
   });
 
   const receive = (message: HostMessageV1) => {
     switch (message.type) {
       case "presentation":
+        widgets.setClockOffset(
+          message.projection?.clockOffsetMs ?? message.timing?.clockOffsetMs,
+        );
         surfaces.setAwake(message.presentation.state !== "sleep");
         controller.present(message);
         break;
       case "plugins":
+        widgets.setClockOffset(message.clockOffsetMs);
         surfaces.setEntries(message.plugins, message.clockOffsetMs);
         break;
       case "identify":

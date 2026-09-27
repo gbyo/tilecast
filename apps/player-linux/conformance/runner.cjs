@@ -66,6 +66,10 @@ protocol.registerSchemesAsPrivileged([
 const perf = process.argv.includes("--perf");
 const startedAt = Date.now();
 const samples = [];
+// --perf also records the renderer's JS heap and DOM node count after a
+// forced garbage collection every 10 seconds, which separates a leak from
+// ordinary heap growth that the working set cannot.
+const heap = [];
 let finished = false;
 function finish(code, result) {
   if (finished) return;
@@ -79,7 +83,7 @@ function finish(code, result) {
   if (perf) {
     fs.writeFileSync(
       path.join(outDir, "metrics.json"),
-      JSON.stringify({ startedAt, samples }, null, 2),
+      JSON.stringify({ startedAt, samples, heap }, null, 2),
     );
   }
   app.exit(code);
@@ -153,6 +157,60 @@ app.whenReady().then(async () => {
         })),
       });
     }, 1_000).unref();
+    const cdp = win.webContents.debugger;
+    try {
+      cdp.attach("1.3");
+    } catch {
+      // Another debugger is attached; heap samples are then absent.
+    }
+    setInterval(async () => {
+      if (!cdp.isAttached()) return;
+      try {
+        await cdp.sendCommand("HeapProfiler.collectGarbage");
+        const usage = await cdp.sendCommand("Runtime.getHeapUsage");
+        const counters = await cdp.sendCommand("Memory.getDOMCounters");
+        // Live first-class Widget element instances, found through each
+        // bundled Widget's prototype: a retained, removed Widget shows here.
+        const widgets = {};
+        const tags = await cdp.sendCommand("Runtime.evaluate", {
+          expression:
+            "Object.keys(globalThis.__tilecastRuntime?.widgetCapabilities ?? {}).map((c) => 'tc-widget-' + c.split('.').pop())",
+          returnByValue: true,
+        });
+        for (const tag of tags.result.value ?? []) {
+          const proto = await cdp.sendCommand("Runtime.evaluate", {
+            expression: `customElements.get(${JSON.stringify(tag)})?.prototype`,
+            objectGroup: "tc-perf",
+          });
+          if (!proto.result.objectId) continue;
+          const found = await cdp.sendCommand("Runtime.queryObjects", {
+            prototypeObjectId: proto.result.objectId,
+            objectGroup: "tc-perf",
+          });
+          const size = await cdp.sendCommand("Runtime.callFunctionOn", {
+            objectId: found.objects.objectId,
+            functionDeclaration: "function () { return this.length; }",
+            returnByValue: true,
+          });
+          widgets[tag] = size.result.value;
+        }
+        // The inspector holds every object it returned until the group is
+        // released; without this the measurement itself retains Widgets.
+        await cdp.sendCommand("Runtime.releaseObjectGroup", {
+          objectGroup: "tc-perf",
+        });
+        heap.push({
+          t: Date.now(),
+          usedKb: Math.round(usage.usedSize / 1024),
+          nodes: counters.nodes,
+          listeners: counters.jsEventListeners,
+          documents: counters.documents,
+          widgets,
+        });
+      } catch {
+        // The page is navigating or closing; skip this sample.
+      }
+    }, 10_000).unref();
   }
   win.webContents.on("console-message", (details) => {
     const message = details?.message ?? "";

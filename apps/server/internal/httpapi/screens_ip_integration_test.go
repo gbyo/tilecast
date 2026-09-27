@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 )
 
@@ -38,7 +39,7 @@ func TestScreenListAndDetailRenderLastKnownIPWithoutNetmask(t *testing.T) {
 				}
 
 				listRequest := httptest.NewRequest(http.MethodGet, "/api/v1/screens", nil)
-				listRequest = listRequest.WithContext(context.WithValue(listRequest.Context(), sessionContextKey, env.owner))
+				listRequest = requestWithTestPrincipal(listRequest, env.owner)
 				listResponse := httptest.NewRecorder()
 				env.server.listScreens(listResponse, listRequest)
 				if listResponse.Code != http.StatusOK {
@@ -66,7 +67,10 @@ func TestScreenListAndDetailRenderLastKnownIPWithoutNetmask(t *testing.T) {
 				routeContext := chi.NewRouteContext()
 				routeContext.URLParams.Add("id", env.screenID.String())
 				detailRequest = detailRequest.WithContext(context.WithValue(
-					context.WithValue(detailRequest.Context(), sessionContextKey, env.owner),
+					auth.WithPrincipal(
+						context.WithValue(detailRequest.Context(), sessionContextKey, env.owner),
+						auth.PrincipalFromSession(env.owner),
+					),
 					chi.RouteCtxKey, routeContext))
 				detailResponse := httptest.NewRecorder()
 				env.server.getScreen(detailResponse, detailRequest)
@@ -93,7 +97,7 @@ func TestScreenListAndDetailRenderLastKnownIPWithoutNetmask(t *testing.T) {
 func TestScreenWithoutHeartbeatOmitsLastKnownIP(t *testing.T) {
 	withActivityDatabase(t, func(env activityTestEnvironment) {
 		request := httptest.NewRequest(http.MethodGet, "/api/v1/screens", nil)
-		request = request.WithContext(context.WithValue(request.Context(), sessionContextKey, env.owner))
+		request = requestWithTestPrincipal(request, env.owner)
 		response := httptest.NewRecorder()
 		env.server.listScreens(response, request)
 		if response.Code != http.StatusOK {

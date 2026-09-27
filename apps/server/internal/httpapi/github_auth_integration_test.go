@@ -93,7 +93,7 @@ func TestGitHubDeviceAuthorizationAPIAndAudit(t *testing.T) {
 	session := auth.Session{User: auth.User{ID: userID, Role: "owner"}}
 
 	startRequest := httptest.NewRequest(http.MethodPost, "/api/v1/player-releases/github/device", nil)
-	startRequest = startRequest.WithContext(context.WithValue(startRequest.Context(), sessionContextKey, session))
+	startRequest = requestWithTestPrincipal(startRequest, session)
 	startResponse := httptest.NewRecorder()
 	s.startGitHubDeviceAuthorization(startResponse, startRequest)
 	if startResponse.Code != http.StatusCreated {
@@ -108,7 +108,7 @@ func TestGitHubDeviceAuthorizationAPIAndAudit(t *testing.T) {
 	time.Sleep(5 * time.Millisecond)
 	pollBody, _ := json.Marshal(githubDevicePollInput{FlowID: started.Data.FlowID})
 	pollRequest := httptest.NewRequest(http.MethodPost, "/api/v1/player-releases/github/device/poll", bytes.NewReader(pollBody))
-	pollRequest = pollRequest.WithContext(context.WithValue(pollRequest.Context(), sessionContextKey, session))
+	pollRequest = requestWithTestPrincipal(pollRequest, session)
 	pollResponse := httptest.NewRecorder()
 	s.pollGitHubDeviceAuthorization(pollResponse, pollRequest)
 	if pollResponse.Code != http.StatusOK || provider.token != "private-access-token" {
@@ -120,7 +120,7 @@ func TestGitHubDeviceAuthorizationAPIAndAudit(t *testing.T) {
 	}
 
 	disconnectRequest := httptest.NewRequest(http.MethodDelete, "/api/v1/player-releases/github", nil)
-	disconnectRequest = disconnectRequest.WithContext(context.WithValue(disconnectRequest.Context(), sessionContextKey, session))
+	disconnectRequest = requestWithTestPrincipal(disconnectRequest, session)
 	disconnectResponse := httptest.NewRecorder()
 	s.disconnectGitHub(disconnectResponse, disconnectRequest)
 	if disconnectResponse.Code != http.StatusNoContent || provider.token != "" {

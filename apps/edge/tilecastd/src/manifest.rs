@@ -44,8 +44,8 @@ use crate::schedule::{self, Selection, Source};
 
 /// Player manifest schema versions the server compiler emits and this
 /// renderer understands (11 base, 12 data sources, 13 declarative widgets,
-/// 14 crossfade, 15 Span/website reload).
-pub const MANIFEST_SCHEMAS: std::ops::RangeInclusive<u32> = 11..=15;
+/// 14 crossfade, 15 Span/website reload, 16 first-class Widget components).
+pub const MANIFEST_SCHEMAS: std::ops::RangeInclusive<u32> = 11..=16;
 const MAX_ASSETS: usize = 1024;
 const MAX_PLAYLISTS: usize = 128;
 const MAX_ITEMS: usize = 4096;
@@ -122,8 +122,17 @@ pub mod profile {
     /// helper, shown through the renderer's remote web surface.
     pub const WEB_RUNTIME_VERSION: u32 = 1;
 
+    /// Presentation schemas the runtime renders: 1 (declarative and web)
+    /// and 2 (first-class Widget components, docs/widgets-v2.md).
+    pub const PRESENTATION_SCHEMAS: &[u32] = &[1, crate::widget_capabilities::COMPONENT_PRESENTATION_SCHEMA];
+
+    /// Declarative capabilities and `widget.<type>` components, as reported.
     pub fn native_capability(name: &str) -> u32 {
-        NATIVE_CAPABILITIES.iter().find(|(id, _)| *id == name).map_or(0, |(_, version)| *version)
+        NATIVE_CAPABILITIES
+            .iter()
+            .chain(crate::widget_capabilities::WIDGET_COMPONENTS)
+            .find(|(id, _)| *id == name)
+            .map_or(0, |(_, version)| *version)
     }
 }
 
@@ -480,6 +489,9 @@ pub fn incompatibilities(document: &Value, assets: &[Asset]) -> Vec<Incompatibil
         if let Some(presentation) = widget.get("presentation").filter(|value| !value.is_null()) {
             match presentation.get("kind").and_then(Value::as_str) {
                 Some("native") => {}
+                // The runtime mounts the component; its required
+                // `widget.<type>` capability is checked below.
+                Some("component") => {}
                 // Only remote pages run in the isolated helper; a bundled web
                 // Widget needs a verified package runtime Edge does not have.
                 Some("web")
@@ -1480,12 +1492,12 @@ mod tests {
 
     #[test]
     fn accepts_every_schema_the_server_compiler_emits_and_nothing_else() {
-        for schema in [11, 12, 13, 14, 15] {
+        for schema in [11, 12, 13, 14, 15, 16] {
             let mut value = manifest();
             value["schemaVersion"] = serde_json::json!(schema);
             assert!(parse(value).is_ok(), "schema {schema}");
         }
-        for schema in [10, 16] {
+        for schema in [10, 17] {
             let mut value = manifest();
             value["schemaVersion"] = serde_json::json!(schema);
             assert_eq!(parse(value).unwrap_err(), ManifestError::Schema, "schema {schema}");
@@ -1710,6 +1722,32 @@ mod tests {
         let resolved = parse(value).unwrap().presentation(1_000).unwrap();
         let PresentationDocument::Playing { requires, .. } = &resolved.document else { panic!("playing") };
         assert_eq!(requires, &vec![PresentationFeature::RemoteWebV1, PresentationFeature::Youtube]);
+    }
+
+    #[test]
+    fn widget_components_are_accepted_only_when_bundled() {
+        let component = |kind: &str, version: u32| {
+            serde_json::json!([{"assetId": WIDGET, "name": "Lobby Clock", "provider": "clock",
+                "presentation": {"schemaVersion": 2, "kind": "component",
+                    "requiredCapabilities": {(format!("widget.{kind}")): version},
+                    "component": {"type": kind, "version": version, "config": {}, "dataSources": [], "media": []}}}])
+        };
+        let mut value = manifest();
+        value["schemaVersion"] = serde_json::json!(16);
+        value["widgets"] = component("tilecast.clock", 1);
+        let candidate = parse(value.clone()).unwrap();
+        assert!(incompatibilities(&candidate.document, &candidate.assets).is_empty());
+        // The daemon advertises exactly what the bundled runtime renders.
+        assert_eq!(profile::native_capability("widget.tilecast.clock"), 1);
+        assert!(profile::PRESENTATION_SCHEMAS.contains(&2));
+        for (kind, version) in [("tilecast.clock", 2), ("tilecast.hologram", 1)] {
+            value["widgets"] = component(kind, version);
+            let candidate = parse(value.clone()).unwrap();
+            let reasons = incompatibilities(&candidate.document, &candidate.assets);
+            assert_eq!(reasons.first().map(Incompatibility::code), Some("presentation_incompatible_widget_capability"));
+        }
+        value["schemaVersion"] = serde_json::json!(17);
+        assert!(parse(value).is_err(), "a manifest schema from a later release is refused");
     }
 
     #[test]

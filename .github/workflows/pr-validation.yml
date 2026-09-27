@@ -27,6 +27,7 @@ jobs:
       docs: ${{ steps.paths.outputs.docs }}
       e2e: ${{ steps.paths.outputs.e2e }}
       plugins: ${{ steps.paths.outputs.plugins }}
+      widgets: ${{ steps.paths.outputs.widgets }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -47,6 +48,7 @@ jobs:
           docs=false
           e2e=false
           plugins=false
+          widgets=false
 
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             android=true
@@ -57,8 +59,24 @@ jobs:
             docs=true
             e2e=true
             plugins=true
+            widgets=true
           else
             while IFS= read -r path; do
+              # Widgets V2: a Widget reaches the runtime, the Server catalog
+              # and the Linux and Edge capability lists.
+              case "$path" in
+                widgets/*|packages/widget-sdk/*|packages/widget-kit/*|packages/player-runtime/*|package.json|package-lock.json|.github/workflows/*)
+                  widgets=true
+                  ;;
+              esac
+              case "$path" in
+                widgets/*)
+                  server=true
+                  linux=true
+                  container=true
+                  docs=true
+                  ;;
+              esac
               case "$path" in
                 apps/player-android/*|scripts/build-player-release.sh|scripts/extract-apksigner-sha256.sh)
                   android=true
@@ -71,6 +89,9 @@ jobs:
                   container=true
                   e2e=true
                   plugins=true
+                  ;;
+                apps/cli/*)
+                  server=true
                   ;;
                 apps/docs/*|.github/logos/*)
                   docs=true
@@ -141,6 +162,7 @@ jobs:
             echo "docs=$docs"
             echo "e2e=$e2e"
             echo "plugins=$plugins"
+            echo "widgets=$widgets"
           } >> "$GITHUB_OUTPUT"
 
   android_ci:
@@ -234,6 +256,7 @@ jobs:
           go-version-file: apps/server/go.mod
           cache-dependency-path: |
             apps/server/go.sum
+            apps/cli/go.sum
             plugins/go.sum
             packages/plugin-sdk/go/go.sum
       # go.work puts the bundled plugins and the plugin SDK in the same build.
@@ -253,6 +276,12 @@ jobs:
           reporter: golang-json
           fail-on-empty: false
       - working-directory: apps/server
+        run: go build ./cmd/tilecast-server
+      - working-directory: apps/cli
+        run: go vet ./...
+      - working-directory: apps/cli
+        run: go test ./...
+      - working-directory: apps/cli
         run: go build ./cmd/tilecast
 
   dashboard_ci:
@@ -367,6 +396,40 @@ jobs:
       - name: Remove the demo stack
         if: ${{ always() }}
         run: make demo-down
+
+  widgets_ci:
+    name: Widgets V2
+    needs: changes
+    if: needs.changes.outputs.widgets == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Widget modules, generated files and catalog suite
+        run: npm run widgets:check
+      - name: SDK and kit tests and types
+        run: |
+          npm test --workspace @tilecast/widget-sdk
+          npm test --workspace @tilecast/widget-kit
+          npm run typecheck --workspace @tilecast/widget-sdk
+          npm run typecheck --workspace @tilecast/widget-kit
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Storybook build and visual regression
+        run: npm run widgets:visual
+      - name: Keep visual failures
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: widgets-visual
+          path: |
+            widgets/visual/test-results
+            widgets/visual/playwright-report
+          retention-days: 14
 
   docs_ci:
     name: Documentation

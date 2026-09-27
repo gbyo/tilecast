@@ -1,0 +1,18 @@
+{
+  "name": "Long localized date",
+  "description": "Russian month and weekday names are among the longest the Clock shows.",
+  "configuration": {
+    "timezone": "",
+    "format": "24",
+    "showSeconds": true,
+    "showDate": true,
+    "foregroundColor": "#F5F7FA",
+    "backgroundColor": "#0E141B"
+  },
+  "context": {
+    "locale": "ru-RU",
+    "timeZone": "Europe/Moscow",
+    "now": "2026-09-30T20:59:59+00:00"
+  },
+  "expect": "ready"
+}

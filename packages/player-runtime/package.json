@@ -17,9 +17,9 @@
       "types": "./dist/node/clock/synchronized.d.ts",
       "default": "./dist/node/clock/synchronized.js"
     },
-    "./widgets": {
-      "types": "./dist/node/widgets/contract.d.ts",
-      "default": "./dist/node/widgets/contract.js"
+    "./widget-capabilities": {
+      "types": "./dist/node/widgets/capabilities.gen.d.ts",
+      "default": "./dist/node/widgets/capabilities.gen.js"
     },
     "./runtime-dir": "./runtime-dir.cjs",
     "./package.json": "./package.json"
@@ -38,7 +38,9 @@
     "build:conformance": "vite build --config vite.conformance.config.ts"
   },
   "dependencies": {
-    "qrcode-generator": "^2.0.4"
+    "qrcode-generator": "^2.0.4",
+    "@tilecast/widget-sdk": "*",
+    "@tilecast/widget-kit": "*"
   },
   "devDependencies": {
     "@fontsource-variable/geist": "^5.3.0",

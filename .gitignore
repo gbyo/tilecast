@@ -10,7 +10,8 @@ coverage/
 /data/
 /postgres/
 apps/server/internal/web/static/assets/
-apps/server/tilecast
+apps/server/tilecast-server
+apps/cli/tilecast
 **/.gradle/
 **/build/
 **/local.properties
@@ -26,3 +27,8 @@ release-secrets/
 __pycache__/
 e2e/test-results/
 e2e/playwright-report/
+
+# Widgets V2 Storybook and visual-regression output
+widgets/storybook-static/
+widgets/visual/test-results/
+widgets/visual/playwright-report/

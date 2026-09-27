@@ -47,7 +47,12 @@ func (s *server) updateActivityRetention(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusUnprocessableEntity, "activity_retention_out_of_bounds", "Activity retention values exceed deployment hard limits.")
 		return
 	}
-	user := activitySession(r).User
+	principal, ok := activityPrincipal(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	if _, err := s.db.Exec(r.Context(), `UPDATE activity_retention_settings SET raw_event_days=$1,playback_session_days=$2,screen_state_days=$3,audit_log_days=$4,diagnostic_metadata_days=$5,telemetry_rollup_days=$6,updated_by=$7,updated_at=now() WHERE singleton=TRUE`, input.RawEventDays, input.PlaybackSessionDays, input.ScreenStateDays, input.AuditLogDays, input.DiagnosticMetadataDays, input.TelemetryRollupDays, user.ID); err != nil {
 		s.internalError(w, r, err)
 		return

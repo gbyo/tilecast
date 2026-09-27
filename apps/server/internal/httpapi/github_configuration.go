@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/updates"
 )
 
@@ -37,7 +36,12 @@ func (s *server) configureGitHubOAuth(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	metadata, _ := json.Marshal(map[string]any{"source": "studio", "clientIdSuffix": clientIDSuffix(input.ClientID)})
 	_, _ = s.db.Exec(r.Context(), `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,metadata)VALUES($1,$2,'player_updates.github_oauth_configured','update_provider','github',$3::jsonb)`, uuid.New(), user.ID, string(metadata))
 	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{"configured": true}})

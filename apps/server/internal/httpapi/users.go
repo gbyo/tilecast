@@ -56,7 +56,12 @@ func (s *server) createUser(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnprocessableEntity, "validation_failed", err.Error())
 		return
 	}
-	actor := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	actor := principal.User
 	if !canManageRole(actor.Role, body.Role) {
 		writeError(w, http.StatusForbidden, "insufficient_role", "Only an Owner may create Owner or Administrator accounts.")
 		return
@@ -124,7 +129,12 @@ func (s *server) updateUser(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnprocessableEntity, "validation_failed", err.Error())
 		return
 	}
-	actor := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	actor := principal.User
 	target, err := s.readManagedUser(r, id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeError(w, http.StatusNotFound, "user_not_found", "The user account was not found.")
@@ -221,7 +231,12 @@ func (s *server) deleteUser(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	actor := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	actor := principal.User
 	if actor.ID == id {
 		writeError(w, http.StatusConflict, "cannot_deactivate_self", "You cannot deactivate your own account.")
 		return
@@ -283,7 +298,12 @@ func (s *server) permanentlyDeleteUser(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	actor := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	actor := principal.User
 	if actor.ID == id {
 		writeError(w, http.StatusConflict, "cannot_delete_self", "You cannot permanently delete your own account.")
 		return
@@ -409,7 +429,12 @@ func (s *server) putUserScreenScopes(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	actor := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	actor := principal.User
 	if actor.ID == id {
 		// Otherwise a scoped administrator could simply widen themselves.
 		writeError(w, http.StatusForbidden, "cannot_scope_self",

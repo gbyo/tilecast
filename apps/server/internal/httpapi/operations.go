@@ -13,7 +13,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/displaycontrol"
 	"github.com/tilecast/tilecast/apps/server/internal/takeovers"
@@ -140,7 +139,12 @@ func (s *server) activateTakeover(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := time.Now().UTC()
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	if s.settings != nil {
 		document, _ := s.settings.Organization(r.Context())
 		if required, _ := document.Values["takeover.reauthentication_required"].(bool); required && !s.auth.VerifyCurrentPassword(r.Context(), user.ID, input.Password) {
@@ -241,7 +245,12 @@ func (s *server) cancelTakeover(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback(r.Context())
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	afterCommit, err := s.takeovers.CancelInTx(r.Context(), tx, id, user.ID, strings.TrimSpace(body.Reason))
 	if errors.Is(err, takeovers.ErrInactive) {
 		writeError(w, 409, "takeover_expired", "Takeover is no longer active.")
@@ -289,7 +298,12 @@ func (s *server) createPlayerCommand(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusForbidden, "airplay_session_api_required", "Use the AirPlay Present session API for AirPlay activation and stop commands.")
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	key := uuid.New()
 	if input.IdempotencyKey != nil {
 		key = *input.IdempotencyKey

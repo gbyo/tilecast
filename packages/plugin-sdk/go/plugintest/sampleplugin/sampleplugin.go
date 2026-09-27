@@ -186,7 +186,7 @@ func (p *Plugin) whoami(w http.ResponseWriter, r *http.Request) error {
 	if !ok {
 		return &plugin.APIError{Status: http.StatusInternalServerError, Code: "no_principal", Message: "No principal."}
 	}
-	plugin.WriteData(w, http.StatusOK, map[string]any{"role": principal.Role, "canManage": principal.CanManage()})
+	plugin.WriteData(w, http.StatusOK, map[string]any{"userId": principal.UserID.String(), "role": principal.Role, "canManage": principal.CanManage()})
 	return nil
 }
 

@@ -6,10 +6,17 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
+import YAML from "yaml";
 import { conventionalEntrypoints } from "../../src/manifest.ts";
+import { checkAutomationFiles } from "./automation.ts";
 import { checkBoundaries } from "./boundaries.ts";
 import { checkCssScope } from "./css-scope.ts";
 import { generate, stale } from "./generate.ts";
+import { COMPOSED_OPENAPI, CORE_OPENAPI } from "./openapi.ts";
+import {
+  checkDerivedConformance,
+  checkFragmentOperationIds,
+} from "./supported.ts";
 import {
   dirForId,
   walk,
@@ -149,6 +156,19 @@ export async function check(repo: Repo): Promise<Problem[]> {
 
   const generated = await generate(repo);
   problems.push(...generated.problems);
+  const composed = generated.files.get(COMPOSED_OPENAPI);
+  const corePath = join(repo.root, CORE_OPENAPI);
+  if (composed !== undefined && existsSync(corePath)) {
+    problems.push(
+      ...checkDerivedConformance(
+        YAML.parseDocument(composed),
+        YAML.parseDocument(readFileSync(corePath, "utf8")),
+      ),
+    );
+  }
+  const fragments = readApiFragments(repo);
+  problems.push(...checkFragmentOperationIds(fragments));
+  problems.push(...checkAutomationFiles(repo, fragments));
   for (const path of stale(repo, generated.files)) {
     problems.push({
       file: path,
@@ -159,6 +179,25 @@ export async function check(repo: Repo): Promise<Problem[]> {
 }
 
 type Add = (message: string, file?: string) => void;
+
+/** Raw plugin API fragments for the operation-ID contract. */
+function readApiFragments(
+  repo: Repo,
+): { plugin: string; file: string; text: string }[] {
+  const fragments: { plugin: string; file: string; text: string }[] = [];
+  for (const plugin of repo.plugins) {
+    const declared = plugin.manifest.api?.openapi;
+    if (!declared) continue;
+    const absolute = join(plugin.path, declared);
+    if (!existsSync(absolute)) continue;
+    fragments.push({
+      plugin: plugin.manifest.id,
+      file: relative(repo.root, absolute),
+      text: readFileSync(absolute, "utf8"),
+    });
+  }
+  return fragments;
+}
 
 function requireFile(
   plugin: DiscoveredPlugin,

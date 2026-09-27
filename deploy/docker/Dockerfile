@@ -28,13 +28,15 @@ WORKDIR /src
 COPY apps/server/go.mod apps/server/go.sum apps/server/
 COPY plugins/go.mod plugins/go.sum plugins/
 COPY packages/plugin-sdk/go/go.mod packages/plugin-sdk/go/go.sum packages/plugin-sdk/go/
+COPY widgets/go.mod widgets/
 RUN cd apps/server && go mod download
 COPY packages/plugin-sdk/go packages/plugin-sdk/go
 COPY plugins plugins
+COPY widgets widgets
 COPY apps/server apps/server
 COPY --from=dashboard /src/apps/dashboard/dist/ apps/server/internal/web/static/
 WORKDIR /src/apps/server
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/tilecast-server ./cmd/tilecast
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/tilecast-server ./cmd/tilecast-server
 
 FROM alpine:3.24
 RUN apk add --no-cache ca-certificates tzdata ffmpeg && addgroup -S tilecast && adduser -S -G tilecast tilecast

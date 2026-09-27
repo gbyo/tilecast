@@ -34,6 +34,13 @@ paths:
   /api/v1/data-sources/{id}/form:
     get:
       operationId: getForm
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Returns the Form detail with draft schema, published revision, workflow, saved views, and the caller's granted capabilities. Each workflow state carries recordCount and a removable flag (false once any record or saved view references it) so the Workflow editor can lock keys/deletion. Non-managers receive the published schema as the visible draft schema so unpublished edits are never exposed.
       responses:
         "200": { description: Form detail }
@@ -41,6 +48,13 @@ paths:
         "404": { description: Form not found }
     patch:
       operationId: updateFormMetadata
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Updates only the parent Data Source name and description. An omitted description preserves the stored value; provider and configuration cannot be changed here. Requires the manage capability.
       requestBody:
         required: true
@@ -59,6 +73,13 @@ paths:
   /api/v1/data-sources/{id}/form/draft:
     patch:
       operationId: updateFormDraft
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Replaces the editable draft schema without publishing. Existing submissions are untouched. Requires the manage capability.
       requestBody:
         required: true
@@ -76,6 +97,13 @@ paths:
   /api/v1/data-sources/{id}/form/publish:
     post:
       operationId: publishForm
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Snapshots the current draft into a new immutable revision after conservative compatibility checks (a previously published output field cannot be removed or change its output type). Existing submissions remain tied to their original revisions. Requires the manage capability.
       responses:
         "200": { description: The newly published revision }
@@ -87,6 +115,13 @@ paths:
   /api/v1/data-sources/{id}/form/workflow:
     put:
       operationId: configureFormWorkflow
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Reconciles the form's bounded, script-free approval workflow in place. State keys referenced by existing records are immutable; transitions are replaced wholesale. Requires the manage capability.
       responses:
         "200": { description: Refreshed Form detail with the saved workflow }
@@ -97,6 +132,12 @@ paths:
       operationId: listFormRecords
       description: Returns a filtered, paginated page of a form's records. Callers with view_all, review, approve, or manage see every record; a submitter without those sees only their own submissions. `mine=true` scopes the page to the caller's own submissions even for privileged callers (the Forms portal's "your submissions"). Supports states, search, sort, mine, page, and pageSize query parameters.
       parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
         - {
             name: states,
             in: query,
@@ -125,6 +166,13 @@ paths:
         "403": { description: No visibility into this form's records }
     post:
       operationId: createFormRecord
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Creates a draft submission bound to the form's current published revision. Requires the submit capability. Image field values are never accepted here — they are set only by the attachment upload/remove endpoints — and a client-supplied image value is rejected. Display metadata dates are tri-state (omitted preserves, null clears, a value sets).
       responses:
         "201": { description: Draft record created }
@@ -133,12 +181,38 @@ paths:
   /api/v1/data-sources/{id}/records/{recordId}:
     get:
       operationId: getFormRecord
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
+        - {
+            name: recordId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Returns a record with its immutable revision schema, history, comments, attachments, and the server-calculated actions the caller may take (canEdit, canComment, canDelete, and availableTransitions with destination, label, required capability, and whether a note is required). Authorization is resolved server-side so clients never re-implement it. Visible only to a manager, reviewer/approver, view_all holder, or the record's own submitter.
       responses:
         "200": { description: Decorated record detail }
         "404": { description: Record not found or not visible to the caller }
     patch:
       operationId: updateFormRecord
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
+        - {
+            name: recordId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Edits a record's values and display metadata under optimistic concurrency (a version is required). Image field values are preserved server-side and cannot be changed here (a client-supplied image value is rejected); only the attachment endpoints modify them. Display dates are tri-state. A manager may edit any record; a submitter may edit their own record only while it is in a submitter-editable state.
       responses:
         "200": { description: Updated record }
@@ -146,6 +220,19 @@ paths:
         "422": { description: Values rejected }
     delete:
       operationId: deleteFormRecord
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
+        - {
+            name: recordId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Soft-deletes a record. Requires the manage capability.
       responses:
         "204": { description: Record deleted }
@@ -153,6 +240,19 @@ paths:
   /api/v1/data-sources/{id}/records/{recordId}/transitions:
     post:
       operationId: transitionFormRecord
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
+        - {
+            name: recordId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Moves a record to a new workflow state, enforcing the configured transition, per-form capability and record ownership, optimistic concurrency (version), and required-field completeness (including required images, satisfied only by a bound attachment) before any submit transition or any transition into an output-eligible state. A note is recorded as a comment; a transition that requires a note (the default changes_requested path, derived from the workflow) is rejected with 422 when the note is empty. A 409 means the record changed; reload, preserving any unsent note.
       responses:
         "200": { description: Record after the transition }
@@ -161,6 +261,19 @@ paths:
   /api/v1/data-sources/{id}/records/{recordId}/comments:
     post:
       operationId: addFormRecordComment
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
+        - {
+            name: recordId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Adds a reviewer or submitter comment. Available to a reviewer/approver or the record's own submitter.
       responses:
         "201": { description: Comment created }
@@ -168,6 +281,19 @@ paths:
   /api/v1/data-sources/{id}/records/{recordId}/attachments:
     post:
       operationId: uploadFormRecordAttachment
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
+        - {
+            name: recordId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Uploads a base64-encoded image as a dedicated form attachment bound to an image field, returning the updated record detail with its incremented version. Uses optimistic concurrency — the request body must carry the record's current `version`, and a mismatch returns 409. Because image fields are single-valued, uploading to a field that already has an attachment replaces it. Authorization matches record editing. Form attachments are never exposed through the general Media library.
       requestBody:
         required: true
@@ -195,6 +321,24 @@ paths:
       description: Unbinds an attachment, clears the field value it backed, and soft-deletes the underlying asset. Uses optimistic concurrency — the record's current `version` is required as a query parameter and a mismatch returns 409. Authorization matches record editing. Returns the updated record detail.
       parameters:
         - {
+            name: attachmentId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
+        - {
+            name: recordId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
+        - {
             name: version,
             in: query,
             required: true,
@@ -211,6 +355,25 @@ paths:
   /api/v1/data-sources/{id}/records/{recordId}/attachments/{attachmentId}/content:
     get:
       operationId: serveFormRecordAttachment
+      parameters:
+        - {
+            name: attachmentId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
+        - {
+            name: recordId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Streams a record's image attachment through this form-record-authorized endpoint (the only way to view a form attachment; they are never served from the Media library). Applies the same visibility rules as reading the record.
       responses:
         "200": { description: The attachment image bytes }
@@ -230,12 +393,26 @@ paths:
   /api/v1/data-sources/{id}/views:
     get:
       operationId: listFormViews
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Returns the saved views of a Form Data Source as stored on the form, with per-view inclusion states, filters, sort, and output fields. Requires the view_all capability.
       responses:
         "200": { description: Saved views under data }
         "403": { description: view_all or manage required }
     put:
       operationId: upsertFormView
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Creates or replaces one saved view of a Form Data Source by key, validating included states against the published workflow, output fields against published output, and sort keys against declared sortables. Requires the manage capability and CSRF.
       requestBody:
         required: true
@@ -258,6 +435,19 @@ paths:
   /api/v1/data-sources/{id}/views/{viewId}:
     delete:
       operationId: deleteFormView
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
+        - {
+            name: viewId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Deletes one saved view of a Form Data Source by view id, in a single transaction with an audit entry. Requires the manage capability and CSRF.
       responses:
         "204": { description: View deleted }
@@ -266,6 +456,13 @@ paths:
   /api/v1/data-sources/{id}/views/preview:
     post:
       operationId: previewFormView
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Projects an unsaved, proposed saved view and returns the resulting typed dataset without persisting anything or altering the cached projection. Only output-eligible records in the view's included states are returned, so a preview never exposes unapproved records. Requires the manage capability.
       responses:
         "200":
@@ -275,6 +472,13 @@ paths:
   /api/v1/data-sources/{id}/outputs:
     get:
       operationId: getFormOutputs
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Returns the generated dataset for each saved view (dataset key, output fields and types, current record count, preview records) plus form-level projection status (last successful projection, next scheduled refresh/time-window boundary, using-cached/stale flag, projection error) and per-view Widget usage. Preview records come from the cached payload, so only output-eligible records appear. Available to view_all or manage.
       responses:
         "200": { description: Per-view datasets and projection status }
@@ -282,6 +486,13 @@ paths:
   /api/v1/data-sources/{id}/outputs/rebuild:
     post:
       operationId: rebuildFormOutputs
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Manually re-runs the form projection and returns the refreshed Outputs status. Invalidates affected manifests. Requires the manage capability and CSRF.
       responses:
         "200": { description: Refreshed Outputs status }
@@ -289,12 +500,26 @@ paths:
   /api/v1/data-sources/{id}/grants:
     get:
       operationId: listFormGrants
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Returns every per-form capability grant for a Form Data Source. Requires the manage capability.
       responses:
         "200": { description: Grants under data }
         "403": { description: Manage capability required }
     put:
       operationId: setFormGrant
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Adds one capability grant for a user on a Form Data Source (idempotent on form, user, and capability), in a single transaction with an audit entry. The target must be an existing user. Requires the manage capability and CSRF.
       requestBody:
         required: true
@@ -313,6 +538,19 @@ paths:
   /api/v1/data-sources/{id}/grants/{grantId}:
     delete:
       operationId: revokeFormGrant
+      parameters:
+        - {
+            name: grantId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Revokes one capability grant by grant id, in a single transaction with an audit entry. Requires the manage capability and CSRF.
       responses:
         "204": { description: Grant revoked }
@@ -321,6 +559,13 @@ paths:
   /api/v1/data-sources/{id}/access:
     get:
       operationId: listFormAccess
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Returns one entry per user with effective access to the form — the creator and all active global Owners as implicit, uneditable managers, followed by each granted user with their collapsed (non-redundant) capability set. Requires the manage capability.
       responses:
         "200": { description: Access entries under data.entries }
@@ -328,6 +573,19 @@ paths:
   /api/v1/data-sources/{id}/access/{userId}:
     put:
       operationId: replaceFormGrants
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
+        - {
+            name: userId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
       description: Atomically replaces one user's grants on the form with the supplied capabilities (submit, view_own, view_all, review, approve, manage), collapsing implied capabilities to a minimal set, in a single transaction with an audit entry. The form creator and global Owners cannot be edited here, and a manager cannot remove their own only management path. Requires the manage capability and CSRF.
       requestBody:
         required: true
@@ -349,6 +607,12 @@ paths:
       operationId: searchFormUsers
       description: A bounded, manager-safe user directory for granting form access, returning only id, name, username, and global role for active users. Authorized to the form's managers (per-form), never the Owner/Admin-only user administration API.
       parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
         - { name: search, in: query, schema: { type: string } }
         - { name: limit, in: query, schema: { type: integer } }
       responses:

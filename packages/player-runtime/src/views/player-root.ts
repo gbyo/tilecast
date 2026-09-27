@@ -20,6 +20,7 @@ import type {
   RuntimeViewState,
 } from "../engine/controller";
 import type { RuntimeSurfaceHost } from "../plugins/host";
+import type { RuntimeWidgetHost } from "../widgets/host";
 import { Stage } from "../surfaces/stage";
 import type { SetupBridge, StatusSurface } from "./status-surface";
 import "./outside-hours";
@@ -35,6 +36,7 @@ export interface PlayerRootBindings {
   animationScale: number;
   /** Present when the host advertises `remoteWeb: "host-view"`. */
   remoteWeb: RemoteWebPort | null;
+  widgets: RuntimeWidgetHost;
 }
 
 type Sleep = Extract<RuntimePresentation, { state: "sleep" }>;
@@ -88,6 +90,7 @@ export class PlayerRoot extends LitElement {
         send: (event) => bindings.controller.surface(event),
         animationScale: bindings.animationScale,
         remoteWeb: bindings.remoteWeb,
+        widgets: bindings.widgets,
       });
       this.unsubscribers.push(
         bindings.controller.subscribe((view) => this.onView(view)),

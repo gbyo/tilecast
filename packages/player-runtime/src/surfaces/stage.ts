@@ -33,6 +33,9 @@ import type { RemoteWebPort } from "../remote-web/port";
 import { remoteWebSpecOf } from "../remote-web/spec";
 import type { RuntimeItem } from "../host/contract";
 import { WidgetSurface } from "./widget-surface";
+import { ComponentWidgetSurface } from "./component-widget-surface";
+import { widgetComponent } from "../engine/model";
+import type { RuntimeWidgetHost } from "../widgets/host";
 
 interface Layer {
   el: HTMLDivElement;
@@ -51,6 +54,7 @@ export interface StageOptions {
   animationScale: number;
   /** Present when the host advertises `remoteWeb: "host-view"`. */
   remoteWeb?: RemoteWebPort | null;
+  widgets?: RuntimeWidgetHost;
 }
 
 export class Stage {
@@ -249,6 +253,7 @@ export class Stage {
       animationScale: this.options.animationScale,
       remoteWeb: (item: RuntimeItem, zoneSink: SurfaceSink) =>
         this.remoteSurface(item, zoneSink, entry.mount),
+      widgets: this.options.widgets,
     };
     const item = entry.item;
     switch (item.kind) {
@@ -257,7 +262,9 @@ export class Stage {
       case "video":
         return new HtmlVideoSurface(item, env, entry.mount);
       case "widget":
-        return new WidgetSurface(item, env);
+        return widgetComponent(item)
+          ? new ComponentWidgetSurface(item, env)
+          : new WidgetSurface(item, env);
       case "layout":
         return new LayoutSurface(item, env);
       case "website":

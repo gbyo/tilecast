@@ -10,7 +10,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/playlists"
 )
@@ -220,7 +219,12 @@ func (s *server) approvePairing(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	screen, err := s.devices.ApprovePairingWithOptions(r.Context(), id, user.ID, devices.PairingApproval{
 		Name: body.Name, LocationID: body.LocationID, RoomName: body.RoomName, RoomNumber: body.RoomNumber,
 		Description: body.Description, ReplaceExistingCredential: body.ReplaceExistingCredential,
@@ -245,7 +249,12 @@ func (s *server) rejectPairing(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	if err := s.devices.RejectPairing(r.Context(), id, user.ID, body.Reason); err != nil {
 		s.writeDeviceError(w, r, err)
 		return
@@ -256,8 +265,12 @@ func (s *server) rejectPairing(w http.ResponseWriter, r *http.Request) {
 func (s *server) listScreens(w http.ResponseWriter, r *http.Request) {
 	// A scoped account sees only its own screens here. The same predicate backs
 	// the per-screen authorization, so the list and what it can act on agree.
-	session, _ := r.Context().Value(sessionContextKey).(auth.Session)
-	screens, err := s.devices.ListScreensForUser(r.Context(), session.User.ID, session.User.Role)
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	screens, err := s.devices.ListScreensForUser(r.Context(), principal.User.ID, principal.User.Role)
 	if err != nil {
 		s.internalError(w, r, err)
 		return
@@ -301,7 +314,12 @@ func (s *server) updateScreen(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	screen, err := s.devices.UpdateScreen(r.Context(), id, user.ID, body.Name, body.LocationID, body.RoomName, body.RoomNumber, body.Description)
 	if err != nil {
 		s.writeDeviceError(w, r, err)
@@ -320,7 +338,12 @@ func (s *server) setScreenEnabled(w http.ResponseWriter, r *http.Request, enable
 	if !ok {
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	if err := s.devices.SetEnabled(r.Context(), id, user.ID, enabled); err != nil {
 		s.writeDeviceError(w, r, err)
 		return
@@ -340,7 +363,12 @@ func (s *server) revokeScreen(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	if err := s.devices.Revoke(r.Context(), id, user.ID, body.Reason); err != nil {
 		s.writeDeviceError(w, r, err)
 		return

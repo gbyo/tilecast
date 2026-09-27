@@ -6,6 +6,7 @@
  */
 import type { EvidenceKind, RuntimeItem } from "../host/contract";
 import type { RuntimeClock } from "../clock/scheduler";
+import type { RuntimeWidgetHost } from "../widgets/host";
 
 export interface MediaSurface {
   /** The surface's root node; the stage places it in a layer. */
@@ -64,6 +65,8 @@ export interface SurfaceEnvironment {
    * no isolated remote web mechanism.
    */
   remoteWeb?: (item: RuntimeItem, sink: SurfaceSink) => MediaSurface | null;
+  /** First-class Widget mounting; absent where no Widget can run. */
+  widgets?: RuntimeWidgetHost;
 }
 
 export type SurfaceFactory = (

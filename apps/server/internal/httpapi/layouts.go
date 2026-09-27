@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/tilecast/tilecast/apps/server/internal/approvals"
-	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/layouts"
 )
 
@@ -39,7 +38,12 @@ func (s *server) createLayout(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	result, err := s.layouts.Create(r.Context(), user.ID, body.Name, body.Description, body.Orientation, body.CanvasWidth, body.CanvasHeight)
 	if err != nil {
 		s.writeLayoutError(w, r, err)
@@ -74,7 +78,12 @@ func (s *server) updateLayout(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	result, err := s.layouts.UpdateDetails(r.Context(), id, user.ID, body.Name, body.Description)
 	if err != nil {
 		s.writeLayoutError(w, r, err)
@@ -100,7 +109,12 @@ func (s *server) updateLayoutPreviewImage(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusRequestEntityTooLarge, "preview_too_large", "The Layout preview image exceeded 500 KB.")
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	if err = s.layouts.StorePreviewImage(r.Context(), id, user.ID, expectedRevision, data); err != nil {
 		s.writeLayoutError(w, r, err)
 		return
@@ -138,7 +152,12 @@ func (s *server) saveLayoutDraft(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	result, err := s.layouts.SaveDraft(r.Context(), id, user.ID, body.ExpectedDraftRevision, body.Document)
 	if err != nil {
 		s.writeLayoutError(w, r, err)
@@ -159,7 +178,12 @@ func (s *server) publishLayout(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	if s.approvals != nil {
 		published, publishErr := s.approvals.SubmitAndPublish(r.Context(), user.ID, user.Role, "layout", id, body.ExpectedDraftRevision)
 		if errors.Is(publishErr, approvals.ErrReviewRequired) {
@@ -190,7 +214,12 @@ func (s *server) duplicateLayout(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	result, err := s.layouts.Duplicate(r.Context(), id, user.ID)
 	if err != nil {
 		s.writeLayoutError(w, r, err)
@@ -203,7 +232,12 @@ func (s *server) deleteLayout(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	if err := s.layouts.Delete(r.Context(), id, user.ID); err != nil {
 		s.writeLayoutError(w, r, err)
 		return
@@ -240,7 +274,12 @@ func (s *server) restoreLayoutRevision(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	result, err := s.layouts.Restore(r.Context(), id, revisionID, user.ID, body.ExpectedDraftRevision)
 	if err != nil {
 		s.writeLayoutError(w, r, err)

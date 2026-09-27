@@ -1,0 +1,9 @@
+apiVersion: 1
+operations:
+  - operationId: listWidgets
+    risk: read
+    cli:
+      path: [example, widget, list]
+    mcp:
+      action: list_widgets
+    timeout: 30s

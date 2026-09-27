@@ -1,30 +1,34 @@
-.PHONY: android-build android-check bootstrap build check plugins-check plugins-generate demo demo-down demo-logs demo-reset dev-dashboard dev-server docs-check e2e edge-check edge-e2e edge-linux edge-test format helper-check test
+.PHONY: android-build android-check bootstrap build check plugins-check plugins-generate widgets-check demo demo-down demo-logs demo-reset dev-dashboard dev-server docs-check e2e edge-check edge-e2e edge-linux edge-test format helper-check test
 
 bootstrap:
 	npm install
 	cd apps/server && go mod download
+	cd apps/cli && go mod download
 
 build:
 	npm run build
 	rm -rf apps/server/internal/web/static
 	mkdir -p apps/server/internal/web/static
 	cp -R apps/dashboard/dist/. apps/server/internal/web/static/
-	cd apps/server && go build ./cmd/tilecast
+	cd apps/server && go build ./cmd/tilecast-server
+	cd apps/cli && go build ./cmd/tilecast
 	cd apps/player-android && ./gradlew assembleDebug
 
 check:
 	$(MAKE) docs-check
 	$(MAKE) plugins-check
+	$(MAKE) widgets-check
 	npm run format:check
 	npm run lint
 	npm test
-	cd apps/server && test -z "$$(gofmt -l . ../../plugins ../../packages/plugin-sdk/go)" && go vet ./... $(PLUGIN_GO_PACKAGES) && go test ./... $(PLUGIN_GO_PACKAGES)
+	cd apps/server && test -z "$$(gofmt -l . ../../plugins ../../packages/plugin-sdk/go ../../apps/cli ../../widgets)" && go vet ./... $(PLUGIN_GO_PACKAGES) && go test ./... $(PLUGIN_GO_PACKAGES)
+	cd apps/cli && test -z "$$(gofmt -l .)" && go vet ./... && go test ./...
 	$(MAKE) helper-check
 	cd apps/player-android && ./gradlew testDebugUnitTest lintDebug
 
 # Bundled plugins and the plugin SDK are separate Go modules in the go.work
 # workspace; the server's commands name them so one run covers all three.
-PLUGIN_GO_PACKAGES = github.com/tilecast/tilecast/plugins/... github.com/tilecast/tilecast/packages/plugin-sdk/go/...
+PLUGIN_GO_PACKAGES = github.com/tilecast/tilecast/plugins/... github.com/tilecast/tilecast/packages/plugin-sdk/go/... github.com/tilecast/tilecast/widgets/...
 
 # The Official Tilecast Plugin Conformance checks that need no compiler:
 # manifests, generated files, boundaries, migrations, and OpenAPI fragments.
@@ -34,6 +38,13 @@ plugins-check:
 
 plugins-generate:
 	npm run plugins:generate
+
+# Widgets V2 (docs/widgets-v2.md): module manifests, generated files, the
+# catalog suite, and the SDK and kit tests.
+widgets-check:
+	npm run widgets:check
+	npm test --workspace @tilecast/widget-sdk
+	npm test --workspace @tilecast/widget-kit
 
 # The root-owned Presentation Network helper. Its nmcli and NetworkManager
 # interaction is mocked, so this needs neither a Wi-Fi adapter nor a running
@@ -66,16 +77,17 @@ dev-dashboard:
 	npm run dev
 
 dev-server:
-	cd apps/server && go run ./cmd/tilecast
+	cd apps/server && go run ./cmd/tilecast-server
 
 format:
 	npm run format
-	cd apps/server && gofmt -w $$(find . ../../plugins ../../packages/plugin-sdk/go -name '*.go' -type f)
+	cd apps/server && gofmt -w $$(find . ../../plugins ../../packages/plugin-sdk/go ../../apps/cli -name '*.go' -type f)
 
 test:
 	npm test
 	npm test --workspace @tilecast/plugin-sdk
 	cd apps/server && go test ./... $(PLUGIN_GO_PACKAGES)
+	cd apps/cli && go test ./...
 	python3 -m unittest discover -s apps/player-linux/helper
 
 docs-check:

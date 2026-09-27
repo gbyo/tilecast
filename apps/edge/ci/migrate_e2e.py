@@ -227,7 +227,7 @@ def setup():
     subprocess.run(["sudo", "-u", "postgres", "createuser", "--superuser", "root"], capture_output=True)
     run("dropdb", "--if-exists", e2e.DATABASE)
     run("createdb", e2e.DATABASE)
-    run("go", "build", "-o", os.path.join(WORK, "tilecast"), "./cmd/tilecast", cwd=e2e.SERVER, env=environment)
+    run("go", "build", "-o", os.path.join(WORK, "tilecast"), "./cmd/tilecast-server", cwd=e2e.SERVER, env=environment)
     save("server-env.json", {
         "TILECAST_DATABASE_URL": f"postgres://root@localhost:5432/{e2e.DATABASE}?sslmode=disable",
         "TILECAST_HTTP_ADDR": f"127.0.0.1:{e2e.PORT}", "TILECAST_PUBLIC_URL": e2e.BASE,

@@ -6,6 +6,7 @@ import type {
   EvidenceKind,
   RuntimeItem,
   RuntimeLayoutPayload,
+  RuntimeWidgetComponentPayload,
   RuntimeWidgetPayload,
 } from "../host/contract";
 
@@ -25,6 +26,20 @@ export function objectFit(mode: string | undefined): string {
 export function widgetPayload(item: RuntimeItem): RuntimeWidgetPayload | null {
   const widget = item.widget as RuntimeWidgetPayload | undefined;
   return widget && typeof widget === "object" && "root" in widget
+    ? widget
+    : null;
+}
+
+/** A widget item projected to a first-class component. */
+export function widgetComponent(
+  item: RuntimeItem,
+): RuntimeWidgetComponentPayload | null {
+  const widget = item.widget as RuntimeWidgetComponentPayload | undefined;
+  return widget &&
+    typeof widget === "object" &&
+    "component" in widget &&
+    widget.component &&
+    typeof widget.component === "object"
     ? widget
     : null;
 }

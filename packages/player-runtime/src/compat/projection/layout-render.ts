@@ -10,10 +10,16 @@
  */
 
 import { isRemoteWebWidget, remoteWebForWidget } from "./web-widget";
-import { formatValue, safeColor, type RegionalFormatting } from "./format";
+import {
+  formatValue,
+  resolveRegionalFormatting,
+  safeColor,
+  type RegionalFormatting,
+} from "./format";
 import { normalizeSource } from "./datasource";
 import { isAvailableAt } from "./content-availability";
 import { renderWidget } from "./widget-render";
+import { projectWidgetComponent } from "../../widgets/projection";
 import type {
   LayoutDocument,
   LayoutPlacement,
@@ -193,7 +199,10 @@ function renderPlacement(
   placement: LayoutPlacement,
   ctx: LayoutRenderContext,
 ): LayoutZone | null {
-  const base: Omit<LayoutZone, "render" | "image" | "playlistItems"> = {
+  const base: Omit<
+    LayoutZone,
+    "render" | "component" | "image" | "playlistItems"
+  > = {
     id: placement.id,
     x: placement.x,
     y: placement.y,
@@ -218,6 +227,17 @@ function renderPlacement(
           ctx.at,
         );
         return remoteWeb ? { ...base, remoteWeb } : null;
+      }
+      // A first-class component renders itself in the zone; it is never
+      // converted back into a render tree because it is in a Layout.
+      if (widget.presentation?.kind === "component") {
+        const component = projectWidgetComponent(widget, {
+          dataSources: ctx.dataSources,
+          assets: ctx.manifest.assets,
+          regionalFormat:
+            ctx.regionalFormat ?? resolveRegionalFormatting(undefined),
+        });
+        return component ? { ...base, component } : null;
       }
       const payload = renderWidget(widget, {
         dataSources: ctx.dataSources,

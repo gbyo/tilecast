@@ -7,14 +7,16 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/plugins"
 	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
 
 // mountPluginRoutes registers every plugin's dashboard routes. The plugin
-// chooses an access level; the host applies the session, enrollment, role,
-// and CSRF checks, so a plugin handler never sees an unauthenticated request.
+// chooses an access level; the host applies the user authentication,
+// enrollment, role, grant-scope, and CSRF checks, so a plugin handler never
+// sees an unauthenticated request. Access levels keep their frozen
+// source-level semantics and operate over the unified user principal
+// whether the credential was a session cookie or a bearer grant.
 // A route that a core route already answers is a release defect and stops
 // startup rather than being silently shadowed.
 func (s *server) mountPluginRoutes(api chi.Router) {
@@ -29,7 +31,7 @@ func (s *server) mountPluginRoutes(api chi.Router) {
 		panic(err)
 	}
 	api.Group(func(group chi.Router) {
-		group.Use(s.requireSession)
+		group.Use(s.requireUser)
 		group.Use(s.requireEnrollment)
 		for _, route := range routes {
 			middlewares := []func(http.Handler) http.Handler{}
@@ -39,11 +41,15 @@ func (s *server) mountPluginRoutes(api chi.Router) {
 			unsafe := route.Method != http.MethodGet && route.Method != http.MethodHead
 			switch route.Access {
 			case plugin.AccessManager:
-				middlewares = append(middlewares, s.requireRoles("owner", "administrator"), s.requireCSRF)
+				middlewares = append(middlewares, s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("admin"))
 			case plugin.AccessSession:
 				if unsafe {
-					middlewares = append(middlewares, s.requireCSRF)
+					middlewares = append(middlewares, s.requireCSRF, s.requireScope("write"))
+				} else {
+					middlewares = append(middlewares, s.requireScope("read"))
 				}
+			default:
+				middlewares = append(middlewares, s.requireScope("read"))
 			}
 			group.With(middlewares...).Method(route.Method, route.Pattern, s.pluginHandler(route))
 		}
@@ -170,8 +176,15 @@ func chiSegmentMatcher(segment string) (*regexp.Regexp, error) {
 
 func (s *server) pluginHandler(route plugins.Route) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		session := r.Context().Value(sessionContextKey).(auth.Session)
-		ctx := plugin.WithPrincipal(r.Context(), plugin.Principal{UserID: session.User.ID, Role: session.User.Role})
+		// The host translates the unified user principal into the frozen
+		// Plugin API principal. Plugin implementations never see the
+		// credential, session or bearer alike, and need no changes.
+		principal, ok := principalOf(r)
+		if !ok {
+			writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+			return
+		}
+		ctx := plugin.WithPrincipal(r.Context(), plugin.Principal{UserID: principal.User.ID, Role: principal.User.Role})
 		if err := route.Handler(w, r.WithContext(ctx)); err != nil {
 			s.writePluginError(w, r, err)
 		}

@@ -597,7 +597,13 @@
       },
       "clock": {
         "timezoneHint": "Leave blank to use the organization timezone, or enter any valid IANA timezone ID.",
-        "showSeconds": "Show seconds"
+        "showSeconds": "Show seconds",
+        "style": "Style",
+        "styleStandard": "Standard",
+        "styleMinimal": "Minimal",
+        "styleAnalog": "Analog",
+        "styleHint": "Standard shows the time with an optional date. Minimal shows the time alone, as large as possible. Analog shows a dial with the digital time beside it. Screens whose Player predates these styles show the time alone.",
+        "showDate": "Show date"
       },
       "date": {
         "dateFormat": "Date format"

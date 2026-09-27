@@ -1,0 +1,38 @@
+{
+  "name": "@tilecast/widget-sdk",
+  "version": "1.0.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "description": "The Tilecast Widgets V2 contract: defineWidget(), the Widget manifest schema, discovery, the shared WidgetMount and test helpers.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./manifest": "./src/manifest.ts",
+    "./mount": "./src/mount.ts",
+    "./discovery": "./src/discovery.ts",
+    "./fixtures": "./src/fixtures.ts",
+    "./testing": "./src/testing.ts",
+    "./schema/tilecast-widget.schema.json": "./schema/tilecast-widget.schema.json",
+    "./stories": "./src/stories.ts"
+  },
+  "scripts": {
+    "test": "vitest run && vitest run --config vitest.widgets.config.ts",
+    "test:unit": "vitest run",
+    "test:widgets": "vitest run --config vitest.widgets.config.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p ../../widgets/tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "zod": "^4.0.5"
+  },
+  "devDependencies": {
+    "@storybook/web-components-vite": "^10.6.0",
+    "@tilecast/widget-kit": "*",
+    "@types/node": "^26.1.1",
+    "jsdom": "^30.0.0",
+    "lit": "^3.3.3",
+    "prettier": "^3.9.6",
+    "storybook": "^10.6.0",
+    "typescript": "~5.8.3",
+    "vitest": "^4.1.10"
+  }
+}

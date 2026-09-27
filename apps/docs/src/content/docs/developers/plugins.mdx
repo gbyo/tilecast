@@ -33,6 +33,7 @@ For the exact API contract, use the [Plugin API v1 engineering reference](https:
     - server/ Optional server implementation.
     - migrations/ Optional Goose migrations.
     - api/openapi.yaml Optional API description.
+    - automation.yaml Optional automation mapping (Automation Contract v1).
     - studio/ Optional Studio pages and translations.
     - runtime/ Optional Player runtime and styles.
     - docs/ Optional public docs pages.
@@ -42,6 +43,43 @@ For the exact API contract, use the [Plugin API v1 engineering reference](https:
 The plugin ID uses underscores. The directory uses hyphens, so `transit_alerts` lives in `plugins/transit-alerts/`.
 
 The build owns the few files that list every plugin. Run `npm run plugins:generate` instead of editing those files by hand.
+
+## Automation mapping
+
+A plugin with an HTTP API can expose it to operators through
+`automation.yaml` (Automation Contract v1). The file maps the
+plugin's existing `api/openapi.yaml` operation IDs to presentation:
+a CLI path, an MCP action, and a risk class. It redefines no path,
+schema, authorization, or validation; the server stays authoritative
+for all of those.
+
+```yaml
+apiVersion: 1
+
+operations:
+  - operationId: listCountdownBarInstances
+    risk: read
+    cli:
+      path: [countdown-bar, instance, list]
+    mcp:
+      action: list_instances
+```
+
+Operations that must stay out of automation use explicit exclusions
+with a reason. Complex structured input travels as a JSON document
+(`input: document`, fed with `--input` or `--file`) rather than a
+growing flag language. The contract schema lives in
+`@tilecast/plugin-sdk` (`./automation`, plus the portable
+`schema/tilecast-automation.schema.json`); `plugins/countdown-bar/automation.yaml`
+is the worked example.
+
+Once the plugin is installed, its mapped operations are immediately
+usable from the terminal: the CLI builds the command tree from the
+server's resolved document at runtime (`tilecast countdown-bar
+instance list`), with path parameters filled positionally and JSON
+bodies via `--input` or `--file`. `sensitive` and higher risk confirms
+before running. Nothing about the plugin is handwritten in the CLI, so
+no CLI change ships with the plugin.
 
 ## Use the existing plugins as examples
 

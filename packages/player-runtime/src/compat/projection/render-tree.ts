@@ -11,6 +11,7 @@
  * 4 GiB / old-Intel hardware — and keeps the hard logic unit-testable in
  * Node without a DOM.
  */
+import type { RuntimeWidgetComponentPayload } from "../../host/contract";
 
 import type { RuntimeRemoteWebSpecV1 } from "../../host/contract";
 
@@ -139,6 +140,7 @@ export interface LayoutZone {
   radius?: number;
   /** Exactly one of the following is set. */
   render?: RenderNode; // widget or primitive
+  component?: RuntimeWidgetComponentPayload; // first-class Widget
   image?: { src: string; fit: string }; // asset placement
   playlistItems?: LayoutPlaylistItem[]; // playlistZone: rotates locally
   /** A web or YouTube Widget placement, shown by the host's remote web surface. */

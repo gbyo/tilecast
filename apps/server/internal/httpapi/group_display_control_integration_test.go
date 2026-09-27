@@ -24,7 +24,7 @@ func groupDisplayControlRequest(method, path string, groupID, userID uuid.UUID, 
 	route := chi.NewRouteContext()
 	route.URLParams.Add("id", groupID.String())
 	request = request.WithContext(context.WithValue(request.Context(), chi.RouteCtxKey, route))
-	return request.WithContext(context.WithValue(request.Context(), sessionContextKey, auth.Session{User: auth.User{ID: userID, Role: "owner"}}))
+	return requestWithTestPrincipal(request, auth.Session{User: auth.User{ID: userID, Role: "owner"}})
 }
 
 func TestDisplayGroupControlPreviewsMixedCapabilitiesAndQueuesOnlySupportedPlayers(t *testing.T) {

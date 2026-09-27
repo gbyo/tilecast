@@ -1,7 +1,10 @@
 go 1.25.7
 
 use (
+	./apps/cli
+	./packages/api-client
 	./apps/server
 	./packages/plugin-sdk/go
 	./plugins
+	./widgets
 )

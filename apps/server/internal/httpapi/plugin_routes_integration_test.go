@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
+	"github.com/tilecast/tilecast/apps/server/internal/oauth"
 	"github.com/tilecast/tilecast/apps/server/internal/plugins"
 	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugintest/sampleplugin"
@@ -106,8 +107,12 @@ func TestPluginRoutesUseHostAuthorization(t *testing.T) {
 			t.Fatalf("create = %d %v", status, body)
 		}
 		// Session access: any role, CSRF only on unsafe methods, principal passed through.
+		// The host translates the unified management principal into the frozen
+		// Plugin API principal, so the plugin sees the user ID and role with
+		// no implementation change on its side.
 		if status, body := call("viewer", http.MethodGet, "/api/v1/plugins/sample-tally/whoami", false, ""); status != http.StatusOK ||
-			body["data"].(map[string]any)["role"] != "viewer" {
+			body["data"].(map[string]any)["role"] != "viewer" ||
+			body["data"].(map[string]any)["userId"] != sessions["viewer"].User.ID.String() {
 			t.Fatalf("whoami = %d %v", status, body)
 		}
 		// Removal is blocked by the plugin's own resources.
@@ -239,4 +244,83 @@ func (p rateLimitedPlugin) Routes(router plugin.Router) {
 			plugin.WriteData(w, http.StatusOK, map[string]any{"polled": true})
 			return nil
 		})
+}
+
+// The plugin route host adapts once: the same frozen access levels operate
+// over a bearer user principal with no plugin implementation change. A read
+// grant reads viewer and session routes without CSRF; a write grant is
+// refused the manager route by scope; an admin grant reaches the plugin's
+// own logic exactly like the session did.
+func TestPluginRoutesBearerParity(t *testing.T) {
+	withActivityDatabase(t, func(env activityTestEnvironment) {
+		ctx := t.Context()
+		authService := auth.NewService(env.pool, time.Hour)
+		oauthService := oauth.NewService(env.pool)
+		env.server.auth = authService
+		env.server.oauth = oauthService
+		env.server.operationsLimiter = newRateLimiter(60, time.Minute)
+		env.server.authLimiter = newRateLimiter(10, 10*time.Minute)
+		env.server.cookieName = "tilecast_session"
+		env.server.plugins = plugins.NewService(env.pool, nil, plugins.WithPlugins(sampleplugin.New()))
+		router := httptest.NewServer(env.server.routes())
+		defer router.Close()
+
+		hash, err := auth.HashPassword("correct horse battery staple")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = env.pool.Exec(ctx, `INSERT INTO users(id,name,username,password_hash,role,active) VALUES($1,$2,$3,$4,'owner',TRUE)`,
+			uuid.New(), "Owner", "plugin-bearer-owner", hash); err != nil {
+			t.Fatal(err)
+		}
+		result, err := authService.Login(ctx, auth.LoginInput{Username: "plugin-bearer-owner", Password: "correct horse battery staple"}, auth.MFAPolicyNone)
+		if err != nil || result.Session == nil {
+			t.Fatalf("login: %v", err)
+		}
+		ownerID := result.Session.User.ID
+		pat := func(name string, scopes []string) string {
+			secret, _, err := oauthService.CreatePAT(ctx, ownerID, name, scopes, 30)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return secret
+		}
+		readPAT, writePAT, adminPAT := pat("plugin-r", []string{"read"}), pat("plugin-w", []string{"read", "write"}), pat("plugin-a", []string{"read", "write", "admin"})
+		bearer := func(method, path, secret, body string) (int, map[string]any) {
+			t.Helper()
+			request, _ := http.NewRequest(method, router.URL+path, strings.NewReader(body))
+			request.Header.Set("Authorization", "Bearer "+secret)
+			response, err := router.Client().Do(request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer response.Body.Close()
+			raw, _ := io.ReadAll(response.Body)
+			decoded := map[string]any{}
+			_ = json.Unmarshal(raw, &decoded)
+			return response.StatusCode, decoded
+		}
+		code := func(body map[string]any) string {
+			envelope, _ := body["error"].(map[string]any)
+			value, _ := envelope["code"].(string)
+			return value
+		}
+
+		if status, _ := bearer(http.MethodGet, "/api/v1/plugins/sample-tally/items", readPAT, ""); status != http.StatusOK {
+			t.Fatalf("bearer viewer read = %d", status)
+		}
+		if status, body := bearer(http.MethodGet, "/api/v1/plugins/sample-tally/whoami", readPAT, ""); status != http.StatusOK ||
+			body["data"].(map[string]any)["role"] != "owner" ||
+			body["data"].(map[string]any)["userId"] != ownerID.String() {
+			t.Fatalf("bearer whoami = %d %v", status, body)
+		}
+		if status, body := bearer(http.MethodPost, "/api/v1/plugins/sample-tally/items", writePAT, `{"label":"x"}`); status != http.StatusForbidden || code(body) != "insufficient_scope" {
+			t.Fatalf("write grant manager route = %d %v", status, body)
+		}
+		// The admin grant reaches the plugin's own conflict, the same
+		// answer the session got: no plugin code changed.
+		if status, body := bearer(http.MethodPost, "/api/v1/plugins/sample-tally/items", adminPAT, `{"label":"x"}`); status != http.StatusConflict || code(body) != "plugin_not_installed" {
+			t.Fatalf("admin grant manager route = %d %v", status, body)
+		}
+	})
 }

@@ -44,7 +44,10 @@ Multi-zone layouts and proof-of-play were deferred through milestone 9 and have 
 
 ```text
 apps/server/                 Go application and embedded dashboard host
-  cmd/tilecast/              process startup and graceful shutdown
+  cmd/tilecast-server/     process startup, backup, restore, MFA reset
+apps/cli/                    remote management CLI (Cobra, no server internals)
+  cmd/tilecast/              CLI entrypoint
+  internal/cli/              handwritten command tree
   internal/auth/             local users, passwords, dashboard sessions, MFA
   internal/config/           validated environment configuration
   internal/database/         pgx pool and embedded Goose migrations
@@ -295,13 +298,23 @@ cd apps/server
 gofmt -w $(find . -name '*.go' -type f)
 go vet ./...
 go test ./...
-go build ./cmd/tilecast
+go build ./cmd/tilecast-server
 ```
 
 PostgreSQL integration tests run when `TEST_DATABASE_URL` is set. Test packages use a shared PostgreSQL advisory lock so package-level integration tests do not truncate each other's fixtures.
 
 ```sh
 TEST_DATABASE_URL='postgres://localhost:5432/tilecast_test?sslmode=disable' go test ./...
+```
+
+Remote CLI only:
+
+```sh
+cd apps/cli
+gofmt -w $(find . -name '*.go' -type f)
+go vet ./...
+go test ./...
+go build ./cmd/tilecast
 ```
 
 Android:
@@ -328,7 +341,8 @@ Do not commit:
 
 - `.env` files
 - `node_modules`, Vite `dist`, Gradle `.gradle`, or Android `build`
-- `apps/server/tilecast`
+- `apps/server/tilecast-server`
+- `apps/cli/tilecast`
 - private signing keys or signing passwords
 - Android `local.properties`
 - temporary PostgreSQL data
@@ -338,7 +352,8 @@ Expected local outputs:
 - debug APK: `apps/player-android/app/build/outputs/apk/debug/app-debug.apk`
 - unsigned release APK: `apps/player-android/app/build/outputs/apk/release/app-release-unsigned.apk`
 - dashboard bundle: `apps/dashboard/dist`
-- local server binary: `apps/server/tilecast`
+- local server binary: `apps/server/tilecast-server`
+- local remote CLI binary: `apps/cli/tilecast`
 - Docker image: `tilecast/server:local`
 
 The source `apps/server/internal/web/static/index.html` is a development fallback. Docker and `make build` replace it with the compiled dashboard before building the production server binary. Avoid accidentally committing generated hashed assets there.

@@ -2123,11 +2123,17 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 		}
 	}
 	compiled := make([]*WidgetPresentation, len(manifest.Widgets))
+	components := make([]*WidgetPresentation, len(manifest.Widgets))
 	canCompileV13 := true
 	allowPrivateHTTP := s.orgPrivateHTTP(ctx)
 	for index := range manifest.Widgets {
-		compiled[index], _ = s.compileWidgetPresentationForPreset(manifest.Widgets[index].Provider, manifest.Widgets[index].PresetID, manifest.Widgets[index].Configuration, allowPrivateHTTP)
-		if compiled[index] == nil {
+		widget := manifest.Widgets[index]
+		compiled[index], _ = s.compileWidgetPresentationForPreset(widget.Provider, widget.PresetID, widget.Configuration, allowPrivateHTTP)
+		components[index], err = s.compileWidgetComponent(widget.Provider, widget.Configuration)
+		if err != nil {
+			return Manifest{}, "", fmt.Errorf("%w: Widget “%s” cannot be compiled: %v", ErrConflict, widget.Name, err)
+		}
+		if compiled[index] == nil && components[index] == nil {
 			canCompileV13 = false
 			break
 		}
@@ -2137,15 +2143,36 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 		return Manifest{}, "", capabilityErr
 	}
 	useV13 := false
+	usesComponents := false
 	if playerCapabilities.Reported && canCompileV13 {
-		for index, presentation := range compiled {
-			if err = checkPresentationCompatibility(ctx, s.db, screenID, manifest.Widgets[index].Name, presentation, playerCapabilities); err != nil {
+		// Each Widget gets its first-class component when this Player renders
+		// that exact type and version, and its compatibility presentation
+		// otherwise (docs/widgets-v2.md §7). Persisted Widgets never change.
+		for index := range compiled {
+			if components[index] != nil {
+				if supported, _ := presentationSupported(components[index], playerCapabilities); supported {
+					compiled[index] = components[index]
+					usesComponents = true
+					continue
+				}
+				if compiled[index] == nil {
+					compiled[index] = components[index]
+				}
+			}
+			if err = checkPresentationCompatibility(ctx, s.db, screenID, manifest.Widgets[index].Name, compiled[index], playerCapabilities); err != nil {
 				return Manifest{}, "", fmt.Errorf("%w: %v", ErrConflict, err)
 			}
 		}
 		useV13 = true
 	} else if requiresV13 {
 		return Manifest{}, "", fmt.Errorf("%w: %v", ErrConflict, sourceCapabilityError(screenDisplayName(ctx, s.db, screenID), v13Blocker))
+	}
+	if !useV13 {
+		for index := range manifest.Widgets {
+			if index < len(components) && components[index] != nil && compiled[index] == nil {
+				return Manifest{}, "", fmt.Errorf("%w: %v", ErrConflict, checkPresentationCompatibility(ctx, s.db, screenID, manifest.Widgets[index].Name, components[index], playerCapabilities))
+			}
+		}
 	}
 	if useV13 {
 		ids := make([]uuid.UUID, 0, len(manifest.DataSources))
@@ -2172,7 +2199,14 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 			manifest.Widgets[index].Configuration = nil
 		}
 	}
-	if spanEnabled || manifestHasWebReload(manifest) {
+	if usesComponents {
+		// v16 includes every v15 feature. Crossfade still depends on the
+		// Player's version, exactly as it does for v14.
+		manifest.SchemaVersion = ManifestSchemaComponents
+		if manifestHasCrossfade(manifest) && playerCapabilities.PlayerVersion < crossfadePlayerVersionCode {
+			downgradeManifestCrossfades(&manifest)
+		}
+	} else if spanEnabled || manifestHasWebReload(manifest) {
 		manifest.SchemaVersion = 15
 	} else if manifestHasCrossfade(manifest) {
 		if useV13 && playerCapabilities.PlayerVersion >= crossfadePlayerVersionCode {

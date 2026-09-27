@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/tilecast/tilecast/apps/server/internal/audit"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/media"
 )
@@ -90,6 +91,10 @@ func Seed(ctx context.Context, svc Services, name string) ([]Player, error) {
 	if err = markInstallation(ctx, svc.DB); err != nil {
 		return nil, err
 	}
+	// Demo seeding is background work, not a browser request: it names the
+	// system surface explicitly so shared-path audit writes attribute
+	// honestly instead of inheriting a default.
+	ctx = audit.WithSurface(ctx, audit.SurfaceSystem)
 	b := &builder{ctx: ctx, svc: svc, owner: IDs.Owner}
 	if err = scenario.seed(b); err != nil {
 		return nil, fmt.Errorf("seed demo scenario %s: %w", name, err)

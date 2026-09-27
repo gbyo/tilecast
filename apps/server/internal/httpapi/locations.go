@@ -3,7 +3,6 @@ package httpapi
 import (
 	"net/http"
 
-	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 )
 
@@ -22,7 +21,12 @@ func (s *server) createLocation(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	item, err := s.devices.CreateLocation(r.Context(), user.ID, input)
 	if err != nil {
 		s.writeDeviceError(w, r, err)
@@ -41,7 +45,12 @@ func (s *server) updateLocation(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	item, err := s.devices.UpdateLocation(r.Context(), id, user.ID, input)
 	if err != nil {
 		s.writeDeviceError(w, r, err)
@@ -55,7 +64,12 @@ func (s *server) deleteLocation(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	if err := s.devices.DeleteLocation(r.Context(), id, user.ID); err != nil {
 		s.writeDeviceError(w, r, err)
 		return

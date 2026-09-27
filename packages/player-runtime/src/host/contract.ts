@@ -234,6 +234,40 @@ export interface RuntimeWidgetPayload {
   autoSkip?: boolean;
 }
 
+/**
+ * A first-class Widget component (docs/widgets-v2.md), as a manifest v16
+ * `kind: "component"` presentation describes it after projection.
+ */
+export interface RuntimeWidgetComponentV1 {
+  type: string;
+  version: number;
+  /** Bounded configuration compiled by the Server. */
+  config: unknown;
+  /** Data Source IDs the component may read. */
+  dataSources: string[];
+  /** Media variants the component may display. */
+  media: { assetId: string; variantId: string }[];
+}
+
+/**
+ * A projected component: the reference plus the prepared resources it is
+ * granted, and the regional formatting its context uses. It carries no
+ * time-dependent value, so re-projection leaves it unchanged and a
+ * ticking Widget keeps its own time from the corrected clock.
+ */
+export interface RuntimeWidgetComponentPayload {
+  component: RuntimeWidgetComponentV1;
+  /** Data Documents of `component.dataSources`, keyed by Data Source ID. */
+  documents: Record<string, unknown>;
+  /** URIs of `component.media`, keyed by `${assetId}/${variantId}`. */
+  media: Record<string, string>;
+  regional: {
+    locale: string;
+    timeZone: string;
+    hourCycle: "locale" | "h12" | "h23";
+  };
+}
+
 export interface RuntimeLayoutZonePlaylistItem {
   id: string;
   kind: "image" | "video";
@@ -257,6 +291,8 @@ export interface RuntimeLayoutZone {
   render?: RenderNodeV1;
   /** A Website or Web Widget placed in the zone. */
   remoteWeb?: RuntimeRemoteWebSpecV1;
+  /** A first-class Widget component placed in this zone. */
+  component?: RuntimeWidgetComponentPayload;
   image?: { src: string; fit: string };
   playlistItems?: RuntimeLayoutZonePlaylistItem[];
 }
@@ -310,7 +346,8 @@ export interface RuntimeItem {
    * normalized by the runtime (remote-web/spec.ts).
    */
   remoteWeb?: RuntimeRemoteWebSpecV1;
-  widget?: RuntimeWidgetPayload | WidgetReference;
+  widget?:
+    RuntimeWidgetPayload | RuntimeWidgetComponentPayload | WidgetReference;
   layout?: RuntimeLayoutPayload | LayoutReference;
 }
 

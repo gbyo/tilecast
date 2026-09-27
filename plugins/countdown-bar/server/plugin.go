@@ -1,6 +1,6 @@
 // Package server is Countdown Bar's server contribution: storage, validation,
-// status, removal blockers, dashboard routes, and the Player manifest
-// projection.
+// status, removal blockers, dashboard routes, the Player manifest
+// projection, and the operator automation mapping.
 package server
 
 import (
@@ -17,19 +17,26 @@ const ManifestType = "countdown_bar"
 // Plugin is Countdown Bar.
 type Plugin struct {
 	plugin.Bundle
-	host plugin.Host
+	host       plugin.Host
+	automation []byte
 }
 
 var (
-	_ plugin.Initializer       = (*Plugin)(nil)
-	_ plugin.StatusReporter    = (*Plugin)(nil)
-	_ plugin.RemovalGuard      = (*Plugin)(nil)
-	_ plugin.RouteProvider     = (*Plugin)(nil)
-	_ plugin.ManifestProjector = (*Plugin)(nil)
+	_ plugin.Initializer        = (*Plugin)(nil)
+	_ plugin.StatusReporter     = (*Plugin)(nil)
+	_ plugin.RemovalGuard       = (*Plugin)(nil)
+	_ plugin.RouteProvider      = (*Plugin)(nil)
+	_ plugin.ManifestProjector  = (*Plugin)(nil)
+	_ plugin.AutomationProvider = (*Plugin)(nil)
 )
 
-func New(bundle plugin.Bundle) *Plugin {
-	return &Plugin{Bundle: bundle}
+// Automation returns the resolved automation document the plugin package
+// embeds. It is data, not code: the host serves it to operator clients,
+// which dispatch on it without naming this plugin in their own source.
+func (p *Plugin) Automation() []byte { return p.automation }
+
+func New(bundle plugin.Bundle, automation []byte) *Plugin {
+	return &Plugin{Bundle: bundle, automation: automation}
 }
 
 func (p *Plugin) Init(_ context.Context, host plugin.Host) error {

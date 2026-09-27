@@ -685,6 +685,7 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
     let uptime = ((context.now().unix_millis() - context.started_at.unix_millis()).max(0) / 1000) as u64;
     let native: serde_json::Map<String, serde_json::Value> = crate::manifest::profile::NATIVE_CAPABILITIES
         .iter()
+        .chain(crate::widget_capabilities::WIDGET_COMPONENTS)
         .map(|(name, version)| ((*name).to_owned(), serde_json::json!(version)))
         .collect();
     let mut heartbeat = serde_json::json!({
@@ -699,7 +700,7 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
         "uptimeSeconds": uptime,
         "playbackState": playback_state,
         "safeMode": renderer.state.as_str() == "safe_mode",
-        "presentationSchemaVersions": [1],
+        "presentationSchemaVersions": crate::manifest::profile::PRESENTATION_SCHEMAS,
         "nativePresentationCapabilities": native,
         "webRuntimeVersion": if remote_web_available { crate::manifest::profile::WEB_RUNTIME_VERSION } else { 0 },
     });
