@@ -581,12 +581,10 @@
       "native": {
         "editTitle": "Edit {{provider}} Widget",
         "createTitle": "Create {{provider}} Widget",
-        "qrCodeName": "QR Code",
         "guidanceData": "Connect the information to show, choose how it is presented, and check the live preview.",
         "guidanceSimple": "Configure what appears on screen and check the live preview as you work.",
         "contentGuidanceData": "Start by choosing the data this Widget should use, then map and format the fields that appear.",
         "contentGuidanceCountdown": "Set the target time, decide what happens when it is reached, and choose which time units appear.",
-        "contentGuidanceQr": "Enter the destination people should open after scanning, then add an optional on-screen label.",
         "contentGuidanceWorldClock": "Add each location and its IANA timezone, such as America/New_York or Europe/London.",
         "contentGuidanceClock": "Choose the timezone and format that should appear on the screen.",
         "contentGuidanceText": "Enter the content people should see and choose how it behaves on screen.",
@@ -635,18 +633,6 @@
         "unitsHours": "Hours",
         "unitsMinutes": "Minutes",
         "unitsSeconds": "Seconds"
-      },
-      "qrcode": {
-        "valueLabel": "Text or URL",
-        "errorCorrection": "Error correction",
-        "levelLow": "Low",
-        "levelMedium": "Medium",
-        "levelQuartile": "Quartile",
-        "levelHigh": "High",
-        "levelHint": "Higher correction is easier to scan if the code is damaged, but makes the pattern denser.",
-        "speed": "Speed",
-        "direction": "Direction",
-        "denseAlert": "Dense QR Code. Test scanning at the intended display distance."
       },
       "ticker": {
         "fields": "Fields (up to three)",

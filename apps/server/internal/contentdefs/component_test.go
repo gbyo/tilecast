@@ -111,7 +111,13 @@ func TestComponentValidation(t *testing.T) {
 			t.Errorf("%s: invalid component accepted", name)
 		}
 	}
-	duplicate := componentDefinition(func(d *WidgetDefinition) { d.ID = "probe-two" })
+	// The same component type at another version is a collision, not a
+	// compatibility alias; aliases name the same version, element and
+	// entrypoint (TestComponentAliasValidation).
+	duplicate := componentDefinition(func(d *WidgetDefinition) {
+		d.ID = "probe-two"
+		d.Component.Version = 2
+	})
 	if _, err := New([]WidgetDefinition{componentDefinition(nil), duplicate}, nil); err == nil || !strings.Contains(err.Error(), "tilecast.probe") {
 		t.Fatalf("duplicate component type accepted: %v", err)
 	}
@@ -159,6 +165,47 @@ func TestSourcedWidgetValidation(t *testing.T) {
 	}
 }
 
+func TestComponentAliasValidation(t *testing.T) {
+	// A superseded provider generation may project into the component owned
+	// by the canonical definition when it names the same version, element
+	// and entrypoint, translating its own persisted keys instead.
+	legacy := componentDefinition(func(d *WidgetDefinition) {
+		d.ID = "legacy-qr"
+		d.Component.Type = "tilecast.qr-code"
+		d.Component.Version = 1
+		d.Component.TagName = "tc-widget-qr-code"
+	})
+	canonical := componentDefinition(func(d *WidgetDefinition) {
+		d.ID = "qr-code"
+		d.Component.Type = "tilecast.qr-code"
+		d.Component.Version = 1
+		d.Component.TagName = "tc-widget-qr-code"
+	})
+	if _, err := New([]WidgetDefinition{canonical, legacy}, nil); err != nil {
+		t.Fatalf("compatibility alias rejected: %v", err)
+	}
+	// The same type at another version is a different component, not an
+	// alias.
+	diverged := componentDefinition(func(d *WidgetDefinition) {
+		d.ID = "diverged"
+		d.Component.Type = "tilecast.qr-code"
+		d.Component.Version = 2
+		d.Component.TagName = "tc-widget-qr-code"
+	})
+	if _, err := New([]WidgetDefinition{canonical, diverged}, nil); err == nil {
+		t.Fatal("diverged component version accepted as an alias")
+	}
+	// The same element rendering another type collides rather than aliases.
+	retagged := componentDefinition(func(d *WidgetDefinition) {
+		d.ID = "retagged"
+		d.Component.Type = "acme.other"
+		d.Component.TagName = "tc-widget-probe"
+	})
+	if _, err := New([]WidgetDefinition{componentDefinition(nil), retagged}, nil); err == nil {
+		t.Fatal("shared element tag accepted for another component type")
+	}
+}
+
 func TestCompileComponentConfigBounds(t *testing.T) {
 	spec := *componentDefinition(nil).Component
 	config, err := CompileComponentConfig(spec, map[string]any{})
@@ -169,6 +216,23 @@ func TestCompileComponentConfigBounds(t *testing.T) {
 	if _, err := CompileComponentConfig(spec, map[string]any{}); err == nil {
 		t.Fatal("a missing key without a default compiled")
 	}
+	// A default may reference superseded configuration keys, so a
+	// compatibility definition prefers its current keys and still honors
+	// the legacy keys it replaces.
+	spec.ConfigTemplate = json.RawMessage(`{"payload":{"$config":"payload","default":{"$config":"value","default":""}}}`)
+	config, err = CompileComponentConfig(spec, map[string]any{"value": "https://example.org"})
+	if err != nil || config["payload"] != "https://example.org" {
+		t.Fatalf("chained default did not resolve the legacy key: %v %v", config, err)
+	}
+	config, err = CompileComponentConfig(spec, map[string]any{"payload": "https://example.com", "value": "https://example.org"})
+	if err != nil || config["payload"] != "https://example.com" {
+		t.Fatalf("the current key did not win over the legacy key: %v %v", config, err)
+	}
+	config, err = CompileComponentConfig(spec, map[string]any{})
+	if err != nil || config["payload"] != "" {
+		t.Fatalf("an empty chained default did not resolve: %v %v", config, err)
+	}
+	spec.ConfigTemplate = json.RawMessage(`{"zone":{"$config":"timezone"}}`)
 	oversized := map[string]any{"timezone": strings.Repeat("x", 2001)}
 	if _, err := CompileComponentConfig(spec, oversized); err == nil {
 		t.Fatal("an oversized string compiled")

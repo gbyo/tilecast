@@ -241,7 +241,10 @@ func resolveComponentTemplate(value any, configuration map[string]any) (any, err
 				return resolved, nil
 			}
 			if fallback, exists := typed["default"]; exists {
-				return fallback, nil
+				// A default may itself reference configuration, so a
+				// compatibility definition can prefer its current keys and
+				// fall back to the legacy keys it supersedes.
+				return resolveComponentTemplate(fallback, configuration)
 			}
 			return nil, fmt.Errorf("component configTemplate references missing configuration %q", key)
 		}

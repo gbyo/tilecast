@@ -6,7 +6,6 @@ import {
   useState,
 } from "react";
 import type { CSSProperties, ReactNode } from "react";
-import QRCode from "qrcode";
 import { Image as ImageIcon, ListVideo } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
@@ -22,7 +21,6 @@ import type {
   LayoutPlacement,
   Playlist,
   PlaylistItem,
-  QRCodeWidgetConfig,
   StructuredRecord,
   TickerWidgetConfig,
 } from "../../api/types";
@@ -272,12 +270,7 @@ export function AppPlacementPreview({
       regionalTimezone,
       regionalSetting(regional, "organization.date_format", "locale"),
     );
-  } else if (provider === "qrcode")
-    value =
-      typeof config.label === "string" && config.label
-        ? config.label
-        : "QR Code";
-  else if (provider === "ticker")
+  } else if (provider === "ticker")
     value = `${asset?.name ?? "Ticker"} · live data`;
   return (
     <div
@@ -543,68 +536,6 @@ export function CenteredWidget({
   );
 }
 
-export function QrWidget({
-  cfg,
-  item,
-  scale,
-}: {
-  cfg: QRCodeWidgetConfig;
-  item: LayoutPlacement;
-  scale: number;
-}) {
-  const [dataUrl, setDataUrl] = useState("");
-  useEffect(() => {
-    if (!cfg.value) {
-      setDataUrl("");
-      return;
-    }
-    void QRCode.toDataURL(cfg.value, {
-      margin: 2,
-      errorCorrectionLevel: { low: "L", medium: "M", quartile: "Q", high: "H" }[
-        cfg.errorCorrection
-      ] as "L" | "M" | "Q" | "H",
-      color: {
-        dark: hex6(cfg.foregroundColor, "#000000"),
-        light: hex6(cfg.backgroundColor, "#ffffff"),
-      },
-      width: 480,
-    })
-      .then(setDataUrl)
-      .catch(() => setDataUrl(""));
-  }, [
-    cfg.value,
-    cfg.errorCorrection,
-    cfg.foregroundColor,
-    cfg.backgroundColor,
-  ]);
-  const area = widgetContentArea(item, cfg);
-  const label = cfg.label?.trim();
-  return (
-    <div
-      className="wpv-root wpv-qr"
-      style={{
-        background: colorToCss(cfg.backgroundColor, "#FFFFFF"),
-        padding: `${area.verticalPadding * scale}px ${area.horizontalPadding * scale}px`,
-        gap: area.height * scale * 0.025,
-      }}
-    >
-      {dataUrl && <img className="wpv-qr__image" src={dataUrl} alt="" />}
-      {label && (
-        <div style={{ width: "100%", height: "18%" }}>
-          <FittedText
-            text={label}
-            color={colorToCss(cfg.foregroundColor, "#000000")}
-            fontPx={Math.max(area.width, area.height) * scale}
-            weight={400}
-            maxLines={2}
-            textScale={cfg.textScale}
-          />
-        </div>
-      )}
-    </div>
-  );
-}
-
 export function MenuWidget({
   name,
   cfg,
@@ -808,10 +739,7 @@ export function WidgetLivePreview({
   const provider = widget.provider;
   const cfg = widget.configuration as Record<string, unknown>;
   const fg = colorToCss(cfg.foregroundColor as string, "#F5F7FA");
-  const bg = colorToCss(
-    cfg.backgroundColor as string,
-    provider === "qrcode" ? "#FFFFFF" : "#0E141B",
-  );
+  const bg = colorToCss(cfg.backgroundColor as string, "#0E141B");
   const sourceId = cfg.dataSourceId as string | undefined;
   const source = sourceId ? live[sourceId] : undefined;
   const settings = useQuery({ queryKey: ["settings"], queryFn: api.settings });
@@ -828,6 +756,9 @@ export function WidgetLivePreview({
   );
   switch (provider) {
     case "clock":
+    case "qrcode":
+    case "qr-call-to-action":
+    case "qr-code":
       // Migrated V2 Widgets render the real Web Component through the
       // shared preview host. Each migration deletes its hand-written branch
       // here; zone-specific renderers are never added.
@@ -860,14 +791,6 @@ export function WidgetLivePreview({
             textScale={(cfg as unknown as DateWidgetConfig).textScale}
           />
         </CenteredWidget>
-      );
-    case "qrcode":
-      return (
-        <QrWidget
-          cfg={cfg as unknown as QRCodeWidgetConfig}
-          item={item}
-          scale={scale}
-        />
       );
     case "ticker":
       return (

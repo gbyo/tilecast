@@ -275,7 +275,12 @@ export function compileComponentConfig(
       if (typeof node["$config"] === "string") {
         const key = node["$config"];
         if (Object.hasOwn(configuration, key)) return configuration[key];
-        if (Object.hasOwn(node, "default")) return node["default"];
+        if (Object.hasOwn(node, "default")) {
+          // A default may itself reference configuration, so a
+          // compatibility definition can prefer its current keys and fall
+          // back to the legacy keys it supersedes.
+          return resolve(node["default"]);
+        }
         throw new Error(
           `configTemplate references missing configuration ${key}`,
         );

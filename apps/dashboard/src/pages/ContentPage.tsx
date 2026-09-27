@@ -150,6 +150,7 @@ import type {
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { NativeAppEditor, YouTubeSourceEditor } from "../content/SourceEditors";
+import { V2WidgetEditor } from "../content/V2WidgetEditor";
 import { AssetPreview } from "../components/content/AssetPreview";
 import { droppedFiles } from "../components/content/dragDrop";
 import { UsedByPanel } from "../content/UsedByPanel";
@@ -2404,9 +2405,35 @@ function AssetDetails(props: {
   onOpenChangeComplete: (open: boolean) => void;
   onChanged: (asset: Asset) => void;
 }) {
+  const definitions = useQuery({
+    queryKey: ["content-definitions"],
+    queryFn: api.contentDefinitions,
+    staleTime: 5 * 60_000,
+  });
+  const definition =
+    props.asset.type === "widget" && props.asset.widget
+      ? definitions.data?.widgets.find(
+          (candidate) => candidate.id === props.asset.widget?.provider,
+        )
+      : undefined;
   return props.asset.type === "widget" &&
     props.asset.widget?.provider === "website" ? (
     <WebsiteEditor
+      asset={props.asset}
+      csrf={props.csrf}
+      readOnly={!props.canManage}
+      onClose={props.onDismiss}
+      onSaved={props.onChanged}
+    />
+  ) : props.asset.type === "widget" &&
+    props.asset.widget &&
+    definition?.component ? (
+    // Migrated V2 Widgets author through the generic V2 editor wherever
+    // content is edited; component presence is the routing rule, matching
+    // the Widgets page.
+    <V2WidgetEditor
+      definition={definition}
+      catalog={definitions.data}
       asset={props.asset}
       csrf={props.csrf}
       readOnly={!props.canManage}
@@ -2424,27 +2451,13 @@ function AssetDetails(props: {
     />
   ) : props.asset.type === "widget" &&
     props.asset.widget &&
-    [
-      "clock",
-      "date",
-      "qrcode",
-      "ticker",
-      "menu",
-      "list",
-      "table",
-      "agenda",
-    ].includes(props.asset.widget.provider) ? (
+    ["clock", "date", "ticker", "menu", "list", "table", "agenda"].includes(
+      props.asset.widget.provider,
+    ) ? (
     <NativeAppEditor
       provider={
         props.asset.widget.provider as
-          | "clock"
-          | "date"
-          | "qrcode"
-          | "ticker"
-          | "menu"
-          | "list"
-          | "table"
-          | "agenda"
+          "clock" | "date" | "ticker" | "menu" | "list" | "table" | "agenda"
       }
       asset={props.asset}
       csrf={props.csrf}

@@ -55,7 +55,6 @@ import type {
   WidgetProvider,
   ClockWidgetConfig,
   DateWidgetConfig,
-  QRCodeWidgetConfig,
   CountdownWidgetConfig,
   TickerWidgetConfig,
   DisplayWidgetConfig,
@@ -180,6 +179,9 @@ export function WidgetProviderGallery({
   };
   const needle = search.trim().toLowerCase();
   const visible = catalog.filter((definition) => {
+    // Superseded providers remain editable for saved content but leave new
+    // creation once their V2 replacement proves parity.
+    if (definition.deprecation?.deprecated) return false;
     if (category !== "All" && galleryCategory(definition) !== category)
       return false;
     if (!needle) return true;
@@ -380,7 +382,6 @@ export type NativeProvider =
 type NativeConfig =
   | ClockWidgetConfig
   | DateWidgetConfig
-  | QRCodeWidgetConfig
   | CountdownWidgetConfig
   | TickerWidgetConfig
   | DisplayWidgetConfig
@@ -400,14 +401,6 @@ const nativeDefault = (provider: NativeProvider, t: WidgetsT): NativeConfig => {
       timezone: "",
       format: "locale",
       ...colors,
-    };
-  if (provider === "qrcode")
-    return {
-      value: "https://",
-      label: "",
-      errorCorrection: "medium",
-      foregroundColor: "#000000",
-      backgroundColor: "#FFFFFF",
     };
   if (provider === "countdown")
     return {
@@ -594,8 +587,6 @@ function nativeWidgetContentGuidance(provider: NativeProvider, t: WidgetsT) {
     return t("widgets.editors.native.contentGuidanceData");
   if (provider === "countdown")
     return t("widgets.editors.native.contentGuidanceCountdown");
-  if (provider === "qrcode")
-    return t("widgets.editors.native.contentGuidanceQr");
   if (provider === "world_clock")
     return t("widgets.editors.native.contentGuidanceWorldClock");
   if (provider === "clock" || provider === "date")
@@ -840,11 +831,8 @@ export function NativeAppEditor({
                   ? "widgets.editors.native.editTitle"
                   : "widgets.editors.native.createTitle",
                 {
-                  // i18n-ignore: provider IDs stay English; only "QR Code" is a display name
-                  provider:
-                    provider === "qrcode"
-                      ? t("widgets.editors.native.qrCodeName")
-                      : provider[0]!.toUpperCase() + provider.slice(1),
+                  // i18n-ignore: provider IDs stay English in titles
+                  provider: provider[0]!.toUpperCase() + provider.slice(1),
                 },
               )}
             </h2>
@@ -1371,205 +1359,6 @@ export function NativeAppEditor({
                       })}
                     </div>
                   </fieldset>
-                </>
-              )}
-              {provider === "qrcode" && (
-                <>
-                  <Field>
-                    <FieldLabel htmlFor="qrcode-value">
-                      {t("widgets.editors.qrcode.valueLabel")}
-                    </FieldLabel>
-                    <Textarea
-                      id="qrcode-value"
-                      value={(configuration as QRCodeWidgetConfig).value}
-                      maxLength={2048}
-                      disabled={readOnly}
-                      onChange={(e) =>
-                        setConfiguration((current) => ({
-                          ...current,
-                          value: e.target.value,
-                        }))
-                      }
-                    />
-                  </Field>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <Field>
-                      <FieldLabel htmlFor="qrcode-label">
-                        {t("widgets.editors.shared.label")}
-                      </FieldLabel>
-                      <Input
-                        id="qrcode-label"
-                        value={
-                          (configuration as QRCodeWidgetConfig).label ?? ""
-                        }
-                        disabled={readOnly}
-                        onChange={(e) =>
-                          setConfiguration((current) => ({
-                            ...current,
-                            label: e.target.value,
-                          }))
-                        }
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor="qrcode-error-correction">
-                        {t("widgets.editors.qrcode.errorCorrection")}
-                      </FieldLabel>
-                      <Select
-                        items={[
-                          {
-                            value: "low",
-                            label: t("widgets.editors.qrcode.levelLow"),
-                          },
-                          {
-                            value: "medium",
-                            label: t("widgets.editors.qrcode.levelMedium"),
-                          },
-                          {
-                            value: "quartile",
-                            label: t("widgets.editors.qrcode.levelQuartile"),
-                          },
-                          {
-                            value: "high",
-                            label: t("widgets.editors.qrcode.levelHigh"),
-                          },
-                        ]}
-                        value={
-                          (configuration as QRCodeWidgetConfig).errorCorrection
-                        }
-                        disabled={readOnly}
-                        onValueChange={(next) =>
-                          setConfiguration((current) => ({
-                            ...current,
-                            errorCorrection:
-                              next as QRCodeWidgetConfig["errorCorrection"],
-                          }))
-                        }
-                      >
-                        <SelectTrigger
-                          id="qrcode-error-correction"
-                          aria-label={t(
-                            "widgets.editors.qrcode.errorCorrection",
-                          )}
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="low">
-                            {t("widgets.editors.qrcode.levelLow")}
-                          </SelectItem>
-                          <SelectItem value="medium">
-                            {t("widgets.editors.qrcode.levelMedium")}
-                          </SelectItem>
-                          <SelectItem value="quartile">
-                            {t("widgets.editors.qrcode.levelQuartile")}
-                          </SelectItem>
-                          <SelectItem value="high">
-                            {t("widgets.editors.qrcode.levelHigh")}
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FieldDescription>
-                        {t("widgets.editors.qrcode.levelHint")}
-                      </FieldDescription>
-                    </Field>
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <Field>
-                      <FieldLabel htmlFor="qrcode-speed">
-                        {t("widgets.editors.qrcode.speed")}
-                      </FieldLabel>
-                      <Select
-                        items={[
-                          {
-                            value: "slow",
-                            label: t("widgets.editors.options.speedSlow"),
-                          },
-                          {
-                            value: "normal",
-                            label: t("widgets.editors.options.speedNormal"),
-                          },
-                          {
-                            value: "fast",
-                            label: t("widgets.editors.options.speedFast"),
-                          },
-                        ]}
-                        value={(configuration as TickerWidgetConfig).speed}
-                        disabled={readOnly}
-                        onValueChange={(next) =>
-                          setConfiguration((current) => ({
-                            ...current,
-                            speed: next as TickerWidgetConfig["speed"],
-                          }))
-                        }
-                      >
-                        <SelectTrigger
-                          id="qrcode-speed"
-                          aria-label={t("widgets.editors.qrcode.speed")}
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="slow">
-                            {t("widgets.editors.options.speedSlow")}
-                          </SelectItem>
-                          <SelectItem value="normal">
-                            {t("widgets.editors.options.speedNormal")}
-                          </SelectItem>
-                          <SelectItem value="fast">
-                            {t("widgets.editors.options.speedFast")}
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor="qrcode-direction">
-                        {t("widgets.editors.qrcode.direction")}
-                      </FieldLabel>
-                      <Select
-                        items={[
-                          {
-                            value: "left",
-                            label: t("widgets.editors.options.alignLeft"),
-                          },
-                          {
-                            value: "right",
-                            label: t("widgets.editors.options.alignRight"),
-                          },
-                        ]}
-                        value={(configuration as TickerWidgetConfig).direction}
-                        disabled={readOnly}
-                        onValueChange={(next) =>
-                          setConfiguration((current) => ({
-                            ...current,
-                            direction: next as TickerWidgetConfig["direction"],
-                          }))
-                        }
-                      >
-                        <SelectTrigger
-                          id="qrcode-direction"
-                          aria-label={t("widgets.editors.qrcode.direction")}
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="left">
-                            {t("widgets.editors.options.alignLeft")}
-                          </SelectItem>
-                          <SelectItem value="right">
-                            {t("widgets.editors.options.alignRight")}
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                  </div>
-                  {(configuration as QRCodeWidgetConfig).value.length > 500 && (
-                    <Alert>
-                      <AlertDescription>
-                        {t("widgets.editors.qrcode.denseAlert")}
-                      </AlertDescription>
-                    </Alert>
-                  )}
                 </>
               )}
               {provider === "ticker" && (

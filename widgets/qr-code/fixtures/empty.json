@@ -1,0 +1,14 @@
+{
+  "name": "Empty",
+  "description": "No payload yet, so the Widget reports its empty state instead of rendering a blank code.",
+  "configuration": {
+    "payload": "",
+    "heading": "",
+    "instruction": "",
+    "shortLabel": "",
+    "style": "standard",
+    "backgroundColor": "#FFFFFF",
+    "foregroundColor": "#101418"
+  },
+  "expect": "empty"
+}
