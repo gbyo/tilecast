@@ -2,6 +2,8 @@ package cli
 
 import (
 	"bytes"
+	"errors"
+	"io"
 	"strings"
 	"testing"
 )
@@ -33,6 +35,29 @@ func TestVersionShortFlag(t *testing.T) {
 	}
 	if strings.TrimSpace(out) != Version {
 		t.Fatalf("version --short = %q, want %q", strings.TrimSpace(out), Version)
+	}
+}
+
+func TestVersionRejectsArguments(t *testing.T) {
+	if _, err := execute("version", "extra"); err == nil {
+		t.Fatal("version extra succeeded, want an argument error")
+	}
+}
+
+type failingWriter struct{}
+
+func (failingWriter) Write([]byte) (int, error) {
+	return 0, io.ErrClosedPipe
+}
+
+func TestVersionReportsOutputErrors(t *testing.T) {
+	for _, args := range [][]string{{}, {"--short"}} {
+		cmd := newVersionCommand()
+		cmd.SetOut(failingWriter{})
+		cmd.SetArgs(args)
+		if err := cmd.Execute(); !errors.Is(err, io.ErrClosedPipe) {
+			t.Fatalf("version %v error = %v, want %v", args, err, io.ErrClosedPipe)
+		}
 	}
 }
 
