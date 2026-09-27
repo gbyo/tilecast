@@ -344,12 +344,12 @@ export class TilecastTableWidget extends TilecastWidgetElement<
                     const align = effectiveAlign(column, field);
                     return html`<th
                       class=${
-                      align === "right"
-                        ? "numeric"
-                        : align === "center"
-                          ? "center"
-                          : nothing
-                    }
+                        align === "right"
+                          ? "numeric"
+                          : align === "center"
+                            ? "center"
+                            : nothing
+                      }
                       scope="col"
                     >
                       ${column.label || field?.label || column.field}
@@ -370,12 +370,12 @@ export class TilecastTableWidget extends TilecastWidgetElement<
                   );
                   return html`<td
                     class=${
-                    align === "right"
-                      ? "numeric"
-                      : align === "center"
-                        ? "center"
-                        : nothing
-                  }
+                      align === "right"
+                        ? "numeric"
+                        : align === "center"
+                          ? "center"
+                          : nothing
+                    }
                   >
                     ${cell(record, column)}
                   </td>`;

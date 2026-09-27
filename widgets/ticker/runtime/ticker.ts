@@ -337,12 +337,12 @@ export class TilecastTickerWidget extends TilecastWidgetElement<
       (entry) =>
         html`<span class="item"
             >${entry.primary}${
-            entry.secondary
-              ? html`<span class="secondary"
-                  >${this.config.fieldSeparator}${entry.secondary}</span
-                >`
-              : nothing
-          }</span
+              entry.secondary
+                ? html`<span class="secondary"
+                    >${this.config.fieldSeparator}${entry.secondary}</span
+                  >`
+                : nothing
+            }</span
           ><span class="gap" aria-hidden="true"
             >${this.config.separator}</span
           >`,
