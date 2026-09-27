@@ -133,7 +133,10 @@ function resolveRef(
 }
 
 function lookupPointer(root: unknown, pointer: string): unknown {
-  const parts = pointer.split("/").slice(1).map((part) => part.replace(/~1/g, "/").replace(/~0/g, "~"));
+  const parts = pointer
+    .split("/")
+    .slice(1)
+    .map((part) => part.replace(/~1/g, "/").replace(/~0/g, "~"));
   let current = root;
   for (const part of parts) {
     if (!isMap(current)) return undefined;
@@ -159,7 +162,11 @@ function collectFragmentEntries(fragment: unknown): OperationEntry[] {
       if (!METHODS.has(method) || !isMap(operation)) continue;
       const operationId = operation["operationId"];
       if (!isString(operationId)) continue;
-      found.push({ operationId, at: `${method.toUpperCase()} ${path} (${operationId})`, operation });
+      found.push({
+        operationId,
+        at: `${method.toUpperCase()} ${path} (${operationId})`,
+        operation,
+      });
     }
   }
   return found;
@@ -181,19 +188,26 @@ function simplifySchema(
     if (!isString(ref)) return { error: "schema $ref is not a string" };
     const pointer = splitRef(ref)?.pointer ?? "";
     const name =
-      componentName(pointer, "schemas") ?? componentName(pointer, "requestBodies");
+      componentName(pointer, "schemas") ??
+      componentName(pointer, "requestBodies");
     if (name === null)
-      return { error: `schema reference ${JSON.stringify(ref)} is not a local or core component` };
+      return {
+        error: `schema reference ${JSON.stringify(ref)} is not a local or core component`,
+      };
     if (seen.includes(ref))
       return { error: `schema reference ${JSON.stringify(ref)} is recursive` };
     const target = resolveRef(ref, fragment, core);
     if (!target)
-      return { error: `schema reference ${JSON.stringify(ref)} does not resolve` };
+      return {
+        error: `schema reference ${JSON.stringify(ref)} does not resolve`,
+      };
     return simplifySchema(target, fragment, core, [...seen, ref], depth + 1);
   }
   for (const combinator of ["allOf", "oneOf", "anyOf", "not"]) {
     if (node[combinator] !== undefined)
-      return { error: `schema combinator ${JSON.stringify(combinator)} cannot be automated generically` };
+      return {
+        error: `schema combinator ${JSON.stringify(combinator)} cannot be automated generically`,
+      };
   }
   const type = node["type"];
   if (type !== undefined && !isString(type))
@@ -221,15 +235,28 @@ function simplifySchema(
               ? "integer"
               : "";
   }
-  if (effectiveType !== "object" && effectiveType !== "array" && !PRIMITIVE_TYPES.has(effectiveType))
-    return { error: `schema type ${JSON.stringify(effectiveType)} cannot be automated generically` };
+  if (
+    effectiveType !== "object" &&
+    effectiveType !== "array" &&
+    !PRIMITIVE_TYPES.has(effectiveType)
+  )
+    return {
+      error: `schema type ${JSON.stringify(effectiveType)} cannot be automated generically`,
+    };
   const out: Record<string, unknown> = {};
   if (effectiveType !== "") out.type = effectiveType;
   for (const key of ["format", "description", "default", "pattern"]) {
     const value = node[key];
     if (isString(value)) out[key] = value;
   }
-  for (const key of ["minimum", "maximum", "minLength", "maxLength", "minItems", "maxItems"]) {
+  for (const key of [
+    "minimum",
+    "maximum",
+    "minLength",
+    "maxLength",
+    "minItems",
+    "maxItems",
+  ]) {
     const value = node[key];
     if (typeof value === "number") out[key] = value;
   }
@@ -239,8 +266,14 @@ function simplifySchema(
     if (!Array.isArray(enumNode)) return { error: `"enum" is not a sequence` };
     const values: (string | number | boolean)[] = [];
     for (const item of enumNode) {
-      if (typeof item !== "string" && typeof item !== "number" && typeof item !== "boolean")
-        return { error: `"enum" holds only string, number, or boolean values for automation` };
+      if (
+        typeof item !== "string" &&
+        typeof item !== "number" &&
+        typeof item !== "boolean"
+      )
+        return {
+          error: `"enum" holds only string, number, or boolean values for automation`,
+        };
       values.push(item);
     }
     out.enum = values;
@@ -264,18 +297,33 @@ function simplifySchema(
       if (!isMap(properties)) return { error: `"properties" is not a mapping` };
       const props: Record<string, unknown> = {};
       for (const [name, prop] of Object.entries(properties)) {
-        const simplified = simplifySchema(prop, fragment, core, seen, depth + 1);
+        const simplified = simplifySchema(
+          prop,
+          fragment,
+          core,
+          seen,
+          depth + 1,
+        );
         if (simplified.error !== undefined)
-          return { error: `property ${JSON.stringify(name)}: ${simplified.error}` };
+          return {
+            error: `property ${JSON.stringify(name)}: ${simplified.error}`,
+          };
         props[name] = simplified.schema;
       }
       out.properties = props;
     }
     const additional = node["additionalProperties"];
     if (additional !== undefined) {
-      if (typeof additional === "boolean") out.additionalProperties = additional;
+      if (typeof additional === "boolean")
+        out.additionalProperties = additional;
       else {
-        const simplified = simplifySchema(additional, fragment, core, seen, depth + 1);
+        const simplified = simplifySchema(
+          additional,
+          fragment,
+          core,
+          seen,
+          depth + 1,
+        );
         if (simplified.error !== undefined) return simplified;
         out.additionalProperties = simplified.schema;
       }
@@ -296,10 +344,14 @@ function readParam(
   if (!isMap(schemaNode))
     return { error: `${at}: parameter ${JSON.stringify(name)} has no schema` };
   if (schemaNode["$ref"] !== undefined)
-    return { error: `${at}: parameter ${JSON.stringify(name)} hides its schema behind a reference; inline the scalar schema` };
+    return {
+      error: `${at}: parameter ${JSON.stringify(name)} hides its schema behind a reference; inline the scalar schema`,
+    };
   const type = schemaNode["type"];
   if (!isString(type) || !PRIMITIVE_TYPES.has(type))
-    return { error: `${at}: parameter ${JSON.stringify(name)} has non-scalar type ${JSON.stringify(type)}` };
+    return {
+      error: `${at}: parameter ${JSON.stringify(name)} has non-scalar type ${JSON.stringify(type)}`,
+    };
   const param: ParamMeta = {
     name,
     required: entry["required"] === true,
@@ -309,20 +361,32 @@ function readParam(
   if (isString(format)) param.format = format;
   const enumNode = schemaNode["enum"];
   if (enumNode !== undefined) {
-    if (!Array.isArray(enumNode)) return { error: `${at}: parameter ${JSON.stringify(name)} "enum" is not a sequence` };
+    if (!Array.isArray(enumNode))
+      return {
+        error: `${at}: parameter ${JSON.stringify(name)} "enum" is not a sequence`,
+      };
     const values: (string | number | boolean)[] = [];
     for (const item of enumNode) {
-      if (typeof item !== "string" && typeof item !== "number" && typeof item !== "boolean")
-        return { error: `${at}: parameter ${JSON.stringify(name)} "enum" holds only scalar values` };
+      if (
+        typeof item !== "string" &&
+        typeof item !== "number" &&
+        typeof item !== "boolean"
+      )
+        return {
+          error: `${at}: parameter ${JSON.stringify(name)} "enum" holds only scalar values`,
+        };
       values.push(item);
     }
     param.enum = values;
   }
   const description = entry["description"];
   if (isString(description)) param.description = description;
-  else if (isString(schemaNode["description"])) param.description = schemaNode["description"];
+  else if (isString(schemaNode["description"]))
+    param.description = schemaNode["description"];
   if (location === "path" && !param.required)
-    return { error: `${at}: path parameter ${JSON.stringify(name)} must be required` };
+    return {
+      error: `${at}: path parameter ${JSON.stringify(name)} must be required`,
+    };
   return { param };
 }
 
@@ -351,7 +415,9 @@ export function extractOperationMetadata(
     if (coreParsed.ok) core = coreParsed.json;
   }
 
-  for (const { operationId, at, operation } of collectFragmentEntries(fragment)) {
+  for (const { operationId, at, operation } of collectFragmentEntries(
+    fragment,
+  )) {
     const meta: OperationMetadata = { pathParams: [], queryParams: [] };
 
     const parameters = operation["parameters"];
@@ -366,7 +432,9 @@ export function extractOperationMetadata(
         if (isMap(item) && isString(item["$ref"])) {
           const target = resolveRef(item["$ref"], fragment, core);
           if (!target) {
-            add(`${at}: parameter reference ${JSON.stringify(item["$ref"])} does not resolve`);
+            add(
+              `${at}: parameter reference ${JSON.stringify(item["$ref"])} does not resolve`,
+            );
             failed = true;
             break;
           }
@@ -380,7 +448,9 @@ export function extractOperationMetadata(
         const location = entry["in"];
         if (location === "header" || location === "cookie") continue;
         if (location !== "path" && location !== "query") {
-          add(`${at}: parameter location ${JSON.stringify(location)} cannot be automated generically`);
+          add(
+            `${at}: parameter location ${JSON.stringify(location)} cannot be automated generically`,
+          );
           failed = true;
           break;
         }
@@ -402,7 +472,9 @@ export function extractOperationMetadata(
       if (isMap(bodyNode) && isString(bodyNode["$ref"])) {
         const target = resolveRef(bodyNode["$ref"], fragment, core);
         if (!target) {
-          add(`${at}: requestBody reference ${JSON.stringify(bodyNode["$ref"])} does not resolve`);
+          add(
+            `${at}: requestBody reference ${JSON.stringify(bodyNode["$ref"])} does not resolve`,
+          );
           continue;
         }
         bodyMap = target;
@@ -418,20 +490,30 @@ export function extractOperationMetadata(
       }
       const jsonContent = content["application/json"];
       if (!isMap(jsonContent)) {
-        add(`${at}: only application/json request bodies can be automated generically`);
+        add(
+          `${at}: only application/json request bodies can be automated generically`,
+        );
         continue;
       }
       if (jsonContent["schema"] === undefined) {
         add(`${at}: request body has no schema`);
         continue;
       }
-      const simplified = simplifySchema(jsonContent["schema"], fragment, core, [], 0);
+      const simplified = simplifySchema(
+        jsonContent["schema"],
+        fragment,
+        core,
+        [],
+        0,
+      );
       if (simplified.error !== undefined) {
         add(`${at}: request body schema: ${simplified.error}`);
         continue;
       }
       if (simplified.schema?.type !== "object") {
-        add(`${at}: request body schema must be an object for generic automation`);
+        add(
+          `${at}: request body schema must be an object for generic automation`,
+        );
         continue;
       }
       meta.requestBody = {

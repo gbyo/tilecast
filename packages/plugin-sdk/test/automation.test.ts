@@ -333,7 +333,9 @@ operations:
     const problems = checkAutomationFiles(repo, fragments);
     expect(
       problems.some((problem) =>
-        problem.message.includes("collides with the handwritten plugin lifecycle"),
+        problem.message.includes(
+          "collides with the handwritten plugin lifecycle",
+        ),
       ),
     ).toBe(true);
   });
@@ -405,7 +407,10 @@ operations:
 });
 
 describe("automation resolution against OpenAPI", () => {
-  const coreText = readFileSync(join(repoRoot, "docs", "openapi", "core.yaml"), "utf8");
+  const coreText = readFileSync(
+    join(repoRoot, "docs", "openapi", "core.yaml"),
+    "utf8",
+  );
   const fragmentText = readFileSync(
     join(repoRoot, "plugins", "countdown-bar", "api", "openapi.yaml"),
     "utf8",
@@ -416,7 +421,8 @@ describe("automation resolution against OpenAPI", () => {
   );
 
   it("derives mechanical metadata without growing automation.yaml", async () => {
-    const { resolveAutomation } = await import("../tools/pluginctl/automation.ts");
+    const { resolveAutomation } =
+      await import("../tools/pluginctl/automation.ts");
     const { problems, resolved } = resolveAutomation(
       "countdown_bar",
       automationText,
@@ -425,12 +431,15 @@ describe("automation resolution against OpenAPI", () => {
     );
     expect(problems).toEqual([]);
     expect(resolved?.operations).toHaveLength(5);
-    const byId = new Map(resolved!.operations.map((op) => [op.operationId, op]));
+    const byId = new Map(
+      resolved!.operations.map((op) => [op.operationId, op]),
+    );
     expect(byId.get("getCountdownBarInstance")?.pathParams).toEqual([
       { name: "id", required: true, type: "string", format: "uuid" },
     ]);
     expect(byId.get("listCountdownBarInstances")?.pathParams).toEqual([]);
-    const schema = byId.get("createCountdownBarInstance")?.requestBody?.schema as {
+    const schema = byId.get("createCountdownBarInstance")?.requestBody
+      ?.schema as {
       properties?: Record<string, { type?: string }>;
     };
     expect(schema?.properties?.["name"]?.type).toBe("string");
@@ -443,13 +452,19 @@ describe("automation resolution against OpenAPI", () => {
     const { parseAutomationDocument } = await import("../src/automation.ts");
     expect(() =>
       parseAutomationDocument(
-        YAML.parse(readFileSync(join(fixtures, "invalid", "break-glass-risk.yaml"), "utf8")),
+        YAML.parse(
+          readFileSync(
+            join(fixtures, "invalid", "break-glass-risk.yaml"),
+            "utf8",
+          ),
+        ),
       ),
     ).toThrow();
   });
 
   it("fails clearly on fields input", async () => {
-    const { resolveAutomation } = await import("../tools/pluginctl/automation.ts");
+    const { resolveAutomation } =
+      await import("../tools/pluginctl/automation.ts");
     const yamlText = `apiVersion: 1
 operations:
   - operationId: listCountdownBarInstances
@@ -467,13 +482,14 @@ operations:
       coreText,
     );
     expect(resolved).toBeUndefined();
-    expect(problems.some((p) => p.message.includes('input "fields"'))).toBe(true);
+    expect(problems.some((p) => p.message.includes('input "fields"'))).toBe(
+      true,
+    );
   });
 
   it("fails clearly on unsupported OpenAPI shapes", async () => {
-    const { extractOperationMetadata } = await import(
-      "../tools/pluginctl/automation-params.ts"
-    );
+    const { extractOperationMetadata } =
+      await import("../tools/pluginctl/automation-params.ts");
     const fragment = `openapi: 3.1.0
 info:
   title: T
@@ -501,9 +517,18 @@ paths:
       responses:
         "201": { description: Created }
 `;
-    const { metadata, problems } = extractOperationMetadata("example", "f", fragment, null);
+    const { metadata, problems } = extractOperationMetadata(
+      "example",
+      "f",
+      fragment,
+      null,
+    );
     expect(metadata.size).toBe(0);
-    expect(problems.some((p) => p.message.includes("non-scalar type"))).toBe(true);
-    expect(problems.some((p) => p.message.includes("only application/json"))).toBe(true);
+    expect(problems.some((p) => p.message.includes("non-scalar type"))).toBe(
+      true,
+    );
+    expect(
+      problems.some((p) => p.message.includes("only application/json")),
+    ).toBe(true);
   });
 });
