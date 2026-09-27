@@ -111,7 +111,7 @@ The limits come from the spike measurements (software path, one 720p surface cos
 | Pixels of one surface       | 3840 × 2160 at most, each edge at least 16                                       |
 | Pixels of all live surfaces | 8 294 400 (one 4K frame)                                                         |
 | URL                         | 2048 bytes, `https:` or `http:`, no user information                             |
-| Allowed hosts               | 25 entries, each at most 253 bytes, lowercase DNS names or IP literals           |
+| Allowed hosts               | 25 entries, each at most 253 bytes, lowercase DNS names or IPv4 literals; IPv6 literals are rejected at authoring because no remote web player navigates them |
 | Custom User-Agent           | 256 printable ASCII bytes                                                        |
 | Zoom                        | 25 to 500 percent                                                                |
 | Scroll offset               | 0 to 100 000 pixels                                                              |

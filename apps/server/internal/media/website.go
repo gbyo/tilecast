@@ -161,12 +161,22 @@ func (s *Service) normalizeWebsite(ctx context.Context, in WebsiteInput) (Websit
 		}
 	}
 	host := strings.ToLower(strings.TrimSuffix(u.Hostname(), "."))
+	if strings.Contains(host, ":") {
+		// IPv6 literals are rejected at authoring: the remote web players
+		// navigate DNS names and IPv4 literals only (the helper's
+		// navigation policy and protocol validation refuse IPv6), so an
+		// IPv6 website could be assigned but never displayed.
+		return in, errors.New("website URL must not use an IPv6 literal: use a DNS name or an IPv4 address")
+	}
 	if !validWebsiteHost(host) {
 		return in, errors.New("website URL host is invalid")
 	}
 	allowed := map[string]bool{host: true}
 	for _, raw := range in.AllowedHosts {
 		h := strings.ToLower(strings.TrimSpace(strings.TrimSuffix(raw, ".")))
+		if strings.Contains(h, ":") {
+			return in, errors.New("allowed hosts must not use IPv6 literals: use DNS names or IPv4 addresses")
+		}
 		if h == "" || strings.ContainsAny(h, "/:*@") || !validWebsiteHost(h) {
 			return in, errors.New("allowed hosts must be exact host names or canonical IP addresses")
 		}
