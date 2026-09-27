@@ -55,6 +55,9 @@ server host for that.`,
 	root.AddCommand(newSettingsCommand(env))
 	root.AddCommand(newPluginCommand(env))
 	root.AddCommand(newPairingCommand(env))
+	root.AddCommand(newPlaylistCommand(env))
+	root.AddCommand(newScheduleCommand(env))
+	root.AddCommand(newTokenCommand(env))
 	return root
 }
 

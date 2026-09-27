@@ -158,6 +158,15 @@ export const SUPPORTED_OPERATIONS: SupportedOperation[] = [
     auth: "session-manager",
   },
   {
+    method: "post",
+    path: "/api/v1/playlists/{id}/publish",
+    operationId: "publishPlaylist",
+    requestBody: "schema",
+    responseSchema: true,
+    errors: ["401", "403", "409"],
+    auth: "session",
+  },
+  {
     method: "get",
     path: "/api/v1/me/preferences",
     operationId: "getPreferences",

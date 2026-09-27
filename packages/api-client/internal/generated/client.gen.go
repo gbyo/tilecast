@@ -3001,6 +3001,11 @@ type UpdatePlaylistItemParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
+// PublishPlaylistJSONBody defines parameters for PublishPlaylist.
+type PublishPlaylistJSONBody struct {
+	ExpectedDraftRevision int `json:"expectedDraftRevision"`
+}
+
 // SetPlaylistTagRuleParams defines parameters for SetPlaylistTagRule.
 type SetPlaylistTagRuleParams struct {
 	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
@@ -3320,6 +3325,9 @@ type AddPlaylistItemJSONRequestBody = PlaylistItemInput
 
 // BulkUpdatePlaylistItemsJSONRequestBody defines body for BulkUpdatePlaylistItems for application/json ContentType.
 type BulkUpdatePlaylistItemsJSONRequestBody = PlaylistBulkItemInput
+
+// PublishPlaylistJSONRequestBody defines body for PublishPlaylist for application/json ContentType.
+type PublishPlaylistJSONRequestBody PublishPlaylistJSONBody
 
 // SetPlaylistTagRuleJSONRequestBody defines body for SetPlaylistTagRule for application/json ContentType.
 type SetPlaylistTagRuleJSONRequestBody = PlaylistTagRuleInput
@@ -4886,6 +4894,18 @@ type ClientInterface interface {
 
 	// UpdatePlaylistItem performs a PATCH /api/v1/playlists/{id}/items/{itemId} (the `UpdatePlaylistItem` operationId) request.
 	UpdatePlaylistItem(ctx context.Context, id ResourceID, itemId openapi_types.UUID, params *UpdatePlaylistItemParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PublishPlaylistWithBody performs a POST /api/v1/playlists/{id}/publish (the `PublishPlaylist` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Requires a content manager (Owner, Administrator, or Editor) with the write scope. Publishes the draft the CLI read first: the request carries the draft revision it saw, and a 409 means someone else published first. A playlist under editorial review answers 202 with the submission instead of publishing.
+	PublishPlaylistWithBody(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PublishPlaylist performs a POST /api/v1/playlists/{id}/publish (the `PublishPlaylist` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Requires a content manager (Owner, Administrator, or Editor) with the write scope. Publishes the draft the CLI read first: the request carries the draft revision it saw, and a 409 means someone else published first. A playlist under editorial review answers 202 with the submission instead of publishing.
+	PublishPlaylist(ctx context.Context, id ResourceID, body PublishPlaylistJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SetPlaylistTagRuleWithBody performs a PUT /api/v1/playlists/{id}/tag-rule (the `SetPlaylistTagRule` operationId) request,
 	// with any type of body and a specified content type.
@@ -8697,6 +8717,38 @@ func (c *Client) DeletePlaylistItem(ctx context.Context, id ResourceID, itemId o
 // UpdatePlaylistItem performs a PATCH /api/v1/playlists/{id}/items/{itemId} (the `UpdatePlaylistItem` operationId) request.
 func (c *Client) UpdatePlaylistItem(ctx context.Context, id ResourceID, itemId openapi_types.UUID, params *UpdatePlaylistItemParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdatePlaylistItemRequest(c.Server, id, itemId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PublishPlaylistWithBody performs a POST /api/v1/playlists/{id}/publish (the `PublishPlaylist` operationId) request,
+// with any type of body and a specified content type.
+//
+// Requires a content manager (Owner, Administrator, or Editor) with the write scope. Publishes the draft the CLI read first: the request carries the draft revision it saw, and a 409 means someone else published first. A playlist under editorial review answers 202 with the submission instead of publishing.
+func (c *Client) PublishPlaylistWithBody(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPublishPlaylistRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PublishPlaylist performs a POST /api/v1/playlists/{id}/publish (the `PublishPlaylist` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Requires a content manager (Owner, Administrator, or Editor) with the write scope. Publishes the draft the CLI read first: the request carries the draft revision it saw, and a 409 means someone else published first. A playlist under editorial review answers 202 with the submission instead of publishing.
+func (c *Client) PublishPlaylist(ctx context.Context, id ResourceID, body PublishPlaylistJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPublishPlaylistRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -18013,6 +18065,53 @@ func NewUpdatePlaylistItemRequest(server string, id ResourceID, itemId openapi_t
 	return req, nil
 }
 
+// NewPublishPlaylistRequest calls the generic PublishPlaylist builder with application/json body
+func NewPublishPlaylistRequest(server string, id ResourceID, body PublishPlaylistJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPublishPlaylistRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewPublishPlaylistRequestWithBody constructs an http.Request for the PublishPlaylist method, with any body, and a specified content type
+func NewPublishPlaylistRequestWithBody(server string, id ResourceID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/playlists/%s/publish", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewSetPlaylistTagRuleRequest calls the generic SetPlaylistTagRule builder with application/json body
 func NewSetPlaylistTagRuleRequest(server string, id ResourceID, params *SetPlaylistTagRuleParams, body SetPlaylistTagRuleJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -23353,6 +23452,20 @@ type ClientWithResponsesInterface interface {
 	//
 	// Returns a wrapper object for the known response body format(s).
 	UpdatePlaylistItemWithResponse(ctx context.Context, id ResourceID, itemId openapi_types.UUID, params *UpdatePlaylistItemParams, reqEditors ...RequestEditorFn) (*UpdatePlaylistItemResponse, error)
+
+	// PublishPlaylistWithBodyWithResponse performs a POST /api/v1/playlists/{id}/publish (the `PublishPlaylist` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Requires a content manager (Owner, Administrator, or Editor) with the write scope. Publishes the draft the CLI read first: the request carries the draft revision it saw, and a 409 means someone else published first. A playlist under editorial review answers 202 with the submission instead of publishing.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	PublishPlaylistWithBodyWithResponse(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PublishPlaylistResponse, error)
+
+	// PublishPlaylistWithResponse performs a POST /api/v1/playlists/{id}/publish (the `PublishPlaylist` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Requires a content manager (Owner, Administrator, or Editor) with the write scope. Publishes the draft the CLI read first: the request carries the draft revision it saw, and a 409 means someone else published first. A playlist under editorial review answers 202 with the submission instead of publishing.
+	PublishPlaylistWithResponse(ctx context.Context, id ResourceID, body PublishPlaylistJSONRequestBody, reqEditors ...RequestEditorFn) (*PublishPlaylistResponse, error)
 
 	// SetPlaylistTagRuleWithBodyWithResponse performs a PUT /api/v1/playlists/{id}/tag-rule (the `SetPlaylistTagRule` operationId) request,
 	// with any type of body and a specified content type.
@@ -30434,6 +30547,47 @@ func (r UpdatePlaylistItemResponse) ContentType() string {
 	return ""
 }
 
+type PublishPlaylistResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *map[string]interface{}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PublishPlaylistResponse) GetJSON200() *map[string]interface{} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r PublishPlaylistResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PublishPlaylistResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PublishPlaylistResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PublishPlaylistResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type SetPlaylistTagRuleResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -36860,6 +37014,32 @@ func (c *ClientWithResponses) UpdatePlaylistItemWithResponse(ctx context.Context
 	return ParseUpdatePlaylistItemResponse(rsp)
 }
 
+// PublishPlaylistWithBodyWithResponse performs a POST /api/v1/playlists/{id}/publish (the `PublishPlaylist` operationId) request,
+// with any type of body and a specified content type.
+//
+// Requires a content manager (Owner, Administrator, or Editor) with the write scope. Publishes the draft the CLI read first: the request carries the draft revision it saw, and a 409 means someone else published first. A playlist under editorial review answers 202 with the submission instead of publishing.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) PublishPlaylistWithBodyWithResponse(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PublishPlaylistResponse, error) {
+	rsp, err := c.PublishPlaylistWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePublishPlaylistResponse(rsp)
+}
+
+// PublishPlaylistWithResponse performs a POST /api/v1/playlists/{id}/publish (the `PublishPlaylist` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Requires a content manager (Owner, Administrator, or Editor) with the write scope. Publishes the draft the CLI read first: the request carries the draft revision it saw, and a 409 means someone else published first. A playlist under editorial review answers 202 with the submission instead of publishing.
+func (c *ClientWithResponses) PublishPlaylistWithResponse(ctx context.Context, id ResourceID, body PublishPlaylistJSONRequestBody, reqEditors ...RequestEditorFn) (*PublishPlaylistResponse, error) {
+	rsp, err := c.PublishPlaylist(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePublishPlaylistResponse(rsp)
+}
+
 // SetPlaylistTagRuleWithBodyWithResponse performs a PUT /api/v1/playlists/{id}/tag-rule (the `SetPlaylistTagRule` operationId) request,
 // with any type of body and a specified content type.
 //
@@ -41499,6 +41679,44 @@ func ParseUpdatePlaylistItemResponse(rsp *http.Response) (*UpdatePlaylistItemRes
 	response := &UpdatePlaylistItemResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParsePublishPlaylistResponse parses an HTTP response from a PublishPlaylistWithResponse call
+func ParsePublishPlaylistResponse(rsp *http.Response) (*PublishPlaylistResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PublishPlaylistResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest map[string]interface{}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 202:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
 	}
 
 	return response, nil

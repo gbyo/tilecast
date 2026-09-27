@@ -191,6 +191,13 @@ function fixtureCore(): string {
       `      responses:\n${ok("Pending")}\n${unauthorized}\n        '403': { description: Forbidden }`,
     ],
     [
+      "/api/v1/playlists/{id}/publish",
+      "post",
+      "publishPlaylist",
+      "Requires a content manager with an enrolled dashboard session.",
+      `      parameters:\n        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }\n      requestBody:\n        required: true\n        content:\n          application/json:\n            schema:\n              type: object\n              required: [expectedDraftRevision]\n      responses:\n${ok("Published", `${schemaRef("PlaylistPublishResult")}\n`)}\n        '202': { description: Submitted }\n${unauthorized}\n        '403': { description: Forbidden }\n        '409': { description: Conflict }`,
+    ],
+    [
       "/api/v1/me/preferences",
       "get",
       "getPreferences",

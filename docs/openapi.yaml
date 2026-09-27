@@ -1282,6 +1282,35 @@ paths:
           "204": { description: Playlist soft-deleted },
           "409": { description: Playlist is assigned },
         }
+  /api/v1/playlists/{id}/publish:
+    post:
+      operationId: publishPlaylist
+      description: >-
+        Requires a content manager (Owner, Administrator, or Editor) with the write scope. Publishes the draft the CLI read first: the request carries the draft revision it saw, and a 409 means someone else published first. A playlist under editorial review answers 202 with the submission instead of publishing.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expectedDraftRevision]
+              properties:
+                expectedDraftRevision: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Playlist published
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+        "202":
+          { description: Submitted for editorial review instead of publishing }
+        "401": { description: Dashboard authentication required }
+        "403": { description: A content manager is required }
+        "409": { description: The draft moved since it was read; read it again }
   /api/v1/playlists/{id}/items:
     post:
       operationId: addPlaylistItem

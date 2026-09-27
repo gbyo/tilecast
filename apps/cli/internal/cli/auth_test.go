@@ -22,6 +22,7 @@ type cliFixture struct {
 	lastAutomationCall  string
 	lastScreenUpdate    map[string]any
 	lastPairingApproval map[string]any
+	lastPublishRevision int64
 }
 
 func newFixture(t *testing.T) *cliFixture {
@@ -272,6 +273,91 @@ func newFixture(t *testing.T) *cliFixture {
 			body["name"] = "w-3"
 			w.WriteHeader(http.StatusCreated)
 			write(w, body)
+			return
+		}
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	})
+	playlistDraft := map[string]any{"id": "66666666-6666-6666-6666-666666666666", "name": "Morning",
+		"draftRevision": float64(9), "hasUnpublishedChanges": true,
+		"items": []any{map[string]any{"kind": "media"}}}
+	mux.HandleFunc("/api/v1/playlists", func(w http.ResponseWriter, r *http.Request) {
+		write(w, map[string]any{"items": []any{
+			map[string]any{"id": "66666666-6666-6666-6666-666666666666", "name": "Morning", "hasUnpublishedChanges": true},
+		}, "total": 1, "page": 1, "pageSize": 50})
+	})
+	mux.HandleFunc("/api/v1/playlists/", func(w http.ResponseWriter, r *http.Request) {
+		rest := strings.TrimPrefix(r.URL.Path, "/api/v1/playlists/")
+		if rest == "66666666-6666-6666-6666-666666666666" && r.Method == http.MethodGet {
+			write(w, playlistDraft)
+			return
+		}
+		if rest == "66666666-6666-6666-6666-666666666666/publish" && r.Method == http.MethodPost {
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			revision, _ := body["expectedDraftRevision"].(float64)
+			f.lastPublishRevision = int64(revision)
+			if int64(revision) != 9 {
+				w.WriteHeader(http.StatusConflict)
+				_, _ = w.Write([]byte(`{"error":{"code":"revision_conflict","message":"stale"}}`))
+				return
+			}
+			write(w, map[string]any{"published": true, "revision": 10})
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"error":{"code":"not_found","message":"no"}}`))
+	})
+	mux.HandleFunc("/api/v1/schedules", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			write(w, map[string]any{"items": []any{
+				map[string]any{"id": "77777777-7777-7777-7777-777777777777", "name": "Weekdays"},
+			}, "total": 1})
+			return
+		}
+		if r.Method == http.MethodPost {
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if _, ok := body["name"]; !ok {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"error":{"code":"invalid_schedule","message":"no"}}`))
+				return
+			}
+			w.WriteHeader(http.StatusCreated)
+			write(w, map[string]any{"id": "88888888-8888-8888-8888-888888888888", "name": body["name"]})
+			return
+		}
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	})
+	mux.HandleFunc("/api/v1/schedules/", func(w http.ResponseWriter, r *http.Request) {
+		rest := strings.TrimPrefix(r.URL.Path, "/api/v1/schedules/")
+		if rest == "77777777-7777-7777-7777-777777777777" && r.Method == http.MethodGet {
+			write(w, map[string]any{"id": rest, "name": "Weekdays"})
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"error":{"code":"schedule_not_found","message":"no"}}`))
+	})
+	mux.HandleFunc("/api/v1/me/security/pats", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			write(w, map[string]any{"pats": []any{
+				map[string]any{"id": "99999999-9999-9999-9999-999999999999", "name": "ci",
+					"scopes": []any{"read"}, "expiresAt": "2030-01-01T00:00:00Z"},
+			}})
+			return
+		}
+		if r.Method == http.MethodPost {
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			name, _ := body["name"].(string)
+			if name == "" {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"error":{"code":"invalid_name","message":"no"}}`))
+				return
+			}
+			w.WriteHeader(http.StatusCreated)
+			write(w, map[string]any{"token": "tcp_created_secret",
+				"pat": map[string]any{"id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "name": name,
+					"scopes": body["scopes"], "expiresAt": "2030-01-01T00:00:00Z"}})
 			return
 		}
 		w.WriteHeader(http.StatusMethodNotAllowed)

@@ -69,9 +69,22 @@ is given.
   and generic commands always emit JSON. Shell completion covers the
   handwritten tree only.
 
-Further management commands (screen credentials, content, schedules,
-fleet bulk, users, activity) arrive in later control-plane phases.
+Further management commands (fleet bulk operations, media uploads,
+users, activity) arrive in later control-plane phases.
 See `docs/programmable-control-plane.md`.
+
+- `tilecast playlist list|get|publish` covers playlist drafts.
+  Publish reads the draft first and carries its revision, so a
+  concurrent publish is a clean conflict with a retry hint instead of
+  a silent win; already-published drafts report as such. Under
+  editorial review the server answers 202 and the CLI keeps the
+  submission. Publishing confirms on a TTY (`--yes` skips).
+- `tilecast schedule list|get|create` covers schedules. Create takes a
+  full JSON document (`--input` or `--file`); the server validates it.
+- `tilecast token list|create` manages personal access tokens.
+  Creation confirms, validates scopes and lifetimes against the API
+  contract before anything travels, and prints the secret exactly
+  once with a stderr reminder the server never shows it again.
 
 ## Authentication and storage
 

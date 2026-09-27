@@ -16,6 +16,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -518,6 +520,157 @@ func (c *Client) RevokeScreen(ctx context.Context, id, reason string) (int, []by
 		return 0, nil, err
 	}
 	return c.callJSON(ctx, http.MethodPost, "/api/v1/screens/"+parsed.String()+"/revoke", map[string]any{"reason": reason})
+}
+
+// ListPlaylists returns the raw playlist list payload for one page.
+func (c *Client) ListPlaylists(ctx context.Context, search string, page, pageSize int) (int, []byte, error) {
+	params := &gen.ListPlaylistsParams{}
+	if search != "" {
+		params.Search = &search
+	}
+	if page > 0 {
+		params.Page = &page
+	}
+	if pageSize > 0 {
+		params.PageSize = &pageSize
+	}
+	return c.rawCall(ctx, func(editor gen.RequestEditorFn) (int, []byte, error) {
+		response, err := c.inner.ListPlaylistsWithResponse(ctx, params, editor)
+		if err != nil {
+			return 0, nil, err
+		}
+		return response.StatusCode(), response.Body, nil
+	})
+}
+
+// GetPlaylist returns the raw playlist draft payload.
+func (c *Client) GetPlaylist(ctx context.Context, id string) (int, []byte, error) {
+	parsed, err := parseID(id)
+	if err != nil {
+		return 0, nil, err
+	}
+	return c.rawCall(ctx, func(editor gen.RequestEditorFn) (int, []byte, error) {
+		response, err := c.inner.GetPlaylistWithResponse(ctx, parsed, editor)
+		if err != nil {
+			return 0, nil, err
+		}
+		return response.StatusCode(), response.Body, nil
+	})
+}
+
+// PublishPlaylist publishes the draft the caller read, guarded by its
+// revision. A 202 means editorial review took the submission instead.
+func (c *Client) PublishPlaylist(ctx context.Context, id string, expectedDraftRevision int) (int, []byte, error) {
+	parsed, err := parseID(id)
+	if err != nil {
+		return 0, nil, err
+	}
+	return c.rawCall(ctx, func(editor gen.RequestEditorFn) (int, []byte, error) {
+		response, err := c.inner.PublishPlaylistWithResponse(ctx, parsed, gen.PublishPlaylistJSONRequestBody{ExpectedDraftRevision: expectedDraftRevision}, editor)
+		if err != nil {
+			return 0, nil, err
+		}
+		return response.StatusCode(), response.Body, nil
+	})
+}
+
+// encodePageQuery builds a search/page query string, skipping unset
+// values. Page numbering starts at 1; non-positive values stay out.
+func encodePageQuery(search string, page, pageSize int) string {
+	values := url.Values{}
+	if search != "" {
+		values.Set("search", search)
+	}
+	if page > 0 {
+		values.Set("page", strconv.Itoa(page))
+	}
+	if pageSize > 0 {
+		values.Set("pageSize", strconv.Itoa(pageSize))
+	}
+	if encoded := values.Encode(); encoded != "" {
+		return "?" + encoded
+	}
+	return ""
+}
+
+// ListSchedules returns the raw schedule list payload. The documented
+// contract declares no query parameters, so search and paging travel on
+// the raw path; the handwritten wrapper owns that encoding.
+func (c *Client) ListSchedules(ctx context.Context, search string, page, pageSize int) (int, []byte, error) {
+	path := "/api/v1/schedules" + encodePageQuery(search, page, pageSize)
+	return c.Call(ctx, http.MethodGet, path, nil)
+}
+
+// GetSchedule returns the raw schedule payload.
+func (c *Client) GetSchedule(ctx context.Context, id string) (int, []byte, error) {
+	parsed, err := parseID(id)
+	if err != nil {
+		return 0, nil, err
+	}
+	return c.rawCall(ctx, func(editor gen.RequestEditorFn) (int, []byte, error) {
+		response, err := c.inner.GetScheduleWithResponse(ctx, parsed, editor)
+		if err != nil {
+			return 0, nil, err
+		}
+		return response.StatusCode(), response.Body, nil
+	})
+}
+
+// CreateSchedule creates a schedule from a full input document.
+func (c *Client) CreateSchedule(ctx context.Context, document []byte) (int, []byte, error) {
+	return c.Call(ctx, http.MethodPost, "/api/v1/schedules", bytes.NewReader(document))
+}
+
+// ListPATs returns the raw personal access token list payload. Secrets
+// never appear here; creation reveals each secret exactly once.
+func (c *Client) ListPATs(ctx context.Context, search string) (int, []byte, error) {
+	params := &gen.ListPersonalAccessTokensParams{}
+	if search != "" {
+		params.Search = &search
+	}
+	return c.rawCall(ctx, func(editor gen.RequestEditorFn) (int, []byte, error) {
+		response, err := c.inner.ListPersonalAccessTokensWithResponse(ctx, params, editor)
+		if err != nil {
+			return 0, nil, err
+		}
+		return response.StatusCode(), response.Body, nil
+	})
+}
+
+// CreatePAT mints a named personal access token. The secret is returned
+// exactly once; callers must show it immediately and never store it.
+// Scopes and lifetimes validate against the generated contract before
+// anything travels.
+func (c *Client) CreatePAT(ctx context.Context, name string, scopes []string, expiresInDays int) (int, []byte, error) {
+	typedScopes := make([]gen.CreatePersonalAccessTokenJSONBodyScopes, 0, len(scopes))
+	for _, scope := range scopes {
+		typed := gen.CreatePersonalAccessTokenJSONBodyScopes(scope)
+		if !typed.Valid() {
+			return 0, nil, fmt.Errorf("unknown scope %q: use read, write, or admin", scope)
+		}
+		typedScopes = append(typedScopes, typed)
+	}
+	lifetime := gen.CreatePersonalAccessTokenJSONBodyExpiresInDays(expiresInDays)
+	switch lifetime {
+	case gen.CreatePersonalAccessTokenJSONBodyExpiresInDaysN7,
+		gen.CreatePersonalAccessTokenJSONBodyExpiresInDaysN30,
+		gen.CreatePersonalAccessTokenJSONBodyExpiresInDaysN90,
+		gen.CreatePersonalAccessTokenJSONBodyExpiresInDaysN365:
+	default:
+		return 0, nil, fmt.Errorf("lifetime must be one of 7, 30, 90, or 365 days")
+	}
+	body := gen.CreatePersonalAccessTokenJSONRequestBody{
+		Name:          name,
+		Scopes:        typedScopes,
+		ExpiresInDays: gen.CreatePersonalAccessTokenJSONBodyExpiresInDays(expiresInDays),
+	}
+	return c.rawCall(ctx, func(editor gen.RequestEditorFn) (int, []byte, error) {
+		response, err := c.inner.CreatePersonalAccessTokenWithResponse(ctx, nil, body, editor)
+		if err != nil {
+			return 0, nil, err
+		}
+		return response.StatusCode(), response.Body, nil
+	})
 }
 
 // Download streams an authenticated GET body to the caller, who closes it.
