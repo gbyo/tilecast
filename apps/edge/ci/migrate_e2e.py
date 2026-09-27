@@ -603,9 +603,9 @@ def check_web_helper_packaging():
     # compare as a set rather than a string.
     families = dict(line.split("=", 1) for line in sandbox.splitlines() if "=" in line)
     assert set(families.get("RestrictAddressFamilies", "").split()) == {"AF_UNIX", "AF_INET", "AF_INET6", "AF_NETLINK"}, sandbox
-    assert "InaccessiblePaths=-/var/lib/tilecast-edge" in sandbox, sandbox
-    assert "InaccessiblePaths=-/run/tilecast-edge" in sandbox, sandbox
-    assert "InaccessiblePaths=-/run/tilecast-edge-update" in sandbox, sandbox
+    for hidden in ("-/var/lib/tilecast-edge", "-/run/tilecast-edge", "-/run/tilecast-edge-update",
+                   "-/run/tilecast", "-/var/cache/tilecast-renderer"):
+        assert hidden in sandbox, (hidden, sandbox)
     print("accept: the remote web helper runs as tilecast-web with its sandbox and shared runtime directory")
 
 
