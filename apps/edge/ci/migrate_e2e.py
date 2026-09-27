@@ -582,7 +582,7 @@ def check_web_helper_packaging():
     assert web.pw_shell in ("/usr/sbin/nologin", "/bin/false"), web.pw_shell
     assert web.pw_dir == "/var/lib/tilecast-web", web.pw_dir
     web_groups = output("id", "-nG", "tilecast-web").split()
-    assert "render" in web_groups and "audio" in web_groups, web_groups
+    assert sorted(web_groups) == ["audio", "render", "tilecast-web"], web_groups
     for forbidden in ("tilecast", "tilecast-display", "tilecast-network", "video", "input"):
         assert forbidden not in web_groups, (forbidden, web_groups)
     renderer_groups = output("systemctl", "show", "--property=SupplementaryGroups",
@@ -600,11 +600,13 @@ def check_web_helper_packaging():
     runtime = os.stat("/run/tilecast-web")
     assert runtime.st_uid == web.pw_uid and (runtime.st_mode & 0o777) == 0o750, oct(runtime.st_mode)
     sandbox = output("systemctl", "show", "--property=User,Group,NoNewPrivileges,ProtectSystem,ProtectHome,"
-                     "PrivateTmp,InaccessiblePaths,RestrictAddressFamilies,MemoryHigh,MemoryMax,TasksMax",
+                     "PrivateTmp,InaccessiblePaths,RestrictAddressFamilies,MemoryHigh,MemoryMax,TasksMax,"
+                     "DevicePolicy,DeviceAllow",
                      "tilecast-web-renderer.service")
     for expected in ("User=tilecast-web", "Group=tilecast-web", "NoNewPrivileges=yes",
                      "ProtectSystem=strict", "ProtectHome=yes", "PrivateTmp=yes",
-                     "MemoryHigh=1073741824", "MemoryMax=1610612736", "TasksMax=512"):
+                     "MemoryHigh=1073741824", "MemoryMax=1610612736", "TasksMax=512",
+                     "DevicePolicy=closed", "DeviceAllow=char-drm rw", "DeviceAllow=char-alsa rw"):
         assert expected in sandbox, (expected, sandbox)
     # systemd normalizes the address-family list (sorts and dedupes), so
     # compare as a set rather than a string.
@@ -613,7 +615,41 @@ def check_web_helper_packaging():
     for hidden in ("-/var/lib/tilecast-edge", "-/run/tilecast-edge", "-/run/tilecast-edge-update",
                    "-/run/tilecast", "-/var/cache/tilecast-renderer"):
         assert hidden in sandbox, (hidden, sandbox)
+    probe_helper_devices()
     print("accept: the remote web helper runs as tilecast-web with its sandbox and shared runtime directory")
+
+
+def probe_helper_devices():
+    """The helper's final device boundary, as the account itself: cameras and
+    input nodes stay closed wherever they exist (DevicePolicy plus group
+    math), while /dev/null opens as a positive control for the probe."""
+    import glob
+    import shutil
+    nodes = sorted(glob.glob("/dev/video*") + glob.glob("/dev/input/event*") + glob.glob("/dev/input/js*"))
+    probe = (
+        "import os, sys\n"
+        "denied = []\n"
+        "for path in sys.argv[1:]:\n"
+        "    try:\n"
+        "        fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK)\n"
+        "    except OSError:\n"
+        "        continue\n"
+        "    else:\n"
+        "        os.close(fd)\n"
+        "        denied.append(path)\n"
+        "if denied:\n"
+        "    print('readable:', ' '.join(denied))\n"
+        "    sys.exit(3)\n"
+        "fd = os.open('/dev/null', os.O_RDONLY)\n"
+        "os.close(fd)\n"
+        "print('probe ok')\n"
+    )
+    runuser = shutil.which("runuser")
+    assert runuser is not None, "runuser is required for the helper device probe"
+    args = [runuser, "-u", "tilecast-web", "--", "python3", "-c", probe] + nodes
+    result = subprocess.run(args, capture_output=True, text=True)
+    assert result.returncode == 0, (result.returncode, result.stdout, result.stderr)
+    assert "probe ok" in result.stdout, (result.stdout, result.stderr)
 
 
 PHASES = {"setup": setup, "import-failure": import_failure, "crash": crash, "start-settling": start_settling,

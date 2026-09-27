@@ -185,7 +185,8 @@ The policy is a pure function (`policy.c`) with unit tests. It follows Android's
 
 - A surface starts muted. The runtime unmutes it only while it is visible and `audioEnabled` is true, with `webkit_web_view_set_is_muted`. `pause` and `destroy` mute before anything else, so a hidden or stale surface is never audible.
 - WebKit plays the page's audio itself, through GStreamer in the helper's web process. No audio crosses the frame socket, the renderer or `tilecastd`.
-- The helper unit gets `char-alsa` devices and the `audio` group so an unmuted page can play. Physical audio routing with the trusted renderer on the same device is an M11 hardware qualification item.
+- The helper unit gets `char-alsa` devices (`DeviceAllow`) and the `audio` group so an unmuted page can play. Device access is otherwise closed (`DevicePolicy=closed`): cameras, input, disks and other host devices stay denied even under full helper compromise. Physical audio routing with the trusted renderer on the same device is an M11 hardware qualification item.
+- Residual risk, stated plainly: `permission-request` refuses the microphone to non-compromised pages, but under full helper compromise (arbitrary code as `tilecast-web`, §13.2) raw ALSA capture nodes are reachable wherever microphone hardware exists, because stock distributions grant playback and capture nodes to the same `audio` group. A hard output-only boundary would need a session audio broker (PipeWire/PulseAudio for the helper account) that the M11 targets do not run; GStreamer sink selection is not pinned to one. Operators who need capture to be impossible should use microphone-less signage hardware — confirming this is part of the M11 hardware qualification.
 - WebKit has no per-view volume. A Website's `volume` is not applied; the capability reports this and the documentation says so. The YouTube wrapper applies the author's volume through the documented `setVolume` call (§12).
 
 ## 12. YouTube
@@ -219,6 +220,7 @@ The attacker runs code as `tilecast-web` with the helper unit's sandbox.
 - It can send any frames and any events of the remote web protocol v1 to the renderer. The renderer validates each event, and the runtime handles a wrong event as a Website failure or recovery. It cannot send a message outside the protocol, because the renderer parses only the closed set.
 - It can make the renderer's GStreamer pipeline parse malformed video buffers. That runs in the renderer's sandboxed web process without the credential.
 - It cannot reach anything in §4 marked "none". It has no capability (`CapabilityBoundingSet=`, `NoNewPrivileges=yes`), so it cannot change user, load a module, open a raw socket or ptrace a process of another account.
+- Its device reach is DRM render nodes and ALSA audio nodes only (`DevicePolicy=closed` with `DeviceAllow` for `char-drm` and `char-alsa`). Microphone capture through ALSA remains the stated residual risk of §11 wherever microphone hardware exists.
 - It cannot connect to `tilecastd` and cannot become a renderer, because `edge.sock` refuses its UID and its directory is hidden.
 
 ### 13.3 Why remote content can never acquire Tilecast credentials, media or state

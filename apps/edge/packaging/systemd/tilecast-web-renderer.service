@@ -65,8 +65,15 @@ RestrictSUIDSGID=yes
 # Outbound web access is the helper's job: loopback for GStreamer-local
 # signaling, unicast IP for pages and media, netlink for the resolver.
 # No SystemCallFilter and no namespace restrictions: they break WebKit's
-# auxiliary processes (bubblewrap). No PrivateDevices/DevicePolicy: the
-# helper needs GPU render nodes and audio devices through its groups.
+# auxiliary processes (bubblewrap). No PrivateDevices: the helper needs GPU
+# render nodes and audio devices. Device access is otherwise closed: only
+# DRM (GPU render nodes) and ALSA (page audio output) are allowed, so a
+# compromised helper cannot open cameras, input, disks or other host
+# devices even where group math alone would not stop it. A V4L2-decode
+# target would add char-video4linux here with hardware validation.
+DevicePolicy=closed
+DeviceAllow=char-drm rw
+DeviceAllow=char-alsa rw
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
 SystemCallArchitectures=native
 
