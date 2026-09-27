@@ -34,13 +34,6 @@ export type RemoteWebMechanism =
   /** A separate host-owned web view positioned by the runtime (WPE, M11). */
   | "host-view";
 
-/** Where the Noise Meter's level readings come from, if anywhere. */
-export type NoiseMeterSource =
-  /** The runtime opens the microphone itself (Electron). */
-  | "renderer-microphone"
-  /** The host measures and sends derived levels only (WPE via PipeWire). */
-  | "host-levels";
-
 export interface RuntimeCapabilitiesV1 {
   /** Remote websites and YouTube, or `null` when they cannot be isolated. */
   readonly remoteWeb: RemoteWebMechanism | null;
@@ -50,7 +43,6 @@ export interface RuntimeCapabilitiesV1 {
   readonly setup: boolean;
   /** `discovery.list` and `discovered-server` messages are available. */
   readonly discovery: boolean;
-  readonly noiseMeter: NoiseMeterSource | null;
 }
 
 /** Diagnostics only. Behavior must never branch on these values. */
@@ -312,20 +304,12 @@ export interface DiscoveredServerMessage {
   server: DiscoveredServerV1;
 }
 
-/** A derived level reading from host-side capture. Never audio. */
-export interface NoiseLevelMessage {
-  type: "noise-level";
-  /** Root-mean-square amplitude in [0, 1], or null while unavailable. */
-  rms: number | null;
-}
-
 export type HostMessageV1 =
   | PresentationMessage
   | PluginsMessage
   | IdentifyMessage
   | CommandMessage
-  | DiscoveredServerMessage
-  | NoiseLevelMessage;
+  | DiscoveredServerMessage;
 
 // ------------------------------------------------------------ runtime → host
 
@@ -377,12 +361,6 @@ export interface RuntimeReadyV1 {
   runtimeVersion: string;
 }
 
-export interface NoiseMeterReportV1 {
-  status: string;
-  level?: number | null;
-  bucket?: unknown;
-}
-
 export interface SetupResultV1 {
   ok: boolean;
   error?: string;
@@ -412,11 +390,6 @@ export interface TilecastRuntimeHostV1 {
   /** Present when `capabilities.discovery`. */
   readonly discovery?: {
     list(): Promise<DiscoveredServerV1[]>;
-  };
-  /** Present when `capabilities.noiseMeter` is set. */
-  readonly noiseMeter?: {
-    report(report: NoiseMeterReportV1): void;
-    diagnostic(message: string, detail?: Record<string, unknown>): void;
   };
   /** Present when `capabilities.remoteWeb` is set. */
   readonly remoteWeb?: {
@@ -472,7 +445,6 @@ export function hostContractProblem(value: unknown): string | null {
   const optional: [keyof RuntimeCapabilitiesV1, string, string][] = [
     ["setup", "setup", "submitServerUrl"],
     ["discovery", "discovery", "list"],
-    ["noiseMeter", "noiseMeter", "report"],
     ["remoteWeb", "remoteWeb", "reportRecovered"],
   ];
   for (const [capability, member, method] of optional) {

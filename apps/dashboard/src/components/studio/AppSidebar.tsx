@@ -1,9 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
   Blocks,
   CalendarClock,
-  ClipboardCheck,
   Database,
   Home,
   Image,
@@ -17,7 +15,6 @@ import {
 } from "lucide-react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
-import { api } from "@/api/client";
 import type { User } from "@/api/types";
 import { Brand } from "@/components/Brand";
 import {
@@ -29,22 +26,14 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-/**
- * Whether the caller may act on a form's responses queue. This mirrors the
- * Forms plugin's capability lattice (manage implies everything, approve
- * implies review) over the raw granted list, so the sidebar can gate the
- * Approvals entry without importing plugin code.
- */
-function canReviewForm(granted: string[] | undefined): boolean {
-  return (
-    granted?.includes("review") === true ||
-    granted?.includes("approve") === true ||
-    granted?.includes("manage") === true
-  );
-}
 import { NavMain } from "./NavMain";
-import { NavSecondary } from "./NavSecondary";
+import { NavSecondary, SecondaryNavRow } from "./NavSecondary";
 import { NavUser } from "./NavUser";
+import {
+  collectSecondaryNavItems,
+  PluginSecondaryNavItems,
+} from "@/plugin-host/secondaryNav";
+import { studioPlugins } from "@/plugin-host/discovery";
 
 // Navigation structures hold translation keys, never rendered text. Labels
 // are resolved with t() at render so the sidebar follows language changes.
@@ -104,28 +93,24 @@ export function AppSidebar({
   signOutDisabled?: boolean;
 }) {
   const { t } = useTranslation(["navigation", "common"]);
-  const forms = useQuery({
-    queryKey: ["forms"],
-    queryFn: api.listForms,
-    retry: false,
-  });
-  const canReview = (forms.data ?? []).some((form) =>
-    canReviewForm(form.grantedCapabilities),
-  );
+  // Plugin-contributed secondary navigation (the Forms reviewer inbox).
+  // Visibility lives in each plugin; the shell only renders contributions.
+  // A malformed contribution fails the shell loudly rather than rendering a
+  // broken sidebar, so this runs outside any error boundary that would hide
+  // it.
+  const contributedNav = collectSecondaryNavItems(studioPlugins(), [
+    "/activity",
+    "/settings",
+  ]);
 
-  const secondaryItems = [
+  const secondaryTop = [
     { title: t("items.activity"), url: "/activity", icon: <Activity /> },
-    ...(canReview
-      ? [
-          {
-            title: t("items.approvals"),
-            url: "/approvals",
-            icon: <ClipboardCheck />,
-          },
-        ]
-      : []),
-    { title: t("items.settings"), url: "/settings", icon: <Settings /> },
   ];
+  const settingsRow = {
+    title: t("items.settings"),
+    url: "/settings",
+    icon: <Settings />,
+  };
 
   return (
     <Sidebar variant="inset" collapsible="offcanvas">
@@ -162,7 +147,10 @@ export function AppSidebar({
             })),
           }))}
         />
-        <NavSecondary className="mt-auto" items={secondaryItems} />
+        <NavSecondary className="mt-auto" items={secondaryTop}>
+          <PluginSecondaryNavItems items={contributedNav} />
+          <SecondaryNavRow item={settingsRow} />
+        </NavSecondary>
       </SidebarContent>
       <SidebarFooter className="p-2">
         <NavUser user={user} onSignOut={onSignOut} disabled={signOutDisabled} />

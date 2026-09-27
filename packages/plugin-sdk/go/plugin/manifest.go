@@ -63,8 +63,6 @@ type Capabilities struct {
 	PlayerManifest    bool     `json:"playerManifest,omitempty"`
 	BackgroundWorkers bool     `json:"backgroundWorkers,omitempty"`
 	Network           []string `json:"network,omitempty"`
-	Hardware          []string `json:"hardware,omitempty"`
-	Heartbeat         []string `json:"heartbeat,omitempty"`
 }
 
 type ServerEntry struct {
@@ -153,15 +151,13 @@ var (
 	slugPattern       = regexp.MustCompile(`^[a-z0-9][a-z0-9/-]{0,119}$`)
 	pathPattern       = regexp.MustCompile(`^\.(?:/[A-Za-z0-9_-][A-Za-z0-9._-]*)+$`)
 	maintainerPattern = regexp.MustCompile(`^@[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})(?:/[A-Za-z0-9][A-Za-z0-9._-]{0,99})?$`)
-	hostnamePattern   = regexp.MustCompile(`^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$`)
-	heartbeatPattern  = regexp.MustCompile(`^[a-z][A-Za-z0-9]{0,39}$`)
+	hostnamePattern = regexp.MustCompile(`^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$`)
 
 	categories       = set("Display", "Automation", "Workflow", "Hardware")
 	requirementKinds = set("platform", "hardware", "region", "network", "provider", "player")
 	surfaceSlots     = set("strip.top", "strip.bottom", "corner.top-left", "corner.top-right",
 		"corner.bottom-left", "corner.bottom-right", "overlay")
 	surfaceTiers  = set("emergency", "live", "scheduled", "ambient")
-	hardware      = set("microphone")
 	sidebarGroups = set("plugins", "review-and-collect")
 )
 
@@ -251,16 +247,7 @@ func (m Manifest) Validate() error {
 			return fail("invalid network host %q", host)
 		}
 	}
-	for _, item := range m.Capabilities.Hardware {
-		if !hardware[item] {
-			return fail("unknown hardware capability %q", item)
-		}
-	}
-	for _, section := range m.Capabilities.Heartbeat {
-		if !heartbeatPattern.MatchString(section) {
-			return fail("invalid heartbeat section %q", section)
-		}
-	}
+
 	checkPath := func(field, value string) error {
 		if !pathPattern.MatchString(value) {
 			return fail("%s must be a ./relative path inside the plugin directory", field)

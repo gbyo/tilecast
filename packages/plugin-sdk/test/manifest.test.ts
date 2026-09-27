@@ -35,8 +35,6 @@ describe("plugin manifest schema", () => {
       playerManifest: false,
       backgroundWorkers: false,
       network: [],
-      hardware: [],
-      heartbeat: [],
     });
   });
 

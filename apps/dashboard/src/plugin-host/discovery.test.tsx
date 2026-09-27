@@ -7,7 +7,14 @@ import {
   hasStudioRoute,
   studioPlugins,
 } from "./discovery";
-import { pluginRouteObjects, pluginStandaloneRouteObjects } from "./routes";
+import type { DiscoveredStudioPlugin } from "./discovery";
+import type { StudioPluginSecondaryNavItem } from "./kit";
+import {
+  assertStudioRouteCollisions,
+  pluginRouteObjects,
+  pluginStandaloneRouteObjects,
+} from "./routes";
+import { collectSecondaryNavItems } from "./secondaryNav";
 
 const manifest = (id: string, route?: string, additionalRoutes?: string[]) => ({
   apiVersion: 1 as const,
@@ -152,7 +159,10 @@ describe("Studio plugin discovery", () => {
       ),
     );
     expect(route?.path).toBe("sample-tally");
-    expect(route?.handle).toEqual({ breadcrumb: "Sample" });
+    expect(route?.handle).toEqual({
+      breadcrumb: "Sample",
+      pluginManagementRoute: "sample_tally",
+    });
     expect(isValidElement(route?.element)).toBe(true);
     expect(
       (route?.element as { props: { pluginId: string } }).props.pluginId,
@@ -180,6 +190,7 @@ describe("Studio plugin discovery", () => {
         {
           path: "/tally-inbox",
           gate: "none",
+          topLevel: false,
           children: [{ index: true, element: <p>Inbox</p> }],
         },
       ],
@@ -199,6 +210,7 @@ describe("Studio plugin discovery", () => {
       {
         path: "/tally",
         gate: "none" as const,
+        topLevel: false as const,
         children: [{ index: true, element: <p>Tally</p> }],
       },
     ];
@@ -221,6 +233,7 @@ describe("Studio plugin discovery", () => {
             {
               path: "/plugins/extra",
               gate: "none" as const,
+              topLevel: false as const,
               children: [],
             },
           ],
@@ -263,6 +276,61 @@ describe("Studio plugin discovery", () => {
     }
   });
 
+  it("refuses a plugin that shadows a core Studio route", () => {
+    // The composed tree with every bundled plugin is collision-free: the
+    // App module itself asserts this at startup, and the test proves the
+    // assertion holds on the real tree.
+    expect(() => assertStudioRouteCollisions(studioRoutes)).not.toThrow();
+    // A standalone route over a core address fails instead of overriding it.
+    const shadowing = discoverSample(
+      "sample_shadow",
+      "/plugins/sample-shadow",
+      ["/activity"],
+      [
+        {
+          path: "/activity",
+          gate: "none" as const,
+          topLevel: false as const,
+          children: [{ index: true, element: <p>Shadow</p> }],
+        },
+      ],
+    );
+    const routes: RouteObject[] = [
+      { path: "activity", element: <p>Core activity</p> },
+      ...pluginStandaloneRouteObjects({ topLevel: false }, shadowing),
+    ];
+    expect(() => assertStudioRouteCollisions(routes)).toThrow(
+      /claimed by core and sample_shadow/,
+    );
+  });
+
+  it("keeps every plugin management route below its own directory", () => {
+    for (const plugin of studioPlugins()) {
+      if (!plugin.definition.routes?.length) continue;
+      expect(plugin.route).toBe(`/plugins/${plugin.dir}`);
+    }
+    expect(() =>
+      pluginRouteObjects(
+        discoverStudioPlugins(
+          {
+            "../../../../plugins/sample-tally/tilecast.plugin.json": manifest(
+              "sample_tally",
+              "/plugins/somewhere-else",
+            ),
+          },
+          {
+            "../../../../plugins/sample-tally/studio/index.tsx": {
+              default: {
+                id: "sample_tally",
+                routes: [{ index: true, element: <p>Sample</p> }],
+              },
+            },
+          },
+        ),
+      ),
+    ).toThrow(/management route/);
+  });
+
   it("gives every discovered plugin route a place in the Studio router", () => {
     const plugins = studioRoutes
       .flatMap((route) => route.children ?? [])
@@ -273,5 +341,99 @@ describe("Studio plugin discovery", () => {
         true,
       );
     }
+  });
+});
+
+describe("plugin secondary navigation", () => {
+  const navItem = (id: string, to: string): StudioPluginSecondaryNavItem => ({
+    id,
+    to,
+    icon: () => null,
+    labelKey: `nav.${id}`,
+  });
+
+  const discovered = (
+    id: string,
+    dir: string,
+    route: string,
+    additionalRoutes: string[],
+    secondaryNavigation: StudioPluginSecondaryNavItem[],
+  ): DiscoveredStudioPlugin => ({
+    id,
+    dir,
+    name: id,
+    route,
+    additionalRoutes,
+    definition: { id, secondaryNavigation },
+  });
+
+  it("collects contributions in deterministic order", () => {
+    const items = collectSecondaryNavItems(
+      [
+        discovered(
+          "forms",
+          "forms",
+          "/plugins/forms",
+          ["/approvals"],
+          [
+            navItem("inbox", "/approvals/inbox"),
+            navItem("approvals", "/approvals"),
+          ],
+        ),
+        discovered(
+          "alerts",
+          "alerts",
+          "/plugins/alerts",
+          [],
+          [navItem("review", "/plugins/alerts/review")],
+        ),
+      ],
+      ["/activity", "/settings"],
+    );
+    expect(items.map(({ pluginId, item }) => `${pluginId}/${item.id}`)).toEqual(
+      ["alerts/review", "forms/approvals", "forms/inbox"],
+    );
+  });
+
+  it("refuses duplicate item ids, unowned paths, and core collisions", () => {
+    const forms = (secondaryNavigation: StudioPluginSecondaryNavItem[]) =>
+      discovered(
+        "forms",
+        "forms",
+        "/plugins/forms",
+        ["/approvals"],
+        secondaryNavigation,
+      );
+    // Two plugins contributing one item id fail instead of merging.
+    expect(() =>
+      collectSecondaryNavItems(
+        [
+          forms([navItem("approvals", "/approvals")]),
+          discovered(
+            "other",
+            "other",
+            "/plugins/other",
+            ["/other"],
+            [navItem("approvals", "/other")],
+          ),
+        ],
+        [],
+      ),
+    ).toThrow(/both plugins\/forms and plugins\/other/);
+    // A path outside the plugin's declared studio routes never renders.
+    expect(() =>
+      collectSecondaryNavItems([forms([navItem("sneaky", "/settings")])], []),
+    ).toThrow(/outside its declared studio routes/);
+    // A contributed item must not shadow a core secondary entry.
+    expect(() =>
+      collectSecondaryNavItems(
+        [forms([navItem("settings", "/plugins/forms/settings")])],
+        ["/plugins/forms/settings"],
+      ),
+    ).toThrow(/collides with the core Studio route/);
+    // An empty id fails rather than rendering a duplicate key.
+    expect(() =>
+      collectSecondaryNavItems([forms([navItem("", "/approvals")])], []),
+    ).toThrow(/without an id/);
   });
 });

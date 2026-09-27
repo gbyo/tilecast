@@ -108,6 +108,16 @@ func (s *Service) host() {
 }
 
 func (s *Service) hostFor(id string) plugin.Host {
+	// The Data Sources service is bound to the provider ID the plugin
+	// contributes. A plugin that contributes none receives a service that
+	// refuses every provider-scoped call, so it cannot accidentally operate
+	// on another plugin's rows.
+	provider := ""
+	if hosted, ok := s.hostedPlugin(id); ok {
+		if contributor, ok := hosted.plugin.(plugin.DataSourceProvider); ok {
+			provider = contributor.ProviderID()
+		}
+	}
 	return plugin.Host{
 		DB:                   s.db,
 		Logger:               s.logger.With("plugin", id),
@@ -122,9 +132,9 @@ func (s *Service) hostFor(id string) plugin.Host {
 		Screens:              screenService{service: s},
 		Organization:         organizationService{service: s},
 		Clock:                s.clock,
-		DataSources:          dataSourceService{db: s.db, invalidator: s.dsInvalidator},
+		DataSources:          dataSourceService{db: s.db, invalidator: s.dsInvalidator, pluginID: id, provider: provider},
 		Users:                userService{db: s.db},
-		PluginAssets:         pluginAssetService{db: s.db, backend: s.attachments},
+		PluginAssets:         pluginAssetService{db: s.db, backend: s.attachments, pluginID: id},
 	}
 }
 
@@ -135,17 +145,6 @@ func (s *Service) Host(id string) (plugin.Host, bool) {
 		return plugin.Host{}, false
 	}
 	return s.hostFor(id), true
-}
-
-// HostedPlugin returns the hosted plugin instance with the given id. The
-// server uses it to wire plugin contributions (Data Source providers) into
-// core services that cannot import the plugin.
-func (s *Service) HostedPlugin(id string) (plugin.Plugin, bool) {
-	hosted, ok := s.hostedPlugin(id)
-	if !ok {
-		return nil, false
-	}
-	return hosted.plugin, true
 }
 
 // lookup returns a definition this Service hosts.
@@ -407,44 +406,6 @@ func (s *Service) RunWorkers(ctx context.Context) {
 	}
 }
 
-// RunMaintenance runs every plugin maintenance task once. It is called from
-// the host's bounded periodic maintenance pass.
-func (s *Service) RunMaintenance(ctx context.Context) {
-	for _, hosted := range s.hosted {
-		provider, ok := hosted.plugin.(plugin.MaintenanceProvider)
-		if !ok {
-			continue
-		}
-		for _, task := range provider.Maintenance() {
-			changed, err := task.Run(ctx)
-			if err != nil {
-				s.logger.Warn("plugin maintenance failed", "plugin", hosted.manifest.ID, "task", task.Name, "error", err)
-				continue
-			}
-			if changed > 0 {
-				s.logger.Info("plugin maintenance completed", "plugin", hosted.manifest.ID, "task", task.Name, "rows_changed", changed)
-			}
-		}
-	}
-}
-
-// ----------------------------------------------------------- heartbeat
-
-// HeartbeatSections lists the optional heartbeat sections plugins consume, by
-// name. The heartbeat decoder accepts exactly these names in addition to its
-// own fields.
-func (s *Service) HeartbeatSections() map[string]plugin.HeartbeatSection {
-	out := map[string]plugin.HeartbeatSection{}
-	for _, hosted := range s.hosted {
-		if consumer, ok := hosted.plugin.(plugin.HeartbeatConsumer); ok {
-			for _, section := range consumer.HeartbeatSections() {
-				out[section.Name] = section
-			}
-		}
-	}
-	return out
-}
-
 // ----------------------------------------------------------- demo
 
 // SeedDemo installs every plugin that contributes Demo Mode data and asks it
@@ -463,32 +424,4 @@ func (s *Service) SeedDemo(ctx context.Context, demo plugin.Demo) error {
 		}
 	}
 	return nil
-}
-
-// ----------------------------------------------------------- assets
-
-// ScreensUsingAsset asks every installed plugin which screens draw an asset,
-// so a media change reaches a screen through a plugin as well as through its
-// content.
-func (s *Service) ScreensUsingAsset(ctx context.Context, tx pgx.Tx, assetID uuid.UUID) ([]uuid.UUID, error) {
-	var out []uuid.UUID
-	for _, hosted := range s.hosted {
-		dependent, ok := hosted.plugin.(plugin.AssetDependent)
-		if !ok {
-			continue
-		}
-		installed, err := isInstalled(ctx, tx, hosted.manifest.ID)
-		if err != nil {
-			return nil, err
-		}
-		if !installed {
-			continue
-		}
-		screens, err := dependent.ScreensUsingAsset(ctx, tx, assetID)
-		if err != nil {
-			return nil, fmt.Errorf("plugin %s: %w", hosted.manifest.ID, err)
-		}
-		out = append(out, screens...)
-	}
-	return out, nil
 }

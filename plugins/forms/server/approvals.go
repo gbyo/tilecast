@@ -36,7 +36,7 @@ func (s *Service) PendingApprovals(ctx context.Context, userID uuid.UUID, filter
 	// The live form set comes from Host.DataSources: only rows of this
 	// provider that are not soft-deleted can contribute inbox items. Names
 	// and creators resolve from the same listing.
-	forms, err := s.host.DataSources.ListLive(ctx, providerName)
+	forms, err := s.host.DataSources.ListLive(ctx)
 	if err != nil {
 		return ApprovalPage{}, err
 	}

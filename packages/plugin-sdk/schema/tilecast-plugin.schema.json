@@ -120,9 +120,7 @@
       "default": {
         "playerManifest": false,
         "backgroundWorkers": false,
-        "network": [],
-        "hardware": [],
-        "heartbeat": []
+        "network": []
       },
       "type": "object",
       "properties": {
@@ -140,17 +138,6 @@
             "type": "string",
             "pattern": "^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$"
           }
-        },
-        "hardware": {
-          "default": [],
-          "type": "array",
-          "items": { "type": "string", "enum": ["microphone"] }
-        },
-        "heartbeat": {
-          "default": [],
-          "description": "Optional Player heartbeat sections this plugin consumes.",
-          "type": "array",
-          "items": { "type": "string", "pattern": "^[a-z][A-Za-z0-9]{0,39}$" }
         }
       },
       "additionalProperties": false

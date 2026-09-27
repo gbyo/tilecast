@@ -36,7 +36,6 @@ import {
   type ValidClaim,
 } from "./claims";
 import type { DiscoveredRuntimePlugin } from "./discovery";
-import type { MicrophoneService } from "./microphone";
 
 /** How often the host evaluates when nothing else asks it to. */
 export const SURFACE_TICK_MS = 1_000;
@@ -67,8 +66,6 @@ export interface SurfaceHostOptions {
   /** 0 freezes motion at a deterministic frame (conformance snapshots). */
   animationScale: number;
   reducedMotion(): boolean;
-  /** The Player microphone, or null when this Player has none. */
-  microphone: MicrophoneService | null;
   mediaUrl(assetId: string, variantId: string): string;
   /** The content stage. Only the host changes its geometry. */
   stage(): HTMLElement | null;
@@ -141,7 +138,7 @@ export class RuntimeSurfaceHost {
         claims: [],
       };
       try {
-        hosted.instance = definition.create(this.context(hosted, discovered));
+        hosted.instance = definition.create(this.context(hosted));
       } catch (error) {
         this.report(hosted.id, `create failed: ${errorText(error)}`);
       }
@@ -387,10 +384,7 @@ export class RuntimeSurfaceHost {
 
   // ------------------------------------------------------------ plugins
 
-  private context(
-    hosted: Hosted,
-    discovered: DiscoveredRuntimePlugin,
-  ): RuntimePluginContext {
+  private context(hosted: Hosted): RuntimePluginContext {
     const { clock } = this.options;
     const guard = (callback: () => void) => () => {
       try {
@@ -399,10 +393,6 @@ export class RuntimeSurfaceHost {
         this.report(hosted.id, `timer failed: ${errorText(error)}`);
       }
     };
-    const microphone =
-      discovered.hardware.includes("microphone") && this.options.microphone
-        ? this.options.microphone.forPlugin()
-        : undefined;
     return {
       clock: {
         now: () => clock.wallNow() + this.clockOffsetMs,
@@ -419,7 +409,6 @@ export class RuntimeSurfaceHost {
       awake: () => this.awake,
       mediaUrl: (assetId, variantId) =>
         this.options.mediaUrl(assetId, variantId),
-      ...(microphone ? { microphone } : {}),
     };
   }
 

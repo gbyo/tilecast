@@ -31,21 +31,20 @@ The runtime does not own server credentials, server reconciliation, Edge SQLite 
 
 A host publishes one object, `globalThis.tilecastRuntimeHost`, that implements `TilecastRuntimeHostV1` (`src/host/contract.ts`). The contract has no generic message or native-invocation member. Every function is named and typed:
 
-| Direction      | Members                                                                                                                                 |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Host → runtime | `subscribe(listener)` delivers `presentation`, `plugins`, `identify`, `command`, `discovered-server` and `noise-level` messages.        |
-| Runtime → host | `ready`, `presentationResult`, `reportEvidence`, `reportPlaybackError`.                                                                 |
-| Optional       | `setup.submitServerUrl`, `discovery.list`, `noiseMeter.report` and `noiseMeter.diagnostic`, `remoteWeb.reportRecovered`, `conformance`. |
+| Direction      | Members                                                                                                           |
+| -------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Host → runtime | `subscribe(listener)` delivers `presentation`, `plugins`, `identify`, `command` and `discovered-server` messages. |
+| Runtime → host | `ready`, `presentationResult`, `reportEvidence`, `reportPlaybackError`.                                           |
+| Optional       | `setup.submitServerUrl`, `discovery.list`, `remoteWeb.reportRecovered`, `conformance`.                            |
 
 Behavior depends on `capabilities`, never on `info.host`:
 
-| Capability             | Electron              | WPE (Edge)                     |
-| ---------------------- | --------------------- | ------------------------------ |
-| `remoteWeb`            | `electron-webview`    | `null` until M11 isolation     |
-| `synchronizedPlayback` | `true`                | `true` (`tilecastd` anchors)   |
-| `setup`                | `true`                | `true`                         |
-| `discovery`            | `true`                | `true` (Avahi, `tilecastd`)    |
-| `noiseMeter`           | `renderer-microphone` | `host-levels` (session bridge) |
+| Capability             | Electron           | WPE (Edge)                   |
+| ---------------------- | ------------------ | ---------------------------- |
+| `remoteWeb`            | `electron-webview` | `null` until M11 isolation   |
+| `synchronizedPlayback` | `true`             | `true` (`tilecastd` anchors) |
+| `setup`                | `true`             | `true`                       |
+| `discovery`            | `true`             | `true` (Avahi, `tilecastd`)  |
 
 `info` (host name and version, engine name and version) is for diagnostics only.
 

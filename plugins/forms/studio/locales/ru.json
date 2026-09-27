@@ -664,6 +664,9 @@
     "previous": "Назад",
     "next": "Далее"
   },
+  "nav": {
+    "approvals": "Согласования"
+  },
   "approvals": {
     "eyebrow": "Формы",
     "title": "Согласования",

@@ -20,7 +20,7 @@ Studio lists installed plugins and offers the current catalog under **Add plugin
 
 Brand Bug / Watermark (`brand_bug`) and Noise Meter (`noise_meter`) are retired. Neither can be installed, configured, rendered by the shared Player runtime, or projected into new manifests. Older `plugin_installations` rows remain inert and distinct from unknown plugins that might come from a newer Tilecast release. Removing a retired row preserves its historical tables and data. Shipped migration `00102_plugin_installations.sql` remains unchanged; its old backfill rule is historical, not current plugin availability.
 
-Already-deployed Players may retain cached manifests with `brand_bug` or `noise_meter` entries. The runtime ignores those entries without disturbing supported plugins. Older Linux and Edge Players may still send a `noiseMeter` heartbeat field; the server accepts and ignores it, without storing history or changing status. Edge's native microphone code remains in place but has no active plugin consumer.
+Already-deployed Players may retain cached manifests with `brand_bug` or `noise_meter` entries. The runtime ignores those entries without disturbing supported plugins. Older Linux and Edge Players may still send a `noiseMeter` heartbeat field; the server accepts and ignores it, without storing history or changing status. Edge's native microphone and capture code is removed; its session bridge remains only as a session holder.
 
 ### Unknown installations and backups
 

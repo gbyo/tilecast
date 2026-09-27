@@ -5,8 +5,9 @@ for first-party Tilecast plugins. [plugins.md](plugins.md) describes the
 behavior of each built-in plugin. This document describes how a plugin is
 built, discovered, and hosted.
 
-Status: accepted. The foundation is implemented. The built-in plugins move to
-the new structure one at a time; see [Migration status](#migration-status).
+Status: accepted. The foundation is implemented and the built-in plugins
+have moved to the new structure; see [Migration status](#migration-status).
+This document describes the frozen Plugin API v1 contract.
 
 ## Context
 
@@ -120,11 +121,9 @@ declare.
 
 | Capability          | Required when the plugin                              |
 | ------------------- | ----------------------------------------------------- |
-| `playerManifest`    | projects manifest entries or reports asset dependents |
+| `playerManifest`    | projects Player manifest entries                      |
 | `backgroundWorkers` | implements `WorkerProvider`                           |
 | `network`           | contacts a host from Tilecast Server (hostnames only) |
-| `hardware`          | uses Player hardware (`microphone`)                   |
-| `heartbeat`         | consumes a named optional Player heartbeat section    |
 
 `plugin.CheckDeclarations` compares the implemented interfaces with these
 declarations. The host refuses to start a plugin that fails the check.
@@ -154,19 +153,17 @@ The Go SDK is `packages/plugin-sdk/go/plugin`. The only required interface is
 `Plugin` with `Manifest()`. A plugin embeds `plugin.Bundle`, which gives
 `Manifest()` and `Migrations()`.
 
-| Contribution       | Interface             | Called by the host                                   |
-| ------------------ | --------------------- | ---------------------------------------------------- |
-| Host services      | `Initializer`         | once, before any other contribution                  |
-| Migrations         | `Migrator`            | at startup, with the core migrations                 |
-| Catalog status     | `StatusReporter`      | for every catalog request                            |
-| Removal blockers   | `RemovalGuard`        | in the Remove transaction, after the row lock        |
-| Dashboard routes   | `RouteProvider`       | when the router is built                             |
-| Manifest entries   | `ManifestProjector`   | per screen, only while installed                     |
-| Manifest media     | `AssetResolver`       | per entry, on its `Config`, during manifest assembly |
-| Media dependents   | `AssetDependent`      | when an asset changes, only while installed          |
-| Background workers | `WorkerProvider`      | started after migrations, stopped at shutdown        |
-| Maintenance        | `MaintenanceProvider` | on the periodic maintenance pass                     |
-| Heartbeat sections | `HeartbeatConsumer`   | for each declared section in a Player heartbeat      |
+| Contribution       | Interface            | Called by the host                            |
+| ------------------ | -------------------- | --------------------------------------------- |
+| Host services      | `Initializer`        | once, before any other contribution           |
+| Migrations         | `Migrator`           | at startup, with the core migrations          |
+| Catalog status     | `StatusReporter`     | for every catalog request                     |
+| Removal blockers   | `RemovalGuard`       | in the Remove transaction, after the row lock |
+| Dashboard routes   | `RouteProvider`      | when the router is built                      |
+| Manifest entries   | `ManifestProjector`  | per screen, only while installed              |
+| Background workers | `WorkerProvider`     | started after migrations, stopped at shutdown |
+| Data Source        | `DataSourceProvider` | at startup and from generic Data Source paths |
+| Demo data          | `DemoSeeder`         | when Demo Mode is seeded                      |
 
 A plugin implements only the interfaces it needs. Forms does not implement
 `ManifestProjector`. Countdown Bar does not implement `WorkerProvider`.
@@ -190,6 +187,9 @@ A plugin implements only the interfaces it needs. Forms does not implement
 | `Organization`         | `ID` returns the installation's organization.                                                                                  |
 | `Clock`                | The server clock. Tests replace it.                                                                                            |
 | `Logger`               | A structured logger with the plugin identifier.                                                                                |
+| `DataSources`          | The plugin's own Data Source rows, bound to its contributed provider. See below.                                               |
+| `Users`                | Read-only user directory facts the plugin needs for attribution.                                                               |
+| `PluginAssets`         | The plugin's own private uploads, bound to its identity. See below.                                                            |
 
 `Host` is a struct, not an interface. The core can add a service without a
 break in existing plugins. A plugin that needs a core fact that no service
@@ -198,6 +198,39 @@ gives must extend the SDK. It must not read core tables.
 `plugin.Target` and `plugin.ScreenTargetFilter` implement the targeting
 convention: an instances table with `target_scope` and a targets table with
 `(instance_id, target_type, target_id)`. The core owns the SQL of the filter.
+
+### Data Source providers
+
+A plugin that owns a Data Source provider implements
+`plugin.DataSourceProvider`: a stable stored provider ID, compatibility
+traits, strict configuration normalization, field discovery, gallery wording,
+and canonical authoring routes. `plugin.CheckDeclarations` validates the
+generic parts (ID shape, catalog wording, canonical routes against the
+plugin's declared Studio route ownership). At startup the host collects every
+contribution in deterministic order and refuses duplicates, collisions with
+static core providers, and malformed IDs loudly.
+
+`Host.DataSources` is bound to the provider the plugin contributes: every
+method operates on that provider's rows, rows of other providers read as
+absent, and a plugin that contributes no provider receives a service that
+refuses every provider-scoped call. The create input carries no provider
+identity; the host stamps it. Core owns the `data_sources` row mechanics,
+the cached projection storage, usage accounting, and manifest invalidation;
+the plugin owns its domain tables and projection content.
+
+### Private plugin assets
+
+`Host.PluginAssets` is bound to the calling plugin's identity. Ingest stamps
+the owner; claim, discard, and delivery verify it, so a plugin cannot operate
+on another plugin's private assets. The plugin still authorizes every call
+against its own records first.
+
+The stored origin keeps the historical `form_attachment` classification from
+the Forms attachment era, because generic Media surfaces exclude that origin
+from the library and renaming it would churn every exclusion query for
+behavioral gain. Per-plugin ownership (`assets.owning_plugin`, backfilled to
+`forms` for existing rows) is the enforced signal. Library assets are never
+claimable as private attachments.
 
 ### Studio translations
 
@@ -316,13 +349,27 @@ A plugin that owns a wider Studio surface (a submitter portal, a reviewer
 inbox) contributes `standaloneRoutes` alongside `routes`. Each entry names its
 absolute path, its install gate (`"install"` wraps the route in the normal
 plugin installation gate; `"none"` renders directly for pages that handle an
-uninstalled plugin themselves), and whether it mounts inside the authenticated
-Studio chrome or as a top-level route with its own shell. Every path must be
-declared in the manifest's `studio.additionalRoutes`. The host refuses
-collisions with core, management, and other plugins' routes, and
-`pluginctl check` refuses overlaps between plugins, so a plugin can never
-silently override an existing Studio route. This is not a generic router
-escape hatch.
+uninstalled plugin themselves), and explicitly where it mounts (`topLevel:
+false` inside the authenticated Studio chrome, `true` as a top-level route
+with its own shell). Every path must be declared in the manifest's
+`studio.additionalRoutes`. The host refuses collisions with core, management,
+and other plugins' routes — including plugin-core collisions on the composed
+route tree — and `pluginctl check` refuses overlaps between plugins, so a
+plugin can never silently override an existing Studio route. Management routes
+are structural: a plugin renders exactly below `/plugins/<directory>`. This
+is not a generic router escape hatch.
+
+A plugin contributes conditional items to the Studio secondary navigation
+(below Activity, above Settings) through `secondaryNavigation`: one proven
+requirement with a narrow capability. Each item names an absolute path inside
+the plugin's declared Studio route ownership, an icon, a label key in the
+plugin's translation namespace, and optional visibility logic — a synchronous
+predicate over asynchronously loaded data, fetched by the host under a
+plugin-namespaced query key. Visibility failures hide the item rather than
+breaking the sidebar. Item IDs are unique across plugins, paths must be
+declared, and core entries cannot be shadowed. The generic shell never
+interprets plugin permissions; the Forms reviewer inbox is a contribution of
+the Forms plugin, not shell logic.
 
 ## Player runtime
 
@@ -432,11 +479,13 @@ with a manual clock.
 
 ### Microphone
 
-The runtime contract still defines `context.microphone` for a plugin that
-declares microphone hardware. No plugin in this release uses it. The older
-Noise Meter's host-level messages and native Edge capture code remain only as
-inactive compatibility infrastructure; they do not make Noise Meter an
-available plugin.
+There is no microphone surface in Plugin API v1. The runtime contract has no
+`context.microphone`, no manifest declares a hardware capability, and the
+retired Noise Meter's measurement code (runtime services, native capture, and
+the Linux player's noise history) is removed. Compatibility shims that remain:
+old cached Player manifest entries for `brand_bug` and `noise_meter` are
+ignored, and legacy `noiseMeter` heartbeat fields are accepted and ignored by
+the server. They do not make Noise Meter an available plugin.
 
 ### Stylesheets
 
@@ -452,9 +501,8 @@ refuses other selectors and global rules such as `@import` and `@font-face`.
 
 Every plugin that declares surfaces renders from its own
 `runtime/index.ts`, declared as `runtime.entrypoint` in its manifest and
-checked by discovery against the same contract. `TRANSITIONAL_RUNTIME_ADAPTERS`
-is empty: no migration adapter remains, including the Emergency Alerts
-ticker, which now lives in `plugins/emergency-alerts/runtime/`.
+checked by discovery against the same contract. There are no transitional
+runtime adapters: nothing central lists plugins or renders for them.
 
 ## Documentation
 
@@ -471,17 +519,20 @@ the page names. The edit link goes to the plugin-owned source file.
 The Official Tilecast Plugin Conformance suite is pass or fail. It uses the
 existing test tools:
 
-| Check                                           | Where                                      |
-| ----------------------------------------------- | ------------------------------------------ |
-| Manifest schema, ID and directory, entry points | `pluginctl check`                          |
-| Route prefixes, OpenAPI fragments, docs slugs   | `pluginctl check`                          |
-| Migration names, versions, and Goose sections   | `pluginctl check`, `database` tests        |
-| Host boundaries (Go and TypeScript imports)     | `pluginctl check`                          |
-| Generated files are current                     | `pluginctl check`                          |
-| Tests next to implementation                    | `pluginctl check`                          |
-| Declarations match implementation, routes, Init | `plugintest.Conformance` in each plugin    |
-| Install, status, removal, projection, routes    | server host tests with the sample plugin   |
-| Studio discovery and routes                     | Vitest in `apps/dashboard/src/plugin-host` |
+| Check                                           | Where                                           |
+| ----------------------------------------------- | ----------------------------------------------- |
+| Manifest schema, ID and directory, entry points | `pluginctl check`                               |
+| Route prefixes, OpenAPI fragments, docs slugs   | `pluginctl check`                               |
+| Migration names, versions, and Goose sections   | `pluginctl check`, `database` tests             |
+| Host boundaries (Go and TypeScript imports)     | `pluginctl check`                               |
+| Generated files are current                     | `pluginctl check`                               |
+| Tests next to implementation                    | `pluginctl check`                               |
+| Declarations match implementation, routes, Init | `plugintest.Conformance` in each plugin         |
+| Install, status, removal, projection, routes    | server host tests with the sample plugin        |
+| Provider discovery, binding, asset ownership    | synthetic-provider tests in `internal/plugins`  |
+| Studio discovery and routes                     | Vitest in `apps/dashboard/src/plugin-host`      |
+| Secondary-nav IDs, paths, core shadowing        | Vitest in `apps/dashboard/src/plugin-host`      |
+| Composed Studio tree has no plugin shadowing    | `assertStudioRouteCollisions` on `studioRoutes` |
 
 A plugin's integration tests use `apps/server/pluginharness`. The harness
 migrates the test database, creates an organization, and hosts the plugin with
@@ -490,8 +541,12 @@ code can import, and only in `_test.go` files. This is the same arrangement
 as a test harness that a host application publishes for its extensions.
 
 `packages/plugin-sdk/go/plugintest/sampleplugin` is a test-only plugin that
-implements every contribution point. No core code knows it. The host tests
-load it to prove the generic paths work without a special case.
+implements a representative subset of the v1 surface: manifest and bundle,
+initialization, status, removal guard, routes, manifest projection, and one
+background worker. No core code knows it. The host tests load it to prove
+the generic paths work without a special case. `npm run plugins:new`
+scaffolds a first-party plugin that already passes `plugins:check` and the
+Go conformance suite.
 
 ## Boundaries
 
@@ -566,29 +621,33 @@ Plugin API v1 does not load third-party code. The contract keeps a path open:
 
 ## Migration status
 
-| Milestone | Scope                                                            | Status  |
-| --------- | ---------------------------------------------------------------- | ------- |
-| 1         | Layout, manifest, SDKs, host, discovery, tooling, CODEOWNERS, CI | Done    |
-| 2         | Countdown Bar in `plugins/countdown-bar/`                        | Done    |
-| 3         | Generic runtime surface host                                     | Done    |
-| 4         | Retire Brand Bug and Noise Meter with compatibility shims        | Done    |
-| 5         | Emergency Alerts                                                 | Done    |
-| 6         | Forms                                                            | Done    |
-| 7         | Remove the remaining special cases                               | Planned |
+| Milestone | Scope                                                                             | Status  |
+| --------- | --------------------------------------------------------------------------------- | ------- |
+| 1         | Layout, manifest, SDKs, host, discovery, tooling, CODEOWNERS, CI                  | Done    |
+| 2         | Countdown Bar in `plugins/countdown-bar/`                                         | Done    |
+| 3         | Generic runtime surface host                                                      | Done    |
+| 4         | Retire Brand Bug and Noise Meter with compatibility shims                         | Done    |
+| 5         | Emergency Alerts                                                                  | Done    |
+| 6         | Forms                                                                             | Done    |
+| 7         | Remove the remaining special cases; freeze the v1 contract                        | Done    |
+| 8         | Reserved: composition or multi-zone authoring; not started                        | Planned |
+| 9         | Reserved: proof-of-play measurement on top of the frozen v1 contract; not started | Planned |
 
-Until a plugin moves, `apps/server/internal/plugins` answers its status,
-removal blockers, and projection through the legacy functions in that
-package. Countdown Bar has moved completely, including its Player renderer.
-Brand Bug and Noise Meter are retired: their old installation rows and data
-remain, but neither is cataloged, configured, projected, or rendered. The
-Emergency Alerts is fully migrated: its server, routes, Studio page, ticker
-runtime, and migrations live in `plugins/emergency-alerts/`, and the core
-answers its status, blockers, projection, polling, and routes through the
-generic provider interfaces. Forms is fully migrated: its server, routes,
-OpenAPI fragment, migrations, provider contribution, Studio pages, portal,
-inbox, locales, and styles live in `plugins/forms/`, and the core answers its
-gallery presence, canonical editor and creator routes, provider catalog hints,
-and legacy `/data-sources/...` redirects through the generic provider
-metadata. The core keeps only the nav-visible form summary (the sidebar
-Approvals entry) and the generic Data Source contracts Forms output flows
-through.
+Countdown Bar has moved completely, including its Player renderer. Brand Bug
+and Noise Meter are retired: their old installation rows and data remain, but
+neither is cataloged, configured, projected, or rendered. The Emergency
+Alerts is fully migrated: its server, routes, Studio page, ticker runtime,
+and migrations live in `plugins/emergency-alerts/`, and the core answers its
+status, blockers, projection, polling, and routes through the generic
+provider interfaces. Forms is fully migrated: its server, routes, OpenAPI
+fragment, migrations, provider contribution, Studio pages, portal, inbox,
+locales, and styles live in `plugins/forms/`, and the core answers its
+gallery presence, canonical editor and creator routes, provider catalog
+hints, and legacy `/data-sources/...` redirects through the generic provider
+metadata. Even the sidebar Approvals entry is a Forms contribution
+(`secondaryNavigation`), not shell logic: no generic core file names a
+plugin.
+
+Milestones 8 and 9 stay in their reserved lanes: multi-zone layout
+composition and proof-of-play measurement arrive on top of this frozen
+contract, not through new special cases in it.

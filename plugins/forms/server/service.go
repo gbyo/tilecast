@@ -38,7 +38,7 @@ const providerName = "form"
 
 // ensureForm confirms the id references a live Form Data Source and returns its creator.
 func (s *Service) ensureForm(ctx context.Context, id uuid.UUID) (*uuid.UUID, error) {
-	record, err := s.host.DataSources.Get(ctx, id, providerName)
+	record, err := s.host.DataSources.Get(ctx, id)
 	if errors.Is(err, plugin.ErrNotFound) {
 		return nil, ErrNotFound
 	}
@@ -201,7 +201,7 @@ func (s *Service) grantedCapabilities(ctx context.Context, q rowQuerier, id uuid
 // When draft is non-nil it replaces the stored editable draft; otherwise the existing draft is
 // preserved.
 func (s *Service) syncConfiguration(ctx context.Context, tx pgx.Tx, id uuid.UUID, draft *FormSchema) error {
-	existingRaw, err := s.host.DataSources.ConfigurationInTx(ctx, tx, id, providerName)
+	existingRaw, err := s.host.DataSources.ConfigurationInTx(ctx, tx, id)
 	if errors.Is(err, plugin.ErrNotFound) {
 		existingRaw = nil
 	} else if err != nil {
@@ -256,7 +256,7 @@ func (s *Service) syncConfiguration(ctx context.Context, tx pgx.Tx, id uuid.UUID
 	if err != nil {
 		return err
 	}
-	return s.host.DataSources.SetConfigurationInTx(ctx, tx, id, providerName, encoded)
+	return s.host.DataSources.SetConfigurationInTx(ctx, tx, id, encoded)
 }
 
 // outputFieldSpecs derives the selectable Widget fields for a published schema: one per

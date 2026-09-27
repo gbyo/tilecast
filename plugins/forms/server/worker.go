@@ -81,7 +81,7 @@ func (s *Service) RunDue(ctx context.Context) error {
 	}
 
 	// Claim due forms with SKIP LOCKED so concurrent workers take disjoint sets.
-	ids, err := s.host.DataSources.ClaimDueInTx(ctx, tx, providerName, 50)
+	ids, err := s.host.DataSources.ClaimDueInTx(ctx, tx, 50)
 	if err != nil {
 		return err
 	}

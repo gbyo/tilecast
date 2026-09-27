@@ -34,6 +34,7 @@ import { DataSourceEditorPage, DataSourcesPage } from "./pages/DataSourcesPage";
 import { ActivityPage } from "./pages/ActivityPage";
 import { PluginsPage } from "./pages/PluginsPage";
 import {
+  assertStudioRouteCollisions,
   pluginRouteObjects,
   pluginStandaloneRouteObjects,
 } from "./plugin-host/routes";
@@ -383,8 +384,8 @@ export const studioRoutes: RouteObject[] = [
         ],
       },
       { path: "users", element: <Navigate to="/settings/users" replace /> },
-      // Plugin-owned routes inside the authenticated chrome (the Forms
-      // reviewer inbox), discovered at build time.
+      // Plugin-owned routes inside the authenticated chrome, discovered at
+      // build time.
       ...pluginStandaloneRouteObjects({ topLevel: false }),
       {
         path: "activity",
@@ -480,11 +481,17 @@ export const studioRoutes: RouteObject[] = [
       },
     ],
   },
-  // Plugin-owned top-level routes with their own shell (the Forms submitter
-  // portal), discovered at build time.
+  // Plugin-owned top-level routes with their own shell, discovered at
+  // build time.
   ...pluginStandaloneRouteObjects({ topLevel: true }),
   { path: "*", element: <Navigate to="/" replace /> },
 ];
+
+// A plugin must never shadow a core Studio route. The check runs on the
+// composed tree, so it covers standalone and management routes wherever
+// they mount; a collision fails the shell loudly instead of silently
+// overriding Studio.
+assertStudioRouteCollisions(studioRoutes);
 
 function RoutedApp() {
   return useRoutes(studioRoutes);

@@ -99,6 +99,15 @@ var widgetProviderRegistry = map[string]ProviderDescriptor{
 	"world_clock": {ID: "world_clock", Role: RoleWidget, Renderable: true},
 }
 
+// IsStaticDataSourceProvider reports whether id is a built-in core Data
+// Source provider. Plugin contributions must not reuse one: a contributed
+// provider overlays the static table, so a collision would silently redefine
+// core behavior. The plugin host enforces this at startup.
+func IsStaticDataSourceProvider(id string) bool {
+	_, ok := dataSourceProviderRegistry[id]
+	return ok
+}
+
 func lookupProvider(id string) (ProviderDescriptor, bool) {
 	if descriptor, ok := widgetProviderRegistry[id]; ok {
 		return descriptor, true

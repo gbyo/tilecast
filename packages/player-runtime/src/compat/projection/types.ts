@@ -392,46 +392,16 @@ export interface UpdateStatusReport {
 // Heartbeat (subset of the server's flat Heartbeat struct that this player
 // reports; screenWidth, screenHeight, and playerVersion are required)
 
-/**
- * The Noise Meter's optional heartbeat section.
- *
- * It rides the ordinary heartbeat because a room's noise is measured fifteen to
- * twenty times a second and none of that rate may reach the network. What
- * travels is the current state and completed ten-second aggregates: numbers
- * only, never audio, a waveform, or anything replayable.
- */
-export interface HeartbeatNoiseMeter {
-  status: "active" | "normal" | "loud" | "unavailable" | "inactive";
-  currentLevel?: number;
-  pendingHistory?: {
-    startedAt: string;
-    averageLevel: number;
-    peakLevel: number;
-    monitoredMs: number;
-    warningMs: number;
-    loudMs: number;
-    triggerCount: number;
-  }[];
-}
-
 /** What the server acknowledged for one heartbeat. */
 export interface HeartbeatAck {
   accepted: boolean;
   ignoredFields?: string[];
-  /**
-   * How many of the submitted history records the server has taken
-   * responsibility for. Absent when none were sent, when the server predates
-   * the field, or when storing them failed — in every one of those cases the
-   * Player keeps its batch.
-   */
-  noiseHistory?: { accepted: number };
 }
 
 export interface Heartbeat {
   screenWidth: number;
   screenHeight: number;
   playerVersion: string;
-  noiseMeter?: HeartbeatNoiseMeter;
   presentationSchemaVersions?: number[];
   nativePresentationCapabilities?: Record<string, number>;
   webRuntimeVersion?: number;

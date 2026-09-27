@@ -21,7 +21,6 @@ import {
 import { PlaybackController } from "./engine/controller";
 import { runtimeDiscovery } from "./plugins/discovery";
 import { RuntimeSurfaceHost } from "./plugins/host";
-import { MicrophoneService } from "./plugins/microphone";
 import { installProbe } from "./probe";
 import { PlayerRoot } from "./views/player-root";
 
@@ -79,13 +78,6 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
   for (const problem of runtimeDiscovery.problems) {
     console.error(`tilecast runtime: plugin discovery: ${problem}`);
   }
-  const microphone = new MicrophoneService({
-    source: capabilities.noiseMeter,
-    clock,
-    report: (report) => host.noiseMeter?.report(report),
-    diagnostic: (message, detail) =>
-      host.noiseMeter?.diagnostic(message, detail),
-  });
   const surfaces = new RuntimeSurfaceHost({
     clock,
     plugins: runtimeDiscovery.plugins,
@@ -93,7 +85,6 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
     reducedMotion: () =>
       animationScale === 0 ||
       matchMedia("(prefers-reduced-motion: reduce)").matches,
-    microphone,
     mediaUrl: (assetId, variantId) =>
       `tcmedia://variant/${assetId}/${variantId}`,
     stage: () => document.getElementById("content-stage"),
@@ -144,9 +135,6 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
       case "discovered-server":
         view.addServer(message.server);
         break;
-      case "noise-level":
-        microphone.hostLevel(message.rms);
-        break;
     }
   };
   host.subscribe((message) => {
@@ -162,7 +150,7 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
       .then((servers) => servers.forEach((server) => view.addServer(server)))
       .catch(() => undefined);
   }
-  // A reload replaces this document; the microphone goes with it.
+  // A reload replaces this document; surface timers go with it.
   addEventListener("pagehide", () => surfaces.stop());
 
   // Ready once the first frame is painted with the bundled font available,

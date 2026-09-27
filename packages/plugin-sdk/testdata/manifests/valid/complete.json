@@ -28,9 +28,7 @@
   "capabilities": {
     "playerManifest": true,
     "backgroundWorkers": true,
-    "network": ["api.transit.example.org"],
-    "hardware": [],
-    "heartbeat": []
+    "network": ["api.transit.example.org"]
   },
   "server": {
     "entrypoint": "./plugin.go"

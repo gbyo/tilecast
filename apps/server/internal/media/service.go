@@ -51,8 +51,27 @@ type Service struct {
 
 // SetDataSourceProviders registers plugin-owned Data Source providers. The
 // host calls it once at startup with every bundled plugin's contribution;
-// a provider with no contribution is unknown to generic paths.
-func (s *Service) SetDataSourceProviders(providers ...plugin.DataSourceProvider) {
+// a provider with no contribution is unknown to generic paths. Malformed
+// provider IDs, duplicate contributions, and collisions with static core
+// providers are startup errors, never silent overwrites.
+func (s *Service) SetDataSourceProviders(providers ...plugin.DataSourceProvider) error {
+	seen := map[string]bool{}
+	for _, provider := range providers {
+		if provider == nil {
+			continue
+		}
+		id := provider.ProviderID()
+		if !plugin.ProviderIDPattern.MatchString(id) {
+			return fmt.Errorf("data source provider id %q is malformed", id)
+		}
+		if seen[id] {
+			return fmt.Errorf("duplicate data source provider %q", id)
+		}
+		if IsStaticDataSourceProvider(id) {
+			return fmt.Errorf("data source provider %q collides with a core provider", id)
+		}
+		seen[id] = true
+	}
 	if s.contributed == nil {
 		s.contributed = map[string]plugin.DataSourceProvider{}
 	}
@@ -62,6 +81,7 @@ func (s *Service) SetDataSourceProviders(providers ...plugin.DataSourceProvider)
 		}
 		s.contributed[provider.ProviderID()] = provider
 	}
+	return nil
 }
 
 // contributedProvider returns the plugin contribution for a provider id, if

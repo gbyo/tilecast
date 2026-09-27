@@ -38,12 +38,9 @@ import os
 import re
 import shutil
 import signal
-import socket as socketlib
-import struct
 import subprocess
 import sys
 import tempfile
-import threading
 import time
 import urllib.error
 import urllib.request
@@ -88,90 +85,6 @@ class Client:
             text = re.sub(r"(tc_device_|Token\":\")[A-Za-z0-9._-]+", r"\1[redacted]", payload[:400].decode(errors="replace"))
             raise AssertionError(f"{method} {path}: {status} {text}")
         return status, (json.loads(payload) if payload else None)
-
-
-class FakeSessionBridge:
-    """tilecast-session-bridge's side of the Edge IPC socket, scripted: it
-    reports one microphone and, while tilecastd asks for capture, one derived
-    level every 60 ms, exactly the events the real bridge sends. It never has
-    audio to send; tilecastd's strict decoding would refuse anything else."""
-
-    def __init__(self, path, rms):
-        self.rms = rms
-        self.connection = socketlib.socket(socketlib.AF_UNIX, socketlib.SOCK_STREAM)
-        self.connection.connect(path)
-        self.lock = threading.Lock()
-        self.seq = 1
-        self.capture_requests = []
-        self.capturing = threading.Event()
-        self.closed = threading.Event()
-        self.write({"type": "hello", "minProtocolVersion": 1, "maxProtocolVersion": 1, "role": "session_bridge",
-                    "client": "tilecast-session-bridge", "clientVersion": "e2e", "features": []})
-        welcome = self.read()
-        assert welcome.get("type") == "welcome" and welcome.get("role") == "session_bridge", welcome
-        self.event("audio.inventory", {"pipewire": "available", "sources": 1, "sinks": 1,
-                                       "defaultSource": True, "defaultSink": True})
-        threading.Thread(target=self.receive, daemon=True).start()
-        threading.Thread(target=self.measure, daemon=True).start()
-
-    def write(self, frame):
-        payload = json.dumps(frame).encode()
-        with self.lock:
-            self.connection.sendall(struct.pack(">I", len(payload)) + payload)
-
-    def event(self, name, data):
-        with self.lock:
-            seq, self.seq = self.seq, self.seq + 1
-        self.write({"type": "event", "seq": seq, "event": name, "data": data})
-
-    def read(self):
-        def exactly(count):
-            data = b""
-            while len(data) < count:
-                chunk = self.connection.recv(count - len(data))
-                if not chunk:
-                    raise EOFError
-                data += chunk
-            return data
-        (length,) = struct.unpack(">I", exactly(4))
-        assert 0 < length <= 4 * 1024 * 1024, length
-        return json.loads(exactly(length))
-
-    def receive(self):
-        try:
-            while True:
-                frame = self.read()
-                if frame.get("type") == "event" and frame.get("event") == "capture.set":
-                    enabled = frame["data"]["enabled"]
-                    self.capture_requests.append(enabled)
-                    (self.capturing.set if enabled else self.capturing.clear)()
-                elif frame.get("type") == "goodbye":
-                    return
-        except (EOFError, OSError):
-            pass
-        finally:
-            self.closed.set()
-
-    def measure(self):
-        was = False
-        while not self.closed.is_set():
-            now = self.capturing.is_set()
-            try:
-                if now:
-                    self.event("audio.level", {"rms": self.rms, "state": "capturing"})
-                elif was:
-                    self.event("audio.level", {"rms": None, "state": "idle"})
-            except OSError:
-                return
-            was = now
-            time.sleep(0.06)
-
-    def close(self):
-        try:
-            self.write({"type": "goodbye", "reason": "e2e_done"})
-        except OSError:
-            pass
-        self.connection.close()
 
 
 def hardware_roots(work):

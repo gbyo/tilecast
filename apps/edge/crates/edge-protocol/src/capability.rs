@@ -269,7 +269,6 @@ pub mod ids {
     pub const AUDIO_PIPEWIRE: &str = "audio.pipewire";
     pub const AUDIO_INPUT: &str = "audio.input";
     pub const AUDIO_OUTPUT: &str = "audio.output";
-    pub const AUDIO_NOISE_METER: &str = "audio.noise_meter";
     pub const SYSTEM_IDLE_INHIBIT: &str = "system.idle_inhibit";
     pub const NETWORK_PRESENTATION_NETWORK: &str = "network.presentation_network";
     pub const SYSTEM_SYSTEMD_WATCHDOG: &str = "system.systemd_watchdog";
