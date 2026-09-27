@@ -134,17 +134,25 @@ impl UpdateHost for LinuxHost {
     }
 
     async fn await_active(&self, unit: &str) -> Result<(), HostError> {
-        // The job object stays valid after start_unit returns: poll it, then
-        // fail the operation instead of leaving a half-started candidate.
-        let path = self.manager().await?.load_unit(unit).await.map_err(|e| failed(unit, e))?;
-        let job: OwnedObjectPath = self.property(&path, "org.freedesktop.systemd1.Unit", "Job").await?;
-        if job.as_str() != "/" {
-            self.wait_job(&job, JOB_TIMEOUT).await?;
+        // Poll the unit itself rather than the start job: the job object
+        // from start_unit is already gone by the time a second call runs,
+        // and ActiveState carries the answer. Type=notify units report
+        // active only after their readiness notification, which is the
+        // ordering activation needs; anything else waits, failed fails.
+        let deadline = tokio::time::Instant::now() + JOB_TIMEOUT;
+        loop {
+            let path = self.manager().await?.load_unit(unit).await.map_err(|e| failed(unit, e))?;
+            let state: String = self.property(&path, "org.freedesktop.systemd1.Unit", "ActiveState").await?;
+            match state.as_str() {
+                "active" => return Ok(()),
+                "failed" => return Err(HostError::failed(format!("{unit} did not start"))),
+                _ => {}
+            }
+            if tokio::time::Instant::now() >= deadline {
+                return Err(HostError::Timeout("systemd job"));
+            }
+            tokio::time::sleep(Duration::from_millis(250)).await;
         }
-        if self.activity(unit).await? != UnitActivity::Running {
-            return Err(HostError::failed(format!("{unit} did not start")));
-        }
-        Ok(())
     }
 
     async fn activity(&self, unit: &str) -> Result<UnitActivity, HostError> {
