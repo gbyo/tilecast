@@ -568,7 +568,8 @@ func resolveDefinitionTemplate(value any, configuration map[string]any) (any, bo
 
 func (s *Service) compileWidgetPresentationForPreset(provider string, presetID *string, raw json.RawMessage) (*WidgetPresentation, error) {
 	presentation, err := s.compileWidgetPresentation(provider, raw)
-	if err != nil || presetID == nil || presentation.Native == nil {
+	// A Widget without a compatibility presentation compiles to nil.
+	if err != nil || presetID == nil || presentation == nil || presentation.Native == nil {
 		return presentation, err
 	}
 	switch *presetID {

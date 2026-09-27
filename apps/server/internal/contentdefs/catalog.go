@@ -502,7 +502,8 @@ func (c *Catalog) validate() error {
 			}
 			componentTypes[definition.Component.Type] = definition.ID
 		}
-		if !definition.LegacyEditor {
+		// A component-only Widget has no compatibility presentation to validate.
+		if !definition.LegacyEditor && definition.HasFallback() {
 			if definition.Runtime == "native" {
 				if len(definition.PresentationTemplate) == 0 {
 					return fmt.Errorf("Widget definition %q is missing a presentation template", definition.ID)

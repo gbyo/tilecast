@@ -231,6 +231,23 @@ describe("format", () => {
     ).not.toBe("");
   });
 
+  it("keeps minutes and seconds above 23 for analog faces", () => {
+    expect(
+      timeParts(Date.parse("2026-09-28T23:59:47Z"), {
+        locale: "en-US",
+        timeZone: "UTC",
+        hourCycle: "h23",
+      }).clock,
+    ).toEqual({ hours: 23, minutes: 59, seconds: 47 });
+    expect(
+      timeParts(Date.parse("2026-09-29T00:00:00Z"), {
+        locale: "en-US",
+        timeZone: "UTC",
+        hourCycle: "h23",
+      }).clock.hours,
+    ).toBe(0);
+  });
+
   it("formats dates, zones, numbers and bounded text", () => {
     expect(
       formatDate(at, { locale: "en-US", timeZone: "UTC", style: "long" }),

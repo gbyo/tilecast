@@ -19,13 +19,16 @@ const (
 	// kind "component" presentations. Native and web presentations use 1.
 	ComponentPresentationSchemaVersion = 2
 	maxComponentVersion                = 100
-	maxComponentConfigBytes            = 8 * 1024
-	maxComponentConfigDepth            = 6
-	maxComponentConfigKeys             = 64
-	maxComponentConfigItems            = 200
-	maxComponentConfigString           = 2000
-	maxComponentDataSources            = 8
-	tilecastTagPrefix                  = "tc-widget-"
+	// maxComponentTypeLength keeps "widget.<type>" within the heartbeat's
+	// 80-character capability names.
+	maxComponentTypeLength   = 72
+	maxComponentConfigBytes  = 8 * 1024
+	maxComponentConfigDepth  = 6
+	maxComponentConfigKeys   = 64
+	maxComponentConfigItems  = 200
+	maxComponentConfigString = 2000
+	maxComponentDataSources  = 8
+	tilecastTagPrefix        = "tc-widget-"
 )
 
 var (
@@ -98,6 +101,9 @@ func validateComponent(definition WidgetDefinition) error {
 	}
 	if !componentTypePattern.MatchString(spec.Type) {
 		return fmt.Errorf("component type %q must be <namespace>.<name>", spec.Type)
+	}
+	if len(spec.Type) > maxComponentTypeLength {
+		return fmt.Errorf("component type %q is longer than %d characters", spec.Type, maxComponentTypeLength)
 	}
 	if spec.Version < 1 || spec.Version > maxComponentVersion {
 		return fmt.Errorf("component version must be from 1 to %d", maxComponentVersion)

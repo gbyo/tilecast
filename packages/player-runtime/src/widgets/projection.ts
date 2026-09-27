@@ -54,7 +54,9 @@ function componentOf(widget: ManifestWidget): RuntimeWidgetComponentV1 | null {
   const raw = presentation.component;
   if (!raw || typeof raw !== "object") return null;
   const { type, version, config } = raw;
-  if (typeof type !== "string" || !TYPE.test(type)) return null;
+  if (typeof type !== "string" || type.length > 72 || !TYPE.test(type)) {
+    return null;
+  }
   if (!Number.isInteger(version) || version < 1 || version > 100) return null;
   if (!config || typeof config !== "object" || Array.isArray(config)) {
     return null;

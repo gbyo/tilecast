@@ -74,6 +74,7 @@ jobs:
                   server=true
                   linux=true
                   container=true
+                  docs=true
                   ;;
               esac
               case "$path" in

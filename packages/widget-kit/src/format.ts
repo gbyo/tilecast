@@ -75,7 +75,7 @@ export function timeParts(
     hourCycle: "h23",
   }).formatToParts(epochMs);
   const number = (type: Intl.DateTimeFormatPartTypes) =>
-    Number(numeric.find((part) => part.type === type)?.value ?? 0) % 24;
+    Number(numeric.find((part) => part.type === type)?.value ?? 0);
   return {
     hour: pick("hour"),
     minute: pick("minute"),
@@ -83,7 +83,8 @@ export function timeParts(
     dayPeriod: pick("dayPeriod"),
     separator,
     clock: {
-      hours: number("hour"),
+      // Some engines write midnight as "24" in the h23 cycle.
+      hours: number("hour") % 24,
       minutes: number("minute"),
       seconds: number("second"),
     },

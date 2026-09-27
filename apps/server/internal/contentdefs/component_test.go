@@ -58,8 +58,12 @@ func TestComponentValidation(t *testing.T) {
 		t.Fatalf("valid component rejected: %v", err)
 	}
 	cases := map[string]func(*WidgetDefinition){
-		"unnamespaced type":   func(d *WidgetDefinition) { d.Component.Type = "probe" },
-		"version zero":        func(d *WidgetDefinition) { d.Component.Version = 0 },
+		"unnamespaced type": func(d *WidgetDefinition) { d.Component.Type = "probe" },
+		"version zero":      func(d *WidgetDefinition) { d.Component.Version = 0 },
+		"type too long": func(d *WidgetDefinition) {
+			d.Component.Type = "acme." + strings.Repeat("a", 68)
+			d.Component.TagName = "acme-long"
+		},
 		"version above 100":   func(d *WidgetDefinition) { d.Component.Version = 101 },
 		"wrong tilecast tag":  func(d *WidgetDefinition) { d.Component.TagName = "tc-widget-other" },
 		"invalid tag":         func(d *WidgetDefinition) { d.Component.TagName = "Probe" },

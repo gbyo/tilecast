@@ -166,6 +166,23 @@ describe("Clock element", () => {
     test.dispose();
   });
 
+  it("places the hands correctly late in the hour", async () => {
+    const late = createManualClock(Date.parse("2026-09-28T14:47:38Z"));
+    const test = mountForTest(clock, {
+      config: { style: "analog", showSeconds: true },
+      context: createTestContext({ clock: late }),
+    });
+    const element = test.element as ClockElement;
+    await element.updateComplete;
+    const rotation = (selector: string) =>
+      element.shadowRoot!.querySelector(selector)?.getAttribute("transform");
+    // 9:47:38 in Chicago.
+    expect(rotation(".hand.hour")).toBe("rotate(293.5 100 100)");
+    expect(rotation(".hand.minute")).toBe("rotate(285.8 100 100)");
+    expect(rotation(".hand.second")).toBe("rotate(228 100 100)");
+    test.dispose();
+  });
+
   it("sets no style attribute in its shadow tree", async () => {
     const { root, element, test } = await render({
       style: "analog",

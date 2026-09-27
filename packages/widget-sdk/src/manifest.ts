@@ -15,6 +15,7 @@
 import { z } from "zod";
 import {
   COMPONENT_TYPE_PATTERN,
+  MAX_COMPONENT_TYPE_LENGTH,
   MAX_COMPONENT_VERSION,
   TAG_NAME_PATTERN,
 } from "./identity.ts";
@@ -97,6 +98,7 @@ const componentSchema = z
   .object({
     type: z
       .string()
+      .max(MAX_COMPONENT_TYPE_LENGTH)
       .regex(COMPONENT_TYPE_PATTERN, "must be <namespace>.<name>")
       .describe("Component type; the Player capability is widget.<type>."),
     version: z.number().int().min(1).max(MAX_COMPONENT_VERSION),
