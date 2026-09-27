@@ -13,24 +13,31 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// defaultFormAttachmentMaxBytes bounds a form attachment when no media upload limit is configured.
-const defaultFormAttachmentMaxBytes = 25 << 20
+// defaultPrivateAssetMaxBytes bounds a private plugin asset when no media upload limit is configured.
+const defaultPrivateAssetMaxBytes = 25 << 20
 
-// IngestFormAttachment creates a dedicated form-attachment asset from uploaded bytes. Unlike the
-// generic upload path it stamps origin='form_attachment' at creation, so the asset can never be
-// selected as public Media and never enters a manifest until an approving projection references it.
-// The bytes must be an image; other types are rejected. Submitters can call this without general
-// Media-management permission (the forms layer authorizes them against the target record).
-func (s *Service) IngestFormAttachment(ctx context.Context, userID uuid.UUID, filename, declaredMIME string, data []byte) (Asset, error) {
+// IngestPrivateAsset creates a dedicated private plugin asset from uploaded
+// bytes and stamps it with the owning plugin's identity. Unlike the generic
+// upload path it stamps the historical private origin at creation (retained
+// from the Forms attachment era; see migration 00106), so the asset can
+// never be selected as public Media and never enters a manifest until an
+// owning projection references it. The bytes must be an image; other types
+// are rejected. Callers reach this through Host.PluginAssets, which binds
+// the plugin identity; the owning plugin authorizes the upload against its
+// own records first.
+func (s *Service) IngestPrivateAsset(ctx context.Context, pluginID string, userID uuid.UUID, filename, declaredMIME string, data []byte) (Asset, error) {
 	if s.storage == nil {
 		return Asset{}, errors.New("media storage is not configured")
+	}
+	if strings.TrimSpace(pluginID) == "" {
+		return Asset{}, errors.New("private plugin assets need an owning plugin")
 	}
 	if len(data) == 0 {
 		return Asset{}, errors.New("attachment is empty")
 	}
 	maxBytes := s.cfg.MaxUploadBytes
 	if maxBytes <= 0 {
-		maxBytes = defaultFormAttachmentMaxBytes
+		maxBytes = defaultPrivateAssetMaxBytes
 	}
 	if int64(len(data)) > maxBytes {
 		return Asset{}, ErrUploadTooLarge
@@ -44,7 +51,7 @@ func (s *Service) IngestFormAttachment(ctx context.Context, userID uuid.UUID, fi
 		return Asset{}, err
 	}
 	if detected.AssetType != "image" {
-		return Asset{}, errors.New("form attachments must be images")
+		return Asset{}, errors.New("private plugin assets must be images")
 	}
 	var organizationID uuid.UUID
 	if err := s.db.QueryRow(ctx, `SELECT id FROM organization_settings WHERE singleton=TRUE`).Scan(&organizationID); err != nil {
@@ -74,9 +81,9 @@ func (s *Service) IngestFormAttachment(ctx context.Context, userID uuid.UUID, fi
 		_ = s.storage.Delete(finalKey)
 		return Asset{}, cause
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO assets (id,organization_id,name,type,original_filename,declared_mime_type,detected_mime_type,sha256,original_size,processing_status,origin,created_by,created_at,updated_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'queued','form_attachment',$10,$11,$11)`,
-		assetID, organizationID, name, detected.AssetType, filename, declaredMIME, detected.MIMEType, sum[:], int64(len(data)), userID, now); err != nil {
+	if _, err := tx.Exec(ctx, `INSERT INTO assets (id,organization_id,name,type,original_filename,declared_mime_type,detected_mime_type,sha256,original_size,processing_status,origin,owning_plugin,created_by,created_at,updated_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'queued','form_attachment',$10,$11,$12,$12)`,
+		assetID, organizationID, name, detected.AssetType, filename, declaredMIME, detected.MIMEType, sum[:], int64(len(data)), pluginID, userID, now); err != nil {
 		return cleanup(err)
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO asset_variants (id,asset_id,kind,storage_provider,storage_key,mime_type,file_size,sha256)
@@ -93,17 +100,19 @@ func (s *Service) IngestFormAttachment(ctx context.Context, userID uuid.UUID, fi
 	if err := tx.Commit(ctx); err != nil {
 		return cleanup(err)
 	}
-	// Internal read: this is the one place that legitimately returns a form-attachment asset.
+	// Internal read: this is the one place that legitimately returns a private plugin asset.
 	return s.getAsset(ctx, assetID, true)
 }
 
-// FormAttachmentDelivery returns a servable file for a form-attachment asset, choosing the best
-// available variant (a generated thumbnail/poster/playback rendition when present, otherwise the
-// original upload). Unlike Preview/PlaybackPreview it does not require the asset to have finished
-// asynchronous processing, so an image is servable immediately after IngestFormAttachment. It only
-// ever serves assets with origin='form_attachment'; callers (the forms package) authorize the
-// requesting user against the owning record before calling this.
-func (s *Service) FormAttachmentDelivery(ctx context.Context, assetID uuid.UUID) (Delivery, error) {
+// PrivateAssetDelivery returns a servable file for one owning plugin's
+// private asset, choosing the best available variant (a generated
+// thumbnail/poster/playback rendition when present, otherwise the original
+// upload). Unlike Preview/PlaybackPreview it does not require the asset to
+// have finished asynchronous processing, so an image is servable immediately
+// after IngestPrivateAsset. It only ever serves the calling plugin's own
+// private assets; the owning plugin authorizes the requesting user against
+// its own records before calling this.
+func (s *Service) PrivateAssetDelivery(ctx context.Context, pluginID string, assetID uuid.UUID) (Delivery, error) {
 	if s.storage == nil {
 		return Delivery{}, errors.New("media storage is not configured")
 	}
@@ -111,9 +120,9 @@ func (s *Service) FormAttachmentDelivery(ctx context.Context, assetID uuid.UUID)
 	var key string
 	err := s.db.QueryRow(ctx, `SELECT v.id,v.storage_key,v.mime_type,v.file_size,encode(v.sha256,'hex')
 		FROM asset_variants v JOIN assets a ON a.id=v.asset_id
-		WHERE a.id=$1 AND a.deleted_at IS NULL AND a.origin='form_attachment' AND v.deleted_at IS NULL
+		WHERE a.id=$1 AND a.deleted_at IS NULL AND a.origin='form_attachment' AND a.owning_plugin=$2 AND v.deleted_at IS NULL
 		ORDER BY CASE v.kind WHEN 'thumbnail' THEN 0 WHEN 'poster' THEN 1 WHEN 'playback' THEN 2 WHEN 'original' THEN 3 ELSE 4 END
-		LIMIT 1`, assetID).Scan(&d.VariantID, &key, &d.MIMEType, &d.Size, &d.HashHex)
+		LIMIT 1`, assetID, pluginID).Scan(&d.VariantID, &key, &d.MIMEType, &d.Size, &d.HashHex)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Delivery{}, ErrVariantUnavailable
 	}
@@ -124,25 +133,28 @@ func (s *Service) FormAttachmentDelivery(ctx context.Context, assetID uuid.UUID)
 	return d, err
 }
 
-// SoftDeleteFormAttachment soft-deletes a form-attachment asset and queues its storage cleanup. It
-// refuses to touch anything other than an origin='form_attachment' asset, so it can never remove a
-// Media library item. Removing a nonexistent or already-deleted attachment is a no-op.
-func (s *Service) SoftDeleteFormAttachment(ctx context.Context, assetID uuid.UUID) error {
+// SoftDeletePrivateAsset soft-deletes one owning plugin's private asset and
+// queues its storage cleanup. It refuses to touch anything other than a
+// private asset owned by the calling plugin, so it can never remove a Media
+// library item or another plugin's upload. Removing a nonexistent or
+// already-deleted attachment is a no-op.
+func (s *Service) SoftDeletePrivateAsset(ctx context.Context, pluginID string, assetID uuid.UUID) error {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
 	var origin string
-	err = tx.QueryRow(ctx, `SELECT origin FROM assets WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`, assetID).Scan(&origin)
+	var owner *string
+	err = tx.QueryRow(ctx, `SELECT origin,owning_plugin FROM assets WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`, assetID).Scan(&origin, &owner)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil
 	}
 	if err != nil {
 		return err
 	}
-	if origin != "form_attachment" {
-		return errors.New("asset is not a form attachment")
+	if origin != "form_attachment" || owner == nil || *owner != pluginID {
+		return errors.New("asset is not a private asset of this plugin")
 	}
 	if _, err := tx.Exec(ctx, `UPDATE assets SET processing_status='deleting',deleted_at=now(),updated_at=now() WHERE id=$1`, assetID); err != nil {
 		return err

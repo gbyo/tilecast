@@ -55,7 +55,7 @@ func (s *Service) CreateForm(ctx context.Context, user uuid.UUID, in FormInput) 
 	}
 
 	created, err := s.host.DataSources.CreateInTx(ctx, tx, plugin.DataSourceCreate{
-		Provider: providerName, Name: name, Description: strings.TrimSpace(in.Description),
+		Name: name, Description: strings.TrimSpace(in.Description),
 		CreatedBy: user, Configuration: json.RawMessage(`{}`),
 		SeedRefresh: &plugin.RefreshSeed{
 			Payload:   plugin.TypedDatasetPayload{Datasets: []plugin.TypedDataset{}},
@@ -132,7 +132,7 @@ func (s *Service) UpdateMetadata(ctx context.Context, id, user uuid.UUID, in Met
 		return Form{}, err
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
-	if err := s.host.DataSources.UpdateMetadataInTx(ctx, tx, id, providerName, name, description); errors.Is(err, plugin.ErrNotFound) {
+	if err := s.host.DataSources.UpdateMetadataInTx(ctx, tx, id, name, description); errors.Is(err, plugin.ErrNotFound) {
 		return Form{}, ErrNotFound
 	} else if err != nil {
 		return Form{}, err
@@ -295,7 +295,7 @@ func (s *Service) publishRevisionTx(ctx context.Context, tx pgx.Tx, id, user uui
 
 // loadDraftSchema reads the editable draft schema from the form configuration.
 func (s *Service) loadDraftSchema(ctx context.Context, id uuid.UUID) (FormSchema, error) {
-	raw, err := s.host.DataSources.Configuration(ctx, id, providerName)
+	raw, err := s.host.DataSources.Configuration(ctx, id)
 	if errors.Is(err, plugin.ErrNotFound) {
 		return FormSchema{}, ErrNotFound
 	}
@@ -380,7 +380,7 @@ func (s *Service) GetForm(ctx context.Context, id, viewer uuid.UUID) (Form, erro
 	if err != nil {
 		return Form{}, err
 	}
-	record, err := s.host.DataSources.Get(ctx, id, providerName)
+	record, err := s.host.DataSources.Get(ctx, id)
 	if errors.Is(err, plugin.ErrNotFound) {
 		return Form{}, ErrNotFound
 	}

@@ -269,7 +269,9 @@ func (s *Service) removalBlockers(ctx context.Context, tx pgx.Tx, id string) ([]
 	}
 	guard, ok := hosted.plugin.(plugin.RemovalGuard)
 	if !ok {
-		return legacyRemovalBlockers(ctx, tx, id)
+		// A plugin with no removal rules blocks nothing: the migration-era
+		// fallback is gone, and every surviving plugin answers for itself.
+		return []InUseResource{}, nil
 	}
 	blockers, err := guard.RemovalBlockers(ctx, tx)
 	if err != nil {
@@ -287,14 +289,6 @@ func (s *Service) removalBlockers(ctx context.Context, tx pgx.Tx, id string) ([]
 		resources = append(resources, InUseResource{Kind: blocker.Kind, Count: blocker.Count, Label: blocker.Label(), Resolution: string(resolution)})
 	}
 	return resources, nil
-}
-
-// legacyRemovalBlockers covers the built-in plugins that have not moved into
-// plugins/ yet. Every table named here is a literal owned by this release.
-// All known plugins have migrated (including Forms, which reports its own
-// blockers through plugin.RemovalGuard), so no cases remain.
-func legacyRemovalBlockers(ctx context.Context, tx pgx.Tx, id string) ([]InUseResource, error) {
-	return []InUseResource{}, nil
 }
 
 func auditInstallation(ctx context.Context, tx pgx.Tx, action string, definition Definition, userID uuid.UUID) error {

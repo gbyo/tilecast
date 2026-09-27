@@ -114,18 +114,11 @@ func TestHostRunsAPluginThroughGenericContributions(t *testing.T) {
 		if sample.WorkerRuns.Load() != 1 {
 			t.Fatal("worker did not run")
 		}
-		service.RunMaintenance(env.ctx)
-		if sample.MaintenanceRuns.Load() != 1 {
-			t.Fatal("maintenance did not run")
-		}
-		section, ok := service.HeartbeatSections()["sampleTally"]
-		if !ok {
-			t.Fatal("heartbeat section not offered")
-		}
-		response, err := section.Handle(env.ctx, env.screenID, json.RawMessage(`{"seen":3}`))
-		if err != nil || response["sampleTally"] == nil {
-			t.Fatalf("heartbeat response = %v, %v", response, err)
-		}
+		// The sample plugin demonstrates the representative v1 subset only:
+		// initialization, status, removal guard, routes, projection, and one
+		// worker. Retired contribution points (maintenance tasks, heartbeat
+		// sections, asset dependents) are not part of v1 and have no host
+		// dispatch to exercise.
 
 		// Uninstalled plugins neither project nor claim assets.
 		deleteRequest := httptest.NewRequest(http.MethodDelete, "/", nil)

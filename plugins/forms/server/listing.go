@@ -19,7 +19,7 @@ func (s *Service) ListAccessibleForms(ctx context.Context, userID uuid.UUID) ([]
 	// The candidate set comes from Host.DataSources; visibility scoping
 	// (creator or grant holder, unless a global Owner) stays here with the
 	// plugin's capability model.
-	forms, err := s.host.DataSources.ListLive(ctx, providerName)
+	forms, err := s.host.DataSources.ListLive(ctx)
 	if err != nil {
 		return nil, err
 	}
