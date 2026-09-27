@@ -29,7 +29,12 @@
     "plugins:check": "node packages/plugin-sdk/tools/pluginctl/main.ts check",
     "plugins:generate": "node packages/plugin-sdk/tools/pluginctl/main.ts generate",
     "plugins:new": "node packages/plugin-sdk/tools/pluginctl/main.ts new",
-    "plugins:migration": "node packages/plugin-sdk/tools/pluginctl/main.ts migration"
+    "plugins:migration": "node packages/plugin-sdk/tools/pluginctl/main.ts migration",
+    "widgets:check": "node packages/widget-sdk/tools/widgetctl/main.ts check && npm run test:widgets --workspace @tilecast/widget-sdk",
+    "widgets:generate": "node packages/widget-sdk/tools/widgetctl/main.ts generate",
+    "widgets:new": "node packages/widget-sdk/tools/widgetctl/main.ts new",
+    "widgets:storybook": "storybook dev -c widgets/.storybook -p 6006 --no-open",
+    "widgets:storybook:build": "storybook build -c widgets/.storybook -o widgets/storybook-static --quiet"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

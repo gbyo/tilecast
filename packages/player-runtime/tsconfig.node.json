@@ -17,7 +17,8 @@
   "include": [
     "src/host/contract.ts",
     "src/compat/projection/index.ts",
-    "src/clock/synchronized.ts"
+    "src/clock/synchronized.ts",
+    "src/widgets/capabilities.gen.ts"
   ],
   "exclude": ["src/**/*.test.ts"]
 }
