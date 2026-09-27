@@ -576,12 +576,15 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
         switch_current(&self.layout, &transaction.previous.version_name)?;
         tracing::info!(component = "update", event = "current_switched", version = %transaction.previous.version_name);
         self.crash(CrashPoint::AfterRollbackCurrent)?;
+        tracing::info!(component = "update", event = "rollback_reloading");
         self.host.reload().await?;
+        tracing::info!(component = "update", event = "rollback_applying_system");
         self.host.apply_system_configuration().await?;
         self.crash(CrashPoint::AfterRollbackReload)?;
-        self.host.start(EDGE_DAEMON).await?;
-        self.host.start(EDGE_WEB).await?;
-        self.host.start(EDGE_RENDERER).await?;
+        for unit in [EDGE_DAEMON, EDGE_WEB, EDGE_RENDERER] {
+            tracing::info!(component = "update", event = "rollback_starting", unit);
+            self.host.start(unit).await?;
+        }
         self.crash(CrashPoint::AfterRollbackStarted)?;
         self.host.disarm_guard().await?;
         self.crash(CrashPoint::AfterRollbackGuardDisarmed)?;
