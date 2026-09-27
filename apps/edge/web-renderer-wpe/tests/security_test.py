@@ -71,6 +71,10 @@ PAGES = {
       document.body.appendChild(a); a.click();
       setTimeout(() => fetch('/report?download=still-here'), 1500);
     </script></body>""",
+    "/filepicker.html": """<body><input type=file id=f><script>
+      setTimeout(() => { document.getElementById('f').click(); }, 300);
+      setTimeout(() => fetch('/report?filepicker=still-here'), 2000);
+    </script></body>""",
     "/permissions.html": """<script>
       const send = (key, value) => fetch('/report?' + key + '=' + encodeURIComponent(value));
       send('dialogs', [String(alert('x')), String(confirm('x')), String(prompt('x'))].join(','));
@@ -226,6 +230,23 @@ def live_web_processes(parent):
     return sorted(found)
 
 
+def child_processes(parent):
+    """(pid, name, state) for every child process of parent, zombies included."""
+    found = []
+    for entry in os.listdir("/proc"):
+        if not entry.isdigit():
+            continue
+        try:
+            stat = open(f"/proc/{entry}/stat").read()
+        except OSError:
+            continue
+        name = stat[stat.index("(") + 1:stat.rindex(")")]
+        fields = stat[stat.rindex(")") + 2:].split()
+        if int(fields[1]) == parent:
+            found.append((int(entry), name, fields[0]))
+    return sorted(found)
+
+
 def check(name, condition, detail=""):
     if not condition:
         raise AssertionError(f"{name}: {detail}")
@@ -301,6 +322,13 @@ def run(helper, root):
     check("no downloaded file anywhere", downloaded == "", downloaded)
     check("no new top-level entries", sorted(os.listdir(root)) == before)
     client.destroy("download")
+
+    # §9: file picker. The request is cancelled: the page stays, no file
+    # dialog can take the surface, and nothing is uploaded anywhere.
+    created(client, "filepicker", rwclient.page("http://127.0.0.1/filepicker.html", LOCAL))
+    check("file picker leaves the page in place", wait_report("filepicker")["filepicker"] == "still-here")
+    check("no new top-level entries", sorted(os.listdir(root)) == before)
+    client.destroy("filepicker")
 
     # §9: permissions and dialogs.
     created(client, "perm", rwclient.page("http://127.0.0.1/permissions.html", LOCAL))
@@ -466,11 +494,22 @@ def run(helper, root):
     client = helper.client()
     # setpriv execs the helper, so the Popen PID is the helper itself.
     fds = lambda: len(os.listdir(f"/proc/{helper.process.pid}/fd"))  # noqa: E731
+    # §15: repeated reload keeps the surface alive and cleans up.
+    reload_capability = created(client, "reload", rwclient.page("http://127.0.0.1/still.html", LOCAL))
+    client.wait_event("reload", {"stream-ready"})
+    for _ in range(10):
+        client.send({"type": "reload", "surfaceId": "reload"})
+    time.sleep(2)
+    check("the surface survives repeated reload", rwclient.frames_flow(helper.frames, reload_capability))
+    client.destroy("reload")
+    time.sleep(0.5)
+    check("no frame socket is left after reload", not os.path.exists(os.path.join(helper.frames, reload_capability + ".sock")))
     created(client, "warm", rwclient.page("http://127.0.0.1/still.html", LOCAL))
     client.wait_event("warm", {"loaded"})
     client.destroy("warm")
     time.sleep(1)
     baseline = fds()
+    baseline_procs = child_processes(helper.process.pid)
     for index in range(40):
         created(client, f"cyc{index}", rwclient.page("http://127.0.0.1/still.html", LOCAL), width=320, height=240)
         client.wait_event(f"cyc{index}", {"stream-ready"})
@@ -478,6 +517,15 @@ def run(helper, root):
     time.sleep(2)
     check("40 create/destroy cycles leak no descriptors", fds() <= baseline + 4, (baseline, fds()))
     check("no frame socket is left", [n for n in os.listdir(helper.frames) if n.endswith(".sock")] == [])
+    # Exiting page processes are reaped asynchronously; converge before judging.
+    deadline = time.monotonic() + 15
+    after = child_processes(helper.process.pid)
+    while time.monotonic() < deadline and len(after) > len(baseline_procs) + 2:
+        time.sleep(0.5)
+        after = child_processes(helper.process.pid)
+    check("40 create/destroy cycles leak no processes", len(after) <= len(baseline_procs) + 2,
+          (baseline_procs, after))
+    check("no zombie child remains", all(state != "Z" for _, _, state in after), after)
     client.close()
 
 

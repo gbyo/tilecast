@@ -31,10 +31,18 @@ main (void)
   BLOCK ("https://sub.signage.example.org/", https, list);
   BLOCK ("https://signage.example.org:8443/", https, list);
   BLOCK ("https://user@signage.example.org/", https, list);
+  BLOCK ("https://signage.example.org@evil.test/", https, list);
   BLOCK ("http://signage.example.org/", https, list); /* no downgrade */
   ALLOW ("http://10.0.0.5/menu", http, list);
   ALLOW ("https://10.0.0.5/menu", http, list);
+  ALLOW ("http://10.0.0.5:80/menu", http, list); /* explicit default port */
   BLOCK ("http://10.0.0.5:8080/", http, list);
+  BLOCK ("http://10.0.0.5:443/menu", http, list);
+  BLOCK ("http://[::1]/", http, list); /* IPv6 literals are never entries */
+  BLOCK ("http://[fd00::1]/", http, list);
+  BLOCK ("http://[::ffff:10.0.0.5]/", http, list); /* mapped IPv4 is still IPv6 */
+  BLOCK ("http://user@[::1]/", http, list);
+  BLOCK ("https://s\xd1\x96gnage.example.org/", https, list); /* Cyrillic i: IDN homograph */
   BLOCK ("file:///var/lib/tilecast-edge/state.db", https, list);
   BLOCK ("tilecast://runtime/index.html", https, list);
   BLOCK ("tcmedia://cap/" "0000000000000000000000000000000000000000000000000000000000000000", https, list);
