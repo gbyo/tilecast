@@ -476,11 +476,11 @@ func TestWhoamiPrecedence(t *testing.T) {
 	if err := f.env.config.Upsert(config.Context{Name: "home", ServerURL: f.server.URL, InstallationID: "123e4567-e89b-12d3-a456-426614174000"}, true); err != nil {
 		t.Fatal(err)
 	}
-	// Explicit flag beats a bad environment value.
+	// Explicit environment value is honored.
 	t.Setenv("TILECAST_TOKEN", "tcp_env")
-	out, err := f.execute(t, "", "whoami", "--token", "tcp_flag")
+	out, err := f.execute(t, "", "whoami")
 	if err != nil || !strings.Contains(out, "op (owner)") {
-		t.Fatalf("flag whoami = %q, %v", out, err)
+		t.Fatalf("env whoami = %q, %v", out, err)
 	}
 	// Environment beats the store (which is empty here).
 	out, err = f.execute(t, "", "whoami")

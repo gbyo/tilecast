@@ -287,7 +287,6 @@ func Execute(root *cobra.Command, env *environment, args []string) error {
 	scanned := preScanGlobals(args)
 	resolver := Resolver{
 		ServerFlag:  scanned["server"],
-		TokenFlag:   scanned["token"],
 		ContextFlag: scanned["context"],
 		Store:       env.config,
 		Secrets:     env.secrets,
@@ -350,7 +349,7 @@ func staticCommand(root *cobra.Command, word string) bool {
 // --flag=value form. Last wins, matching pflag.
 func preScanGlobals(args []string) map[string]string {
 	found := map[string]string{}
-	wanted := map[string]bool{"server": true, "token": true, "context": true, "timeout": true}
+	wanted := map[string]bool{"server": true, "context": true, "timeout": true}
 	for i := 0; i < len(args); i++ {
 		raw := args[i]
 		if !strings.HasPrefix(raw, "--") || strings.HasPrefix(raw, "---") {

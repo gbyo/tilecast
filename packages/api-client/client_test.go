@@ -204,3 +204,32 @@ func TestRawCallIsLimitedToPluginAutomation(t *testing.T) {
 		}
 	}
 }
+
+func TestDownloadStreamsAfterReturn(t *testing.T) {
+	payload := strings.Repeat("stream-payload-123;", 4000)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/octet-stream")
+		_, _ = w.Write([]byte(payload))
+	}))
+	defer server.Close()
+	c, err := New(server.URL, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := c.Download(context.Background(), "/api/v1/artifact")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The body must stay readable after Download returns: the request
+	// context used to belong to Download and was cancelled on return.
+	raw, err := io.ReadAll(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(raw) != payload {
+		t.Fatalf("streamed %d bytes, want %d", len(raw), len(payload))
+	}
+	if err := body.Close(); err != nil {
+		t.Fatal(err)
+	}
+}

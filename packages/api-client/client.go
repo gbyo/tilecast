@@ -894,31 +894,51 @@ func (c *Client) PlaybackCompliance(ctx context.Context, from, to string) (int, 
 
 // Download streams an authenticated GET body to the caller, who closes it.
 // It exists for artifact and export endpoints whose payloads must never be
-// buffered whole into memory by the transport.
+// buffered whole into memory by the transport. The returned body owns the
+// request lifetime: closing it closes the connection and releases the
+// timeout context, so the body stays readable after Download returns.
 func (c *Client) Download(ctx context.Context, path string) (io.ReadCloser, error) {
 	ctx, cancel := context.WithTimeout(ctx, httpTimeout)
-	defer cancel()
 	editor, err := c.editor(ctx)
 	if err != nil {
+		cancel()
 		return nil, err
 	}
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, c.server+path, nil)
 	if err != nil {
+		cancel()
 		return nil, err
 	}
 	if err := editor(ctx, request); err != nil {
+		cancel()
 		return nil, err
 	}
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
+		cancel()
 		return nil, fmt.Errorf("reach Tilecast server: %w", err)
 	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		raw, _ := io.ReadAll(io.LimitReader(response.Body, 1<<16))
 		response.Body.Close()
+		cancel()
 		return nil, DecodeBody(response.StatusCode, raw, nil)
 	}
-	return response.Body, nil
+	return &downloadBody{ReadCloser: response.Body, cancel: cancel}, nil
+}
+
+// downloadBody ties the request timeout context to the streaming body.
+// Close closes the connection first and then releases the context.
+type downloadBody struct {
+	io.ReadCloser
+	cancel context.CancelFunc
+}
+
+// Close closes the body and releases the request context.
+func (b *downloadBody) Close() error {
+	err := b.ReadCloser.Close()
+	b.cancel()
+	return err
 }
 
 // Upload posts a streaming body with its content type, decoding the data

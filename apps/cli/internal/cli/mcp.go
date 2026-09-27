@@ -54,11 +54,10 @@ func runMCP(cmd *cobra.Command, env *environment) error {
 	if err != nil {
 		return err
 	}
-	// MCP uses the resolved grant and declares its calling surface with the
-	// fixed agent. The server still enforces that grant's scopes and role.
-	transport, err := apiclient.New(resolved.ServerURL, func(context.Context) (string, error) {
-		return resolved.Bearer, nil
-	})
+	// MCP uses the credential provider so a browser-login OAuth pair keeps
+	// rotating for the life of the process. OAuth logic lives in the
+	// provider, never here. The server still enforces the grant's scopes.
+	transport, err := apiclient.New(resolved.ServerURL, resolved.BearerFunc())
 	if err != nil {
 		return err
 	}

@@ -9,8 +9,9 @@ import (
 )
 
 // transport builds the typed API client for one resolved credential. The
-// client captures the resolved secret; rotation stays in the resolver, so
-// commands never touch credentials directly.
+// client consults the credential provider on every request so OAuth
+// rotation mid-process keeps working; commands never touch credentials
+// directly.
 func (e *environment) transport(cmd *cobra.Command, resolved Resolved) (*apiclient.Client, context.Context, context.CancelFunc, error) {
 	ctx, cancel, err := timeoutContext(cmd)
 	if err != nil {
@@ -27,9 +28,7 @@ func (e *environment) transport(cmd *cobra.Command, resolved Resolved) (*apiclie
 // newTransport builds the API client without a command context, for
 // callers that bound their own context (generic plugin pre-dispatch).
 func (e *environment) newTransport(resolved Resolved) (*apiclient.Client, error) {
-	transport, err := apiclient.New(resolved.ServerURL, func(context.Context) (string, error) {
-		return resolved.Bearer, nil
-	})
+	transport, err := apiclient.New(resolved.ServerURL, resolved.BearerFunc())
 	if err != nil {
 		return nil, err
 	}
