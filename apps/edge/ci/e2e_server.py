@@ -165,6 +165,10 @@ class WebHelper:
         self.process = None
 
     def start(self):
+        control = os.path.join(self.web, "control.sock")
+        frames = os.path.join(self.web, "frames")
+        assert len(control) < 108, f"helper control socket path too long for sun_path: {control}"
+        assert len(frames) + 1 + 64 + len(".sock") < 108, f"helper frames dir too long for sun_path: {frames}"
         for sub in ("", "frames", "data", "cache", "home", "xdg"):
             path = os.path.join(self.web, sub)
             os.makedirs(path, exist_ok=True)
@@ -315,7 +319,10 @@ def main():
         parser.error("--renderer needs --runtime-dir and --gst-plugin-dir")
     if args.web_helper and not args.renderer:
         parser.error("--web-helper needs --renderer")
-    work = tempfile.mkdtemp(prefix="tilecast-edge-e2e-")
+    # Short prefix: the web helper's frame socket directory must stay far
+    # under the 108-byte sun_path limit (frames dir + 70 bytes of socket
+    # name), and the helper refuses to start otherwise.
+    work = tempfile.mkdtemp(prefix="tce-")
     processes = []
     try:
         run("dropdb", "--if-exists", DATABASE)
