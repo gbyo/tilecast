@@ -1,4 +1,4 @@
-package alerts
+package server
 
 import (
 	"context"
@@ -180,17 +180,22 @@ func TestBoundedPreservesUTF8(t *testing.T) {
 	}
 }
 
-func TestServiceLifecycleIsIdempotent(t *testing.T) {
-	service := &Service{}
-	first, cancelFirst := context.WithCancel(context.Background())
-	cancelFirst()
-	service.Start(first)
-	service.Start(first)
-	service.Stop()
-	service.Stop()
-
-	second, cancelSecond := context.WithCancel(context.Background())
-	cancelSecond()
-	service.Start(second)
-	service.Stop()
+// The standalone Start/Stop lifecycle is gone with the core service: polling
+// is a WorkerProvider worker the generic plugin host runs. The worker
+// exposes one named worker and exits promptly when its context ends.
+func TestWorkerLifecycle(t *testing.T) {
+	service := NewService()
+	workers := service.Workers()
+	if len(workers) != 1 || workers[0].Name != "nws-monitor" {
+		t.Fatalf("Workers() = %#v, want one nws-monitor worker", workers)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	start := time.Now()
+	if err := service.RunWorker(ctx); err != context.Canceled {
+		t.Fatalf("RunWorker on a cancelled context = %v, want context.Canceled", err)
+	}
+	if time.Since(start) > 5*time.Second {
+		t.Fatal("RunWorker did not exit promptly on cancellation")
+	}
 }

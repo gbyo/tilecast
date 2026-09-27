@@ -148,11 +148,11 @@ func TestInstallIsIdempotentAuditedAndInvalidatesManifests(t *testing.T) {
 
 func TestEmergencyAlertsRemovalBlockers(t *testing.T) {
 	withInstallationDatabase(t, func(env installationEnvironment) {
-		if _, _, err := env.service.Install(env.ctx, EmergencyAlertsID, env.userID); err != nil {
+		if _, _, err := env.service.Install(env.ctx, "emergency_alerts", env.userID); err != nil {
 			t.Fatal(err)
 		}
 		// Installed with monitoring off is a valid, removable state.
-		entry := env.catalogEntry(t, EmergencyAlertsID)
+		entry := env.catalogEntry(t, "emergency_alerts")
 		if !entry.Installed || entry.Active || entry.Configured {
 			t.Fatalf("installed idle Emergency Alerts = %+v", entry)
 		}
@@ -164,7 +164,7 @@ func TestEmergencyAlertsRemovalBlockers(t *testing.T) {
 			ruleID, env.orgID, env.userID); err != nil {
 			t.Fatal(err)
 		}
-		err := env.service.Remove(env.ctx, EmergencyAlertsID, env.userID)
+		err := env.service.Remove(env.ctx, "emergency_alerts", env.userID)
 		var inUse *InUseError
 		if !errors.As(err, &inUse) || len(inUse.Resources) != 2 {
 			t.Fatalf("remove with monitor and rule err = %#v", err)
@@ -176,17 +176,17 @@ func TestEmergencyAlertsRemovalBlockers(t *testing.T) {
 			t.Fatal(err)
 		}
 		before := env.manifestVersion(t)
-		if err = env.service.Remove(env.ctx, EmergencyAlertsID, env.userID); err != nil {
+		if err = env.service.Remove(env.ctx, "emergency_alerts", env.userID); err != nil {
 			t.Fatalf("remove after cleanup: %v", err)
 		}
 		// A Player-facing plugin's removal revises Player manifests.
 		if env.manifestVersion(t) <= before {
 			t.Fatal("remove did not advance the manifest")
 		}
-		if err = env.service.Remove(env.ctx, EmergencyAlertsID, env.userID); err != nil {
+		if err = env.service.Remove(env.ctx, "emergency_alerts", env.userID); err != nil {
 			t.Fatalf("repeat remove should be idempotent, got %v", err)
 		}
-		if entry = env.catalogEntry(t, EmergencyAlertsID); entry.Installed {
+		if entry = env.catalogEntry(t, "emergency_alerts"); entry.Installed {
 			t.Fatal("Emergency Alerts still installed after remove")
 		}
 	})

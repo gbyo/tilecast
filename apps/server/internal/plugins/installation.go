@@ -316,14 +316,6 @@ func legacyRemovalBlockers(ctx context.Context, tx pgx.Tx, id string) ([]InUseRe
 	switch id {
 	case FormsID:
 		err = add("form", "form", "forms", "delete", `SELECT count(*) FROM data_sources WHERE provider='form' AND deleted_at IS NULL`)
-	case EmergencyAlertsID:
-		if err = add("alert_monitor", "enabled monitor", "enabled monitors", "disable", `SELECT count(*) FROM alert_monitor WHERE enabled`); err != nil {
-			return nil, err
-		}
-		if err = add("alert_rule", "alert rule", "alert rules", "delete", `SELECT count(*) FROM alert_rules`); err != nil {
-			return nil, err
-		}
-		err = add("alert_activation", "active alert", "active alerts", "wait", `SELECT count(*) FROM alert_activations WHERE cleared_at IS NULL`)
 	}
 	if err != nil {
 		return nil, err

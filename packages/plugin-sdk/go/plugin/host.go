@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"time"
 
@@ -18,15 +19,19 @@ import (
 // without breaking existing plugins, and a plugin test can fill in only the
 // services it exercises.
 type Host struct {
-	DB           DB
-	Logger       *slog.Logger
-	Installation Installation
-	Audit        Audit
-	Manifests    Manifests
-	Targets      Targets
-	Screens      Screens
-	Organization Organization
-	Clock        Clock
+	DB                   DB
+	Logger               *slog.Logger
+	Installation         Installation
+	Audit                Audit
+	Manifests            Manifests
+	Targets              Targets
+	Takeovers            Takeovers
+	ManagedPresentations ManagedPresentations
+	BackgroundJobs       BackgroundJobs
+	Instance             Instance
+	Screens              Screens
+	Organization         Organization
+	Clock                Clock
 }
 
 // DB is the Tilecast PostgreSQL database. Plugins own their tables and query
@@ -80,6 +85,14 @@ type Manifests interface {
 	InvalidateResourceInTx(ctx context.Context, tx pgx.Tx, resourceID uuid.UUID, reason string) (AfterCommit, error)
 	// InvalidateAllInTx bumps every active screen.
 	InvalidateAllInTx(ctx context.Context, tx pgx.Tx, reason string) (AfterCommit, error)
+	InvalidateScreensInTx(ctx context.Context, tx pgx.Tx, screenIDs []uuid.UUID, reason string) (AfterCommit, error)
+}
+
+// ScreenTargets is the union of explicitly selected screens and all members
+// of the selected display groups. IDs are unique within each slice.
+type ScreenTargets struct {
+	ScreenIDs []uuid.UUID
+	GroupIDs  []uuid.UUID
 }
 
 // Targets checks screen targeting against the organization's screens, sync
@@ -88,7 +101,70 @@ type Targets interface {
 	// ValidateInTx reports ErrInvalid when a target does not exist, is an
 	// archived screen, or is a deleted group.
 	ValidateInTx(ctx context.Context, tx pgx.Tx, target Target) error
+	ValidateScreenTargetsInTx(ctx context.Context, tx pgx.Tx, targets ScreenTargets) error
+	ResolveScreensInTx(ctx context.Context, tx pgx.Tx, targets ScreenTargets) ([]uuid.UUID, error)
+	AppliesToScreen(ctx context.Context, screenID uuid.UUID, targets ScreenTargets) (bool, error)
 }
+
+type TakeoverRequest struct {
+	Name          string
+	Description   string
+	PlaylistID    uuid.UUID
+	Targets       ScreenTargets
+	ActivatedBy   uuid.UUID
+	ActivatedAt   time.Time
+	ExpiresAt     time.Time
+	AuditAction   string
+	AuditMetadata map[string]any
+}
+
+type TakeoverResult struct {
+	ID            uuid.UUID
+	AffectedCount int
+	ScreenIDs     []uuid.UUID
+}
+
+// ErrTakeoverInactive is returned by Takeovers.CancelInTx when the takeover
+// is already inactive. Reconcilers tolerate it: a poll clearing an alert
+// whose takeover another Takeover already replaced still has to mark the
+// alert cleared, and the desired end state already holds.
+var ErrTakeoverInactive = errors.New("takeover is no longer active")
+
+type Takeovers interface {
+	ValidatePlaylist(ctx context.Context, playlistID uuid.UUID, targets ScreenTargets, userSelectable bool) error
+	MaximumDuration() time.Duration
+	ActivateInTx(ctx context.Context, tx pgx.Tx, request TakeoverRequest) (TakeoverResult, AfterCommit, error)
+	CancelInTx(ctx context.Context, tx pgx.Tx, takeoverID uuid.UUID, actorID uuid.UUID, reason string) (AfterCommit, error)
+	RefreshInTx(ctx context.Context, tx pgx.Tx, takeoverID uuid.UUID, reason string) (AfterCommit, error)
+}
+
+type ManagedPresentationRequest struct {
+	Name                    string
+	Description             string
+	DataSourceProvider      string
+	DataSourceConfiguration string
+	CachedPayload           string
+	CacheCategory           string
+	CacheExpiresAt          time.Time
+	WidgetProvider          string
+	WidgetConfiguration     func(dataSourceID uuid.UUID) string
+	CreatedBy               uuid.UUID
+}
+
+type ManagedPresentation struct {
+	DataSourceID uuid.UUID
+	WidgetID     uuid.UUID
+	PlaylistID   uuid.UUID
+}
+
+type ManagedPresentations interface {
+	EnsureInTx(ctx context.Context, tx pgx.Tx, existing ManagedPresentation, request ManagedPresentationRequest) (ManagedPresentation, error)
+	UpdateDataInTx(ctx context.Context, tx pgx.Tx, dataSourceID uuid.UUID, configuration, cachedPayload, cacheCategory string, cacheExpiresAt time.Time) (bool, error)
+	PlaylistName(ctx context.Context, playlistID uuid.UUID) (string, error)
+}
+
+type BackgroundJobs interface{ Allowed() bool }
+type Instance interface{ PublicURL() string }
 
 // Screens answers fleet questions plugins ask for status and advice.
 type Screens interface {

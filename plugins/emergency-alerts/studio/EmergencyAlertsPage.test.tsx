@@ -1,25 +1,28 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api } from "../api/client";
-import { i18n } from "../i18n";
+import type { PluginT } from "@tilecast/studio";
+import { i18n, renderPluginRoute } from "@tilecast/studio/testing";
+import { api } from "./api";
+import en from "./locales/en.json";
 import {
   emergencyDisplayLabel,
   emergencyPlaylistLabel,
   EmergencyAlertsPage,
 } from "./EmergencyAlertsPage";
 
-const t = i18n.getFixedT("en", "alerts");
+// Plugin namespaces register dynamically and are deliberately absent from
+// Studio's central Namespace union, so type the fixed translator with the
+// plugin's own English resources instead of widening the central type.
+const getPluginT = i18n.getFixedT.bind(i18n) as unknown as (
+  lng: string,
+  ns: string,
+) => PluginT<typeof en>;
+const t = getPluginT("en", "plugin.emergency_alerts");
 
 let role = "owner";
-
-vi.mock("../auth/AuthProvider", () => ({
-  useAuth: () => ({ status: { csrfToken: "token", user: { role } } }),
-}));
 
 beforeEach(() => {
   role = "owner";
@@ -50,26 +53,16 @@ describe("Emergency Alerts plugin", () => {
     vi.spyOn(api, "screenGroups").mockResolvedValue({
       items: [],
       total: 0,
-      page: 1,
-      pageSize: 100,
     });
     vi.spyOn(api, "playlists").mockResolvedValue({
       items: [],
       total: 0,
-      page: 1,
-      pageSize: 100,
     });
     vi.spyOn(api, "nwsZones").mockResolvedValue({ items: [] });
-    const client = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
+    renderPluginRoute(<EmergencyAlertsPage />, {
+      path: "/plugins/emergency-alerts",
+      role,
     });
-    render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter>
-          <EmergencyAlertsPage />
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
 
     expect(
       await screen.findByRole("heading", {
@@ -140,14 +133,10 @@ describe("Emergency Alerts plugin", () => {
     vi.spyOn(api, "screenGroups").mockResolvedValue({
       items: [],
       total: 0,
-      page: 1,
-      pageSize: 100,
     });
     vi.spyOn(api, "playlists").mockResolvedValue({
       items: [],
       total: 0,
-      page: 1,
-      pageSize: 100,
     });
     vi.spyOn(api, "nwsZones").mockResolvedValue({
       items: [
@@ -159,16 +148,10 @@ describe("Emergency Alerts plugin", () => {
         },
       ],
     });
-    const client = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
+    renderPluginRoute(<EmergencyAlertsPage />, {
+      path: "/plugins/emergency-alerts",
+      role,
     });
-    render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter>
-          <EmergencyAlertsPage />
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
 
     expect(
       (
@@ -215,14 +198,10 @@ describe("Emergency Alerts plugin", () => {
     vi.spyOn(api, "screenGroups").mockResolvedValue({
       items: [],
       total: 0,
-      page: 1,
-      pageSize: 100,
     });
     vi.spyOn(api, "playlists").mockResolvedValue({
       items: [],
       total: 0,
-      page: 1,
-      pageSize: 100,
     });
     vi.spyOn(api, "nwsZones").mockResolvedValue({
       items: [
@@ -242,16 +221,10 @@ describe("Emergency Alerts plugin", () => {
       lastMatchedCount: 0,
       updatedAt: "2026-07-28T12:00:00Z",
     });
-    const client = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
+    renderPluginRoute(<EmergencyAlertsPage />, {
+      path: "/plugins/emergency-alerts",
+      role,
     });
-    render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter>
-          <EmergencyAlertsPage />
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
     const user = userEvent.setup();
     await user.selectOptions(
       await screen.findByLabelText("State or territory"),
@@ -274,7 +247,7 @@ describe("Emergency Alerts plugin", () => {
         zones: ["OHC049"],
         pollIntervalSeconds: 120,
       },
-      "token",
+      "csrf",
     );
   });
 
@@ -296,22 +269,6 @@ describe("Emergency Alerts plugin", () => {
         {
           id: "11111111-1111-4111-8111-111111111111",
           name: "Lobby",
-          description: "",
-          location: "",
-          platform: "android-tv",
-          deviceManufacturer: "Test",
-          deviceModel: "TV",
-          androidVersion: "14",
-          playerVersion: "1.0",
-          screenWidth: 1920,
-          screenHeight: 1080,
-          density: 1,
-          locale: "en-US",
-          timezone: "UTC",
-          enabled: true,
-          pairedAt: "2026-07-28T12:00:00Z",
-          status: "online",
-          hasActiveCredential: true,
         },
       ],
       total: 1,
@@ -319,27 +276,16 @@ describe("Emergency Alerts plugin", () => {
     vi.spyOn(api, "screenGroups").mockResolvedValue({
       items: [],
       total: 0,
-      page: 1,
-      pageSize: 100,
     });
     vi.spyOn(api, "playlists").mockResolvedValue({
       items: [
         {
           id: "22222222-2222-4222-8222-222222222222",
           name: "Weather alert",
-          description: "",
-          revision: 1,
-          createdAt: "2026-07-28T12:00:00Z",
-          updatedAt: "2026-07-28T12:00:00Z",
-          items: [],
           itemCount: 1,
-          warnings: [],
-          layoutUsage: [],
         },
       ],
       total: 1,
-      page: 1,
-      pageSize: 100,
     });
     const create = vi.spyOn(api, "createNWSAlertRule").mockResolvedValue({
       id: "33333333-3333-4333-8333-333333333333",
@@ -359,16 +305,10 @@ describe("Emergency Alerts plugin", () => {
       createdAt: "2026-07-28T12:00:00Z",
       updatedAt: "2026-07-28T12:00:00Z",
     });
-    const client = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
+    renderPluginRoute(<EmergencyAlertsPage />, {
+      path: "/plugins/emergency-alerts",
+      role,
     });
-    render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter>
-          <EmergencyAlertsPage />
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
     const user = userEvent.setup();
     await screen.findByRole("heading", { name: "Weather event rules" });
     await user.type(screen.getByLabelText("Rule name"), "Warnings");
@@ -385,7 +325,7 @@ describe("Emergency Alerts plugin", () => {
         presentationMode: "builtin",
         playlistId: undefined,
       }),
-      "token",
+      "csrf",
     );
 
     // Choosing the ticker reveals the bar's own shape, and saves as a response
@@ -410,7 +350,7 @@ describe("Emergency Alerts plugin", () => {
         tickerSpeed: "fast",
         playlistId: undefined,
       }),
-      "token",
+      "csrf",
     );
   });
 

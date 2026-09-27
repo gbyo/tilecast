@@ -38,7 +38,17 @@ type Handler func(w http.ResponseWriter, r *http.Request) error
 // net/http's {name} syntax and are read with r.PathValue.
 type Router interface {
 	Handle(method, pattern string, access Access, handler Handler)
+	HandleWithRateLimit(method, pattern string, access Access, rateLimit RateLimit, handler Handler)
 }
+
+// RateLimit selects a host-owned limiter for a route. The operations class
+// protects manual requests that can cause significant server or upstream work.
+type RateLimit string
+
+const (
+	RateLimitNone       RateLimit = ""
+	RateLimitOperations RateLimit = "operations"
+)
 
 // Principal is the authenticated dashboard user of a request.
 type Principal struct {

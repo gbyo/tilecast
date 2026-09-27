@@ -1,4 +1,4 @@
-package alerts
+package server
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
 
 func (s *Service) applyAlert(ctx context.Context, alertID string, rule Rule, alert nwsProperties, now time.Time) error {
@@ -47,46 +48,33 @@ func (s *Service) applyAlert(ctx context.Context, alertID string, rule Rule, ale
 		if err != nil {
 			return err
 		}
-		changed, updateErr := updateBuiltinAlertData(ctx, tx, rule, alert, expires, now)
+		changed, updateErr := s.updateBuiltinAlertData(ctx, tx, rule, alert, expires, now)
 		if updateErr != nil {
 			return updateErr
 		}
-		screenIDs := []uuid.UUID{}
+		callbacks := []plugin.AfterCommit{}
 		// A bar carries the alert text and its expiry in the manifest itself, so
 		// either only reaches the screen through a new manifest.
 		if ticker && shown.differsFrom(alert, expires) {
-			screenIDs, err = bumpRuleScreens(ctx, tx, rule.ID, now, "nws.alert.updated")
+			_, callback, bumpErr := s.bumpRuleScreens(ctx, tx, rule.ID, "nws.alert.updated")
+			err = bumpErr
 			if err != nil {
 				return err
 			}
+			callbacks = append(callbacks, callback)
 		}
 		if changed && existing != nil {
-			rows, bumpErr := tx.Query(ctx, `WITH bumped AS (
-				UPDATE screen_manifest_state manifest SET manifest_version=manifest_version+1,changed_at=$2,change_reason='nws.alert.updated'
-				WHERE manifest.screen_id IN(SELECT screen_id FROM takeover_screen_states WHERE takeover_id=$1)
-				RETURNING screen_id,manifest_version)
-				UPDATE takeover_screen_states state SET manifest_version=bumped.manifest_version,last_updated_at=$2
-				FROM bumped WHERE state.takeover_id=$1 AND state.screen_id=bumped.screen_id
-				RETURNING state.screen_id`, *existing, now)
-			if bumpErr != nil {
-				return bumpErr
+			callback, refreshErr := s.host.Takeovers.RefreshInTx(ctx, tx, *existing, "nws.alert.updated")
+			if refreshErr != nil {
+				return refreshErr
 			}
-			for rows.Next() {
-				var screenID uuid.UUID
-				if rows.Scan(&screenID) == nil {
-					screenIDs = append(screenIDs, screenID)
-				}
-			}
-			rows.Close()
-			if err = rows.Err(); err != nil {
-				return err
-			}
+			callbacks = append(callbacks, callback)
 		}
 		if err = tx.Commit(ctx); err != nil {
 			return err
 		}
-		if len(screenIDs) > 0 {
-			s.notify(ctx, screenIDs)
+		for _, callback := range callbacks {
+			callback()
 		}
 		return nil
 	}
@@ -104,31 +92,32 @@ func (s *Service) applyAlert(ctx context.Context, alertID string, rule Rule, ale
 		return err
 	}
 	defer tx.Rollback(ctx)
-	if _, err = updateBuiltinAlertData(ctx, tx, rule, alert, expires, now); err != nil {
+	if _, err = s.updateBuiltinAlertData(ctx, tx, rule, alert, expires, now); err != nil {
 		return err
 	}
 	var takeoverID *uuid.UUID
 	var screenIDs []uuid.UUID
+	var afterCommit plugin.AfterCommit
 	if ticker {
 		// The bar reaches the screen the same way a Countdown Bar does: a bumped
 		// manifest, which the plugin channel then projects the activation into.
 		// Nothing is taken over, so there is nothing to restore afterwards.
-		if screenIDs, err = bumpRuleScreens(ctx, tx, rule.ID, now, "nws.ticker.activated"); err != nil {
+		if screenIDs, afterCommit, err = s.bumpRuleScreens(ctx, tx, rule.ID, "nws.ticker.activated"); err != nil {
 			return err
 		}
 		if len(screenIDs) == 0 {
 			return fmt.Errorf("alert rule has no eligible screens")
 		}
-		if _, err = tx.Exec(ctx, `INSERT INTO audit_logs(id,action,resource_type,resource_id,metadata) VALUES($1,'nws_alert_ticker.activated','nws_alert_rule',$2,jsonb_build_object('alertId',$3::text,'event',$4::text))`,
-			uuid.New(), rule.ID.String(), alertID, alert.Event); err != nil {
+		if err = s.host.Audit.RecordInTx(ctx, tx, plugin.AuditEvent{Action: "nws_alert_ticker.activated", ResourceType: "nws_alert_rule", ResourceID: rule.ID.String(), Metadata: map[string]any{"alertId": alertID, "event": alert.Event}}); err != nil {
 			return err
 		}
 	} else {
-		raised, takeoverScreens, activateErr := s.activate(ctx, tx, rule, alert.Event, alert.Headline, alert.Description, now, expires)
+		raised, takeoverScreens, callback, activateErr := s.activate(ctx, tx, rule, alert.Event, alert.Headline, alert.Description, now, expires)
 		if activateErr != nil {
 			return activateErr
 		}
 		takeoverID, screenIDs = &raised, takeoverScreens
+		afterCommit = callback
 	}
 	_, err = tx.Exec(ctx, `INSERT INTO alert_activations(alert_id,rule_id,event,headline,description,instruction,severity,urgency,certainty,area_description,sender,effective_at,expires_at,response_mode,takeover_id,first_seen_at,last_seen_at)
 		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$16)
@@ -140,7 +129,9 @@ func (s *Service) applyAlert(ctx context.Context, alertID string, rule Rule, ale
 	if err = tx.Commit(ctx); err != nil {
 		return err
 	}
-	s.notify(ctx, screenIDs)
+	if afterCommit != nil {
+		afterCommit()
+	}
 	return nil
 }
 
@@ -177,73 +168,61 @@ func (d displayedAlert) differsFrom(alert nwsProperties, expires time.Time) bool
 	return d.expiresAt == nil || !d.expiresAt.Equal(expires)
 }
 
-// bumpRuleScreens raises the manifest version of every screen a rule targets,
-// directly or through a group, and reports the screens that must be told. A
-// screen with no manifest state yet gets one: an alert must not be the request
-// that finds a screen has never had a manifest and give up.
-func bumpRuleScreens(ctx context.Context, tx pgx.Tx, ruleID uuid.UUID, now time.Time, reason string) ([]uuid.UUID, error) {
-	rows, err := tx.Query(ctx, `WITH targeted AS (
-		SELECT DISTINCT sc.id FROM alert_rule_targets t JOIN screens sc
-			ON sc.deleted_at IS NULL AND (sc.id=t.screen_id OR EXISTS(
-				SELECT 1 FROM screen_group_memberships m WHERE m.screen_group_id=t.screen_group_id AND m.screen_id=sc.id))
-		WHERE t.rule_id=$1)
-		INSERT INTO screen_manifest_state(screen_id,manifest_version,change_reason,changed_at)
-		SELECT id,1,$3,$2 FROM targeted
-		ON CONFLICT(screen_id) DO UPDATE SET previous_manifest_version=screen_manifest_state.manifest_version,
-			manifest_version=screen_manifest_state.manifest_version+1,changed_at=$2,change_reason=$3
-		RETURNING screen_id`, ruleID, now, reason)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	screenIDs := []uuid.UUID{}
-	for rows.Next() {
-		var screenID uuid.UUID
-		if err = rows.Scan(&screenID); err != nil {
-			return nil, err
-		}
-		screenIDs = append(screenIDs, screenID)
-	}
-	return screenIDs, rows.Err()
+// rowQuerier is the QueryRow surface ruleTargetsInTx needs. Single reads run
+// on the pool directly; transactional callers pass their tx.
+type rowQuerier interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 }
 
-// ruleScreenIDs resolves a rule's targets without changing anything, for the
-// cases that must know the screens before the targets themselves are gone.
+func ruleTargetsInTx(ctx context.Context, q rowQuerier, ruleID uuid.UUID) (plugin.ScreenTargets, error) {
+	var targets plugin.ScreenTargets
+	err := q.QueryRow(ctx, `SELECT COALESCE(array_agg(screen_id) FILTER (WHERE screen_id IS NOT NULL),'{}'), COALESCE(array_agg(screen_group_id) FILTER (WHERE screen_group_id IS NOT NULL),'{}') FROM alert_rule_targets WHERE rule_id=$1`, ruleID).Scan(&targets.ScreenIDs, &targets.GroupIDs)
+	return targets, err
+}
+
+func (s *Service) bumpRuleScreens(ctx context.Context, tx pgx.Tx, ruleID uuid.UUID, reason string) ([]uuid.UUID, plugin.AfterCommit, error) {
+	targets, err := ruleTargetsInTx(ctx, tx, ruleID)
+	if err != nil {
+		return nil, nil, err
+	}
+	screens, err := s.host.Targets.ResolveScreensInTx(ctx, tx, targets)
+	if err != nil {
+		return nil, nil, err
+	}
+	afterCommit, err := s.host.Manifests.InvalidateScreensInTx(ctx, tx, screens, reason)
+	return screens, afterCommit, err
+}
+
 func (s *Service) ruleScreenIDs(ctx context.Context, ruleID uuid.UUID) ([]uuid.UUID, error) {
-	rows, err := s.db.Query(ctx, `SELECT DISTINCT sc.id FROM alert_rule_targets t JOIN screens sc
-		ON sc.deleted_at IS NULL AND (sc.id=t.screen_id OR EXISTS(
-			SELECT 1 FROM screen_group_memberships m WHERE m.screen_group_id=t.screen_group_id AND m.screen_id=sc.id))
-		WHERE t.rule_id=$1`, ruleID)
+	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	screenIDs := []uuid.UUID{}
-	for rows.Next() {
-		var screenID uuid.UUID
-		if err = rows.Scan(&screenID); err != nil {
-			return nil, err
-		}
-		screenIDs = append(screenIDs, screenID)
+	defer tx.Rollback(ctx)
+	targets, err := ruleTargetsInTx(ctx, tx, ruleID)
+	if err != nil {
+		return nil, err
 	}
-	return screenIDs, rows.Err()
+	return s.host.Targets.ResolveScreensInTx(ctx, tx, targets)
 }
 
 func (s *Service) bumpScreens(ctx context.Context, screenIDs []uuid.UUID, reason string) error {
-	if len(screenIDs) == 0 {
-		return nil
-	}
-	if _, err := s.db.Exec(ctx, `INSERT INTO screen_manifest_state(screen_id,manifest_version,change_reason)
-		SELECT id,1,$2 FROM screens WHERE id=ANY($1) AND deleted_at IS NULL
-		ON CONFLICT(screen_id) DO UPDATE SET previous_manifest_version=screen_manifest_state.manifest_version,
-			manifest_version=screen_manifest_state.manifest_version+1,changed_at=now(),change_reason=$2`, screenIDs, reason); err != nil {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
 		return err
 	}
-	s.notify(ctx, screenIDs)
+	defer tx.Rollback(ctx)
+	afterCommit, err := s.host.Manifests.InvalidateScreensInTx(ctx, tx, screenIDs, reason)
+	if err != nil {
+		return err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return err
+	}
+	afterCommit()
 	return nil
 }
 
-// refreshRuleScreens re-publishes the manifest for a rule's current targets.
 func (s *Service) refreshRuleScreens(ctx context.Context, ruleID uuid.UUID, reason string) error {
 	screenIDs, err := s.ruleScreenIDs(ctx, ruleID)
 	if err != nil {
@@ -342,7 +321,7 @@ func builtinAlertDocuments(alert nwsProperties, expires, updatedAt time.Time) (s
 	return string(configJSON), string(payloadJSON)
 }
 
-func updateBuiltinAlertData(
+func (s *Service) updateBuiltinAlertData(
 	ctx context.Context,
 	tx pgx.Tx,
 	rule Rule,
@@ -358,15 +337,7 @@ func updateBuiltinAlertData(
 		return false, nil
 	}
 	configuration, payload := builtinAlertDocuments(alert, expires, now)
-	tag, err := tx.Exec(ctx, `UPDATE data_sources SET configuration=$2::jsonb,updated_at=$3
-		WHERE id=$1 AND system_managed=TRUE AND configuration IS DISTINCT FROM $2::jsonb`,
-		*rule.ManagedDataSourceID, configuration, now)
-	if err != nil || tag.RowsAffected() == 0 {
-		return false, err
-	}
-	_, err = tx.Exec(ctx, `UPDATE data_source_refresh_states SET last_attempt_at=$2,last_success_at=$2,http_result_category='nws',parse_status='success',available_item_count=1,using_cached_data=FALSE,cache_updated_at=$2,cache_expires_at=$3,cached_payload=$4::jsonb,error_code=NULL,updated_at=$2 WHERE data_source_id=$1`,
-		*rule.ManagedDataSourceID, now, expires, payload)
-	return true, err
+	return s.host.ManagedPresentations.UpdateDataInTx(ctx, tx, *rule.ManagedDataSourceID, configuration, payload, "nws", expires)
 }
 
 func bounded(value string, limit int) string {
@@ -398,40 +369,10 @@ func alertExpiry(alert nwsProperties, now time.Time, maxMinutes int) time.Time {
 	return *candidate
 }
 
-func (s *Service) activate(ctx context.Context, tx pgx.Tx, rule Rule, event, headline, description string, now, expires time.Time) (uuid.UUID, []uuid.UUID, error) {
-	var err error
+func (s *Service) activate(ctx context.Context, tx pgx.Tx, rule Rule, event, headline, description string, now, expires time.Time) (uuid.UUID, []uuid.UUID, plugin.AfterCommit, error) {
 	if rule.PlaylistID == nil {
-		return uuid.Nil, nil, fmt.Errorf("alert rule has no takeover playlist")
+		return uuid.Nil, nil, nil, fmt.Errorf("alert rule has no takeover playlist")
 	}
-	var organizationID uuid.UUID
-	if err = tx.QueryRow(ctx, `SELECT organization_id FROM playlists WHERE id=$1 AND deleted_at IS NULL`, *rule.PlaylistID).Scan(&organizationID); err != nil {
-		return uuid.Nil, nil, fmt.Errorf("alert rule playlist is not ready")
-	}
-	if err = s.playlists.ValidatePresentationNowInTx(ctx, tx, "playlist", *rule.PlaylistID, now.UTC()); err != nil {
-		return uuid.Nil, nil, err
-	}
-	rows, err := tx.Query(ctx, `SELECT DISTINCT s.id FROM screens s WHERE s.organization_id=$1 AND s.deleted_at IS NULL AND
-		(s.id=ANY($2) OR EXISTS(SELECT 1 FROM screen_group_memberships m WHERE m.screen_id=s.id AND m.screen_group_id=ANY($3)))`, organizationID, rule.ScreenIDs, rule.GroupIDs)
-	if err != nil {
-		return uuid.Nil, nil, err
-	}
-	screenIDs := []uuid.UUID{}
-	for rows.Next() {
-		var id uuid.UUID
-		if err = rows.Scan(&id); err != nil {
-			rows.Close()
-			return uuid.Nil, nil, err
-		}
-		screenIDs = append(screenIDs, id)
-	}
-	rows.Close()
-	if err = rows.Err(); err != nil {
-		return uuid.Nil, nil, err
-	}
-	if len(screenIDs) == 0 {
-		return uuid.Nil, nil, fmt.Errorf("alert rule has no eligible screens")
-	}
-	id := uuid.New()
 	name := event
 	if name == "" {
 		name = "NWS alert"
@@ -440,37 +381,16 @@ func (s *Service) activate(ctx context.Context, tx pgx.Tx, rule Rule, event, hea
 	if detail == "" {
 		detail = description
 	}
-	detail = bounded(detail, 2000)
-	_, err = tx.Exec(ctx, `INSERT INTO takeovers(id,organization_id,name,description,playlist_id,status,activated_at,expires_at) VALUES($1,$2,$3,$4,$5,'active',$6,$7)`, id, organizationID, name, detail, rule.PlaylistID, now, expires)
+	result, afterCommit, err := s.host.Takeovers.ActivateInTx(ctx, tx, plugin.TakeoverRequest{
+		Name: name, Description: bounded(detail, 2000), PlaylistID: *rule.PlaylistID,
+		Targets:     plugin.ScreenTargets{ScreenIDs: rule.ScreenIDs, GroupIDs: rule.GroupIDs},
+		ActivatedAt: now, ExpiresAt: expires, AuditAction: "takeover.activated_by_nws",
+		AuditMetadata: map[string]any{"ruleId": rule.ID.String(), "event": event},
+	})
 	if err != nil {
-		return uuid.Nil, nil, err
+		return uuid.Nil, nil, nil, err
 	}
-	for _, screenID := range uniqueUUIDs(rule.ScreenIDs) {
-		if _, err = tx.Exec(ctx, `INSERT INTO takeover_targets(takeover_id,target_type,screen_id) VALUES($1,'screen',$2)`, id, screenID); err != nil {
-			return uuid.Nil, nil, err
-		}
-	}
-	for _, groupID := range uniqueUUIDs(rule.GroupIDs) {
-		if _, err = tx.Exec(ctx, `INSERT INTO takeover_targets(takeover_id,target_type,screen_group_id) VALUES($1,'group',$2)`, id, groupID); err != nil {
-			return uuid.Nil, nil, err
-		}
-	}
-	for _, screenID := range screenIDs {
-		if _, err = tx.Exec(ctx, `UPDATE takeover_screen_states state SET state='restored',restored_at=now(),last_updated_at=now() FROM takeovers takeover WHERE state.takeover_id=takeover.id AND state.screen_id=$1 AND takeover.status='active' AND state.state NOT IN ('restored','cancelled','expired')`, screenID); err != nil {
-			return uuid.Nil, nil, err
-		}
-		var version int64
-		if err = tx.QueryRow(ctx, `UPDATE screen_manifest_state SET manifest_version=manifest_version+1,changed_at=now(),change_reason='takeover.activated' WHERE screen_id=$1 RETURNING manifest_version`, screenID).Scan(&version); err != nil {
-			return uuid.Nil, nil, err
-		}
-		if _, err = tx.Exec(ctx, `INSERT INTO takeover_screen_states(takeover_id,screen_id,manifest_version,state) VALUES($1,$2,$3,'pending')`, id, screenID, version); err != nil {
-			return uuid.Nil, nil, err
-		}
-	}
-	if _, err = tx.Exec(ctx, `INSERT INTO audit_logs(id,action,resource_type,resource_id,metadata) VALUES($1,'takeover.activated_by_nws','takeover',$2,jsonb_build_object('ruleId',$3::text,'event',$4::text))`, uuid.New(), id.String(), rule.ID, event); err != nil {
-		return uuid.Nil, nil, err
-	}
-	return id, screenIDs, nil
+	return result.ID, result.ScreenIDs, afterCommit, nil
 }
 
 func (s *Service) clearMissing(ctx context.Context, seen map[string]bool, now time.Time) error {
@@ -519,55 +439,24 @@ func (s *Service) clearMissing(ctx context.Context, seen map[string]bool, now ti
 	return nil
 }
 
-func (s *Service) cancelTakeover(ctx context.Context, takeoverID uuid.UUID, now time.Time) error {
+func (s *Service) cancelTakeover(ctx context.Context, takeoverID uuid.UUID, _ time.Time) error {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx)
-	tag, err := tx.Exec(ctx, `UPDATE takeovers SET status='cancelled',cancelled_at=$2,cancellation_reason='NWS alert is no longer active',updated_at=$2 WHERE id=$1 AND status='active'`, takeoverID, now)
-	if err != nil || tag.RowsAffected() == 0 {
-		return err
+	afterCommit, err := s.host.Takeovers.CancelInTx(ctx, tx, takeoverID, uuid.Nil, "NWS alert is no longer active")
+	if errors.Is(err, plugin.ErrTakeoverInactive) {
+		// Another Takeover already replaced this one. The alert still has to
+		// be marked cleared below; the takeover end state already holds.
+		return nil
 	}
-	rows, err := tx.Query(ctx, `UPDATE takeover_screen_states SET state='cancelled',restored_at=$2,last_updated_at=$2 WHERE takeover_id=$1 AND state NOT IN ('restored','cancelled','expired') RETURNING screen_id`, takeoverID, now)
 	if err != nil {
 		return err
-	}
-	screenIDs := []uuid.UUID{}
-	for rows.Next() {
-		var id uuid.UUID
-		if err = rows.Scan(&id); err != nil {
-			rows.Close()
-			return err
-		}
-		screenIDs = append(screenIDs, id)
-	}
-	rows.Close()
-	if err = rows.Err(); err != nil {
-		return err
-	}
-	for _, screenID := range screenIDs {
-		if _, err = tx.Exec(ctx, `UPDATE screen_manifest_state SET manifest_version=manifest_version+1,changed_at=$2,change_reason='takeover.cancelled' WHERE screen_id=$1`, screenID, now); err != nil {
-			return err
-		}
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return err
 	}
-	s.notify(ctx, screenIDs)
+	afterCommit()
 	return nil
-}
-
-func (s *Service) notify(ctx context.Context, screenIDs []uuid.UUID) {
-	for _, screenID := range screenIDs {
-		var version int64
-		if err := s.db.QueryRow(ctx, `SELECT manifest_version FROM screen_manifest_state WHERE screen_id=$1`, screenID).Scan(&version); err != nil {
-			if s.logger != nil {
-				s.logger.Error("manifest notification could not read committed version", "screen_id", screenID, "error", err)
-			}
-			continue
-		}
-		s.devices.Notify(screenID, map[string]any{"type": "takeover.changed", "manifestVersion": version})
-		s.devices.Notify(screenID, map[string]any{"type": "manifest.changed", "manifestVersion": version})
-	}
 }

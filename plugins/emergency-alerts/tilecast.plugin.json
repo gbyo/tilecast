@@ -33,14 +33,26 @@
     "network": ["api.weather.gov"]
   },
   "server": { "entrypoint": "./plugin.go" },
+  "migrations": "./migrations",
+  "api": { "basePaths": ["/alerts/nws"], "openapi": "./api/openapi.yaml" },
   "studio": {
     "route": "/plugins/emergency-alerts",
     "entrypoint": "./studio/index.tsx"
   },
   "runtime": {
+    "entrypoint": "./runtime/index.ts",
     "manifestTypes": ["alert_ticker"],
     "surfaces": ["strip.bottom"],
     "tier": "emergency"
   },
-  "docs": { "reference": "docs/plugins.md#emergency-alerts" }
+  "docs": {
+    "reference": "docs/plugins.md#emergency-alerts",
+    "pages": [
+      {
+        "source": "./docs/index.mdx",
+        "slug": "operations/emergency-alerts",
+        "sidebar": { "group": "plugins", "badge": "US" }
+      }
+    ]
+  }
 }

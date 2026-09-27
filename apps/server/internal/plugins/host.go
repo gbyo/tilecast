@@ -19,6 +19,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
 
@@ -47,6 +48,28 @@ func WithPlugins(bundle ...plugin.Plugin) Option {
 func WithClock(clock plugin.Clock) Option {
 	return func(s *Service) { s.clock = clock }
 }
+
+func WithTakeovers(service plugin.Takeovers) Option {
+	return func(s *Service) { s.takeovers = service }
+}
+func WithManagedPresentations(service plugin.ManagedPresentations) Option {
+	return func(s *Service) { s.managedPresentations = service }
+}
+func WithBackgroundJobs(gate plugin.BackgroundJobs) Option {
+	return func(s *Service) { s.backgroundJobs = gate }
+}
+
+type backgroundGate func() bool
+
+func (gate backgroundGate) Allowed() bool { return gate() }
+func WithBackgroundJobsAllowed(allowed func() bool) Option {
+	return WithBackgroundJobs(backgroundGate(allowed))
+}
+func WithPublicURL(url string) Option { return func(s *Service) { s.publicURL = url } }
+
+type publicInstance string
+
+func (p publicInstance) PublicURL() string { return string(p) }
 
 type systemClock struct{}
 
@@ -86,15 +109,19 @@ func (s *Service) host() {
 
 func (s *Service) hostFor(id string) plugin.Host {
 	return plugin.Host{
-		DB:           s.db,
-		Logger:       s.logger.With("plugin", id),
-		Installation: installationService{service: s, id: id},
-		Audit:        auditService{},
-		Manifests:    manifestService{service: s, id: id},
-		Targets:      targetService{},
-		Screens:      screenService{service: s},
-		Organization: organizationService{service: s},
-		Clock:        s.clock,
+		DB:                   s.db,
+		Logger:               s.logger.With("plugin", id),
+		Installation:         installationService{service: s, id: id},
+		Audit:                auditService{},
+		Manifests:            manifestService{service: s, id: id},
+		Targets:              targetService{db: s.db},
+		Takeovers:            s.takeovers,
+		ManagedPresentations: s.managedPresentations,
+		BackgroundJobs:       s.backgroundJobs,
+		Instance:             publicInstance(s.publicURL),
+		Screens:              screenService{service: s},
+		Organization:         organizationService{service: s},
+		Clock:                s.clock,
 	}
 }
 
@@ -186,13 +213,74 @@ func (m manifestService) InvalidateAllInTx(ctx context.Context, tx pgx.Tx, reaso
 	return func() { m.service.notify(notes) }, nil
 }
 
-type targetService struct{}
+func (m manifestService) InvalidateScreensInTx(ctx context.Context, tx pgx.Tx, screenIDs []uuid.UUID, reason string) (plugin.AfterCommit, error) {
+	notes, err := bumpScreens(ctx, tx, screenIDs, reason)
+	if err != nil {
+		return nil, err
+	}
+	return func() { m.service.notify(notes) }, nil
+}
+
+type targetService struct{ db *pgxpool.Pool }
 
 func (targetService) ValidateInTx(ctx context.Context, tx pgx.Tx, target plugin.Target) error {
 	if err := target.Validate(); err != nil {
 		return err
 	}
 	return validateTargets(ctx, tx, target.Scope, target.IDs)
+}
+
+func (targetService) ValidateScreenTargetsInTx(ctx context.Context, tx pgx.Tx, targets plugin.ScreenTargets) error {
+	if len(targets.ScreenIDs)+len(targets.GroupIDs) > 1000 {
+		return fmt.Errorf("%w: too many screen targets", plugin.ErrInvalid)
+	}
+	for _, item := range []struct {
+		ids              []uuid.UUID
+		table, condition string
+	}{
+		{targets.ScreenIDs, "screens", "deleted_at IS NULL AND archived_at IS NULL"},
+		{targets.GroupIDs, "screen_groups", "deleted_at IS NULL"},
+	} {
+		seen := map[uuid.UUID]bool{}
+		for _, id := range item.ids {
+			if id == uuid.Nil || seen[id] {
+				return fmt.Errorf("%w: duplicate or empty target", plugin.ErrInvalid)
+			}
+			seen[id] = true
+		}
+		var count int
+		err := tx.QueryRow(ctx, `SELECT count(*) FROM `+item.table+` WHERE id=ANY($1) AND organization_id=(SELECT id FROM organization_settings WHERE singleton) AND `+item.condition, item.ids).Scan(&count)
+		if err != nil {
+			return err
+		}
+		if count != len(item.ids) {
+			return fmt.Errorf("%w: one or more targets do not exist", plugin.ErrInvalid)
+		}
+	}
+	return nil
+}
+
+func (targetService) ResolveScreensInTx(ctx context.Context, tx pgx.Tx, targets plugin.ScreenTargets) ([]uuid.UUID, error) {
+	rows, err := tx.Query(ctx, `SELECT DISTINCT s.id FROM screens s WHERE s.organization_id=(SELECT id FROM organization_settings WHERE singleton) AND s.deleted_at IS NULL AND s.archived_at IS NULL AND (s.id=ANY($1) OR EXISTS(SELECT 1 FROM screen_group_memberships m JOIN screen_groups g ON g.id=m.screen_group_id WHERE m.screen_id=s.id AND m.screen_group_id=ANY($2) AND g.deleted_at IS NULL)) ORDER BY s.id`, targets.ScreenIDs, targets.GroupIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	ids := []uuid.UUID{}
+	for rows.Next() {
+		var id uuid.UUID
+		if err = rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+func (t targetService) AppliesToScreen(ctx context.Context, screenID uuid.UUID, targets plugin.ScreenTargets) (bool, error) {
+	var applies bool
+	err := t.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM screens s WHERE s.id=$1 AND s.organization_id=(SELECT id FROM organization_settings WHERE singleton) AND s.deleted_at IS NULL AND s.archived_at IS NULL AND (s.id=ANY($2) OR EXISTS(SELECT 1 FROM screen_group_memberships m JOIN screen_groups g ON g.id=m.screen_group_id WHERE m.screen_id=s.id AND m.screen_group_id=ANY($3) AND g.deleted_at IS NULL)))`, screenID, targets.ScreenIDs, targets.GroupIDs).Scan(&applies)
+	return applies, err
 }
 
 type screenService struct{ service *Service }
@@ -227,11 +315,12 @@ func (o organizationService) ID(ctx context.Context) (uuid.UUID, error) {
 
 // Route is one plugin HTTP route for the API layer to mount below /api/v1.
 type Route struct {
-	PluginID string
-	Method   string
-	Pattern  string
-	Access   plugin.Access
-	Handler  plugin.Handler
+	PluginID  string
+	Method    string
+	Pattern   string
+	Access    plugin.Access
+	RateLimit plugin.RateLimit
+	Handler   plugin.Handler
 }
 
 // Routes collects every plugin's routes. Routes are mounted whether or not
@@ -258,7 +347,7 @@ func (s *Service) Routes() ([]Route, error) {
 						hosted.manifest.ID, route.Method, route.Pattern, other.Method, other.Pattern, other.PluginID)
 				}
 			}
-			out = append(out, Route{PluginID: hosted.manifest.ID, Method: route.Method, Pattern: route.Pattern, Access: route.Access, Handler: route.Handler})
+			out = append(out, Route{PluginID: hosted.manifest.ID, Method: route.Method, Pattern: route.Pattern, Access: route.Access, RateLimit: route.RateLimit, Handler: route.Handler})
 		}
 	}
 	return out, nil

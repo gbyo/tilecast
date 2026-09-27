@@ -25,8 +25,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/database"
+	"github.com/tilecast/tilecast/apps/server/internal/managedpresentations"
+	"github.com/tilecast/tilecast/apps/server/internal/playlists"
 	"github.com/tilecast/tilecast/apps/server/internal/plugins"
+	"github.com/tilecast/tilecast/apps/server/internal/takeovers"
 	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
+	"time"
 )
 
 // Harness is one plugin hosted on a fresh organization.
@@ -45,13 +49,23 @@ type Harness struct {
 // Option adjusts how a Harness is built.
 type Option func(*options)
 
-type options struct{ maxConnections int }
+type options struct {
+	maxConnections int
+	backgroundJobs *bool
+}
 
 // MaxConnections bounds the plugin's database pool. With 1, a plugin that
 // reads through the pool while its own transaction holds the only connection
 // blocks, so a test can prove that a write path never does that.
 func MaxConnections(n int) Option {
 	return func(o *options) { o.maxConnections = n }
+}
+
+// BackgroundJobsAllowed controls the host background-job gate the automatic
+// worker checks before polling. It defaults to allowed; a test passes false
+// to prove the worker makes no upstream request when the host disallows it.
+func BackgroundJobsAllowed(allowed bool) Option {
+	return func(o *options) { o.backgroundJobs = &allowed }
 }
 
 // New migrates the test database, empties it, creates an organization and an
@@ -106,7 +120,16 @@ func New(t *testing.T, p plugin.Plugin, opts ...Option) *Harness {
 	h := &Harness{Ctx: ctx, Pool: pool, OrgID: uuid.New(), OwnerID: uuid.New(), t: t, id: p.Manifest().ID}
 	h.exec(`INSERT INTO organization_settings(singleton,organization_name,id) VALUES(TRUE,'Plugin Harness',$1)`, h.OrgID)
 	h.exec(`INSERT INTO users(id,name,username,password_hash,role,active) VALUES($1,'Owner','harness-owner','unused','owner',TRUE)`, h.OwnerID)
-	h.service = plugins.NewService(pool, nil, plugins.WithPlugins(p))
+	playlistService := playlists.NewService(pool, nil)
+	jobsAllowed := true
+	if chosen.backgroundJobs != nil {
+		jobsAllowed = *chosen.backgroundJobs
+	}
+	h.service = plugins.NewService(pool, nil, plugins.WithPlugins(p),
+		plugins.WithTakeovers(takeovers.NewService(pool, playlistService, nil, 24*time.Hour)),
+		plugins.WithManagedPresentations(managedpresentations.NewService(pool)),
+		plugins.WithBackgroundJobsAllowed(func() bool { return jobsAllowed }),
+		plugins.WithPublicURL("https://tilecast.example"))
 	h.Host, _ = h.service.Host(h.id)
 	return h
 }

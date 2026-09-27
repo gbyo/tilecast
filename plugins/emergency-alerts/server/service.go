@@ -1,4 +1,4 @@
-package alerts
+package server
 
 import (
 	"context"
@@ -17,10 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/tilecast/tilecast/apps/server/internal/devices"
-	"github.com/tilecast/tilecast/apps/server/internal/playlists"
-	"github.com/tilecast/tilecast/apps/server/internal/plugins"
+	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
 
 const (
@@ -120,35 +117,39 @@ type Activation struct {
 }
 
 type Service struct {
-	db           *pgxpool.Pool
-	devices      *devices.Service
-	playlists    *playlists.Service
+	host         plugin.Host
+	db           plugin.DB
 	client       *http.Client
 	baseURL      string
 	zonesBaseURL string
 	logger       *slog.Logger
 	userAgent    string
 	maxDuration  time.Duration
-	gate         func() bool
-	cancel       context.CancelFunc
-	done         chan struct{}
 	mu           sync.Mutex
 }
 
-func NewService(db *pgxpool.Pool, deviceService *devices.Service, playlistService *playlists.Service, logger *slog.Logger, publicURL string, maxDuration time.Duration) *Service {
-	contact := strings.TrimSpace(publicURL)
+func NewService() *Service { return &Service{} }
+
+func (s *Service) Init(_ context.Context, host plugin.Host) error {
+	s.host = host
+	s.db = host.DB
+	s.logger = host.Logger
+	s.maxDuration = 24 * time.Hour
+	if host.Takeovers != nil {
+		s.maxDuration = host.Takeovers.MaximumDuration()
+	}
+	contact := ""
+	if host.Instance != nil {
+		contact = strings.TrimSpace(host.Instance.PublicURL())
+	}
 	if contact == "" {
 		contact = "self-hosted Tilecast installation"
 	}
-	return &Service{
-		db: db, devices: deviceService, playlists: playlistService, logger: logger,
-		client:       &http.Client{Timeout: 20 * time.Second},
-		baseURL:      nwsAlertsURL,
-		zonesBaseURL: nwsZonesURL,
-		userAgent:    "Tilecast/1.0 (" + contact + ")",
-		maxDuration:  maxDuration,
-		done:         make(chan struct{}),
-	}
+	s.client = &http.Client{Timeout: 20 * time.Second}
+	s.baseURL = nwsAlertsURL
+	s.zonesBaseURL = nwsZonesURL
+	s.userAgent = "Tilecast/1.0 (" + contact + ")"
+	return nil
 }
 
 func (s *Service) Zones(ctx context.Context, area string) ([]Zone, error) {
@@ -235,67 +236,41 @@ func (s *Service) fetchZones(ctx context.Context, area, zoneType string) ([]Zone
 	return items, nil
 }
 
-func (s *Service) SetGate(gate func() bool) { s.gate = gate }
-
-func (s *Service) Start(parent context.Context) {
-	s.mu.Lock()
-	if s.cancel != nil {
-		s.mu.Unlock()
-		return
-	}
-	ctx, cancel := context.WithCancel(parent)
-	s.cancel = cancel
-	s.done = make(chan struct{})
-	done := s.done
-	s.mu.Unlock()
-	go func() {
-		defer func() {
-			s.mu.Lock()
-			if s.done == done {
-				s.cancel = nil
-			}
-			close(done)
-			s.mu.Unlock()
-		}()
-		timer := time.NewTimer(5 * time.Second)
-		defer timer.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-timer.C:
-				monitor, err := s.Monitor(ctx)
-				// Installation is the top-level gate: monitor settings left behind
-				// for an uninstalled plugin never cause an upstream request.
-				installed := false
-				if err == nil && monitor.Enabled {
-					installed, err = plugins.Installed(ctx, s.db, plugins.EmergencyAlertsID)
-				}
-				if err == nil && monitor.Enabled && installed && (s.gate == nil || s.gate()) {
-					if err = s.Poll(ctx); err != nil && s.logger != nil {
-						s.logger.Warn("NWS alert poll failed", "error", err)
-					}
-				}
-				delay := 2 * time.Minute
-				if monitor.PollIntervalSeconds >= 60 {
-					delay = time.Duration(monitor.PollIntervalSeconds) * time.Second
-				}
-				timer.Reset(delay)
-			}
+// RunWorker owns the NWS polling loop for the server lifetime.
+func (s *Service) RunWorker(ctx context.Context) error {
+	timer := time.NewTimer(5 * time.Second)
+	defer timer.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timer.C:
+			timer.Reset(s.pollIfDue(ctx))
 		}
-	}()
+	}
 }
 
-func (s *Service) Stop() {
-	s.mu.Lock()
-	cancel := s.cancel
-	done := s.done
-	s.mu.Unlock()
-	if cancel == nil {
-		return
+// pollIfDue runs one monitor-triggered poll when the plugin is installed,
+// enabled, and background work is allowed, and returns the delay until the
+// next poll. The worker loop calls it on every tick; tests call it directly
+// to prove each gate without waiting for the poll timer.
+func (s *Service) pollIfDue(ctx context.Context) time.Duration {
+	monitor, err := s.Monitor(ctx)
+	installed := false
+	if err == nil && monitor.Enabled {
+		installed, err = s.host.Installation.Installed(ctx)
 	}
-	cancel()
-	<-done
+	allowed := s.host.BackgroundJobs == nil || s.host.BackgroundJobs.Allowed()
+	if err == nil && installed && monitor.Enabled && allowed {
+		if err = s.Poll(ctx); err != nil && s.logger != nil {
+			s.logger.Warn("NWS alert poll failed", "error", err)
+		}
+	}
+	delay := 2 * time.Minute
+	if err == nil && monitor.PollIntervalSeconds >= 60 {
+		delay = time.Duration(monitor.PollIntervalSeconds) * time.Second
+	}
+	return delay
 }
 
 func (s *Service) Monitor(ctx context.Context) (Monitor, error) {
@@ -326,17 +301,19 @@ func (s *Service) UpdateMonitor(ctx context.Context, enabled bool, areas, zones 
 		return Monitor{}, err
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
-	if err = plugins.LockInstallation(ctx, tx, plugins.EmergencyAlertsID); err != nil {
+	if err = s.host.Installation.LockInTx(ctx, tx); err != nil {
 		return Monitor{}, err
 	}
 	_, err = tx.Exec(ctx, `UPDATE alert_monitor SET enabled=$1,areas=$2,zones=$3,poll_interval_seconds=$4,updated_by=$5,updated_at=now() WHERE singleton`, enabled, areas, zones, interval, userID)
 	if err != nil {
 		return Monitor{}, err
 	}
+	if err = s.host.Audit.RecordInTx(ctx, tx, plugin.AuditEvent{UserID: userID, Action: "nws_monitor.updated", ResourceType: "nws_alert_monitor", ResourceID: "singleton", Metadata: map[string]any{"enabled": enabled, "areas": areas, "zones": zones}}); err != nil {
+		return Monitor{}, err
+	}
 	if err = tx.Commit(ctx); err != nil {
 		return Monitor{}, err
 	}
-	_, _ = s.db.Exec(ctx, `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,metadata) VALUES($1,$2,'nws_monitor.updated','nws_alert_monitor','singleton',jsonb_build_object('enabled',$3,'areas',$4,'zones',$5))`, uuid.New(), userID, enabled, areas, zones)
 	return s.Monitor(ctx)
 }
 
@@ -366,32 +343,42 @@ func normalizeCodes(values []string, length int, label string) ([]string, error)
 }
 
 func (s *Service) Rules(ctx context.Context) ([]Rule, error) {
-	rows, err := s.db.Query(ctx, `SELECT r.id,r.name,r.enabled,r.event_names,r.minimum_severity,r.minimum_urgency,r.response_mode,r.presentation_mode,r.playlist_id,COALESCE(p.name,''),r.ticker_display_mode,r.ticker_height_px,r.ticker_speed,r.maximum_duration_minutes,r.created_at,r.updated_at,r.managed_data_source_id,r.managed_widget_id,r.managed_playlist_id,
+	rows, err := s.db.Query(ctx, `SELECT r.id,r.name,r.enabled,r.event_names,r.minimum_severity,r.minimum_urgency,r.response_mode,r.presentation_mode,r.playlist_id,'' AS playlist_name,r.ticker_display_mode,r.ticker_height_px,r.ticker_speed,r.maximum_duration_minutes,r.created_at,r.updated_at,r.managed_data_source_id,r.managed_widget_id,r.managed_playlist_id,
 		COALESCE(array_agg(t.screen_id) FILTER (WHERE t.screen_id IS NOT NULL),'{}'),COALESCE(array_agg(t.screen_group_id) FILTER (WHERE t.screen_group_id IS NOT NULL),'{}')
-		FROM alert_rules r LEFT JOIN playlists p ON p.id=r.playlist_id LEFT JOIN alert_rule_targets t ON t.rule_id=r.id
-		GROUP BY r.id,p.name ORDER BY r.position,r.name,r.id`)
+		FROM alert_rules r LEFT JOIN alert_rule_targets t ON t.rule_id=r.id
+		GROUP BY r.id ORDER BY r.position,r.name,r.id`)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 	result := []Rule{}
 	for rows.Next() {
 		var rule Rule
 		if err = rows.Scan(&rule.ID, &rule.Name, &rule.Enabled, &rule.EventNames, &rule.MinimumSeverity, &rule.MinimumUrgency, &rule.ResponseMode, &rule.PresentationMode, &rule.PlaylistID, &rule.PlaylistName, &rule.TickerDisplayMode, &rule.TickerHeightPX, &rule.TickerSpeed, &rule.MaximumDurationMinutes, &rule.CreatedAt, &rule.UpdatedAt, &rule.ManagedDataSourceID, &rule.ManagedWidgetID, &rule.ManagedPlaylistID, &rule.ScreenIDs, &rule.GroupIDs); err != nil {
+			rows.Close()
 			return nil, err
 		}
 		result = append(result, rule)
 	}
-	return result, rows.Err()
+	rows.Close()
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	for i := range result {
+		if result[i].PlaylistID != nil {
+			name, nameErr := s.host.ManagedPresentations.PlaylistName(ctx, *result[i].PlaylistID)
+			if nameErr == nil {
+				result[i].PlaylistName = name
+			}
+		}
+	}
+	return result, nil
 }
 
 func (s *Service) SaveRule(ctx context.Context, id uuid.UUID, input RuleInput, userID uuid.UUID) (Rule, error) {
 	// Checked before any managed presentation is provisioned, then again under
 	// lock in the transaction that writes the rule.
-	if installed, err := plugins.Installed(ctx, s.db, plugins.EmergencyAlertsID); err != nil {
+	if err := s.host.Installation.Require(ctx); err != nil {
 		return Rule{}, err
-	} else if !installed {
-		return Rule{}, plugins.ErrPluginNotInstalled
 	}
 	input.Name = strings.TrimSpace(input.Name)
 	if input.Name == "" || len(input.Name) > 180 {
@@ -467,69 +454,27 @@ func (s *Service) SaveRule(ctx context.Context, id uuid.UUID, input RuleInput, u
 	if creating {
 		id = uuid.New()
 	}
-	var organizationID uuid.UUID
+	input.ScreenIDs = uniqueUUIDs(input.ScreenIDs)
+	input.GroupIDs = uniqueUUIDs(input.GroupIDs)
+	targets := plugin.ScreenTargets{ScreenIDs: input.ScreenIDs, GroupIDs: input.GroupIDs}
+	organizationID, err := s.host.Organization.ID(ctx)
+	if err != nil {
+		return Rule{}, err
+	}
 	var managedDataSourceID, managedWidgetID, managedPlaylistID *uuid.UUID
 	var previousResponseMode string
-	var err error
 	if !creating {
-		err = s.db.QueryRow(ctx, `SELECT organization_id,response_mode,managed_data_source_id,managed_widget_id,managed_playlist_id FROM alert_rules WHERE id=$1`,
-			id).Scan(&organizationID, &previousResponseMode, &managedDataSourceID, &managedWidgetID, &managedPlaylistID)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return Rule{}, pgx.ErrNoRows
-		}
+		err = s.db.QueryRow(ctx, `SELECT response_mode,managed_data_source_id,managed_widget_id,managed_playlist_id FROM alert_rules WHERE id=$1 AND organization_id=$2`, id, organizationID).Scan(&previousResponseMode, &managedDataSourceID, &managedWidgetID, &managedPlaylistID)
 		if err != nil {
 			return Rule{}, err
 		}
 	}
-	if input.ResponseMode == "ticker" {
-		// A bar is rendered by the Player from the manifest, so a ticker rule owns
-		// no presentation resources at all: no managed Data Source, Widget, or
-		// playlist, and nothing to validate a playlist against. Any resources an
-		// earlier fullscreen version of this rule created are left in place, so
-		// switching the rule back does not have to rebuild them.
-		if organizationID == uuid.Nil {
-			if err = s.db.QueryRow(ctx, `SELECT id FROM organization_settings WHERE singleton`).Scan(&organizationID); err != nil {
-				return Rule{}, err
-			}
-		}
-	} else if input.PresentationMode == "builtin" {
-		if organizationID == uuid.Nil {
-			if err = s.db.QueryRow(ctx, `SELECT id FROM organization_settings WHERE singleton`).Scan(&organizationID); err != nil {
-				return Rule{}, err
-			}
-		}
-		managedDataSourceID, managedWidgetID, managedPlaylistID, err = s.ensureBuiltinPresentation(
-			ctx, id, organizationID, userID, managedDataSourceID, managedWidgetID, managedPlaylistID,
-		)
-		if err != nil {
-			return Rule{}, err
-		}
-		input.PlaylistID = managedPlaylistID
-	} else {
-		var ready bool
-		err = s.db.QueryRow(ctx, `SELECT organization_id,(deleted_at IS NULL AND EXISTS(SELECT 1 FROM playlist_items WHERE playlist_id=playlists.id)) FROM playlists WHERE id=$1 AND system_managed=FALSE`, *input.PlaylistID).Scan(&organizationID, &ready)
-		if errors.Is(err, pgx.ErrNoRows) || err == nil && !ready {
+	if input.ResponseMode != "ticker" && input.PresentationMode == "playlist" {
+		if err = s.host.Takeovers.ValidatePlaylist(ctx, *input.PlaylistID, targets, true); err != nil {
 			return Rule{}, validationError("select a ready, non-empty playlist")
 		}
-		if err != nil {
-			return Rule{}, err
-		}
 	}
-	if input.PlaylistID != nil {
-		if err = s.playlists.ValidatePresentationTargets(ctx, input.PlaylistID, nil, input.ScreenIDs, input.GroupIDs); err != nil {
-			if errors.Is(err, playlists.ErrConflict) {
-				return Rule{}, validationError("%v", err)
-			}
-			return Rule{}, err
-		}
-	}
-	// Only a ticker rule is delivered in the manifest, so only a save that
-	// involves one owes any screen a new manifest. A rule that answers with a
-	// takeover — renamed, retargeted, or disabled — changes nothing a Player
-	// holds.
 	tickerInvolved := input.ResponseMode == "ticker" || previousResponseMode == "ticker"
-	// Screens this save drops still hold a manifest containing the bar, so their
-	// targets are read before the rewrite and refreshed alongside the new ones.
 	var previousScreenIDs []uuid.UUID
 	if tickerInvolved && !creating {
 		if previousScreenIDs, err = s.ruleScreenIDs(ctx, id); err != nil {
@@ -541,8 +486,31 @@ func (s *Service) SaveRule(ctx context.Context, id uuid.UUID, input RuleInput, u
 		return Rule{}, err
 	}
 	defer tx.Rollback(ctx)
-	if err = plugins.LockInstallation(ctx, tx, plugins.EmergencyAlertsID); err != nil {
+	if err = s.host.Installation.LockInTx(ctx, tx); err != nil {
 		return Rule{}, err
+	}
+	if err = s.host.Targets.ValidateScreenTargetsInTx(ctx, tx, targets); err != nil {
+		return Rule{}, validationError("one or more targets do not exist")
+	}
+	if input.ResponseMode != "ticker" && input.PresentationMode == "builtin" {
+		configuration, payload := builtinAlertDocuments(nwsProperties{}, time.Time{}, time.Now().UTC())
+		managed, ensureErr := s.host.ManagedPresentations.EnsureInTx(ctx, tx,
+			plugin.ManagedPresentation{DataSourceID: idOrNil(managedDataSourceID), WidgetID: idOrNil(managedWidgetID), PlaylistID: idOrNil(managedPlaylistID)},
+			plugin.ManagedPresentationRequest{
+				Name: "NWS emergency presentation", Description: "Built in for NWS rule " + id.String(),
+				DataSourceProvider: "emergency-message", DataSourceConfiguration: configuration,
+				CachedPayload: payload, CacheCategory: "nws", CreatedBy: userID,
+				WidgetProvider: "alert-banner",
+				WidgetConfiguration: func(source uuid.UUID) string {
+					value, _ := json.Marshal(map[string]any{"dataSourceId": source.String(), "messageField": "message", "severityField": "severity", "speed": "slow", "showSeverity": true, "foregroundColor": "#ffffff", "backgroundColor": "#7a1f1f", "emptyState": "Waiting for an active NWS alert"})
+					return string(value)
+				},
+			})
+		if ensureErr != nil {
+			return Rule{}, ensureErr
+		}
+		managedDataSourceID, managedWidgetID, managedPlaylistID = &managed.DataSourceID, &managed.WidgetID, &managed.PlaylistID
+		input.PlaylistID = managedPlaylistID
 	}
 	var tag pgconn.CommandTag
 	if creating {
@@ -564,16 +532,18 @@ func (s *Service) SaveRule(ctx context.Context, id uuid.UUID, input RuleInput, u
 		return Rule{}, err
 	}
 	for _, screenID := range uniqueUUIDs(input.ScreenIDs) {
-		if _, err = tx.Exec(ctx, `INSERT INTO alert_rule_targets(rule_id,target_type,screen_id) SELECT $1,'screen',$2 WHERE EXISTS(SELECT 1 FROM screens WHERE id=$2 AND organization_id=$3 AND deleted_at IS NULL)`, id, screenID, organizationID); err != nil {
+		if _, err = tx.Exec(ctx, `INSERT INTO alert_rule_targets(rule_id,target_type,screen_id) VALUES($1,'screen',$2)`, id, screenID); err != nil {
 			return Rule{}, err
 		}
 	}
 	for _, groupID := range uniqueUUIDs(input.GroupIDs) {
-		if _, err = tx.Exec(ctx, `INSERT INTO alert_rule_targets(rule_id,target_type,screen_group_id) SELECT $1,'group',$2 WHERE EXISTS(SELECT 1 FROM screen_groups WHERE id=$2 AND organization_id=$3 AND deleted_at IS NULL)`, id, groupID, organizationID); err != nil {
+		if _, err = tx.Exec(ctx, `INSERT INTO alert_rule_targets(rule_id,target_type,screen_group_id) VALUES($1,'group',$2)`, id, groupID); err != nil {
 			return Rule{}, err
 		}
 	}
-	_, _ = tx.Exec(ctx, `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id) VALUES($1,$2,'nws_alert_rule.saved','nws_alert_rule',$3)`, uuid.New(), userID, id.String())
+	if err = s.host.Audit.RecordInTx(ctx, tx, plugin.AuditEvent{UserID: userID, Action: "nws_alert_rule.saved", ResourceType: "nws_alert_rule", ResourceID: id.String()}); err != nil {
+		return Rule{}, err
+	}
 	if err = tx.Commit(ctx); err != nil {
 		return Rule{}, err
 	}
@@ -609,68 +579,6 @@ func (s *Service) SaveRule(ctx context.Context, id uuid.UUID, input RuleInput, u
 	return Rule{}, pgx.ErrNoRows
 }
 
-func (s *Service) ensureBuiltinPresentation(
-	ctx context.Context,
-	ruleID, organizationID, userID uuid.UUID,
-	dataSourceID, widgetID, playlistID *uuid.UUID,
-) (*uuid.UUID, *uuid.UUID, *uuid.UUID, error) {
-	if dataSourceID != nil && widgetID != nil && playlistID != nil {
-		var sourceReady, widgetReady, playlistReady bool
-		if err := s.db.QueryRow(ctx, `SELECT
-			EXISTS(SELECT 1 FROM data_sources WHERE id=$1 AND deleted_at IS NULL),
-			EXISTS(SELECT 1 FROM assets WHERE id=$2 AND deleted_at IS NULL),
-			EXISTS(SELECT 1 FROM playlists WHERE id=$3 AND deleted_at IS NULL)`,
-			*dataSourceID, *widgetID, *playlistID).Scan(&sourceReady, &widgetReady, &playlistReady); err == nil && sourceReady && widgetReady && playlistReady {
-			return dataSourceID, widgetID, playlistID, nil
-		}
-	}
-	source, widget, playlist := uuid.New(), uuid.New(), uuid.New()
-	item := uuid.New()
-	name := "NWS emergency presentation"
-	sourceConfiguration, sourcePayload := builtinAlertDocuments(nwsProperties{}, time.Time{}, time.Now().UTC())
-	widgetConfiguration, _ := json.Marshal(map[string]any{
-		"dataSourceId": source.String(), "messageField": "message", "severityField": "severity",
-		"speed": "slow", "showSeverity": true, "foregroundColor": "#ffffff",
-		"backgroundColor": "#7a1f1f", "emptyState": "Waiting for an active NWS alert",
-	})
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	defer tx.Rollback(ctx)
-	if _, err = tx.Exec(ctx, `INSERT INTO data_sources(id,organization_id,name,description,provider,config_version,configuration,created_by,system_managed)
-		VALUES($1,$2,$3,'Tilecast-managed live NWS alert data','emergency-message',1,$4::jsonb,$5,TRUE)`,
-		source, organizationID, name, sourceConfiguration, userID); err != nil {
-		return nil, nil, nil, err
-	}
-	if _, err = tx.Exec(ctx, `INSERT INTO data_source_refresh_states(data_source_id,next_refresh_at,last_attempt_at,last_success_at,http_result_category,parse_status,available_item_count,cache_updated_at,cache_expires_at,cached_payload)
-		VALUES($1,now()+interval '100 years',now(),now(),'nws','success',1,now(),now()+interval '100 years',$2::jsonb)`,
-		source, sourcePayload); err != nil {
-		return nil, nil, nil, err
-	}
-	if _, err = tx.Exec(ctx, `INSERT INTO assets(id,organization_id,name,description,type,original_filename,detected_mime_type,sha256,original_size,processing_status,created_by,system_managed)
-		VALUES($1,$2,$3,'Tilecast built-in fullscreen NWS alert','widget','','application/vnd.tilecast.widget+json',''::bytea,0,'ready',$4,TRUE)`,
-		widget, organizationID, name, userID); err != nil {
-		return nil, nil, nil, err
-	}
-	if _, err = tx.Exec(ctx, `INSERT INTO widgets(asset_id,provider,config_version,configuration) VALUES($1,'alert-banner',1,$2::jsonb)`,
-		widget, string(widgetConfiguration)); err != nil {
-		return nil, nil, nil, err
-	}
-	if _, err = tx.Exec(ctx, `INSERT INTO playlists(id,organization_id,name,description,created_by,system_managed)
-		VALUES($1,$2,$3,$4,$5,TRUE)`, playlist, organizationID, name, "Built in for NWS rule "+ruleID.String(), userID); err != nil {
-		return nil, nil, nil, err
-	}
-	if _, err = tx.Exec(ctx, `INSERT INTO playlist_items(id,playlist_id,asset_id,position,fit_mode,transition,audio_enabled,volume,delivery_policy)
-		VALUES($1,$2,$3,0,'contain','none',FALSE,0,'stream')`, item, playlist, widget); err != nil {
-		return nil, nil, nil, err
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return nil, nil, nil, err
-	}
-	return &source, &widget, &playlist, nil
-}
-
 func (s *Service) DeleteRule(ctx context.Context, id, userID uuid.UUID) error {
 	// Read the targets before the delete cascades them away: a ticker rule's bar
 	// only leaves the screens that are told to fetch a manifest without it.
@@ -681,17 +589,27 @@ func (s *Service) DeleteRule(ctx context.Context, id, userID uuid.UUID) error {
 	if err = s.clearRuleActivations(ctx, id, "rule_deleted"); err != nil {
 		return err
 	}
-	tag, err := s.db.Exec(ctx, `DELETE FROM alert_rules WHERE id=$1`, id)
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	tag, err := tx.Exec(ctx, `DELETE FROM alert_rules WHERE id=$1`, id)
 	if err != nil {
 		return err
 	}
 	if tag.RowsAffected() == 0 {
 		return pgx.ErrNoRows
 	}
+	if err = s.host.Audit.RecordInTx(ctx, tx, plugin.AuditEvent{UserID: userID, Action: "nws_alert_rule.deleted", ResourceType: "nws_alert_rule", ResourceID: id.String()}); err != nil {
+		return err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return err
+	}
 	if err = s.bumpScreens(ctx, screenIDs, "nws.rule.deleted"); err != nil {
 		return err
 	}
-	_, _ = s.db.Exec(ctx, `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id) VALUES($1,$2,'nws_alert_rule.deleted','nws_alert_rule',$3)`, uuid.New(), userID, id.String())
 	return nil
 }
 
@@ -741,10 +659,8 @@ type nwsProperties struct {
 func (s *Service) Poll(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if installed, err := plugins.Installed(ctx, s.db, plugins.EmergencyAlertsID); err != nil {
+	if err := s.host.Installation.Require(ctx); err != nil {
 		return err
-	} else if !installed {
-		return plugins.ErrPluginNotInstalled
 	}
 	monitor, err := s.Monitor(ctx)
 	if err != nil {
@@ -914,4 +830,11 @@ func uniqueUUIDs(values []uuid.UUID) []uuid.UUID {
 		}
 	}
 	return result
+}
+
+func idOrNil(value *uuid.UUID) uuid.UUID {
+	if value == nil {
+		return uuid.Nil
+	}
+	return *value
 }

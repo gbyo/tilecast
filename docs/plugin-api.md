@@ -174,17 +174,21 @@ A plugin implements only the interfaces it needs. Forms does not implement
 
 `Init` receives `plugin.Host`. The host binds each service to the plugin:
 
-| Service        | Use                                                                          |
-| -------------- | ---------------------------------------------------------------------------- |
-| `DB`           | The PostgreSQL pool. A plugin queries only its own tables.                   |
-| `Installation` | `Installed`, `Require`, and `LockInTx` for the plugin.                       |
-| `Audit`        | `RecordInTx` writes an audit event in the caller's transaction.              |
-| `Manifests`    | `InvalidateResourceInTx` and `InvalidateAllInTx` use the core revision path. |
-| `Targets`      | `ValidateInTx` checks screen, sync group, and location targets.              |
-| `Screens`      | `PairedPlatforms` counts screens by platform.                                |
-| `Organization` | `ID` returns the installation's organization.                                |
-| `Clock`        | The server clock. Tests replace it.                                          |
-| `Logger`       | A structured logger with the plugin identifier.                              |
+| Service                | Use                                                                                                                            |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `DB`                   | The PostgreSQL pool. A plugin queries only its own tables.                                                                     |
+| `Installation`         | `Installed`, `Require`, and `LockInTx` for the plugin.                                                                         |
+| `Audit`                | `RecordInTx` writes an audit event in the caller's transaction.                                                                |
+| `Manifests`            | `InvalidateResourceInTx`, `InvalidateAllInTx`, and `InvalidateScreensInTx` revise manifests through the core revision path.    |
+| `Targets`              | `ValidateInTx` plus `ValidateScreenTargetsInTx`, `ResolveScreensInTx`, and `AppliesToScreen` for mixed screen/group targeting. |
+| `Takeovers`            | The canonical Takeover service: `ActivateInTx`, `CancelInTx`, `RefreshInTx`, `ValidatePlaylist`, and `MaximumDuration`.        |
+| `ManagedPresentations` | `EnsureInTx`, `UpdateDataInTx`, and `PlaylistName` for system-managed Data Sources, Widgets, and Playlists.                    |
+| `BackgroundJobs`       | `Allowed` gates automatic workers; an explicit operator action never checks it.                                                |
+| `Instance`             | Read-only installation facts such as `PublicURL` for identifying upstream requests.                                            |
+| `Screens`              | `PairedPlatforms` counts screens by platform.                                                                                  |
+| `Organization`         | `ID` returns the installation's organization.                                                                                  |
+| `Clock`                | The server clock. Tests replace it.                                                                                            |
+| `Logger`               | A structured logger with the plugin identifier.                                                                                |
 
 `Host` is a struct, not an interface. The core can add a service without a
 break in existing plugins. A plugin that needs a core fact that no service
@@ -208,6 +212,9 @@ namespace.
 A plugin registers routes with `Router.Handle(method, pattern, access,
 handler)`. The pattern is below `/api/v1`, starts with one of
 `api.basePaths`, and uses plain segments and `{name}` parameters only.
+`Router.HandleWithRateLimit` adds the generic operations rate limit
+(`RateLimitOperations`), which the host applies like its own operations
+endpoints: the Emergency Alerts Check Now poll declares it.
 
 | Access          | Check before the handler                                                 |
 | --------------- | ------------------------------------------------------------------------ |
@@ -428,15 +435,13 @@ Every selector must start with `.tc-<name>` and every `@keyframes` name with
 `tc-<name>-`, where `<name>` is the plugin directory. `pluginctl check`
 refuses other selectors and global rules such as `@import` and `@font-face`.
 
-### Migration adapters
+### Runtime entrypoint
 
-The Emergency Alerts ticker remains a migration adapter in
-`packages/player-runtime/src/plugins/builtin`. It uses the same contract,
-and discovery checks it against its manifest. Its manifest declares
-`runtime.surfaces` and `runtime.tier` without `runtime.entrypoint`.
-`pluginctl check` permits this only for plugins in
-`TRANSITIONAL_RUNTIME_ADAPTERS`. Every other plugin that declares surfaces
-must have `runtime/index.ts`.
+Every plugin that declares surfaces renders from its own
+`runtime/index.ts`, declared as `runtime.entrypoint` in its manifest and
+checked by discovery against the same contract. `TRANSITIONAL_RUNTIME_ADAPTERS`
+is empty: no migration adapter remains, including the Emergency Alerts
+ticker, which now lives in `plugins/emergency-alerts/runtime/`.
 
 ## Documentation
 
@@ -554,7 +559,7 @@ Plugin API v1 does not load third-party code. The contract keeps a path open:
 | 2         | Countdown Bar in `plugins/countdown-bar/`                        | Done    |
 | 3         | Generic runtime surface host                                     | Done    |
 | 4         | Retire Brand Bug and Noise Meter with compatibility shims        | Done    |
-| 5         | Emergency Alerts                                                 | Planned |
+| 5         | Emergency Alerts                                                 | Done    |
 | 6         | Forms                                                            | Planned |
 | 7         | Remove the remaining special cases                               | Planned |
 
@@ -563,5 +568,7 @@ removal blockers, and projection through the legacy functions in that
 package. Countdown Bar has moved completely, including its Player renderer.
 Brand Bug and Noise Meter are retired: their old installation rows and data
 remain, but neither is cataloged, configured, projected, or rendered. The
-Emergency Alerts ticker remains a migration adapter in the runtime package;
-see [Migration adapters](#migration-adapters).
+Emergency Alerts is fully migrated: its server, routes, Studio page, ticker
+runtime, and migrations live in `plugins/emergency-alerts/`, and the core
+answers its status, blockers, projection, polling, and routes through the
+generic provider interfaces.

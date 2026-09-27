@@ -64,10 +64,11 @@ func CheckDeclarations(p Plugin) error {
 
 // Route is one registered plugin route.
 type Route struct {
-	Method  string
-	Pattern string
-	Access  Access
-	Handler Handler
+	Method    string
+	Pattern   string
+	Access    Access
+	RateLimit RateLimit
+	Handler   Handler
 }
 
 var routeSegment = regexp.MustCompile(`^(?:[a-z0-9][a-z0-9._-]*|\{[a-zA-Z][a-zA-Z0-9]*\})$`)
@@ -79,6 +80,10 @@ type routeRecorder struct {
 }
 
 func (c *routeRecorder) Handle(method, pattern string, access Access, handler Handler) {
+	c.HandleWithRateLimit(method, pattern, access, RateLimitNone, handler)
+}
+
+func (c *routeRecorder) HandleWithRateLimit(method, pattern string, access Access, rateLimit RateLimit, handler Handler) {
 	if c.err != nil {
 		return
 	}
@@ -101,6 +106,10 @@ func (c *routeRecorder) Handle(method, pattern string, access Access, handler Ha
 	}
 	if handler == nil {
 		fail("no handler")
+		return
+	}
+	if rateLimit != RateLimitNone && rateLimit != RateLimitOperations {
+		fail("unsupported rate limit %q", rateLimit)
 		return
 	}
 	for _, segment := range strings.Split(strings.TrimPrefix(pattern, "/"), "/") {
@@ -128,7 +137,7 @@ func (c *routeRecorder) Handle(method, pattern string, access Access, handler Ha
 			return
 		}
 	}
-	c.routes = append(c.routes, Route{Method: method, Pattern: pattern, Access: access, Handler: handler})
+	c.routes = append(c.routes, Route{Method: method, Pattern: pattern, Access: access, RateLimit: rateLimit, Handler: handler})
 }
 
 // CollectRoutes records and validates a plugin's routes. Patterns are below

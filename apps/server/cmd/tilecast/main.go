@@ -14,7 +14,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/tilecast/tilecast/apps/server/internal/alerts"
 	"github.com/tilecast/tilecast/apps/server/internal/approvals"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/backup"
@@ -31,6 +30,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/httpapi"
 	"github.com/tilecast/tilecast/apps/server/internal/integrations"
 	"github.com/tilecast/tilecast/apps/server/internal/layouts"
+	"github.com/tilecast/tilecast/apps/server/internal/managedpresentations"
 	"github.com/tilecast/tilecast/apps/server/internal/media"
 	"github.com/tilecast/tilecast/apps/server/internal/notify"
 	"github.com/tilecast/tilecast/apps/server/internal/playlists"
@@ -42,6 +42,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/settings"
 	"github.com/tilecast/tilecast/apps/server/internal/snapshots"
 	"github.com/tilecast/tilecast/apps/server/internal/span"
+	"github.com/tilecast/tilecast/apps/server/internal/takeovers"
 	"github.com/tilecast/tilecast/apps/server/internal/updates"
 	"github.com/tilecast/tilecast/apps/server/internal/version"
 )
@@ -127,7 +128,10 @@ func serve() {
 	presentationService := presentations.NewService(db, deviceService)
 	presentationService.SetPresentationReadiness(playlistService)
 	playlistService.SetPresentationOverrides(presentationService)
-	pluginService := plugins.NewService(db, deviceService, plugins.WithLogger(logger))
+	backupGuard := backup.NewGuard()
+	takeoverService := takeovers.NewService(db, playlistService, deviceService, time.Duration(cfg.Operations.MaxTakeoverDurationHours)*time.Hour)
+	managedPresentationService := managedpresentations.NewService(db)
+	pluginService := plugins.NewService(db, deviceService, plugins.WithLogger(logger), plugins.WithTakeovers(takeoverService), plugins.WithManagedPresentations(managedPresentationService), plugins.WithBackgroundJobsAllowed(backupGuard.BackgroundJobsAllowed), plugins.WithPublicURL(cfg.PublicURL))
 	pluginService.SetManifestInvalidator(playlistService)
 	playlistService.SetPluginProjector(pluginService)
 	mediaService.SetContentDefinitions(contentDefinitions)
@@ -166,12 +170,10 @@ func serve() {
 	campaignService.SetPresentationChecker(playlistService)
 	campaignService.SetScheduler(schedulingService)
 	campaignService.SetSchedulingLimits(scheduleLimits)
-	alertService := alerts.NewService(db, deviceService, playlistService, logger, cfg.PublicURL, time.Duration(cfg.Operations.MaxTakeoverDurationHours)*time.Hour)
 	updateService, updateErr := updates.NewService(db, updates.NewGitHubProvider(cfg.Updates.GitHubToken), updates.Config{Root: cfg.Updates.Root, TrustedPublicKey: cfg.Updates.TrustedPublicKey, MaxAPKBytes: cfg.Updates.MaxAPKBytes, GitHubClientID: cfg.Updates.GitHubClientID, GitHubTokenConfigured: strings.TrimSpace(cfg.Updates.GitHubToken) != ""})
 	if updateErr != nil {
 		fail("initialize player update service", updateErr)
 	}
-	backupGuard := backup.NewGuard()
 	backupService, err := backup.NewService(db, cfg.Backup.Root, backupGuard)
 	if err != nil {
 		fail("initialize backup service", err)
@@ -266,9 +268,10 @@ func serve() {
 	notifyWorker.SetGate(backupGuard.BackgroundJobsAllowed)
 	notifyWorker.Start(ctx)
 	defer notifyWorker.Stop()
-	alertService.SetGate(backupGuard.BackgroundJobsAllowed)
-	alertService.Start(ctx)
-	defer alertService.Stop()
+	workerCtx, stopWorkers := context.WithCancel(ctx)
+	workersDone := make(chan struct{})
+	go func() { defer close(workersDone); pluginService.RunWorkers(workerCtx) }()
+	defer func() { stopWorkers(); <-workersDone }()
 	if cfg.MDNSEnabled {
 		identity, identityErr := deviceService.Identity(ctx)
 		if identityErr != nil {
@@ -309,7 +312,7 @@ func serve() {
 		Scheduling:           schedulingService,
 		Settings:             settingsService,
 		Updates:              updateService,
-		Alerts:               alertService,
+		Takeovers:            takeoverService,
 		Notifications:        notifyService,
 		ContentHealth:        contentHealthService,
 		Fleet:                fleetService,
