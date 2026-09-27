@@ -58,6 +58,7 @@ server host for that.`,
 	root.AddCommand(newPlaylistCommand(env))
 	root.AddCommand(newScheduleCommand(env))
 	root.AddCommand(newTokenCommand(env))
+	root.AddCommand(newActivityCommand(env))
 	return root
 }
 

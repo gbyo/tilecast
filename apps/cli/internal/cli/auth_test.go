@@ -23,6 +23,7 @@ type cliFixture struct {
 	lastScreenUpdate    map[string]any
 	lastPairingApproval map[string]any
 	lastPublishRevision int64
+	lastIncidentQuery   string
 }
 
 func newFixture(t *testing.T) *cliFixture {
@@ -361,6 +362,45 @@ func newFixture(t *testing.T) *cliFixture {
 			return
 		}
 		w.WriteHeader(http.StatusMethodNotAllowed)
+	})
+	mux.HandleFunc("/api/v1/activity/overview", func(w http.ResponseWriter, r *http.Request) {
+		write(w, map[string]any{"cards": map[string]any{"screens": 3}, "range": map[string]any{"from": r.URL.Query().Get("from")}})
+	})
+	mux.HandleFunc("/api/v1/activity/uptime", func(w http.ResponseWriter, r *http.Request) {
+		window := r.URL.Query().Get("window")
+		if window == "" {
+			window = "24h"
+		}
+		if window != "24h" && window != "7d" && window != "30d" {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			_, _ = w.Write([]byte(`{"error":{"code":"uptime_window_invalid","message":"no"}}`))
+			return
+		}
+		write(w, map[string]any{"window": window, "uptimePct": 99.5})
+	})
+	mux.HandleFunc("/api/v1/activity/incidents", func(w http.ResponseWriter, r *http.Request) {
+		f.lastIncidentQuery = r.URL.RawQuery
+		write(w, map[string]any{"items": []any{
+			map[string]any{"id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "incidentType": "connectivity",
+				"severity": "error", "status": "open", "title": "Lobby offline",
+				"openedAt": "2030-01-02T00:00:00Z"},
+			map[string]any{"id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", "incidentType": "playback",
+				"severity": "warning", "status": "acknowledged", "title": "Hall stalls",
+				"openedAt": "2030-01-01T00:00:00Z"},
+		}})
+	})
+	mux.HandleFunc("/api/v1/activity/incidents/", func(w http.ResponseWriter, r *http.Request) {
+		rest := strings.TrimPrefix(r.URL.Path, "/api/v1/activity/incidents/")
+		if rest == "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" {
+			write(w, map[string]any{"id": rest, "title": "Lobby offline", "status": "open", "severity": "error",
+				"timeline": []any{map[string]any{"summary": "opened"}, map[string]any{"summary": "acked"}}})
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"error":{"code":"incident_not_found","message":"no"}}`))
+	})
+	mux.HandleFunc("/api/v1/activity/compliance", func(w http.ResponseWriter, r *http.Request) {
+		write(w, map[string]any{"expected": 100, "actual": 97})
 	})
 	mux.HandleFunc("/api/v1/plugins/gizmo/widgets/", func(w http.ResponseWriter, r *http.Request) {
 		name := strings.TrimPrefix(r.URL.Path, "/api/v1/plugins/gizmo/widgets/")

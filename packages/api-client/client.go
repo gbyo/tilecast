@@ -673,6 +673,55 @@ func (c *Client) CreatePAT(ctx context.Context, name string, scopes []string, ex
 	})
 }
 
+// activityQuery builds window and filter query strings for the activity
+// reads. The activity routes live outside the composed OpenAPI document,
+// so the handwritten wrapper owns this encoding like the schedule list.
+func activityQuery(pairs map[string]string) string {
+	values := url.Values{}
+	for key, value := range pairs {
+		if value != "" {
+			values.Set(key, value)
+		}
+	}
+	if encoded := values.Encode(); encoded != "" {
+		return "?" + encoded
+	}
+	return ""
+}
+
+// ActivityOverview returns the raw fleet activity overview for a window.
+func (c *Client) ActivityOverview(ctx context.Context, from, to string) (int, []byte, error) {
+	return c.Call(ctx, http.MethodGet, "/api/v1/activity/overview"+activityQuery(map[string]string{"from": from, "to": to}), nil)
+}
+
+// ActivityUptime returns the raw uptime report for 24h, 7d, or 30d.
+func (c *Client) ActivityUptime(ctx context.Context, window string) (int, []byte, error) {
+	return c.Call(ctx, http.MethodGet, "/api/v1/activity/uptime"+activityQuery(map[string]string{"window": window}), nil)
+}
+
+// ListIncidents returns the raw incidents payload for the given filters.
+// Empty filters read as the server defaults (active incidents).
+func (c *Client) ListIncidents(ctx context.Context, status, severity, incidentType string) (int, []byte, error) {
+	return c.Call(ctx, http.MethodGet, "/api/v1/activity/incidents"+activityQuery(map[string]string{
+		"status": status, "severity": severity, "type": incidentType,
+	}), nil)
+}
+
+// GetIncident returns the raw incident detail payload with its timeline.
+func (c *Client) GetIncident(ctx context.Context, id string) (int, []byte, error) {
+	parsed, err := parseID(id)
+	if err != nil {
+		return 0, nil, err
+	}
+	return c.Call(ctx, http.MethodGet, "/api/v1/activity/incidents/"+parsed.String(), nil)
+}
+
+// PlaybackCompliance returns the raw expected-versus-actual playback
+// compliance payload for a window.
+func (c *Client) PlaybackCompliance(ctx context.Context, from, to string) (int, []byte, error) {
+	return c.Call(ctx, http.MethodGet, "/api/v1/activity/compliance"+activityQuery(map[string]string{"from": from, "to": to}), nil)
+}
+
 // Download streams an authenticated GET body to the caller, who closes it.
 // It exists for artifact and export endpoints whose payloads must never be
 // buffered whole into memory by the transport.

@@ -85,6 +85,11 @@ See `docs/programmable-control-plane.md`.
   Creation confirms, validates scopes and lifetimes against the API
   contract before anything travels, and prints the secret exactly
   once with a stderr reminder the server never shows it again.
+- `tilecast activity overview|uptime|incidents|compliance` reads fleet
+  activity. Uptime takes `--window 24h|7d|30d`; incidents filter by
+  `--status`, `--severity`, and `--type`; `activity incident get`
+  shows one incident with its timeline. All reads, none confirm.
+  Windows pass straight through for the server to validate.
 
 ## Authentication and storage
 
