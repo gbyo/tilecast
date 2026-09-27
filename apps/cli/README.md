@@ -90,6 +90,15 @@ See `docs/programmable-control-plane.md`.
   `--status`, `--severity`, and `--type`; `activity incident get`
   shows one incident with its timeline. All reads, none confirm.
   Windows pass straight through for the server to validate.
+- `tilecast mcp [--read-only]` serves operator tools over MCP stdio
+  (official MCP Go SDK). Tool families mirror the CLI groups —
+  screens, pairing, settings, plugins, playlists, schedules, tokens,
+  activity — plus one generic family per installed plugin
+  (`<plugin_id>_<mcp_action>`). Descriptions carry the risk class;
+  the server authorizes every call. `--read-only` registers only the
+  read class; sensitive and higher tools take an explicit
+  `confirm=true` argument instead of prompting. Break-glass
+  operations never enter MCP.
 
 ## Authentication and storage
 

@@ -59,6 +59,7 @@ server host for that.`,
 	root.AddCommand(newScheduleCommand(env))
 	root.AddCommand(newTokenCommand(env))
 	root.AddCommand(newActivityCommand(env))
+	root.AddCommand(newMCPCommand(env))
 	return root
 }
 

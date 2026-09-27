@@ -444,10 +444,15 @@ after it:
     and JSON output. No plugin identifier appears in CLI source; a new
     conforming plugin with an API and `automation.yaml` works without a
     CLI change. Phase 15 expands core resource groups deliberately.
-12. MCP starts only after the API, client, and CLI have substantial real
-    use: `tilecast mcp` over stdio with the official MCP Go SDK, semantic
-    core tools, generic per-plugin tool families for installed plugins
-    only, and `--read-only` support.
+12. Phase 16 ships MCP after the API, client, and CLI have substantial
+    real use: `tilecast mcp` over stdio with the official MCP Go SDK,
+    semantic core tools mirroring the CLI groups (screens, pairing,
+    settings, plugins, playlists, schedules, tokens, activity),
+    generic per-plugin tool families (`<plugin_id>_<mcp_action>`) for
+    installed plugins only, and `--read-only` registering just the read
+    class. Risk annotations describe; the server authorizes. Sensitive
+    and higher tools take an explicit `confirm=true` argument instead
+    of prompting, and break-glass operations never enter MCP.
 
 ## Definition of done
 

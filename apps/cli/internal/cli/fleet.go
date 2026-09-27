@@ -102,22 +102,7 @@ func runScreenUpdate(cmd *cobra.Command, env *environment, ref string) error {
 	if err != nil {
 		return err
 	}
-	body := map[string]any{
-		"name":        orDefault(name, stringField(current, "name")),
-		"roomName":    orDefault(roomName, stringField(current, "roomName")),
-		"roomNumber":  orDefault(roomNumber, stringField(current, "roomNumber")),
-		"description": orDefault(description, stringField(current, "description")),
-	}
-	switch {
-	case clearLocation:
-		body["locationId"] = nil
-	case locationID != "":
-		body["locationId"] = locationID
-	case stringField(current, "locationId") != "":
-		body["locationId"] = stringField(current, "locationId")
-	default:
-		body["locationId"] = nil
-	}
+	body := screenUpdateBody(current, name, locationID, clearLocation, roomName, roomNumber, description)
 	if err := confirmChange(cmd, fmt.Sprintf("update screen %q?", stringField(current, "name"))); err != nil {
 		return err
 	}
@@ -139,6 +124,29 @@ func orDefault(flag, current string) string {
 		return flag
 	}
 	return current
+}
+
+// screenUpdateBody builds the full details document from sparse fields,
+// keeping current values for everything unset. Shared by the screen
+// update command and the MCP screen_update tool.
+func screenUpdateBody(current screenRecord, name, locationID string, clearLocation bool, roomName, roomNumber, description string) map[string]any {
+	body := map[string]any{
+		"name":        orDefault(name, stringField(current, "name")),
+		"roomName":    orDefault(roomName, stringField(current, "roomName")),
+		"roomNumber":  orDefault(roomNumber, stringField(current, "roomNumber")),
+		"description": orDefault(description, stringField(current, "description")),
+	}
+	switch {
+	case clearLocation:
+		body["locationId"] = nil
+	case locationID != "":
+		body["locationId"] = locationID
+	case stringField(current, "locationId") != "":
+		body["locationId"] = stringField(current, "locationId")
+	default:
+		body["locationId"] = nil
+	}
+	return body
 }
 
 func runScreenEnabled(cmd *cobra.Command, env *environment, ref string, enabled bool) error {
