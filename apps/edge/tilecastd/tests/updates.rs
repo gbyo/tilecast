@@ -158,15 +158,6 @@ impl UpdateHost for Host {
         });
         Ok(())
     }
-    async fn await_active(&self, unit: &str) -> Result<(), HostError> {
-        // This harness never models a failed unit; start marks active, and
-        // anything else is a unit that never activates.
-        if self.with(|m| m.active.contains(unit)) {
-            Ok(())
-        } else {
-            Err(HostError::failed(format!("{unit} did not start")))
-        }
-    }
     async fn activity(&self, unit: &str) -> Result<UnitActivity, HostError> {
         Ok(if self.with(|m| m.active.contains(unit)) { UnitActivity::Running } else { UnitActivity::Inactive })
     }

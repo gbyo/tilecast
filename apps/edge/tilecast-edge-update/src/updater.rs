@@ -438,21 +438,16 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
         transaction.renderer_restarts_base = Some(0);
         self.save(transaction, Phase::Provisional, "candidate is current; waiting for confirmation")?;
         self.crash(CrashPoint::AfterProvisionalSaved)?;
-        // Each start is awaited so the units come up daemon, helper,
-        // renderer rather than in activation-duration order; the renderer
-        // also connects to the helper's control socket with a bounded
-        // backoff. Activation runs outside the guard's own ordering, so
-        // waiting here cannot deadlock against it (the guard paths below
-        // use start without waiting).
-        for (unit, point) in [
-            (EDGE_DAEMON, CrashPoint::AfterDaemonStarted),
-            (EDGE_WEB, CrashPoint::AfterWebStarted),
-            (EDGE_RENDERER, CrashPoint::AfterRendererStarted),
-        ] {
-            self.host.start(unit).await?;
-            self.host.await_active(unit).await?;
-            self.crash(point)?;
-        }
+        // Start order is declarative (After/Wants on the units), so the
+        // calls only enqueue: the daemon, then the helper, then the
+        // renderer. The renderer also connects to the helper's control
+        // socket with a bounded backoff.
+        self.host.start(EDGE_DAEMON).await?;
+        self.crash(CrashPoint::AfterDaemonStarted)?;
+        self.host.start(EDGE_WEB).await?;
+        self.crash(CrashPoint::AfterWebStarted)?;
+        self.host.start(EDGE_RENDERER).await?;
+        self.crash(CrashPoint::AfterRendererStarted)?;
         Ok(())
     }
 

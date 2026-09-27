@@ -59,17 +59,11 @@ pub trait UpdateHost: Send + Sync {
     /// Clears the unit's failed state, which also sets systemd's restart
     /// counter (`NRestarts`) to zero, queues a start job and returns: the
     /// candidate may take a while, and the guard, not this call, decides
-    /// whether it came up.
+    /// whether it came up. Start order lives in the units themselves
+    /// (daemon, then web helper, then renderer), never in waiting here: a
+    /// wait would deadlock the guard against its own `Before=` ordering and
+    /// misroute broken candidates past the guard's failure detection.
     async fn start(&self, unit: &str) -> Result<(), HostError>;
-    /// Waits until a queued start settles, so activation brings the daemon,
-    /// the web helper and the renderer up in order instead of
-    /// activation-duration order. Settling includes failure: a broken
-    /// candidate reports `candidate_daemon_failed` through the guard, so a
-    /// failed unit is not an error here. Activation only: the guard must
-    /// never wait here for a unit ordered after itself (its own `Before=`
-    /// would hold that job until the guard exits), it decides via
-    /// [`UpdateHost::activity`] checks instead.
-    async fn await_active(&self, unit: &str) -> Result<(), HostError>;
     async fn activity(&self, unit: &str) -> Result<UnitActivity, HostError>;
     /// `systemctl daemon-reload`.
     async fn reload(&self) -> Result<(), HostError>;

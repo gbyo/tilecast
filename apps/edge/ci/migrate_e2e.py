@@ -588,6 +588,13 @@ def check_web_helper_packaging():
     renderer_groups = output("systemctl", "show", "--property=SupplementaryGroups",
                              "tilecast-renderer.service")
     assert "tilecast-web" in renderer_groups, renderer_groups
+    # The daemon, helper, renderer start order lives in the units, not in
+    # start call timing, so boot, the migrator, activation and the guard
+    # converge on it (and the guard never waits on units ordered after it).
+    web_after = output("systemctl", "show", "--property=After", "tilecast-web-renderer.service")
+    assert "tilecast-edge.service" in web_after, web_after
+    renderer_after = output("systemctl", "show", "--property=After", "tilecast-renderer.service")
+    assert "tilecast-edge.service" in renderer_after and "tilecast-web-renderer.service" in renderer_after, renderer_after
     data = os.stat("/var/lib/tilecast-web")
     assert data.st_uid == web.pw_uid and (data.st_mode & 0o777) == 0o700, oct(data.st_mode)
     runtime = os.stat("/run/tilecast-web")

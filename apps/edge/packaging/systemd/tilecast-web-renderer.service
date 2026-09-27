@@ -4,17 +4,17 @@
 # frames and closed remote-web-protocol-v1 events to the trusted renderer
 # (docs/tilecast-edge-remote-web-threat-review.md).
 #
-# It is enabled with Edge and never started on its own: the migrator and the
-# M10 update helper start the daemon, then this helper, then the trusted
-# renderer, and stop them in the reverse order, because the helper maps
-# files under /opt/tilecast-edge/current. Non-web playback never depends on
-# it: a helper exit fails only live remote surfaces through the runtime's
-# Website failure and recovery path.
+# It is enabled with Edge. The daemon, helper, renderer start order lives
+# in the units (After/Wants below and on the renderer), not in start call
+# timing, so boot, the migrator, activation and the guard all converge on
+# it; the helper maps files under /opt/tilecast-edge/current. Non-web
+# playback never depends on it: a helper exit fails only live remote
+# surfaces through the runtime's Website failure and recovery path.
 [Unit]
 Description=Tilecast Edge remote web helper
 Documentation=https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-remote-web-threat-review.md
-After=network-online.target
-Wants=network-online.target
+After=tilecast-edge.service network-online.target
+Wants=tilecast-edge.service network-online.target
 
 [Service]
 Type=simple

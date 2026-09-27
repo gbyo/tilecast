@@ -155,17 +155,6 @@ impl UpdateHost for FakeHost {
         Ok(())
     }
 
-    async fn await_active(&self, unit: &str) -> Result<(), HostError> {
-        // The fake settles instantly: active and failed both settle, and
-        // the guard owns the failed meaning. Not logged: crash tests assert
-        // the start sequence, and waiting adds no operation.
-        if self.with(|s| s.active.contains(unit) || s.failed.contains(unit)) {
-            Ok(())
-        } else {
-            Err(HostError::failed(format!("{unit} did not start")))
-        }
-    }
-
     async fn activity(&self, unit: &str) -> Result<UnitActivity, HostError> {
         Ok(self.with(|s| {
             if s.failed.contains(unit) {
