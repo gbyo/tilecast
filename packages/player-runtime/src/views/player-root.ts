@@ -19,6 +19,7 @@ import type {
   RuntimeViewState,
 } from "../engine/controller";
 import type { RuntimeSurfaceHost } from "../plugins/host";
+import type { RuntimeWidgetHost } from "../widgets/host";
 import { Stage } from "../surfaces/stage";
 import type { SetupBridge, StatusSurface } from "./status-surface";
 import "./outside-hours";
@@ -32,6 +33,7 @@ export interface PlayerRootBindings {
   capabilities: RuntimeCapabilitiesV1;
   setup: SetupBridge;
   animationScale: number;
+  widgets: RuntimeWidgetHost;
 }
 
 type Sleep = Extract<RuntimePresentation, { state: "sleep" }>;
@@ -84,6 +86,7 @@ export class PlayerRoot extends LitElement {
         capabilities: bindings.capabilities,
         send: (event) => bindings.controller.surface(event),
         animationScale: bindings.animationScale,
+        widgets: bindings.widgets,
       });
       this.unsubscribers.push(
         bindings.controller.subscribe((view) => this.onView(view)),

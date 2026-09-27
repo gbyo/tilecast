@@ -5,4 +5,5 @@ use (
 	./apps/server
 	./packages/plugin-sdk/go
 	./plugins
+	./widgets
 )

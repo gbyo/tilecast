@@ -48,6 +48,16 @@ Both values are percentages the whole way down. A v13 presentation carries them 
 
 Countdown Widgets may run once or repeat daily, weekly, monthly, or yearly in their configured IANA timezone. Monthly and yearly recurrences preserve the selected local day and time, clamping dates such as the 31st or February 29 to the final valid day when necessary. The title can appear above the countdown, beside it, or be hidden with the countdown-only layout. Recurrence is available for count-down mode; one-time countdowns retain their completion-text, hide, and continue-counting-up behaviors.
 
+### Widgets V2
+
+A migrated Widget has one renderer: a first-class component in `widgets/<name>/` that the shared Player Runtime and Studio mount unchanged. [widgets-v2.md](widgets-v2.md) is the binding design. Clock is the first Widgets V2 Widget:
+
+- It has three styles (Standard, Minimal and Analog) and an optional date line. The optional `style` and `showDate` configuration keys add to the existing Clock configuration. A Player that predates Clock V2 ignores them and shows the time alone.
+- Its layout follows its own box. It becomes one row in a wide strip, stacks hours over minutes in a tall sidebar, and shows only the time in a small Layout zone.
+- The Server sends the component only to a Player that reports `widget.tilecast.clock@1` and presentation schema 2 (manifest v16). Every other Player receives the Clock's compatibility presentation, exactly as before. The persisted Widget does not change.
+
+The Data Source and Widget boundary does not change: a Widgets V2 component reads only the prepared Data Documents and verified media variants its presentation declares.
+
 ### Data-driven Widget compatibility
 
 The server validates that the selected Data Source provider is compatible with the Widget provider and that every selected field exists in the Data Source schema.

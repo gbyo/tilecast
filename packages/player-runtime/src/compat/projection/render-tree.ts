@@ -11,6 +11,7 @@
  * 4 GiB / old-Intel hardware — and keeps the hard logic unit-testable in
  * Node without a DOM.
  */
+import type { RuntimeWidgetComponentPayload } from "../../host/contract";
 
 export interface BoxStyle {
   /** Absolute placement (layout zones); omitted for flow children. */
@@ -137,6 +138,7 @@ export interface LayoutZone {
   radius?: number;
   /** Exactly one of the following is set. */
   render?: RenderNode; // widget or primitive
+  component?: RuntimeWidgetComponentPayload; // first-class Widget
   image?: { src: string; fit: string }; // asset placement
   playlistItems?: LayoutPlaylistItem[]; // playlistZone: rotates locally
 }

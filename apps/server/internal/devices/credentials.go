@@ -23,6 +23,11 @@ var (
 	}
 )
 
+// maxPresentationCapabilities bounds the capability map a heartbeat carries:
+// declarative node capabilities plus one widget.<type> entry for each
+// first-class Widget the Player bundles (docs/widgets-v2.md §7).
+const maxPresentationCapabilities = 128
+
 func (s *Service) Enroll(ctx context.Context, sessionID uuid.UUID, enrollmentToken string) (EnrollmentResult, error) {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
@@ -228,7 +233,7 @@ func (s *Service) Heartbeat(ctx context.Context, principal DevicePrincipal, hear
 	if len(heartbeat.CommissioningState) > 40 || len(heartbeat.CommissioningStep) > 80 || len(heartbeat.UpdateReadiness) > 40 || len(heartbeat.SelfTestResult) > 120 || heartbeat.BootAttemptCount != nil && (*heartbeat.BootAttemptCount < 0 || *heartbeat.BootAttemptCount > 1000) {
 		return errors.New("heartbeat reliability metadata is invalid")
 	}
-	if len(heartbeat.PresentationSchemaVersions) > 8 || len(heartbeat.NativePresentationCapabilities) > 64 || heartbeat.WebRuntimeVersion < 0 || heartbeat.WebBundleLimitBytes < 0 {
+	if len(heartbeat.PresentationSchemaVersions) > 8 || len(heartbeat.NativePresentationCapabilities) > maxPresentationCapabilities || heartbeat.WebRuntimeVersion < 0 || heartbeat.WebBundleLimitBytes < 0 {
 		return errors.New("heartbeat presentation capabilities are invalid")
 	}
 	for capability, version := range heartbeat.NativePresentationCapabilities {

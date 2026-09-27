@@ -16,6 +16,7 @@ import type {
 import { resolveRegionalFormatting } from "./projection/format";
 import { renderLayout, spanViewport } from "./projection/layout-render";
 import { renderWidget } from "./projection/widget-render";
+import { projectWidgetComponent } from "../widgets/projection";
 import type {
   LayoutDocument,
   ManifestDataSource,
@@ -160,14 +161,20 @@ export function createProjector(
         if (isWidgetReference(item)) {
           const id = (item.widget as { widgetAssetId: string }).widgetAssetId;
           const widget = widgets.get(id);
-          const payload = widget
-            ? renderWidget(widget, {
-                dataSources,
-                at,
-                assets: manifest.assets,
-                regionalFormat,
-              })
-            : null;
+          const payload = !widget
+            ? null
+            : widget.presentation?.kind === "component"
+              ? projectWidgetComponent(widget, {
+                  dataSources,
+                  assets: manifest.assets,
+                  regionalFormat,
+                })
+              : renderWidget(widget, {
+                  dataSources,
+                  at,
+                  assets: manifest.assets,
+                  regionalFormat,
+                });
           // The reference player skips an item that cannot render and keeps
           // the rest of the playlist.
           if (payload) {

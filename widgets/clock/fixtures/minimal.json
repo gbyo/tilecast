@@ -1,0 +1,12 @@
+{
+  "name": "Minimal",
+  "configuration": {
+    "timezone": "",
+    "format": "12",
+    "showSeconds": false,
+    "style": "minimal",
+    "foregroundColor": "#F5F7FA",
+    "backgroundColor": "#0E141B"
+  },
+  "expect": "ready"
+}

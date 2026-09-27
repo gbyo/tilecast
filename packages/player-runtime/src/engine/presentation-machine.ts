@@ -30,6 +30,7 @@ import {
 } from "./playback-policy";
 import {
   layoutPayload,
+  widgetComponent,
   widgetPayload,
   type EngineReporter,
   type StageEntry,
@@ -100,7 +101,11 @@ function currentItem(context: PresentationContext): RuntimeItem | null {
 }
 
 export function missingPayloadReason(item: RuntimeItem): string | null {
-  if (item.kind === "widget" && !widgetPayload(item)) {
+  if (
+    item.kind === "widget" &&
+    !widgetPayload(item) &&
+    !widgetComponent(item)
+  ) {
     return "widget payload missing";
   }
   if (item.kind === "layout" && !layoutPayload(item)) {
