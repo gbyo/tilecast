@@ -654,37 +654,12 @@
         "separator": "Separador",
         "fieldSeparator": "Separador de campos"
       },
-      "display": {
-        "displayedFields": "Campos visibles",
-        "noSource": "Selecciona una fuente de datos para elegir sus campos.",
-        "maximumHint": "Limita cuántas filas o eventos aparecen a la vez.",
-        "emptyLabel": "Mensaje sin datos",
-        "emptyHint": "Se muestra cuando la fuente no devuelve registros útiles."
-      },
-      "menu": {
-        "presentation": "Presentación",
-        "modeSingle": "Campos de un registro",
-        "modeRows": "Filas de etiqueta y valor"
-      },
-      "agenda": {
-        "timeField": "Campo de hora",
-        "locationField": "Campo de ubicación",
-        "descriptionField": "Campo de descripción"
-      },
       "metric": {
         "staticLabel": "Etiqueta fija",
         "precision": "Decimales",
         "prefix": "Prefijo",
         "suffix": "Sufijo",
         "emptyState": "Estado vacío"
-      },
-      "weather": {
-        "showLocation": "Ubicación",
-        "showCurrent": "Condiciones actuales",
-        "showHumidity": "Humedad",
-        "showWind": "Viento",
-        "showPrecipitation": "Precipitación",
-        "forecastDays": "Días de pronóstico"
       },
       "spotlight": {
         "image": "Imagen subida",

@@ -1,0 +1,84 @@
+{
+  "name": "Default",
+  "description": "An Agenda reading calendar events with title, start, end and location mapped.",
+  "configuration": {
+    "dataSourceId": "11111111-1111-4111-8111-111111111111",
+    "titleField": "title",
+    "startField": "start",
+    "endField": "end",
+    "locationField": "location",
+    "descriptionField": "",
+    "categoryField": "",
+    "heading": "Today",
+    "maximumItems": 20,
+    "groupByDay": true,
+    "hideEnded": true,
+    "emptyText": "",
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "documents": {
+    "11111111-1111-4111-8111-111111111111": {
+      "schemaVersion": 1,
+      "datasets": [
+        {
+          "id": "events",
+          "kind": "records",
+          "fields": [
+            { "key": "title", "label": "Title", "type": "text" },
+            { "key": "start", "label": "Start", "type": "datetime" },
+            { "key": "end", "label": "End", "type": "datetime" },
+            { "key": "location", "label": "Location", "type": "text" }
+          ],
+          "records": [
+            {
+              "id": "e1",
+              "values": {
+                "title": { "kind": "text", "text": "Morning standup" },
+                "start": {
+                  "kind": "datetime",
+                  "datetime": "2026-09-28T14:00:00Z"
+                },
+                "end": {
+                  "kind": "datetime",
+                  "datetime": "2026-09-28T14:15:00Z"
+                },
+                "location": { "kind": "text", "text": "Room A" }
+              }
+            },
+            {
+              "id": "e2",
+              "values": {
+                "title": { "kind": "text", "text": "Board meeting" },
+                "start": {
+                  "kind": "datetime",
+                  "datetime": "2026-09-28T16:00:00Z"
+                },
+                "end": {
+                  "kind": "datetime",
+                  "datetime": "2026-09-28T17:00:00Z"
+                },
+                "location": { "kind": "text", "text": "Main hall" }
+              }
+            },
+            {
+              "id": "e3",
+              "values": {
+                "title": { "kind": "text", "text": "Choir rehearsal" },
+                "start": {
+                  "kind": "datetime",
+                  "datetime": "2026-09-29T18:00:00Z"
+                },
+                "end": {
+                  "kind": "datetime",
+                  "datetime": "2026-09-29T19:30:00Z"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expect": "ready"
+}

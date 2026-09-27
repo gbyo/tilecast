@@ -9,13 +9,16 @@ import {
 import {
   boundText,
   ClockController,
+  fieldForRole,
   formatDate,
   formatNumber,
+  formatTime,
   formatWidgetValue,
   GeometryController,
   localDayKey,
   mixColors,
   MotionController,
+  suggestFieldMapping,
   themeProperties,
   TilecastWidgetElement,
   timeParts,
@@ -204,6 +207,35 @@ describe("GeometryController and MotionController", () => {
 describe("format", () => {
   const at = Date.parse("2026-09-28T14:05:09Z");
 
+  it("formats percent values as whole units, like the legacy renderer", () => {
+    // Records carry 62 for 62%; formatting must not print 6,200%.
+    expect(formatNumber(62, { locale: "en-US", style: "percent" })).toBe("62%");
+    expect(
+      formatWidgetValue(
+        { kind: "percent", number: 62 },
+        { type: "percent" },
+        { locale: "en-US" },
+      ),
+    ).toBe("62%");
+  });
+
+  it("formats wall time in the configured zone and hour cycle", () => {
+    expect(
+      formatTime(at, {
+        locale: "en-US",
+        timeZone: "America/Chicago",
+        hourCycle: "locale",
+      }),
+    ).toBe("9:05 AM");
+    expect(
+      formatTime(at, {
+        locale: "en-US",
+        timeZone: "America/Chicago",
+        hourCycle: "h23",
+      }),
+    ).toBe("09:05");
+  });
+
   it("splits time in the configured zone and hour cycle", () => {
     expect(
       timeParts(at, {
@@ -286,7 +318,7 @@ describe("format", () => {
     expect(
       formatWidgetValue(
         { kind: "currency", number: 12 },
-        { key: "price", label: "Price", type: "currency", currency: "USD" },
+        { type: "currency", currency: "USD" },
         { locale },
       ),
     ).toBe("$12.00");
@@ -296,11 +328,10 @@ describe("format", () => {
       }),
     ).toBe("Yes");
     expect(
-      formatWidgetValue(
-        { kind: "date", date: "2026-09-28" },
-        undefined,
-        { locale, timeZone: "UTC" },
-      ),
+      formatWidgetValue({ kind: "date", date: "2026-09-28" }, undefined, {
+        locale,
+        timeZone: "UTC",
+      }),
     ).toBe("Sep 28, 2026");
     // A bare date names no zone, so it never shifts with the screen zone.
     expect(
@@ -309,9 +340,13 @@ describe("format", () => {
       }),
     ).toBe("Sep 28, 2026");
     expect(
-      formatWidgetValue({ kind: "duration", durationSeconds: 7540 }, undefined, {
-        locale,
-      }),
+      formatWidgetValue(
+        { kind: "duration", durationSeconds: 7540 },
+        undefined,
+        {
+          locale,
+        },
+      ),
     ).toBe("2h 5m");
     expect(formatWidgetValue(null, undefined, { locale })).toBe("");
     expect(
@@ -334,5 +369,74 @@ describe("tokens", () => {
     expect(Object.values(props).every((v) => /^#[0-9a-f]{6}$/.test(v))).toBe(
       true,
     );
+  });
+});
+
+describe("semantic field roles", () => {
+  const fields = [
+    { key: "dish", type: "text", role: "title" },
+    { key: "notes", type: "text" },
+    { key: "cost", type: "currency" },
+    { key: "section", type: "text", role: "category" },
+  ];
+  const slots = {
+    title: { roles: ["title"], legacyKeys: ["title", "name"], types: ["text"] },
+    description: {
+      roles: ["description"],
+      legacyKeys: ["description", "notes"],
+      types: ["text"],
+    },
+    price: {
+      roles: ["price"],
+      legacyKeys: ["price", "cost"],
+      types: ["currency", "number"],
+    },
+    category: {
+      roles: ["category"],
+      legacyKeys: ["category", "section"],
+      types: ["text"],
+    },
+  };
+
+  it("prefers declared roles over legacy keys and types", () => {
+    expect(fieldForRole(fields, "title")).toBe("dish");
+    expect(fieldForRole(fields, "")).toBe("");
+    expect(fieldForRole(fields, "end")).toBe("");
+    expect(suggestFieldMapping(fields, slots)).toEqual({
+      title: "dish",
+      // No description role is declared; the legacy key "notes" wins over
+      // any text column.
+      description: "notes",
+      // The price role is undeclared but "cost" is a known legacy key, so
+      // it wins over a type-compatible fallback.
+      price: "cost",
+      category: "section",
+    });
+  });
+
+  it("falls back to type-compatible fields and never shares one", () => {
+    const undeclared = [
+      { key: "name", type: "text" },
+      { key: "blurb", type: "text" },
+    ];
+    expect(
+      suggestFieldMapping(undeclared, {
+        title: { roles: ["title"], legacyKeys: ["title"], types: ["text"] },
+        description: {
+          roles: ["description"],
+          legacyKeys: ["description"],
+          types: ["text"],
+        },
+        price: { roles: ["price"], legacyKeys: ["price"], types: ["currency"] },
+      }),
+    ).toEqual({ title: "name", description: "blurb", price: "" });
+  });
+
+  it("matches legacy keys case-insensitively", () => {
+    expect(
+      suggestFieldMapping([{ key: "Title", type: "text" }], {
+        title: { roles: ["title"], legacyKeys: ["title"], types: ["text"] },
+      }),
+    ).toEqual({ title: "Title" });
   });
 });

@@ -13,6 +13,8 @@ import type {
 import clockManifest from "../../../../../widgets/clock/tilecast.widget.json";
 import qrManifest from "../../../../../widgets/qr-code/tilecast.widget.json";
 import listManifest from "../../../../../widgets/list/tilecast.widget.json";
+import agendaManifest from "../../../../../widgets/agenda/tilecast.widget.json";
+import weatherManifest from "../../../../../widgets/weather/tilecast.widget.json";
 import { V2ZonePreview } from "./V2ZonePreview";
 
 afterEach(() => {
@@ -140,6 +142,66 @@ function listDefinition(): WidgetDefinition {
   };
 }
 
+function agendaDefinition(): WidgetDefinition {
+  return {
+    id: "agenda",
+    version: 1,
+    apiVersion: 1,
+    name: "Agenda",
+    description: "Group upcoming events by day.",
+    category: "Data display",
+    icon: "calendar",
+    runtime: "native",
+    configurationSchema: agendaManifest.configurationSchema as {
+      fields: ContentDefinitionField[];
+    },
+    defaultConfiguration: agendaManifest.defaultConfiguration,
+    component: {
+      type: "tilecast.agenda",
+      version: 1,
+      tagName: "tc-widget-agenda",
+      entrypoint: "./runtime/index.ts",
+      configTemplate: agendaManifest.component.configTemplate,
+      dataSourceFields: agendaManifest.component.dataSourceFields,
+      empty: "skip-eligible",
+    },
+    compatibility: { fallback: "legacy" },
+    presentationSchemaVersion: 1,
+    requiredCapabilities: {},
+    emptyStateBehavior: "text",
+  };
+}
+
+function weatherDefinition(): WidgetDefinition {
+  return {
+    id: "weather",
+    version: 1,
+    apiVersion: 1,
+    name: "Weather",
+    description: "Show current conditions and the forecast.",
+    category: "Data display",
+    icon: "cloud_sun",
+    runtime: "native",
+    configurationSchema: weatherManifest.configurationSchema as {
+      fields: ContentDefinitionField[];
+    },
+    defaultConfiguration: weatherManifest.defaultConfiguration,
+    component: {
+      type: "tilecast.weather",
+      version: 1,
+      tagName: "tc-widget-weather",
+      entrypoint: "./runtime/index.ts",
+      configTemplate: weatherManifest.component.configTemplate,
+      dataSourceFields: weatherManifest.component.dataSourceFields,
+      empty: "skip-eligible",
+    },
+    compatibility: { fallback: "legacy" },
+    presentationSchemaVersion: 1,
+    requiredCapabilities: {},
+    emptyStateBehavior: "text",
+  };
+}
+
 function catalog(): ContentDefinitionCatalog {
   return {
     revision: "test",
@@ -150,6 +212,8 @@ function catalog(): ContentDefinitionCatalog {
       qrCodeDefinition(),
       legacyQrCodeDefinition(),
       listDefinition(),
+      agendaDefinition(),
+      weatherDefinition(),
     ],
     dataSources: [],
   };
@@ -282,6 +346,157 @@ describe("V2ZonePreview", () => {
     expect(list?.shadowRoot?.querySelector(".row .trailing")?.textContent).toBe(
       "$1,200.00",
     );
+  });
+
+  it("mounts the real Agenda element for saved legacy calendar content", async () => {
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue(catalog());
+    vi.spyOn(api, "settings").mockResolvedValue({ values: {} } as never);
+    vi.spyOn(api, "previewSavedDataSource").mockResolvedValue({
+      configuration: {
+        calendars: [],
+        displayMode: "upcoming",
+        maxEvents: 20,
+        fields: {
+          title: true,
+          startTime: true,
+          endTime: true,
+          date: true,
+          location: true,
+          descriptionExcerpt: false,
+        },
+        timezone: "America/Chicago",
+        refreshIntervalSeconds: 900,
+        stalenessLimitHours: 24,
+        emptyState: "",
+        data: {
+          events: [
+            {
+              id: "e1",
+              calendar: "School",
+              title: "Board meeting",
+              // Far enough ahead that the live preview clock still finds
+              // it upcoming, so ended-removal does not hide it.
+              start: "2030-05-04T16:00:00Z",
+              end: "2030-05-04T17:00:00Z",
+              allDay: false,
+              location: "Main hall",
+            },
+          ],
+          cachedAt: "2026-09-28T15:00:00Z",
+          staleAt: "2026-09-28T16:00:00Z",
+          usingCachedData: false,
+        },
+      },
+      diagnostics: {
+        assetId: "source-1",
+        parseStatus: "ok",
+        availableEventCount: 1,
+        availableItemCount: 0,
+        usingCachedData: false,
+      },
+    });
+    // Saved content keeps its persisted legacy date/time keys; the chained
+    // template prefers the start mapping and falls back to them.
+    const asset = {
+      widget: {
+        authorConfiguration: {
+          dataSourceId: "source-1",
+          titleField: "title",
+          dateField: "start",
+          timeField: "",
+          locationField: "location",
+          maximumItems: 20,
+        },
+      },
+    } as unknown as Asset;
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const { container } = render(
+      <QueryClientProvider client={client}>
+        <V2ZonePreview
+          provider="agenda"
+          asset={asset}
+          width={480}
+          height={270}
+        />
+      </QueryClientProvider>,
+    );
+    const frame = await screen.findByRole("img", {
+      name: "Live Widget preview",
+    });
+    await waitFor(() => frame.querySelector("tc-widget-agenda"));
+    const agenda = container.querySelector("tc-widget-agenda");
+    expect(agenda).toBeInTheDocument();
+    expect(
+      agenda?.shadowRoot?.querySelector(".event .title")?.textContent,
+    ).toBe("Board meeting");
+  });
+
+  it("mounts the real Weather element for a normalized source", async () => {
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue(catalog());
+    vi.spyOn(api, "settings").mockResolvedValue({ values: {} } as never);
+    vi.spyOn(api, "previewSavedDataSource").mockResolvedValue({
+      fields: [
+        { key: "kind", label: "Kind", type: "text" },
+        { key: "location", label: "Location", type: "text" },
+        { key: "condition", label: "Condition", type: "text" },
+        { key: "temperature", label: "Temperature", type: "number" },
+        { key: "temperatureUnit", label: "Unit", type: "text" },
+      ],
+      records: [
+        {
+          id: "current",
+          values: {
+            kind: "current",
+            location: "Riverside",
+            condition: "Clear Sky",
+            temperature: "21.5",
+            temperatureUnit: "°C",
+          },
+        },
+      ],
+      cachedAt: "2026-09-28T15:00:00Z",
+      usingCachedData: false,
+      attribution: "MET Norway",
+      unavailable: false,
+    });
+    const asset = {
+      widget: {
+        authorConfiguration: {
+          dataSourceId: "source-1",
+          showLocation: true,
+          showCurrent: true,
+          forecastDays: 3,
+        },
+      },
+    } as unknown as Asset;
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const { container } = render(
+      <QueryClientProvider client={client}>
+        <V2ZonePreview
+          provider="weather"
+          asset={asset}
+          width={480}
+          height={270}
+        />
+      </QueryClientProvider>,
+    );
+    const frame = await screen.findByRole("img", {
+      name: "Live Widget preview",
+    });
+    await waitFor(() => frame.querySelector("tc-widget-weather"));
+    const weather = container.querySelector("tc-widget-weather");
+    expect(weather).toBeInTheDocument();
+    const weatherText = (selector: string) =>
+      weather?.shadowRoot
+        ?.querySelector(selector)
+        ?.textContent?.replace(/\s+/g, " ")
+        .trim() ?? null;
+    expect(weatherText(".temp")).toBe("21.5 °C");
+    expect(weatherText(".condition")).toBe("Clear Sky");
   });
 
   it("renders nothing while definitions load or the provider is unknown", () => {

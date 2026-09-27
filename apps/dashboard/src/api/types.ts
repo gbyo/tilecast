@@ -1657,6 +1657,7 @@ export type ContentDefinitionField = {
     visibleWhen?: { key: string; equals?: unknown; notEquals?: unknown };
     styleCard?: boolean;
     semanticRole?: string;
+    legacyKeys?: string[];
   };
   mediaTypes?: string[];
   maximumItems?: number;
@@ -1693,7 +1694,11 @@ export type WidgetDefinition = {
    * Superseded providers stay resolvable for saved content but disappear
    * from new creation once their replacement proves parity.
    */
-  deprecation?: { deprecated?: boolean; replacement?: string; message?: string };
+  deprecation?: {
+    deprecated?: boolean;
+    replacement?: string;
+    message?: string;
+  };
   name: string;
   description: string;
   category: string;
@@ -1894,6 +1899,11 @@ export type DataSourceField = {
   label: string;
   type: string;
   currency?: string;
+  /**
+   * Optional semantic role from the shared vocabulary
+   * (docs/widgets-v2-authoring-and-first-wave.md §4).
+   */
+  role?: string;
 };
 export type DataSource = {
   id: string;

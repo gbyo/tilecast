@@ -1,0 +1,237 @@
+{
+  "$schema": "../../packages/widget-sdk/schema/tilecast-widget.schema.json",
+  "apiVersion": 1,
+  "id": "agenda",
+  "version": 1,
+  "name": "Agenda",
+  "description": "Group upcoming events by day with now and relative status.",
+  "category": "Data display",
+  "icon": "calendar",
+  "runtime": "native",
+  "configurationSchema": {
+    "fields": [
+      {
+        "key": "dataSourceId",
+        "label": "Data Source",
+        "description": "The calendar or records source this Agenda reads.",
+        "control": "data_source",
+        "acceptedDataSourceKinds": ["records"],
+        "default": "",
+        "ui": { "section": "data", "order": 1 }
+      },
+      {
+        "key": "titleField",
+        "label": "Title field",
+        "description": "The event name in each row.",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": ["text"],
+        "default": "",
+        "ui": {
+          "section": "data",
+          "order": 2,
+          "semanticRole": "title",
+          "legacyKeys": ["labelField", "primaryField"]
+        }
+      },
+      {
+        "key": "startField",
+        "label": "Start field",
+        "description": "When the event begins. Required: events without a start cannot be placed.",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": ["datetime", "date"],
+        "default": "",
+        "ui": {
+          "section": "data",
+          "order": 3,
+          "semanticRole": "start",
+          "legacyKeys": ["dateField", "timeField"]
+        }
+      },
+      {
+        "key": "endField",
+        "label": "End field",
+        "description": "When the event finishes. Drives the now treatment and ended removal.",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": ["datetime", "date"],
+        "default": "",
+        "ui": {
+          "section": "data",
+          "order": 4,
+          "semanticRole": "end",
+          "legacyKeys": ["endDateField"]
+        }
+      },
+      {
+        "key": "locationField",
+        "label": "Location field",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": ["text"],
+        "default": "",
+        "ui": {
+          "section": "data",
+          "order": 5,
+          "semanticRole": "location"
+        }
+      },
+      {
+        "key": "descriptionField",
+        "label": "Description field",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": ["text"],
+        "default": "",
+        "ui": {
+          "section": "data",
+          "order": 6,
+          "semanticRole": "description",
+          "legacyKeys": ["secondaryField"]
+        }
+      },
+      {
+        "key": "categoryField",
+        "label": "Category field",
+        "description": "Shown as a small tag beside the event.",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": ["text"],
+        "default": "",
+        "ui": {
+          "section": "data",
+          "order": 7,
+          "semanticRole": "category",
+          "legacyKeys": ["section"]
+        }
+      },
+      {
+        "key": "heading",
+        "label": "Heading",
+        "control": "text",
+        "maxLength": 120,
+        "default": "",
+        "ui": { "section": "content", "order": 1 }
+      },
+      {
+        "key": "maximumItems",
+        "label": "Maximum items",
+        "control": "integer",
+        "minimum": 1,
+        "maximum": 100,
+        "default": 20,
+        "ui": { "section": "content", "order": 2 }
+      },
+      {
+        "key": "groupByDay",
+        "label": "Group by day",
+        "description": "Collect events under one heading per local day.",
+        "control": "boolean",
+        "default": true,
+        "ui": { "section": "content", "order": 3 }
+      },
+      {
+        "key": "hideEnded",
+        "label": "Hide ended events",
+        "description": "Remove events that already finished, reevaluated every minute from the Widget clock.",
+        "control": "boolean",
+        "default": true,
+        "ui": { "section": "content", "order": 4 }
+      },
+      {
+        "key": "emptyText",
+        "label": "Empty message",
+        "description": "Shown when nothing upcoming remains.",
+        "control": "text",
+        "maxLength": 200,
+        "default": "",
+        "ui": { "section": "content", "order": 5 }
+      },
+      {
+        "key": "backgroundColor",
+        "label": "Background color",
+        "control": "color",
+        "default": "",
+        "ui": { "section": "appearance", "order": 1 }
+      },
+      {
+        "key": "foregroundColor",
+        "label": "Text color",
+        "control": "color",
+        "default": "",
+        "ui": { "section": "appearance", "order": 2 }
+      }
+    ]
+  },
+  "defaultConfiguration": {
+    "dataSourceId": "",
+    "titleField": "",
+    "startField": "",
+    "endField": "",
+    "locationField": "",
+    "descriptionField": "",
+    "categoryField": "",
+    "heading": "",
+    "maximumItems": 20,
+    "groupByDay": true,
+    "hideEnded": true,
+    "emptyText": "",
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "presentationSchemaVersion": 1,
+  "requiredCapabilities": {
+    "layout.surface": 1,
+    "layout.column": 1,
+    "collection.repeat": 2,
+    "collection.grouped_sections": 1,
+    "content.text": 1,
+    "binding.core": 2
+  },
+  "emptyStateBehavior": "text",
+  "legacyEditor": true,
+  "deprecation": {},
+  "component": {
+    "type": "tilecast.agenda",
+    "version": 1,
+    "tagName": "tc-widget-agenda",
+    "entrypoint": "./runtime/index.ts",
+    "configTemplate": {
+      "dataSourceId": { "$config": "dataSourceId", "default": "" },
+      "titleField": {
+        "$config": "titleField",
+        "default": {
+          "$config": "labelField",
+          "default": { "$config": "primaryField", "default": "" }
+        }
+      },
+      "startField": {
+        "$config": "startField",
+        "default": {
+          "$config": "dateField",
+          "default": { "$config": "timeField", "default": "" }
+        }
+      },
+      "endField": { "$config": "endField", "default": "" },
+      "locationField": { "$config": "locationField", "default": "" },
+      "descriptionField": {
+        "$config": "descriptionField",
+        "default": { "$config": "secondaryField", "default": "" }
+      },
+      "categoryField": { "$config": "categoryField", "default": "" },
+      "heading": { "$config": "heading", "default": "" },
+      "maximumItems": { "$config": "maximumItems", "default": 20 },
+      "groupByDay": {
+        "$config": "groupByDay",
+        "default": true
+      },
+      "hideEnded": { "$config": "hideEnded", "default": true },
+      "emptyText": {
+        "$config": "emptyText",
+        "default": { "$config": "emptyState", "default": "" }
+      },
+      "background": { "$config": "backgroundColor", "default": "" },
+      "foreground": { "$config": "foregroundColor", "default": "" }
+    },
+    "dataSourceFields": ["dataSourceId"],
+    "empty": "skip-eligible"
+  },
+  "compatibility": {
+    "fallback": "legacy"
+  }
+}

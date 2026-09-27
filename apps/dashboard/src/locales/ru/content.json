@@ -669,37 +669,12 @@
         "separator": "Разделитель",
         "fieldSeparator": "Разделитель полей"
       },
-      "display": {
-        "displayedFields": "Отображаемые поля",
-        "noSource": "Выберите источник данных, чтобы указать его поля.",
-        "maximumHint": "Ограничивает количество одновременно отображаемых строк или событий.",
-        "emptyLabel": "Сообщение при отсутствии данных",
-        "emptyHint": "Показывается на экране, когда источник не возвращает подходящих записей."
-      },
-      "menu": {
-        "presentation": "Представление",
-        "modeSingle": "Поля одной записи",
-        "modeRows": "Строки «подпись — значение»"
-      },
-      "agenda": {
-        "timeField": "Поле времени",
-        "locationField": "Поле местоположения",
-        "descriptionField": "Поле описания"
-      },
       "metric": {
         "staticLabel": "Статическая подпись",
         "precision": "Знаков после запятой",
         "prefix": "Префикс",
         "suffix": "Суффикс",
         "emptyState": "Пустое состояние"
-      },
-      "weather": {
-        "showLocation": "Местоположение",
-        "showCurrent": "Текущие условия",
-        "showHumidity": "Влажность",
-        "showWind": "Ветер",
-        "showPrecipitation": "Осадки",
-        "forecastDays": "Дни прогноза"
       },
       "spotlight": {
         "image": "Загруженное изображение",

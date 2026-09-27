@@ -209,6 +209,7 @@ type DataSourceField struct {
 	Label    string `json:"label"`
 	Type     string `json:"type"`
 	Currency string `json:"currency,omitempty"`
+	Role     string `json:"role,omitempty"`
 }
 
 type TypedRecord struct {

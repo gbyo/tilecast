@@ -1,4 +1,6 @@
+import { useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { suggestFieldMapping } from "@tilecast/widget-kit";
 import { Plus, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -359,6 +361,53 @@ function DefinitionControl({
     queryFn: () => api.getDataSource(fieldSourceID),
     enabled: Boolean(fieldSourceID),
   });
+  // Automatic semantic mapping (§4.1): when a source is connected, an empty
+  // field picker fills from declared roles, then legacy keys, then
+  // compatible types. The author may override every mapping in the picker.
+  const suggestedField = useMemo(() => {
+    if (field.control !== "data_source_field") return "";
+    const roles = field.ui?.semanticRole ? [field.ui.semanticRole] : [];
+    const legacyKeys = field.ui?.legacyKeys ?? [];
+    if (roles.length === 0 && legacyKeys.length === 0) return "";
+    const sourceFields = fieldSource.data?.fields;
+    if (!sourceFields) return "";
+    return (
+      suggestFieldMapping(sourceFields, {
+        [field.key]: {
+          roles,
+          legacyKeys,
+          types: field.dataSourceFieldTypes ?? [],
+        },
+      })[field.key] ?? ""
+    );
+  }, [field, fieldSource.data]);
+  const lastSuggestedSource = useRef("");
+  useEffect(() => {
+    if (field.control !== "data_source_field" || readOnly) return;
+    if (!fieldSourceID || !fieldSource.data) {
+      lastSuggestedSource.current = "";
+      return;
+    }
+    const current = fieldText(value);
+    const freshSource = lastSuggestedSource.current !== fieldSourceID;
+    lastSuggestedSource.current = fieldSourceID;
+    const known = new Set(
+      (fieldSource.data.fields ?? []).map((entry) => entry.key),
+    );
+    // An author choice for this source stands. A key the new source does
+    // not have is stale from a previous source, so it remaps.
+    if (current !== "" && (!freshSource || known.has(current))) return;
+    if (suggestedField !== "" && suggestedField !== current)
+      setValue(suggestedField);
+  }, [
+    field,
+    fieldSourceID,
+    fieldSource.data,
+    suggestedField,
+    value,
+    readOnly,
+    setValue,
+  ]);
   const common = {
     disabled: readOnly,
     required: field.required,

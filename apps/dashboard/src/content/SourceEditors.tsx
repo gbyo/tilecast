@@ -57,9 +57,7 @@ import type {
   DateWidgetConfig,
   CountdownWidgetConfig,
   TickerWidgetConfig,
-  DisplayWidgetConfig,
   MetricWidgetConfig,
-  WeatherWidgetConfig,
   SpotlightWidgetConfig,
   StatGridWidgetConfig,
   ChartWidgetConfig,
@@ -382,9 +380,7 @@ type NativeConfig =
   | DateWidgetConfig
   | CountdownWidgetConfig
   | TickerWidgetConfig
-  | DisplayWidgetConfig
   | MetricWidgetConfig
-  | WeatherWidgetConfig
   | SpotlightWidgetConfig
   | StatGridWidgetConfig
   | ChartWidgetConfig
@@ -424,17 +420,6 @@ const nativeDefault = (provider: NativeProvider, t: WidgetsT): NativeConfig => {
       precision: 0,
       alignment: "center",
       emptyState: t("widgets.defaults.noValue"),
-      ...colors,
-    };
-  if (provider === "weather")
-    return {
-      dataSourceId: "",
-      showLocation: true,
-      showCurrent: true,
-      showHumidity: true,
-      showWind: true,
-      showPrecipitation: true,
-      forecastDays: 5,
       ...colors,
     };
   if (provider === "spotlight")
@@ -510,16 +495,6 @@ const nativeDefault = (provider: NativeProvider, t: WidgetsT): NativeConfig => {
       columns: 1,
       ...colors,
     };
-  if (["menu", "agenda"].includes(provider))
-    return {
-      dataSourceId: "",
-      fields: ["title", "subtitle"],
-      maximumItems: provider === "menu" ? 2 : 20,
-      emptyState: t("widgets.defaults.noItems"),
-      rowSpacing: "comfortable",
-      mode: provider === "menu" ? "single_record" : "records",
-      ...colors,
-    };
   return {
     dataSourceId: "",
     field: "title",
@@ -535,10 +510,7 @@ function nativeWidgetGuidance(provider: NativeProvider, t: WidgetsT) {
   if (
     [
       "ticker",
-      "menu",
-      "agenda",
       "metric",
-      "weather",
       "spotlight",
       "stat_grid",
       "chart",
@@ -554,10 +526,7 @@ function nativeWidgetContentGuidance(provider: NativeProvider, t: WidgetsT) {
   if (
     [
       "ticker",
-      "menu",
-      "agenda",
       "metric",
-      "weather",
       "spotlight",
       "stat_grid",
       "chart",
@@ -628,10 +597,7 @@ export function NativeAppEditor({
       ),
     enabled: [
       "ticker",
-      "menu",
-      "agenda",
       "metric",
-      "weather",
       "spotlight",
       "stat_grid",
       "chart",
@@ -655,10 +621,7 @@ export function NativeAppEditor({
   });
   const acceptedProviders: Record<string, string[]> = {
     ticker: ["rss", "atom", "calendar", "json", "csv", "manual", "weather"],
-    menu: ["calendar", "rss", "atom", "json", "csv", "manual", "weather"],
-    agenda: ["calendar", "json", "csv", "manual", "weather"],
     metric: ["json", "csv", "manual", "weather"],
-    weather: ["weather"],
     spotlight: [
       "calendar",
       "rss",
@@ -693,10 +656,7 @@ export function NativeAppEditor({
     []) as DataSourceProvider[];
   const selectedDataSourceId = [
     "ticker",
-    "menu",
-    "agenda",
     "metric",
-    "weather",
     "spotlight",
     "stat_grid",
     "chart",
@@ -706,9 +666,7 @@ export function NativeAppEditor({
     ? (
         configuration as
           | TickerWidgetConfig
-          | DisplayWidgetConfig
           | MetricWidgetConfig
-          | WeatherWidgetConfig
           | SpotlightWidgetConfig
           | StatGridWidgetConfig
           | ChartWidgetConfig
@@ -1438,235 +1396,6 @@ export function NativeAppEditor({
                   </div>
                 </>
               )}
-              {["menu", "agenda"].includes(provider) && (
-                <>
-                  <DataSourceSelect
-                    value={(configuration as DisplayWidgetConfig).dataSourceId}
-                    sources={compatibleDataSources}
-                    createProviders={acceptedCreateProviders}
-                    csrf={csrf}
-                    disabled={readOnly}
-                    onChange={(dataSourceId) =>
-                      setConfiguration((current) => ({
-                        ...current,
-                        dataSourceId,
-                      }))
-                    }
-                  />
-                  <fieldset className="grid gap-2">
-                    <legend className="text-sm font-medium">
-                      {t("widgets.editors.display.displayedFields")}
-                    </legend>
-                    {!availableFields.length ? (
-                      <p className="text-sm text-muted-foreground">
-                        {t("widgets.editors.display.noSource")}
-                      </p>
-                    ) : (
-                      <div className="flex flex-wrap gap-x-4 gap-y-2">
-                        {availableFields.map((field) => {
-                          const selected = (
-                            configuration as DisplayWidgetConfig
-                          ).fields.includes(field.key);
-                          return (
-                            <label
-                              key={field.key}
-                              className="flex items-center gap-2 text-sm"
-                            >
-                              <Checkbox
-                                checked={selected}
-                                disabled={readOnly}
-                                onCheckedChange={(checked) =>
-                                  setConfiguration((current) => {
-                                    const config =
-                                      current as DisplayWidgetConfig;
-                                    const fields =
-                                      checked === true
-                                        ? [
-                                            ...config.fields.filter(
-                                              (item) => item !== field.key,
-                                            ),
-                                            field.key,
-                                          ]
-                                        : config.fields.filter(
-                                            (item) => item !== field.key,
-                                          );
-                                    return { ...config, fields };
-                                  })
-                                }
-                                aria-label={field.label}
-                              />
-                              <span>{field.label}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </fieldset>
-                  {provider === "menu" && (
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Field>
-                        <FieldLabel htmlFor="menu-presentation">
-                          {t("widgets.editors.menu.presentation")}
-                        </FieldLabel>
-                        <Select
-                          items={[
-                            {
-                              value: "single_record",
-                              label: t("widgets.editors.menu.modeSingle"),
-                            },
-                            {
-                              value: "records",
-                              label: t("widgets.editors.menu.modeRows"),
-                            },
-                          ]}
-                          value={
-                            (configuration as DisplayWidgetConfig).mode ??
-                            "single_record"
-                          }
-                          disabled={readOnly}
-                          onValueChange={(next) =>
-                            setConfiguration((current) => ({
-                              ...(current as DisplayWidgetConfig),
-                              mode: next as DisplayWidgetConfig["mode"],
-                            }))
-                          }
-                        >
-                          <SelectTrigger
-                            id="menu-presentation"
-                            aria-label={t("widgets.editors.menu.presentation")}
-                          >
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="single_record">
-                              {t("widgets.editors.menu.modeSingle")}
-                            </SelectItem>
-                            <SelectItem value="records">
-                              {t("widgets.editors.menu.modeRows")}
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </Field>
-                      {(configuration as DisplayWidgetConfig).mode ===
-                        "records" && (
-                        <>
-                          <FieldSelect
-                            label={t("widgets.editors.shared.labelField")}
-                            value={
-                              (configuration as DisplayWidgetConfig)
-                                .labelField ?? ""
-                            }
-                            fields={availableFields}
-                            disabled={readOnly}
-                            onChange={(labelField) =>
-                              setConfiguration((current) => ({
-                                ...current,
-                                labelField,
-                              }))
-                            }
-                          />
-                          <FieldSelect
-                            label={t("widgets.editors.shared.valueField")}
-                            value={
-                              (configuration as DisplayWidgetConfig)
-                                .valueField ?? ""
-                            }
-                            fields={availableFields}
-                            disabled={readOnly}
-                            onChange={(valueField) =>
-                              setConfiguration((current) => ({
-                                ...current,
-                                valueField,
-                              }))
-                            }
-                          />
-                        </>
-                      )}
-                    </div>
-                  )}
-                  {provider === "agenda" && (
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {(
-                        [
-                          ["dateField", "widgets.editors.shared.dateField"],
-                          ["timeField", "widgets.editors.agenda.timeField"],
-                          ["titleField", "widgets.editors.shared.titleField"],
-                          [
-                            "locationField",
-                            "widgets.editors.agenda.locationField",
-                          ],
-                          [
-                            "descriptionField",
-                            "widgets.editors.agenda.descriptionField",
-                          ],
-                        ] as const
-                      ).map(([key, labelKey]) => (
-                        <FieldSelect
-                          key={key}
-                          label={t(labelKey)}
-                          value={
-                            (configuration as DisplayWidgetConfig)[key] ?? ""
-                          }
-                          fields={availableFields}
-                          allowEmpty={key !== "titleField"}
-                          disabled={readOnly}
-                          onChange={(value) =>
-                            setConfiguration((current) => ({
-                              ...current,
-                              [key]: value,
-                            }))
-                          }
-                        />
-                      ))}
-                    </div>
-                  )}
-                  <Field>
-                    <FieldLabel htmlFor="display-maximum-items">
-                      {t("widgets.editors.shared.maximumItems")}
-                    </FieldLabel>
-                    <Input
-                      id="display-maximum-items"
-                      type="number"
-                      min={1}
-                      max={100}
-                      value={
-                        (configuration as DisplayWidgetConfig).maximumItems
-                      }
-                      disabled={readOnly}
-                      onChange={(event) =>
-                        setConfiguration((current) => ({
-                          ...current,
-                          maximumItems: Number(event.target.value),
-                        }))
-                      }
-                    />
-                    <FieldDescription>
-                      {t("widgets.editors.display.maximumHint")}
-                    </FieldDescription>
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="display-empty-state">
-                      {t("widgets.editors.display.emptyLabel")}
-                    </FieldLabel>
-                    <Input
-                      id="display-empty-state"
-                      value={
-                        (configuration as DisplayWidgetConfig).emptyState ?? ""
-                      }
-                      disabled={readOnly}
-                      onChange={(event) =>
-                        setConfiguration((current) => ({
-                          ...current,
-                          emptyState: event.target.value,
-                        }))
-                      }
-                    />
-                    <FieldDescription>
-                      {t("widgets.editors.display.emptyHint")}
-                    </FieldDescription>
-                  </Field>
-                </>
-              )}
               {provider === "metric" && (
                 <>
                   <DataSourceSelect
@@ -1919,89 +1648,6 @@ export function NativeAppEditor({
                         setConfiguration((current) => ({
                           ...current,
                           emptyState: event.target.value,
-                        }))
-                      }
-                    />
-                  </Field>
-                </>
-              )}
-              {provider === "weather" && (
-                <>
-                  <DataSourceSelect
-                    value={(configuration as WeatherWidgetConfig).dataSourceId}
-                    sources={compatibleDataSources}
-                    createProviders={acceptedCreateProviders}
-                    csrf={csrf}
-                    disabled={readOnly}
-                    onChange={(dataSourceId) =>
-                      setConfiguration((current) => ({
-                        ...current,
-                        dataSourceId,
-                      }))
-                    }
-                  />
-                  <div className="flex flex-wrap gap-x-4 gap-y-2">
-                    {(
-                      [
-                        [
-                          "showLocation",
-                          "widgets.editors.weather.showLocation",
-                        ],
-                        ["showCurrent", "widgets.editors.weather.showCurrent"],
-                        [
-                          "showHumidity",
-                          "widgets.editors.weather.showHumidity",
-                        ],
-                        ["showWind", "widgets.editors.weather.showWind"],
-                        [
-                          "showPrecipitation",
-                          "widgets.editors.weather.showPrecipitation",
-                        ],
-                      ] as const
-                    ).map(([key, labelKey]) => (
-                      <label
-                        key={key}
-                        className="flex items-center gap-2 text-sm"
-                      >
-                        <Checkbox
-                          checked={Boolean(
-                            (
-                              configuration as unknown as Record<
-                                string,
-                                unknown
-                              >
-                            )[key],
-                          )}
-                          disabled={readOnly}
-                          onCheckedChange={(checked) =>
-                            setConfiguration((current) => ({
-                              ...current,
-                              [key]: checked === true,
-                            }))
-                          }
-                          aria-label={t(labelKey)}
-                        />
-                        <span>{t(labelKey)}</span>
-                      </label>
-                    ))}
-                  </div>
-                  <Field>
-                    <FieldLabel htmlFor="weather-forecast-days">
-                      {t("widgets.editors.weather.forecastDays")}
-                    </FieldLabel>
-                    <Input
-                      id="weather-forecast-days"
-                      type="number"
-                      min={0}
-                      max={7}
-                      value={
-                        (configuration as WeatherWidgetConfig).forecastDays
-                      }
-                      disabled={readOnly}
-                      onChange={(event) =>
-                        setConfiguration((current) => ({
-                          ...current,
-                          forecastDays: Number(event.target.value),
                         }))
                       }
                     />

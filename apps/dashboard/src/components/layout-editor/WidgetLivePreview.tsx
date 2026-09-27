@@ -17,7 +17,6 @@ import type {
   ClockWidgetConfig,
   DataSourceProvider,
   DateWidgetConfig,
-  DisplayWidgetConfig,
   LayoutPlacement,
   Playlist,
   PlaylistItem,
@@ -345,19 +344,6 @@ export function structuredFieldValue(
   return record.values?.[field] ?? "";
 }
 
-export function menuFieldLabel(field: string): string {
-  const key = field.toLowerCase();
-  if (
-    ["option_2", "alternative", "secondary", "secondary_option"].includes(key)
-  )
-    return "Alternative";
-  if (
-    ["option_1", "primary", "primary_option", "entree", "entrée"].includes(key)
-  )
-    return "Entrée";
-  return field.replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
 function regionalSetting(
   values: Record<string, unknown> | undefined,
   key: string,
@@ -536,194 +522,6 @@ export function CenteredWidget({
   );
 }
 
-export function MenuWidget({
-  name,
-  cfg,
-  source,
-  fg,
-  bg,
-  scale,
-  item,
-}: {
-  name: string;
-  cfg: DisplayWidgetConfig;
-  source?: LivePreviewSource;
-  fg: string;
-  bg: string;
-  scale: number;
-  item: LayoutPlacement;
-}) {
-  const record = source?.records?.[0];
-  const values = record
-    ? (cfg.fields ?? [])
-        .map((field) => ({ field, value: structuredFieldValue(record, field) }))
-        .filter((entry) => entry.value.trim().length > 0)
-        .slice(0, Math.min(cfg.maximumItems ?? 8, 8))
-    : [];
-  const area = widgetContentArea(item, cfg);
-  const padding = `${area.verticalPadding * scale}px ${area.horizontalPadding * scale}px`;
-  if (!values.length)
-    return (
-      <div
-        className="wpv-root wpv-centered"
-        style={{ background: bg, padding }}
-      >
-        <FittedText
-          text={source?.emptyState || "No items available"}
-          color={fg}
-          fontPx={Math.max(area.width, area.height) * scale}
-          weight={500}
-          maxLines={3}
-          textScale={cfg.textScale}
-        />
-      </div>
-    );
-  const authorScale = Math.max(25, Math.min(500, cfg.textScale ?? 100)) / 100;
-  const contentFactor = Math.max(
-    0.05,
-    Math.min(
-      area.height / (50 + values.length * 150),
-      (area.height / (50 + values.length * 150)) * authorScale,
-    ),
-  );
-  return (
-    <div className="wpv-root wpv-menu" style={{ background: bg, padding }}>
-      <div
-        className="wpv-menu__header"
-        style={{ color: fg, fontSize: 24 * scale * contentFactor }}
-      >
-        {name.toUpperCase()}
-      </div>
-      {record?.date && (
-        <div
-          className="wpv-menu__date"
-          style={{ color: fg, fontSize: 18 * scale * contentFactor }}
-        >
-          {record.date}
-        </div>
-      )}
-      {values.map((entry, index) => (
-        <div key={entry.field} className="wpv-menu__item">
-          <div
-            className="wpv-menu__label"
-            style={{
-              color: fg,
-              fontSize: (index === 0 ? 20 : 16) * scale * contentFactor,
-              paddingTop: (index === 0 ? 28 : 22) * scale * contentFactor,
-            }}
-          >
-            {index === 0
-              ? // i18n-ignore: sample menu content in the Studio preview mock, not UI
-                "TODAY'S LUNCH"
-              : menuFieldLabel(entry.field).toUpperCase()}
-          </div>
-          <div
-            className="wpv-menu__value"
-            style={{
-              color: fg,
-              fontSize: (index === 0 ? 52 : 34) * scale * contentFactor,
-              fontWeight: index === 0 ? 700 : 500,
-            }}
-          >
-            {entry.value}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-export function DisplayWidget({
-  cfg,
-  source,
-  fg,
-  bg,
-  scale,
-  item,
-}: {
-  cfg: DisplayWidgetConfig;
-  source?: LivePreviewSource;
-  fg: string;
-  bg: string;
-  scale: number;
-  item: LayoutPlacement;
-}) {
-  const max = cfg.maximumItems ?? 20;
-  let rows: string[];
-  if (source?.provider === "calendar") {
-    rows = (source.events ?? [])
-      .slice(0, max)
-      .map((event) =>
-        [event.start, event.title, event.location]
-          .filter((value) => value && String(value).trim().length > 0)
-          .join("  "),
-      );
-  } else {
-    const fields = cfg.fields ?? [];
-    rows = (source?.records ?? [])
-      .slice(0, max)
-      .map((record) =>
-        fields
-          .map((field) => structuredFieldValue(record, field))
-          .filter((value) => value.trim().length > 0)
-          .join("  "),
-      )
-      .filter((row) => row.trim().length > 0);
-  }
-  const area = widgetContentArea(item, cfg);
-  const padding = `${area.verticalPadding * scale}px ${area.horizontalPadding * scale}px`;
-  if (!rows.length)
-    return (
-      <div
-        className="wpv-root wpv-centered"
-        style={{ background: bg, padding }}
-      >
-        <FittedText
-          text={source?.emptyState || "No items available"}
-          color={fg}
-          fontPx={Math.max(area.width, area.height) * scale}
-          weight={400}
-          maxLines={3}
-          textScale={cfg.textScale}
-        />
-      </div>
-    );
-  const gap = Math.max(2, area.height * scale * 0.025);
-  const availableHeight = Math.max(1, area.height * scale);
-  const maximumRows = Math.max(
-    1,
-    Math.floor((availableHeight + gap) / (4 * 1.15 + gap)),
-  );
-  const visibleRows = rows.slice(0, maximumRows);
-  return (
-    <div
-      className="wpv-root wpv-display"
-      style={{
-        background: bg,
-        padding,
-        gap,
-      }}
-    >
-      {visibleRows.map((row, index) => (
-        <div
-          key={index}
-          className="wpv-display__row"
-          style={{
-            color: fg,
-            fontSize:
-              Math.min(
-                (area.width * scale) / Math.max(1, row.length * 0.62),
-                Math.max(4, availableHeight / visibleRows.length / 1.15),
-              ) * Math.min(1, Math.max(25, cfg.textScale ?? 100) / 100),
-          }}
-        >
-          {row}
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export function WidgetLivePreview({
   asset,
   item,
@@ -762,6 +560,9 @@ export function WidgetLivePreview({
     case "list":
     case "table":
     case "cards":
+    case "menu":
+    case "agenda":
+    case "weather":
       // Migrated V2 Widgets render the real Web Component through the
       // shared preview host. Each migration deletes its hand-written branch
       // here; zone-specific renderers are never added.
@@ -812,29 +613,6 @@ export function WidgetLivePreview({
             textScale={(cfg as unknown as TickerWidgetConfig).textScale}
           />
         </CenteredWidget>
-      );
-    case "menu":
-      return (
-        <MenuWidget
-          name={asset.name}
-          cfg={cfg as unknown as DisplayWidgetConfig}
-          source={source}
-          fg={fg}
-          bg={bg}
-          scale={scale}
-          item={item}
-        />
-      );
-    case "agenda":
-      return (
-        <DisplayWidget
-          cfg={cfg as unknown as DisplayWidgetConfig}
-          source={source}
-          fg={fg}
-          bg={bg}
-          scale={scale}
-          item={item}
-        />
       );
     default:
       return <AppPlacementPreview asset={asset} item={item} />;

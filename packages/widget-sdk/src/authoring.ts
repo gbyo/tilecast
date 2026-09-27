@@ -12,10 +12,7 @@
  */
 
 export type WidgetAuthoringSection =
-  | "data"
-  | "content"
-  | "appearance"
-  | "behavior";
+  "data" | "content" | "appearance" | "behavior";
 
 /** The canonical inspector order. Sections without controls are hidden. */
 export const AUTHORING_SECTIONS: readonly WidgetAuthoringSection[] = [
@@ -43,6 +40,11 @@ export interface WidgetAuthoringUi {
   readonly styleCard?: boolean;
   /** The semantic field role this control suggests, if any. */
   readonly semanticRole?: string;
+  /**
+   * Known legacy source keys for the suggested slot, matched
+   * case-insensitively after declared roles (§4.1 step 2).
+   */
+  readonly legacyKeys?: readonly string[];
 }
 
 /** A configuration-schema field with optional authoring hints. */
@@ -62,6 +64,7 @@ export function authoringUiOf(field: AuthoringField): WidgetAuthoringUi {
     visibleWhen?: WidgetVisibleWhen;
     styleCard?: boolean;
     semanticRole?: string;
+    legacyKeys?: readonly string[];
   } = {};
   if (
     record["section"] === "data" ||
@@ -86,6 +89,13 @@ export function authoringUiOf(field: AuthoringField): WidgetAuthoringUi {
   if (record["styleCard"] === true) out.styleCard = true;
   if (typeof record["semanticRole"] === "string") {
     out.semanticRole = record["semanticRole"];
+  }
+  const legacyKeys = record["legacyKeys"];
+  if (Array.isArray(legacyKeys)) {
+    const keys = legacyKeys.filter(
+      (key): key is string => typeof key === "string" && key !== "",
+    );
+    if (keys.length > 0) out.legacyKeys = keys;
   }
   return out;
 }
@@ -131,7 +141,10 @@ export function visibleAuthoringFields<Field extends AuthoringField>(
 export function groupAuthoringFields<Field extends AuthoringField>(
   fields: readonly Field[],
 ): { section: WidgetAuthoringSection; fields: Field[] }[] {
-  const groups = new Map<WidgetAuthoringSection, { field: Field; index: number }[]>();
+  const groups = new Map<
+    WidgetAuthoringSection,
+    { field: Field; index: number }[]
+  >();
   fields.forEach((field, index) => {
     const section = authoringUiOf(field).section ?? "content";
     const group = groups.get(section);
@@ -149,7 +162,12 @@ export function groupAuthoringFields<Field extends AuthoringField>(
   return AUTHORING_SECTIONS.flatMap((section) => {
     const sectionFields = groups.get(section);
     return sectionFields
-      ? [{ section, fields: sectionFields.sort(byOrder).map((entry) => entry.field) }]
+      ? [
+          {
+            section,
+            fields: sectionFields.sort(byOrder).map((entry) => entry.field),
+          },
+        ]
       : [];
   });
 }

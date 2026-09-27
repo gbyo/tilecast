@@ -1,0 +1,139 @@
+{
+  "$schema": "../../packages/widget-sdk/schema/tilecast-widget.schema.json",
+  "apiVersion": 1,
+  "id": "weather",
+  "version": 1,
+  "name": "Weather",
+  "description": "Show current conditions and the multi-day forecast.",
+  "category": "Data display",
+  "icon": "cloud_sun",
+  "runtime": "native",
+  "configurationSchema": {
+    "fields": [
+      {
+        "key": "dataSourceId",
+        "label": "Data Source",
+        "description": "The Weather source this Widget reads.",
+        "control": "data_source",
+        "acceptedDataSourceKinds": ["records"],
+        "default": "",
+        "ui": { "section": "data", "order": 1 }
+      },
+      {
+        "key": "showLocation",
+        "label": "Show location",
+        "control": "boolean",
+        "default": true,
+        "ui": { "section": "content", "order": 1 }
+      },
+      {
+        "key": "showCurrent",
+        "label": "Show current conditions",
+        "control": "boolean",
+        "default": true,
+        "ui": { "section": "content", "order": 2 }
+      },
+      {
+        "key": "forecastDays",
+        "label": "Forecast days",
+        "control": "integer",
+        "minimum": 0,
+        "maximum": 7,
+        "default": 5,
+        "ui": { "section": "content", "order": 3 }
+      },
+      {
+        "key": "showHumidity",
+        "label": "Show humidity",
+        "control": "boolean",
+        "default": true,
+        "ui": { "section": "content", "order": 4 }
+      },
+      {
+        "key": "showWind",
+        "label": "Show wind",
+        "control": "boolean",
+        "default": true,
+        "ui": { "section": "content", "order": 5 }
+      },
+      {
+        "key": "showPrecipitation",
+        "label": "Show precipitation",
+        "control": "boolean",
+        "default": true,
+        "ui": { "section": "content", "order": 6 }
+      },
+      {
+        "key": "emptyText",
+        "label": "Empty message",
+        "description": "Shown when the forecast has no usable records.",
+        "control": "text",
+        "maxLength": 200,
+        "default": "",
+        "ui": { "section": "content", "order": 7 }
+      },
+      {
+        "key": "backgroundColor",
+        "label": "Background color",
+        "control": "color",
+        "default": "",
+        "ui": { "section": "appearance", "order": 1 }
+      },
+      {
+        "key": "foregroundColor",
+        "label": "Text color",
+        "control": "color",
+        "default": "",
+        "ui": { "section": "appearance", "order": 2 }
+      }
+    ]
+  },
+  "defaultConfiguration": {
+    "dataSourceId": "",
+    "showLocation": true,
+    "showCurrent": true,
+    "forecastDays": 5,
+    "showHumidity": true,
+    "showWind": true,
+    "showPrecipitation": true,
+    "emptyText": "",
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "presentationSchemaVersion": 1,
+  "requiredCapabilities": {
+    "layout.surface": 1,
+    "layout.column": 1,
+    "content.text": 1,
+    "binding.core": 2
+  },
+  "emptyStateBehavior": "text",
+  "legacyEditor": true,
+  "deprecation": {},
+  "component": {
+    "type": "tilecast.weather",
+    "version": 1,
+    "tagName": "tc-widget-weather",
+    "entrypoint": "./runtime/index.ts",
+    "configTemplate": {
+      "dataSourceId": { "$config": "dataSourceId", "default": "" },
+      "showLocation": { "$config": "showLocation", "default": true },
+      "showCurrent": { "$config": "showCurrent", "default": true },
+      "forecastDays": { "$config": "forecastDays", "default": 5 },
+      "showHumidity": { "$config": "showHumidity", "default": true },
+      "showWind": { "$config": "showWind", "default": true },
+      "showPrecipitation": { "$config": "showPrecipitation", "default": true },
+      "emptyText": {
+        "$config": "emptyText",
+        "default": { "$config": "emptyState", "default": "" }
+      },
+      "background": { "$config": "backgroundColor", "default": "" },
+      "foreground": { "$config": "foregroundColor", "default": "" }
+    },
+    "dataSourceFields": ["dataSourceId"],
+    "empty": "skip-eligible"
+  },
+  "compatibility": {
+    "fallback": "legacy"
+  }
+}

@@ -133,6 +133,41 @@ func TestLegacyDisplayProvidersProjectIntoV2(t *testing.T) {
 	}
 }
 
+// TestLegacyDomainProvidersProjectIntoV2 keeps every persisted domain
+// provider compiling into its V2 component: legacy DisplayWidget label and
+// value keys, agenda date/time keys and weather toggles all normalize for
+// capable Players, while the provider switch keeps serving older ones.
+func TestLegacyDomainProvidersProjectIntoV2(t *testing.T) {
+	service := &Service{definitions: contentdefs.MustLoad()}
+	menu := json.RawMessage(`{"dataSourceId":"11111111-1111-4111-8111-111111111111","labelField":"dish","valueField":"cost","maximumItems":6,"rowSpacing":"compact","emptyState":"Kitchen closed."}`)
+	component, err := service.compileWidgetComponent("menu", menu)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if component.Component.Type != "tilecast.menu-board" || component.Component.Config["titleField"] != "dish" || component.Component.Config["priceField"] != "cost" || component.Component.Config["density"] != "compact" || component.Component.Config["emptyText"] != "Kitchen closed." {
+		t.Fatalf("legacy menu config did not project: %+v", component.Component)
+	}
+	agenda := json.RawMessage(`{"dataSourceId":"11111111-1111-4111-8111-111111111111","titleField":"name","dateField":"day","timeField":"hour","locationField":"room","maximumItems":10}`)
+	component, err = service.compileWidgetComponent("agenda", agenda)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if component.Component.Type != "tilecast.agenda" || component.Component.Config["titleField"] != "name" || component.Component.Config["startField"] != "day" || component.Component.Config["locationField"] != "room" || component.Component.Config["maximumItems"] != float64(10) {
+		t.Fatalf("legacy agenda config did not project: %+v", component.Component)
+	}
+	weather := json.RawMessage(`{"dataSourceId":"11111111-1111-4111-8111-111111111111","showLocation":false,"forecastDays":3,"textScale":2}`)
+	component, err = service.compileWidgetComponent("weather", weather)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if component.Component.Type != "tilecast.weather" || component.Component.Config["showLocation"] != false || component.Component.Config["forecastDays"] != float64(3) {
+		t.Fatalf("legacy weather config did not project: %+v", component.Component)
+	}
+	if component.RequiredCapabilities["widget.tilecast.weather"] != 1 {
+		t.Fatalf("weather capability missing: %+v", component.RequiredCapabilities)
+	}
+}
+
 func TestPresentationSupportedNeedsSchemaAndVersion(t *testing.T) {
 	presentation := &WidgetPresentation{SchemaVersion: 2, Kind: "component", RequiredCapabilities: map[string]int{"widget.tilecast.clock": 2}}
 	for _, test := range []struct {
