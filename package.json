@@ -34,7 +34,8 @@
     "widgets:generate": "node packages/widget-sdk/tools/widgetctl/main.ts generate",
     "widgets:new": "node packages/widget-sdk/tools/widgetctl/main.ts new",
     "widgets:storybook": "storybook dev -c widgets/.storybook -p 6006 --no-open",
-    "widgets:storybook:build": "storybook build -c widgets/.storybook -o widgets/storybook-static --quiet"
+    "widgets:storybook:build": "storybook build -c widgets/.storybook -o widgets/storybook-static --quiet",
+    "widgets:visual": "npm run widgets:storybook:build && playwright test -c widgets/visual/playwright.config.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

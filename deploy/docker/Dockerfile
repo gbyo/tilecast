@@ -28,9 +28,11 @@ WORKDIR /src
 COPY apps/server/go.mod apps/server/go.sum apps/server/
 COPY plugins/go.mod plugins/go.sum plugins/
 COPY packages/plugin-sdk/go/go.mod packages/plugin-sdk/go/go.sum packages/plugin-sdk/go/
+COPY widgets/go.mod widgets/
 RUN cd apps/server && go mod download
 COPY packages/plugin-sdk/go packages/plugin-sdk/go
 COPY plugins plugins
+COPY widgets widgets
 COPY apps/server apps/server
 COPY --from=dashboard /src/apps/dashboard/dist/ apps/server/internal/web/static/
 WORKDIR /src/apps/server

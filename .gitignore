@@ -26,3 +26,8 @@ release-secrets/
 __pycache__/
 e2e/test-results/
 e2e/playwright-report/
+
+# Widgets V2 Storybook and visual-regression output
+widgets/storybook-static/
+widgets/visual/test-results/
+widgets/visual/playwright-report/
