@@ -620,15 +620,21 @@ def check_web_helper_packaging():
 
 
 def probe_helper_devices():
-    """The helper's final device boundary, as the account itself: cameras and
-    input nodes stay closed wherever they exist (DevicePolicy plus group
-    math), while /dev/null opens as a positive control for the probe."""
+    """The helper's account-level device boundary: tilecast-web's group
+    memberships must not open any camera/input node beyond what an ordinary
+    unprivileged account can already open. Nodes the OS leaves
+    world-readable (such as a host's /dev/input/js0) are readable by every
+    local user and are not Tilecast's to chmod; the live unit's
+    DevicePolicy=closed, asserted on the running unit above, is what keeps
+    even those closed at runtime. /dev/null still opens as a positive
+    control that the probe itself ran end to end."""
     import glob
+    import pwd
     import shutil
+    pwd.getpwnam("nobody")  # baseline unprivileged account; Debian always ships it
     nodes = sorted(glob.glob("/dev/video*") + glob.glob("/dev/input/event*") + glob.glob("/dev/input/js*"))
     probe = (
         "import os, sys\n"
-        "denied = []\n"
         "for path in sys.argv[1:]:\n"
         "    try:\n"
         "        fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK)\n"
@@ -636,20 +642,27 @@ def probe_helper_devices():
         "        continue\n"
         "    else:\n"
         "        os.close(fd)\n"
-        "        denied.append(path)\n"
-        "if denied:\n"
-        "    print('readable:', ' '.join(denied))\n"
-        "    sys.exit(3)\n"
+        "        print(path)\n"
         "fd = os.open('/dev/null', os.O_RDONLY)\n"
         "os.close(fd)\n"
         "print('probe ok')\n"
     )
     runuser = shutil.which("runuser")
     assert runuser is not None, "runuser is required for the helper device probe"
-    args = [runuser, "-u", "tilecast-web", "--", "python3", "-c", probe] + nodes
-    result = subprocess.run(args, capture_output=True, text=True)
-    assert result.returncode == 0, (result.returncode, result.stdout, result.stderr)
-    assert "probe ok" in result.stdout, (result.stdout, result.stderr)
+
+    def readable_as(user):
+        result = subprocess.run([runuser, "-u", user, "--", "python3", "-c", probe] + nodes,
+                                capture_output=True, text=True)
+        assert result.returncode == 0, (user, result.returncode, result.stdout, result.stderr)
+        assert "probe ok" in result.stdout, (user, result.stdout, result.stderr)
+        return {line for line in result.stdout.splitlines() if line != "probe ok"}
+
+    web_readable = readable_as("tilecast-web")
+    base_readable = readable_as("nobody")
+    extra = web_readable - base_readable
+    assert not extra, (f"tilecast-web opens camera/input nodes beyond an ordinary account: {sorted(extra)}",
+                       f"baseline nobody reads: {sorted(base_readable)}")
+    print(f"accept: tilecast-web opens nothing beyond the nobody baseline ({len(web_readable)} shared nodes)")
 
 
 PHASES = {"setup": setup, "import-failure": import_failure, "crash": crash, "start-settling": start_settling,
