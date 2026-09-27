@@ -184,7 +184,10 @@ the project introduces a versioned plugin automation contract:
 plugins/<plugin>/automation.yaml
 ```
 
-Conceptual shape only; Phase 12 finalizes the schema:
+Finalized shape (Phase 12). The schema source is
+`packages/plugin-sdk/src/automation.ts`, with the portable
+`schema/tilecast-automation.schema.json` and the worked example in
+`plugins/countdown-bar/automation.yaml`:
 
 ```yaml
 apiVersion: 1
