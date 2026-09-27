@@ -61,6 +61,13 @@ pub trait UpdateHost: Send + Sync {
     /// candidate may take a while, and the guard, not this call, decides
     /// whether it came up.
     async fn start(&self, unit: &str) -> Result<(), HostError>;
+    /// Waits for a queued start job and checks the unit is running, so
+    /// activation brings the daemon, the web helper and the renderer up in
+    /// order instead of activation-duration order. Activation only: the
+    /// guard must never wait here for a unit ordered after itself (its own
+    /// `Before=` would hold that job until the guard exits), it decides via
+    /// [`UpdateHost::activity`] checks instead.
+    async fn await_active(&self, unit: &str) -> Result<(), HostError>;
     async fn activity(&self, unit: &str) -> Result<UnitActivity, HostError>;
     /// `systemctl daemon-reload`.
     async fn reload(&self) -> Result<(), HostError>;

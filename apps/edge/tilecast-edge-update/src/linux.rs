@@ -127,16 +127,20 @@ impl UpdateHost for LinuxHost {
     }
 
     async fn start(&self, unit: &str) -> Result<(), HostError> {
-        // StartUnit only enqueues the job: without waiting, the daemon, the
-        // web helper and the renderer would come up in activation-duration
-        // order instead of the daemon, helper, renderer order the M10/M11
-        // design requires. Wait for the job and check the unit, as the
-        // migrator does; a unit that never activates fails the operation
-        // instead of leaving a half-started candidate behind.
         let manager = self.manager().await?;
         let _ = manager.reset_failed_unit(unit).await;
-        let job = manager.start_unit(unit, "replace").await.map_err(|e| failed(unit, e))?;
-        self.wait_job(&job, JOB_TIMEOUT).await?;
+        manager.start_unit(unit, "replace").await.map_err(|e| failed(unit, e))?;
+        Ok(())
+    }
+
+    async fn await_active(&self, unit: &str) -> Result<(), HostError> {
+        // The job object stays valid after start_unit returns: poll it, then
+        // fail the operation instead of leaving a half-started candidate.
+        let path = self.manager().await?.load_unit(unit).await.map_err(|e| failed(unit, e))?;
+        let job: OwnedObjectPath = self.property(&path, "org.freedesktop.systemd1.Unit", "Job").await?;
+        if job.as_str() != "/" {
+            self.wait_job(&job, JOB_TIMEOUT).await?;
+        }
         if self.activity(unit).await? != UnitActivity::Running {
             return Err(HostError::failed(format!("{unit} did not start")));
         }

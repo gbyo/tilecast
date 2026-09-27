@@ -158,6 +158,13 @@ impl UpdateHost for Host {
         });
         Ok(())
     }
+    async fn await_active(&self, unit: &str) -> Result<(), HostError> {
+        if self.with(|m| m.active.contains(unit)) {
+            Ok(())
+        } else {
+            Err(HostError::failed(format!("{unit} did not start")))
+        }
+    }
     async fn activity(&self, unit: &str) -> Result<UnitActivity, HostError> {
         Ok(if self.with(|m| m.active.contains(unit)) { UnitActivity::Running } else { UnitActivity::Inactive })
     }
