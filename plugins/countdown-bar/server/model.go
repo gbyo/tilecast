@@ -3,6 +3,7 @@ package server
 import (
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
@@ -101,9 +102,12 @@ func Normalize(input Input) Input {
 // Validate is the authoritative rule set for server writes. Studio mirrors
 // it for early feedback, but a request is judged here.
 func Validate(input Input) error {
-	if len(strings.TrimSpace(input.Name)) < 1 || len(strings.TrimSpace(input.Name)) > 180 ||
-		len(strings.TrimSpace(input.Message)) < 1 || len(strings.TrimSpace(input.Message)) > 280 ||
-		len(strings.TrimSpace(input.CompletionText)) > 280 {
+	name := strings.TrimSpace(input.Name)
+	message := strings.TrimSpace(input.Message)
+	completion := strings.TrimSpace(input.CompletionText)
+	if utf8.RuneCountInString(name) < 1 || utf8.RuneCountInString(name) > 180 ||
+		utf8.RuneCountInString(message) < 1 || utf8.RuneCountInString(message) > 280 ||
+		utf8.RuneCountInString(completion) > 280 {
 		return plugin.Invalidf("name, message, or completion text is outside its allowed length")
 	}
 	if _, err := time.LoadLocation(input.Timezone); err != nil {
