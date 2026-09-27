@@ -7,7 +7,9 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as prettier from "prettier";
+import { AUTOMATION_FILENAME } from "../../src/automation.ts";
 import { pluginManifestJSONSchema } from "../../src/manifest.ts";
+import { resolveAutomation } from "./automation.ts";
 import { codeownersFile, CODEOWNERS, eligibleReviewers } from "./codeowners.ts";
 import {
   collectMigrations,
@@ -102,6 +104,33 @@ export async function generate(
       repo.root,
     ),
   );
+
+  // Resolved automation documents ride into the release inside each
+  // plugin directory, so the server embeds and serves them without
+  // parsing YAML at runtime. Only files that validate resolve; anything
+  // else is a check problem, not a silent omission.
+  for (const plugin of repo.plugins) {
+    const id = plugin.manifest.id;
+    const automationPath = join(plugin.path, AUTOMATION_FILENAME);
+    if (!existsSync(automationPath)) continue;
+    const declared = plugin.manifest.api?.openapi;
+    const fragmentPath =
+      declared !== undefined ? join(plugin.path, declared) : null;
+    const { problems: resolvedProblems, resolved } = resolveAutomation(
+      id,
+      readFileSync(automationPath, "utf8"),
+      fragmentPath !== null && existsSync(fragmentPath)
+        ? readFileSync(fragmentPath, "utf8")
+        : null,
+    );
+    problems.push(...resolvedProblems);
+    if (!resolved) continue;
+    const generated = `plugins/${plugin.dir}/automation.gen.json`;
+    files.set(
+      generated,
+      await format(JSON.stringify(resolved, null, 2), generated, repo.root),
+    );
+  }
   return { files, problems };
 }
 

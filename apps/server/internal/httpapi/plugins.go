@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -54,6 +55,20 @@ func (s *server) removePlugin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// getPluginAutomation serves a known, installed plugin's resolved automation
+// document. Operator clients dispatch generic commands on it without naming
+// the plugin in their own source. Unknown plugins answer 404
+// plugin_not_found, known-but-uninstalled ones 409 plugin_not_installed,
+// and plugins with no automation mapping 404 plugin_automation_not_found.
+func (s *server) getPluginAutomation(w http.ResponseWriter, r *http.Request) {
+	document, err := s.plugins.Automation(r.Context(), chi.URLParam(r, "pluginId"))
+	if err != nil {
+		s.writePluginError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": json.RawMessage(document)})
 }
 
 func (s *server) dependencyGraph(w http.ResponseWriter, r *http.Request) {

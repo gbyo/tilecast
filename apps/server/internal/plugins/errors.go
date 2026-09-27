@@ -35,6 +35,8 @@ func WriteError(w http.ResponseWriter, r *http.Request, err error, logger *slog.
 		writeErrorCode(w, http.StatusConflict, "plugin_not_installable", "This plugin cannot be installed.")
 	case errors.Is(err, ErrPluginNotInstalled):
 		writeErrorCode(w, http.StatusConflict, "plugin_not_installed", "Install this plugin before configuring it.")
+	case errors.Is(err, ErrAutomationAbsent):
+		writeErrorCode(w, http.StatusNotFound, "plugin_automation_not_found", "This plugin maps no operations into operator automation.")
 	case errors.Is(err, ErrNotFound):
 		writeErrorCode(w, http.StatusNotFound, "plugin_instance_not_found", "The plugin instance was not found.")
 	case errors.Is(err, ErrInvalid):

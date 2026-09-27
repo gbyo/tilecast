@@ -73,7 +73,7 @@ func (s *server) requireBearer(w http.ResponseWriter, r *http.Request, header st
 	}
 	principal := auth.PrincipalFromGrant(user, grant.GrantID, grant.ClientID, grant.DisplayName, grant.Scopes, grant.BearerAuthMethod())
 	principal.EnrollmentPending = pending
-	ctx := audit.WithSurface(r.Context(), auditSurfaceForGrant(grant.Kind, grant.ClientID))
+	ctx := audit.WithSurface(r.Context(), auditSurfaceForRequest(grant.Kind, grant.ClientID, r.UserAgent()))
 	clientAttr := grant.ClientID
 	if grant.Kind == oauth.BearerKindPAT {
 		clientAttr = grant.DisplayName
@@ -129,6 +129,16 @@ func auditSurfaceForGrant(kind oauth.BearerKind, clientID string) audit.Surface 
 		return audit.SurfaceMCP
 	}
 	return audit.SurfaceCLI
+}
+
+// The MCP subprocess can use the same stored CLI grant as other CLI
+// commands. Its fixed agent identifies that calling surface for audit only;
+// scopes, role, and token validity still come solely from the grant.
+func auditSurfaceForRequest(kind oauth.BearerKind, clientID, agent string) audit.Surface {
+	if kind == oauth.BearerKindOAuth && clientID == oauth.ClientCLI && agent == "tilecast-mcp" {
+		return audit.SurfaceMCP
+	}
+	return auditSurfaceForGrant(kind, clientID)
 }
 
 // grantKindOf recovers the Bearer [REDACTED] family from a grant principal for
