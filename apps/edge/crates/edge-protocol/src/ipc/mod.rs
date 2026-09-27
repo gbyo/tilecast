@@ -100,9 +100,8 @@ pub enum Role {
     Renderer,
     /// The local administration CLI.
     Tilecastctl,
-    /// `tilecast-session-bridge`, the user-session PipeWire bridge: audio
-    /// inventory and derived Noise Meter levels, never audio. Only the
-    /// daemon's own account may take it.
+    /// `tilecast-session-bridge`, the user-session bridge. Only the daemon's
+    /// own account may take it.
     SessionBridge,
 }
 

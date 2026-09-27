@@ -416,20 +416,18 @@ impl AuthenticatedServer {
         self.raw_request(method, path).timeout(REQUEST_TIMEOUT)
     }
 
-    /// The normal player contact path. The answer acknowledges any Noise
-    /// Meter history the heartbeat carried (`data.noiseHistory.accepted`).
-    pub async fn player_heartbeat(
-        &self,
-        heartbeat: &serde_json::Value,
-    ) -> Result<crate::player_api::HeartbeatAck, ServerError> {
+    /// The normal player contact path. The answer is decoded within its
+    /// bounds and then ignored: the retired Noise Meter history is gone, so
+    /// there is nothing to acknowledge.
+    pub async fn player_heartbeat(&self, heartbeat: &serde_json::Value) -> Result<(), ServerError> {
         let response = self
             .request(reqwest::Method::POST, "/api/v1/player/heartbeat")
             .json(heartbeat)
             .send()
             .await
             .map_err(|_| ServerError::Network)?;
-        let data: serde_json::Value = decode(response, MAX_SMALL_JSON_BYTES).await?;
-        Ok(crate::player_api::heartbeat_ack(&data))
+        let _data: serde_json::Value = decode(response, MAX_SMALL_JSON_BYTES).await?;
+        Ok(())
     }
 
     /// `GET /player/presentation-network`: the assigned Wi-Fi profile with

@@ -546,19 +546,23 @@ def check_hardware_packaging():
                                capture_output=True, text=True).stdout
     assert "CapEff:\t0000000000000000" in effective and "CapPrm:\t0000000000000000" in effective, effective
 
-    def bridge_connected():
-        capabilities = json.loads(output("/opt/tilecast-edge/current/bin/tilecastctl", "--json", "capabilities"))
-        noise = next((c for c in capabilities["capabilities"] if c["id"] == "audio.noise_meter"), None)
-        return noise if noise and noise.get("reasonCode") != "session_bridge_not_connected" else None
+    def capabilities_answered():
+        try:
+            return json.loads(output("/opt/tilecast-edge/current/bin/tilecastctl", "--json", "capabilities"))
+        except (subprocess.CalledProcessError, ValueError):
+            return None
 
     try:
-        noise = e2e.wait_for(bridge_connected, "the session bridge connected to tilecastd", 90)
+        capabilities = e2e.wait_for(capabilities_answered, "tilecastd to report capabilities", 90)
     except AssertionError:
         print_bridge_diagnostics()
         probe_bridge_sandbox()
         raise
-    print(f"accept: the session bridge runs sandboxed in the tilecast session; audio.noise_meter is "
-          f"{noise['state']} ({noise.get('reasonCode', 'no reason')})")
+    # The Noise Meter retired: no audio capability may remain, whatever the
+    # bridge reports.
+    audio = [c["id"] for c in capabilities["capabilities"] if c["id"].startswith("audio.")]
+    assert not audio, f"retired audio capabilities still reported: {audio}"
+    print("accept: the session bridge runs sandboxed in the tilecast session; no audio capabilities remain")
 
 
 PHASES = {"setup": setup, "import-failure": import_failure, "crash": crash, "start-settling": start_settling,

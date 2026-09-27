@@ -8,7 +8,7 @@
 //! 2. decides compatibility with the installed WPE renderer profile before
 //!    anything is prepared. A manifest that needs a capability this renderer
 //!    does not safely provide (websites, YouTube, server-streamed media,
-//!    synchronized groups, Span walls, display control, the Noise Meter) is
+//!    synchronized groups, Span walls, display control) is
 //!    rejected as a whole with a typed reason, so the last usable presentation
 //!    stays on screen and nothing is silently omitted (docs/tilecast-edge.md
 //!    §8.4, §10.5);
@@ -71,12 +71,6 @@ pub mod profile {
         "plugin.brand_bug",
         "plugin.countdown_bar",
         "plugin.alert_ticker",
-        // The runtime's meter with `host-levels`: tilecast-session-bridge
-        // measures through PipeWire and tilecastd forwards derived levels
-        // (docs/tilecast-edge.md §4.4). Without a bridge or a microphone the
-        // meter shows itself unavailable, as on the reference player, and
-        // `audio.noise_meter` says why.
-        "plugin.noise_meter",
     ];
 
     /// Declarative widget capabilities of the reference projection code the

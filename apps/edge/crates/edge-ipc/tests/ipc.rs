@@ -347,7 +347,6 @@ async fn the_session_bridge_sends_only_its_own_events_and_one_bridge_is_live() {
         first.next_incoming(Duration::from_secs(2)).await.unwrap(),
         Incoming::Event(_, Event::CaptureSet(_))
     ));
-    assert!(session.send_event(Event::NoiseLevel(edge_protocol::ipc::event::NoiseLevel { rms: None })).is_err());
 
     // A second bridge replaces the first, as a second renderer does.
     let second = IpcClient::connect(&harness.path, bridge()).await.unwrap();

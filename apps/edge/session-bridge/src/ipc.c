@@ -49,8 +49,6 @@ disconnect (TbBridge *bridge, const char *reason)
   g_io_stream_close (G_IO_STREAM (bridge->connection), NULL, NULL);
   g_clear_object (&bridge->connection);
   bridge->welcomed = FALSE;
-  /* Without tilecastd nobody asked for the microphone. */
-  tb_capture_set_wanted (bridge, FALSE);
 }
 
 static void
@@ -83,41 +81,13 @@ write_frame (TbBridge *bridge, JsonNode *root)
   return TRUE;
 }
 
-gboolean
-tb_ipc_send_event (TbBridge *bridge, const char *name, JsonNode *data)
-{
-  if (!bridge->welcomed) {
-    json_node_unref (data);
-    return FALSE;
-  }
-  g_autoptr (JsonNode) frame = tb_event_frame (bridge->next_outbound_seq, name, data);
-  if (!write_frame (bridge, frame))
-    return FALSE;
-  bridge->next_outbound_seq++;
-  return TRUE;
-}
-
-void
-tb_ipc_announce (TbBridge *bridge)
-{
-  tb_inventory_send (bridge);
-  tb_capture_send_state (bridge);
-}
-
 static void
 handle_event (TbBridge *bridge, JsonObject *frame)
 {
-  const char *name = json_object_get_string_member_with_default (frame, "event", "");
-  if (g_strcmp0 (name, "capture.set") != 0) {
-    fail (bridge, "unexpected event");
-    return;
-  }
-  gboolean enabled = FALSE;
-  if (!tb_parse_capture_set (json_object_get_member (frame, "data"), &enabled)) {
-    fail (bridge, "malformed capture.set");
-    return;
-  }
-  tb_capture_set_wanted (bridge, enabled);
+  /* tilecastd sends the bridge no events; anything arriving is a bug. */
+  g_message ("ipc: ignoring unexpected event %s",
+             json_object_get_string_member_with_default (frame, "event", ""));
+  (void) bridge;
 }
 
 static void
@@ -141,10 +111,8 @@ handle_payload (TbBridge *bridge)
         && g_strcmp0 (json_object_get_string_member_with_default (frame, "role", ""), "session_bridge") == 0) {
       bridge->welcomed = TRUE;
       bridge->reconnect_delay_ms = 0;
-      bridge->next_outbound_seq = 1;
       bridge->expected_inbound_seq = 1;
       g_message ("ipc: session %s opened", json_object_get_string_member_with_default (frame, "sessionId", "?"));
-      tb_ipc_announce (bridge);
       return;
     }
     if (g_strcmp0 (type, "rejected") == 0)
