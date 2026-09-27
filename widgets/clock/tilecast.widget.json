@@ -1,0 +1,42 @@
+{
+  "$schema": "../../packages/widget-sdk/schema/tilecast-widget.schema.json",
+  "id": "clock",
+  "version": 1,
+  "name": "Clock",
+  "description": "Show live local time in a configured timezone.",
+  "category": "Essentials",
+  "icon": "clock",
+  "runtime": "native",
+  "configurationSchema": {
+    "fields": []
+  },
+  "defaultConfiguration": {},
+  "presentationSchemaVersion": 1,
+  "requiredCapabilities": {
+    "layout.surface": 1,
+    "content.text": 1,
+    "binding.core": 1
+  },
+  "emptyStateBehavior": "text",
+  "legacyEditor": true,
+  "deprecation": {},
+  "component": {
+    "type": "tilecast.clock",
+    "version": 1,
+    "tagName": "tc-widget-clock",
+    "entrypoint": "./runtime/index.ts",
+    "configTemplate": {
+      "timeZone": { "$config": "timezone", "default": "" },
+      "format": { "$config": "format", "default": "locale" },
+      "showSeconds": { "$config": "showSeconds", "default": false },
+      "style": { "$config": "style", "default": "standard" },
+      "showDate": { "$config": "showDate", "default": false },
+      "background": { "$config": "backgroundColor", "default": "" },
+      "foreground": { "$config": "foregroundColor", "default": "" }
+    },
+    "empty": "render"
+  },
+  "compatibility": {
+    "fallback": "legacy"
+  }
+}

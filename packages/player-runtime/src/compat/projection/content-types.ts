@@ -221,12 +221,22 @@ export interface WebSandboxPresentation {
   } | null;
 }
 
+/** Manifest v16 first-class Widget component (docs/widgets-v2.md). */
+export interface ComponentPresentation {
+  type: string;
+  version: number;
+  config: Record<string, unknown>;
+  dataSources?: string[];
+  media?: { assetId: string; variantId: string }[];
+}
+
 export interface WidgetPresentation {
   schemaVersion: number;
-  kind: string; // native|web
+  kind: string; // native|web|component
   requiredCapabilities?: Record<string, number>;
   native?: NativePresentation | null;
   web?: WebSandboxPresentation | null;
+  component?: ComponentPresentation | null;
 }
 
 // ---------------------------------------------------------------------------

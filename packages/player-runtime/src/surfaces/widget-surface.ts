@@ -1,7 +1,7 @@
 /**
  * COMPATIBILITY SURFACE. A server-compiled widget, drawn from its RenderNode
- * tree by the compatibility interpreter. Future first-class widgets register
- * through src/widgets/contract.ts instead.
+ * tree by the compatibility interpreter. First-class Widgets V2 components
+ * render through component-widget-surface.ts instead.
  */
 import type { RuntimeItem } from "../host/contract";
 import { TimerGroup } from "../clock/scheduler";

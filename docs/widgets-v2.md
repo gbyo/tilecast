@@ -1,0 +1,226 @@
+# Widgets V2
+
+**Status:** binding. PR 1 (foundation and the Clock vertical slice) implements this document. Later PRs extend it; they do not change the contracts in §3–§7 without a new version.
+
+**Packages:** `@tilecast/widget-sdk` (`packages/widget-sdk`), `@tilecast/widget-kit` (`packages/widget-kit`), and one module for each Widget below `widgets/`.
+
+A Widgets V2 Widget is a first-class presentation component of the shared Player Runtime. One Web Component, normally a Lit 3 element, is the only renderer of that Widget. The same element runs in every shared-runtime host: Electron/Chromium, Tilecast Edge (WPE WebKit), Tilecast Studio preview, and, after the Android convergence (§12), the Android trusted local WebView.
+
+If Weather looks wrong, there is one Weather renderer to fix.
+
+## 1. Architecture checkpoint (2026-09-26)
+
+| Item                     | Decision                                                                                                                                                                 |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Base                     | `main` at `c683ce28` (Plugin API v1 follow-up #703, merged after the #686–#701 stack).                                                                                   |
+| #699 (Edge M11)          | Open draft. It changes Edge Rust and C code, one YouTube Layout rule and docs. It does not change `packages/player-runtime`, the manifest schema or content definitions. |
+| Next manifest schema     | v16. v11–v15 do not change.                                                                                                                                              |
+| Presentation schema      | Component presentations use presentation schema 2. Native and web presentations stay at 1.                                                                               |
+| Capability advertisement | `presentationSchemaVersions` includes `2`, and `nativePresentationCapabilities` contains `widget.<component type>` = component version.                                  |
+| Legacy fallback          | Manifest compilation for each screen. A Player that reports the exact component capability gets the component. Every other Player gets the existing presentation.        |
+| Studio host              | A generic React 19 host mounts the real custom element through the shared `WidgetMount` (PR 2).                                                                          |
+| CSP                      | The runtime CSP does not change. The conformance suite proves Shadow DOM and adopted stylesheets under it on Electron and WPE (§8).                                      |
+
+## 2. Ownership
+
+A **Data Source** owns acquisition, parsing, sanitization, refresh, caching, typed Data Documents, attribution, date-selection policy and diagnostics. Nothing in this document changes that.
+
+A **Widget** owns visual meaning, field selection, semantic display choices, the visual variant, formatting, the empty presentation and time-aware presentation logic.
+
+The **Player Runtime** owns mounting, lifecycle, playback evidence, Layout-zone evidence, transitions and the host contract.
+
+A Widget must not:
+
+- fetch data, open sockets, or address a URL that is not a verified media resource from its resources;
+- read browser storage, cookies or IndexedDB;
+- receive a credential, the host object (`tilecastRuntimeHost`) or a host name;
+- keep time with anything other than `context.clock`;
+- report evidence, Activity, health, proof of play or Layout-zone state;
+- use `innerHTML`, `unsafeHTML`, `unsafeCSS` with input, `eval` or dynamic script.
+
+## 3. Repository layout
+
+```text
+packages/widget-sdk/          @tilecast/widget-sdk: contract, manifest schema, mount, testing
+  src/definition.ts           defineWidget(), WidgetDefinition
+  src/context.ts              WidgetContext, WidgetClock, WidgetTheme
+  src/resources.ts            WidgetResources, WidgetResolution
+  src/events.ts               lifecycle events
+  src/manifest.ts             tilecast.widget.json schema (zod)
+  src/discovery.ts            pairs manifests with runtime modules, with diagnostics
+  src/mount.ts                WidgetMount: the one mount used by every host
+  src/testing.ts              manual clock, fixture resources, mount helpers
+  tools/widgetctl/            npm run widgets:check | widgets:generate | widgets:new
+packages/widget-kit/          @tilecast/widget-kit: signage visual system (Lit 3)
+widgets/                      one directory for each V2 Widget; also a Go module that embeds the manifests
+  catalog.go                  go:embed */tilecast.widget.json
+  clock/
+    tilecast.widget.json      catalog, authoring, component and compatibility metadata
+    runtime/index.ts          default-exports defineWidget(...)
+    runtime/clock.ts          the element
+    runtime/clock.test.ts
+    runtime/clock.stories.ts
+    fixtures/*.json
+```
+
+`tilecast.widget.json` is the single catalog source for a V2 Widget. The Server reads it through the `widgets` Go module. The Player Runtime and Studio discover it with `import.meta.glob`. No second registry lists V2 Widgets.
+
+## 4. The Widget definition
+
+```ts
+export interface WidgetDefinition<Config, Data> {
+  /** Component type, `<namespace>.<name>`, for example "tilecast.clock". */
+  readonly type: string;
+  /** Component version. A change that old inputs cannot satisfy increments it. */
+  readonly version: number;
+  /** Custom element tag, `tc-widget-<name>` for Tilecast Widgets. */
+  readonly tagName: string;
+  /** Validate untrusted configuration. Never throws. */
+  parseConfig(value: unknown): ConfigResult<Config>;
+  /** Read prepared resources only. Pure and synchronous. */
+  resolveData(
+    config: Config,
+    resources: WidgetResources,
+  ): WidgetResolution<Data>;
+  /** The element class. The mount defines it under `tagName`. */
+  readonly element: WidgetElementConstructor<Config, Data>;
+}
+
+type ConfigResult<Config> =
+  { ok: true; config: Config } | { ok: false; problem: string };
+
+type WidgetResolution<Data> =
+  | { state: "ready"; data: Data }
+  | { state: "empty"; reason: string }
+  | { state: "error"; code: string };
+```
+
+`defineWidget()` validates the identity when the module loads. A definition is plain data and a class. It does not register anything globally.
+
+The element receives three typed properties: `config`, `data` and `context`. The mount assigns them as object properties, never as attributes.
+
+## 5. Context and resources
+
+```ts
+interface WidgetContext {
+  readonly clock: WidgetClock;
+  readonly locale: string; // BCP 47
+  readonly timeZone: string; // IANA
+  readonly theme: WidgetTheme;
+  readonly motion: { readonly reduced: boolean };
+  readonly mode: "playback" | "preview";
+}
+
+interface WidgetClock {
+  now(): number; // corrected Unix ms
+  monotonicNow(): number;
+  after(delayMs: number, run: () => void): { cancel(): void };
+}
+
+interface WidgetResources {
+  dataDocument(dataSourceId: string): WidgetDataDocument | null;
+  dataset(dataSourceId: string, datasetId: string): WidgetDataset | null;
+  media(assetId: string, variantId: string): string | null; // host-authorized URI
+  attribution(dataSourceId: string): string | null;
+}
+```
+
+The context has no size. The element measures its own box with CSS container queries (§9). A size change never rerenders a Widget that does not measure.
+
+`WidgetResources` answers only for Data Sources and media variants that the component presentation declares (§6). Every other lookup returns `null`. The resources object has no network, file, storage or host access.
+
+## 6. Manifest v16 component presentation
+
+```json
+{
+  "schemaVersion": 2,
+  "kind": "component",
+  "requiredCapabilities": { "widget.tilecast.clock": 1 },
+  "component": {
+    "type": "tilecast.clock",
+    "version": 1,
+    "config": { "timeZone": "", "hourCycle": "locale", "showSeconds": false },
+    "dataSources": [],
+    "media": []
+  }
+}
+```
+
+- `config` is a bounded JSON object: at most 8 KiB encoded, depth 6, 64 keys for each object, 200 items for each array and 2,000 characters for each string.
+- `dataSources` lists the Data Source IDs the component may read. Their Data Documents stay in the manifest's `dataSources[]`. The presentation never copies a document.
+- `media` lists the `{assetId, variantId}` pairs the component may display. Each pair is also in the manifest's `assets[]`, so the Player verifies and caches it before activation.
+
+The Server compiles `config` from the persisted Widget configuration with the component's `configTemplate` in `tilecast.widget.json`. The template uses the existing closed `$config` substitution. A persisted Widget record never changes because a release adds a V2 renderer.
+
+A Layout zone that places a V2 Widget carries the same component payload (§11).
+
+## 7. Capabilities and fallback
+
+A V2-capable Player reports:
+
+```json
+{
+  "presentationSchemaVersions": [1, 2],
+  "nativePresentationCapabilities": { "…": 1, "widget.tilecast.clock": 1 }
+}
+```
+
+The capability list comes from the Widgets bundled in the runtime artifact. `widgets:generate` writes it for each host (`packages/player-runtime/src/widgets/capabilities.gen.ts` and the Edge daemon's generated profile). Nobody edits a host capability list by hand.
+
+For each screen, the Server compiles each reachable Widget:
+
+1. When the Widget has a component, and the Player reports presentation schema 2 and `widget.<type>` at the component version or later, the Widget gets the component presentation.
+2. Otherwise, when the Widget has a compatibility presentation, it gets that presentation, exactly as before this change.
+3. Otherwise, assignment validation and manifest generation refuse the content with the existing capability error.
+
+A manifest that contains at least one component presentation is v16. Every other manifest keeps the schema that it had before. Assignment validation and manifest generation use the same rules.
+
+The heartbeat accepts at most 128 capability entries (earlier: 64). A Player must not report more than 64 entries until the minimum supported Server accepts 128.
+
+## 8. Lifecycle and evidence
+
+A Widget element dispatches bounded, bubbling, composed events:
+
+| Event                   | Detail                    | Runtime meaning                                 |
+| ----------------------- | ------------------------- | ----------------------------------------------- |
+| `tilecast-widget-ready` | none                      | Meaningful content is painted for these inputs. |
+| `tilecast-widget-empty` | `{ reason }` (≤ 48 chars) | Expected empty content. It is not a failure.    |
+| `tilecast-widget-error` | `{ code }` (≤ 48 chars)   | The Widget cannot render these inputs.          |
+
+`WidgetMount` turns these events into a state: `ready`, `empty` or `error`. The Player Runtime turns that state into evidence (`widget-shown`, `widget-alive`, `widget-empty`, `layout-zone-rendered`) and playback errors. A Widget never reports evidence.
+
+A fullscreen `WidgetSurface` resolves `prepare()` when the mount is `ready` or `empty` and rejects it on `error` or after the ready timeout. So the item swaps in only after the Widget painted.
+
+## 9. Styling, theming and CSP
+
+- Elements use Shadow DOM and Lit static `styles`. Lit adopts them as constructed stylesheets (`adoptedStyleSheets`).
+- The runtime CSP stays `style-src 'self'` with no `unsafe-inline`. The runtime refuses to mount a V2 Widget when the engine does not support adopted stylesheets, and reports `widget_styles_unsupported`. It does not fall back to `<style>` elements.
+- Dynamic values use typed properties and CSS custom properties set through the CSSOM (`style.setProperty`). No code passes an input string to `unsafeCSS` or to a `style` attribute.
+- Layout uses CSS container queries on the Widget's own box (`container-type: size`) and container units. `ResizeObserver` is only for SVG scale and text-fit measurement.
+- `WidgetTheme` is a bounded set of validated colors plus a scheme. The default is the deterministic Tilecast display theme from `@tilecast/widget-kit`. A Widget may apply an author color only when its authoring schema declares that color.
+
+The conformance fixture `widget-component-clock` fails when the element has no shadow root, when its styles are not adopted, when a container query does not apply, or when the document records a CSP violation. It runs on Electron and WPE.
+
+## 10. Studio preview
+
+Studio renders V2 Widgets with the real element through `WidgetMount` (PR 2). React owns forms, editor chrome, selection, resize handles, drag and drop, focus and toolbars. The Widget owns only what appears on the display. The gallery keeps its lightweight schematic thumbnails (`WidgetThumbnail.tsx`); they are navigation, not playback previews.
+
+## 11. Layout zones
+
+`RuntimeLayoutZone.component` carries the same component payload as a fullscreen Widget. `LayoutSurface` mounts it with `WidgetMount`. The zone reports `layout-zone-rendered` when the mount is `ready` or `empty`. The Widget implementation does not know whether it is fullscreen or in a zone; only its container size changes.
+
+## 12. Android
+
+No V2 Widget has Kotlin or Compose code. Android Players do not report component capabilities, so they receive the compatibility presentation. The Android convergence is a separate project: it hosts the built runtime in a trusted local WebView, implements the host contract and runs the conformance suite. Widgets V2 is not complete across platforms until that convergence reaches parity.
+
+## 13. Future plugin contribution
+
+Plugin API v1 is frozen and does not change. `defineWidget()`, `tilecast.widget.json` and discovery do not depend on anything a built-in Widget alone can reach. A later Plugin API version can expose Widget modules through the same SDK. Component types are namespaced (`tilecast.` for built-in Widgets) so that plugin Widgets cannot collide with them.
+
+## 14. PR sequence
+
+1. Foundation and the Clock vertical slice: this document, both packages, discovery, `widgetctl`, the CSP conformance gate, manifest v16, capability negotiation, `WidgetMount`, fullscreen and Layout plumbing, Storybook foundation and Clock V2.
+2. Studio real preview: the generic custom-element host, the real component in the Widget and Layout editors, the preview resource adapter and the manual preview clock.
+3. Visual and data pilot: Weather, Stat Grid, School Schedule and Chart.
+4. Catalog migration by family.
+5. Separate project: Android shared-runtime convergence.

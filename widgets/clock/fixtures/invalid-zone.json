@@ -1,0 +1,12 @@
+{
+  "name": "Invalid zone",
+  "description": "Untrusted configuration with an unknown zone fails closed instead of showing another zone's time.",
+  "configuration": {
+    "timezone": "Mars/Olympus_Mons",
+    "format": "locale",
+    "showSeconds": false,
+    "foregroundColor": "#F5F7FA",
+    "backgroundColor": "#0E141B"
+  },
+  "expect": "error"
+}

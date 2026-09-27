@@ -7,6 +7,7 @@
     "module": "CommonJS",
     "moduleResolution": "Node10",
     "noEmit": false,
+    "allowImportingTsExtensions": false,
     "declaration": true,
     "sourceMap": true,
     "outDir": "dist/node",
@@ -16,8 +17,7 @@
   "include": [
     "src/host/contract.ts",
     "src/compat/projection/index.ts",
-    "src/clock/synchronized.ts",
-    "src/widgets/contract.ts"
+    "src/clock/synchronized.ts"
   ],
   "exclude": ["src/**/*.test.ts"]
 }

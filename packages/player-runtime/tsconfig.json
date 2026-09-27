@@ -12,6 +12,7 @@
     "forceConsistentCasingInFileNames": true,
     "esModuleInterop": true,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "types": []
   },
   "include": ["src", "../../plugins/*/runtime"]

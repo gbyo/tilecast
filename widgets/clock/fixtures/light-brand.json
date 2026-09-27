@@ -1,0 +1,13 @@
+{
+  "name": "Light brand colors",
+  "configuration": {
+    "timezone": "Asia/Kolkata",
+    "format": "12",
+    "showSeconds": false,
+    "showDate": true,
+    "foregroundColor": "#14213D",
+    "backgroundColor": "#F7F3EA"
+  },
+  "context": { "locale": "en-IN", "timeZone": "America/Chicago" },
+  "expect": "ready"
+}

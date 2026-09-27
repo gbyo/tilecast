@@ -110,6 +110,8 @@ type WidgetPresentation struct {
 	RequiredCapabilities map[string]int          `json:"requiredCapabilities"`
 	Native               *NativePresentation     `json:"native,omitempty"`
 	Web                  *WebSandboxPresentation `json:"web,omitempty"`
+	// Component is set for kind "component" (manifest v16, docs/widgets-v2.md).
+	Component *ComponentPresentation `json:"component,omitempty"`
 }
 
 type NativePresentation struct {
@@ -371,7 +373,14 @@ func coerceDocumentValue(kind, raw string) DocumentValue {
 	return DocumentValue{Kind: "text", Text: &raw}
 }
 
+// compileWidgetPresentation compiles a Widget's compatibility presentation:
+// the native or web presentation every capability-reporting Player before
+// Widgets V2 renders. A Widget whose component has no compatibility fallback
+// returns nil; compileWidgetComponent compiles its component.
 func (s *Service) compileWidgetPresentation(provider string, raw json.RawMessage) (*WidgetPresentation, error) {
+	if definition, ok := s.definitions.Widget(provider); ok && !definition.HasFallback() {
+		return nil, nil
+	}
 	if definition, ok := s.definitions.Widget(provider); ok && !definition.LegacyEditor {
 		return compileDefinitionPresentation(definition, raw)
 	}

@@ -1,0 +1,13 @@
+{
+  "name": "Analog",
+  "configuration": {
+    "timezone": "",
+    "format": "locale",
+    "showSeconds": true,
+    "showDate": true,
+    "style": "analog",
+    "foregroundColor": "#F5F7FA",
+    "backgroundColor": "#0E141B"
+  },
+  "expect": "ready"
+}

@@ -55,6 +55,70 @@ const text = (value, style = {}) => ({
   style: { fontFamily: "Tilecast UI", ...style },
 });
 
+/**
+ * A projected first-class Widget (docs/widgets-v2.md): Clock V2 with the
+ * configuration the Server compiles from a persisted Clock.
+ */
+const clockComponent = (config) => ({
+  component: {
+    type: "tilecast.clock",
+    version: 1,
+    config: {
+      timeZone: "",
+      format: "24",
+      showSeconds: false,
+      style: "standard",
+      showDate: true,
+      background: "",
+      foreground: "",
+      ...config,
+    },
+    dataSources: [],
+    media: [],
+  },
+  documents: {},
+  media: {},
+  regional: { locale: "en-US", timeZone: "UTC", hourCycle: "locale" },
+});
+
+const componentLayout = {
+  canvasWidth: 1920,
+  canvasHeight: 1080,
+  background: "#0B1220",
+  zones: [
+    {
+      id: "zone-analog",
+      x: 80,
+      y: 60,
+      width: 1100,
+      height: 620,
+      layer: 1,
+      opacity: 1,
+      component: clockComponent({ style: "analog", showSeconds: true }),
+    },
+    {
+      id: "zone-sidebar",
+      x: 1260,
+      y: 60,
+      width: 580,
+      height: 960,
+      layer: 1,
+      opacity: 1,
+      component: clockComponent({ timeZone: "Asia/Tokyo" }),
+    },
+    {
+      id: "zone-strip",
+      x: 80,
+      y: 740,
+      width: 1100,
+      height: 280,
+      layer: 1,
+      opacity: 1,
+      component: clockComponent({ format: "12" }),
+    },
+  ],
+};
+
 /** The one stable current-widget compatibility fixture. */
 const compatWidget = {
   background: "#101826",
@@ -554,6 +618,83 @@ export const fixtures = [
       { checkpoint: "widget", visual: true },
       { advance: 30_000 },
       { checkpoint: "widget-alive" },
+    ],
+  },
+  {
+    name: "widget-component",
+    description:
+      "A first-class Widget (Clock V2) fullscreen and in three Layout zones under the unmodified runtime CSP: shadow DOM, adopted stylesheets, container units and queries, and the corrected clock.",
+    steps: [
+      // The host's corrected clock runs 90 s ahead of the local clock.
+      { plugins: { plugins: [], clockOffsetMs: 90_000 } },
+      {
+        present: {
+          presentation: playing([
+            item("clock-1", {
+              kind: "widget",
+              durationMs: null,
+              widget: clockComponent({ showSeconds: true }),
+            }),
+          ]),
+          activation: activation(1),
+        },
+      },
+      { checkpoint: "fullscreen", visual: true },
+      {
+        assertWidgets: [
+          {
+            type: "tilecast.clock",
+            textIncludes: ["16:01", "30", "Tuesday, September 1"],
+            // 4.6cqmin of a 1280 × 720 box: container units resolve.
+            styles: [
+              { selector: ".tc-root", property: "font-size", value: "33.12px" },
+            ],
+          },
+        ],
+      },
+      { advance: 1_000 },
+      { checkpoint: "ticked" },
+      {
+        present: {
+          presentation: playing([
+            item("layout-clocks", {
+              kind: "layout",
+              durationMs: null,
+              layout: componentLayout,
+            }),
+          ]),
+          activation: activation(2),
+        },
+      },
+      { checkpoint: "layout", visual: true },
+      {
+        assertWidgets: [
+          {
+            type: "tilecast.clock",
+            textIncludes: ["16:01", "Tuesday, September 1"],
+            // Landscape zone: the dial sits beside the text.
+            styles: [
+              { selector: ".analog", property: "flex-direction", value: "row" },
+            ],
+          },
+          {
+            type: "tilecast.clock",
+            textIncludes: ["Tokyo", "01", "Wed, Sep 2"],
+            // Tall sidebar: hours over minutes.
+            styles: [
+              { selector: ".hm", property: "flex-direction", value: "column" },
+            ],
+          },
+          {
+            type: "tilecast.clock",
+            textIncludes: ["4:01", "PM"],
+            // Wide strip: one row.
+            styles: [
+              { selector: ".stack", property: "flex-direction", value: "row" },
+            ],
+          },
+        ],
+      },
     ],
   },
   {

@@ -30,8 +30,22 @@ export type FixtureStep =
   | { stepWall: number }
   | { waitForEvidence: { kind: string; itemId?: string; timeoutMs?: number } }
   | { checkpoint: string; visual?: boolean }
+  /**
+   * The Widgets V2 release gate (docs/widgets-v2.md §9): every first-class
+   * Widget on screen renders in its own shadow root with adopted
+   * stylesheets only, container units and queries resolve, no CSP
+   * violation occurred, and the engine still enforces the runtime CSP.
+   */
+  | { assertWidgets: WidgetAssertion[] }
   /** Real-time fixtures only (performance runs): wait on the real clock. */
   | { hold: number };
+
+export interface WidgetAssertion {
+  type: string;
+  textIncludes?: string[];
+  /** Computed styles of elements inside the Widget's shadow root. */
+  styles?: { selector: string; property: string; value: string }[];
+}
 
 export interface Fixture {
   name: string;
@@ -103,6 +117,101 @@ function substituteMedia(
     return out;
   }
   return value;
+}
+
+/**
+ * Every CSP violation the document reports. Registered before the runtime
+ * starts, so nothing a Widget does can escape it.
+ */
+const cspViolations: string[] = [];
+document.addEventListener("securitypolicyviolation", (event) => {
+  cspViolations.push(`${event.effectiveDirective} ${event.blockedURI}`);
+});
+
+const nextFrame = () =>
+  new Promise<void>((resolve) =>
+    requestAnimationFrame(() => setTimeout(resolve, 0)),
+  );
+
+/**
+ * Prove the engine enforces the runtime policy: an inline stylesheet must
+ * be refused and reported. If anyone adds 'unsafe-inline' to style-src
+ * (or drops the policy), this fails on every engine.
+ */
+async function assertInlineStylesRefused(): Promise<void> {
+  const before = cspViolations.length;
+  const style = document.createElement("style");
+  style.textContent = ":root { --tc-csp-probe: applied; }";
+  document.head.appendChild(style);
+  await nextFrame();
+  await nextFrame();
+  const applied = getComputedStyle(document.documentElement)
+    .getPropertyValue("--tc-csp-probe")
+    .trim();
+  style.remove();
+  const reported = cspViolations
+    .splice(before)
+    .some((entry) => entry.startsWith("style-src"));
+  if (applied !== "" || !reported) {
+    throw new Error(
+      "the runtime CSP no longer refuses inline styles (style-src must stay 'self')",
+    );
+  }
+}
+
+async function assertWidgets(expected: WidgetAssertion[]): Promise<void> {
+  const mounted = Array.from(
+    document.querySelectorAll<HTMLElement>(
+      ".layer.visible [data-tilecast-widget]",
+    ),
+  );
+  const fail = (message: string) => {
+    throw new Error(`assertWidgets: ${message}`);
+  };
+  if (mounted.length !== expected.length) {
+    fail(`expected ${expected.length} widgets, found ${mounted.length}`);
+  }
+  expected.forEach((want, index) => {
+    const element = mounted[index]!;
+    const where = `widget ${index} (${want.type})`;
+    if (element.getAttribute("data-tilecast-widget") !== want.type) {
+      fail(`${where} is ${element.getAttribute("data-tilecast-widget")}`);
+    }
+    const shadow = element.shadowRoot;
+    if (!shadow) return fail(`${where} has no shadow root`);
+    if ((shadow.adoptedStyleSheets?.length ?? 0) === 0) {
+      fail(`${where} has no adopted stylesheets`);
+    }
+    if (shadow.querySelector("style")) {
+      fail(`${where} fell back to a <style> element`);
+    }
+    if (getComputedStyle(element).containerType !== "size") {
+      fail(`${where} is not a size container`);
+    }
+    const text = (shadow.textContent ?? "").replace(/\s+/g, " ");
+    for (const part of want.textIncludes ?? []) {
+      if (!text.includes(part)) fail(`${where} text lacks "${part}": ${text}`);
+    }
+    for (const check of want.styles ?? []) {
+      const target = shadow.querySelector(check.selector);
+      if (!target) return fail(`${where} has no ${check.selector}`);
+      const value = getComputedStyle(target).getPropertyValue(check.property);
+      // Engines serialize computed lengths with different precision.
+      const px = (text: string) =>
+        /^-?[\d.]+px$/.test(text) ? Number.parseFloat(text) : Number.NaN;
+      const same =
+        value === check.value || Math.abs(px(value) - px(check.value)) < 0.01;
+      if (!same) {
+        fail(
+          `${where} ${check.selector} ${check.property} is ${value}, expected ${check.value}`,
+        );
+      }
+    }
+  });
+  if (cspViolations.length > 0) {
+    fail(`CSP violations: ${cspViolations.join(", ")}`);
+  }
+  await assertInlineStylesRefused();
 }
 
 if (runner) {
@@ -265,6 +374,9 @@ if (runner) {
         probe().stepWall(step.stepWall);
       } else if ("waitForEvidence" in step) {
         await waitForEvidence(step.waitForEvidence);
+      } else if ("assertWidgets" in step) {
+        await probe().settled();
+        await assertWidgets(step.assertWidgets);
       } else if ("checkpoint" in step) {
         await probe().settled();
         const checkpoint: CheckpointResult = {
@@ -308,7 +420,8 @@ if (runner) {
         fixture: fixture.name,
         engine: { userAgent: navigator.userAgent },
         checkpoints: [],
-        failure: String((error as Error)?.stack ?? error),
+        // WebKit stacks omit the message; report both.
+        failure: `${String((error as Error)?.message ?? error)}\n${String((error as Error)?.stack ?? "")}`,
       }),
   );
 }
