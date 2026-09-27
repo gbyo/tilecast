@@ -161,7 +161,7 @@ func checkDataSourceProvider(m Manifest, provider DataSourceProvider) error {
 	}
 	id := provider.ProviderID()
 	if !ProviderIDPattern.MatchString(id) {
-		return fail("data source provider id %q must match %s", id, ProviderIDPattern)
+		return fail("malformed data source provider id %q: must match %s", id, ProviderIDPattern)
 	}
 	label, group, description := provider.Catalog()
 	if strings.TrimSpace(label) == "" || strings.TrimSpace(group) == "" || strings.TrimSpace(description) == "" {
