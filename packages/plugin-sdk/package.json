@@ -7,9 +7,11 @@
   "type": "module",
   "exports": {
     "./manifest": "./src/manifest.ts",
+    "./automation": "./src/automation.ts",
     "./runtime": "./src/runtime.ts",
     "./runtime/testing": "./src/runtime-testing.ts",
-    "./schema/tilecast-plugin.schema.json": "./schema/tilecast-plugin.schema.json"
+    "./schema/tilecast-plugin.schema.json": "./schema/tilecast-plugin.schema.json",
+    "./schema/tilecast-automation.schema.json": "./schema/tilecast-automation.schema.json"
   },
   "scripts": {
     "test": "vitest run",

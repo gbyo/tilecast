@@ -44,6 +44,15 @@ func Conformance(t *testing.T, p plugin.Plugin) {
 			t.Fatalf("Init must only keep its services; it failed: %v", err)
 		}
 	}
+	if automated, ok := p.(plugin.AutomationProvider); ok {
+		document, err := plugin.ParseAutomation(automated.Automation())
+		if err != nil {
+			t.Fatalf("embedded automation document is invalid: %v", err)
+		}
+		if document.Plugin != p.Manifest().ID {
+			t.Fatalf("automation document names plugin %q, want %q", document.Plugin, p.Manifest().ID)
+		}
+	}
 }
 
 // Host returns a Host with a discarding logger and a fixed clock. Every other

@@ -333,6 +333,82 @@ describe("pluginctl", () => {
     );
   });
 
+  it("resolves a new plugin's automation with no central edits", async () => {
+    scaffold(root, {
+      id: "room_comfort",
+      category: "Display",
+      maintainer: "@gbyo",
+      api: true,
+    });
+    writeFileSync(
+      join(root, "plugins/room-comfort/api/openapi.yaml"),
+      `openapi: 3.1.0
+info:
+  title: Room Comfort plugin API
+  version: "1"
+paths:
+  /api/v1/plugins/room-comfort/thermostats:
+    get:
+      operationId: listThermostats
+      responses:
+        "200": { description: Thermostats }
+    post:
+      operationId: setThermostat
+      responses:
+        "201": { description: Set }
+`,
+    );
+    writeFileSync(
+      join(root, "plugins/room-comfort/automation.yaml"),
+      `apiVersion: 1
+operations:
+  - operationId: listThermostats
+    risk: read
+    cli:
+      path: [room-comfort, thermostat, list]
+    mcp:
+      action: list_thermostats
+  - operationId: setThermostat
+    risk: routine
+    cli:
+      path: [room-comfort, thermostat, set]
+    mcp:
+      action: set_thermostat
+    input: document
+`,
+    );
+    await generateInto(root);
+    expect(await problems(root)).toEqual([]);
+    const resolved = JSON.parse(
+      readFileSync(
+        join(root, "plugins/room-comfort/automation.gen.json"),
+        "utf8",
+      ),
+    ) as {
+      plugin: string;
+      operations: {
+        operationId: string;
+        method: string;
+        path: string;
+        cliPath: string[];
+        mcpAction: string;
+      }[];
+    };
+    expect(resolved.plugin).toBe("room_comfort");
+    expect(resolved.operations).toHaveLength(2);
+    const list = resolved.operations.find(
+      (operation) => operation.operationId === "listThermostats",
+    );
+    expect(list?.method).toBe("get");
+    expect(list?.path).toBe("/api/v1/plugins/room-comfort/thermostats");
+    expect(list?.cliPath).toEqual(["room-comfort", "thermostat", "list"]);
+    expect(list?.mcpAction).toBe("list_thermostats");
+    const set = resolved.operations.find(
+      (operation) => operation.operationId === "setThermostat",
+    );
+    expect(set?.method).toBe("post");
+  });
+
   it("reserves migrations from the one global sequence", async () => {
     scaffold(root, {
       id: "transit_alerts",
