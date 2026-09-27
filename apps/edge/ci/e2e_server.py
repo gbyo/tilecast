@@ -165,13 +165,19 @@ class WebHelper:
         self.process = None
 
     def start(self):
-        for sub in ("", "frames", "data", "cache", "home"):
+        for sub in ("", "frames", "data", "cache", "home", "xdg"):
             path = os.path.join(self.web, sub)
             os.makedirs(path, exist_ok=True)
             os.chown(path, WEB_UID, WEB_UID)
         os.chmod(self.web, 0o755)
-        log = open(os.path.join(self.work, "web-helper.log"), "a")
-        env = dict(os.environ, HOME=os.path.join(self.web, "home"))
+        os.chmod(os.path.join(self.web, "xdg"), 0o700)
+        log_path = os.path.join(self.work, "web-helper.log")
+        log = open(log_path, "a")
+        # XDG_RUNTIME_DIR as in web-renderer-wpe/tests/security_test.py: a
+        # cold WebKit first start can take a while, and without a runtime
+        # directory it may not start at all.
+        env = dict(os.environ, HOME=os.path.join(self.web, "home"),
+                   XDG_RUNTIME_DIR=os.path.join(self.web, "xdg"))
         # As for the renderer below: the container cannot run WebKit's
         # bubblewrap sandbox. CI only; production keeps the sandbox.
         env.setdefault("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1")
@@ -180,7 +186,16 @@ class WebHelper:
              f"--control-socket={self.web}/control.sock", f"--frames-dir={self.web}/frames",
              f"--data-dir={self.web}/data", f"--cache-dir={self.web}/cache", f"--client-uid={os.getuid()}"],
             stdout=log, stderr=subprocess.STDOUT, env=env)
-        wait_for(lambda: os.path.exists(os.path.join(self.web, "control.sock")), "web helper socket", timeout=30)
+        try:
+            wait_for(lambda: os.path.exists(os.path.join(self.web, "control.sock")),
+                     "web helper socket", timeout=180)
+        except AssertionError:
+            log.flush()
+            print(f"web helper exit status: {self.process.poll()}")
+            with open(log_path, encoding="utf-8", errors="replace") as handle:
+                print("web-helper.log tail:")
+                print("".join(handle.readlines()[-40:]))
+            raise
         return self.process
 
 

@@ -21,6 +21,8 @@ start() {
   done
   echo "the container's systemd did not finish booting: $state" >&2
   docker exec "$name" systemctl --failed --no-pager || true
+  docker exec "$name" systemctl list-jobs --no-pager || true
+  docker exec "$name" journalctl -b -p warning --no-pager -n 40 || true
   return 1
 }
 inside() {

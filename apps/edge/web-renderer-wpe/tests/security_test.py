@@ -431,15 +431,21 @@ def run(helper, root):
     check("an unknown request closes the connection", closed)
 
     # §5: two layers refuse another account: the socket mode, then the
-    # helper's SO_PEERCRED check for an account that is in the group.
+    # helper's SO_PEERCRED check for an account that is in the group. The
+    # helper refuses at accept time without reading, so a fast close can race
+    # the first send: BrokenPipeError proves the refusal as much as an empty
+    # read or a reset does. A dead helper cannot hide behind this: every
+    # section after this one reconnects as the owner.
     probe = ("import socket,struct,sys\n"
              "s=socket.socket(socket.AF_UNIX)\n"
              f"try: s.connect({helper.control!r})\n"
              "except PermissionError: sys.exit(3)\n"
-             "p=b'{\"type\":\"hello\",\"version\":1}';s.sendall(struct.pack('>I',len(p))+p)\n"
+             "p=b'{\"type\":\"hello\",\"version\":1}'\n"
+             "try: s.sendall(struct.pack('>I',len(p))+p)\n"
+             "except BrokenPipeError: sys.exit(0)\n"
              "s.settimeout(5)\n"
              "try: sys.exit(0 if s.recv(4)==b'' else 1)\n"
-             "except ConnectionResetError: sys.exit(0)")
+             "except (ConnectionResetError, BrokenPipeError): sys.exit(0)")
     outside = subprocess.run(["setpriv", f"--reuid={OTHER_UID}", f"--regid={OTHER_UID}", "--clear-groups",
                               sys.executable, "-c", probe], capture_output=True, text=True)
     check("the socket mode refuses another account", outside.returncode == 3, outside.stderr)
