@@ -17,13 +17,13 @@ paths:
   /install.sh:
     get:
       operationId: installLinuxPlayerScript
-      description: Public, rate-limited Linux Player provisioning script with this server's URL embedded.
+      description: Public. Rate-limited Linux Player provisioning script with this server's URL embedded.
       responses:
         "200": { description: Shell installer }
   /install-airplay.sh:
     get:
       operationId: installAirPlayScript
-      description: Public, rate-limited AirPlay provisioning script with this server's URL embedded.
+      description: Public. Rate-limited AirPlay provisioning script with this server's URL embedded.
       responses:
         "200": { description: Shell installer }
   /install/tilecast-player.service:
@@ -60,7 +60,7 @@ paths:
   /api/v1/install/airplay/uxplay:
     get:
       operationId: installableUxPlayArtifact
-      description: Public, rate-limited, pinned UxPlay 1.73.6 source archive embedded in Tilecast Server.
+      description: Public. Rate-limited, pinned UxPlay 1.73.6 source archive embedded in Tilecast Server.
       responses:
         "200": { description: Verified UxPlay 1.73.6 source archive }
     head:
@@ -426,7 +426,7 @@ paths:
     post:
       operationId: revokeOAuthCredential
       description: >-
-        Public and rate-limited. Revokes the grant behind a presented access or refresh credential. The credential itself is the authorization.
+        Public. Rate-limited. Revokes the grant behind a presented access or refresh credential. The credential itself is the authorization.
       requestBody:
         required: true
         content:
@@ -1916,7 +1916,15 @@ paths:
   /api/v1/assets/websites:
     post:
       operationId: createWebsiteAsset
-      description: Creates configuration-only public website content without fetching the page.
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: >-
+        Requires an authenticated content author with the write scope. Cookie requests additionally require the X-CSRF-Token header; Bearer grants never send it. Creates configuration-only public website content without fetching the page.
+      parameters:
+        - in: header
+          name: X-CSRF-Token
+          required: false
+          schema: { type: string }
+          description: Required when authenticating with sessionCookie; omit for userBearer.
       responses:
         {
           "201": { description: Website asset created },
@@ -3034,7 +3042,7 @@ paths:
       operationId: updateSettings
       security: [{ sessionCookie: [] }, { userBearer: [] }]
       description: >-
-        Requires the Owner or Administrator role with the write scope. Cookie requests additionally require the X-CSRF-Token header; Bearer [REDACTED] never send it. bearer requests never send it. Applies only the given keys against the expected revision; a stale revision fails with 409 and changes nothing.
+        Requires the Owner or Administrator role with the write scope. Cookie requests additionally require the X-CSRF-Token header; Bearer grants never send it. Applies only the given keys against the expected revision; a stale revision fails with 409 and changes nothing.
       parameters:
         - { $ref: "#/components/parameters/CSRFToken" }
       requestBody:
@@ -3051,15 +3059,17 @@ paths:
   /api/v1/me/preferences:
     get:
       operationId: getPreferences
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
       description: >-
-        Requires an enrolled dashboard session. Reads the calling user's own preferences.
+        Requires an authenticated user with the read scope. Reads the calling user's own preferences.
       responses:
         "200": { description: Preference document }
         "401": { description: Dashboard authentication required }
     patch:
       operationId: updatePreferences
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
       description: >-
-        Requires an enrolled dashboard session and the X-CSRF-Token header. Updates the calling user's own preferences against the expected revision.
+        Requires an authenticated user with the write scope. Cookie requests additionally require the X-CSRF-Token header; Bearer grants never send it. Updates the calling user's own preferences against the expected revision.
       parameters:
         - { $ref: "#/components/parameters/CSRFToken" }
       requestBody:
@@ -5764,6 +5774,22 @@ components:
         installationId: { type: string, format: uuid }
         organizationName: { type: string }
         pairingEnabled: { type: boolean }
+    User:
+      type: object
+      additionalProperties: false
+      required: [id, name, username, role, active, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        username: { type: string }
+        role:
+          {
+            type: string,
+            enum: [owner, administrator, editor, contributor, viewer],
+          }
+        active: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        lastLoginAt: { type: string, format: date-time }
     AuthStatus:
       type: object
       additionalProperties: false
@@ -5774,7 +5800,7 @@ components:
         passkeysAvailable: { type: boolean }
         passkeysUnavailableReason: { type: string }
         demoMode: { type: boolean }
-        user: { type: object }
+        user: { $ref: "#/components/schemas/User" }
         csrfToken: { type: string }
         authMethod: { type: string }
         mfaEnrollmentRequired: { type: boolean }

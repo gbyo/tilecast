@@ -246,7 +246,7 @@ function usesCsrfParam(operation: YAMLMap): boolean {
 
 function declaresPublic(operation: YAMLMap): boolean {
   const description = textOf(findPair(operation, "description"));
-  return /(^|\W)public(\W|$)/i.test(description);
+  return /^\s*Public\./i.test(description);
 }
 
 function checkAuth(
@@ -380,6 +380,14 @@ export function checkFragmentOperationIds(
     try {
       doc = YAML.parseDocument(fragment.text);
     } catch {
+      problems.push({
+        plugin: fragment.plugin,
+        file: fragment.file,
+        message: "OpenAPI fragment does not parse",
+      });
+      continue;
+    }
+    if (doc.errors.length > 0) {
       problems.push({
         plugin: fragment.plugin,
         file: fragment.file,
