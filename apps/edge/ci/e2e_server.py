@@ -14,7 +14,9 @@ Electron player's on-disk format, then checks that tilecastd:
    video in a published playlist, then a published Layout containing a clock
    Widget, each committed only after the renderer's own evidence and reported
    back in the ordinary heartbeat; and plays the committed Layout from its
-   cache after a restart with the server stopped;
+   cache after a restart with the server stopped; with ``--web-helper`` a
+   published Website layout also loads through the isolated remote web
+   helper and is reported back the same way;
 4. deletes the credential only after the server says it was revoked.
 
 No Edge-specific server configuration or endpoint is involved: Edge 1 uses
@@ -23,7 +25,8 @@ the same player API as every other Tilecast player.
 Requirements: Go, cargo, FFmpeg, a local PostgreSQL where the current user
 may create databases. Usage (from the repository root):
 
-    apps/edge/ci/e2e_server.py [--renderer BIN --runtime-dir DIR --gst-plugin-dir DIR]
+    apps/edge/ci/e2e_server.py [--renderer BIN --runtime-dir DIR --gst-plugin-dir DIR
+                             --web-helper BIN]
 
 apps/edge/ci/run-e2e-server.sh runs it with the renderer in the
 tilecast-edge-e2e image.
@@ -33,6 +36,7 @@ import argparse
 import datetime
 import hashlib
 import http.cookiejar
+import http.server
 import json
 import os
 import re
@@ -146,11 +150,62 @@ def evidence(log_path, since, kinds):
     return seen if seen == set(kinds) else None
 
 
+WEB_UID = 4242
+
+
+class WebHelper:
+    """The isolated remote web helper as an unprivileged account: it refuses
+    root, so the harness drops privileges exactly as the systemd unit does
+    with User=tilecast-web (the client uid is the harness user, as the
+    renderer's tilecast account is the helper's client in production)."""
+
+    def __init__(self, binary, work):
+        self.binary, self.work = binary, work
+        self.web = os.path.join(work, "web")
+        self.process = None
+
+    def start(self):
+        for sub in ("", "frames", "data", "cache", "home"):
+            path = os.path.join(self.web, sub)
+            os.makedirs(path, exist_ok=True)
+            os.chown(path, WEB_UID, WEB_UID)
+        os.chmod(self.web, 0o755)
+        log = open(os.path.join(self.work, "web-helper.log"), "a")
+        env = dict(os.environ, HOME=os.path.join(self.web, "home"))
+        # As for the renderer below: the container cannot run WebKit's
+        # bubblewrap sandbox. CI only; production keeps the sandbox.
+        env.setdefault("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1")
+        self.process = subprocess.Popen(
+            ["setpriv", f"--reuid={WEB_UID}", f"--regid={WEB_UID}", "--clear-groups", self.binary,
+             f"--control-socket={self.web}/control.sock", f"--frames-dir={self.web}/frames",
+             f"--data-dir={self.web}/data", f"--cache-dir={self.web}/cache", f"--client-uid={os.getuid()}"],
+            stdout=log, stderr=subprocess.STDOUT, env=env)
+        wait_for("web helper socket", lambda: os.path.exists(os.path.join(self.web, "control.sock")), timeout=30)
+        return self.process
+
+
+class WebFixture(http.server.BaseHTTPRequestHandler):
+    """A deterministic local page: no external network in CI."""
+
+    def log_message(self, *args):
+        pass
+
+    def do_GET(self):  # noqa: N802
+        body = (b"<!doctype html><body style='margin:0;background:#1d4ed8'>"
+                b"<h1>Lobby</h1></body>" if self.path == "/site.html" else b"")
+        self.send_response(200 if body else 404)
+        self.send_header("Content-Type", "text/html")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
 class Renderer:
     """A real tilecast-renderer-wpe on WPE_PLATFORM=headless."""
 
-    def __init__(self, args, runtime, work, log="renderer.log"):
+    def __init__(self, args, runtime, work, log="renderer.log", web_dir=None):
         self.args, self.runtime, self.work, self.log = args, runtime, work, log
+        self.web_dir = web_dir
         self.process = None
 
     def start(self):
@@ -160,12 +215,14 @@ class Renderer:
         env.setdefault("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1")
         log = open(os.path.join(self.work, self.log), "a")
         wait_for(lambda: os.path.exists(os.path.join(self.runtime, "edge.sock")), "daemon socket", timeout=30)
-        self.process = subprocess.Popen(
-            [self.args.renderer, "--platform=headless", f"--socket={os.path.join(self.runtime, 'edge.sock')}",
-             f"--media-socket={os.path.join(self.runtime, 'media.sock')}", f"--runtime-dir={self.args.runtime_dir}",
-             f"--gst-plugin-dir={self.args.gst_plugin_dir}", "--headless-size=1280x720", "--console",
-             "--crash-backtrace"],
-            stdout=log, stderr=subprocess.STDOUT, env=env)
+        argv = [self.args.renderer, "--platform=headless", f"--socket={os.path.join(self.runtime, 'edge.sock')}",
+                f"--media-socket={os.path.join(self.runtime, 'media.sock')}", f"--runtime-dir={self.args.runtime_dir}",
+                f"--gst-plugin-dir={self.args.gst_plugin_dir}", "--headless-size=1280x720", "--console",
+                "--crash-backtrace"]
+        if self.web_dir is not None:
+            argv += [f"--web-control-socket={os.path.join(self.web_dir, 'control.sock')}",
+                     f"--web-frames-dir={os.path.join(self.web_dir, 'frames')}"]
+        self.process = subprocess.Popen(argv, stdout=log, stderr=subprocess.STDOUT, env=env)
         return self.process
 
     def stop(self):
@@ -235,11 +292,14 @@ def main():
     sys.stdout.reconfigure(line_buffering=True)
     parser = argparse.ArgumentParser()
     parser.add_argument("--renderer", help="tilecast-renderer-wpe binary; enables the content phase")
+    parser.add_argument("--web-helper", help="tilecast-web-renderer-wpe binary; enables the remote web phase")
     parser.add_argument("--runtime-dir", help="assembled trusted web runtime (renderer-wpe/assemble-runtime.sh)")
     parser.add_argument("--gst-plugin-dir", help="directory holding the tcmediasrc GStreamer plugin")
     args = parser.parse_args()
     if args.renderer and not (args.runtime_dir and args.gst_plugin_dir):
         parser.error("--renderer needs --runtime-dir and --gst-plugin-dir")
+    if args.web_helper and not args.renderer:
+        parser.error("--web-helper needs --renderer")
     work = tempfile.mkdtemp(prefix="tilecast-edge-e2e-")
     processes = []
     try:
@@ -278,6 +338,11 @@ def main():
             TILECAST_BACKUP_ROOT=os.path.join(work, "server-backups"),
             TILECAST_FFMPEG_PATH=tools["ffmpeg"],
             TILECAST_FFPROBE_PATH=tools["ffprobe"],
+            # The remote web phase serves a loopback page over plain HTTP.
+            # Production needs HTTPS; the helper policy only allows HTTP for
+            # the configured host on its default port, and the server only
+            # authors it when private HTTP is explicitly enabled.
+            TILECAST_WEBSITE_ALLOW_PRIVATE_HTTP="true",
         )
         processes.append(subprocess.Popen([server_bin], env=env, stdout=server_log, stderr=subprocess.STDOUT))
         client = Client()
@@ -425,7 +490,12 @@ def main():
 
         if args.renderer:
             daemon_log_path = os.path.join(work, "tilecastd.log")
-            renderer = Renderer(args, runtime, work)
+            helper = None
+            if args.web_helper:
+                helper = WebHelper(args.web_helper, work)
+                processes.append(helper.start())
+            renderer = Renderer(args, runtime, work,
+                                web_dir=os.path.join(work, "web") if args.web_helper else None)
             processes.append(renderer.start())
 
             last_assignment = {}
@@ -523,6 +593,43 @@ def main():
                      timeout=180)
             wait_for(lambda: reported(layout_version), "the heartbeat to report the layout", timeout=150)
             print("layout: manifest", layout_version, "committed through the reference projection")
+
+            if args.web_helper:
+                # Remote web through the full stack: a Website Widget Layout
+                # authored on the real server, committed only after the
+                # renderer's own website evidence, and reported back in the
+                # ordinary heartbeat. The page is loopback plain HTTP, which
+                # the server authors only with private HTTP explicitly
+                # enabled and the helper loads only for its configured host.
+                fixture = http.server.ThreadingHTTPServer(("127.0.0.1", 80), WebFixture)
+                threading.Thread(target=fixture.serve_forever, daemon=True).start()
+                try:
+                    _, settings = client.call("GET", "/api/v1/settings", expect=200)
+                    client.call("PATCH", "/api/v1/settings",
+                                {"revision": settings["data"]["revision"],
+                                 "values": {"website.private_http_enabled": True}}, expect=200)
+                    site = published_layout("Lobby site", {
+                        "provider": "website",
+                        "configuration": {"url": "http://127.0.0.1/site.html"}})
+                    mark = os.path.getsize(daemon_log_path)
+                    _, assignment = client.call("PUT", f"/api/v1/screens/{screen_id}/playlist-assignment",
+                                                {"layoutId": site}, expect=200)
+                    site_version = assignment["data"]["manifestVersion"]
+                    wait_for(lambda: evidence(daemon_log_path, mark, ("layout_shown", "website_loaded")),
+                             "website layout evidence through the helper", timeout=240)
+                    wait_for(lambda: reported(site_version), "the heartbeat to report the website layout",
+                             timeout=150)
+                    print("website: manifest", site_version, "loaded through the isolated helper")
+                    # Later phases (preview, offline cache) run against the
+                    # known-good native layout again.
+                    mark = os.path.getsize(daemon_log_path)
+                    _, assignment = client.call("PUT", f"/api/v1/screens/{screen_id}/playlist-assignment",
+                                                {"layoutId": layout_id}, expect=200)
+                    quiet_version = assignment["data"]["manifestVersion"]
+                    wait_for(lambda: reported(quiet_version), "the heartbeat to report the native layout",
+                             timeout=150)
+                finally:
+                    fixture.shutdown()
 
             # Studio live preview: a lease makes Edge ask the renderer for a
             # snapshot and upload the bounded JPEG it encodes.
@@ -739,7 +846,8 @@ def main():
             refused = [line for line in handle if "request JSON rejected" in line and "/player/heartbeat" in line]
         assert not refused, f"the server refused {len(refused)} heartbeats: {refused[:2]}"
         print("PASS: import, identity gate, player contact, configuration, commands, "
-              + ("content, offline cache, " if args.renderer else "") + "fresh pairing, "
+              + ("content, offline cache, " if args.renderer else "")
+              + ("remote web, " if args.web_helper else "") + "fresh pairing, "
               + ("synchronized group, " if args.renderer else "") + "revocation")
         return 0
     except Exception:

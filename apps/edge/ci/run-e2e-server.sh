@@ -23,10 +23,15 @@ sudo -u postgres createuser --superuser "$(id -un)" 2>/dev/null || true
 cd /src/apps/edge
 cmake -S renderer-wpe -B /target/renderer -G Ninja >/dev/null
 cmake --build /target/renderer
+# The isolated remote web helper (M11): the same private WPE WebKit as the
+# trusted renderer, started by e2e_server.py as an unprivileged account.
+cmake -S web-renderer-wpe -B /target/web-renderer -G Ninja >/dev/null
+cmake --build /target/web-renderer
 runtime=/target/runtime
 renderer-wpe/assemble-runtime.sh "$runtime"
 cd /src
 python3 apps/edge/ci/e2e_server.py \
   --renderer /target/renderer/tilecast-renderer-wpe \
+  --web-helper /target/web-renderer/tilecast-web-renderer-wpe \
   --runtime-dir "$runtime" \
   --gst-plugin-dir /target/renderer/gstreamer-1.0
