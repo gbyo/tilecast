@@ -755,6 +755,14 @@ paths:
       responses:
         "200": { description: Current and retired physical player records }
         "404": { description: Screen not found }
+  /api/v1/screens/pairing/pending:
+    get:
+      operationId: listPendingPairings
+      description: Requires the Owner or Administrator role and the read scope. Pending pairing sessions awaiting approval or rejection.
+      responses:
+        "200": { description: Pending pairing sessions }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Owner or Administrator required }
   /api/v1/screens/pairing/resolve:
     post:
       operationId: resolvePairingCode

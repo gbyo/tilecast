@@ -54,6 +54,7 @@ server host for that.`,
 	root.AddCommand(newScreenCommand(env))
 	root.AddCommand(newSettingsCommand(env))
 	root.AddCommand(newPluginCommand(env))
+	root.AddCommand(newPairingCommand(env))
 	return root
 }
 

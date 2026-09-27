@@ -440,6 +440,86 @@ func (c *Client) Call(ctx context.Context, method, path string, body io.Reader) 
 	return response.StatusCode, raw, nil
 }
 
+// callJSON marshals a document and performs one automation-style call.
+// Fleet commands use it where the documented contract is partial: the
+// handwritten wrapper carries the body the server requires.
+func (c *Client) callJSON(ctx context.Context, method, path string, body map[string]any) (int, []byte, error) {
+	var reader io.Reader
+	if body != nil {
+		raw, err := json.Marshal(body)
+		if err != nil {
+			return 0, nil, err
+		}
+		reader = bytes.NewReader(raw)
+	}
+	return c.Call(ctx, method, path, reader)
+}
+
+// ListPendingPairings returns the raw pending pairing sessions payload.
+func (c *Client) ListPendingPairings(ctx context.Context) (int, []byte, error) {
+	return c.rawCall(ctx, func(editor gen.RequestEditorFn) (int, []byte, error) {
+		response, err := c.inner.ListPendingPairingsWithResponse(ctx, editor)
+		if err != nil {
+			return 0, nil, err
+		}
+		return response.StatusCode(), response.Body, nil
+	})
+}
+
+// ResolvePairingCode resolves a visible pairing code into its session.
+func (c *Client) ResolvePairingCode(ctx context.Context, code string) (int, []byte, error) {
+	return c.callJSON(ctx, http.MethodPost, "/api/v1/screens/pairing/resolve", map[string]any{"code": code})
+}
+
+// ApprovePairing approves a pairing session with its screen details.
+func (c *Client) ApprovePairing(ctx context.Context, id string, body map[string]any) (int, []byte, error) {
+	parsed, err := parseID(id)
+	if err != nil {
+		return 0, nil, err
+	}
+	return c.callJSON(ctx, http.MethodPost, "/api/v1/screens/pairing/"+parsed.String()+"/approve", body)
+}
+
+// RejectPairing rejects a pairing session with an optional reason.
+func (c *Client) RejectPairing(ctx context.Context, id, reason string) (int, []byte, error) {
+	parsed, err := parseID(id)
+	if err != nil {
+		return 0, nil, err
+	}
+	return c.callJSON(ctx, http.MethodPost, "/api/v1/screens/pairing/"+parsed.String()+"/reject", map[string]any{"reason": reason})
+}
+
+// UpdateScreen replaces a screen's details document.
+func (c *Client) UpdateScreen(ctx context.Context, id string, body map[string]any) (int, []byte, error) {
+	parsed, err := parseID(id)
+	if err != nil {
+		return 0, nil, err
+	}
+	return c.callJSON(ctx, http.MethodPatch, "/api/v1/screens/"+parsed.String(), body)
+}
+
+// SetScreenEnabled disables or enables a screen.
+func (c *Client) SetScreenEnabled(ctx context.Context, id string, enabled bool) (int, []byte, error) {
+	parsed, err := parseID(id)
+	if err != nil {
+		return 0, nil, err
+	}
+	action := "disable"
+	if enabled {
+		action = "enable"
+	}
+	return c.Call(ctx, http.MethodPost, "/api/v1/screens/"+parsed.String()+"/"+action, nil)
+}
+
+// RevokeScreen permanently revokes a screen's device credential.
+func (c *Client) RevokeScreen(ctx context.Context, id, reason string) (int, []byte, error) {
+	parsed, err := parseID(id)
+	if err != nil {
+		return 0, nil, err
+	}
+	return c.callJSON(ctx, http.MethodPost, "/api/v1/screens/"+parsed.String()+"/revoke", map[string]any{"reason": reason})
+}
+
 // Download streams an authenticated GET body to the caller, who closes it.
 // It exists for artifact and export endpoints whose payloads must never be
 // buffered whole into memory by the transport.

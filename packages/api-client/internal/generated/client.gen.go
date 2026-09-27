@@ -5155,6 +5155,11 @@ type ClientInterface interface {
 	// Requires an authenticated user with the read scope. A scoped account sees only its own screens; the list and per-screen authorization use the same predicate. Status values are computed server-side, never stored.
 	ListScreens(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListPendingPairings performs a GET /api/v1/screens/pairing/pending (the `ListPendingPairings` operationId) request.
+	//
+	// Requires the Owner or Administrator role and the read scope. Pending pairing sessions awaiting approval or rejection.
+	ListPendingPairings(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ResolvePairingCode performs a POST /api/v1/screens/pairing/resolve (the `ResolvePairingCode` operationId) request.
 	ResolvePairingCode(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -9540,6 +9545,21 @@ func (c *Client) UpdateSpanGeometry(ctx context.Context, id ResourceID, params *
 // Requires an authenticated user with the read scope. A scoped account sees only its own screens; the list and per-screen authorization use the same predicate. Status values are computed server-side, never stored.
 func (c *Client) ListScreens(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListScreensRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListPendingPairings performs a GET /api/v1/screens/pairing/pending (the `ListPendingPairings` operationId) request.
+//
+// Requires the Owner or Administrator role and the read scope. Pending pairing sessions awaiting approval or rejection.
+func (c *Client) ListPendingPairings(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListPendingPairingsRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -19841,6 +19861,33 @@ func NewListScreensRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewListPendingPairingsRequest constructs an http.Request for the ListPendingPairings method
+func NewListPendingPairingsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/screens/pairing/pending")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewResolvePairingCodeRequest constructs an http.Request for the ResolvePairingCode method
 func NewResolvePairingCodeRequest(server string) (*http.Request, error) {
 	var err error
@@ -23658,6 +23705,13 @@ type ClientWithResponsesInterface interface {
 	//
 	// Returns a wrapper object for the known response body format(s).
 	ListScreensWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListScreensResponse, error)
+
+	// ListPendingPairingsWithResponse performs a GET /api/v1/screens/pairing/pending (the `ListPendingPairings` operationId) request.
+	//
+	// Requires the Owner or Administrator role and the read scope. Pending pairing sessions awaiting approval or rejection.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	ListPendingPairingsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListPendingPairingsResponse, error)
 
 	// ResolvePairingCodeWithResponse performs a POST /api/v1/screens/pairing/resolve (the `ResolvePairingCode` operationId) request.
 	//
@@ -32078,6 +32132,40 @@ func (r ListScreensResponse) ContentType() string {
 	return ""
 }
 
+type ListPendingPairingsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// GetBody returns the raw response body bytes
+func (r ListPendingPairingsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListPendingPairingsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListPendingPairingsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListPendingPairingsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ResolvePairingCodeResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -37472,6 +37560,19 @@ func (c *ClientWithResponses) ListScreensWithResponse(ctx context.Context, reqEd
 	return ParseListScreensResponse(rsp)
 }
 
+// ListPendingPairingsWithResponse performs a GET /api/v1/screens/pairing/pending (the `ListPendingPairings` operationId) request.
+//
+// Requires the Owner or Administrator role and the read scope. Pending pairing sessions awaiting approval or rejection.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) ListPendingPairingsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListPendingPairingsResponse, error) {
+	rsp, err := c.ListPendingPairings(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListPendingPairingsResponse(rsp)
+}
+
 // ResolvePairingCodeWithResponse performs a POST /api/v1/screens/pairing/resolve (the `ResolvePairingCode` operationId) request.
 //
 // Returns a wrapper object for the known response body format(s).
@@ -42366,6 +42467,22 @@ func ParseListScreensResponse(rsp *http.Response) (*ListScreensResponse, error) 
 	}
 
 	response := &ListScreensResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseListPendingPairingsResponse parses an HTTP response from a ListPendingPairingsWithResponse call
+func ParseListPendingPairingsResponse(rsp *http.Response) (*ListPendingPairingsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListPendingPairingsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

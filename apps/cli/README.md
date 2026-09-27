@@ -31,7 +31,18 @@ direct database access.
 - `tilecast status` shows the server identity and the signed-in user.
 - `tilecast screen list` and `tilecast screen get <id-or-name>` list and
   inspect the screens visible to the credential. Names resolve only when
-  unique; ambiguous names are errors, never guesses.
+  unique; ambiguous names are errors, never guesses. Name resolution
+  returns the full record, so management commands prefill from it.
+- `tilecast screen update <id-or-name>` replaces screen details.
+  Unset flags keep current values (the server requires a complete valid
+  row); at least one detail flag is required. `screen disable`,
+  `screen enable`, and `screen revoke [--reason]` manage status and the
+  device credential. All four confirm on a TTY (`--yes` skips).
+- `tilecast pairing list|resolve|approve|reject` runs the enrollment
+  ceremony: resolve turns the visible six-character code into a session,
+  approve names the screen (`--name`, `--room-name`, `--room-number`,
+  `--description` required), reject records an optional reason.
+  Approve and reject confirm like the screen mutations.
 - `tilecast settings get`, `settings set key=value [...]`, and
   `settings effective <screen>` read and change organization settings.
   `set` keeps the document revision, changes only the requested keys,

@@ -53,6 +53,7 @@ func newScreenCommand(env *environment) *cobra.Command {
 	}
 	addOutputFlags(get)
 	screen.AddCommand(list, get)
+	addScreenManageCommands(env, screen)
 	return screen
 }
 
@@ -134,7 +135,18 @@ func resolveScreen(ctx context.Context, transport *apiclient.Client, ref string)
 	case 0:
 		return nil, fmt.Errorf("no screen named %q (or it is outside your scope); pass an ID", ref)
 	case 1:
-		return matched[0], nil
+		// The list carries display fields only. Management commands
+		// prefill from the full record, so resolve through get: a name
+		// that lists but does not read is reported, never half-filled.
+		status, body, err := transport.GetScreen(ctx, screenID(matched[0]))
+		if err != nil {
+			return nil, err
+		}
+		var record screenRecord
+		if err := apiclient.DecodeBody(status, body, &record); err != nil {
+			return nil, notFoundAsUnknown(err, ref)
+		}
+		return record, nil
 	default:
 		ids := make([]string, 0, len(matched))
 		for _, screen := range matched {

@@ -150,6 +150,15 @@ export const SUPPORTED_OPERATIONS: SupportedOperation[] = [
   },
   {
     method: "get",
+    path: "/api/v1/screens/pairing/pending",
+    operationId: "listPendingPairings",
+    requestBody: "none",
+    responseSchema: false,
+    errors: ["401", "403"],
+    auth: "session-manager",
+  },
+  {
+    method: "get",
     path: "/api/v1/me/preferences",
     operationId: "getPreferences",
     requestBody: "none",

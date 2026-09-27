@@ -16,10 +16,12 @@ import (
 )
 
 type cliFixture struct {
-	env                *environment
-	revoked            []string
-	server             *httptest.Server
-	lastAutomationCall string
+	env                 *environment
+	revoked             []string
+	server              *httptest.Server
+	lastAutomationCall  string
+	lastScreenUpdate    map[string]any
+	lastPairingApproval map[string]any
 }
 
 func newFixture(t *testing.T) *cliFixture {
@@ -71,10 +73,60 @@ func newFixture(t *testing.T) *cliFixture {
 	mux.HandleFunc("/api/v1/screens/", func(w http.ResponseWriter, r *http.Request) {
 		rest := strings.TrimPrefix(r.URL.Path, "/api/v1/screens/")
 		parts := strings.Split(rest, "/")
+		if parts[0] == "pairing" {
+			switch {
+			case rest == "pairing/pending" && r.Method == http.MethodGet:
+				write(w, map[string]any{"items": []any{
+					map[string]any{"id": "44444444-4444-4444-4444-444444444444", "status": "pending", "expiresAt": "2030-01-01T00:00:00Z"},
+				}, "total": 1})
+				return
+			case rest == "pairing/resolve" && r.Method == http.MethodPost:
+				var body map[string]any
+				_ = json.NewDecoder(r.Body).Decode(&body)
+				if body["code"] == "ABC123" {
+					write(w, map[string]any{"id": "44444444-4444-4444-4444-444444444444", "status": "pending", "expiresAt": "2030-01-01T00:00:00Z"})
+					return
+				}
+				w.WriteHeader(http.StatusNotFound)
+				_, _ = w.Write([]byte(`{"error":{"code":"pairing_not_found","message":"no"}}`))
+				return
+			case len(parts) == 3 && parts[2] == "approve" && r.Method == http.MethodPost:
+				var body map[string]any
+				_ = json.NewDecoder(r.Body).Decode(&body)
+				f.lastPairingApproval = body
+				write(w, map[string]any{"id": "55555555-5555-5555-5555-555555555555", "name": body["name"], "status": "online"})
+				return
+			case len(parts) == 3 && parts[2] == "reject" && r.Method == http.MethodPost:
+				f.lastAutomationCall = "REJECT " + parts[1]
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"error":{"code":"not_found","message":"no"}}`))
+			return
+		}
+		if len(parts) == 2 && r.Method == http.MethodPost {
+			switch parts[1] {
+			case "disable", "enable", "revoke":
+				f.lastAutomationCall = "POST " + r.URL.Path
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+		}
 		if len(parts) == 1 {
 			switch parts[0] {
 			case "11111111-1111-1111-1111-111111111111":
-				write(w, map[string]any{"id": parts[0], "name": "lobby", "status": "online"})
+				if r.Method == http.MethodPatch {
+					var body map[string]any
+					_ = json.NewDecoder(r.Body).Decode(&body)
+					f.lastScreenUpdate = body
+					body["id"] = parts[0]
+					body["status"] = "online"
+					write(w, body)
+					return
+				}
+				write(w, map[string]any{"id": parts[0], "name": "lobby", "status": "online",
+					"roomName": "Foyer", "roomNumber": "1A", "description": "Front lobby screen"})
 				return
 			}
 			w.WriteHeader(http.StatusNotFound)

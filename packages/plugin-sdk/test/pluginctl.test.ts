@@ -184,6 +184,13 @@ function fixtureCore(): string {
       `      parameters:\n        - { in: path, name: pluginId, required: true, schema: { type: string } }\n      responses:\n${ok("Automation", `${schemaRef("PluginAutomation")}\n`)}\n${unauthorized}\n        '404': { description: Unknown }\n        '409': { description: Conflict }`,
     ],
     [
+      "/api/v1/screens/pairing/pending",
+      "get",
+      "listPendingPairings",
+      "Requires the Owner or Administrator role and an enrolled dashboard session.",
+      `      responses:\n${ok("Pending")}\n${unauthorized}\n        '403': { description: Forbidden }`,
+    ],
+    [
       "/api/v1/me/preferences",
       "get",
       "getPreferences",
