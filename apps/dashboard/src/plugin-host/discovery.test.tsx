@@ -345,10 +345,7 @@ describe("Studio plugin discovery", () => {
 });
 
 describe("plugin secondary navigation", () => {
-  const navItem = (
-    id: string,
-    to: string,
-  ): StudioPluginSecondaryNavItem => ({
+  const navItem = (id: string, to: string): StudioPluginSecondaryNavItem => ({
     id,
     to,
     icon: () => null,
@@ -373,13 +370,23 @@ describe("plugin secondary navigation", () => {
   it("collects contributions in deterministic order", () => {
     const items = collectSecondaryNavItems(
       [
-        discovered("forms", "forms", "/plugins/forms", ["/approvals"], [
-          navItem("inbox", "/approvals/inbox"),
-          navItem("approvals", "/approvals"),
-        ]),
-        discovered("alerts", "alerts", "/plugins/alerts", [], [
-          navItem("review", "/plugins/alerts/review"),
-        ]),
+        discovered(
+          "forms",
+          "forms",
+          "/plugins/forms",
+          ["/approvals"],
+          [
+            navItem("inbox", "/approvals/inbox"),
+            navItem("approvals", "/approvals"),
+          ],
+        ),
+        discovered(
+          "alerts",
+          "alerts",
+          "/plugins/alerts",
+          [],
+          [navItem("review", "/plugins/alerts/review")],
+        ),
       ],
       ["/activity", "/settings"],
     );
@@ -390,15 +397,25 @@ describe("plugin secondary navigation", () => {
 
   it("refuses duplicate item ids, unowned paths, and core collisions", () => {
     const forms = (secondaryNavigation: StudioPluginSecondaryNavItem[]) =>
-      discovered("forms", "forms", "/plugins/forms", ["/approvals"], secondaryNavigation);
+      discovered(
+        "forms",
+        "forms",
+        "/plugins/forms",
+        ["/approvals"],
+        secondaryNavigation,
+      );
     // Two plugins contributing one item id fail instead of merging.
     expect(() =>
       collectSecondaryNavItems(
         [
           forms([navItem("approvals", "/approvals")]),
-          discovered("other", "other", "/plugins/other", ["/other"], [
-            navItem("approvals", "/other"),
-          ]),
+          discovered(
+            "other",
+            "other",
+            "/plugins/other",
+            ["/other"],
+            [navItem("approvals", "/other")],
+          ),
         ],
         [],
       ),

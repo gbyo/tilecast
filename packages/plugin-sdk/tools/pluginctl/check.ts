@@ -79,7 +79,10 @@ export async function check(repo: Repo): Promise<Problem[]> {
       if (!manifest.capabilities.playerManifest) {
         add("a runtime entry needs capabilities.playerManifest");
       }
-      if (manifest.runtime.surfaces.length > 0 && !manifest.runtime.entrypoint) {
+      if (
+        manifest.runtime.surfaces.length > 0 &&
+        !manifest.runtime.entrypoint
+      ) {
         add(
           "a plugin that declares runtime.surfaces must render them in ./runtime/index.ts",
         );
