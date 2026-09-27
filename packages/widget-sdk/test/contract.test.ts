@@ -75,7 +75,13 @@ describe("identity", () => {
     [{ type: "tilecast.clock", version: 101, tagName: "tc-widget-clock" }],
     [{ type: "tilecast.clock", version: 1, tagName: "clock" }],
     [{ type: "tilecast.clock", version: 1, tagName: "tc-widget-weather" }],
-    [{ type: `acme.${"a".repeat(44)}${"b".repeat(24)}`, version: 1, tagName: "acme-x" }],
+    [
+      {
+        type: `acme.${"a".repeat(44)}${"b".repeat(24)}`,
+        version: 1,
+        tagName: "acme-x",
+      },
+    ],
   ])("rejects %j", (identity) => {
     expect(identityProblem(identity)).not.toBeNull();
   });
