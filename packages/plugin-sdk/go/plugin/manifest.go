@@ -63,7 +63,6 @@ type Capabilities struct {
 	PlayerManifest    bool     `json:"playerManifest,omitempty"`
 	BackgroundWorkers bool     `json:"backgroundWorkers,omitempty"`
 	Network           []string `json:"network,omitempty"`
-	Hardware          []string `json:"hardware,omitempty"`
 }
 
 type ServerEntry struct {
@@ -159,7 +158,6 @@ var (
 	surfaceSlots     = set("strip.top", "strip.bottom", "corner.top-left", "corner.top-right",
 		"corner.bottom-left", "corner.bottom-right", "overlay")
 	surfaceTiers  = set("emergency", "live", "scheduled", "ambient")
-	hardware      = set("microphone")
 	sidebarGroups = set("plugins", "review-and-collect")
 )
 
@@ -249,11 +247,7 @@ func (m Manifest) Validate() error {
 			return fail("invalid network host %q", host)
 		}
 	}
-	for _, item := range m.Capabilities.Hardware {
-		if !hardware[item] {
-			return fail("unknown hardware capability %q", item)
-		}
-	}
+
 	checkPath := func(field, value string) error {
 		if !pathPattern.MatchString(value) {
 			return fail("%s must be a ./relative path inside the plugin directory", field)

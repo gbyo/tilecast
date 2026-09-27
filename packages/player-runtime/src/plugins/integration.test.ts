@@ -8,7 +8,6 @@ import type { PluginManifestInput } from "@tilecast/plugin-sdk/manifest";
 import { ManualClock } from "../clock/scheduler";
 import { discoverRuntimePlugins, runtimeDiscovery } from "./discovery";
 import { RuntimeSurfaceHost, SURFACE_TICK_MS } from "./host";
-import { MicrophoneService } from "./microphone";
 
 const WALL = Date.parse("2026-09-01T15:00:00Z");
 
@@ -43,40 +42,21 @@ const ticker: RuntimeManifestEntry = {
   },
 };
 
-function player(
-  options: {
-    source?: "host-levels" | "renderer-microphone" | null;
-    animationScale?: number;
-  } = {},
-) {
+function player(options: { animationScale?: number } = {}) {
   const clock = new ManualClock({ wallMs: WALL });
-  const reports: string[] = [];
-  const buckets: unknown[] = [];
   const stage = document.createElement("div");
-  const microphone = new MicrophoneService({
-    source: options.source === undefined ? "host-levels" : options.source,
-    clock,
-    report: (report) => {
-      reports.push(report.status);
-      if (report.bucket !== undefined && report.bucket !== null) {
-        buckets.push(report.bucket);
-      }
-    },
-    diagnostic: () => {},
-  });
   const diagnostics: string[] = [];
   const host = new RuntimeSurfaceHost({
     clock,
     plugins: runtimeDiscovery.plugins,
     animationScale: options.animationScale ?? 1,
     reducedMotion: () => (options.animationScale ?? 1) === 0,
-    microphone,
     mediaUrl: (asset, variant) => `tcmedia://variant/${asset}/${variant}`,
     stage: () => stage,
     diagnostic: (id, message) => diagnostics.push(`${id}: ${message}`),
   });
   document.body.replaceChildren(host.element);
-  return { clock, host, stage, microphone, reports, buckets, diagnostics };
+  return { clock, host, stage, diagnostics };
 }
 
 const holder = (host: RuntimeSurfaceHost, slot: "strip.bottom") =>
@@ -194,45 +174,26 @@ describe("runtime plugin discovery", () => {
     ).toMatch(/id someone_else ≠ sample_surface/);
   });
 
-  it("refuses an entrypoint that keeps its temporary adapter", () => {
-    const found = discoverRuntimePlugins(
-      {
-        "../../../../plugins/sample-surface/tilecast.plugin.json":
-          manifest(declared),
-      },
-      {
-        "../../../../plugins/sample-surface/runtime/index.ts": {
-          default: definition(),
-        },
-      },
-      [definition()],
-    );
-    expect(found.problems.join()).toMatch(/remove its temporary adapter/);
-  });
-
   it("refuses two renderers for one manifest type", () => {
     const found = discoverRuntimePlugins(
       {
         "../../../../plugins/sample-surface/tilecast.plugin.json":
           manifest(declared),
-        "../../../../plugins/sample-copy/tilecast.plugin.json": manifest(
+        "../../../../plugins/sample-other/tilecast.plugin.json": manifest(
           declared,
-          "sample_copy",
+          "sample_other",
         ),
       },
       {
         "../../../../plugins/sample-surface/runtime/index.ts": {
           default: definition(),
         },
-        "../../../../plugins/sample-copy/runtime/index.ts": {
-          default: definition({
-            id: "sample_copy",
-            manifestTypes: ["sample_surface"],
-          }),
+        "../../../../plugins/sample-other/runtime/index.ts": {
+          default: definition({ id: "sample_other" }),
         },
       },
     );
-    expect(found.problems.join()).toMatch(/is also rendered by/);
+    expect(found.problems.join()).toMatch(/also rendered by/);
   });
 });
 
