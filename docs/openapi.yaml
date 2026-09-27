@@ -488,14 +488,14 @@ paths:
         Accepts the authenticated Player heartbeat. Optional Linux Display Control fields report detected providers, independent capabilities, display power observations, and policy state. They do not determine Player online status; command acknowledgement and display state confirmation remain separate.
 
 
-        The optional `noiseMeter` object carries the Noise Meter plugin's live state and its completed ten-second history buckets. It is derived numbers only — no audio, waveform, or sample is exchanged in either direction. The screen is taken from the authenticated device credential, never from the body, and a batch is bounded to 120 records. Storage is idempotent on screen plus bucket start, so a retried heartbeat cannot duplicate history.
+        Players released with the retired Noise Meter plugin may still send a `noiseMeter` object. The server accepts it and ignores it, so the rest of the heartbeat is recorded.
       requestBody:
         content:
           application/json:
             schema: { $ref: "#/components/schemas/PlayerHeartbeat" }
       responses:
         "200":
-          description: Heartbeat accepted. `data.ignoredFields` names optional playback identifiers that were malformed and therefore dropped. `data.noiseHistory.accepted` is how many submitted Noise Meter records the server has taken responsibility for; a Player keeps its batch until it sees that count.
+          description: Heartbeat accepted. `data.ignoredFields` names optional playback identifiers that were malformed and therefore dropped.
         "400": { description: Heartbeat body rejected }
         "401": { description: Credential invalid or revoked }
         "403": { description: Screen disabled }
@@ -723,183 +723,6 @@ paths:
                 required: [data]
                 properties:
                   data: { $ref: "#/components/schemas/DependencyGraph" }
-  /api/v1/plugins/brand-bug/instances:
-    get:
-      operationId: listBrandBugInstances
-      responses:
-        "200": { description: Configured Brand Bug instances }
-    post:
-      operationId: createBrandBugInstance
-      parameters:
-        - { $ref: "#/components/parameters/CSRFToken" }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/BrandBugInput" }
-      responses:
-        "201": { description: Brand Bug instance created }
-        "400":
-          description: Typed configuration, logo image, or targets are invalid
-        "403": { description: Owner or Administrator required }
-  /api/v1/plugins/brand-bug/instances/{id}:
-    get:
-      operationId: getBrandBugInstance
-      parameters:
-        - { $ref: "#/components/parameters/ResourceID" }
-      responses:
-        "200": { description: Brand Bug instance }
-        "404": { description: Instance not found }
-    put:
-      operationId: updateBrandBugInstance
-      parameters:
-        - { $ref: "#/components/parameters/ResourceID" }
-        - { $ref: "#/components/parameters/CSRFToken" }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/BrandBugInput" }
-      responses:
-        "200": { description: Brand Bug instance replaced }
-        "400":
-          description: Typed configuration, logo image, or targets are invalid
-        "403": { description: Owner or Administrator required }
-        "404": { description: Instance not found }
-    delete:
-      operationId: deleteBrandBugInstance
-      parameters:
-        - { $ref: "#/components/parameters/ResourceID" }
-        - { $ref: "#/components/parameters/CSRFToken" }
-      responses:
-        "204": { description: Brand Bug instance deleted }
-        "403": { description: Owner or Administrator required }
-        "404": { description: Instance not found }
-  /api/v1/plugins/noise-meter/instances:
-    get:
-      operationId: listNoiseMeterInstances
-      responses:
-        "200": { description: Configured Noise Meter instances }
-    post:
-      operationId: createNoiseMeterInstance
-      parameters:
-        - { $ref: "#/components/parameters/CSRFToken" }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/NoiseMeterInput" }
-      responses:
-        "201": { description: Noise Meter instance created }
-        "400":
-          {
-            description: Typed configuration,
-            thresholds,
-            or targets are invalid,
-          }
-        "403": { description: Owner or Administrator required }
-  /api/v1/plugins/noise-meter/instances/{id}:
-    get:
-      operationId: getNoiseMeterInstance
-      parameters:
-        - { $ref: "#/components/parameters/ResourceID" }
-      responses:
-        "200": { description: Noise Meter instance }
-        "404": { description: Instance not found }
-    put:
-      operationId: updateNoiseMeterInstance
-      parameters:
-        - { $ref: "#/components/parameters/ResourceID" }
-        - { $ref: "#/components/parameters/CSRFToken" }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/NoiseMeterInput" }
-      responses:
-        "200": { description: Noise Meter instance replaced }
-        "400":
-          {
-            description: Typed configuration,
-            thresholds,
-            or targets are invalid,
-          }
-        "403": { description: Owner or Administrator required }
-        "404": { description: Instance not found }
-    delete:
-      operationId: deleteNoiseMeterInstance
-      parameters:
-        - { $ref: "#/components/parameters/ResourceID" }
-        - { $ref: "#/components/parameters/CSRFToken" }
-      responses:
-        "204": { description: Noise Meter instance deleted }
-        "403": { description: Owner or Administrator required }
-        "404": { description: Instance not found }
-  /api/v1/plugins/noise-meter/instances/{id}/history/summary:
-    get:
-      operationId: noiseMeterHistorySummary
-      description: >-
-        Descriptive statistics for the selected range: average and peak relative level, time in each band, warning events counted by the Player, the longest continuous loud run, and the loudest fifteen minutes. Screens are resolved from the caller's own scope.
-      parameters:
-        - { $ref: "#/components/parameters/ResourceID" }
-        - { $ref: "#/components/parameters/NoiseHistoryRange" }
-        - { $ref: "#/components/parameters/NoiseHistoryScreen" }
-        - { $ref: "#/components/parameters/NoiseHistoryTimezone" }
-      responses:
-        "200": { description: Summary statistics }
-        "400": { description: Range or screen is invalid }
-        "404": { description: Instance or screen not found }
-  /api/v1/plugins/noise-meter/instances/{id}/history/series:
-    get:
-      operationId: noiseMeterHistorySeries
-      description: >-
-        Timeline points at the range's presentation resolution — one minute for a day, fifteen minutes for a week, an hour for a month. Averages are weighted by monitored time, peaks keep the maximum, durations sum, and a period with no records is omitted rather than returned as zero.
-      parameters:
-        - { $ref: "#/components/parameters/ResourceID" }
-        - { $ref: "#/components/parameters/NoiseHistoryRange" }
-        - { $ref: "#/components/parameters/NoiseHistoryScreen" }
-        - { $ref: "#/components/parameters/NoiseHistoryTimezone" }
-      responses:
-        "200": { description: Aggregated timeline points }
-        "400": { description: Range or screen is invalid }
-  /api/v1/plugins/noise-meter/instances/{id}/history/daily:
-    get:
-      operationId: noiseMeterHistoryDaily
-      description: Per-day rollups. Days without monitoring are absent, never zero.
-      parameters:
-        - { $ref: "#/components/parameters/ResourceID" }
-        - { $ref: "#/components/parameters/NoiseHistoryRange" }
-        - { $ref: "#/components/parameters/NoiseHistoryScreen" }
-        - { $ref: "#/components/parameters/NoiseHistoryTimezone" }
-      responses:
-        "200": { description: Daily rollups }
-  /api/v1/plugins/noise-meter/instances/{id}/history/screens:
-    get:
-      operationId: noiseMeterHistoryScreens
-      description: >-
-        Which of the caller's screens hold history for this meter in the range, so History shows one screen directly and offers a selector only when there is something to select.
-      parameters:
-        - { $ref: "#/components/parameters/ResourceID" }
-        - { $ref: "#/components/parameters/NoiseHistoryRange" }
-        - { $ref: "#/components/parameters/NoiseHistoryTimezone" }
-      responses:
-        "200": { description: Screens with measurements }
-  /api/v1/plugins/noise-meter/instances/{id}/history/export.csv:
-    get:
-      operationId: exportNoiseMeterHistory
-      description: >-
-        CSV of the selected range and screens, streamed server-side. Granularity is the stored ten-second records, one-minute summaries, or daily summaries.
-      parameters:
-        - { $ref: "#/components/parameters/ResourceID" }
-        - { $ref: "#/components/parameters/NoiseHistoryRange" }
-        - { $ref: "#/components/parameters/NoiseHistoryScreen" }
-        - { $ref: "#/components/parameters/NoiseHistoryTimezone" }
-        - in: query
-          name: granularity
-          schema: { enum: [raw, minute, daily], default: raw }
-      responses:
-        "200": { description: CSV export }
-        "400": { description: Range, screen, or granularity is invalid }
   /api/v1/screens/pairing/{id}/reject:
     post:
       operationId: rejectPairing
@@ -3415,22 +3238,7 @@ components:
       name: pluginId
       required: true
       schema: { type: string, pattern: "^[a-z][a-z0-9_]{0,79}$" }
-      description: Registry identifier such as noise_meter.
-    NoiseHistoryRange:
-      in: query
-      name: range
-      schema: { enum: [today, yesterday, 7d, 30d], default: today }
-    NoiseHistoryScreen:
-      in: query
-      name: screenId
-      schema: { type: string, format: uuid }
-      description: >-
-        One screen, authorized with the same screen scope as every other screen operation. Omitted means every screen the account may see.
-    NoiseHistoryTimezone:
-      in: query
-      name: tz
-      schema: { type: string }
-      description: IANA timezone for day boundaries. Unreadable values fall back to UTC.
+      description: Registry identifier such as countdown_bar.
     ResourceID:
       in: path
       name: id
@@ -4218,50 +4026,6 @@ components:
         toType: { $ref: "#/components/schemas/DependencyNode/properties/type" }
         toId: { type: string, format: uuid }
         relationship: { type: string }
-    BrandBugInput:
-      type: object
-      additionalProperties: false
-      required:
-        [
-          name,
-          corner,
-          text,
-          widthPercent,
-          textSizePercent,
-          opacityPercent,
-          marginPercent,
-          textColor,
-          backgroundStyle,
-          enabled,
-          priority,
-          targetScope,
-          targetIds,
-        ]
-      description: A mark needs a logo image, text, or both. Sizes are percentages of the screen so one instance reads the same at any panel resolution.
-      properties:
-        name: { type: string, minLength: 1, maxLength: 180 }
-        corner: { enum: [top_left, top_right, bottom_left, bottom_right] }
-        imageAssetId:
-          type: [string, "null"]
-          format: uuid
-          description: A ready image in the Media library.
-        text: { type: string, maxLength: 180 }
-        widthPercent: { type: integer, minimum: 2, maximum: 40 }
-        textSizePercent: { type: integer, minimum: 1, maximum: 12 }
-        opacityPercent: { type: integer, minimum: 10, maximum: 100 }
-        marginPercent: { type: integer, minimum: 0, maximum: 20 }
-        textColor: { type: string, pattern: "^#[0-9a-fA-F]{6}$" }
-        backgroundStyle: { enum: [none, scrim] }
-        startsAt: { type: [string, "null"], format: date-time }
-        endsAt: { type: [string, "null"], format: date-time }
-        enabled: { type: boolean }
-        priority: { type: integer, minimum: -1000, maximum: 1000 }
-        targetScope: { enum: [all, screens, sync_groups, locations] }
-        targetIds:
-          type: array
-          uniqueItems: true
-          maxItems: 250
-          items: { type: string, format: uuid }
     PlayerFamily:
       enum: [android, electron-linux, edge]
       description: >-
@@ -4309,7 +4073,7 @@ components:
     PlayerHeartbeat:
       type: object
       description: >-
-        The Player status document. Only the optional Noise Meter section and the release family fields are described here; the remaining fields are the existing heartbeat contract and are additive.
+        The Player status document. Only the release family fields are described here; the remaining fields are the existing heartbeat contract and are additive.
       properties:
         playerFamily:
           type: string
@@ -4319,144 +4083,6 @@ components:
           type: string
           description: >-
             `x86_64` or `aarch64`, kept only with `playerFamily: edge`. An Edge screen without a known architecture is `incompatible` for Edge deployments.
-        noiseMeter:
-          type: object
-          additionalProperties: false
-          description: >-
-            Noise Meter plugin state. Contains no audio, waveform, or sample, and levels are the relative 0-100 Tilecast scale rather than dB, dBA, or SPL.
-          properties:
-            status:
-              enum: [active, normal, loud, unavailable, inactive]
-            currentLevel:
-              type: number
-              minimum: 0
-              maximum: 100
-              description: The live relative level when the heartbeat was built.
-            pendingHistory:
-              type: array
-              maxItems: 120
-              description: >-
-                The oldest unacknowledged ten-second buckets. Bounded per heartbeat; the rest stay queued on the Player for later heartbeats rather than accelerating the cadence.
-              items:
-                type: object
-                additionalProperties: false
-                required:
-                  [
-                    startedAt,
-                    averageLevel,
-                    peakLevel,
-                    monitoredMs,
-                    warningMs,
-                    loudMs,
-                  ]
-                properties:
-                  startedAt:
-                    type: string
-                    format: date-time
-                    description: Start of the fixed ten-second grid slot.
-                  averageLevel: { type: number, minimum: 0, maximum: 100 }
-                  peakLevel: { type: number, minimum: 0, maximum: 100 }
-                  monitoredMs:
-                    type: integer
-                    minimum: 0
-                    maximum: 10000
-                    description: >-
-                      How much of the bucket the microphone actually covered, so a partly monitored slot is not read as ten seconds of quiet.
-                  warningMs: { type: integer, minimum: 0, maximum: 10000 }
-                  loudMs: { type: integer, minimum: 0, maximum: 10000 }
-                  triggerCount:
-                    type: integer
-                    minimum: 0
-                    maximum: 1000
-                    description: >-
-                      Times the Player's state machine entered its loud state in this bucket, counted where it happened.
-    NoiseMeterInput:
-      type: object
-      additionalProperties: false
-      required:
-        [
-          name,
-          message,
-          warningLevel,
-          loudLevel,
-          sensitivity,
-          triggerHoldMs,
-          clearHoldMs,
-          displayMode,
-          heightPx,
-          enabled,
-          targetScope,
-          targetIds,
-        ]
-      description: >-
-        Thresholds for the Linux Player's room noise bar. Levels are a relative 0-100 scale measured against that player's own microphone; they are not dB, dBA, or SPL, and no audio, sample, or microphone identifier is exchanged in either direction. warningLevel must be below loudLevel: one threshold used for both showing and hiding makes the bar flap.
-      properties:
-        name: { type: string, minLength: 1, maxLength: 180 }
-        message:
-          type: string
-          maxLength: 120
-          description: Replaces the bar's own TOO LOUD label. Empty is allowed.
-        warningLevel:
-          type: integer
-          minimum: 1
-          maximum: 99
-          default: 60
-          description: >-
-            Where the yellow zone begins, and the level the room must stay below before the bar hides.
-        loudLevel:
-          type: integer
-          minimum: 2
-          maximum: 100
-          default: 80
-          description: Where the red zone begins and the bar can appear.
-        sensitivity:
-          type: integer
-          minimum: 25
-          maximum: 300
-          default: 100
-          description: >-
-            Percentage applied to the captured signal before normalization, for a microphone that reads quiet or hot. Not a calibration.
-        triggerHoldMs:
-          type: integer
-          minimum: 100
-          maximum: 10000
-          default: 1000
-          description: How long the room must stay loud before the bar appears.
-        clearHoldMs:
-          type: integer
-          minimum: 500
-          maximum: 30000
-          default: 3000
-          description: How long it must stay below warningLevel before the bar hides.
-        displayMode: { enum: [overlay, push] }
-        heightPx: { type: integer, minimum: 40, maximum: 320, default: 96 }
-        scheduleEnabled:
-          type: boolean
-          default: false
-          description: >-
-            When false the bar may show whenever the room is too loud. A window governs the bar alone; the room is measured either way.
-        scheduleDaysOfWeek:
-          type: array
-          uniqueItems: true
-          maxItems: 7
-          items: { type: integer, minimum: 0, maximum: 6 }
-          description: Days the window may start on, Sunday 0 through Saturday 6.
-        scheduleStartTime:
-          type: [string, "null"]
-          pattern: "^[0-9]{2}:[0-9]{2}$"
-        scheduleEndTime:
-          type: [string, "null"]
-          pattern: "^[0-9]{2}:[0-9]{2}$"
-          description: >-
-            At or before the start is an overnight window belonging to the start day. The window is half-open, so the end minute is outside it.
-        scheduleTimezone: { type: string, maxLength: 100, default: UTC }
-        enabled: { type: boolean }
-        targetScope: { enum: [all, screens, sync_groups, locations] }
-        targetIds:
-          type: array
-          uniqueItems: true
-          maxItems: 250
-          items: { type: string, format: uuid }
     MultiFactorVerifyRequest:
       type: object
       additionalProperties: false

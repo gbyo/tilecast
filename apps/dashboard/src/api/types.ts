@@ -1163,6 +1163,8 @@ export type PluginSummary = {
 export type UnsupportedPluginInstallation = {
   pluginId: string;
   installedAt: string;
+  /** An earlier release shipped this plugin and this release removed it. */
+  retired?: boolean;
 };
 
 export type PluginCatalog = {
@@ -1215,131 +1217,6 @@ export type PluginTargeting = {
   targetIds: string[];
 };
 
-export type BrandBugCorner =
-  "top_left" | "top_right" | "bottom_left" | "bottom_right";
-
-export type BrandBugInput = {
-  name: string;
-  corner: BrandBugCorner;
-  imageAssetId?: string | null;
-  text: string;
-  /** Logo width as a percentage of screen width. */
-  widthPercent: number;
-  /** Caption size as a percentage of screen height. */
-  textSizePercent: number;
-  opacityPercent: number;
-  /** Corner inset as a percentage of the screen's shorter edge. */
-  marginPercent: number;
-  textColor: string;
-  backgroundStyle: "none" | "scrim";
-  startsAt?: string | null;
-  endsAt?: string | null;
-  enabled: boolean;
-  priority: number;
-} & PluginTargeting;
-
-export type BrandBug = BrandBugInput & {
-  id: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type NoiseMeterInput = {
-  name: string;
-  /** Replaces the bar's own TOO LOUD label when set. */
-  message: string;
-  /**
-   * Points on the relative 0-100 noise scale. They are measured against the
-   * Player's own microphone and are not calibrated decibels of any kind.
-   */
-  warningLevel: number;
-  loudLevel: number;
-  /** Percentage applied to the captured signal before it is normalized. */
-  sensitivity: number;
-  triggerHoldMs: number;
-  clearHoldMs: number;
-  displayMode: "overlay" | "push";
-  heightPx: number;
-  /**
-   * History keeps derived ten-second measurements for graphs and reports.
-   * Microphone audio is never recorded or uploaded, so nothing here can turn
-   * it on.
-   */
-  historyEnabled: boolean;
-  historyRetentionDays: number;
-  historyActiveHoursOnly: boolean;
-  /**
-   * The optional window during which the bar may appear. It governs the bar
-   * alone — measurement and history keep their own rules — and an end at or
-   * before the start is an overnight window.
-   */
-  scheduleEnabled: boolean;
-  /** Sunday 0 through Saturday 6. */
-  scheduleDaysOfWeek: number[];
-  scheduleStartTime?: string | null;
-  scheduleEndTime?: string | null;
-  scheduleTimezone: string;
-  enabled: boolean;
-} & PluginTargeting;
-
-export type NoiseMeter = NoiseMeterInput & {
-  id: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type NoiseHistoryRange = "today" | "yesterday" | "7d" | "30d";
-
-export type NoiseHistoryScreen = {
-  screenId: string;
-  name: string;
-  buckets: number;
-  firstAt?: string;
-  lastAt?: string;
-};
-
-export type NoiseHistoryPoint = {
-  at: string;
-  averageLevel: number;
-  peakLevel: number;
-  monitoredMs: number;
-  warningMs: number;
-  loudMs: number;
-  triggerCount: number;
-};
-
-export type NoiseHistoryDay = {
-  date: string;
-  averageLevel: number;
-  peakLevel: number;
-  monitoredMs: number;
-  warningMs: number;
-  loudMs: number;
-  triggerCount: number;
-};
-
-/** Descriptive statistics only: no score, grade, or ranking. */
-export type NoiseHistorySummary = {
-  buckets: number;
-  averageLevel: number | null;
-  peakLevel: number | null;
-  monitoredMs: number;
-  normalMs: number;
-  warningMs: number;
-  loudMs: number;
-  warningEvents: number;
-  longestLoudMs: number;
-  loudestWindowAt?: string;
-  loudestWindowLevel?: number;
-  firstAt?: string;
-  lastAt?: string;
-};
-
-export type NoiseHistoryWindow = {
-  key: NoiseHistoryRange;
-  from: string;
-  to: string;
-};
 export type ScheduleTarget = {
   type: "screen" | "group";
   id: string;

@@ -2067,9 +2067,6 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 			return Manifest{}, "", err
 		}
 	}
-	if err = s.projectPluginAssets(ctx, &manifest, seen); err != nil {
-		return Manifest{}, "", err
-	}
 	// Project the shared dataset for every Data Source every data-driven widget in
 	// the manifest references. Release-defined widgets may reference more than one.
 	for _, widget := range append([]ManifestWidget(nil), manifest.Widgets...) {
@@ -2494,58 +2491,6 @@ func (s *Service) resolveAssetVariant(ctx context.Context, assetID uuid.UUID, re
 	}
 	asset.DownloadPath = "/api/v1/player/assets/" + asset.AssetID.String() + "/variants/" + asset.VariantID.String()
 	return asset, nil
-}
-
-// projectPluginAssets resolves media a built-in plugin references. Brand Bug is
-// the only plugin with media today: its logo becomes a normal manifest asset so
-// the Player verifies and caches it like any other image and keeps drawing the
-// mark offline.
-//
-// A logo that has become unavailable since the instance was saved drops to a
-// text-only mark rather than failing the manifest — one deleted image must not
-// cost a screen its entire content.
-func (s *Service) projectPluginAssets(ctx context.Context, manifest *Manifest, seen map[uuid.UUID]bool) error {
-	kept := make([]plugins.ManifestPlugin, 0, len(manifest.Plugins))
-	for _, plugin := range manifest.Plugins {
-		config, ok := plugin.Config.(*plugins.ManifestBrandBugConfig)
-		if !ok {
-			kept = append(kept, plugin)
-			continue
-		}
-		if err := s.resolveBrandBugLogo(ctx, manifest, config, seen); err != nil {
-			return err
-		}
-		// A mark left with no logo and no text has nothing to draw; publishing it
-		// would only give the Player an empty corner to reason about.
-		if config.ImageAssetID != nil || strings.TrimSpace(config.Text) != "" {
-			kept = append(kept, plugin)
-		}
-	}
-	manifest.Plugins = kept
-	return nil
-}
-
-func (s *Service) resolveBrandBugLogo(ctx context.Context, manifest *Manifest, config *plugins.ManifestBrandBugConfig, seen map[uuid.UUID]bool) error {
-	if config.ImageAssetID == nil {
-		return nil
-	}
-	asset, err := s.resolveImageVariant(ctx, *config.ImageAssetID)
-	if err != nil {
-		if !errors.Is(err, pgx.ErrNoRows) {
-			return err
-		}
-		config.ImageAssetID = nil
-		return nil
-	}
-	variantID := asset.VariantID
-	config.ImageVariantID = &variantID
-	config.ImageAvailableFrom = asset.AvailableFrom
-	config.ImageExpiresAt = asset.ExpiresAt
-	if !seen[asset.VariantID] {
-		manifest.Assets = append(manifest.Assets, asset)
-		seen[asset.VariantID] = true
-	}
-	return nil
 }
 
 // projectDataSource adds a Data Source to the manifest exactly once, projecting its bounded

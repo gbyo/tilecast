@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -106,8 +105,8 @@ type Catalog struct {
 }
 
 // ManifestPlugin is one entry of the manifest's discriminated `plugins`
-// array: a screen may be delivered a Countdown Bar, an Emergency Alerts
-// ticker, and a Brand Bug at the same time. It is the SDK's ManifestEntry,
+// array: a screen may be delivered a Countdown Bar and an Emergency Alerts
+// ticker at the same time. It is the SDK's ManifestEntry,
 // so plugins in plugins/ and the remaining built-ins here share one shape.
 type ManifestPlugin = plugin.ManifestEntry
 
@@ -239,34 +238,6 @@ func nounFor(d Definition, count int) string {
 // each one.
 func (s *Service) pluginStatuses(ctx context.Context) (map[string]pluginStatus, error) {
 	statuses := map[string]pluginStatus{}
-	for id, table := range map[string]string{
-		BrandBugID:   "brand_bug_instances",
-		NoiseMeterID: "noise_meter_instances",
-	} {
-		var status pluginStatus
-		// table is a literal from this map, never request input.
-		if err := s.db.QueryRow(ctx, `SELECT COALESCE(bool_or(enabled),FALSE),count(*) FROM `+table).
-			Scan(&status.active, &status.count); err != nil {
-			return nil, err
-		}
-		status.configured = status.count > 0
-		statuses[id] = status
-	}
-
-	noise := statuses[NoiseMeterID]
-	var linuxPlayers bool
-	if err := s.db.QueryRow(ctx,
-		`SELECT EXISTS(SELECT 1 FROM screens WHERE platform='linux' AND archived_at IS NULL)`).
-		Scan(&linuxPlayers); err != nil {
-		return nil, err
-	}
-	if !linuxPlayers {
-		noise.attention = append(noise.attention, PluginAttention{
-			Code:    "no_compatible_player",
-			Message: "No Linux Player is paired yet. Meters take effect once a Linux Player with a microphone is added.",
-		})
-	}
-	statuses[NoiseMeterID] = noise
 
 	// Emergency Alerts is active when its monitor is switched on, and its rules
 	// are its instances. A monitor with areas chosen but no rule is configured
@@ -304,76 +275,6 @@ func (s *Service) pluginStatuses(ctx context.Context) (map[string]pluginStatus, 
 	forms.active = forms.count > 0
 	statuses[FormsID] = forms
 	return statuses, nil
-}
-
-type scanner interface{ Scan(...any) error }
-
-// Postgres renders `time` as HH:MM:SS. Both the API and the Player manifest
-// publish the HH:MM shape the dashboard and validator expect.
-func trimTargetTime(value *string) *string {
-	if value == nil || *value == "" {
-		return value
-	}
-	trimmed := strings.TrimSuffix(strings.TrimSuffix(*value, "00"), ":")
-	return &trimmed
-}
-
-// targetIDsFrom reads one instance's targets. `table` is always a literal from
-// this package, never request input.
-func (s *Service) targetIDsFrom(ctx context.Context, table string, id uuid.UUID) ([]uuid.UUID, error) {
-	rows, err := s.db.Query(ctx, `SELECT target_id FROM `+table+` WHERE instance_id=$1 ORDER BY target_id`, id)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	ids := []uuid.UUID{}
-	for rows.Next() {
-		var target uuid.UUID
-		if err = rows.Scan(&target); err != nil {
-			return nil, err
-		}
-		ids = append(ids, target)
-	}
-	return ids, rows.Err()
-}
-
-// targetScopeFilter returns the shared screen-target predicate. Both table
-// names are package-controlled literals, never request input.
-func targetScopeFilter(instancesTable, targetsTable string) string {
-	return fmt.Sprintf(`FROM %s i
-		WHERE i.enabled AND (
-			i.target_scope='all'
-			OR (i.target_scope='screens' AND EXISTS(
-				SELECT 1 FROM %s t WHERE t.instance_id=i.id AND t.target_type='screens' AND t.target_id=$1))
-			OR (i.target_scope='locations' AND EXISTS(
-				SELECT 1 FROM %s t JOIN screens sc ON sc.id=$1 AND sc.location_id=t.target_id
-				WHERE t.instance_id=i.id AND t.target_type='locations'))
-			OR (i.target_scope='sync_groups' AND EXISTS(
-				SELECT 1 FROM %s t JOIN screen_group_memberships m ON m.screen_id=$1 AND m.screen_group_id=t.target_id
-				WHERE t.instance_id=i.id AND t.target_type='sync_groups'))
-		)`, instancesTable, targetsTable, targetsTable, targetsTable)
-}
-
-// validateTargeting is shared by every plugin: the four scopes and their bounds
-// are a property of Tilecast targeting, not of any one plugin.
-func validateTargeting(scope string, ids []uuid.UUID) error {
-	if scope == "all" {
-		if len(ids) != 0 {
-			return fmt.Errorf("%w: all-screen targeting cannot include targetIds", ErrInvalid)
-		}
-	} else if scope != "screens" && scope != "sync_groups" && scope != "locations" {
-		return fmt.Errorf("%w: targetScope is invalid", ErrInvalid)
-	} else if len(ids) == 0 || len(ids) > 250 {
-		return fmt.Errorf("%w: targeted instances require between one and 250 targets", ErrInvalid)
-	}
-	seenTarget := map[uuid.UUID]bool{}
-	for _, target := range ids {
-		if seenTarget[target] {
-			return fmt.Errorf("%w: targetIds must be unique", ErrInvalid)
-		}
-		seenTarget[target] = true
-	}
-	return nil
 }
 
 func validateTargets(ctx context.Context, tx pgx.Tx, scope string, ids []uuid.UUID) error {
@@ -457,8 +358,6 @@ func (s *Service) ManifestForScreen(ctx context.Context, screenID uuid.UUID) ([]
 	}
 	legacy := map[string]func(context.Context, uuid.UUID) ([]ManifestPlugin, error){
 		EmergencyAlertsID: s.alertTickersForScreen,
-		BrandBugID:        s.brandBugsForScreen,
-		NoiseMeterID:      s.noiseMetersForScreen,
 	}
 	out := []ManifestPlugin{}
 	for _, hosted := range s.hosted {

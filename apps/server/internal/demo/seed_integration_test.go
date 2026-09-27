@@ -187,7 +187,7 @@ func TestSeedScenariosAreDeterministicAndRerunnable(t *testing.T) {
 		return counts
 	}
 	before := snapshot()
-	want := map[string]int{"users": 4, "locations": 4, "screens": 13, "screen_groups": 4, "screen_group_memberships": 10, "playlists": 5, "layouts": 2, "schedules": 3, "campaigns": 1, "content_tags": 4, "assets": 10, "plugin_installations": 2}
+	want := map[string]int{"users": 4, "locations": 4, "screens": 13, "screen_groups": 4, "screen_group_memberships": 10, "playlists": 5, "layouts": 2, "schedules": 3, "campaigns": 1, "content_tags": 4, "assets": 10, "plugin_installations": 1}
 	for table, count := range want {
 		if before[table] != count {
 			t.Errorf("%s = %d, want %d", table, before[table], count)

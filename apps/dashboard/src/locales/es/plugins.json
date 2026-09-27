@@ -9,6 +9,10 @@
     "unsupportedBody_one": "{{ids}} está registrado como instalado pero no forma parte de esta versión. No se ejecutará y sus datos se conservan para cuando vuelva la versión más reciente.",
     "unsupportedBody_many": "{{ids}} están registrados como instalados pero no forman parte de esta versión. No se ejecutarán y sus datos se conservan para cuando vuelva la versión más reciente.",
     "unsupportedBody_other": "{{ids}} están registrados como instalados pero no forman parte de esta versión. No se ejecutarán y sus datos se conservan para cuando vuelva la versión más reciente.",
+    "retiredTitle": "Complementos retirados de Tilecast",
+    "retiredBody_one": "{{ids}} está registrado como instalado, pero se retiró de Tilecast. Ya no se ejecuta y sus datos se conservan.",
+    "retiredBody_many": "{{ids}} están registrados como instalados, pero se retiraron de Tilecast. Ya no se ejecutan y sus datos se conservan.",
+    "retiredBody_other": "{{ids}} están registrados como instalados, pero se retiraron de Tilecast. Ya no se ejecutan y sus datos se conservan.",
     "loading": "Cargando complementos",
     "installedLabel": "Complementos instalados",
     "emptyTitle": "Ningún complemento instalado",
@@ -133,166 +137,6 @@
     },
     "saturday": {
       "short": "sáb"
-    }
-  },
-  "brandBug": {
-    "title": "Logotipo / marca de agua",
-    "subtitle": "Las marcas de esquina permanecen en pantalla sobre listas de reproducción, diseños, sitios web y widgets sin cambiar lo que se reproduce.",
-    "loadError": "No se pudieron cargar los logotipos.",
-    "emptyTitle": "Ningún logotipo configurado",
-    "emptyDescription": "Crea una instancia para mantener un logotipo, un aviso o una insignia en una esquina de las pantallas elegidas.",
-    "deleteBody": "La marca se quitará de los reproductores de destino.",
-    "editor": {
-      "createTitle": "Nuevo logotipo",
-      "manageTitle": "Gestionar logotipo",
-      "subtitle": "Se muestra una marca por esquina. La prioridad decide qué instancia gana cuando dos quieren la misma esquina.",
-      "sections": {
-        "mark": "Marca",
-        "placement": "Posición",
-        "appearance": "Apariencia",
-        "window": "Ventana opcional"
-      },
-      "logoLabel": "Imagen del logotipo",
-      "noImage": "Sin imagen",
-      "logoHint": "Solo imágenes subidas y procesadas.",
-      "textLabel": "Texto",
-      "textPlaceholder": "Presentado por Ejemplo",
-      "textHint": "Se muestra debajo del logotipo, o solo para un aviso o una etiqueta de ubicación.",
-      "cornerLabel": "Esquina",
-      "corners": {
-        "topLeft": "Arriba a la izquierda",
-        "topRight": "Arriba a la derecha",
-        "bottomLeft": "Abajo a la izquierda",
-        "bottomRight": "Abajo a la derecha"
-      },
-      "widthLabel": "Ancho del logotipo (% del ancho de la pantalla)",
-      "marginLabel": "Margen (% del lado corto)",
-      "textSizeLabel": "Tamaño del texto (% de la altura de la pantalla)",
-      "colorLabel": "Color del texto",
-      "backingLabel": "Fondo",
-      "backing": {
-        "scrim": "Placa sombreada detrás de la marca",
-        "none": "Nada detrás de la marca"
-      },
-      "opacityLabel": "Opacidad (%)",
-      "windowFrom": "Mostrar desde",
-      "windowFromHint": "Deja en blanco para mostrar en cuanto se habilite.",
-      "windowFromTime": "Hora de inicio",
-      "windowUntil": "Mostrar hasta",
-      "windowUntilHint": "Deja en blanco para mostrar indefinidamente.",
-      "windowUntilTime": "Hora de finalización"
-    },
-    "validation": {
-      "textMax": "El texto está limitado a 180 caracteres.",
-      "widthRange": "Escribe un ancho entre 2 y 40 por ciento.",
-      "textSizeRange": "Escribe un tamaño de texto entre 1 y 12 por ciento.",
-      "opacityRange": "Escribe una opacidad entre 10 y 100 por ciento.",
-      "marginRange": "Escribe un margen entre 0 y 20 por ciento.",
-      "color": "Elige un color.",
-      "priorityRange": "Escribe una prioridad entre -1000 y 1000.",
-      "contentRequired": "Elige una imagen del logotipo, escribe un texto, o ambas cosas.",
-      "windowOrder": "El fin debe ser posterior al inicio.",
-      "targetRequired": "Elige al menos un destino."
-    },
-    "summary": {
-      "logo": "logotipo",
-      "quotedText": "«{{text}}»",
-      "opacity": "{{value}} % de opacidad",
-      "scheduledWindow": "ventana programada"
-    }
-  },
-  "noiseMeter": {
-    "title": "Medidor de ruido",
-    "subtitle": "Una barra inferior que aparece solo mientras la sala sigue con demasiado ruido, y se oculta sola al calmarse.",
-    "platformNotice": "El medidor de ruido funciona solo en el reproductor Linux, con el micrófono predeterminado de ese reproductor. El audio se mide en el dispositivo y nunca se envía a Tilecast, y nada se graba. Los reproductores Android lo ignoran.",
-    "loadError": "No se pudieron cargar los medidores de ruido.",
-    "emptyTitle": "Ningún medidor de ruido configurado",
-    "emptyDescription": "Crea una instancia para vigilar el ruido de la sala en los reproductores Linux elegidos.",
-    "deleteBody": "Los reproductores de destino dejarán de medir el ruido de la sala.",
-    "removedToast": "Se eliminó el medidor de ruido.",
-    "createdToast": "Se creó el medidor de ruido.",
-    "updatedToast": "Se actualizó el medidor de ruido.",
-    "tabs": {
-      "label": "Medidor de ruido",
-      "settings": "Ajustes",
-      "history": "Historial"
-    },
-    "list": {
-      "history": "Historial"
-    },
-    "editor": {
-      "createTitle": "Nuevo medidor de ruido",
-      "manageTitle": "Gestionar medidor de ruido",
-      "subtitle": "La barra aparece solo después de que la sala sigue con ruido, y una alerta de emergencia siempre la reemplaza.",
-      "scaleHint": "Los niveles de ruido son relativos al micrófono de este reproductor y no son mediciones calibradas en decibelios.",
-      "sections": {
-        "meter": "Medidor",
-        "levels": "Niveles",
-        "timing": "Tiempos",
-        "appearance": "Apariencia",
-        "window": "Cuándo se puede mostrar la barra",
-        "history": "Historial"
-      },
-      "messageLabel": "Mensaje",
-      "messagePlaceholder": "Baja el volumen",
-      "messageHint": "Se muestra a la derecha de la barra. Deja en blanco para mostrar «Demasiado ruido».",
-      "warningLabel": "Nivel de aviso",
-      "warningHint": "Donde empieza la zona amarilla. La barra también se oculta por debajo de este nivel.",
-      "loudLabel": "Nivel de demasiado ruido",
-      "loudHint": "Donde empieza la zona roja y puede aparecer la barra.",
-      "sensitivityLabel": "Sensibilidad (%)",
-      "sensitivityHint": "Súbela para un micrófono poco sensible, bájala para uno muy sensible.",
-      "timingDescription": "Retardos separados evitan que un solo grito levante la barra y que una pausa breve la baje.",
-      "showAfterLabel": "Mostrar después de (segundos)",
-      "showAfterHint": "Cuánto debe durar el ruido excesivo antes de que aparezca la barra.",
-      "hideAfterLabel": "Ocultar tras normalidad de (segundos)",
-      "hideAfterHint": "Cuánto debe durar la normalidad bajo el nivel de aviso antes de que se oculte la barra.",
-      "displayLabel": "Modo de presentación",
-      "displayMode": {
-        "overlay": "Superponer al contenido",
-        "push": "Empujar el contenido hacia arriba"
-      },
-      "heightLabel": "Altura de la barra (px)",
-      "windowDescription": "La sala se mide de todos modos. Esto solo decide cuándo una sala ruidosa puede poner la barra en pantalla.",
-      "windowEnabledLabel": "Mostrar solo durante una ventana horaria",
-      "fromLabel": "Desde",
-      "untilLabel": "Hasta",
-      "untilHint": "Un fin anterior al inicio extiende la ventana a la noche.",
-      "timezoneLabel": "Zona horaria",
-      "daysLabel": "Días de la semana",
-      "windowNote": "Fuera de la ventana el reproductor sigue midiendo y la barra permanece abajo. Una alerta de emergencia nunca se ve afectada por esta ventana.",
-      "historyDescription": "Guarda solo mediciones relativas del nivel de ruido. El audio del micrófono nunca se graba ni se sube.",
-      "historyEnabledLabel": "Guardar historial de ruido",
-      "retentionLabel": "Conservación",
-      "retention_one": "{{count}} día",
-      "retention_many": "{{count}} de días",
-      "retention_other": "{{count}} días",
-      "retentionHint": "Cuánto se conservan las mediciones antes de eliminarse automáticamente.",
-      "activeHoursLabel": "Recopilar solo durante las horas activas",
-      "activeHoursNote": "Fuera de las horas activas el reproductor deja de escuchar por completo en lugar de medir y descartar: el micrófono se libera hasta la próxima ventana activa."
-    },
-    "validation": {
-      "messageMax": "El mensaje está limitado a 120 caracteres.",
-      "warningRange": "Escribe un nivel entre 1 y 99.",
-      "loudRange": "Escribe un nivel entre 2 y 100.",
-      "sensitivityRange": "Escribe una sensibilidad entre 25 y 300 por ciento.",
-      "showRange": "Escribe entre 0.1 y 10 segundos.",
-      "hideRange": "Escribe entre 0.5 y 30 segundos.",
-      "heightRange": "Escribe una altura entre 40 y 320 píxeles.",
-      "retentionOptions": "Elige 1, 3, 7, 14 o 30 días.",
-      "timezone": "Escribe una zona horaria IANA como America/Chicago.",
-      "windowStart": "Elige una hora de inicio.",
-      "windowEnd": "Elige una hora de fin.",
-      "windowDifferent": "La ventana debe empezar y terminar a distintas horas.",
-      "daysRequired": "Elige al menos un día.",
-      "levelOrder": "El nivel de aviso debe estar por debajo del nivel de demasiado ruido.",
-      "targetRequired": "Elige al menos un destino."
-    },
-    "summary": {
-      "showsAbove": "Aparece sobre {{level}}",
-      "hidesBelow": "se oculta bajo {{level}}",
-      "afterSeconds": "tras {{seconds}} s",
-      "window": "{{start}}–{{end}}"
     }
   },
   "history": {

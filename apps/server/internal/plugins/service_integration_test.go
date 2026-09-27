@@ -88,9 +88,9 @@ func TestCatalogAndAlertTickerProjection(t *testing.T) {
 	for _, item := range catalog.Items {
 		byID[item.ID] = item
 	}
-	if len(catalog.Items) != 5 || byID["countdown_bar"].Name == "" || byID["emergency_alerts"].Name == "" ||
-		byID["forms"].Name == "" || byID["brand_bug"].Name == "" || byID["noise_meter"].Name == "" {
-		t.Fatalf("catalog = %+v, want Countdown Bar, Emergency Alerts, Forms, Brand Bug, and Noise Meter", catalog.Items)
+	if len(catalog.Items) != 3 || byID["countdown_bar"].Name == "" || byID["emergency_alerts"].Name == "" ||
+		byID["forms"].Name == "" {
+		t.Fatalf("catalog = %+v, want Countdown Bar, Emergency Alerts, and Forms", catalog.Items)
 	}
 	if _, listed := byID["dependency_graph"]; listed {
 		t.Fatal("Dependency Graph is a system tool, not an installable plugin")

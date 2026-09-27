@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strings"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -146,71 +146,6 @@ func TestInstallIsIdempotentAuditedAndInvalidatesManifests(t *testing.T) {
 	})
 }
 
-func TestConfigurationRequiresInstallation(t *testing.T) {
-	withInstallationDatabase(t, func(env installationEnvironment) {
-		if _, err := env.service.CreateBrandBug(env.ctx, env.userID, validBrandBug()); !errors.Is(err, ErrPluginNotInstalled) {
-			t.Fatalf("brand bug create without installation err = %v", err)
-		}
-		if _, err := env.service.CreateNoiseMeter(env.ctx, env.userID, validNoiseMeter()); !errors.Is(err, ErrPluginNotInstalled) {
-			t.Fatalf("noise meter create without installation err = %v", err)
-		}
-		var rows int
-		if err := env.pool.QueryRow(env.ctx, `SELECT count(*) FROM plugin_installations`).Scan(&rows); err != nil || rows != 0 {
-			t.Fatalf("configuration implicitly installed a plugin: %d rows (%v)", rows, err)
-		}
-	})
-}
-
-func TestRemoveIsBlockedWhileResourcesRemain(t *testing.T) {
-	withInstallationDatabase(t, func(env installationEnvironment) {
-		if _, _, err := env.service.Install(env.ctx, NoiseMeterID, env.userID); err != nil {
-			t.Fatal(err)
-		}
-		first, err := env.service.CreateNoiseMeter(env.ctx, env.userID, validNoiseMeter())
-		if err != nil {
-			t.Fatal(err)
-		}
-		second := validNoiseMeter()
-		second.Name = "Library noise"
-		second.Enabled = false
-		secondMeter, err := env.service.CreateNoiseMeter(env.ctx, env.userID, second)
-		if err != nil {
-			t.Fatal(err)
-		}
-		entry := env.catalogEntry(t, NoiseMeterID)
-		if !entry.Installed || !entry.Configured || !entry.Active || entry.InstanceCount != 2 {
-			t.Fatalf("noise meter status = %+v", entry)
-		}
-		err = env.service.Remove(env.ctx, NoiseMeterID, env.userID)
-		var inUse *InUseError
-		if !errors.As(err, &inUse) || len(inUse.Resources) != 1 || inUse.Resources[0].Count != 2 ||
-			inUse.Resources[0].Kind != "noise_meter_instance" || inUse.Resources[0].Label != "meters" {
-			t.Fatalf("remove with meters err = %#v", err)
-		}
-		if inUse.Error() != "Noise Meter cannot be removed while 2 meters remain." {
-			t.Fatalf("message = %q", inUse.Error())
-		}
-		for _, id := range []uuid.UUID{first.ID, secondMeter.ID} {
-			if err = env.service.DeleteNoiseMeter(env.ctx, id, env.userID); err != nil {
-				t.Fatal(err)
-			}
-		}
-		before := env.manifestVersion(t)
-		if err = env.service.Remove(env.ctx, NoiseMeterID, env.userID); err != nil {
-			t.Fatalf("remove empty plugin: %v", err)
-		}
-		if env.manifestVersion(t) <= before {
-			t.Fatal("remove did not advance the manifest")
-		}
-		if err = env.service.Remove(env.ctx, NoiseMeterID, env.userID); err != nil {
-			t.Fatalf("repeat remove should be idempotent, got %v", err)
-		}
-		if entry = env.catalogEntry(t, NoiseMeterID); entry.Installed {
-			t.Fatal("noise meter still installed after remove")
-		}
-	})
-}
-
 func TestEmergencyAlertsRemovalBlockers(t *testing.T) {
 	withInstallationDatabase(t, func(env installationEnvironment) {
 		if _, _, err := env.service.Install(env.ctx, EmergencyAlertsID, env.userID); err != nil {
@@ -234,11 +169,25 @@ func TestEmergencyAlertsRemovalBlockers(t *testing.T) {
 		if !errors.As(err, &inUse) || len(inUse.Resources) != 2 {
 			t.Fatalf("remove with monitor and rule err = %#v", err)
 		}
+		if !strings.HasPrefix(inUse.Error(), "Emergency Alerts cannot be removed while ") {
+			t.Fatalf("message = %q", inUse.Error())
+		}
 		if _, err = env.pool.Exec(env.ctx, `UPDATE alert_monitor SET enabled=FALSE; DELETE FROM alert_rules`); err != nil {
 			t.Fatal(err)
 		}
+		before := env.manifestVersion(t)
 		if err = env.service.Remove(env.ctx, EmergencyAlertsID, env.userID); err != nil {
 			t.Fatalf("remove after cleanup: %v", err)
+		}
+		// A Player-facing plugin's removal revises Player manifests.
+		if env.manifestVersion(t) <= before {
+			t.Fatal("remove did not advance the manifest")
+		}
+		if err = env.service.Remove(env.ctx, EmergencyAlertsID, env.userID); err != nil {
+			t.Fatalf("repeat remove should be idempotent, got %v", err)
+		}
+		if entry = env.catalogEntry(t, EmergencyAlertsID); entry.Installed {
+			t.Fatal("Emergency Alerts still installed after remove")
 		}
 	})
 }
@@ -298,30 +247,6 @@ func TestManifestRequiresInstallation(t *testing.T) {
 	})
 }
 
-func TestNoiseHistoryIgnoredWhenUninstalled(t *testing.T) {
-	withInstallationDatabase(t, func(env installationEnvironment) {
-		if _, _, err := env.service.Install(env.ctx, NoiseMeterID, env.userID); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := env.service.CreateNoiseMeter(env.ctx, env.userID, validNoiseMeter()); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := env.pool.Exec(env.ctx, `DELETE FROM plugin_installations WHERE plugin_id='noise_meter'`); err != nil {
-			t.Fatal(err)
-		}
-		record := NoiseHistoryRecord{StartedAt: time.Now().UTC().Add(-time.Minute).Truncate(10 * time.Second),
-			AverageLevel: 40, PeakLevel: 60, MonitoredMS: 10000}
-		accepted, err := env.service.RecordNoiseHistory(env.ctx, env.screenID, []NoiseHistoryRecord{record})
-		if err != nil || accepted != 1 {
-			t.Fatalf("uninstalled history accepted=%d err=%v, want consumed so the Player stops resending", accepted, err)
-		}
-		var stored int
-		if err = env.pool.QueryRow(env.ctx, `SELECT count(*) FROM noise_meter_history`).Scan(&stored); err != nil || stored != 0 {
-			t.Fatalf("uninstalled history stored %d rows (%v)", stored, err)
-		}
-	})
-}
-
 func TestUnknownInstallationsArePreservedAndInert(t *testing.T) {
 	withInstallationDatabase(t, func(env installationEnvironment) {
 		if _, err := env.pool.Exec(env.ctx, `INSERT INTO plugin_installations(organization_id,plugin_id) VALUES($1,'some_future_plugin')`, env.orgID); err != nil {
@@ -351,6 +276,57 @@ func TestUnknownInstallationsArePreservedAndInert(t *testing.T) {
 		}
 		if err = env.service.Remove(env.ctx, "some_future_plugin", env.userID); !errors.Is(err, ErrPluginNotFound) {
 			t.Fatalf("second removal of unknown plugin err = %v", err)
+		}
+	})
+}
+
+// Brand Bug and Noise Meter were removed. An installation that used them
+// keeps its rows and data, nothing runs or projects for them, and the catalog
+// says they are retired rather than from a newer release.
+func TestRetiredPluginsStayInertWithTheirData(t *testing.T) {
+	withInstallationDatabase(t, func(env installationEnvironment) {
+		exec := func(query string, args ...any) {
+			t.Helper()
+			if _, err := env.pool.Exec(env.ctx, query, args...); err != nil {
+				t.Fatal(err)
+			}
+		}
+		for _, id := range []string{"brand_bug", "noise_meter", "some_future_plugin"} {
+			exec(`INSERT INTO plugin_installations(organization_id,plugin_id) VALUES($1,$2)`, env.orgID, id)
+		}
+		exec(`INSERT INTO brand_bug_instances(id,organization_id,name,corner,text,width_percent,text_size_percent,opacity_percent,
+			margin_percent,text_color,background_style,enabled,target_scope,created_by)
+			VALUES($1,$2,'Sponsor','top_right','Sponsor',12,3,85,3,'#FFFFFF','scrim',TRUE,'all',$3)`, uuid.New(), env.orgID, env.userID)
+		exec(`INSERT INTO noise_meter_instances(id,organization_id,name,warning_level,loud_level,sensitivity,trigger_hold_ms,
+			clear_hold_ms,display_mode,height_px,enabled,target_scope,created_by)
+			VALUES($1,$2,'Cafeteria',60,80,100,1000,3000,'overlay',96,TRUE,'all',$3)`, uuid.New(), env.orgID, env.userID)
+
+		catalog, err := env.service.Catalog(env.ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		retired := map[string]bool{}
+		for _, item := range catalog.UnsupportedInstallations {
+			retired[item.PluginID] = item.Retired
+		}
+		if len(retired) != 3 || !retired["brand_bug"] || !retired["noise_meter"] || retired["some_future_plugin"] {
+			t.Fatalf("unsupported installations = %+v", catalog.UnsupportedInstallations)
+		}
+		for _, item := range catalog.Items {
+			if item.ID == "brand_bug" || item.ID == "noise_meter" {
+				t.Fatalf("retired plugin %s is offered in the catalog", item.ID)
+			}
+		}
+		if items, err := env.service.ManifestForScreen(env.ctx, env.screenID); err != nil || len(items) != 0 {
+			t.Fatalf("retired plugin projected: %+v (%v)", items, err)
+		}
+		// The row can be removed; the plugin's data stays.
+		if err = env.service.Remove(env.ctx, "brand_bug", env.userID); err != nil {
+			t.Fatal(err)
+		}
+		var marks int
+		if err = env.pool.QueryRow(env.ctx, `SELECT count(*) FROM brand_bug_instances`).Scan(&marks); err != nil || marks != 1 {
+			t.Fatalf("brand bug data after removal = %d (%v)", marks, err)
 		}
 	})
 }

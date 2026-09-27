@@ -22,7 +22,7 @@ func TestRegistryIsValid(t *testing.T) {
 			t.Fatalf("%s should be installable", d.ID)
 		}
 	}
-	for _, id := range []string{"countdown_bar", EmergencyAlertsID, FormsID, BrandBugID, NoiseMeterID} {
+	for _, id := range []string{"countdown_bar", EmergencyAlertsID, FormsID} {
 		if !seen[id] {
 			t.Fatalf("registry is missing %s", id)
 		}
@@ -66,7 +66,13 @@ func TestLookupUnknownPlugin(t *testing.T) {
 	if _, found := Lookup("some_future_plugin"); found {
 		t.Fatal("unknown plugin reported as known")
 	}
-	if definition, found := Lookup(NoiseMeterID); !found || definition.Category != CategoryHardware {
-		t.Fatalf("Lookup(noise_meter) = %+v, %v", definition, found)
+	if definition, found := Lookup(FormsID); !found || definition.Category != CategoryWorkflow {
+		t.Fatalf("Lookup(forms) = %+v, %v", definition, found)
+	}
+	// Retired plugins are no longer part of the release.
+	for id := range retiredPlugins {
+		if _, found := Lookup(id); found {
+			t.Fatalf("retired plugin %s is still in the registry", id)
+		}
 	}
 }
