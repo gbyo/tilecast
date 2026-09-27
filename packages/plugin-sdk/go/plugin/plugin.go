@@ -74,12 +74,6 @@ type ManifestProjector interface {
 	ProjectManifest(ctx context.Context, screenID uuid.UUID) ([]ManifestEntry, error)
 }
 
-// AssetDependent reports screens whose manifests draw an asset through this
-// plugin, so a media change reaches them even though no playlist names it.
-type AssetDependent interface {
-	ScreensUsingAsset(ctx context.Context, tx pgx.Tx, assetID uuid.UUID) ([]uuid.UUID, error)
-}
-
 // WorkerProvider contributes long-running background workers. The host starts
 // them after migrations and stops them at shutdown. The manifest must declare
 // capabilities.backgroundWorkers.
@@ -87,29 +81,10 @@ type WorkerProvider interface {
 	Workers() []Worker
 }
 
-// MaintenanceProvider contributes bounded tasks that run on the host's
-// periodic maintenance pass, for example expiring retained history.
-type MaintenanceProvider interface {
-	Maintenance() []MaintenanceTask
-}
-
-// HeartbeatConsumer handles optional sections of the authenticated Player
-// heartbeat. Each section name must be declared in capabilities.heartbeat.
-type HeartbeatConsumer interface {
-	HeartbeatSections() []HeartbeatSection
-}
-
 // Worker is a background loop. Run returns when ctx is cancelled.
 type Worker struct {
 	Name string
 	Run  func(ctx context.Context) error
-}
-
-// MaintenanceTask removes or compacts plugin-owned data in bounded batches and
-// reports how many rows it changed.
-type MaintenanceTask struct {
-	Name string
-	Run  func(ctx context.Context) (int64, error)
 }
 
 // Bundle is the manifest and migrations a plugin package embeds. Plugins embed

@@ -2,8 +2,6 @@ package plugin
 
 import (
 	"context"
-	"encoding/json"
-	"time"
 
 	"github.com/google/uuid"
 )
@@ -65,41 +63,6 @@ type ManifestEntry struct {
 	Type    string    `json:"type"`
 	Version int       `json:"version"`
 	Config  any       `json:"config"`
-}
-
-// AssetResolver is implemented by a ManifestEntry Config that references
-// media. The host calls ResolveAssets during manifest assembly, after the
-// screen's own content assets, so a referenced image becomes an ordinary
-// manifest asset the Player verifies and caches. Returning keep=false drops
-// the entry, for example a mark whose only content was an image that is no
-// longer available.
-type AssetResolver interface {
-	ResolveAssets(ctx context.Context, assets Assets) (keep bool, err error)
-}
-
-// Assets resolves media for manifest assembly.
-type Assets interface {
-	// Image selects the ready image variant for an asset and adds it to the
-	// manifest. ok is false when the asset is missing, not ready, or not an
-	// image; the caller degrades rather than failing the manifest.
-	Image(ctx context.Context, assetID uuid.UUID) (image ResolvedImage, ok bool, err error)
-}
-
-type ResolvedImage struct {
-	AssetID       uuid.UUID
-	VariantID     uuid.UUID
-	AvailableFrom *time.Time
-	ExpiresAt     *time.Time
-}
-
-// HeartbeatSection handles one optional section of a Player heartbeat. The
-// screen is the authenticated device's own screen, never a value from the
-// request. Handle returns fields to add to the heartbeat response's data, or
-// nil. An error is logged and costs the heartbeat nothing: liveness and
-// playback state are recorded regardless.
-type HeartbeatSection struct {
-	Name   string
-	Handle func(ctx context.Context, screenID uuid.UUID, raw json.RawMessage) (response map[string]any, err error)
 }
 
 // DemoSeeder contributes sample data to Demo Mode, the disposable, pre-seeded

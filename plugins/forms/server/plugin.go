@@ -17,7 +17,7 @@ var (
 // Status answers the catalog's plugin-specific questions: a Form counts as
 // both configured and active, so the counts are the live Forms.
 func (s *Service) Status(ctx context.Context) (plugin.Status, error) {
-	count, err := s.host.DataSources.CountLive(ctx, providerName)
+	count, err := s.host.DataSources.CountLive(ctx)
 	if err != nil {
 		return plugin.Status{}, err
 	}
@@ -32,7 +32,7 @@ func (s *Service) Status(ctx context.Context) (plugin.Status, error) {
 // deletes form data; the operator deletes the Forms through the plugin's own
 // page first.
 func (s *Service) RemovalBlockers(ctx context.Context, tx pgx.Tx) ([]plugin.Blocker, error) {
-	count, err := s.host.DataSources.CountLiveInTx(ctx, tx, providerName)
+	count, err := s.host.DataSources.CountLiveInTx(ctx, tx)
 	if err != nil {
 		return nil, err
 	}

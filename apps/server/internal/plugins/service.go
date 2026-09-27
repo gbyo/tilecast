@@ -132,10 +132,6 @@ func (s *Service) Catalog(ctx context.Context) (Catalog, error) {
 	if err != nil {
 		return Catalog{}, err
 	}
-	statuses, err := s.pluginStatuses(ctx)
-	if err != nil {
-		return Catalog{}, err
-	}
 	items := []CatalogPlugin{}
 	for _, hosted := range s.hosted {
 		status, reported, err := reportedStatus(ctx, hosted)
@@ -143,7 +139,11 @@ func (s *Service) Catalog(ctx context.Context) (Catalog, error) {
 			return Catalog{}, err
 		}
 		if !reported {
-			status = statuses[hosted.manifest.ID]
+			// A plugin that does not report its own status has no
+			// plugin-specific state to show: the zero status stands in,
+			// and the catalog still answers configured and active from
+			// installation state alone.
+			status = pluginStatus{}
 		}
 		items = append(items, catalogEntry(hosted.definition, installed[hosted.manifest.ID], status))
 	}
@@ -211,16 +211,6 @@ func nounFor(d Definition, count int) string {
 		return d.InstanceNounSingular
 	}
 	return d.InstanceNounPlural
-}
-
-// pluginStatuses reads each plugin's own tables. The rules are deliberately
-// plugin-specific; see docs/plugins.md for what configured and active mean for
-// each one.
-func (s *Service) pluginStatuses(ctx context.Context) (map[string]pluginStatus, error) {
-	// Migrated plugins (including Forms) report their own status through
-	// plugin.StatusReporter, consulted by the caller before this map.
-	// This map only covers plugins that have not moved into plugins/ yet.
-	return map[string]pluginStatus{}, nil
 }
 
 func validateTargets(ctx context.Context, tx pgx.Tx, scope string, ids []uuid.UUID) error {

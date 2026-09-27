@@ -22,7 +22,7 @@ func TestRegistryIsValid(t *testing.T) {
 			t.Fatalf("%s should be installable", d.ID)
 		}
 	}
-	for _, id := range []string{"countdown_bar", "emergency_alerts", FormsID} {
+	for _, id := range []string{"countdown_bar", "emergency_alerts", "forms"} {
 		if !seen[id] {
 			t.Fatalf("registry is missing %s", id)
 		}
@@ -66,7 +66,7 @@ func TestLookupUnknownPlugin(t *testing.T) {
 	if _, found := Lookup("some_future_plugin"); found {
 		t.Fatal("unknown plugin reported as known")
 	}
-	if definition, found := Lookup(FormsID); !found || definition.Category != CategoryWorkflow {
+	if definition, found := Lookup("forms"); !found || definition.Category != CategoryWorkflow {
 		t.Fatalf("Lookup(forms) = %+v, %v", definition, found)
 	}
 	// Retired plugins are no longer part of the release.

@@ -137,7 +137,7 @@ func TestInstallIsIdempotentAuditedAndInvalidatesManifests(t *testing.T) {
 		}
 		// Forms has no Player surface, so installing it leaves manifests alone.
 		version := env.manifestVersion(t)
-		if _, _, err = env.service.Install(env.ctx, FormsID, env.userID); err != nil {
+		if _, _, err = env.service.Install(env.ctx, "forms", env.userID); err != nil {
 			t.Fatal(err)
 		}
 		if env.manifestVersion(t) != version {
@@ -194,7 +194,7 @@ func TestEmergencyAlertsRemovalBlockers(t *testing.T) {
 
 func TestFormsRemovalIgnoresDeletedForms(t *testing.T) {
 	withInstallationDatabase(t, func(env installationEnvironment) {
-		if _, _, err := env.service.Install(env.ctx, FormsID, env.userID); err != nil {
+		if _, _, err := env.service.Install(env.ctx, "forms", env.userID); err != nil {
 			t.Fatal(err)
 		}
 		formID := uuid.New()
@@ -203,13 +203,13 @@ func TestFormsRemovalIgnoresDeletedForms(t *testing.T) {
 			t.Fatal(err)
 		}
 		var inUse *InUseError
-		if err := env.service.Remove(env.ctx, FormsID, env.userID); !errors.As(err, &inUse) || inUse.Resources[0].Kind != "form" {
+		if err := env.service.Remove(env.ctx, "forms", env.userID); !errors.As(err, &inUse) || inUse.Resources[0].Kind != "form" {
 			t.Fatalf("remove with a form err = %#v", err)
 		}
 		if _, err := env.pool.Exec(env.ctx, `UPDATE data_sources SET deleted_at=now() WHERE id=$1`, formID); err != nil {
 			t.Fatal(err)
 		}
-		if err := env.service.Remove(env.ctx, FormsID, env.userID); err != nil {
+		if err := env.service.Remove(env.ctx, "forms", env.userID); err != nil {
 			t.Fatalf("remove with only a deleted form: %v", err)
 		}
 		// Removal deletes the installation, never the form's own row.

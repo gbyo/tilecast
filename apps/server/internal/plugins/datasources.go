@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -17,6 +18,37 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/media"
 	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
+
+// DataSourceProviders collects the Data Source provider contributions of
+// every hosted plugin in deterministic provider-ID order. Core Media
+// receives the complete set without knowing which plugin contributed each
+// one. Duplicate provider IDs, collisions with static core providers, and
+// malformed provider IDs fail loudly: two plugins must never own one stored
+// provider, and a half-wired provider must never run.
+func (s *Service) DataSourceProviders() ([]plugin.DataSourceProvider, error) {
+	providers := []plugin.DataSourceProvider{}
+	seen := map[string]string{}
+	for _, hosted := range s.hosted {
+		provider, ok := hosted.plugin.(plugin.DataSourceProvider)
+		if !ok {
+			continue
+		}
+		id := provider.ProviderID()
+		if !plugin.ProviderIDPattern.MatchString(id) {
+			return nil, fmt.Errorf("plugin %s: malformed data source provider id %q", hosted.manifest.ID, id)
+		}
+		if other, dup := seen[id]; dup {
+			return nil, fmt.Errorf("plugins %s and %s contribute duplicate data source provider %q", other, hosted.manifest.ID, id)
+		}
+		if media.IsStaticDataSourceProvider(id) {
+			return nil, fmt.Errorf("plugin %s: data source provider %q collides with a core provider", hosted.manifest.ID, id)
+		}
+		seen[id] = hosted.manifest.ID
+		providers = append(providers, provider)
+	}
+	sort.Slice(providers, func(i, j int) bool { return providers[i].ProviderID() < providers[j].ProviderID() })
+	return providers, nil
+}
 
 // farFutureRefresh parks a Data Source out of the generic refresh worker;
 // the owning plugin's worker reschedules it to the next real boundary.
@@ -31,13 +63,14 @@ type DataSourceInvalidator interface {
 }
 
 // AttachmentBackend stores and serves private plugin-managed uploads. It is
-// implemented by the media service; main wires it. The origin value stays
-// the historical form-attachment origin so existing rows keep working (see
-// the Plugin API ADR for the cleanup debt).
+// implemented by the media service; main wires it. The stored origin stays
+// the historical form-attachment classification so existing rows keep
+// working; per-plugin ownership is the enforced signal (see migration 00106
+// and the Plugin API ADR for the compatibility debt).
 type AttachmentBackend interface {
-	IngestFormAttachment(ctx context.Context, userID uuid.UUID, filename, declaredMIME string, data []byte) (media.Asset, error)
-	SoftDeleteFormAttachment(ctx context.Context, assetID uuid.UUID) error
-	FormAttachmentDelivery(ctx context.Context, assetID uuid.UUID) (media.Delivery, error)
+	IngestPrivateAsset(ctx context.Context, pluginID string, userID uuid.UUID, filename, declaredMIME string, data []byte) (media.Asset, error)
+	SoftDeletePrivateAsset(ctx context.Context, pluginID string, assetID uuid.UUID) error
+	PrivateAssetDelivery(ctx context.Context, pluginID string, assetID uuid.UUID) (media.Delivery, error)
 }
 
 // WithDataSourceInvalidator wires the normal Data Source revision path for
@@ -54,10 +87,22 @@ func WithAttachments(backend AttachmentBackend) Option {
 // dataSourceService implements plugin.DataSources: the core mechanics of a
 // provider-owned data_sources row. The plugin owns its domain tables and the
 // projection content; everything here is the shared row, refresh-state, and
-// usage machinery every provider-owned source needs.
+// usage machinery every provider-owned source needs. The service is bound to
+// one contributed provider ID at Host construction: every provider-scoped
+// method reads and writes that provider's rows, and rows of any other
+// provider read as absent. An empty provider means the plugin contributes
+// none, and every provider-scoped call is refused.
 type dataSourceService struct {
 	db          *pgxpool.Pool
 	invalidator DataSourceInvalidator
+	pluginID    string
+	provider    string
+}
+
+// errNoDataSourceProvider refuses provider-scoped calls from a plugin that
+// contributes no Data Source provider.
+func (s dataSourceService) errNoDataSourceProvider() error {
+	return fmt.Errorf("plugin %s does not contribute a data source provider", s.pluginID)
 }
 
 func scanDataSourceRecord(row pgx.Row) (plugin.DataSourceRecord, error) {
@@ -80,6 +125,9 @@ const dataSourceRecordSelect = `SELECT id,provider,name,description,configuratio
 	FROM data_sources WHERE id=$1 AND provider=$2 AND deleted_at IS NULL`
 
 func (s dataSourceService) CreateInTx(ctx context.Context, tx pgx.Tx, input plugin.DataSourceCreate) (plugin.DataSourceRecord, error) {
+	if s.provider == "" {
+		return plugin.DataSourceRecord{}, s.errNoDataSourceProvider()
+	}
 	var organizationID uuid.UUID
 	if err := tx.QueryRow(ctx, `SELECT id FROM organization_settings WHERE singleton`).Scan(&organizationID); err != nil {
 		return plugin.DataSourceRecord{}, err
@@ -91,7 +139,7 @@ func (s dataSourceService) CreateInTx(ctx context.Context, tx pgx.Tx, input plug
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO data_sources(id,organization_id,name,description,provider,config_version,configuration,created_by)
 		VALUES($1,$2,$3,$4,$5,1,$6::jsonb,$7)`,
-		id, organizationID, input.Name, input.Description, input.Provider, string(configuration), input.CreatedBy); err != nil {
+		id, organizationID, input.Name, input.Description, s.provider, string(configuration), input.CreatedBy); err != nil {
 		return plugin.DataSourceRecord{}, err
 	}
 	if seed := input.SeedRefresh; seed != nil {
@@ -112,20 +160,26 @@ func (s dataSourceService) CreateInTx(ctx context.Context, tx pgx.Tx, input plug
 	} else if _, err := tx.Exec(ctx, `INSERT INTO data_source_refresh_states(data_source_id) VALUES($1)`, id); err != nil {
 		return plugin.DataSourceRecord{}, err
 	}
-	return scanDataSourceRecord(tx.QueryRow(ctx, dataSourceRecordSelect, id, input.Provider))
+	return scanDataSourceRecord(tx.QueryRow(ctx, dataSourceRecordSelect, id, s.provider))
 }
 
-func (s dataSourceService) Get(ctx context.Context, id uuid.UUID, provider string) (plugin.DataSourceRecord, error) {
-	record, err := scanDataSourceRecord(s.db.QueryRow(ctx, dataSourceRecordSelect, id, provider))
+func (s dataSourceService) Get(ctx context.Context, id uuid.UUID) (plugin.DataSourceRecord, error) {
+	if s.provider == "" {
+		return plugin.DataSourceRecord{}, s.errNoDataSourceProvider()
+	}
+	record, err := scanDataSourceRecord(s.db.QueryRow(ctx, dataSourceRecordSelect, id, s.provider))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return plugin.DataSourceRecord{}, plugin.ErrNotFound
 	}
 	return record, err
 }
 
-func (s dataSourceService) ListLive(ctx context.Context, provider string) ([]plugin.DataSourceRecord, error) {
+func (s dataSourceService) ListLive(ctx context.Context) ([]plugin.DataSourceRecord, error) {
+	if s.provider == "" {
+		return nil, s.errNoDataSourceProvider()
+	}
 	rows, err := s.db.Query(ctx, `SELECT id,provider,name,description,configuration,created_by,created_at,updated_at
-		FROM data_sources WHERE provider=$1 AND deleted_at IS NULL ORDER BY name,id`, provider)
+		FROM data_sources WHERE provider=$1 AND deleted_at IS NULL ORDER BY name,id`, s.provider)
 	if err != nil {
 		return nil, err
 	}
@@ -141,9 +195,12 @@ func (s dataSourceService) ListLive(ctx context.Context, provider string) ([]plu
 	return records, rows.Err()
 }
 
-func (s dataSourceService) UpdateMetadataInTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, provider, name string, description *string) error {
+func (s dataSourceService) UpdateMetadataInTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, name string, description *string) error {
+	if s.provider == "" {
+		return s.errNoDataSourceProvider()
+	}
 	tag, err := tx.Exec(ctx, `UPDATE data_sources SET name=$3,description=COALESCE($4,description),updated_at=now()
-		WHERE id=$1 AND provider=$2 AND deleted_at IS NULL`, id, provider, name, description)
+		WHERE id=$1 AND provider=$2 AND deleted_at IS NULL`, id, s.provider, name, description)
 	if err != nil {
 		return err
 	}
@@ -153,12 +210,18 @@ func (s dataSourceService) UpdateMetadataInTx(ctx context.Context, tx pgx.Tx, id
 	return nil
 }
 
-func (s dataSourceService) Configuration(ctx context.Context, id uuid.UUID, provider string) (json.RawMessage, error) {
-	return configurationIn(ctx, s.db, id, provider)
+func (s dataSourceService) Configuration(ctx context.Context, id uuid.UUID) (json.RawMessage, error) {
+	if s.provider == "" {
+		return nil, s.errNoDataSourceProvider()
+	}
+	return configurationIn(ctx, s.db, id, s.provider)
 }
 
-func (s dataSourceService) ConfigurationInTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, provider string) (json.RawMessage, error) {
-	return configurationIn(ctx, tx, id, provider)
+func (s dataSourceService) ConfigurationInTx(ctx context.Context, tx pgx.Tx, id uuid.UUID) (json.RawMessage, error) {
+	if s.provider == "" {
+		return nil, s.errNoDataSourceProvider()
+	}
+	return configurationIn(ctx, tx, id, s.provider)
 }
 
 type configQuerier interface {
@@ -177,9 +240,12 @@ func configurationIn(ctx context.Context, q configQuerier, id uuid.UUID, provide
 	return json.RawMessage(raw), nil
 }
 
-func (s dataSourceService) SetConfigurationInTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, provider string, configuration json.RawMessage) error {
+func (s dataSourceService) SetConfigurationInTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, configuration json.RawMessage) error {
+	if s.provider == "" {
+		return s.errNoDataSourceProvider()
+	}
 	tag, err := tx.Exec(ctx, `UPDATE data_sources SET configuration=$3::jsonb,updated_at=now()
-		WHERE id=$1 AND provider=$2 AND deleted_at IS NULL`, id, provider, string(configuration))
+		WHERE id=$1 AND provider=$2 AND deleted_at IS NULL`, id, s.provider, string(configuration))
 	if err != nil {
 		return err
 	}
@@ -247,7 +313,10 @@ func (s dataSourceService) InvalidateDataSourceInTx(ctx context.Context, tx pgx.
 	return func() { s.invalidator.NotifyManifestChanges(changes) }, nil
 }
 
-func (s dataSourceService) ClaimDueInTx(ctx context.Context, tx pgx.Tx, provider string, limit int) ([]uuid.UUID, error) {
+func (s dataSourceService) ClaimDueInTx(ctx context.Context, tx pgx.Tx, limit int) ([]uuid.UUID, error) {
+	if s.provider == "" {
+		return nil, s.errNoDataSourceProvider()
+	}
 	if limit <= 0 {
 		limit = 50
 	}
@@ -256,7 +325,7 @@ func (s dataSourceService) ClaimDueInTx(ctx context.Context, tx pgx.Tx, provider
 		JOIN data_sources ds ON ds.id=rs.data_source_id AND ds.deleted_at IS NULL AND ds.provider=$1
 		WHERE rs.next_refresh_at<=now()
 		FOR UPDATE OF rs SKIP LOCKED
-		LIMIT $2`, provider, limit)
+		LIMIT $2`, s.provider, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -297,15 +366,21 @@ func (s dataSourceService) Usage(ctx context.Context, id uuid.UUID, dataset stri
 	return usage, nil
 }
 
-func (s dataSourceService) CountLive(ctx context.Context, provider string) (int, error) {
+func (s dataSourceService) CountLive(ctx context.Context) (int, error) {
+	if s.provider == "" {
+		return 0, s.errNoDataSourceProvider()
+	}
 	var count int
-	err := s.db.QueryRow(ctx, `SELECT count(*) FROM data_sources WHERE provider=$1 AND deleted_at IS NULL`, provider).Scan(&count)
+	err := s.db.QueryRow(ctx, `SELECT count(*) FROM data_sources WHERE provider=$1 AND deleted_at IS NULL`, s.provider).Scan(&count)
 	return count, err
 }
 
-func (s dataSourceService) CountLiveInTx(ctx context.Context, tx pgx.Tx, provider string) (int, error) {
+func (s dataSourceService) CountLiveInTx(ctx context.Context, tx pgx.Tx) (int, error) {
+	if s.provider == "" {
+		return 0, s.errNoDataSourceProvider()
+	}
 	var count int
-	err := tx.QueryRow(ctx, `SELECT count(*) FROM data_sources WHERE provider=$1 AND deleted_at IS NULL`, provider).Scan(&count)
+	err := tx.QueryRow(ctx, `SELECT count(*) FROM data_sources WHERE provider=$1 AND deleted_at IS NULL`, s.provider).Scan(&count)
 	return count, err
 }
 
@@ -394,19 +469,22 @@ func (s userService) ListByRole(ctx context.Context, role string) ([]plugin.Dire
 }
 
 // pluginAssetService implements plugin.PluginAssets over the media backend.
-// The plugin authorizes every call against its own records first; this
-// service only enforces the private-asset boundary: private origins in,
-// library content never out.
+// The service is bound to the calling plugin's identity at Host
+// construction: ingest stamps the owner, and claim, discard, and delivery
+// verify it, so a plugin cannot operate on another plugin's private assets.
+// The plugin still authorizes every call against its own records first; this
+// service enforces the ownership boundary underneath.
 type pluginAssetService struct {
-	db      *pgxpool.Pool
-	backend AttachmentBackend
+	db       *pgxpool.Pool
+	backend  AttachmentBackend
+	pluginID string
 }
 
 func (s pluginAssetService) IngestPrivate(ctx context.Context, userID uuid.UUID, filename, mimeType string, data []byte) (plugin.PrivateAsset, error) {
 	if s.backend == nil {
 		return plugin.PrivateAsset{}, errors.New("plugin assets are not configured")
 	}
-	asset, err := s.backend.IngestFormAttachment(ctx, userID, filename, mimeType, data)
+	asset, err := s.backend.IngestPrivateAsset(ctx, s.pluginID, userID, filename, mimeType, data)
 	if errors.Is(err, media.ErrUploadTooLarge) {
 		return plugin.PrivateAsset{}, plugin.ErrTooLarge
 	}
@@ -433,8 +511,8 @@ func (s pluginAssetService) DiscardPrivate(ctx context.Context, assetID uuid.UUI
 	if s.backend == nil {
 		return errors.New("plugin assets are not configured")
 	}
-	err := s.backend.SoftDeleteFormAttachment(ctx, assetID)
-	if err != nil && strings.Contains(err.Error(), "is not a form attachment") {
+	err := s.backend.SoftDeletePrivateAsset(ctx, s.pluginID, assetID)
+	if err != nil && strings.Contains(err.Error(), "is not a private asset of this plugin") {
 		return fmt.Errorf("%w: %v", plugin.ErrInvalid, err)
 	}
 	return err
@@ -442,7 +520,8 @@ func (s pluginAssetService) DiscardPrivate(ctx context.Context, assetID uuid.UUI
 
 func (s pluginAssetService) ClaimPrivateInTx(ctx context.Context, tx pgx.Tx, assetID uuid.UUID) error {
 	var origin string
-	err := tx.QueryRow(ctx, `SELECT origin FROM assets WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`, assetID).Scan(&origin)
+	var owner *string
+	err := tx.QueryRow(ctx, `SELECT origin,owning_plugin FROM assets WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`, assetID).Scan(&origin, &owner)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return fmt.Errorf("%w: attachment asset does not exist", plugin.ErrInvalid)
 	}
@@ -451,6 +530,9 @@ func (s pluginAssetService) ClaimPrivateInTx(ctx context.Context, tx pgx.Tx, ass
 	}
 	if origin != "form_attachment" {
 		return fmt.Errorf("%w: only dedicated private attachments may be attached", plugin.ErrInvalid)
+	}
+	if owner == nil || *owner != s.pluginID {
+		return fmt.Errorf("%w: attachment asset belongs to another plugin", plugin.ErrInvalid)
 	}
 	var used bool
 	if err := tx.QueryRow(ctx, `SELECT
@@ -470,7 +552,7 @@ func (s pluginAssetService) ServePrivate(w http.ResponseWriter, r *http.Request,
 	if s.backend == nil {
 		return errors.New("plugin assets are not configured")
 	}
-	delivery, err := s.backend.FormAttachmentDelivery(r.Context(), assetID)
+	delivery, err := s.backend.PrivateAssetDelivery(r.Context(), s.pluginID, assetID)
 	if errors.Is(err, media.ErrVariantUnavailable) || errors.Is(err, pgx.ErrNoRows) {
 		return plugin.ErrNotFound
 	}

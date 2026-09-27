@@ -44,7 +44,6 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/takeovers"
 	"github.com/tilecast/tilecast/apps/server/internal/updates"
 	"github.com/tilecast/tilecast/apps/server/internal/version"
-	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
 
 func main() {
@@ -132,16 +131,15 @@ func serve() {
 	takeoverService := takeovers.NewService(db, playlistService, deviceService, time.Duration(cfg.Operations.MaxTakeoverDurationHours)*time.Hour)
 	managedPresentationService := managedpresentations.NewService(db)
 	pluginService := plugins.NewService(db, deviceService, plugins.WithLogger(logger), plugins.WithTakeovers(takeoverService), plugins.WithManagedPresentations(managedPresentationService), plugins.WithBackgroundJobsAllowed(backupGuard.BackgroundJobsAllowed), plugins.WithPublicURL(cfg.PublicURL), plugins.WithDataSourceInvalidator(playlistService), plugins.WithAttachments(mediaService))
-	// The Forms plugin contributes the "form" Data Source provider. Core
-	// owns the provider mechanics; the plugin owns the provider behavior.
-	if hosted, ok := pluginService.HostedPlugin("forms"); ok {
-		if provider, ok := hosted.(plugin.DataSourceProvider); ok {
-			mediaService.SetDataSourceProviders(provider)
-		} else {
-			fail("forms plugin does not contribute a data source provider", nil)
-		}
-	} else {
-		fail("forms plugin is not hosted", nil)
+	// Data Source providers are discovered generically: every hosted plugin
+	// implementing plugin.DataSourceProvider contributes, and core never
+	// names a plugin to find them.
+	providers, err := pluginService.DataSourceProviders()
+	if err != nil {
+		fail("data source provider discovery failed", err)
+	}
+	if err := mediaService.SetDataSourceProviders(providers...); err != nil {
+		fail("data source provider registration failed", err)
 	}
 	pluginService.SetManifestInvalidator(playlistService)
 	playlistService.SetPluginProjector(pluginService)

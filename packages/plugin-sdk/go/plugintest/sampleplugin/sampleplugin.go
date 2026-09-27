@@ -1,13 +1,14 @@
-// Package sampleplugin is a test-only plugin that implements every Plugin API
-// v1 contribution point. It is never bundled with a release: the host's
-// tests load it to prove that a plugin nobody special-cased works through
-// the generic paths alone. Its state lives in memory, so it needs no tables;
+// Package sampleplugin is a test-only plugin that implements a
+// representative subset of the Plugin API v1 surface: manifest and bundle,
+// initialization, status, removal guard, routes, manifest projection, and one
+// background worker. It is never bundled with a release: the host's tests
+// load it to prove that a plugin nobody special-cased works through the
+// generic paths alone. Its state lives in memory, so it needs no tables;
 // installation, audit, and manifest revisions go through the real host.
 package sampleplugin
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"sort"
 	"sync"
@@ -34,8 +35,7 @@ const manifest = `{
   "uses": ["Player manifest plugin state"],
   "capabilities": {
     "playerManifest": true,
-    "backgroundWorkers": true,
-    "heartbeat": ["sampleTally"]
+    "backgroundWorkers": true
   },
   "server": { "entrypoint": "./plugin.go" },
   "api": { "basePaths": ["/plugins/sample-tally"], "openapi": "./api/openapi.yaml" },
@@ -48,29 +48,11 @@ const manifest = `{
 type Item struct {
 	ID    uuid.UUID `json:"id"`
 	Label string    `json:"label"`
-	// AssetID is an optional image the item draws on screens.
-	AssetID *uuid.UUID `json:"assetId,omitempty"`
 }
 
 // Config is the Player manifest projection of an item.
 type Config struct {
-	Label     string     `json:"label"`
-	AssetID   *uuid.UUID `json:"assetId,omitempty"`
-	VariantID *uuid.UUID `json:"variantId,omitempty"`
-}
-
-// ResolveAssets implements plugin.AssetResolver: an item whose image is
-// unavailable is dropped.
-func (c *Config) ResolveAssets(ctx context.Context, assets plugin.Assets) (bool, error) {
-	if c.AssetID == nil {
-		return true, nil
-	}
-	image, ok, err := assets.Image(ctx, *c.AssetID)
-	if err != nil || !ok {
-		return false, err
-	}
-	c.VariantID = &image.VariantID
-	return true, nil
+	Label string `json:"label"`
 }
 
 // Plugin is the sample plugin. Its counters are exported for assertions.
@@ -81,21 +63,16 @@ type Plugin struct {
 	mu    sync.Mutex
 	items map[uuid.UUID]Item
 
-	WorkerRuns      atomic.Int32
-	MaintenanceRuns atomic.Int32
-	Heartbeats      atomic.Int32
+	WorkerRuns atomic.Int32
 }
 
 var (
-	_ plugin.Initializer         = (*Plugin)(nil)
-	_ plugin.StatusReporter      = (*Plugin)(nil)
-	_ plugin.RemovalGuard        = (*Plugin)(nil)
-	_ plugin.RouteProvider       = (*Plugin)(nil)
-	_ plugin.ManifestProjector   = (*Plugin)(nil)
-	_ plugin.AssetDependent      = (*Plugin)(nil)
-	_ plugin.WorkerProvider      = (*Plugin)(nil)
-	_ plugin.MaintenanceProvider = (*Plugin)(nil)
-	_ plugin.HeartbeatConsumer   = (*Plugin)(nil)
+	_ plugin.Initializer       = (*Plugin)(nil)
+	_ plugin.StatusReporter    = (*Plugin)(nil)
+	_ plugin.RemovalGuard      = (*Plugin)(nil)
+	_ plugin.RouteProvider     = (*Plugin)(nil)
+	_ plugin.ManifestProjector = (*Plugin)(nil)
+	_ plugin.WorkerProvider    = (*Plugin)(nil)
 )
 
 func New() *Plugin {
@@ -160,8 +137,7 @@ func (p *Plugin) list(w http.ResponseWriter, _ *http.Request) error {
 
 func (p *Plugin) create(w http.ResponseWriter, r *http.Request) error {
 	var input struct {
-		Label   string     `json:"label"`
-		AssetID *uuid.UUID `json:"assetId,omitempty"`
+		Label string `json:"label"`
 	}
 	if err := plugin.DecodeJSON(w, r, &input); err != nil {
 		return err
@@ -170,7 +146,7 @@ func (p *Plugin) create(w http.ResponseWriter, r *http.Request) error {
 		return plugin.Invalidf("label is required")
 	}
 	principal, _ := plugin.PrincipalFrom(r.Context())
-	item := Item{ID: uuid.New(), Label: input.Label, AssetID: input.AssetID}
+	item := Item{ID: uuid.New(), Label: input.Label}
 	after, err := p.write(r.Context(), principal.UserID, "plugin.sample_tally.created", item.ID, func() {
 		p.items[item.ID] = item
 	})
@@ -250,22 +226,9 @@ func (p *Plugin) ProjectManifest(context.Context, uuid.UUID) ([]plugin.ManifestE
 	entries := []plugin.ManifestEntry{}
 	for _, item := range p.Items() {
 		entries = append(entries, plugin.ManifestEntry{ID: item.ID, Type: "sample_tally", Version: 1,
-			Config: &Config{Label: item.Label, AssetID: item.AssetID}})
+			Config: &Config{Label: item.Label}})
 	}
 	return entries, nil
-}
-
-func (p *Plugin) ScreensUsingAsset(ctx context.Context, tx pgx.Tx, assetID uuid.UUID) ([]uuid.UUID, error) {
-	for _, item := range p.Items() {
-		if item.AssetID != nil && *item.AssetID == assetID {
-			rows, err := tx.Query(ctx, `SELECT id FROM screens WHERE archived_at IS NULL`)
-			if err != nil {
-				return nil, err
-			}
-			return pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
-		}
-	}
-	return nil, nil
 }
 
 func (p *Plugin) Workers() []plugin.Worker {
@@ -273,25 +236,5 @@ func (p *Plugin) Workers() []plugin.Worker {
 		p.WorkerRuns.Add(1)
 		<-ctx.Done()
 		return ctx.Err()
-	}}}
-}
-
-func (p *Plugin) Maintenance() []plugin.MaintenanceTask {
-	return []plugin.MaintenanceTask{{Name: "compact", Run: func(context.Context) (int64, error) {
-		p.MaintenanceRuns.Add(1)
-		return 0, nil
-	}}}
-}
-
-func (p *Plugin) HeartbeatSections() []plugin.HeartbeatSection {
-	return []plugin.HeartbeatSection{{Name: "sampleTally", Handle: func(_ context.Context, _ uuid.UUID, raw json.RawMessage) (map[string]any, error) {
-		var report struct {
-			Seen int `json:"seen"`
-		}
-		if err := json.Unmarshal(raw, &report); err != nil {
-			return nil, err
-		}
-		p.Heartbeats.Add(1)
-		return map[string]any{"sampleTally": map[string]any{"acknowledged": report.Seen}}, nil
 	}}}
 }

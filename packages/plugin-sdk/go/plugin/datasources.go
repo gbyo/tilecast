@@ -75,9 +75,10 @@ type DataSourceRecord struct {
 	UpdatedAt  time.Time
 }
 
-// DataSourceCreate provisions one provider-owned Data Source row.
+// DataSourceCreate provisions one provider-owned Data Source row. The host
+// stamps the calling plugin's bound provider: the input carries no provider
+// identity of its own.
 type DataSourceCreate struct {
-	Provider      string
 	Name          string
 	Description   string
 	CreatedBy     uuid.UUID
@@ -123,25 +124,30 @@ type DataSourceUsage struct {
 	Names   []string
 }
 
-// DataSources is the narrow Host service for plugin-owned Data Source
-// providers. The plugin owns its domain tables and projection content;
-// core owns the data_sources row mechanics, the cached projection storage,
-// usage accounting, and manifest invalidation. Methods taking a pgx.Tx run
-// inside the caller's transaction.
+// DataSources is the narrow Host service for the calling plugin's own Data
+// Source provider. The host binds it to the provider ID the plugin
+// contributes, so the plugin never supplies a provider string: every method
+// operates on that provider's rows, and rows of any other provider read as
+// absent. A plugin that contributes no Data Source provider receives a
+// service that refuses every provider-scoped call. The plugin owns its
+// domain tables and projection content; core owns the data_sources row
+// mechanics, the cached projection storage, usage accounting, and manifest
+// invalidation. Methods taking a pgx.Tx run inside the caller's
+// transaction.
 type DataSources interface {
 	CreateInTx(ctx context.Context, tx pgx.Tx, input DataSourceCreate) (DataSourceRecord, error)
-	// Get returns a live provider-owned row, or ErrNotFound when it is
-	// missing, soft-deleted, or owned by another provider.
-	Get(ctx context.Context, id uuid.UUID, provider string) (DataSourceRecord, error)
-	// ListLive returns every live row of one provider, ordered by name,
-	// for provider-level listings the plugin scopes itself.
-	ListLive(ctx context.Context, provider string) ([]DataSourceRecord, error)
-	UpdateMetadataInTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, provider, name string, description *string) error
-	Configuration(ctx context.Context, id uuid.UUID, provider string) (json.RawMessage, error)
+	// Get returns a live row of the bound provider, or ErrNotFound when it
+	// is missing, soft-deleted, or owned by another provider.
+	Get(ctx context.Context, id uuid.UUID) (DataSourceRecord, error)
+	// ListLive returns every live row of the bound provider, ordered by
+	// name, for provider-level listings the plugin scopes itself.
+	ListLive(ctx context.Context) ([]DataSourceRecord, error)
+	UpdateMetadataInTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, name string, description *string) error
+	Configuration(ctx context.Context, id uuid.UUID) (json.RawMessage, error)
 	// ConfigurationInTx reads the stored configuration inside the caller's
 	// transaction, for flows that rewrite it atomically with domain rows.
-	ConfigurationInTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, provider string) (json.RawMessage, error)
-	SetConfigurationInTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, provider string, configuration json.RawMessage) error
+	ConfigurationInTx(ctx context.Context, tx pgx.Tx, id uuid.UUID) (json.RawMessage, error)
+	SetConfigurationInTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, configuration json.RawMessage) error
 	RefreshState(ctx context.Context, id uuid.UUID) (DataSourceRefresh, error)
 	WriteProjectionInTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, write ProjectionWrite) error
 	// InvalidateDataSourceInTx runs the normal Data Source revision path
@@ -149,13 +155,13 @@ type DataSources interface {
 	// the transaction that changed the projection, then run the returned
 	// func after commit.
 	InvalidateDataSourceInTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, reason string) (AfterCommit, error)
-	// ClaimDueInTx returns up to limit live rows of one provider whose
-	// refresh boundary has arrived, locking them SKIP LOCKED so concurrent
-	// workers take disjoint sets.
-	ClaimDueInTx(ctx context.Context, tx pgx.Tx, provider string, limit int) ([]uuid.UUID, error)
+	// ClaimDueInTx returns up to limit live rows of the bound provider
+	// whose refresh boundary has arrived, locking them SKIP LOCKED so
+	// concurrent workers take disjoint sets.
+	ClaimDueInTx(ctx context.Context, tx pgx.Tx, limit int) ([]uuid.UUID, error)
 	Usage(ctx context.Context, id uuid.UUID, dataset string) (DataSourceUsage, error)
-	CountLive(ctx context.Context, provider string) (int, error)
-	CountLiveInTx(ctx context.Context, tx pgx.Tx, provider string) (int, error)
+	CountLive(ctx context.Context) (int, error)
+	CountLiveInTx(ctx context.Context, tx pgx.Tx) (int, error)
 }
 
 // DirectoryUser is the safe public shape of a core user: identity and role

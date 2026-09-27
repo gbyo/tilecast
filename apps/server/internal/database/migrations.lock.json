@@ -622,5 +622,11 @@
     "file": "00105_player_release_families.sql",
     "owner": "core",
     "sha256": "809a9949a86edc5b2992fcb7a79052823156dacc5c601405bf95afab34f3adc7"
+  },
+  {
+    "version": 106,
+    "file": "00106_plugin_asset_ownership.sql",
+    "owner": "core",
+    "sha256": "fe43dadda18ac32fbe96e427cc1ba8762b070a146c05f63d09a889e99001a76d"
   }
 ]

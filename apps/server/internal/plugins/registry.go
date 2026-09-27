@@ -10,12 +10,7 @@ import (
 	bundled "github.com/tilecast/tilecast/plugins"
 )
 
-// Plugin identifiers that core code outside a plugin still names while the
-// built-in plugins move into plugins/. Each one disappears when its plugin no
-// longer needs a core special case.
-const (
-	FormsID = "forms"
-)
+
 
 // retiredPlugins are plugins that earlier releases shipped and this release
 // removed. COMPATIBILITY: an installation row or data an installation still
