@@ -597,9 +597,12 @@ def check_web_helper_packaging():
                      "tilecast-web-renderer.service")
     for expected in ("User=tilecast-web", "Group=tilecast-web", "NoNewPrivileges=yes",
                      "ProtectSystem=strict", "ProtectHome=yes", "PrivateTmp=yes",
-                     "RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK",
                      "MemoryHigh=1073741824", "MemoryMax=1610612736", "TasksMax=512"):
         assert expected in sandbox, (expected, sandbox)
+    # systemd normalizes the address-family list (sorts and dedupes), so
+    # compare as a set rather than a string.
+    families = dict(line.split("=", 1) for line in sandbox.splitlines() if "=" in line)
+    assert set(families.get("RestrictAddressFamilies", "").split()) == {"AF_UNIX", "AF_INET", "AF_INET6", "AF_NETLINK"}, sandbox
     assert "InaccessiblePaths=-/var/lib/tilecast-edge" in sandbox, sandbox
     assert "InaccessiblePaths=-/run/tilecast-edge" in sandbox, sandbox
     assert "InaccessiblePaths=-/run/tilecast-edge-update" in sandbox, sandbox
