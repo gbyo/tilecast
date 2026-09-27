@@ -177,17 +177,12 @@ export const pluginManifestSchema = z
           .default([])
           .describe("Hosts Tilecast Server contacts for this plugin."),
         hardware: z.array(z.enum(hardwareCapabilities)).default([]),
-        heartbeat: z
-          .array(z.string().regex(/^[a-z][A-Za-z0-9]{0,39}$/))
-          .default([])
-          .describe("Optional Player heartbeat sections this plugin consumes."),
       })
       .default({
         playerManifest: false,
         backgroundWorkers: false,
         network: [],
         hardware: [],
-        heartbeat: [],
       }),
     server: z
       .strictObject({

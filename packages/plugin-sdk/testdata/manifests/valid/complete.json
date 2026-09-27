@@ -29,8 +29,7 @@
     "playerManifest": true,
     "backgroundWorkers": true,
     "network": ["api.transit.example.org"],
-    "hardware": [],
-    "heartbeat": []
+    "hardware": []
   },
   "server": {
     "entrypoint": "./plugin.go"
