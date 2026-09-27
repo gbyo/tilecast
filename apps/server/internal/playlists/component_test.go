@@ -62,6 +62,38 @@ func TestComponentOnlyWidgetCompilesWithoutFallback(t *testing.T) {
 	}
 }
 
+// TestLegacyQrProvidersProjectIntoQrCode keeps every persisted QR provider
+// generation compiling into the one V2 component: the legacy qrcode keys,
+// the call-to-action keys, and the canonical QR Code keys all normalize to
+// tilecast.qr-code configuration for capable Players.
+func TestLegacyQrProvidersProjectIntoQrCode(t *testing.T) {
+	service := &Service{definitions: contentdefs.MustLoad()}
+	legacy := json.RawMessage(`{"value":"https://example.org","label":"example.org","errorCorrection":"medium","foregroundColor":"#000000","backgroundColor":"#FFFFFF"}`)
+	component, err := service.compileWidgetComponent("qrcode", legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if component.Component.Type != "tilecast.qr-code" || component.Component.Config["payload"] != "https://example.org" || component.Component.Config["shortLabel"] != "example.org" {
+		t.Fatalf("legacy qrcode config did not project: %+v", component.Component)
+	}
+	callToAction := json.RawMessage(`{"url":"https://example.org","heading":"Scan","body":"Point your camera.","showBody":true,"foregroundColor":"#ffffff","backgroundColor":"#12253a"}`)
+	component, err = service.compileWidgetComponent("qr-call-to-action", callToAction)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if component.Component.Type != "tilecast.qr-code" || component.Component.Config["payload"] != "https://example.org" || component.Component.Config["heading"] != "Scan" || component.Component.Config["instruction"] != "Point your camera." {
+		t.Fatalf("call-to-action config did not project: %+v", component.Component)
+	}
+	canonical := json.RawMessage(`{"payload":"https://example.org","heading":"","instruction":"","shortLabel":"","style":"standard","backgroundColor":"#FFFFFF","foregroundColor":"#101418"}`)
+	component, err = service.compileWidgetComponent("qr-code", canonical)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if component.Component.Type != "tilecast.qr-code" || component.RequiredCapabilities["widget.tilecast.qr-code"] != 1 {
+		t.Fatalf("canonical qr-code config did not compile: %+v", component)
+	}
+}
+
 func TestPresentationSupportedNeedsSchemaAndVersion(t *testing.T) {
 	presentation := &WidgetPresentation{SchemaVersion: 2, Kind: "component", RequiredCapabilities: map[string]int{"widget.tilecast.clock": 2}}
 	for _, test := range []struct {

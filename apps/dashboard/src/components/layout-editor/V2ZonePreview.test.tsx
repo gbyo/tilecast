@@ -11,6 +11,7 @@ import type {
   WidgetDefinition,
 } from "../../api/types";
 import clockManifest from "../../../../../widgets/clock/tilecast.widget.json";
+import qrManifest from "../../../../../widgets/qr-code/tilecast.widget.json";
 import { V2ZonePreview } from "./V2ZonePreview";
 
 afterEach(() => {
@@ -48,12 +49,72 @@ function clockDefinition(): WidgetDefinition {
   };
 }
 
+function qrCodeDefinition(): WidgetDefinition {
+  return {
+    id: "qr-code",
+    version: 1,
+    apiVersion: 1,
+    name: "QR Code",
+    description:
+      "Show a scannable code with an optional heading and instruction.",
+    category: "Essentials",
+    icon: "qr_code",
+    runtime: "native",
+    configurationSchema: qrManifest.configurationSchema as {
+      fields: ContentDefinitionField[];
+    },
+    defaultConfiguration: qrManifest.defaultConfiguration,
+    component: {
+      type: "tilecast.qr-code",
+      version: 1,
+      tagName: "tc-widget-qr-code",
+      entrypoint: "./runtime/index.ts",
+      configTemplate: qrManifest.component.configTemplate,
+      dataSourceFields: [],
+      empty: "render",
+    },
+    compatibility: { fallback: "none" },
+    presentationSchemaVersion: 1,
+    requiredCapabilities: {},
+    emptyStateBehavior: "text",
+  };
+}
+
+function legacyQrCodeDefinition(): WidgetDefinition {
+  // A saved legacy provider keeps its persisted keys; the chained template
+  // prefers current keys and falls back to the superseded ones.
+  return {
+    ...qrCodeDefinition(),
+    id: "qrcode",
+    deprecation: { deprecated: true, replacement: "qr-code" },
+    compatibility: { fallback: "legacy" },
+    component: {
+      ...qrCodeDefinition().component!,
+      configTemplate: {
+        payload: {
+          $config: "payload",
+          default: { $config: "value", default: "" },
+        },
+        heading: { $config: "heading", default: "" },
+        instruction: { $config: "instruction", default: "" },
+        shortLabel: {
+          $config: "shortLabel",
+          default: { $config: "label", default: "" },
+        },
+        style: { $config: "style", default: "standard" },
+        background: { $config: "backgroundColor", default: "#FFFFFF" },
+        foreground: { $config: "foregroundColor", default: "#101418" },
+      },
+    },
+  };
+}
+
 function catalog(): ContentDefinitionCatalog {
   return {
     revision: "test",
     compilerVersion: "99",
     fingerprint: "test",
-    widgets: [clockDefinition()],
+    widgets: [clockDefinition(), qrCodeDefinition(), legacyQrCodeDefinition()],
     dataSources: [],
   };
 }
@@ -93,6 +154,42 @@ describe("V2ZonePreview", () => {
     });
     await waitFor(() => frame.querySelector("tc-widget-clock"));
     expect(container.querySelector("tc-widget-clock")).toBeInTheDocument();
+  });
+
+  it("mounts the real QR element for saved legacy provider content", async () => {
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue(catalog());
+    vi.spyOn(api, "settings").mockResolvedValue({ values: {} } as never);
+    const asset = {
+      widget: {
+        authorConfiguration: {
+          value: "https://example.org/visit",
+          label: "example.org",
+          errorCorrection: "medium",
+          foregroundColor: "#000000",
+          backgroundColor: "#FFFFFF",
+        },
+      },
+    } as unknown as Asset;
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const { container } = render(
+      <QueryClientProvider client={client}>
+        <V2ZonePreview
+          provider="qrcode"
+          asset={asset}
+          width={480}
+          height={270}
+        />
+      </QueryClientProvider>,
+    );
+    const frame = await screen.findByRole("img", {
+      name: "Live Widget preview",
+    });
+    await waitFor(() => frame.querySelector("tc-widget-qr-code"));
+    const code = container.querySelector("tc-widget-qr-code");
+    expect(code).toBeInTheDocument();
+    expect(code?.shadowRoot?.querySelector("svg.code")).not.toBeNull();
   });
 
   it("renders nothing while definitions load or the provider is unknown", () => {

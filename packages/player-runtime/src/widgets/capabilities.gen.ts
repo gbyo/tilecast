@@ -10,6 +10,7 @@
 export const WIDGET_COMPONENT_CAPABILITIES: Readonly<Record<string, number>> =
   Object.freeze({
     "widget.tilecast.clock": 1,
+    "widget.tilecast.qr-code": 1,
   });
 
 /** Presentation schema of kind "component" presentations. */

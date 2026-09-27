@@ -1,0 +1,14 @@
+{
+  "name": "Light brand",
+  "description": "Author brand colors on a light background, still dark on light so the code scans.",
+  "configuration": {
+    "payload": "https://example.org/visit",
+    "heading": "Scan to learn more",
+    "instruction": "",
+    "shortLabel": "example.org",
+    "style": "standard",
+    "backgroundColor": "#FFF8E7",
+    "foregroundColor": "#1F2A44"
+  },
+  "expect": "ready"
+}

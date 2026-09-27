@@ -475,9 +475,28 @@ func inheritPresentationBases(widgets []WidgetDefinition) error {
 	return nil
 }
 
+// componentOwner records which definition first declared a component
+// identity, so a repeated identity can be judged a compatibility alias or a
+// collision.
+type componentOwner struct {
+	definitionID string
+	spec         ComponentSpec
+}
+
+// sameComponent reports whether two declarations name the same component:
+// the same type and version rendered by the same element. Their author
+// configuration templates may differ, because each provider generation
+// translates its own persisted keys into that shared component contract.
+func sameComponent(a, b ComponentSpec) bool {
+	return a.Type == b.Type &&
+		a.Version == b.Version &&
+		a.TagName == b.TagName &&
+		a.Entrypoint == b.Entrypoint
+}
+
 func (c *Catalog) validate() error {
-	componentTypes := map[string]string{}
-	componentTags := map[string]string{}
+	componentTypes := map[string]componentOwner{}
+	componentTags := map[string]componentOwner{}
 	for _, definition := range c.Widgets {
 		if err := definition.Source.validate(); err != nil {
 			return fmt.Errorf("Widget definition %q: %w", definition.ID, err)
@@ -520,14 +539,25 @@ func (c *Catalog) validate() error {
 			if source.Kind == SourceKindPackage && !packageOwnsType(source.PackageID, definition.Component.Type) {
 				return fmt.Errorf("Widget definition %q declares component %q outside package namespace %q", definition.ID, definition.Component.Type, source.PackageID)
 			}
+			// Several provider generations may project into one component
+			// (docs/widgets-v2-authoring-and-first-wave.md §9.2): a repeated
+			// component identity is a compatibility alias only when it names
+			// the same version, element and entrypoint. Anything else is a
+			// collision between two different components.
 			if owner, taken := componentTypes[definition.Component.Type]; taken {
-				return fmt.Errorf("Widget definitions %q and %q declare component %q", owner, definition.ID, definition.Component.Type)
+				if !sameComponent(owner.spec, *definition.Component) {
+					return fmt.Errorf("Widget definitions %q and %q declare different components %q", owner.definitionID, definition.ID, definition.Component.Type)
+				}
+			} else {
+				componentTypes[definition.Component.Type] = componentOwner{definitionID: definition.ID, spec: *definition.Component}
 			}
-			componentTypes[definition.Component.Type] = definition.ID
 			if owner, taken := componentTags[definition.Component.TagName]; taken {
-				return fmt.Errorf("Widget definitions %q and %q declare component tag %q", owner, definition.ID, definition.Component.TagName)
+				if !sameComponent(owner.spec, *definition.Component) {
+					return fmt.Errorf("Widget definitions %q and %q declare different components for tag %q", owner.definitionID, definition.ID, definition.Component.TagName)
+				}
+			} else {
+				componentTags[definition.Component.TagName] = componentOwner{definitionID: definition.ID, spec: *definition.Component}
 			}
-			componentTags[definition.Component.TagName] = definition.ID
 		}
 		// A component-only Widget has no compatibility presentation to validate.
 		if !definition.LegacyEditor && definition.HasFallback() {

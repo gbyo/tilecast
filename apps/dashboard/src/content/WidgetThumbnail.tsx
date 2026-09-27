@@ -109,6 +109,17 @@ const THUMBNAILS: Record<string, Shape[]> = {
     { t: "r", x: 89, y: 49, w: 6, h: 6, o: 0.5, rx: 1 },
     bar(58, 68, 44, 4, 0.3),
   ],
+  // The canonical V2 provider keeps the same schematic artwork as the
+  // superseded provider it replaces in the gallery.
+  "qr-code": [
+    block(58, 18, 44, 44, 0.14),
+    { t: "r", x: 63, y: 23, w: 10, h: 10, a: true, rx: 1 },
+    { t: "r", x: 87, y: 23, w: 10, h: 10, a: true, rx: 1 },
+    { t: "r", x: 63, y: 47, w: 10, h: 10, a: true, rx: 1 },
+    { t: "r", x: 79, y: 39, w: 6, h: 6, o: 0.5, rx: 1 },
+    { t: "r", x: 89, y: 49, w: 6, h: 6, o: 0.5, rx: 1 },
+    bar(58, 68, 44, 4, 0.3),
+  ],
   countdown: [
     bar(56, 22, 48, 5, 0.3),
     accent(20, 34, 26, 22),
