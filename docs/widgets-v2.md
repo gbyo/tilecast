@@ -13,7 +13,7 @@ If Weather looks wrong, there is one Weather renderer to fix.
 | Item                     | Decision                                                                                                                                                                 |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Base                     | `main` at `c683ce28` (Plugin API v1 follow-up #703, merged after the #686–#701 stack).                                                                                   |
-| #699 (Edge M11)          | Open draft. It changes Edge Rust and C code, one YouTube Layout rule and docs. It does not change `packages/player-runtime`, the manifest schema or content definitions. |
+| #699 (Edge M11)          | Merged. It adds Edge remote-web isolation and the shared Player Runtime host-view path, plus the YouTube Layout rule. It does not change the manifest schema or content definitions. |
 | Next manifest schema     | v16. v11–v15 do not change.                                                                                                                                              |
 | Presentation schema      | Component presentations use presentation schema 2. Native and web presentations stay at 1.                                                                               |
 | Capability advertisement | `presentationSchemaVersions` includes `2`, and `nativePresentationCapabilities` contains `widget.<component type>` = component version.                                  |
