@@ -372,9 +372,10 @@ def assert_switch_order(since_usec, version, helper_unit, context, candidate_was
     web_start = [t for t in job_done("tilecast-web-renderer.service", "start") if t > switch]
     renderer_start = [t for t in job_done("tilecast-renderer.service", "start") if t > switch]
     assert daemon_start and web_start and renderer_start, f"{context}: the candidate did not start after the switch"
-    print(f"{context}: start order after switch: daemon={sorted(t - switch for t in daemon_start)[:5]} "
-          f"web={sorted(t - switch for t in web_start)[:5]} renderer={sorted(t - switch for t in renderer_start)[:5]}")
-    assert daemon_start[0] <= web_start[0] <= renderer_start[0], f"{context}: the daemon starts before the web helper"
+    order = (f"daemon={[t - switch for t in sorted(daemon_start)[:3]]} "
+             f"web={[t - switch for t in sorted(web_start)[:3]]} "
+             f"renderer={[t - switch for t in sorted(renderer_start)[:3]]} (usec after the switch)")
+    assert daemon_start[0] <= web_start[0] <= renderer_start[0], f"{context}: the daemon starts before the web helper; {order}"
 
 
 def artifact_of(version):
