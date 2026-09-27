@@ -258,6 +258,24 @@ Plugin API v1 is frozen and does not change. `defineWidget()`, `tilecast.widget.
 - `npm run widgets:storybook` starts the local Storybook. Stories render fixtures at fixed frames (1920×1080, 1080×1920, 960×540, a wide strip, a tall sidebar and a small zone) through the production mount. No hosted Storybook service is used.
 - `npm run widgets:visual` builds the stories and compares each one with a committed Linux Chromium baseline (`widgets/visual/__screenshots__/linux`). Regenerate the baselines in the `mcr.microsoft.com/playwright` image for the installed Playwright version.
 
+### 14.1 Recorded performance
+
+`conformance/widget-perf.mjs` ran on 2026-09-27 on Linux Electron 39.8.5 (Chromium 142), arm64 container, software GL, 1280×720, 120 seconds for each scenario. The runner forces a garbage collection every 10 seconds and then records the JS heap, the DOM node count and the live Widget element instances.
+
+| Scenario                                      | Renderer CPU | Heap after GC (KB) | DOM nodes | Live Widgets |
+| --------------------------------------------- | ------------ | ------------------ | --------- | ------------ |
+| Compatibility clock, fullscreen, seconds      | 0.25 %       | 2957 → 2959        | 108       | 0            |
+| Clock V2, fullscreen, seconds                 | 0.40 %       | 2966 → 2955        | 198       | 1            |
+| Layout with four Clock V2 zones               | 0.50 %       | 3163 → 3148        | 546       | 4            |
+| Rotation, Clock V2 only (1 s items, 119)      | 1.37 %       | 3290 → 3390        | 236–465   | at most 2    |
+| Rotation, compatibility clock and image (120) | 1.20 %       | 3092 → 3365        | 105–109   | 0            |
+| Rotation, images only (control, 120)          | 1.29 %       | 3018 → 3253        | 105–106   | 0            |
+
+- Repeated mount and unmount leaves no Widget element behind: at most the Widget on screen and the Widget on the hidden layer are alive after a collection.
+- The DOM node count follows the item on screen and does not grow.
+- The heap grows by about 100 KB during 119 Clock V2 rotations. This is less than the image-only control, which shows that the conformance host's own evidence log causes the growth.
+- A static Widget has no timer. Clock V2 wakes once each second with seconds and once each minute without seconds.
+
 ## 15. Deferred from PR 1
 
 - The theme is the Tilecast display theme plus Widget author colors. Player branding colors join the context in a later PR; this needs no new setting.
