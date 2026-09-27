@@ -118,7 +118,7 @@ M10 adds one root helper, `tilecast-edge-update`, with a written review in [`til
 
 ### 4.4 Session bridge (amendment, M9)
 
-This amendment adds a third Edge process. PipeWire and WirePlumber are per-user services, so a system service cannot read the audio graph or open a microphone without a user session.
+This amendment adds a third Edge process. It runs in the `tilecast` account's user session (a system service has no user session of its own) and holds the `session_bridge` IPC role while Edge runs, so the daemon can tell a live user session from a missing one.
 
 ```text
          Tilecast Server
@@ -127,28 +127,25 @@ This amendment adds a third Edge process. PipeWire and WirePlumber are per-user 
           /          \
   renderer-wpe    tilecast-session-bridge   (optional, unprivileged)
        |                  |
-  WPE WebKit      PipeWire / WirePlumber
+  WPE WebKit        user session holder
 ```
 
 `tilecastd` stays the only authority. The bridge is an optional integration process, not a second authority:
 
 - it receives no device credential and has no server connection;
 - it owns no durable Tilecast state, no playback policy and no scheduling;
-- it takes no arbitrary host operation: its whole inbound surface is `capture.set {enabled}`;
-- raw audio stays inside its GStreamer pipeline. No sample crosses Edge IPC, reaches `tilecastd`, the renderer or the server, or is written to SQLite or a log. Only bounded derived values leave it.
+- it takes no host operation at all: it says hello, stays connected while Edge runs, and says goodbye on exit. `tilecastd` sends it no events; anything arriving the other way is logged and ignored.
 
-`tilecast-session-bridge` is a small C11 program (GIO, json-glib, GStreamer, libwireplumber 0.5). It runs as the systemd user unit `tilecast-session-bridge.service` in the `tilecast` account's session, with `ConditionUser=tilecast`. A user path unit starts it while `/run/tilecast-edge/edge.sock` exists, and the bridge exits when the socket is gone for 30 s, so it runs only while Edge runs. The migrator turns lingering on for the account, so the session exists at boot.
+`tilecast-session-bridge` is a small C11 program (GIO, json-glib). It runs as the systemd user unit `tilecast-session-bridge.service` in the `tilecast` account's session, with `ConditionUser=tilecast`. A user path unit starts it while `/run/tilecast-edge/edge.sock` exists, and the bridge exits when the socket is gone for 30 s, so it runs only while Edge runs. The migrator turns lingering on for the account, so the session exists at boot.
 
 The bridge:
 
 - connects to `tilecastd` with the IPC role `session_bridge`, which only the daemon's own UID may take;
-- sends `audio.inventory` from WirePlumber (not `wpctl`): whether PipeWire is reachable, the number of audio sources and sinks, and whether WirePlumber names a default source and sink. PipeWire object IDs and device names stay in the bridge;
-- opens the microphone only after `capture.set {enabled: true}`, through `pipewiresrc ! audioconvert ! level` (no custom DSP), and sends one RMS value in `[0, 1]` per 60 ms level interval as `audio.level`;
 - runs with no capabilities, `NoNewPrivileges=yes` and seccomp filters (`RestrictAddressFamilies=AF_UNIX`, `SystemCallFilter=@system-service`, `MemoryDenyWriteExecute=yes`, `RestrictNamespaces=yes`, `LockPersonality=yes`). A systemd user unit cannot have more: options that shrink the capability bounding set (`CapabilityBoundingSet=`, `PrivateDevices=`, `ProtectKernelModules=`, `ProtectKernelLogs=`, `ProtectClock=`) fail every start with `218/CAPABILITIES`, and the filesystem options need a private user namespace, inside which `connect()` to the daemon's socket fails with `EACCES` on Ubuntu 24.04. The bridge has no filesystem confinement beyond the `tilecast` account's own permissions, the same account the renderer uses; [`tilecast-edge-future.md`](tilecast-edge-future.md) records Landlock self-restriction as the follow-up.
 
-The Noise Meter plugin is retired. The native session bridge and capture path remain in Edge for compatibility, but current manifests never request Noise Meter capture. Legacy `noiseMeter` heartbeat fields are accepted and ignored by the server.
+The Noise Meter plugin is retired and its native capture path is removed: no microphone opens, no audio level crosses Edge IPC, and the daemon reports no audio capabilities. Legacy `noiseMeter` heartbeat fields are accepted and ignored by the server.
 
-The bridge is optional. A missing user session, bridge, PipeWire or microphone never stops playback and never fails a migration; it sets the audio capabilities to `blocked` or `unsupported` with a stable reason (`session_bridge_not_connected`, `pipewire_unavailable`, `no_microphone`, [`tilecast-edge-capabilities.md`](tilecast-edge-capabilities.md)), and the runtime's meter shows itself unavailable. The installer checks only that the units are installed and enabled.
+The bridge is optional. A missing user session or bridge never stops playback and never fails a migration. The installer checks only that the units are installed and enabled.
 
 ## 5. Filesystem layout
 
@@ -338,7 +335,7 @@ A capability describes one thing the device can or cannot do, with a state and a
 
 Providers probe the machine independently, each with a timeout. A provider that fails keeps its last known capabilities, marked `degraded` with `provider_probe_failed`. The daemon adds capabilities it knows from live state: the renderer and the state store. Only the current snapshot is stored; its revision moves only on a material change.
 
-Edge 1 providers: systemd notify and watchdog, host time synchronization, the WPE platform backends, the renderer, and the state store. M9 adds display control (kernel HDMI-CEC and DDC/CI), the Presentation Network helper, the systemd-logind idle inhibitor, and audio from the session bridge (§4.4). [`tilecast-edge-capabilities.md`](tilecast-edge-capabilities.md) lists each hardware capability with its reasons.
+Edge 1 providers: systemd notify and watchdog, host time synchronization, the WPE platform backends, the renderer, and the state store. M9 adds display control (kernel HDMI-CEC and DDC/CI), the Presentation Network helper, and the systemd-logind idle inhibitor. [`tilecast-edge-capabilities.md`](tilecast-edge-capabilities.md) lists each hardware capability with its reasons.
 
 ## 13. Time
 
@@ -488,7 +485,7 @@ M1 to M10 are software-complete and merged into `main` (2026-09-26). M11 and M12
 | M6 Offline resilience          | Server outage, WAN outage, power-loss and clock-change qualification.                                                                                                                                                                                                                                                                           | Documented crash-point and outage tests pass.                                                                                                                  |
 | M7 Migration installer         | Preflight, cutover, settlement window, automatic rollback, acceptance.                                                                                                                                                                                                                                                                          | Migration and rollback tested on each supported host type.                                                                                                     |
 | M8 Proof of play and telemetry | Activity events through the outbox, bounded player telemetry.                                                                                                                                                                                                                                                                                   | Activity compliance matches an Electron player on the same schedule.                                                                                           |
-| M9 Hardware parity             | CEC and DDC display control, Presentation Network helper client, audio output; retired Noise Meter capture code remains inactive.                                                                                                                                                                                                               | Capability matrix on reference hardware.                                                                                                                       |
+| M9 Hardware parity             | CEC and DDC display control, Presentation Network helper client, audio output; the retired Noise Meter capture path is removed.                                                                                                                                                                                                                 | Capability matrix on reference hardware.                                                                                                                       |
 | M10 Updates                    | Signed Edge releases in the Player Updates model, resumable verified download, the root update helper, atomic switch, provisional confirmation and automatic rollback.                                                                                                                                                                          | Software: an update, a power loss while provisional and a broken candidate under real systemd. Hardware: an update and a rollback on reference hardware (M11). |
 | M11 WPE qualification          | DRM/KMS on reference hardware, Wayland kiosks, website isolation.                                                                                                                                                                                                                                                                               | Physical-device validation recorded in the ledger.                                                                                                             |
 | M12 Production rollout         | Pilot, staged migration, Electron retirement plan.                                                                                                                                                                                                                                                                                              | Pilot fleet stable for an agreed period.                                                                                                                       |

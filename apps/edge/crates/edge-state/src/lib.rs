@@ -55,6 +55,11 @@ pub const MIGRATIONS: &[Migration] = &[
     Migration { version: 4, name: "activity_outbox", sql: include_str!("../migrations/0004_activity_outbox.sql") },
     Migration { version: 5, name: "hardware", sql: include_str!("../migrations/0005_hardware.sql") },
     Migration { version: 6, name: "update_jobs", sql: include_str!("../migrations/0006_update_jobs.sql") },
+    Migration {
+        version: 7,
+        name: "drop_noise_history",
+        sql: include_str!("../migrations/0007_drop_noise_history.sql"),
+    },
 ];
 
 pub fn latest_schema_version() -> u32 {
