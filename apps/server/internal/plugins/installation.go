@@ -291,36 +291,10 @@ func (s *Service) removalBlockers(ctx context.Context, tx pgx.Tx, id string) ([]
 
 // legacyRemovalBlockers covers the built-in plugins that have not moved into
 // plugins/ yet. Every table named here is a literal owned by this release.
+// All known plugins have migrated (including Forms, which reports its own
+// blockers through plugin.RemovalGuard), so no cases remain.
 func legacyRemovalBlockers(ctx context.Context, tx pgx.Tx, id string) ([]InUseResource, error) {
-	count := func(query string) (int, error) {
-		var n int
-		err := tx.QueryRow(ctx, query).Scan(&n)
-		return n, err
-	}
-	resources := []InUseResource{}
-	add := func(kind, one, many, resolution, query string) error {
-		n, err := count(query)
-		if err != nil {
-			return err
-		}
-		if n > 0 {
-			label := many
-			if n == 1 {
-				label = one
-			}
-			resources = append(resources, InUseResource{Kind: kind, Count: n, Label: label, Resolution: resolution})
-		}
-		return nil
-	}
-	var err error
-	switch id {
-	case FormsID:
-		err = add("form", "form", "forms", "delete", `SELECT count(*) FROM data_sources WHERE provider='form' AND deleted_at IS NULL`)
-	}
-	if err != nil {
-		return nil, err
-	}
-	return resources, nil
+	return []InUseResource{}, nil
 }
 
 func auditInstallation(ctx context.Context, tx pgx.Tx, action string, definition Definition, userID uuid.UUID) error {

@@ -28,9 +28,9 @@ A database restored from a newer release may name a plugin this release does not
 
 ## Forms
 
-Forms collects submissions, applies review and approval workflows, and exposes approved records to Widgets and Layout bindings. Once Forms is installed, operators create and manage forms at **Plugins → Forms**. Submitters continue to use **My Forms**, and reviewers may use the central Approvals inbox.
+Forms collects submissions, applies review and approval workflows, and exposes approved records to Widgets and Layout bindings. Once Forms is installed, operators create and manage forms at **Plugins → Forms**. Submitters continue to use **My Forms** (`/forms`), and reviewers use the Forms Approvals inbox (`/approvals`); both are plugin-owned Studio routes outside the management subtree.
 
-Forms remains a typed Data Source provider in the internal content contract because its approved records are reusable signage data. That implementation detail does not make a form an external data connection: Studio omits Forms from the Data Sources library and creation gallery, and legacy `/data-sources/...` form links redirect to the canonical `/plugins/forms/...` routes.
+Forms remains a typed Data Source provider in the internal content contract because its approved records are reusable signage data. That implementation detail does not make a form an external data connection: the provider contribution hides Forms from the Data Sources library and creation gallery, and legacy `/data-sources/...` form links redirect to the canonical `/plugins/forms/...` routes through that same generic metadata.
 
 Forms does not add a Player plugin manifest entry. Its published views flow through the ordinary authenticated Data Source projection used by Widgets and Layout bindings.
 

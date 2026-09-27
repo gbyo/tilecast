@@ -122,6 +122,9 @@ func (s *Service) hostFor(id string) plugin.Host {
 		Screens:              screenService{service: s},
 		Organization:         organizationService{service: s},
 		Clock:                s.clock,
+		DataSources:          dataSourceService{db: s.db, invalidator: s.dsInvalidator},
+		Users:                userService{db: s.db},
+		PluginAssets:         pluginAssetService{db: s.db, backend: s.attachments},
 	}
 }
 
@@ -132,6 +135,17 @@ func (s *Service) Host(id string) (plugin.Host, bool) {
 		return plugin.Host{}, false
 	}
 	return s.hostFor(id), true
+}
+
+// HostedPlugin returns the hosted plugin instance with the given id. The
+// server uses it to wire plugin contributions (Data Source providers) into
+// core services that cannot import the plugin.
+func (s *Service) HostedPlugin(id string) (plugin.Plugin, bool) {
+	hosted, ok := s.hostedPlugin(id)
+	if !ok {
+		return nil, false
+	}
+	return hosted.plugin, true
 }
 
 // lookup returns a definition this Service hosts.

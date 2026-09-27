@@ -260,13 +260,13 @@
   {
     "version": 44,
     "file": "00044_form_data_source.sql",
-    "owner": "core",
+    "owner": "forms",
     "sha256": "1537e16cf46cfe7dd7f20e81d57a38535edfa5f05bee825eb3d7167a913fcfbd"
   },
   {
     "version": 45,
     "file": "00045_form_record_state_fk.sql",
-    "owner": "core",
+    "owner": "forms",
     "sha256": "c6401bd2bbc2c6c09876f24b893920a53c246984bbeb8bc9cc3f8e528081818e"
   },
   {
@@ -278,7 +278,7 @@
   {
     "version": 47,
     "file": "00047_form_attachment_field_unique.sql",
-    "owner": "core",
+    "owner": "forms",
     "sha256": "8ea1ac1d3d4c04f1a8bbccc9b6dbb3a2c2d65d17b7b48a74b5190f1ac944e711"
   },
   {

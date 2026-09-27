@@ -14,7 +14,6 @@ import playlists from "../locales/en/playlists.json";
 import layouts from "../locales/en/layouts.json";
 import schedules from "../locales/en/schedules.json";
 import activity from "../locales/en/activity.json";
-import forms from "../locales/en/forms.json";
 import plugins from "../locales/en/plugins.json";
 import alerts from "../locales/en/alerts.json";
 import { pluginNamespaceFromPath } from "../plugin-host/translation";
@@ -33,7 +32,6 @@ export const englishResources = {
   layouts,
   schedules,
   activity,
-  forms,
   plugins,
   alerts,
 } as const;

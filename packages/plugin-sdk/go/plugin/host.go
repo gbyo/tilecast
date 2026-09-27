@@ -32,6 +32,9 @@ type Host struct {
 	Screens              Screens
 	Organization         Organization
 	Clock                Clock
+	DataSources          DataSources
+	Users                Users
+	PluginAssets         PluginAssets
 }
 
 // DB is the Tilecast PostgreSQL database. Plugins own their tables and query

@@ -38,6 +38,8 @@ type Service struct {
 	managedPresentations plugin.ManagedPresentations
 	backgroundJobs       plugin.BackgroundJobs
 	publicURL            string
+	dsInvalidator        DataSourceInvalidator
+	attachments          AttachmentBackend
 
 	bundle      []plugin.Plugin
 	definitions []Definition
@@ -215,18 +217,10 @@ func nounFor(d Definition, count int) string {
 // plugin-specific; see docs/plugins.md for what configured and active mean for
 // each one.
 func (s *Service) pluginStatuses(ctx context.Context) (map[string]pluginStatus, error) {
-	statuses := map[string]pluginStatus{}
-
-	var forms pluginStatus
-	if err := s.db.QueryRow(ctx,
-		`SELECT count(*) FROM data_sources WHERE provider='form' AND deleted_at IS NULL`).
-		Scan(&forms.count); err != nil {
-		return nil, err
-	}
-	forms.configured = forms.count > 0
-	forms.active = forms.count > 0
-	statuses[FormsID] = forms
-	return statuses, nil
+	// Migrated plugins (including Forms) report their own status through
+	// plugin.StatusReporter, consulted by the caller before this map.
+	// This map only covers plugins that have not moved into plugins/ yet.
+	return map[string]pluginStatus{}, nil
 }
 
 func validateTargets(ctx context.Context, tx pgx.Tx, scope string, ids []uuid.UUID) error {

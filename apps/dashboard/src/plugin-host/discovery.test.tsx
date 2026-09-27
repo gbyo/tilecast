@@ -1,4 +1,5 @@
 import { isValidElement } from "react";
+import type { RouteObject } from "react-router";
 import { describe, expect, it } from "vitest";
 import { studioRoutes } from "../App";
 import {
@@ -6,9 +7,9 @@ import {
   hasStudioRoute,
   studioPlugins,
 } from "./discovery";
-import { pluginRouteObjects } from "./routes";
+import { pluginRouteObjects, pluginStandaloneRouteObjects } from "./routes";
 
-const manifest = (id: string, route?: string) => ({
+const manifest = (id: string, route?: string, additionalRoutes?: string[]) => ({
   apiVersion: 1 as const,
   id,
   definitionVersion: 1,
@@ -19,9 +20,41 @@ const manifest = (id: string, route?: string) => ({
   maintainers: ["@gbyo"],
   instanceNoun: { singular: "item", plural: "items" },
   ...(route
-    ? { studio: { route, entrypoint: "./studio/index.tsx" as const } }
+    ? {
+        studio: {
+          route,
+          entrypoint: "./studio/index.tsx" as const,
+          additionalRoutes,
+        },
+      }
     : {}),
 });
+
+function discoverSample(
+  id: string,
+  route: string,
+  additionalRoutes: string[] | undefined,
+  standaloneRoutes: NonNullable<
+    Parameters<typeof pluginStandaloneRouteObjects>[1] extends never
+      ? never
+      : import("./kit").StudioPluginDefinition["standaloneRoutes"]
+  >,
+) {
+  return discoverStudioPlugins(
+    {
+      [`../../../../plugins/sample-${id}/tilecast.plugin.json`]: manifest(
+        id,
+        route,
+        additionalRoutes,
+      ),
+    },
+    {
+      [`../../../../plugins/sample-${id}/studio/index.tsx`]: {
+        default: { id, standaloneRoutes },
+      },
+    },
+  );
+}
 
 describe("Studio plugin discovery", () => {
   it("finds every bundled plugin's Studio entry point at build time", () => {
@@ -130,6 +163,104 @@ describe("Studio plugin discovery", () => {
       breadcrumb: "New",
       breadcrumbKey: { ns: "plugin.sample_tally", key: "crumbs.new" },
     });
+  });
+
+  it("mounts standalone routes at their absolute paths with per-route gates", () => {
+    const plugins = discoverSample(
+      "sample_tally",
+      "/plugins/sample-tally",
+      ["/tally", "/tally-inbox"],
+      [
+        {
+          path: "/tally",
+          gate: "install",
+          topLevel: true,
+          children: [{ index: true, element: <p>Tally</p> }],
+        },
+        {
+          path: "/tally-inbox",
+          gate: "none",
+          children: [{ index: true, element: <p>Inbox</p> }],
+        },
+      ],
+    );
+    const top = pluginStandaloneRouteObjects({ topLevel: true }, plugins);
+    expect(top.map((route) => route.path)).toEqual(["/tally"]);
+    expect(isValidElement(top[0]?.element)).toBe(true);
+    const app = pluginStandaloneRouteObjects({ topLevel: false }, plugins);
+    expect(app.map((route) => route.path)).toEqual(["/tally-inbox"]);
+    // No gate means no wrapper element.
+    expect(app[0]?.element).toBeUndefined();
+  });
+
+  it("refuses standalone routes that collide or escape their declaration", () => {
+    const declared = ["/tally"];
+    const routes = [
+      {
+        path: "/tally",
+        gate: "none" as const,
+        children: [{ index: true, element: <p>Tally</p> }],
+      },
+    ];
+    // Two plugins claiming one path fail instead of silently overriding.
+    expect(() =>
+      pluginStandaloneRouteObjects({ topLevel: false }, [
+        ...discoverSample("sample_a", "/plugins/sample-a", declared, routes),
+        ...discoverSample("sample_b", "/plugins/sample-b", declared, routes),
+      ]),
+    ).toThrow(/both plugins/);
+    // Below /plugins belongs to the management subtree, not standalone routes.
+    expect(() =>
+      pluginStandaloneRouteObjects(
+        { topLevel: false },
+        discoverSample(
+          "sample_a",
+          "/plugins/sample-a",
+          ["/plugins/extra"],
+          [
+            {
+              path: "/plugins/extra",
+              gate: "none" as const,
+              children: [],
+            },
+          ],
+        ),
+      ),
+    ).toThrow(/must not live below \/plugins/);
+    // A route the manifest never declared never mounts.
+    expect(() =>
+      pluginStandaloneRouteObjects(
+        { topLevel: false },
+        discoverSample("sample_a", "/plugins/sample-a", undefined, routes),
+      ),
+    ).toThrow(/additionalRoutes/);
+  });
+
+  it("gives every plugin standalone route exactly one place in the Studio router", () => {
+    const collect = (routes: RouteObject[], prefix: string, out: string[]) => {
+      for (const route of routes) {
+        const path = route.path ?? "";
+        const full = path.startsWith("/")
+          ? path
+          : `${prefix}/${path}`.replace(/\/+/g, "/");
+        // Only routes that declare their own path claim an address;
+        // pathless layout routes share their parent's.
+        if (path && full !== "/") out.push(full.replace(/\/$/, ""));
+        collect(route.children ?? [], full || prefix, out);
+      }
+    };
+    const paths: string[] = [];
+    collect(studioRoutes, "", paths);
+    const counts = new Map<string, number>();
+    for (const path of paths) counts.set(path, (counts.get(path) ?? 0) + 1);
+    for (const plugin of studioPlugins()) {
+      for (const standalone of plugin.definition.standaloneRoutes ?? []) {
+        expect(
+          counts.get(standalone.path),
+          `${plugin.id} ${standalone.path}`,
+        ).toBe(1);
+      }
+    }
   });
 
   it("gives every discovered plugin route a place in the Studio router", () => {

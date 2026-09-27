@@ -26,7 +26,6 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/discovery"
 	"github.com/tilecast/tilecast/apps/server/internal/fleetops"
-	"github.com/tilecast/tilecast/apps/server/internal/forms"
 	"github.com/tilecast/tilecast/apps/server/internal/httpapi"
 	"github.com/tilecast/tilecast/apps/server/internal/integrations"
 	"github.com/tilecast/tilecast/apps/server/internal/layouts"
@@ -45,6 +44,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/takeovers"
 	"github.com/tilecast/tilecast/apps/server/internal/updates"
 	"github.com/tilecast/tilecast/apps/server/internal/version"
+	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
 
 func main() {
@@ -131,7 +131,18 @@ func serve() {
 	backupGuard := backup.NewGuard()
 	takeoverService := takeovers.NewService(db, playlistService, deviceService, time.Duration(cfg.Operations.MaxTakeoverDurationHours)*time.Hour)
 	managedPresentationService := managedpresentations.NewService(db)
-	pluginService := plugins.NewService(db, deviceService, plugins.WithLogger(logger), plugins.WithTakeovers(takeoverService), plugins.WithManagedPresentations(managedPresentationService), plugins.WithBackgroundJobsAllowed(backupGuard.BackgroundJobsAllowed), plugins.WithPublicURL(cfg.PublicURL))
+	pluginService := plugins.NewService(db, deviceService, plugins.WithLogger(logger), plugins.WithTakeovers(takeoverService), plugins.WithManagedPresentations(managedPresentationService), plugins.WithBackgroundJobsAllowed(backupGuard.BackgroundJobsAllowed), plugins.WithPublicURL(cfg.PublicURL), plugins.WithDataSourceInvalidator(playlistService), plugins.WithAttachments(mediaService))
+	// The Forms plugin contributes the "form" Data Source provider. Core
+	// owns the provider mechanics; the plugin owns the provider behavior.
+	if hosted, ok := pluginService.HostedPlugin("forms"); ok {
+		if provider, ok := hosted.(plugin.DataSourceProvider); ok {
+			mediaService.SetDataSourceProviders(provider)
+		} else {
+			fail("forms plugin does not contribute a data source provider", nil)
+		}
+	} else {
+		fail("forms plugin is not hosted", nil)
+	}
 	pluginService.SetManifestInvalidator(playlistService)
 	playlistService.SetPluginProjector(pluginService)
 	mediaService.SetContentDefinitions(contentDefinitions)
@@ -141,9 +152,6 @@ func serve() {
 	layoutService.SetManifestInvalidator(playlistService)
 	mediaService.SetAssetInvalidator(playlistService)
 	playlistService.SetSourceProjector(mediaService)
-	formService := forms.NewService(db, mediaService)
-	formService.SetContentDefinitions(contentDefinitions)
-	formService.SetAssetInvalidator(playlistService)
 	scheduleLimits := scheduling.Limits{MaxSchedules: cfg.Scheduling.MaxSchedules, MaxTargetsPerSchedule: cfg.Scheduling.MaxTargetsPerSchedule, MaxGroupsPerScreen: cfg.Scheduling.MaxGroupsPerScreen, PrefetchDays: cfg.Scheduling.PrefetchDays, ActivationGraceSeconds: cfg.Scheduling.ActivationGraceSeconds, ClockSkewWarningSeconds: cfg.Scheduling.ClockSkewWarningSeconds}
 	schedulingService := scheduling.NewService(db, deviceService, scheduleLimits)
 	schedulingService.SetPresentationReadiness(playlistService)
@@ -212,10 +220,6 @@ func serve() {
 	sourceWorker.SetGate(backupGuard.BackgroundJobsAllowed)
 	sourceWorker.Start(ctx)
 	defer sourceWorker.Stop()
-	formWorker := forms.NewProjectionWorker(formService, logger)
-	formWorker.SetGate(backupGuard.BackgroundJobsAllowed)
-	formWorker.Start(ctx)
-	defer formWorker.Stop()
 	notifyConfig := notify.DefaultConfig()
 	notifyConfig.SMTPHost = cfg.Notifications.SMTPHost
 	notifyConfig.SMTPPort = cfg.Notifications.SMTPPort
@@ -303,7 +307,6 @@ func serve() {
 		PublicURL:            cfg.PublicURL,
 		Devices:              deviceService,
 		Media:                mediaService,
-		Forms:                formService,
 		Playlists:            playlistService,
 		Campaigns:            campaignService,
 		Presentations:        presentationService,

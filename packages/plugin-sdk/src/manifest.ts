@@ -227,6 +227,14 @@ export const pluginManifestSchema = z
           .describe(
             "Studio module that default-exports defineStudioPlugin. Always ./studio/index.tsx.",
           ),
+        additionalRoutes: z
+          .array(
+            z.string().regex(/^\/[a-z0-9][a-z0-9/-]{0,119}$/, "must be /path"),
+          )
+          .optional()
+          .describe(
+            "Absolute Studio routes outside /plugins/<id> the plugin owns, such as a portal or inbox. Each must mount through the definition's standaloneRoutes.",
+          ),
       })
       .optional(),
     runtime: z

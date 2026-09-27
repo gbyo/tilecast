@@ -419,6 +419,20 @@ describe("DefinitionForm data source controls", () => {
     vi.spyOn(api, "contentDefinitions").mockResolvedValue(
       catalog([definition("csv", []), definition("form", [])]),
     );
+    vi.spyOn(api, "providerCatalog").mockResolvedValue({
+      revision: 1,
+      providers: [
+        {
+          id: "form",
+          role: "data_source",
+          label: "Form",
+          group: "Interactive",
+          description: "Collect submissions.",
+          capabilities: {},
+          uiHints: { gallery: "hidden" },
+        },
+      ],
+    });
     vi.spyOn(api, "listDataSources").mockResolvedValue({
       items: [],
       total: 0,
