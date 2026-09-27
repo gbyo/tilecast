@@ -11,7 +11,10 @@
  *   widget-clock           Clock V2 with seconds, fullscreen
  *   widget-layout          a Layout with four Clock V2 zones (two with seconds)
  *   widget-rotation        a one-second rotation of Clock V2, a compatibility
- *                          clock and an image, for rotation seconds
+ *                          clock and an image
+ *   widget-rotation-control  the same rotation with images only
+ *
+ * A fixture may run at most 170 seconds (the runner's cap is 180).
  *
  * Reported: renderer CPU after warm-up, working set over the run, and the
  * Widget elements, media elements and pending state left at the end.
@@ -194,12 +197,82 @@ export const widgetPerfScenarios = () => [
       { checkpoint: "end" },
     ],
   },
+  {
+    // Attribution: Clock V2 alone, then the compatibility clock alone.
+    ...base,
+    name: "widget-rotation-v2",
+    steps: [
+      {
+        present: {
+          presentation: playing([
+            item("v1", { widget: component({}), durationMs: 1_000 }),
+            item("v2", {
+              widget: component({ style: "analog" }),
+              durationMs: 1_000,
+            }),
+          ]),
+        },
+      },
+      { waitForEvidence: { kind: "widget-shown", itemId: "v1" } },
+      { hold: seconds * 1_000 },
+      { checkpoint: "end" },
+    ],
+  },
+  {
+    ...base,
+    name: "widget-rotation-compat",
+    steps: [
+      {
+        present: {
+          presentation: playing([
+            item("k1", { widget: compatClock, durationMs: 1_000 }),
+            item("k2", {
+              kind: "image",
+              src: "media:landscape",
+              durationMs: 1_000,
+            }),
+          ]),
+        },
+      },
+      { waitForEvidence: { kind: "widget-shown", itemId: "k1" } },
+      { hold: seconds * 1_000 },
+      { checkpoint: "end" },
+    ],
+  },
+  {
+    // The control for widget-rotation: the same cadence with images only.
+    ...base,
+    name: "widget-rotation-control",
+    steps: [
+      {
+        present: {
+          presentation: playing(
+            ["c1", "c2", "c3", "c4"].map((id) =>
+              item(id, {
+                kind: "image",
+                src: "media:landscape",
+                durationMs: 1_000,
+              }),
+            ),
+          ),
+        },
+      },
+      { waitForEvidence: { kind: "image-shown", itemId: "c1" } },
+      { hold: seconds * 1_000 },
+      { checkpoint: "end" },
+    ],
+  },
 ];
 
 const mean = (values) =>
   values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
 const round = (value, digits = 1) =>
   value === null || value === undefined ? null : Number(value.toFixed(digits));
+
+const series = (values) =>
+  values.length
+    ? { start: values[0], end: values.at(-1), max: Math.max(...values) }
+    : null;
 
 function analyse(dir) {
   const read = (name, file) => {
@@ -238,6 +311,14 @@ function analyse(dir) {
       },
       items: result.timeline.filter((e) => e.entry.startsWith("item-started"))
         .length,
+      // After a forced collection every 10 s: a leak grows these; ordinary
+      // allocation does not.
+      heapKb: series((metrics.heap ?? []).map((h) => h.usedKb)),
+      domNodes: series((metrics.heap ?? []).map((h) => h.nodes)),
+      liveWidgetsMax: Math.max(
+        0,
+        ...(metrics.heap ?? []).flatMap((h) => Object.values(h.widgets ?? {})),
+      ),
       end: result.checkpoints.at(-1)?.state?.document ?? null,
     };
   }

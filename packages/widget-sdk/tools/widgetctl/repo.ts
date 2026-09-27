@@ -14,6 +14,9 @@ import {
 
 export const MANIFEST_FILE = "tilecast.widget.json";
 
+/** Tooling directories below widgets/ that are not Widget modules. */
+export const RESERVED_DIRS = new Set(["visual"]);
+
 export interface Problem {
   widget?: string;
   file?: string;
@@ -52,7 +55,8 @@ export function discover(root: string): Repo {
       )
     : [];
   for (const dir of entries.sort()) {
-    if (dir === "node_modules" || dir.startsWith(".")) continue;
+    if (dir === "node_modules" || dir.startsWith(".") || RESERVED_DIRS.has(dir))
+      continue;
     const path = join(widgetsDir, dir);
     const manifestPath = join(path, MANIFEST_FILE);
     const file = relative(root, manifestPath);
