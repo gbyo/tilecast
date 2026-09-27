@@ -12,7 +12,6 @@ import type {
   DiscoveredServerV1,
   EvidenceReportV1,
   HostMessageV1,
-  NoiseMeterReportV1,
   PlaybackErrorReportV1,
   PresentationResultV1,
   RuntimeReadyV1,
@@ -76,7 +75,6 @@ const host: TilecastRuntimeHostV1 = {
     synchronizedPlayback: true,
     setup: true,
     discovery: true,
-    noiseMeter: "renderer-microphone",
   },
   subscribe(listener) {
     listeners.add(listener);
@@ -125,20 +123,6 @@ const host: TilecastRuntimeHostV1 = {
   discovery: {
     list(): Promise<DiscoveredServerV1[]> {
       return ipcRenderer.invoke("list-discovered-servers");
-    },
-  },
-  // The Noise Meter's whole outbound surface: derived numbers and a bounded
-  // diagnostic. The microphone stream and every sample stay in the renderer.
-  noiseMeter: {
-    report(report: NoiseMeterReportV1) {
-      ipcRenderer.send("noise-meter-report", {
-        status: text(report.status, 32),
-        level: typeof report.level === "number" ? report.level : null,
-        bucket: report.bucket ?? null,
-      });
-    },
-    diagnostic(message: string, detail?: Record<string, unknown>) {
-      ipcRenderer.send("noise-meter-diagnostic", { message, detail });
     },
   },
   remoteWeb: {
