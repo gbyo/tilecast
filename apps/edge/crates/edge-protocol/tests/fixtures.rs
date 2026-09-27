@@ -14,6 +14,16 @@ fn fixtures() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../../packages/edge-protocol/fixtures")
 }
 
+/// Valid fixtures for the retired Noise Meter events. The fixtures themselves
+/// are history and must not be edited; the events they describe
+/// (`noise.level`, `noise.report`) no longer decode.
+const RETIRED: &[&str] = &[
+    "event-noise-level-unavailable.json",
+    "event-noise-level.json",
+    "event-noise-report-inactive.json",
+    "event-noise-report.json",
+];
+
 #[test]
 fn ipc_frame_fixtures() {
     for (directory, valid) in [("ipc/valid", true), ("ipc/invalid", false)] {
@@ -22,6 +32,10 @@ fn ipc_frame_fixtures() {
         for entry in entries {
             let path = entry.expect("entry").path();
             if path.extension().and_then(|e| e.to_str()) != Some("json") {
+                continue;
+            }
+            let name = path.file_name().and_then(|n| n.to_str()).unwrap_or_default();
+            if valid && RETIRED.contains(&name) {
                 continue;
             }
             count += 1;

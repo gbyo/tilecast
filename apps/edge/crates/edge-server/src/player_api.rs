@@ -373,25 +373,6 @@ mod preview_tests {
     }
 }
 
-// ------------------------------------------------------------ heartbeat ack
-
-/// What a `POST /player/heartbeat` answer acknowledges.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct HeartbeatAck {
-    /// How many of the heartbeat's Noise Meter history records the server
-    /// stored (`data.noiseHistory.accepted`); `None` when it said nothing.
-    pub noise_history_accepted: Option<u64>,
-}
-
-pub fn heartbeat_ack(data: &Value) -> HeartbeatAck {
-    HeartbeatAck {
-        noise_history_accepted: data
-            .get("noiseHistory")
-            .and_then(|history| history.get("accepted"))
-            .and_then(Value::as_u64),
-    }
-}
-
 // ------------------------------------------------------ Presentation Network
 
 /// Largest provisioning answer: the profile plus a CA certificate of at most

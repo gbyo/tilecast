@@ -105,13 +105,7 @@ async fn handle(fake: Arc<Fake>, request: Request<Incoming>) -> Result<Response<
         "/api/v1/player/heartbeat" => {
             let body = request.into_body().collect().await.unwrap().to_bytes();
             let heartbeat: Value = serde_json::from_slice(&body).unwrap();
-            let history = heartbeat["noiseMeter"]["pendingHistory"].as_array().map_or(0, Vec::len);
             fake.heartbeats.lock().unwrap().push(heartbeat);
-            if history > 0 {
-                // The server stores at most two per request here, as a partial
-                // acknowledgement.
-                return Ok(data(json!({"accepted": true, "noiseHistory": {"accepted": history.min(2)}})));
-            }
             Ok(data(json!({"accepted": true})))
         }
         "/api/v1/player/presentation-network" => match fake.provisioning.lock().unwrap().clone() {
@@ -431,17 +425,12 @@ async fn a_revoked_credential_is_reported_as_rejected() {
 }
 
 #[tokio::test]
-async fn heartbeat_answers_acknowledge_noise_history_exactly() {
+async fn heartbeat_answer_is_accepted_without_history() {
     let installation = InstallationId::new_random();
     let fake = Fake::new(installation);
     let server = authenticated(&fake, installation).await;
-    let plain = server.player_heartbeat(&json!({"playerVersion": "0.1.0"})).await.unwrap();
-    assert_eq!(plain.noise_history_accepted, None, "no history, no acknowledgement");
-    let history = json!({"playerVersion": "0.1.0", "noiseMeter": {"status": "normal", "pendingHistory": [
-        {"startedAt": "2026-09-25T12:00:00Z"}, {"startedAt": "2026-09-25T12:00:10Z"}, {"startedAt": "2026-09-25T12:00:20Z"}
-    ]}});
-    let ack = server.player_heartbeat(&history).await.unwrap();
-    assert_eq!(ack.noise_history_accepted, Some(2));
+    server.player_heartbeat(&json!({"playerVersion": "0.1.0"})).await.unwrap();
+    assert_eq!(fake.heartbeats.lock().unwrap().len(), 1);
 }
 
 #[tokio::test]

@@ -463,7 +463,7 @@ mod tests {
     fn adapters_without_nodes_or_permission_are_blocked() {
         let (_dir, roots) = tree();
         std::fs::create_dir(roots.sys_dir.join("bus/cec/devices/cec0")).expect("adapter");
-        std::fs::create_dir(roots.sys_dir.join("bus/cec/devices/not-an-adapter")).expect("noise");
+        std::fs::create_dir(roots.sys_dir.join("bus/cec/devices/not-an-adapter")).expect("not-an-adapter");
         let hardware = DisplayHardware { roots: roots.clone(), settings: Settings::default() };
         assert_eq!(cec_adapters(&roots), vec![0]);
         assert_eq!(hardware.probe_cec().feature, Feature::new(CapabilityState::Blocked, "cec_device_node_missing"));

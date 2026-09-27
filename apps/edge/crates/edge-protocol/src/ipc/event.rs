@@ -432,7 +432,7 @@ pub struct PreviewResult {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ShutdownAck {}
 
-// ------------------------------------------------------------ Noise Meter
+// ------------------------------------------------- Session bridge audio
 
 /// A finite level in `[0, max]`; anything else is a malformed frame.
 fn level_in<'de, D: serde::Deserializer<'de>>(d: D, max: f64) -> Result<Option<f64>, D::Error> {
@@ -446,11 +446,6 @@ fn level_in<'de, D: serde::Deserializer<'de>>(d: D, max: f64) -> Result<Option<f
 /// A root-mean-square amplitude: `null` or a finite value in `[0, 1]`.
 fn unit_rms<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<f64>, D::Error> {
     level_in(d, 1.0)
-}
-
-/// The runtime's smoothed level: absent, `null` or a finite value in `[0, 100]`.
-fn percent_level<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<f64>, D::Error> {
-    level_in(d, 100.0)
 }
 
 /// Largest number of sources or sinks a bridge may report.
@@ -553,99 +548,6 @@ pub struct AudioInventory {
     pub default_sink: bool,
 }
 
-/// Daemon → renderer: a host-measured level for the runtime's Noise Meter
-/// (`capabilities.noiseMeter = "host-levels"`). `null` while no measurement
-/// is available.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct NoiseLevel {
-    #[serde(deserialize_with = "unit_rms")]
-    pub rms: Option<f64>,
-}
-
-/// The heartbeat's Noise Meter status vocabulary
-/// (`apps/server/internal/devices/noise_meter_heartbeat.go`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum NoiseStatus {
-    Active,
-    Normal,
-    Loud,
-    Unavailable,
-    Inactive,
-}
-
-impl NoiseStatus {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Active => "active",
-            Self::Normal => "normal",
-            Self::Loud => "loud",
-            Self::Unavailable => "unavailable",
-            Self::Inactive => "inactive",
-        }
-    }
-}
-
-/// The fixed Noise Meter history window.
-pub const NOISE_BUCKET_MS: u32 = 10_000;
-
-fn bucket_ms<'de, D: serde::Deserializer<'de>>(d: D) -> Result<u32, D::Error> {
-    let value = u32::deserialize(d)?;
-    if value > NOISE_BUCKET_MS {
-        return Err(D::Error::custom("duration exceeds the bucket"));
-    }
-    Ok(value)
-}
-
-fn trigger_count<'de, D: serde::Deserializer<'de>>(d: D) -> Result<u32, D::Error> {
-    let value = u32::deserialize(d)?;
-    if value > 1_000 {
-        return Err(D::Error::custom("trigger count exceeds its bound"));
-    }
-    Ok(value)
-}
-
-fn required_percent<'de, D: serde::Deserializer<'de>>(d: D) -> Result<f64, D::Error> {
-    let value = f64::deserialize(d)?;
-    if !value.is_finite() || !(0.0..=100.0).contains(&value) {
-        return Err(D::Error::custom("level is out of range"));
-    }
-    Ok(value)
-}
-
-/// One completed ten-second aggregate (the runtime's
-/// `TilecastNoiseHistoryBucket`). Derived numbers only.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct NoiseBucket {
-    pub started_at: crate::Timestamp,
-    #[serde(deserialize_with = "required_percent")]
-    pub average_level: f64,
-    #[serde(deserialize_with = "required_percent")]
-    pub peak_level: f64,
-    #[serde(deserialize_with = "bucket_ms")]
-    pub monitored_ms: u32,
-    #[serde(deserialize_with = "bucket_ms")]
-    pub warning_ms: u32,
-    #[serde(deserialize_with = "bucket_ms")]
-    pub loud_ms: u32,
-    #[serde(deserialize_with = "trigger_count")]
-    pub trigger_count: u32,
-}
-
-/// Renderer → daemon: the runtime's Noise Meter state, sent on a state change
-/// and once per completed bucket, never at the sampling rate.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct NoiseReport {
-    pub status: NoiseStatus,
-    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "percent_level")]
-    pub level: Option<f64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub bucket: Option<NoiseBucket>,
-}
-
 // ------------------------------------------------------------------- enum
 
 #[derive(Debug, Clone, PartialEq)]
@@ -659,7 +561,6 @@ pub enum Event {
     RendererCommand(RendererCommand),
     PreviewRequest(PreviewRequest),
     RendererShutdown(RendererShutdown),
-    NoiseLevel(NoiseLevel),
     CaptureSet(CaptureSet),
 
     RendererReady(RendererReady),
@@ -670,7 +571,6 @@ pub enum Event {
     RendererHealth(RendererHealth),
     PreviewResult(PreviewResult),
     ShutdownAck(ShutdownAck),
-    NoiseReport(NoiseReport),
     AudioLevel(AudioLevel),
     AudioInventory(AudioInventory),
 }
@@ -733,7 +633,6 @@ events! {
     RendererCommand => "renderer.command", DaemonToClient, [Renderer];
     PreviewRequest => "preview.request", DaemonToClient, [Renderer];
     RendererShutdown => "renderer.shutdown", DaemonToClient, [Renderer];
-    NoiseLevel => "noise.level", DaemonToClient, [Renderer];
     CaptureSet => "capture.set", DaemonToClient, [SessionBridge];
 
     RendererReady => "renderer.ready", ClientToDaemon, [Renderer];
@@ -744,7 +643,6 @@ events! {
     RendererHealth => "renderer.health", ClientToDaemon, [Renderer];
     PreviewResult => "renderer.preview", ClientToDaemon, [Renderer];
     ShutdownAck => "renderer.shutdown_ack", ClientToDaemon, [Renderer];
-    NoiseReport => "noise.report", ClientToDaemon, [Renderer];
     AudioLevel => "audio.level", ClientToDaemon, [SessionBridge];
     AudioInventory => "audio.inventory", ClientToDaemon, [SessionBridge];
 }
@@ -819,7 +717,7 @@ mod tests {
     }
 
     #[test]
-    fn noise_and_bridge_events_carry_bounded_numbers_and_nothing_else() {
+    fn bridge_events_carry_bounded_numbers_and_nothing_else() {
         let level = Event::decode("audio.level", json!({"rms": 0.25, "state": "capturing"})).expect("valid");
         assert_eq!(level.allowed_roles(), &[Role::SessionBridge]);
         assert_eq!(level.direction(), Direction::ClientToDaemon);
@@ -856,28 +754,8 @@ mod tests {
         assert_eq!(capture.direction(), Direction::DaemonToClient);
         assert_eq!(capture.allowed_roles(), &[Role::SessionBridge]);
 
-        let report = Event::decode(
-            "noise.report",
-            json!({"status": "loud", "level": 71.5, "bucket": {"startedAt": "2026-09-25T12:00:00.000Z",
-                "averageLevel": 40.2, "peakLevel": 80, "monitoredMs": 10000, "warningMs": 2000, "loudMs": 500,
-                "triggerCount": 1}}),
-        )
-        .expect("valid");
-        assert_eq!(report.allowed_roles(), &[Role::Renderer]);
-        assert!(Event::decode("noise.report", json!({"status": "inactive"})).is_ok());
-        for bad in [
-            json!({"status": "loud", "level": 101}),
-            json!({"status": "shouting"}),
-            json!({"status": "loud", "pcm": "AAAA"}),
-            json!({"status": "loud", "bucket": {"startedAt": "2026-09-25T12:00:00Z", "averageLevel": 1,
-                "peakLevel": 1, "monitoredMs": 10001, "warningMs": 0, "loudMs": 0, "triggerCount": 0}}),
-            json!({"status": "loud", "bucket": {"startedAt": "2026-09-25T12:00:00Z", "averageLevel": 1,
-                "peakLevel": 1, "monitoredMs": 100, "warningMs": 0, "loudMs": 0, "triggerCount": 0, "raw": []}}),
-        ] {
-            assert!(Event::decode("noise.report", bad.clone()).is_err(), "{bad}");
-        }
-        assert!(Event::decode("noise.level", json!({"rms": 0.5})).is_ok());
-        assert!(Event::decode("noise.level", json!({"rms": 2})).is_err());
+        assert!(matches!(Event::decode("noise.report", json!({"status": "inactive"})), Err(EventError::Unknown(_))));
+        assert!(matches!(Event::decode("noise.level", json!({"rms": 0.5})), Err(EventError::Unknown(_))));
     }
 
     #[test]

@@ -11,7 +11,7 @@ pkg_check_modules(JSONGLIB REQUIRED IMPORTED_TARGET json-glib-1.0)
 
 # Frame building and parsing only; unit tested against the IPC fixtures.
 add_library(tilecast-bridge-protocol STATIC src/protocol.c)
-target_link_libraries(tilecast-bridge-protocol PUBLIC PkgConfig::JSONGLIB m)
+target_link_libraries(tilecast-bridge-protocol PUBLIC PkgConfig::JSONGLIB)
 target_include_directories(tilecast-bridge-protocol PUBLIC src)
 
 enable_testing()
@@ -21,13 +21,8 @@ target_compile_definitions(test-bridge-protocol PRIVATE
   TB_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/../../../packages/edge-protocol/fixtures/ipc")
 add_test(NAME bridge-protocol COMMAND test-bridge-protocol)
 
-# The bridge itself needs GStreamer and WirePlumber; a protocol-only build
-# (-DTB_PROTOCOL_ONLY=ON) runs the unit tests without them.
-option(TB_PROTOCOL_ONLY "Build only the protocol library and its tests" OFF)
-if(NOT TB_PROTOCOL_ONLY)
-  pkg_check_modules(GST REQUIRED IMPORTED_TARGET gstreamer-1.0)
-  pkg_check_modules(WP REQUIRED IMPORTED_TARGET wireplumber-0.5)
-  add_executable(tilecast-session-bridge src/main.c src/ipc.c src/capture.c src/inventory.c)
-  target_link_libraries(tilecast-session-bridge PRIVATE tilecast-bridge-protocol PkgConfig::GIO PkgConfig::GST PkgConfig::WP)
-  install(TARGETS tilecast-session-bridge RUNTIME DESTINATION bin)
-endif()
+# The bridge holds the session_bridge role on tilecastd's socket: no
+# GStreamer, no WirePlumber since the Noise Meter retired.
+add_executable(tilecast-session-bridge src/main.c src/ipc.c)
+target_link_libraries(tilecast-session-bridge PRIVATE tilecast-bridge-protocol PkgConfig::GIO)
+install(TARGETS tilecast-session-bridge RUNTIME DESTINATION bin)
