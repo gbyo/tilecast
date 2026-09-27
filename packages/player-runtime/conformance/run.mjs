@@ -17,6 +17,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { fixtures as conformanceFixtures } from "./fixtures.mjs";
 import { perfScenarios } from "./perf.mjs";
+import { widgetPerfScenarios } from "./widget-perf.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const pkg = path.join(here, "..");
@@ -33,7 +34,9 @@ const perf = args.has("perf");
 const fixtures =
   args.get("suite") === "perf"
     ? perfScenarios(Number(args.get("rotation-seconds") ?? 90))
-    : conformanceFixtures;
+    : args.get("suite") === "widget-perf"
+      ? widgetPerfScenarios()
+      : conformanceFixtures;
 if (!["electron", "electron-legacy", "wpe"].includes(engine)) {
   console.error("run: --engine electron|electron-legacy|wpe is required");
   process.exit(64);

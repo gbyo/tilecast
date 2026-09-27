@@ -388,6 +388,8 @@ if (runner) {
             document: {
               videos: document.querySelectorAll("video").length,
               images: document.querySelectorAll(".layer img").length,
+              widgets: document.querySelectorAll("[data-tilecast-widget]")
+                .length,
             },
           },
           evidence,

@@ -612,7 +612,13 @@
       },
       "clock": {
         "timezoneHint": "Déjalo en blanco para usar la zona horaria de la organización o escribe cualquier identificador IANA válido.",
-        "showSeconds": "Mostrar segundos"
+        "showSeconds": "Mostrar segundos",
+        "style": "Estilo",
+        "styleStandard": "Estándar",
+        "styleMinimal": "Mínimo",
+        "styleAnalog": "Analógico",
+        "styleHint": "Estándar muestra la hora con una fecha opcional. Mínimo muestra solo la hora, lo más grande posible. Analógico muestra una esfera con la hora digital al lado. Las pantallas con un Player anterior a estos estilos muestran solo la hora.",
+        "showDate": "Mostrar fecha"
       },
       "date": {
         "dateFormat": "Formato de fecha"
