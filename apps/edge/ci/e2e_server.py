@@ -246,7 +246,7 @@ def main():
         run("dropdb", "--if-exists", DATABASE)
         run("createdb", DATABASE)
         server_bin = os.path.join(work, "tilecast")
-        run("go", "build", "-o", server_bin, "./cmd/tilecast", cwd=SERVER)
+        run("go", "build", "-o", server_bin, "./cmd/tilecast-server", cwd=SERVER)
         run("cargo", "build", "-q", "-p", "tilecastd", "-p", "tilecastctl", cwd=EDGE)
         target = os.path.join(os.environ.get("CARGO_TARGET_DIR", os.path.join(EDGE, "target")), "debug")
         tilecastd, tilecastctl = os.path.join(target, "tilecastd"), os.path.join(target, "tilecastctl")

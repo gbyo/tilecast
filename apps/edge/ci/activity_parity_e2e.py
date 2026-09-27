@@ -271,7 +271,7 @@ def main():
         e2e.run("dropdb", "--if-exists", e2e.DATABASE)
         e2e.run("createdb", e2e.DATABASE)
         server_bin = os.path.join(work, "tilecast")
-        e2e.run("go", "build", "-o", server_bin, "./cmd/tilecast", cwd=e2e.SERVER)
+        e2e.run("go", "build", "-o", server_bin, "./cmd/tilecast-server", cwd=e2e.SERVER)
         e2e.run("cargo", "build", "-q", "-p", "tilecastd", "-p", "tilecastctl", cwd=e2e.EDGE)
         tilecastd = os.path.join(target, "tilecastd")
         env = dict(os.environ, TILECAST_DATABASE_URL=f"postgres://localhost:5432/{e2e.DATABASE}?sslmode=disable",

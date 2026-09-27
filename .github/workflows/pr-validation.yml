@@ -90,6 +90,9 @@ jobs:
                   e2e=true
                   plugins=true
                   ;;
+                apps/cli/*)
+                  server=true
+                  ;;
                 apps/docs/*|.github/logos/*)
                   docs=true
                   plugins=true
@@ -253,6 +256,7 @@ jobs:
           go-version-file: apps/server/go.mod
           cache-dependency-path: |
             apps/server/go.sum
+            apps/cli/go.sum
             plugins/go.sum
             packages/plugin-sdk/go/go.sum
       # go.work puts the bundled plugins and the plugin SDK in the same build.
@@ -272,6 +276,12 @@ jobs:
           reporter: golang-json
           fail-on-empty: false
       - working-directory: apps/server
+        run: go build ./cmd/tilecast-server
+      - working-directory: apps/cli
+        run: go vet ./...
+      - working-directory: apps/cli
+        run: go test ./...
+      - working-directory: apps/cli
         run: go build ./cmd/tilecast
 
   dashboard_ci:

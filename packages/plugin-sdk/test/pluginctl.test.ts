@@ -32,7 +32,7 @@ function makeRepo(): string {
   mkdirSync(join(dir, "docs/openapi"), { recursive: true });
   writeFileSync(
     join(dir, "docs/openapi/core.yaml"),
-    "openapi: 3.1.0\ninfo:\n  title: Core\n  version: 1.0.0\npaths:\n  /healthz:\n    get:\n      responses:\n        '200':\n          description: ok\ncomponents:\n  schemas:\n    Error:\n      type: object\n",
+    "openapi: 3.1.0\ninfo:\n  title: Core\n  version: 1.0.0\npaths:\n  /healthz:\n    get:\n      responses:\n        '200':\n          description: ok\ncomponents:\n  responses:\n    NotFound:\n      description: Missing\n  schemas:\n    Error:\n      type: object\n",
   );
   writeFileSync(
     join(dir, "plugins/review-eligibility.json"),
@@ -306,6 +306,7 @@ describe("pluginctl", () => {
         "paths:",
         "  /api/v1/plugins/transit-alerts/feeds:",
         "    get:",
+        "      operationId: listTransitFeeds",
         "      responses:",
         "        '200': { description: Feeds }",
         "        '404': { $ref: '../../../docs/openapi/core.yaml#/components/responses/NotFound' }",
