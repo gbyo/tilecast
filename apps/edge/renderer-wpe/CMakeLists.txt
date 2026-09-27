@@ -42,7 +42,7 @@ add_executable(tilecast-renderer-wpe
   src/schemes.c
   src/remote-web.c
   src/view.c)
-target_link_libraries(tilecast-renderer-wpe PRIVATE tilecast-media-client tilecast-rw-protocol PkgConfig::WPE PkgConfig::JSONGLIB PkgConfig::GIO PkgConfig::GST PkgConfig::DRM m)
+target_link_libraries(tilecast-renderer-wpe PRIVATE tilecast-media-client tilecast-rw-protocol tilecast-rw-channel PkgConfig::WPE PkgConfig::JSONGLIB PkgConfig::GIO PkgConfig::GST PkgConfig::DRM m)
 
 # GStreamer source for tcmedia:// loaded into the web process (see
 # src/gst-tcmedia.c). Installed to lib/gstreamer-1.0 of the Edge release.
@@ -61,6 +61,16 @@ add_executable(test-media-client tests/test_media_client.c)
 target_link_libraries(test-media-client PRIVATE tilecast-media-client)
 target_compile_definitions(test-media-client PRIVATE TC_MEDIA_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/../../../packages/edge-protocol/fixtures/media")
 add_test(NAME media-client COMMAND test-media-client)
+
+# Bounded async helper channel (remote-web.c write side): GLib/GIO only, no
+# WebKit, so the backpressure and flood-budget regression tests run anywhere.
+add_library(tilecast-rw-channel STATIC src/rw-channel.c)
+target_link_libraries(tilecast-rw-channel PUBLIC PkgConfig::GIO)
+target_include_directories(tilecast-rw-channel PUBLIC src)
+
+add_executable(test-rw-channel tests/test_rw_channel.c)
+target_link_libraries(test-rw-channel PRIVATE tilecast-rw-channel)
+add_test(NAME rw-channel COMMAND test-rw-channel)
 
 install(TARGETS tilecast-renderer-wpe RUNTIME DESTINATION bin)
 

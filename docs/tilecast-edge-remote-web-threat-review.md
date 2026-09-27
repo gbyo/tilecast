@@ -118,12 +118,17 @@ The limits come from the spike measurements (software path, one 720p surface cos
 | Surface identifier          | `[a-z0-9-]{1,48}`, chosen by the runtime                                         |
 | Requests in flight          | 8 creates or clears; more closes the connection                                  |
 | Events                      | 32 a second to the renderer; the helper coalesces repeated events of one surface |
+| Trusted-side inbound budget | 64 frames a second from the helper; sustained excess closes the connection       |
+| Renderer outbound queue     | 16 frames; resize/visible/mute/reload coalesce per surface, a full queue closes the connection |
+| Renderer write deadline     | 2 s for the head frame; a helper that stops consuming data is disconnected       |
 | Frame queue                 | 1 frame (leaky), the latest frame wins                                           |
 | Frame rate                  | 60 fps with a GPU; 30 fps on the software path                                   |
 | Idle repeat                 | the latest frame again after 1 s without a new frame                             |
 | Control frame               | 64 KiB                                                                           |
 
 The runtime has the same bounds for reload interval (30 s to 86 400 s) and load timeout (5 s to 120 s), because it owns those timers.
+
+The helper-side event deferral (32 a second) is a courtesy, not a security boundary: a compromised helper can ignore it. The boundary is the trusted-side inbound budget above, which runs in the renderer and closes the connection on sustained floods of otherwise-valid frames.
 
 ## 7. Frame transport and capabilities
 
@@ -224,6 +229,7 @@ The credential and state are files of `tilecast` in `/var/lib/tilecast-edge` (07
 
 - The helper has `MemoryHigh=` and `MemoryMax=` (1 GiB and 1.5 GiB), `TasksMax=512` and `CPUWeight=50`, so a page cannot take memory or CPU from the trusted renderer. When the kernel kills a WebKit web process, the view's `web-process-terminated` signal fails that surface with `renderer_crash`.
 - The trusted side keeps only the latest frame. A slow page produces fewer frames; it never fills a queue in the renderer. The renderer's control reads are asynchronous, and a reply that never comes is bounded by the runtime's load timeout.
+- The renderer's control writes never block its main loop either: they are queued on a bounded (16-frame) asynchronous channel with a 2 s write deadline (`apps/edge/renderer-wpe/src/rw-channel.c`). A helper that stops consuming data, or update chatter past the queue bound, disconnects into the existing reconnect path instead of stalling unrelated playback. Resize/visible/mute/reload updates coalesce per surface so chatter cannot grow the queue.
 - The software path sends at most 30 frames a second, because the trusted compositor pays the upload cost (spike §3.1).
 - A page that never finishes loading is failed by the runtime's load timeout. A page that stops rendering is detected when the idle repeat stops: the runtime fails a surface that has no frame for 5 s.
 - The renderer reconnects to the helper with a bounded backoff and never blocks its main loop on the helper.
@@ -259,6 +265,7 @@ The credential and state are files of `tilecast` in `/var/lib/tilecast-edge` (07
 | Navigation, redirects, schemes, popups, downloads, permissions, dialogs, TLS | helper security test against a local fixture server                                  |
 | Pure policy                                                                  | `test-policy` (C unit test)                                                          |
 | Protocol bounds and closed messages                                          | `test-protocol` against the fixtures, oversized frames, huge allowlists              |
+| Renderer backpressure and inbound flood budget                             | `test-rw-channel`: non-reading helper, queue bound, coalescing, stale callbacks      |
 | Capability guessing and use after destroy                                    | helper security test                                                                 |
 | Data profiles and clearing                                                   | helper data test: cookies and local storage per policy, `clear-data`                 |
 | Unit sandbox (credential, state, sockets, devices)                           | `ci/run-migrate-e2e.sh` runs the helper unit under real systemd and probes each path |

@@ -20,6 +20,8 @@
 #include <json-glib/json-glib.h>
 #include <wpe/webkit.h>
 
+#include "rw-channel.h"
+
 G_BEGIN_DECLS
 
 #define TC_RENDERER_VERSION "0.1.0"
@@ -96,6 +98,7 @@ struct _TcHost {
   char *web_frames_dir;
   GSocketConnection *rw_connection;
   GCancellable *rw_io;
+  TcRwChannel *rw_channel; /* bounded async writes; never blocks the loop */
   guchar rw_header[4];
   guchar *rw_payload;
   gsize rw_payload_length;

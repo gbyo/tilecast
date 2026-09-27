@@ -26,6 +26,7 @@ typedef struct {
 
 static void read_header (TcHost *host);
 static void connect_helper (TcHost *host);
+static void disconnect (TcHost *host, const char *reason);
 
 /* ------------------------------------------------------------ bookkeeping */
 
@@ -118,28 +119,30 @@ deliver_event (TcHost *host, const char *surface_id, const char *kind, const cha
 
 /* ------------------------------------------------------------ transport */
 
+/* The helper is untrusted: writes are queued on the bounded async channel
+ * and never block the main loop. FALSE means the queue is full (or the
+ * helper is gone); every caller then disconnects into the recovery path. */
 static gboolean
-write_frame (TcHost *host, const char *json)
+send_frame (TcHost *host, TcRwFrameKind kind, const char *surface_id, const char *json)
 {
-  gsize length = strlen (json);
-  if (host->rw_connection == NULL || length == 0 || length > TC_RW_MAX_FRAME)
+  if (host->rw_channel == NULL)
     return FALSE;
-  guchar header[4] = { (guchar) (length >> 24), (guchar) (length >> 16), (guchar) (length >> 8), (guchar) length };
-  GOutputStream *out = g_io_stream_get_output_stream (G_IO_STREAM (host->rw_connection));
-  g_autoptr (GError) error = NULL;
-  if (!g_output_stream_write_all (out, header, 4, NULL, NULL, &error)
-      || !g_output_stream_write_all (out, json, length, NULL, NULL, &error)) {
-    g_warning ("remote-web: write to the helper failed: %s", error->message);
-    return FALSE;
-  }
-  return TRUE;
+  return tc_rw_channel_send (host->rw_channel, kind, surface_id, json);
 }
 
 static gboolean
-send_node (TcHost *host, JsonNode *node)
+send_node (TcHost *host, TcRwFrameKind kind, const char *surface_id, JsonNode *node)
 {
   g_autofree char *json = json_to_string (node, FALSE);
-  return write_frame (host, json);
+  return send_frame (host, kind, surface_id, json);
+}
+
+static void
+channel_disconnected (TcRwChannel *channel, const char *reason, gpointer user_data)
+{
+  (void) channel;
+  TcHost *host = user_data;
+  disconnect (host, reason);
 }
 
 static void
@@ -161,6 +164,9 @@ disconnect (TcHost *host, const char *reason)
     return;
   gboolean was_welcomed = host->rw_welcomed;
   g_message ("remote-web: helper disconnected (%s)", reason);
+  /* Drop queued outbound frames and invalidate in-flight async writes first,
+   * so their completions go stale instead of touching a new connection. */
+  tc_rw_channel_detach (host->rw_channel);
   g_cancellable_cancel (host->rw_io);
   g_clear_object (&host->rw_io);
   g_io_stream_close (G_IO_STREAM (host->rw_connection), NULL, NULL);
@@ -280,6 +286,13 @@ on_payload (GObject *source, GAsyncResult *result, gpointer user_data)
     disconnect (host, "malformed frame");
     return;
   }
+  /* Trusted-side inbound budget: the helper-side EVENT_BUDGET is not a
+   * security boundary against a compromised helper, so sustained floods of
+   * otherwise-valid frames disconnect here instead of monopolizing the loop. */
+  if (!tc_rw_channel_note_incoming (host->rw_channel, g_get_monotonic_time ())) {
+    disconnect (host, "event flood");
+    return;
+  }
   handle_message (host, json_node_get_object (json_parser_get_root (parser)));
   if (host->rw_connection != NULL)
     read_header (host);
@@ -331,7 +344,9 @@ on_connected (GObject *source, GAsyncResult *result, gpointer user_data)
   }
   host->rw_connection = connection;
   host->rw_io = g_cancellable_new ();
-  if (!write_frame (host, "{\"type\":\"hello\",\"version\":1}")) {
+  tc_rw_channel_attach (host->rw_channel, connection);
+  /* Queued, never blocking: an empty queue cannot be full. */
+  if (!send_frame (host, TC_RW_FRAME_HELLO, NULL, "{\"type\":\"hello\",\"version\":1}")) {
     disconnect (host, "hello failed");
     return;
   }
@@ -353,6 +368,8 @@ void
 tc_remote_web_start (TcHost *host)
 {
   ensure_tables (host);
+  if (host->rw_channel == NULL)
+    host->rw_channel = tc_rw_channel_new (channel_disconnected, host);
   host->rw_reason = "remote_web_helper_unavailable";
   connect_helper (host);
 }
@@ -366,6 +383,9 @@ tc_remote_web_stop (TcHost *host)
     host->rw_reconnect_source = 0;
   }
   disconnect (host, "renderer stopping");
+  /* Freed after disconnect so no async write can complete into freed state. */
+  tc_rw_channel_free (host->rw_channel);
+  host->rw_channel = NULL;
   g_clear_pointer (&host->rw_surfaces, g_hash_table_unref);
   g_clear_pointer (&host->rw_clears, g_hash_table_unref);
 }
@@ -467,8 +487,8 @@ tc_remote_web_create (TcHost *host, JsonObject *message, WebKitScriptMessageRepl
   surface->reply = webkit_script_message_reply_ref (reply);
   surface->timeout = g_timeout_add (CREATE_TIMEOUT_MS, on_create_timeout, surface);
   g_hash_table_insert (host->rw_surfaces, surface->id, surface);
-  if (!send_node (host, request))
-    disconnect (host, "write failed");
+  if (!send_node (host, TC_RW_FRAME_CREATE, surface_id, request))
+    disconnect (host, "backpressure");
 }
 
 void
@@ -483,11 +503,13 @@ tc_remote_web_page_message (TcHost *host, const char *type, JsonObject *message)
   json_builder_set_member_name (builder, "surfaceId");
   json_builder_add_string_value (builder, surface_id);
   json_builder_set_member_name (builder, "type");
+  TcRwFrameKind kind = TC_RW_FRAME_DESTROY;
   if (g_strcmp0 (type, "remote_web.viewport") == 0) {
     guint width = device_pixels (message, "width");
     guint height = device_pixels (message, "height");
     if (width < TC_RW_MIN_EDGE || height < TC_RW_MIN_EDGE || width > TC_RW_MAX_EDGE || height > TC_RW_MAX_EDGE)
       return;
+    kind = TC_RW_FRAME_RESIZE;
     json_builder_add_string_value (builder, "resize");
     json_builder_set_member_name (builder, "width");
     json_builder_add_int_value (builder, width);
@@ -495,13 +517,16 @@ tc_remote_web_page_message (TcHost *host, const char *type, JsonObject *message)
     json_builder_add_int_value (builder, height);
   } else if (g_strcmp0 (type, "remote_web.visible") == 0 || g_strcmp0 (type, "remote_web.muted") == 0) {
     gboolean visible = g_strcmp0 (type, "remote_web.visible") == 0;
+    kind = visible ? TC_RW_FRAME_VISIBLE : TC_RW_FRAME_MUTE;
     json_builder_add_string_value (builder, visible ? "visible" : "mute");
     json_builder_set_member_name (builder, visible ? "visible" : "muted");
     json_builder_add_boolean_value (builder, json_object_get_boolean_member_with_default (
                                                message, visible ? "visible" : "muted", !visible));
   } else if (g_strcmp0 (type, "remote_web.reload") == 0) {
+    kind = TC_RW_FRAME_RELOAD;
     json_builder_add_string_value (builder, "reload");
   } else if (g_strcmp0 (type, "remote_web.destroy") == 0) {
+    kind = TC_RW_FRAME_DESTROY;
     json_builder_add_string_value (builder, "destroy");
   } else {
     return;
@@ -510,8 +535,8 @@ tc_remote_web_page_message (TcHost *host, const char *type, JsonObject *message)
   g_autoptr (JsonNode) request = json_builder_get_root (builder);
   if (g_strcmp0 (type, "remote_web.destroy") == 0)
     g_hash_table_remove (host->rw_surfaces, surface_id);
-  if (host->rw_welcomed && !send_node (host, request))
-    disconnect (host, "write failed");
+  if (host->rw_welcomed && !send_node (host, kind, surface_id, request))
+    disconnect (host, "backpressure");
 }
 
 void
@@ -525,7 +550,11 @@ tc_remote_web_reset (TcHost *host)
   while (g_hash_table_iter_next (&iter, &key, NULL)) {
     if (host->rw_welcomed) {
       g_autofree char *json = g_strdup_printf ("{\"type\":\"destroy\",\"surfaceId\":\"%s\"}", (const char *) key);
-      write_frame (host, json);
+      if (!send_frame (host, TC_RW_FRAME_DESTROY, key, json)) {
+        g_hash_table_iter_remove (&iter);
+        disconnect (host, "backpressure");
+        return;
+      }
     }
     g_hash_table_iter_remove (&iter);
   }
@@ -560,6 +589,6 @@ tc_remote_web_clear (TcHost *host, const char *command_id)
   clear->timeout = g_timeout_add (CLEAR_TIMEOUT_MS, on_clear_timeout, clear);
   g_hash_table_insert (host->rw_clears, clear->request_id, clear);
   g_autofree char *json = g_strdup_printf ("{\"type\":\"clear-data\",\"requestId\":\"%s\"}", clear->request_id);
-  if (!write_frame (host, json))
-    disconnect (host, "write failed");
+  if (!send_frame (host, TC_RW_FRAME_CLEAR, NULL, json))
+    disconnect (host, "backpressure");
 }
