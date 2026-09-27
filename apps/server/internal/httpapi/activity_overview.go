@@ -73,6 +73,11 @@ func (s *server) activityOverview(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) screenActivity(w http.ResponseWriter, r *http.Request) {
+	role, ok := activityRole(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
 	screenID, err := uuid.Parse(strings.TrimPrefix(r.URL.Path, "/api/v1/activity/screens/"))
 	if err != nil {
 		writeError(w, http.StatusNotFound, "screen_not_found", "Screen was not found.")
@@ -89,19 +94,19 @@ func (s *server) screenActivity(w http.ResponseWriter, r *http.Request) {
 	}
 	data := screenActivityData{ScreenID: screenID, RecentProof: []proofOfPlayRecord{}, RecentEvents: []screenEventRecord{}}
 	row := s.db.QueryRow(r.Context(), proofSelectSQL+` WHERE s.enabled=TRUE AND s.deleted_at IS NULL AND s.archived_at IS NULL AND p.screen_id=$1 AND p.ended_at IS NULL ORDER BY p.started_at DESC LIMIT 1`, screenID)
-	if item, err := scanProof(row.Scan, activitySession(r).User.Role); err == nil {
+	if item, err := scanProof(row.Scan, role); err == nil {
 		data.CurrentPresentation = &item
 	}
 	rows, err := s.db.Query(r.Context(), proofSelectSQL+` WHERE s.enabled=TRUE AND s.deleted_at IS NULL AND s.archived_at IS NULL AND p.screen_id=$1 ORDER BY p.started_at DESC LIMIT 10`, screenID)
 	if err == nil {
 		defer rows.Close()
 		for rows.Next() {
-			if item, err := scanProof(rows.Scan, activitySession(r).User.Role); err == nil {
+			if item, err := scanProof(rows.Scan, role); err == nil {
 				data.RecentProof = append(data.RecentProof, item)
 			}
 		}
 	}
-	if activityCanSeeSensitive(activitySession(r).User.Role) {
+	if activityCanSeeSensitive(role) {
 		eventRows, err := s.db.Query(r.Context(), `
 			SELECT e.id,e.occurred_at,e.received_at,e.screen_id,s.name,NULL::uuid,'',e.sequence,e.event_type,e.category,e.severity,e.result,e.manifest_version,
 			       COALESCE(e.presentation_type,''),COALESCE(e.presentation_id,''),COALESCE(e.content_type,''),COALESCE(e.content_id,''),
@@ -116,7 +121,7 @@ func (s *server) screenActivity(w http.ResponseWriter, r *http.Request) {
 				if eventRows.Scan(&item.ID, &item.Timestamp, &item.ReceivedAt, &item.ScreenID, &item.ScreenName, &item.GroupID, &item.GroupName, &item.Sequence, &item.EventType, &item.Category, &item.Severity, &item.Result, &item.ManifestVersion, &presentationType, &presentationID, &contentType, &contentID, &item.FailureCode, &item.FailureMessage, &raw) == nil {
 					item.RelatedType, item.RelatedID = activityRelatedResource(presentationType, presentationID, contentType, contentID)
 					item.Description = screenEventDescription(item.EventType, item.ScreenName, item.RelatedType)
-					item.Details = activityMetadata(raw, item.Severity == "error", activitySession(r).User.Role)
+					item.Details = activityMetadata(raw, item.Severity == "error", role)
 					data.RecentEvents = append(data.RecentEvents, item)
 				}
 			}

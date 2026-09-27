@@ -15,7 +15,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/media"
 )
 
@@ -59,7 +58,12 @@ func (s *server) updateWidgetPreviewImage(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusRequestEntityTooLarge, "preview_too_large", "The Widget preview image exceeded 500 KB.")
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	if err = s.media.StoreWidgetPreview(r.Context(), id, user.ID, data); err != nil {
 		s.writeMediaError(w, r, err)
 		return
@@ -86,7 +90,12 @@ func (s *server) createUpload(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	upload, err := s.media.CreateUpload(r.Context(), user.ID, body.Filename, body.MIMEType, body.SizeBytes)
 	if err != nil {
 		s.writeMediaError(w, r, err)
@@ -100,7 +109,12 @@ func (s *server) headUpload(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	upload, err := s.media.GetUpload(r.Context(), id, user.ID)
 	if err != nil {
 		s.writeMediaError(w, r, err)
@@ -130,7 +144,12 @@ func (s *server) patchUpload(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnsupportedMediaType, "unsupported_content_type", "Upload chunks must use application/offset+octet-stream.")
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	upload, err := s.media.AppendUpload(r.Context(), id, user.ID, offset, r.Body)
 	if err != nil {
 		s.writeMediaError(w, r, err)
@@ -145,7 +164,12 @@ func (s *server) completeUpload(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	asset, err := s.media.FinalizeUpload(r.Context(), id, user.ID)
 	if err != nil {
 		s.writeMediaError(w, r, err)
@@ -158,7 +182,12 @@ func (s *server) cancelUpload(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	if err := s.media.CancelUpload(r.Context(), id, user.ID); err != nil {
 		s.writeMediaError(w, r, err)
 		return
@@ -213,7 +242,12 @@ func (s *server) createWebsite(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	asset, err := s.media.CreateWebsite(r.Context(), user.ID, body)
 	if err != nil {
 		s.writeMediaError(w, r, err)
@@ -238,7 +272,12 @@ func (s *server) updateWebsite(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	asset, err := s.media.UpdateWebsite(r.Context(), id, user.ID, body)
 	if err != nil {
 		s.writeMediaError(w, r, err)
@@ -271,7 +310,12 @@ func (s *server) createWidget(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 422, "setting_exceeds_hard_limit", "Private HTTP websites are disabled by runtime settings.")
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	asset, err := s.media.CreateWidget(r.Context(), user.ID, body)
 	if err != nil {
 		s.writeMediaError(w, r, err)
@@ -299,7 +343,12 @@ func (s *server) updateWidget(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 422, "setting_exceeds_hard_limit", "Private HTTP websites are disabled by runtime settings.")
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	asset, err := s.media.UpdateWidget(r.Context(), id, user.ID, body)
 	if err != nil {
 		s.writeMediaError(w, r, err)
@@ -325,7 +374,12 @@ func (s *server) duplicateWidget(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	asset, err := s.media.DuplicateWidget(r.Context(), id, user.ID)
 	if err != nil {
 		s.writeMediaError(w, r, err)
@@ -360,7 +414,12 @@ func (s *server) createDataSource(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	dataSource, err := s.media.CreateDataSource(r.Context(), user.ID, body)
 	if err != nil {
 		s.writeMediaError(w, r, err)
@@ -408,7 +467,12 @@ func (s *server) updateDataSource(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	dataSource, err := s.media.UpdateDataSource(r.Context(), id, user.ID, body)
 	if err != nil {
 		s.writeMediaError(w, r, err)
@@ -422,7 +486,12 @@ func (s *server) duplicateDataSource(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	dataSource, err := s.media.DuplicateDataSource(r.Context(), id, user.ID)
 	if err != nil {
 		s.writeMediaError(w, r, err)
@@ -436,7 +505,12 @@ func (s *server) deleteDataSource(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	if err := s.media.DeleteDataSource(r.Context(), id, user.ID); err != nil {
 		s.writeMediaError(w, r, err)
 		return
@@ -611,7 +685,12 @@ func (s *server) updateAsset(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	availabilitySet := body.AvailabilitySet != nil && *body.AvailabilitySet
 	var asset media.Asset
 	var err error
@@ -631,7 +710,12 @@ func (s *server) retryAsset(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	if err := s.media.RetryAsset(r.Context(), id, user.ID); err != nil {
 		s.writeMediaError(w, r, err)
 		return
@@ -648,7 +732,12 @@ func (s *server) deleteAsset(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	if err := s.media.DeleteAsset(r.Context(), id, user.ID); err != nil {
 		s.writeMediaError(w, r, err)
 		return
@@ -666,7 +755,12 @@ func (s *server) archiveAssets(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	if err := s.media.ArchiveAssets(r.Context(), body.AssetIDs, user.ID); err != nil {
 		s.writeMediaError(w, r, err)
 		return
@@ -680,7 +774,12 @@ func (s *server) restoreAssets(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	if err := s.media.RestoreAssets(r.Context(), body.AssetIDs, user.ID); err != nil {
 		s.writeMediaError(w, r, err)
 		return

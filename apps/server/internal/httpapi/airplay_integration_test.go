@@ -36,7 +36,7 @@ func airplayCreateTestSetup(t *testing.T, env activityTestEnvironment) {
 func airplayDashboardRequest(method, path string, body []byte, session auth.Session) *http.Request {
 	request := httptest.NewRequest(method, path, bytes.NewReader(body))
 	if session.User.ID != uuid.Nil {
-		request = request.WithContext(context.WithValue(request.Context(), sessionContextKey, session))
+		request = requestWithTestPrincipal(request, session)
 	}
 	if id := pathParam(path, "airplay/sessions/"); id != "" {
 		route := chi.NewRouteContext()

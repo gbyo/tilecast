@@ -13,19 +13,21 @@ import (
 )
 
 // Access is the authorization the host applies before a plugin handler runs.
-// Every level requires an enrolled dashboard session; there is no plugin route
-// that a Player credential or an integration token can reach.
+// Every level requires an authenticated Tilecast user, whether the
+// credential was a session cookie or a bearer grant; there is no plugin
+// route that a Player credential or an integration token can reach.
 type Access int
 
 const (
-	// AccessViewer allows any enrolled dashboard session. Use it for reads.
+	// AccessViewer allows any authenticated user. Use it for reads.
 	AccessViewer Access = iota + 1
-	// AccessManager allows Owner and Administrator and requires the session
-	// CSRF token. Use it for configuration writes.
+	// AccessManager allows Owner and Administrator with the admin grant
+	// scope, and requires the session CSRF token on cookie requests. Use
+	// it for configuration writes.
 	AccessManager
-	// AccessSession allows any enrolled session, requires the CSRF token on
-	// unsafe methods, and leaves the finer authorization to the handler
-	// through PrincipalFrom.
+	// AccessSession allows any authenticated user, requires the CSRF token
+	// on unsafe cookie requests but never on bearer requests, and leaves
+	// the finer authorization to the handler through PrincipalFrom.
 	AccessSession
 )
 

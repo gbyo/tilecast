@@ -84,6 +84,57 @@ export type TOTPEnrollment = {
   secret: string;
 };
 
+export type OAuthScopeRequest = {
+  scope: string;
+  description: string;
+};
+
+export type OAuthApproval = {
+  client: { name: string; clientId: string };
+  scopes: OAuthScopeRequest[];
+  redirectUri: string;
+  state: string;
+};
+
+export type OAuthDecision = {
+  client: string;
+  redirectUri: string;
+  scope: string;
+  state: string;
+  challenge: string;
+  method: string;
+};
+
+export type OAuthGrant = {
+  id: string;
+  client: string;
+  scopes: string[];
+  createdAt: string;
+  lastUsedAt?: string;
+  revokedAt?: string;
+};
+
+export type PersonalAccessToken = {
+  id: string;
+  name: string;
+  scopes: string[];
+  createdAt: string;
+  expiresAt: string;
+  lastUsedAt?: string;
+  revokedAt?: string;
+};
+
+export type PersonalAccessTokenInput = {
+  name: string;
+  scopes: string[];
+  expiresInDays: number;
+};
+
+export type PersonalAccessTokenCreated = {
+  token: string;
+  pat: PersonalAccessToken;
+};
+
 /**
  * The WebAuthn ceremony options exactly as the server produced them. They are
  * decoded from base64url into the ArrayBuffers the browser API requires.

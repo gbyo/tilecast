@@ -5,7 +5,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/plugins"
 )
 
@@ -22,7 +21,12 @@ func (s *server) listPlugins(w http.ResponseWriter, r *http.Request) {
 // installation answers 201; repeating it answers 200 with the same current
 // representation.
 func (s *server) installPlugin(w http.ResponseWriter, r *http.Request) {
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	item, created, err := s.plugins.Install(r.Context(), chi.URLParam(r, "pluginId"), user.ID)
 	if err != nil {
 		s.writePluginError(w, r, err)
@@ -39,7 +43,12 @@ func (s *server) installPlugin(w http.ResponseWriter, r *http.Request) {
 // while the plugin still owns resources the answer is 409 plugin_in_use with
 // what remains.
 func (s *server) removePlugin(w http.ResponseWriter, r *http.Request) {
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	if err := s.plugins.Remove(r.Context(), chi.URLParam(r, "pluginId"), user.ID); err != nil {
 		s.writePluginError(w, r, err)
 		return
@@ -48,8 +57,12 @@ func (s *server) removePlugin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) dependencyGraph(w http.ResponseWriter, r *http.Request) {
-	session := r.Context().Value(sessionContextKey).(auth.Session)
-	screens, err := s.devices.ListScreensForUser(r.Context(), session.User.ID, session.User.Role)
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	screens, err := s.devices.ListScreensForUser(r.Context(), principal.User.ID, principal.User.Role)
 	if err != nil {
 		s.internalError(w, r, err)
 		return

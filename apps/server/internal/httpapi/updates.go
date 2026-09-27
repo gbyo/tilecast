@@ -16,7 +16,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/updates"
 )
@@ -148,8 +147,8 @@ func (s *server) uploadPlayerRelease(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var userID *uuid.UUID
-	if session, ok := r.Context().Value(sessionContextKey).(auth.Session); ok {
-		userID = &session.User.ID
+	if principal, ok := principalOf(r); ok {
+		userID = &principal.User.ID
 	}
 	result, err := s.updates.ImportUpload(r.Context(), files[artifactName], artifactName, manifest, signature, userID)
 	if err != nil {
@@ -198,7 +197,12 @@ func (s *server) checkPlayerReleases(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 502, "github_release_check_failed", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	_, _ = s.db.Exec(r.Context(), `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id)VALUES($1,$2,'player_updates.checked','update_provider','github')`, uuid.New(), user.ID)
 	writeJSON(w, 200, map[string]any{"data": map[string]any{"checked": true}})
 }
@@ -244,7 +248,12 @@ func (s *server) pollGitHubDeviceAuthorization(w http.ResponseWriter, r *http.Re
 		return
 	}
 	if result.Status == "connected" {
-		user := r.Context().Value(sessionContextKey).(auth.Session).User
+		principal, ok := principalOf(r)
+		if !ok {
+			writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+			return
+		}
+		user := principal.User
 		metadata, _ := json.Marshal(map[string]string{"login": result.Login})
 		_, _ = s.db.Exec(r.Context(), `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,metadata)VALUES($1,$2,'player_updates.github_connected','update_provider','github',$3::jsonb)`, uuid.New(), user.ID, string(metadata))
 	}
@@ -263,7 +272,12 @@ func (s *server) disconnectGitHub(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	_, _ = s.db.Exec(r.Context(), `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id)VALUES($1,$2,'player_updates.github_disconnected','update_provider','github')`, uuid.New(), user.ID)
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -320,7 +334,12 @@ func (s *server) deletePlayerRelease(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, r, err)
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	action := "player_updates.release_cache_freed"
 	if deleted {
 		action = "player_updates.release_deleted"
@@ -361,7 +380,12 @@ func (s *server) createUpdateDeployment(w http.ResponseWriter, r *http.Request) 
 		writeError(w, 422, "player_release_not_verified", "Only fully verified cached releases can be deployed.")
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	tx, err := s.db.Begin(r.Context())
 	if err != nil {
 		s.internalError(w, r, err)
@@ -777,7 +801,12 @@ func (s *server) retryUpdateScreen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	payload, _ := json.Marshal(updateCommandPayload(deployment, release, family, version, hash, mode, window))
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	command := uuid.New()
 	_, err := s.db.Exec(r.Context(), `INSERT INTO player_commands(id,organization_id,screen_id,type,payload,idempotency_key,created_by,expires_at) SELECT $1,organization_id,id,'install_player_update',$2::jsonb,$1,$3,now()+interval '7 days' FROM screens WHERE id=$4`, command, string(payload), user.ID, screen)
 	if err != nil {

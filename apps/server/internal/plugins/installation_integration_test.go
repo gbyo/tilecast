@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tilecast/tilecast/apps/server/internal/audit"
 	"github.com/tilecast/tilecast/apps/server/internal/database"
 	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugintest/sampleplugin"
 )
@@ -54,6 +55,11 @@ func withInstallationDatabase(t *testing.T, run func(installationEnvironment)) {
 	if _, err = pool.Exec(ctx, `TRUNCATE organization_settings,users CASCADE`); err != nil {
 		t.Fatal(err)
 	}
+	// The harness calls plugin handlers directly, bypassing the HTTP
+	// middleware that names the calling surface in production. Name the
+	// system surface explicitly so shared-path audit writes attribute
+	// honestly instead of failing loudly on a missing surface.
+	ctx = audit.WithSurface(ctx, audit.SurfaceSystem)
 	env := installationEnvironment{ctx: ctx, pool: pool, service: NewService(pool, nil),
 		userID: uuid.New(), orgID: uuid.New(), screenID: uuid.New()}
 	if _, err = pool.Exec(ctx, `INSERT INTO organization_settings(singleton,organization_name,id) VALUES(TRUE,'Install Test',$1)`, env.orgID); err != nil {

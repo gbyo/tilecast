@@ -24,6 +24,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tilecast/tilecast/apps/server/internal/audit"
 	"github.com/tilecast/tilecast/apps/server/internal/database"
 	"github.com/tilecast/tilecast/apps/server/internal/managedpresentations"
 	"github.com/tilecast/tilecast/apps/server/internal/media"
@@ -81,7 +82,7 @@ func New(t *testing.T, p plugin.Plugin, opts ...Option) *Harness {
 	for _, opt := range opts {
 		opt(&chosen)
 	}
-	ctx := context.Background()
+	ctx := audit.WithSurface(context.Background(), audit.SurfaceStudio)
 	lockPool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
 		t.Fatal(err)
@@ -318,6 +319,7 @@ func (h *Harness) ServeAs(userID uuid.UUID, role, method, path, body string) Res
 		})
 	}
 	request := httptest.NewRequest(method, path, strings.NewReader(body))
+	request = request.WithContext(audit.WithSurface(request.Context(), audit.SurfaceStudio))
 	recorder := httptest.NewRecorder()
 	mux.ServeHTTP(recorder, request)
 	raw, _ := io.ReadAll(recorder.Result().Body)

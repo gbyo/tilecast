@@ -380,7 +380,7 @@ func TestTelemetryReportReturnsSnapshotConditionsAndRollups(t *testing.T) {
 
 		request := httptest.NewRequest(http.MethodGet,
 			"/api/v1/activity/screens/"+env.screenID.String()+"/telemetry?range=24h", nil)
-		request = request.WithContext(context.WithValue(request.Context(), sessionContextKey, env.owner))
+		request = requestWithTestPrincipal(request, env.owner)
 		response := httptest.NewRecorder()
 		env.server.screenTelemetry(response, request)
 		if response.Code != http.StatusOK {
@@ -416,7 +416,7 @@ func TestTelemetryReportOmitsAMissingSnapshot(t *testing.T) {
 	withActivityDatabase(t, func(env activityTestEnvironment) {
 		request := httptest.NewRequest(http.MethodGet,
 			"/api/v1/activity/screens/"+env.screenID.String()+"/telemetry?range=24h", nil)
-		request = request.WithContext(context.WithValue(request.Context(), sessionContextKey, env.owner))
+		request = requestWithTestPrincipal(request, env.owner)
 		response := httptest.NewRecorder()
 		env.server.screenTelemetry(response, request)
 

@@ -10,7 +10,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/approvals"
-	"github.com/tilecast/tilecast/apps/server/internal/auth"
 )
 
 func (s *server) listContentSubmissions(w http.ResponseWriter, r *http.Request) {
@@ -67,7 +66,12 @@ func (s *server) submitContent(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	result, err := s.approvals.SubmitExpected(r.Context(), user.ID, user.Role, contentType, id, body.RequestedPublicationAt, body.ExpectedRevision)
 	if err != nil {
 		s.writeEditorialError(w, r, err)
@@ -92,7 +96,12 @@ func (s *server) requestContentChanges(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	result, err := s.approvals.RequestChanges(r.Context(), user.ID, user.Role, id, body.Note)
 	if err != nil {
 		s.writeEditorialError(w, r, err)
@@ -113,7 +122,12 @@ func (s *server) decideSubmission(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	result, err := s.approvals.Approve(r.Context(), user.ID, user.Role, id, body.Note)
 	if err != nil {
 		s.writeEditorialError(w, r, err)
@@ -127,7 +141,12 @@ func (s *server) publishContentSubmission(w http.ResponseWriter, r *http.Request
 	if !ok {
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	result, err := s.approvals.PublishSubmission(r.Context(), user.ID, user.Role, id)
 	if err != nil {
 		s.writeEditorialError(w, r, err)
@@ -148,7 +167,12 @@ func (s *server) scheduleContentSubmission(w http.ResponseWriter, r *http.Reques
 		writeError(w, http.StatusBadRequest, "invalid_request", "A future requestedPublicationAt is required.")
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	result, err := s.approvals.Schedule(r.Context(), user.ID, user.Role, id, body.RequestedPublicationAt)
 	if err != nil {
 		s.writeEditorialError(w, r, err)
@@ -162,7 +186,12 @@ func (s *server) cancelContentSchedule(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	result, err := s.approvals.CancelSchedule(r.Context(), user.ID, user.Role, id)
 	if err != nil {
 		s.writeEditorialError(w, r, err)
@@ -224,7 +253,12 @@ func (s *server) restorePublicationToDraft(w http.ResponseWriter, r *http.Reques
 		writeError(w, http.StatusNotFound, "publication_not_found", "The requested publication was not found.")
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	snapshot, err := s.approvals.RestorePublicationToDraft(r.Context(), user.ID, user.Role, contentType, contentID, publicationID)
 	if err != nil {
 		s.writeEditorialError(w, r, err)
@@ -248,7 +282,12 @@ func (s *server) rollbackPublication(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "publication_not_found", "The requested publication was not found.")
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	result, err := s.approvals.Rollback(r.Context(), user.ID, user.Role, contentType, contentID, publicationID)
 	if err != nil {
 		s.writeEditorialError(w, r, err)
@@ -323,7 +362,12 @@ func (s *server) decideContentReview(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	review, err := s.approvals.Decide(r.Context(), user.ID, contentType, id, body.Approve, body.Note, body.Revision)
 	switch {
 	case errors.Is(err, approvals.ErrNotFound):

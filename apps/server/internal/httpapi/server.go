@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/approvals"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
@@ -28,6 +29,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/livestream"
 	"github.com/tilecast/tilecast/apps/server/internal/media"
 	"github.com/tilecast/tilecast/apps/server/internal/notify"
+	"github.com/tilecast/tilecast/apps/server/internal/oauth"
 	"github.com/tilecast/tilecast/apps/server/internal/playlists"
 	"github.com/tilecast/tilecast/apps/server/internal/plugins"
 	"github.com/tilecast/tilecast/apps/server/internal/presentations"
@@ -111,6 +113,7 @@ type server struct {
 	contentHealthService          *contenthealth.Service
 	fleet                         *fleetops.Service
 	integrations                  *integrations.Service
+	oauth                         *oauth.Service
 	approvals                     *approvals.Service
 	snapshots                     *snapshots.Service
 	span                          *span.Service
@@ -178,6 +181,7 @@ func New(deps Dependencies) *API {
 		contentHealthService: deps.ContentHealth,
 		fleet:                deps.Fleet,
 		integrations:         deps.Integrations,
+		oauth:                oauth.NewService(deps.DB),
 		approvals:            deps.Approvals,
 		snapshots:            deps.Snapshots,
 		span:                 deps.Span,
@@ -217,14 +221,10 @@ func New(deps Dependencies) *API {
 }
 
 func (s *server) requireRoles(roles ...string) func(http.Handler) http.Handler {
-	allowed := make(map[string]bool, len(roles))
-	for _, role := range roles {
-		allowed[role] = true
-	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			session, ok := r.Context().Value(sessionContextKey).(auth.Session)
-			if !ok || !allowed[session.User.Role] {
+			principal, ok := principalOf(r)
+			if !ok || !principal.HasRole(roles...) {
 				writeError(w, http.StatusForbidden, "insufficient_role", "Owner or Administrator access is required.")
 				return
 			}
@@ -277,20 +277,41 @@ func (s *server) authStatus(w http.ResponseWriter, r *http.Request) {
 	if !required {
 		var session auth.Session
 		authenticated := false
-		if cookie, err := r.Cookie(s.cookieName); err == nil {
-			if session, err = s.auth.Authenticate(r.Context(), cookie.Value); err == nil {
-				authenticated = true
+		if header := r.Header.Get("Authorization"); header != "" {
+			// An explicit Authorization header is the authentication
+			// attempt: a Bearer [REDACTED] grant answers whoami for API clients, or
+			// the caller is anonymous. There is no cookie or demo
+			// fallback behind an explicit credential. Only the user
+			// identity is reported; there is no session and therefore
+			// no CSRF token.
+			if credential, ok := parseAuthorization(header, "Bearer"); ok {
+				if grant, err := s.oauth.LookupBearer(r.Context(), credential); err == nil {
+					if user, err := s.activeUser(r.Context(), grant.UserID); err == nil && user.ID != uuid.Nil {
+						pending, _ := s.enrollmentPending(r.Context(), user, s.mfaPolicy(r))
+						result["authenticated"] = true
+						result["user"] = user
+						result["authMethod"] = grant.BearerAuthMethod()
+						result["mfaEnrollmentRequired"] = pending
+						authenticated = true
+					}
+				}
 			}
-		}
-		if !authenticated {
-			session, authenticated = s.demoSession(r.Context(), w)
-		}
-		if authenticated {
-			result["authenticated"] = true
-			result["user"] = session.User
-			result["csrfToken"] = session.CSRFToken
-			result["authMethod"] = session.AuthMethod
-			result["mfaEnrollmentRequired"] = session.EnrollmentPending
+		} else {
+			if cookie, err := r.Cookie(s.cookieName); err == nil {
+				if session, err = s.auth.Authenticate(r.Context(), cookie.Value); err == nil {
+					authenticated = true
+				}
+			}
+			if !authenticated {
+				session, authenticated = s.demoSession(r.Context(), w)
+			}
+			if authenticated && result["authenticated"] != true {
+				result["authenticated"] = true
+				result["user"] = session.User
+				result["csrfToken"] = session.CSRFToken
+				result["authMethod"] = session.AuthMethod
+				result["mfaEnrollmentRequired"] = session.EnrollmentPending
+			}
 		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": result})
@@ -390,7 +411,11 @@ func (s *server) requireSession(next http.Handler) http.Handler {
 			writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
 			return
 		}
-		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), sessionContextKey, session)))
+		// The session stays the credential. The principal is the user:
+		// management authorization below reads it, and future bearer
+		// credentials will produce the same shape.
+		ctx := context.WithValue(r.Context(), sessionContextKey, session)
+		next.ServeHTTP(w, r.WithContext(auth.WithPrincipal(ctx, auth.PrincipalFromSession(session))))
 	})
 }
 
@@ -400,7 +425,7 @@ func (s *server) requireSession(next http.Handler) http.Handler {
 // check rather than a dashboard redirect.
 func (s *server) requireEnrollment(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if session, ok := r.Context().Value(sessionContextKey).(auth.Session); ok && session.EnrollmentPending {
+		if principal, ok := principalOf(r); ok && principal.EnrollmentPending {
 			writeError(w, http.StatusForbidden, "mfa_enrollment_required", "This organization requires multi-factor authentication. Finish enrollment to continue.")
 			return
 		}
@@ -410,7 +435,18 @@ func (s *server) requireEnrollment(next http.Handler) http.Handler {
 
 func (s *server) requireCSRF(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		session := r.Context().Value(sessionContextKey).(auth.Session)
+		// CSRF depends on the credential type. A bearer grant carries no
+		// ambient browser authority, so API clients never manufacture an
+		// X-CSRF-Token; only cookie-backed browser requests need one.
+		if principal, ok := principalOf(r); ok && principal.CredentialKind == auth.CredentialKindGrant {
+			next.ServeHTTP(w, r)
+			return
+		}
+		session, ok := r.Context().Value(sessionContextKey).(auth.Session)
+		if !ok {
+			writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+			return
+		}
 		provided := r.Header.Get("X-CSRF-Token")
 		if len(provided) != len(session.CSRFToken) || subtle.ConstantTimeCompare([]byte(provided), []byte(session.CSRFToken)) != 1 {
 			writeError(w, http.StatusForbidden, "csrf_failed", "The request could not be verified.")

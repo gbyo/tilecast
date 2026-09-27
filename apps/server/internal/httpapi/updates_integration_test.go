@@ -24,8 +24,7 @@ import (
 // routes always have one.
 func deploymentRequest(method, target string, user uuid.UUID, role string) *http.Request {
 	request := httptest.NewRequest(method, target, nil)
-	return request.WithContext(context.WithValue(request.Context(), sessionContextKey,
-		auth.Session{User: auth.User{ID: user, Role: role}}))
+	return requestWithTestPrincipal(request, auth.Session{User: auth.User{ID: user, Role: role}})
 }
 
 func TestCreateUpdateDeploymentPersistsHistoryAndCommand(t *testing.T) {
@@ -95,7 +94,7 @@ func TestCreateUpdateDeploymentPersistsHistoryAndCommand(t *testing.T) {
 		t.Fatal(err)
 	}
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/update-deployments", bytes.NewReader(requestBody))
-	request = request.WithContext(context.WithValue(request.Context(), sessionContextKey, auth.Session{User: auth.User{ID: userID, Role: "owner"}}))
+	request = requestWithTestPrincipal(request, auth.Session{User: auth.User{ID: userID, Role: "owner"}})
 	response := httptest.NewRecorder()
 	s.createUpdateDeployment(response, request)
 	if response.Code != http.StatusCreated {
@@ -517,7 +516,7 @@ func TestLinuxDeploymentTargetsOnlyLinuxScreens(t *testing.T) {
 		ScreenIDs: []uuid.UUID{linuxScreen, androidScreen},
 	})
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/update-deployments", bytes.NewReader(requestBody))
-	request = request.WithContext(context.WithValue(request.Context(), sessionContextKey, auth.Session{User: auth.User{ID: userID, Role: "owner"}}))
+	request = requestWithTestPrincipal(request, auth.Session{User: auth.User{ID: userID, Role: "owner"}})
 	response := httptest.NewRecorder()
 	s.createUpdateDeployment(response, request)
 	if response.Code != http.StatusCreated {

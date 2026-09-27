@@ -173,6 +173,34 @@ These endpoints require the session cookie, and mutations require `X-CSRF-Token`
 - `POST /api/v1/me/security/passkeys` — posts the raw credential with `X-MFA-Challenge`. The passkey is named from the authenticator's AAGUID; no name is accepted.
 - `PATCH /api/v1/me/security/passkeys/{id}` — renames a passkey.
 - `POST /api/v1/me/security/passkeys/{id}/remove` — requires `{ "password": "…" }`.
+- `GET /api/v1/me/security/grants` — lists this account's OAuth authorization grants newest first, revoked included.
+- `DELETE /api/v1/me/security/grants/{id}` — revokes one grant and every token under it, effective immediately. Personal access tokens are revoked through this same endpoint.
+- `GET /api/v1/me/security/pats?search=` — lists this account's personal access tokens newest first with display metadata only, never secrets. Expired and revoked tokens stay listed until explicitly revoked.
+- `POST /api/v1/me/security/pats` — enrolled session plus CSRF, or a Bearer [REDACTED] the admin scope. Creates a named personal access token (`{ "name", "scopes", "expiresInDays" }`, lifetime one of 7, 30, 90, or 365 days — there is no permanent token) and returns the plaintext secret exactly once. Only SHA-256 hashes are stored.
+
+### Loopback operators (OAuth)
+
+The installation acts as its own authorization server so the `tilecast` CLI can work as the signed-in user without ever seeing a password or session cookie. Only the authorization-code flow with PKCE S256 exists, only for loopback redirects, and only with explicit per-grant approval in Studio at `/oauth/approve`. There is no client registration UI and no general OAuth provider. The client IDs `tilecast-cli` and `tilecast-mcp` are stable protocol constants validated as-is, not database rows; personal access tokens ride the generic grant table directly with no OAuth client of any kind.
+
+- `GET /api/v1/oauth/authorize` — enrolled session. Describes the request (client, scopes, redirect) for the approval screen. Stores nothing.
+- `POST /api/v1/oauth/approve` — enrolled session plus CSRF. Records the grant and returns the loopback redirect carrying the single-use, ten-minute code.
+- `POST /api/v1/oauth/deny` — answers the client with `access_denied` and records nothing.
+- `POST /api/v1/oauth/token` — public and rate-limited. Exchanges a code with its verifier, or rotates a refresh token. Access tokens live fifteen minutes; refresh tokens live thirty days and rotate on every use. Reusing a rotated refresh token revokes the whole grant.
+- `POST /api/v1/oauth/revoke` — public and rate-limited. Revokes the grant behind the presented credential.
+
+Scopes are `read`, `write`, and `admin`. Grants always intersect the user's current role and screen scope at use time, so disabling an account or narrowing its scope takes effect immediately.
+
+Personal access tokens ride the same grant model with their own `tcp_` prefix, so a secret always reveals its kind. They are created directly in Studio (creation form, then a confirmation screen showing the secret once) rather than through a client approval flow. Every token expires — the lifespan picker offers 7, 30, 90, or 365 days and permanence is not an option. An expired token is inert for authentication but stays listed with its name, scopes, and expiry until explicitly revoked; there is no renewal, so a token that must live longer is replaced by creating a new one. Scripts and CI present a token with `TILECAST_URL` plus `TILECAST_TOKEN` environment variables.
+
+### Management authentication
+
+Management routes share one boundary, `requireUser`, which accepts either an enrolled dashboard session cookie or `Authorization: Bearer` with an OAuth access token (`tca_`) or personal access token (`tcp_`). Both produce the same principal: the live user row, so disabling an account or changing its role or screen scope takes effect on the next request, with the grant contributing only its identity and scope ceiling. The credential source is explicit: a request carrying an `Authorization` header is authenticated as that Bearer [REDACTED] not at all, and never falls back to an ambient browser cookie. Device credentials (`tc_device_`), integration tokens (`tci_`), and refresh secrets are never accepted here, exactly as sessions are never accepted as player credentials.
+
+Grant scopes are hierarchical — `admin` implies `write` implies `read` — and every management route names the scope it needs: reads take `read`, mutations take `write`, and user, token, grant, backup, and security administration take `admin` on top of the role check. A user who owes the organization a second factor is gated with `mfa_enrollment_required` on either credential.
+
+CSRF depends on the credential type. Cookie-backed browser requests require `X-CSRF-Token` on unsafe methods, exactly as before. Bearer requests never send it and are never asked for it. Browser security ceremonies stay session-only: MFA enrollment and removal, passkeys, recovery codes, logout, and OAuth approval/denial refuse bearer credentials outright.
+
+Audit rows follow the grant, never the ambient cookie: OAuth Bearer [REDACTED] the `cli` surface (`mcp` for MCP grants) with the client ID, while personal access tokens -- usable by any API client -- carry the `api` surface with the token name, instead of the `studio` surface.
 
 ### Administrative reset
 

@@ -13,6 +13,8 @@ import {
 } from "../auth/webauthn";
 import { FormField } from "../components/FormField";
 import { SecurityQr } from "../components/SecurityQr";
+import { OAuthGrantsBlock } from "./OAuthGrantsBlock";
+import { PersonalAccessTokensBlock } from "./PersonalAccessTokensBlock";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
 import {
@@ -74,6 +76,8 @@ export function SecurityPanels({ status }: { status: SecurityStatus }) {
       <AuthenticatorBlock status={status} />
       <PasskeyBlock status={status} />
       <RecoveryCodeBlock status={status} />
+      <OAuthGrantsBlock />
+      <PersonalAccessTokensBlock />
     </div>
   );
 }
