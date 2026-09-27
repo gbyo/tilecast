@@ -141,6 +141,15 @@ export const SUPPORTED_OPERATIONS: SupportedOperation[] = [
   },
   {
     method: "get",
+    path: "/api/v1/plugins/{pluginId}/automation",
+    operationId: "getPluginAutomation",
+    requestBody: "none",
+    responseSchema: true,
+    errors: ["401", "404", "409"],
+    auth: "session",
+  },
+  {
+    method: "get",
     path: "/api/v1/me/preferences",
     operationId: "getPreferences",
     requestBody: "none",

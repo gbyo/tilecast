@@ -125,6 +125,24 @@ export function checkAutomationFile(
 }
 
 /**
+ * Every operation a fragment defines, keyed by operationId. Throws when
+ * the fragment does not parse; callers that already report fragment
+ * errors skip the file instead.
+ */
+export function collectFragmentOperations(
+  fragmentText: string,
+): Map<string, { method: string; path: string }> {
+  const found = new Map<string, { method: string; path: string }>();
+  for (const entry of collectOperations(YAML.parseDocument(fragmentText))) {
+    const id = entry.operation.get("operationId");
+    if (typeof id === "string" && !found.has(id)) {
+      found.set(id, { method: entry.method, path: entry.path });
+    }
+  }
+  return found;
+}
+
+/**
  * Validate every `automation.yaml` in the repository. A plugin without
  * one is silent: automation is opt-in per plugin, so a missing file is
  * not drift. A present file must parse, satisfy the contract, reference
@@ -139,17 +157,14 @@ export function checkAutomationFiles(
   const problems: Problem[] = [];
   const idsByPlugin = new Map<string, Set<string>>();
   for (const fragment of fragments) {
-    let doc: Document;
+    let operations: Map<string, { method: string; path: string }>;
     try {
-      doc = YAML.parseDocument(fragment.text);
+      operations = collectFragmentOperations(fragment.text);
     } catch {
       continue;
     }
     const ids = idsByPlugin.get(fragment.plugin) ?? new Set<string>();
-    for (const entry of collectOperations(doc)) {
-      const id = entry.operation.get("operationId");
-      if (typeof id === "string") ids.add(id);
-    }
+    for (const id of operations.keys()) ids.add(id);
     idsByPlugin.set(fragment.plugin, ids);
   }
 
@@ -210,6 +225,100 @@ export function checkAutomationFiles(
     }
   }
   return problems;
+}
+
+/**
+ * One automation operation with its HTTP binding resolved from the
+ * plugin's own fragment. This is what the server embeds and the CLI
+ * dispatches on: the CLI never reads YAML or OpenAPI itself.
+ */
+export interface ResolvedAutomationOperation {
+  operationId: string;
+  method: string;
+  path: string;
+  risk: string;
+  cliPath: string[];
+  mcpAction: string;
+  input?: string;
+  description?: string;
+}
+
+export interface ResolvedAutomation {
+  apiVersion: 1;
+  plugin: string;
+  operations: ResolvedAutomationOperation[];
+  exclusions: { operationId: string; reason: string }[];
+}
+
+/**
+ * Resolve one plugin's automation file against its fragment. Returns
+ * problems instead of a document when the file is missing, invalid, or
+ * drifts from the fragment; `generate` skips emission then, and `check`
+ * reports the same problems through `checkAutomationFiles`.
+ */
+export function resolveAutomation(
+  plugin: string,
+  automationText: string | null,
+  fragmentText: string | null,
+): { problems: Problem[]; resolved?: ResolvedAutomation } {
+  const problems: Problem[] = [];
+  if (automationText === null) return { problems };
+  if (fragmentText === null) {
+    return {
+      problems: [
+        {
+          plugin,
+          file: automationFileFor(plugin),
+          message: "automation file exists but the plugin declares no OpenAPI fragment",
+        },
+      ],
+    };
+  }
+  let operations: Map<string, { method: string; path: string }>;
+  try {
+    operations = collectFragmentOperations(fragmentText);
+  } catch {
+    return { problems };
+  }
+  const checked = checkAutomationFile({
+    plugin,
+    file: automationFileFor(plugin),
+    text: automationText,
+    ownOperationIds: new Set(operations.keys()),
+  });
+  problems.push(...checked.problems);
+  if (!checked.document) return { problems };
+  return {
+    problems,
+    resolved: {
+      apiVersion: 1,
+      plugin,
+      operations: checked.document.operations.map((operation) => {
+        const binding = operations.get(operation.operationId);
+        const resolved: ResolvedAutomationOperation = {
+          operationId: operation.operationId,
+          method: binding?.method ?? "get",
+          path: binding?.path ?? "",
+          risk: operation.risk,
+          cliPath: operation.cli.path,
+          mcpAction: operation.mcp.action,
+        };
+        if (operation.input !== undefined) resolved.input = operation.input;
+        if (operation.description !== undefined) {
+          resolved.description = operation.description;
+        }
+        return resolved;
+      }),
+      exclusions: checked.document.exclusions.map((exclusion) => ({
+        operationId: exclusion.operationId,
+        reason: exclusion.reason,
+      })),
+    },
+  };
+}
+
+function automationFileFor(plugin: string): string {
+  return `plugins/${plugin.replaceAll("_", "-")}/automation.yaml`;
 }
 
 function pushOwner(

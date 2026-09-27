@@ -177,6 +177,13 @@ function fixtureCore(): string {
       `      parameters:\n        - { in: path, name: pluginId, required: true, schema: { type: string } }\n        - { $ref: "#/components/parameters/CSRFToken" }\n      responses:\n        '204': { description: Removed }\n        '403': { description: Forbidden }\n        '404': { description: Unknown }\n        '409': { description: Conflict }`,
     ],
     [
+      "/api/v1/plugins/{pluginId}/automation",
+      "get",
+      "getPluginAutomation",
+      "Readable by any signed-in account with a dashboard session.",
+      `      parameters:\n        - { in: path, name: pluginId, required: true, schema: { type: string } }\n      responses:\n${ok("Automation", `${schemaRef("PluginAutomation")}\n`)}\n${unauthorized}\n        '404': { description: Unknown }\n        '409': { description: Conflict }`,
+    ],
+    [
       "/api/v1/me/preferences",
       "get",
       "getPreferences",

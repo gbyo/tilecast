@@ -359,6 +359,87 @@ func (c *Client) UpdateSettings(ctx context.Context, revision int64, values map[
 	})
 }
 
+// ListPlugins returns the raw plugin catalog payload.
+func (c *Client) ListPlugins(ctx context.Context) (int, []byte, error) {
+	return c.rawCall(ctx, func(editor gen.RequestEditorFn) (int, []byte, error) {
+		response, err := c.inner.ListPluginsWithResponse(ctx, editor)
+		if err != nil {
+			return 0, nil, err
+		}
+		return response.StatusCode(), response.Body, nil
+	})
+}
+
+// InstallPlugin records a plugin as installed and returns the raw answer.
+// The params stay nil: CSRF is cookie-only and bearer clients never send it.
+func (c *Client) InstallPlugin(ctx context.Context, id string) (int, []byte, error) {
+	return c.rawCall(ctx, func(editor gen.RequestEditorFn) (int, []byte, error) {
+		response, err := c.inner.InstallPluginWithResponse(ctx, gen.PluginID(id), nil, editor)
+		if err != nil {
+			return 0, nil, err
+		}
+		return response.StatusCode(), response.Body, nil
+	})
+}
+
+// RemovePlugin deletes a plugin installation record and returns the raw answer.
+func (c *Client) RemovePlugin(ctx context.Context, id string) (int, []byte, error) {
+	return c.rawCall(ctx, func(editor gen.RequestEditorFn) (int, []byte, error) {
+		response, err := c.inner.RemovePluginWithResponse(ctx, gen.PluginID(id), nil, editor)
+		if err != nil {
+			return 0, nil, err
+		}
+		return response.StatusCode(), response.Body, nil
+	})
+}
+
+// GetPluginAutomation returns the raw resolved automation document for an
+// installed plugin. Generic operator clients dispatch on it without naming
+// the plugin in their own source.
+func (c *Client) GetPluginAutomation(ctx context.Context, id string) (int, []byte, error) {
+	return c.rawCall(ctx, func(editor gen.RequestEditorFn) (int, []byte, error) {
+		response, err := c.inner.GetPluginAutomationWithResponse(ctx, gen.PluginID(id), editor)
+		if err != nil {
+			return 0, nil, err
+		}
+		return response.StatusCode(), response.Body, nil
+	})
+}
+
+// Call performs one authenticated automation request against an arbitrary
+// server path. It carries the Bearer [REDACTED], request ID, and user agent like
+// every other call, and buffers the bounded JSON answer. Generic plugin
+// commands dispatch through here; handwritten commands use the typed
+// methods above.
+func (c *Client) Call(ctx context.Context, method, path string, body io.Reader) (int, []byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, httpTimeout)
+	defer cancel()
+	editor, err := c.editor(ctx)
+	if err != nil {
+		return 0, nil, err
+	}
+	request, err := http.NewRequestWithContext(ctx, method, c.server+path, body)
+	if err != nil {
+		return 0, nil, err
+	}
+	if body != nil {
+		request.Header.Set("Content-Type", "application/json")
+	}
+	if err := editor(ctx, request); err != nil {
+		return 0, nil, err
+	}
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return 0, nil, fmt.Errorf("reach Tilecast server: %w", err)
+	}
+	defer response.Body.Close()
+	raw, err := io.ReadAll(io.LimitReader(response.Body, 1<<20))
+	if err != nil {
+		return 0, nil, err
+	}
+	return response.StatusCode, raw, nil
+}
+
 // Download streams an authenticated GET body to the caller, who closes it.
 // It exists for artifact and export endpoints whose payloads must never be
 // buffered whole into memory by the transport.

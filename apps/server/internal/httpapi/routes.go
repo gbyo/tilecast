@@ -170,6 +170,7 @@ func (s *server) routes() http.Handler {
 			dashboard.With(s.requireScope("read")).Get("/locations", s.listLocations)
 			dashboard.With(s.requireScope("read")).Get("/plugins", s.listPlugins)
 			dashboard.With(s.requireScope("read")).Get("/plugins/dependency-graph", s.dependencyGraph)
+			dashboard.With(s.requireScope("read")).Get("/plugins/{pluginId}/automation", s.getPluginAutomation)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("admin")).Post("/plugins/{pluginId}/install", s.installPlugin)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("admin")).Delete("/plugins/{pluginId}/installation", s.removePlugin)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("write")).Post("/locations", s.createLocation)

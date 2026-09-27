@@ -594,6 +594,93 @@ func (e PlaylistTagRuleInputMatch) Valid() bool {
 	}
 }
 
+// Defines values for PluginAutomationApiVersion.
+const (
+	N1 PluginAutomationApiVersion = 1
+)
+
+// Valid indicates whether the value is a known member of the PluginAutomationApiVersion enum.
+func (e PluginAutomationApiVersion) Valid() bool {
+	switch e {
+	case N1:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PluginAutomationOperationInput.
+const (
+	Document PluginAutomationOperationInput = "document"
+	Fields   PluginAutomationOperationInput = "fields"
+)
+
+// Valid indicates whether the value is a known member of the PluginAutomationOperationInput enum.
+func (e PluginAutomationOperationInput) Valid() bool {
+	switch e {
+	case Document:
+		return true
+	case Fields:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PluginAutomationOperationMethod.
+const (
+	Delete PluginAutomationOperationMethod = "delete"
+	Get    PluginAutomationOperationMethod = "get"
+	Patch  PluginAutomationOperationMethod = "patch"
+	Post   PluginAutomationOperationMethod = "post"
+	Put    PluginAutomationOperationMethod = "put"
+)
+
+// Valid indicates whether the value is a known member of the PluginAutomationOperationMethod enum.
+func (e PluginAutomationOperationMethod) Valid() bool {
+	switch e {
+	case Delete:
+		return true
+	case Get:
+		return true
+	case Patch:
+		return true
+	case Post:
+		return true
+	case Put:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PluginAutomationOperationRisk.
+const (
+	PluginAutomationOperationRiskHighImpact       PluginAutomationOperationRisk = "high-impact"
+	PluginAutomationOperationRiskRead             PluginAutomationOperationRisk = "read"
+	PluginAutomationOperationRiskRoutine          PluginAutomationOperationRisk = "routine"
+	PluginAutomationOperationRiskSecurityCritical PluginAutomationOperationRisk = "security-critical"
+	PluginAutomationOperationRiskSensitive        PluginAutomationOperationRisk = "sensitive"
+)
+
+// Valid indicates whether the value is a known member of the PluginAutomationOperationRisk enum.
+func (e PluginAutomationOperationRisk) Valid() bool {
+	switch e {
+	case PluginAutomationOperationRiskHighImpact:
+		return true
+	case PluginAutomationOperationRiskRead:
+		return true
+	case PluginAutomationOperationRiskRoutine:
+		return true
+	case PluginAutomationOperationRiskSecurityCritical:
+		return true
+	case PluginAutomationOperationRiskSensitive:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PluginInUseErrorErrorCode.
 const (
 	PluginInUse PluginInUseErrorErrorCode = "plugin_in_use"
@@ -1190,19 +1277,19 @@ func (e CreatePersonalAccessTokenJSONBodyExpiresInDays) Valid() bool {
 
 // Defines values for CreatePersonalAccessTokenJSONBodyScopes.
 const (
-	Admin CreatePersonalAccessTokenJSONBodyScopes = "admin"
-	Read  CreatePersonalAccessTokenJSONBodyScopes = "read"
-	Write CreatePersonalAccessTokenJSONBodyScopes = "write"
+	CreatePersonalAccessTokenJSONBodyScopesAdmin CreatePersonalAccessTokenJSONBodyScopes = "admin"
+	CreatePersonalAccessTokenJSONBodyScopesRead  CreatePersonalAccessTokenJSONBodyScopes = "read"
+	CreatePersonalAccessTokenJSONBodyScopesWrite CreatePersonalAccessTokenJSONBodyScopes = "write"
 )
 
 // Valid indicates whether the value is a known member of the CreatePersonalAccessTokenJSONBodyScopes enum.
 func (e CreatePersonalAccessTokenJSONBodyScopes) Valid() bool {
 	switch e {
-	case Admin:
+	case CreatePersonalAccessTokenJSONBodyScopesAdmin:
 		return true
-	case Read:
+	case CreatePersonalAccessTokenJSONBodyScopesRead:
 		return true
-	case Write:
+	case CreatePersonalAccessTokenJSONBodyScopesWrite:
 		return true
 	default:
 		return false
@@ -1869,6 +1956,44 @@ type PluginAttention struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 }
+
+// PluginAutomation defines model for PluginAutomation.
+type PluginAutomation struct {
+	ApiVersion PluginAutomationApiVersion  `json:"apiVersion"`
+	Exclusions []PluginAutomationExclusion `json:"exclusions"`
+	Operations []PluginAutomationOperation `json:"operations"`
+	Plugin     string                      `json:"plugin"`
+}
+
+// PluginAutomationApiVersion defines model for PluginAutomation.ApiVersion.
+type PluginAutomationApiVersion int
+
+// PluginAutomationExclusion defines model for PluginAutomationExclusion.
+type PluginAutomationExclusion struct {
+	OperationId string `json:"operationId"`
+	Reason      string `json:"reason"`
+}
+
+// PluginAutomationOperation defines model for PluginAutomationOperation.
+type PluginAutomationOperation struct {
+	CliPath     []string                        `json:"cliPath"`
+	Description *string                         `json:"description,omitempty"`
+	Input       *PluginAutomationOperationInput `json:"input,omitempty"`
+	McpAction   string                          `json:"mcpAction"`
+	Method      PluginAutomationOperationMethod `json:"method"`
+	OperationId string                          `json:"operationId"`
+	Path        string                          `json:"path"`
+	Risk        PluginAutomationOperationRisk   `json:"risk"`
+}
+
+// PluginAutomationOperationInput defines model for PluginAutomationOperation.Input.
+type PluginAutomationOperationInput string
+
+// PluginAutomationOperationMethod defines model for PluginAutomationOperation.Method.
+type PluginAutomationOperationMethod string
+
+// PluginAutomationOperationRisk defines model for PluginAutomationOperation.Risk.
+type PluginAutomationOperationRisk string
 
 // PluginCatalog defines model for PluginCatalog.
 type PluginCatalog struct {
@@ -4804,6 +4929,11 @@ type ClientInterface interface {
 	//
 	// Returns the current content and delivery topology. Directed edges run from a dependency to the record that consumes it. Dependency Graph is a Studio system tool, not an installable plugin.
 	GetDependencyGraph(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetPluginAutomation performs a GET /api/v1/plugins/{pluginId}/automation (the `GetPluginAutomation` operationId) request.
+	//
+	// A known, installed plugin's resolved automation document. Readable by any signed-in account. Operator clients dispatch generic commands on it without naming the plugin. Unknown plugins answer plugin_not_found, known-but-uninstalled ones plugin_not_installed, and plugins with no automation mapping plugin_automation_not_found.
+	GetPluginAutomation(ctx context.Context, pluginId PluginID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// InstallPlugin performs a POST /api/v1/plugins/{pluginId}/install (the `InstallPlugin` operationId) request.
 	//
@@ -8715,6 +8845,21 @@ func (c *Client) UpdateCountdownBarInstance(ctx context.Context, id ResourceID, 
 // Returns the current content and delivery topology. Directed edges run from a dependency to the record that consumes it. Dependency Graph is a Studio system tool, not an installable plugin.
 func (c *Client) GetDependencyGraph(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetDependencyGraphRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetPluginAutomation performs a GET /api/v1/plugins/{pluginId}/automation (the `GetPluginAutomation` operationId) request.
+//
+// A known, installed plugin's resolved automation document. Readable by any signed-in account. Operator clients dispatch generic commands on it without naming the plugin. Unknown plugins answer plugin_not_found, known-but-uninstalled ones plugin_not_installed, and plugins with no automation mapping plugin_automation_not_found.
+func (c *Client) GetPluginAutomation(ctx context.Context, pluginId PluginID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetPluginAutomationRequest(c.Server, pluginId)
 	if err != nil {
 		return nil, err
 	}
@@ -18183,6 +18328,40 @@ func NewGetDependencyGraphRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewGetPluginAutomationRequest constructs an http.Request for the GetPluginAutomation method
+func NewGetPluginAutomationRequest(server string, pluginId PluginID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "pluginId", pluginId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugins/%s/automation", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewInstallPluginRequest constructs an http.Request for the InstallPlugin method
 func NewInstallPluginRequest(server string, pluginId PluginID, params *InstallPluginParams) (*http.Request, error) {
 	var err error
@@ -23186,6 +23365,13 @@ type ClientWithResponsesInterface interface {
 	//
 	// Returns a wrapper object for the known response body format(s).
 	GetDependencyGraphWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDependencyGraphResponse, error)
+
+	// GetPluginAutomationWithResponse performs a GET /api/v1/plugins/{pluginId}/automation (the `GetPluginAutomation` operationId) request.
+	//
+	// A known, installed plugin's resolved automation document. Readable by any signed-in account. Operator clients dispatch generic commands on it without naming the plugin. Unknown plugins answer plugin_not_found, known-but-uninstalled ones plugin_not_installed, and plugins with no automation mapping plugin_automation_not_found.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	GetPluginAutomationWithResponse(ctx context.Context, pluginId PluginID, reqEditors ...RequestEditorFn) (*GetPluginAutomationResponse, error)
 
 	// InstallPluginWithResponse performs a POST /api/v1/plugins/{pluginId}/install (the `InstallPlugin` operationId) request.
 	//
@@ -30488,6 +30674,51 @@ func (r GetDependencyGraphResponse) ContentType() string {
 	return ""
 }
 
+type GetPluginAutomationResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PluginAutomation `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetPluginAutomationResponse) GetJSON200() *struct {
+	Data PluginAutomation `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r GetPluginAutomationResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetPluginAutomationResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetPluginAutomationResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetPluginAutomationResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type InstallPluginResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -36666,6 +36897,19 @@ func (c *ClientWithResponses) GetDependencyGraphWithResponse(ctx context.Context
 	return ParseGetDependencyGraphResponse(rsp)
 }
 
+// GetPluginAutomationWithResponse performs a GET /api/v1/plugins/{pluginId}/automation (the `GetPluginAutomation` operationId) request.
+//
+// A known, installed plugin's resolved automation document. Readable by any signed-in account. Operator clients dispatch generic commands on it without naming the plugin. Unknown plugins answer plugin_not_found, known-but-uninstalled ones plugin_not_installed, and plugins with no automation mapping plugin_automation_not_found.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) GetPluginAutomationWithResponse(ctx context.Context, pluginId PluginID, reqEditors ...RequestEditorFn) (*GetPluginAutomationResponse, error) {
+	rsp, err := c.GetPluginAutomation(ctx, pluginId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetPluginAutomationResponse(rsp)
+}
+
 // InstallPluginWithResponse performs a POST /api/v1/plugins/{pluginId}/install (the `InstallPlugin` operationId) request.
 //
 // Requires the Owner or Administrator role and an enrolled dashboard session. Records a release-owned plugin as installed. Idempotent. Never downloads or runs code.
@@ -41308,6 +41552,43 @@ func ParseGetDependencyGraphResponse(rsp *http.Response) (*GetDependencyGraphRes
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetPluginAutomationResponse parses an HTTP response from a GetPluginAutomationWithResponse call
+func ParseGetPluginAutomationResponse(rsp *http.Response) (*GetPluginAutomationResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetPluginAutomationResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PluginAutomation `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
 
 	}
 

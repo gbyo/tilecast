@@ -958,6 +958,28 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/PluginInUseError" }
+  /api/v1/plugins/{pluginId}/automation:
+    get:
+      operationId: getPluginAutomation
+      description: A known, installed plugin's resolved automation document. Readable by any signed-in account. Operator clients dispatch generic commands on it without naming the plugin. Unknown plugins answer plugin_not_found, known-but-uninstalled ones plugin_not_installed, and plugins with no automation mapping plugin_automation_not_found.
+      parameters:
+        - { $ref: "#/components/parameters/PluginID" }
+      responses:
+        "200":
+          description: Resolved automation document
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PluginAutomation" }
+        "401": { description: Dashboard authentication required }
+        "404":
+          {
+            description: plugin_not_found — the release does not define this plugin — or plugin_automation_not_found — it maps no operations into automation,
+          }
+        "409": { description: plugin_not_installed }
   /api/v1/plugins/dependency-graph:
     get:
       operationId: getDependencyGraph
@@ -3394,6 +3416,38 @@ components:
             type: array,
             items: { $ref: "#/components/schemas/PluginAttention" },
           }
+    PluginAutomationOperation:
+      type: object
+      required: [operationId, method, path, risk, cliPath, mcpAction]
+      properties:
+        operationId: { type: string }
+        method: { type: string, enum: [get, post, put, patch, delete] }
+        path: { type: string }
+        risk:
+          {
+            type: string,
+            enum: [read, routine, sensitive, high-impact, security-critical],
+          }
+        cliPath: { type: array, items: { type: string } }
+        mcpAction: { type: string }
+        input: { type: string, enum: [fields, document] }
+        description: { type: string }
+    PluginAutomationExclusion:
+      type: object
+      required: [operationId, reason]
+      properties:
+        operationId: { type: string }
+        reason: { type: string }
+    PluginAutomation:
+      type: object
+      required: [apiVersion, plugin, operations, exclusions]
+      properties:
+        apiVersion: { type: integer, const: 1 }
+        plugin: { type: string, pattern: "^[a-z][a-z0-9_]{0,79}$" }
+        operations:
+          { type: array, items: { $ref: "#/components/schemas/PluginAutomationOperation" } }
+        exclusions:
+          { type: array, items: { $ref: "#/components/schemas/PluginAutomationExclusion" } }
     PluginCatalog:
       type: object
       required: [items, unsupportedInstallations]
