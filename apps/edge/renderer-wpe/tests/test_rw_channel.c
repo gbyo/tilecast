@@ -282,9 +282,11 @@ test_stale_completion (void)
   tc_rw_channel_free (channel);
 }
 
-/* Free a channel with a write still outstanding, then create a new one: the
- * abandoned completion must not drive the new channel even if the allocator
- * reuses the same address (every channel takes a fresh identity). */
+/* Free a channel with a write still outstanding, churn the allocator so the
+ * freed struct's address is likely reused, then create a new channel: the
+ * abandoned completion validates against the dead channel's own identity
+ * record (which outlives it), so it must neither crash nor drive the new
+ * channel at the reused address. */
 static void
 test_abandoned_write_after_free (void)
 {
@@ -294,6 +296,13 @@ test_abandoned_write_after_free (void)
   g_assert_true (tc_rw_channel_send (dead, TC_RW_FRAME_CREATE, "s1", "{\"n\":1}"));
   close (peer);
   tc_rw_channel_free (dead);
+
+  /* Churn same-sized allocations through the slice allocator to reuse the
+   * freed address before the abandoned completion fires. */
+  for (int i = 0; i < 64; i++) {
+    TcRwChannel *churn = tc_rw_channel_new (on_disconnect, &fixture);
+    tc_rw_channel_free (churn);
+  }
 
   int fresh_peer = -1;
   TcRwChannel *channel = connected (&fixture, 0, 0, &fresh_peer);

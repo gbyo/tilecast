@@ -14,9 +14,10 @@
  *     and the existing recovery path takes over;
  *   - a write that the helper does not consume fails on a deadline, which
  *     also disconnects;
- *   - detach() invalidates every outstanding callback through a generation
- *     counter, so shutdown, disconnect and reconnect are safe against
- *     use-after-free.
+ *   - detach() invalidates every outstanding callback through a per-channel
+ *     identity record that outlives the channel itself, so shutdown,
+ *     disconnect and reconnect are safe against use-after-free — even a
+ *     completion that arrives after the channel struct is freed.
  *
  * Inbound, note_incoming() enforces a per-second frame budget on the trusted
  * side. The helper-side EVENT_BUDGET in control.c is not a security boundary

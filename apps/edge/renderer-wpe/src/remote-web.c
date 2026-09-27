@@ -383,7 +383,10 @@ tc_remote_web_stop (TcHost *host)
     host->rw_reconnect_source = 0;
   }
   disconnect (host, "renderer stopping");
-  /* Freed after disconnect so no async write can complete into freed state. */
+  /* Detach first so late completions go stale; a dispatched GIO write can
+   * still complete afterwards, but its ticket validates against the
+   * channel's identity record — which outlives the channel — and returns
+   * without touching freed state. */
   tc_rw_channel_free (host->rw_channel);
   host->rw_channel = NULL;
   g_clear_pointer (&host->rw_surfaces, g_hash_table_unref);

@@ -12,22 +12,31 @@ typedef struct {
   gsize offset; /* bytes already accepted by the socket */
 } Outgoing;
 
+/* Identity for async tickets. A dispatched GIO write cannot be recalled: its
+ * completion still fires after detach, and even after the channel struct
+ * itself is freed (shutdown frees the channel; the write holds only the
+ * stream). Tickets therefore never validate through the channel pointer.
+ * Each channel owns one heap identity record, and every ticket holds a
+ * reference to it, so the record is always safe to read in a callback.
+ * Detach bumps the record's generation before the channel can be freed, so
+ * a ticket that matches its record provably predates any detach — and no
+ * detach means no free, which means the borrowed channel pointer is live.
+ * Address reuse is harmless by construction: an old ticket points at the
+ * old record, never at whatever now lives at the channel's address.
+ * All channel use is on one thread, so a plain counter suffices. */
 typedef struct {
-  TcRwChannel *channel;
-  guint64 id;
+  guint refcount;
+  guint64 generation;
+} Identity;
+
+typedef struct {
+  TcRwChannel *channel; /* borrowed: valid only when the ticket is fresh */
+  Identity *identity; /* reference held: always safe to read */
   guint64 generation;
 } Ticket;
 
-/* Identity for async tickets. The generation alone cannot tell a stale
- * callback from a live one when the channel struct itself is freed and its
- * memory reused by a new channel at the same address with a coincidentally
- * equal generation: every channel takes a fresh process-wide identity, so a
- * ticket from a dead channel can never drive a new one. All channel use is
- * on one thread, so a plain counter suffices. */
-static guint64 next_channel_id = 1;
-
 struct _TcRwChannel {
-  guint64 id;
+  Identity *identity;
   guint max_queued;
   guint write_timeout_ms;
   TcRwChannelDisconnect on_disconnect;
@@ -38,13 +47,39 @@ struct _TcRwChannel {
   gboolean write_in_flight;
   guint timeout_source;
   Ticket *timeout_ticket; /* owned while timeout_source != 0 */
-  guint64 generation;
-
   gint64 window_start;
   guint window_count;
 };
 
 static void pump_head (TcRwChannel *channel);
+
+static Identity *
+identity_new (void)
+{
+  Identity *identity = g_new0 (Identity, 1);
+  identity->refcount = 1;
+  return identity;
+}
+
+static void
+identity_unref (Identity *identity)
+{
+  if (--identity->refcount == 0)
+    g_free (identity);
+}
+
+/* A ticket snapshots the channel's current generation and holds the identity
+ * record alive past any free. */
+static Ticket *
+ticket_new (TcRwChannel *channel)
+{
+  Ticket *ticket = g_new (Ticket, 1);
+  ticket->channel = channel;
+  ticket->identity = channel->identity;
+  ticket->identity->refcount++;
+  ticket->generation = channel->identity->generation;
+  return ticket;
+}
 
 gboolean
 tc_rw_frame_coalescable (TcRwFrameKind kind)
@@ -66,7 +101,7 @@ tc_rw_channel_new_full (guint max_queued, guint write_timeout_ms,
                         TcRwChannelDisconnect on_disconnect, gpointer user_data)
 {
   TcRwChannel *channel = g_new0 (TcRwChannel, 1);
-  channel->id = next_channel_id++;
+  channel->identity = identity_new ();
   channel->max_queued = max_queued == 0 ? TC_RW_MAX_OUTGOING : max_queued;
   channel->write_timeout_ms = write_timeout_ms == 0 ? TC_RW_WRITE_TIMEOUT_MS : write_timeout_ms;
   channel->on_disconnect = on_disconnect;
@@ -88,6 +123,9 @@ tc_rw_channel_free (TcRwChannel *channel)
     return;
   tc_rw_channel_detach (channel);
   g_queue_free_full (channel->queue, outgoing_free);
+  /* Outstanding tickets keep the identity record alive past this free; their
+   * callbacks validate against it and find themselves stale. */
+  identity_unref (channel->identity);
   g_free (channel);
 }
 
@@ -108,8 +146,11 @@ clear_timeout (TcRwChannel *channel)
     g_source_remove (channel->timeout_source);
     channel->timeout_source = 0;
   }
-  g_free (channel->timeout_ticket);
-  channel->timeout_ticket = NULL;
+  if (channel->timeout_ticket != NULL) {
+    identity_unref (channel->timeout_ticket->identity);
+    g_free (channel->timeout_ticket);
+    channel->timeout_ticket = NULL;
+  }
 }
 
 void
@@ -118,8 +159,10 @@ tc_rw_channel_detach (TcRwChannel *channel)
   if (channel == NULL)
     return;
   /* Invalidate every outstanding async write and deadline callback first:
-   * completions that arrive later see a stale generation and return. */
-  channel->generation++;
+   * completions that arrive later see a stale generation and return. The
+   * identity record itself stays alive for tickets that hold it, so even a
+   * callback that arrives after free validates safely. */
+  channel->identity->generation++;
   channel->write_in_flight = FALSE;
   clear_timeout (channel);
   g_queue_clear_full (channel->queue, outgoing_free);
@@ -208,10 +251,13 @@ static void
 on_written (GObject *source, GAsyncResult *result, gpointer user_data)
 {
   Ticket *ticket = user_data;
-  TcRwChannel *channel = ticket->channel;
-  gboolean stale = ticket->id != channel->id || ticket->generation != channel->generation;
+  /* Validate through the ref-held identity before touching the channel: the
+   * channel may already be freed, in which case only the record is live. */
+  gboolean fresh = ticket->generation == ticket->identity->generation;
+  TcRwChannel *channel = fresh ? ticket->channel : NULL;
+  identity_unref (ticket->identity);
   g_free (ticket);
-  if (stale)
+  if (!fresh)
     return;
   channel->write_in_flight = FALSE;
   g_autoptr (GError) error = NULL;
@@ -222,8 +268,8 @@ on_written (GObject *source, GAsyncResult *result, gpointer user_data)
   }
   Outgoing *head = g_queue_peek_head (channel->queue);
   if (head == NULL) {
-    /* Detached and reattached between pump and completion, keeping the
-     * generation: the queue was cleared, so there is nothing to advance. */
+    /* Defensive: detach clears the queue and always bumps the generation, so
+     * a fresh ticket implies a queued head frame. */
     return;
   }
   head->offset += (gsize) written;
@@ -241,15 +287,21 @@ static void
 on_write_timeout (gpointer user_data)
 {
   Ticket *ticket = user_data;
-  TcRwChannel *channel = ticket->channel;
-  gboolean stale = ticket->id != channel->id || ticket->generation != channel->generation;
-  if (ticket == channel->timeout_ticket) {
+  /* Validate through the ref-held identity before touching the channel. A
+   * fresh ticket is necessarily the armed deadline: the armed ticket is only
+   * ever replaced after its source is removed, and a removed source cannot
+   * fire. */
+  gboolean fresh = ticket->generation == ticket->identity->generation;
+  TcRwChannel *channel = fresh ? ticket->channel : NULL;
+  gboolean mine = fresh && ticket == channel->timeout_ticket;
+  identity_unref (ticket->identity);
+  g_free (ticket);
+  if (!fresh)
+    return;
+  if (mine) {
     channel->timeout_source = 0;
     channel->timeout_ticket = NULL;
   }
-  g_free (ticket);
-  if (stale)
-    return;
   if (!channel->write_in_flight)
     return;
   /* The helper is connected but not consuming: stop queueing behind it and
@@ -268,17 +320,11 @@ pump_head (TcRwChannel *channel)
   if (head->offset == 0) {
     /* One deadline per head frame; partial writes keep the original one. */
     clear_timeout (channel);
-    Ticket *timeout = g_new (Ticket, 1);
-    timeout->channel = channel;
-    timeout->id = channel->id;
-    timeout->generation = channel->generation;
+    Ticket *timeout = ticket_new (channel);
     channel->timeout_ticket = timeout;
     channel->timeout_source = g_timeout_add_once (channel->write_timeout_ms, on_write_timeout, timeout);
   }
-  Ticket *write_ticket = g_new (Ticket, 1);
-  write_ticket->channel = channel;
-  write_ticket->id = channel->id;
-  write_ticket->generation = channel->generation;
+  Ticket *write_ticket = ticket_new (channel);
   g_output_stream_write_async (out, head->buffer + head->offset, head->length - head->offset,
                                G_PRIORITY_DEFAULT, NULL, on_written, write_ticket);
 }
