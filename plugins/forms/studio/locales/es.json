@@ -659,6 +659,9 @@
     "previous": "Anterior",
     "next": "Siguiente"
   },
+  "nav": {
+    "approvals": "Aprobaciones"
+  },
   "approvals": {
     "eyebrow": "Formularios",
     "title": "Aprobaciones",

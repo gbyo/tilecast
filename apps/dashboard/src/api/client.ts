@@ -1,5 +1,4 @@
 import type {
-  FormSummary,
   AuthStatus,
   LoginInput,
   LoginResult,
@@ -1613,10 +1612,7 @@ export const api = {
       method: "DELETE",
       headers: { "X-CSRF-Token": csrfToken },
     }),
-  // Accessible-form summaries for navigation (the sidebar Approvals entry). The
-  // Forms plugin owns the rest of the Forms API through its plugin-local client.
-  listForms: () =>
-    request<{ items: FormSummary[] }>("/forms").then((result) => result.items),
+
   dataSourceDiagnostics: (id: string) =>
     request<SourceRefreshDiagnostics>(`/data-sources/${id}/diagnostics`),
   previewDataSource: (

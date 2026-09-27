@@ -654,6 +654,9 @@
     "previous": "Previous",
     "next": "Next"
   },
+  "nav": {
+    "approvals": "Approvals"
+  },
   "approvals": {
     "eyebrow": "Forms",
     "title": "Approvals",

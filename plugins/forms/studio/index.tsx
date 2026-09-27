@@ -1,10 +1,12 @@
-import { ClipboardList } from "lucide-react";
+import { ClipboardCheck, ClipboardList } from "lucide-react";
 import {
   defineStudioPlugin,
   type BreadcrumbResourceLoader,
 } from "@tilecast/studio";
 import "./forms.css";
 import { formsApi } from "./api";
+import { canReviewForm } from "./forms/capabilities";
+import type { FormSummary } from "./types";
 import { ApprovalsPage } from "./ApprovalsPage";
 import { CreateFormDataSourcePage } from "./CreateFormDataSourcePage";
 import { FormsPluginPage } from "./FormsPluginPage";
@@ -26,6 +28,27 @@ const formResource: BreadcrumbResourceLoader = {
 export default defineStudioPlugin({
   id: "forms",
   icon: ClipboardList,
+  // The reviewer inbox in the Studio secondary navigation. Visibility is
+  // Forms-owned: the inbox appears only when the viewer may act on some
+  // form's responses queue. The generic shell never interprets Forms
+  // capabilities; it only renders this contribution.
+  secondaryNavigation: [
+    {
+      id: "approvals",
+      to: "/approvals",
+      icon: ClipboardCheck,
+      labelKey: "nav.approvals",
+      visibility: {
+        queryKey: ["forms"],
+        queryFn: () => formsApi.listForms(),
+        visible: (data) =>
+          Array.isArray(data) &&
+          (data as FormSummary[]).some((form) =>
+            canReviewForm(form.grantedCapabilities),
+          ),
+      },
+    },
+  ],
   routes: [
     { index: true, element: <FormsPluginPage /> },
     {
@@ -69,6 +92,7 @@ export default defineStudioPlugin({
       // without the install gate and handles that state itself.
       path: "/approvals",
       gate: "none",
+      topLevel: false,
       children: [
         {
           index: true,

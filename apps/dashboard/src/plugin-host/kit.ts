@@ -50,8 +50,52 @@ export interface StudioPluginDefinition {
    * Studio routes.
    */
   standaloneRoutes?: StudioPluginStandaloneRoute[];
+  /**
+   * Conditional items in the Studio secondary navigation (below Activity,
+   * above Settings). One proven requirement drives this narrow capability: a
+   * plugin may contribute an inbox or portal link that only some viewers may
+   * see. This is not an arbitrary navigation framework: every item names an
+   * absolute path inside the plugin's declared Studio route ownership, its
+   * label comes from the plugin's translation namespace, and its visibility
+   * logic lives in the plugin. The generic sidebar never interprets plugin
+   * permissions.
+   */
+  secondaryNavigation?: StudioPluginSecondaryNavItem[];
   /** Extra global search destinations. The plugin itself is always offered. */
   search?: StudioPluginSearchEntry[];
+}
+
+/**
+ * One plugin-contributed Studio secondary-navigation item.
+ */
+export interface StudioPluginSecondaryNavItem {
+  /**
+   * Item identifier, unique across every plugin's contributions. Duplicates
+   * fail loudly at startup rather than rendering two items as one.
+   */
+  id: string;
+  /**
+   * Absolute Studio path, inside the plugin's declared Studio route
+   * ownership: its management route, one of its additional routes, or below
+   * either.
+   */
+  to: string;
+  /** The plugin's icon for the item. */
+  icon: PluginIconComponent;
+  /** Label key in the plugin's own translation namespace. */
+  labelKey: string;
+  /**
+   * Visibility logic, owned by the plugin. A synchronous predicate over
+   * asynchronously loaded data: the host fetches `queryFn` under a
+   * plugin-namespaced key and calls `visible` with the data (or `undefined`
+   * while loading). Errors, loading, and exceptions hide the item rather
+   * than breaking the sidebar. Omit for an always-visible item.
+   */
+  visibility?: {
+    queryKey: readonly unknown[];
+    queryFn: () => Promise<unknown>;
+    visible: (data: unknown) => boolean;
+  };
 }
 
 /**
@@ -67,12 +111,12 @@ export interface StudioPluginStandaloneRoute {
    */
   gate: "install" | "none";
   /**
-   * Where the route mounts. Standalone routes mount inside the authenticated
-   * Studio chrome by default; `topLevel` mounts as a top-level route with its
+   * Where the route mounts, explicit per route. `false` mounts inside the
+   * authenticated Studio chrome; `true` mounts as a top-level route with its
    * own shell and its own authentication, for areas intentionally outside the
    * operator sidebar.
    */
-  topLevel?: boolean;
+  topLevel: boolean;
   /** The route's content below `path`, as relative child routes. */
   children: RouteObject[];
 }

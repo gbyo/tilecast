@@ -1560,30 +1560,6 @@ export type LegacyDataSourceProvider =
   | "air_quality";
 export type DataSourceProvider = LegacyDataSourceProvider | (string & {});
 
-export type FormSubmissionCounts = {
-  draft: number;
-  submitted: number;
-  changesRequested: number;
-  total: number;
-};
-
-// --- Form summaries for navigation ---
-// The sidebar Approvals entry reads these through the central client without
-// importing plugin code. The Forms plugin owns the rest of the Forms DTOs in
-// plugins/forms/studio/types.ts.
-
-export type FormCapability =
-  "manage" | "submit" | "view_own" | "view_all" | "review" | "approve";
-
-export type FormSummary = {
-  id: string;
-  name: string;
-  description: string;
-  publishedRevisionNumber?: number;
-  grantedCapabilities: FormCapability[];
-  submissionCounts: FormSubmissionCounts;
-};
-
 export type ContentDefinitionField = {
   key: string;
   label: string;
