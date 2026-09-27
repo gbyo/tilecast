@@ -14,12 +14,7 @@ afterEach(() => {
 });
 
 type GrantedCapability =
-  | "manage"
-  | "submit"
-  | "view_own"
-  | "view_all"
-  | "review"
-  | "approve";
+  "manage" | "submit" | "view_own" | "view_all" | "review" | "approve";
 
 /**
  * The sidebar reaches the Forms plugin through its real HTTP path: the
@@ -34,7 +29,7 @@ function stubFormsFetch(items: { grantedCapabilities: GrantedCapability[] }[]) {
       Promise.resolve({
         ok: true,
         status: 200,
-        json: async () => ({ data: { items } }),
+        json: () => Promise.resolve({ data: { items } }),
       }),
     ),
   );
@@ -141,7 +136,9 @@ describe("plugin-contributed Approvals entry", () => {
     },
   });
 
-  function renderWithForms(forms: { grantedCapabilities: GrantedCapability[] }[]) {
+  function renderWithForms(
+    forms: { grantedCapabilities: GrantedCapability[] }[],
+  ) {
     stubFormsFetch(forms);
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
@@ -178,7 +175,7 @@ describe("plugin-contributed Approvals entry", () => {
         Promise.resolve({
           ok: false,
           status: 500,
-          json: async () => ({}),
+          json: () => Promise.resolve({}),
         }),
       ),
     );

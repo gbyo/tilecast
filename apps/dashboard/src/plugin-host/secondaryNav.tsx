@@ -1,10 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "react-router";
-import {
-  SidebarMenuButton,
-  SidebarMenuItem,
-} from "@/components/ui/sidebar";
+import { SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
 import type { DiscoveredStudioPlugin } from "./discovery";
 import type { StudioPluginSecondaryNavItem } from "./kit";
 import { pluginNamespace } from "./translation";
@@ -76,6 +73,11 @@ function ContributedSecondaryNavRow({
   item,
 }: ContributedSecondaryNavItem) {
   const { t } = useTranslation();
+  // Item labels live in plugin namespaces the typed resources do not list.
+  const translateKey = t as unknown as (
+    key: string,
+    options: { ns: string; defaultValue: string },
+  ) => string;
   const location = useLocation();
   const visibility = item.visibility;
   // One query per mounted item, always called in the same order: the item
@@ -94,7 +96,7 @@ function ContributedSecondaryNavRow({
   });
   if (visibility !== undefined) {
     if (query.isError || query.isLoading) return null;
-    let show = false;
+    let show: boolean;
     try {
       show = visibility.visible(query.data);
     } catch {
@@ -102,7 +104,10 @@ function ContributedSecondaryNavRow({
     }
     if (!show) return null;
   }
-  const title = t(item.labelKey, { ns: pluginNamespace(pluginId) });
+  const title = translateKey(item.labelKey, {
+    ns: pluginNamespace(pluginId),
+    defaultValue: item.id,
+  });
   const active =
     location.pathname === item.to ||
     location.pathname.startsWith(`${item.to}/`);

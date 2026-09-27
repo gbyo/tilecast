@@ -14,12 +14,7 @@ afterEach(() => {
 });
 
 type GrantedCapability =
-  | "manage"
-  | "submit"
-  | "view_own"
-  | "view_all"
-  | "review"
-  | "approve";
+  "manage" | "submit" | "view_own" | "view_all" | "review" | "approve";
 
 /** Stub the Forms plugin's visibility query at the HTTP boundary. */
 function stubFormsFetch(items: { grantedCapabilities: GrantedCapability[] }[]) {
@@ -29,7 +24,7 @@ function stubFormsFetch(items: { grantedCapabilities: GrantedCapability[] }[]) {
       Promise.resolve({
         ok: true,
         status: 200,
-        json: async () => ({ data: { items } }),
+        json: () => Promise.resolve({ data: { items } }),
       }),
     ),
   );
