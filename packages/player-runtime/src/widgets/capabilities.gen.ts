@@ -9,8 +9,11 @@
  */
 export const WIDGET_COMPONENT_CAPABILITIES: Readonly<Record<string, number>> =
   Object.freeze({
+    "widget.tilecast.cards": 1,
     "widget.tilecast.clock": 1,
+    "widget.tilecast.list": 1,
     "widget.tilecast.qr-code": 1,
+    "widget.tilecast.table": 1,
   });
 
 /** Presentation schema of kind "component" presentations. */

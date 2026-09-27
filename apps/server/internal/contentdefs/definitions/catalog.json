@@ -278,50 +278,6 @@
       "deprecation": {}
     },
     {
-      "id": "list",
-      "version": 1,
-      "name": "List",
-      "description": "Display flexible primary and secondary rows.",
-      "category": "Data-driven",
-      "icon": "list",
-      "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
-      "presentationSchemaVersion": 1,
-      "requiredCapabilities": {
-        "layout.surface": 1,
-        "layout.column": 1,
-        "collection.repeat": 2,
-        "content.text": 1,
-        "binding.core": 2
-      },
-      "emptyStateBehavior": "text",
-      "legacyEditor": true,
-      "deprecation": {}
-    },
-    {
-      "id": "table",
-      "version": 1,
-      "name": "Table",
-      "description": "Display typed records in configurable columns.",
-      "category": "Data-driven",
-      "icon": "table",
-      "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
-      "presentationSchemaVersion": 1,
-      "requiredCapabilities": {
-        "layout.surface": 1,
-        "layout.column": 1,
-        "collection.repeat": 2,
-        "content.text": 1,
-        "binding.core": 2
-      },
-      "emptyStateBehavior": "text",
-      "legacyEditor": true,
-      "deprecation": {}
-    },
-    {
       "id": "agenda",
       "version": 1,
       "name": "Agenda",
@@ -356,28 +312,6 @@
       "presentationSchemaVersion": 1,
       "requiredCapabilities": {
         "layout.surface": 1,
-        "content.text": 1,
-        "binding.core": 2
-      },
-      "emptyStateBehavior": "text",
-      "legacyEditor": true,
-      "deprecation": {}
-    },
-    {
-      "id": "cards",
-      "version": 1,
-      "name": "Cards",
-      "description": "Display records in a responsive card grid.",
-      "category": "Data-driven",
-      "icon": "grid",
-      "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
-      "presentationSchemaVersion": 1,
-      "requiredCapabilities": {
-        "layout.surface": 1,
-        "layout.grid": 1,
-        "collection.repeat": 2,
         "content.text": 1,
         "binding.core": 2
       },

@@ -1,0 +1,20 @@
+{
+  "name": "No source",
+  "description": "Cards with no connected source report the empty state instead of failing.",
+  "configuration": {
+    "dataSourceId": "",
+    "titleField": "",
+    "subtitleField": "",
+    "bodyField": "",
+    "imageField": "",
+    "badgeField": "",
+    "metadataField": "",
+    "heading": "Projects",
+    "maximumItems": 6,
+    "emptyText": "",
+    "density": "comfortable",
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "expect": "empty"
+}

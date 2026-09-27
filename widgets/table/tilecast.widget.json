@@ -1,0 +1,195 @@
+{
+  "$schema": "../../packages/widget-sdk/schema/tilecast-widget.schema.json",
+  "apiVersion": 1,
+  "id": "table",
+  "version": 1,
+  "name": "Table",
+  "description": "Show records as a comparison grid with a header row.",
+  "category": "Data display",
+  "icon": "table",
+  "runtime": "native",
+  "configurationSchema": {
+    "fields": [
+      {
+        "key": "dataSourceId",
+        "label": "Data Source",
+        "description": "The records source this Table reads.",
+        "control": "data_source",
+        "acceptedDataSourceKinds": ["records"],
+        "default": "",
+        "ui": { "section": "data", "order": 1 }
+      },
+      {
+        "key": "columns",
+        "label": "Columns",
+        "description": "Up to six columns. Values format from each field's typed metadata, so columns never need manual format strings.",
+        "control": "repeating_group",
+        "maximumItems": 6,
+        "default": [],
+        "itemFields": [
+          {
+            "key": "field",
+            "label": "Field",
+            "control": "data_source_field",
+            "dataSourceKey": "dataSourceId",
+            "dataSourceFieldTypes": [
+              "text",
+              "number",
+              "integer",
+              "currency",
+              "boolean",
+              "date",
+              "datetime",
+              "url"
+            ],
+            "default": ""
+          },
+          {
+            "key": "label",
+            "label": "Label",
+            "description": "Blank uses the field name.",
+            "control": "text",
+            "maxLength": 60,
+            "default": ""
+          },
+          {
+            "key": "align",
+            "label": "Alignment",
+            "description": "Automatic aligns numbers right and everything else left.",
+            "control": "select",
+            "options": [
+              { "value": "auto", "label": "Automatic" },
+              { "value": "left", "label": "Left" },
+              { "value": "center", "label": "Center" },
+              { "value": "right", "label": "Right" }
+            ],
+            "default": "auto"
+          }
+        ],
+        "ui": { "section": "data", "order": 2 }
+      },
+      {
+        "key": "heading",
+        "label": "Heading",
+        "control": "text",
+        "maxLength": 120,
+        "default": "",
+        "ui": { "section": "content", "order": 1 }
+      },
+      {
+        "key": "maximumRows",
+        "label": "Maximum rows",
+        "control": "integer",
+        "minimum": 1,
+        "maximum": 100,
+        "default": 10,
+        "ui": { "section": "content", "order": 2 }
+      },
+      {
+        "key": "emptyText",
+        "label": "Empty message",
+        "description": "Shown when the source returns no usable records.",
+        "control": "text",
+        "maxLength": 200,
+        "default": "",
+        "ui": { "section": "content", "order": 3 }
+      },
+      {
+        "key": "showHeader",
+        "label": "Header row",
+        "control": "boolean",
+        "default": false,
+        "ui": { "section": "appearance", "order": 1 }
+      },
+      {
+        "key": "density",
+        "label": "Density",
+        "control": "select",
+        "options": [
+          { "value": "comfortable", "label": "Comfortable" },
+          { "value": "compact", "label": "Compact" }
+        ],
+        "default": "comfortable",
+        "ui": { "section": "appearance", "order": 2, "styleCard": true }
+      },
+      {
+        "key": "alternatingRows",
+        "label": "Alternating rows",
+        "description": "Shade every other row.",
+        "control": "boolean",
+        "default": false,
+        "ui": { "section": "appearance", "order": 3 }
+      },
+      {
+        "key": "backgroundColor",
+        "label": "Background color",
+        "control": "color",
+        "default": "",
+        "ui": { "section": "appearance", "order": 4 }
+      },
+      {
+        "key": "foregroundColor",
+        "label": "Text color",
+        "control": "color",
+        "default": "",
+        "ui": { "section": "appearance", "order": 5 }
+      }
+    ]
+  },
+  "defaultConfiguration": {
+    "dataSourceId": "",
+    "columns": [],
+    "heading": "",
+    "maximumRows": 10,
+    "emptyText": "",
+    "showHeader": false,
+    "density": "comfortable",
+    "alternatingRows": false,
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "presentationSchemaVersion": 1,
+  "requiredCapabilities": {
+    "layout.surface": 1,
+    "layout.column": 1,
+    "collection.repeat": 2,
+    "content.text": 1,
+    "binding.core": 2
+  },
+  "emptyStateBehavior": "text",
+  "legacyEditor": true,
+  "deprecation": {},
+  "component": {
+    "type": "tilecast.table",
+    "version": 1,
+    "tagName": "tc-widget-table",
+    "entrypoint": "./runtime/index.ts",
+    "configTemplate": {
+      "dataSourceId": { "$config": "dataSourceId", "default": "" },
+      "columns": { "$config": "columns", "default": [] },
+      "legacyFields": { "$config": "fields", "default": [] },
+      "heading": { "$config": "heading", "default": "" },
+      "maximumRows": {
+        "$config": "maximumRows",
+        "default": { "$config": "maximumItems", "default": 10 }
+      },
+      "emptyText": {
+        "$config": "emptyText",
+        "default": { "$config": "emptyState", "default": "" }
+      },
+      "showHeader": { "$config": "showHeader", "default": false },
+      "density": {
+        "$config": "density",
+        "default": { "$config": "rowSpacing", "default": "comfortable" }
+      },
+      "alternatingRows": { "$config": "alternatingRows", "default": false },
+      "background": { "$config": "backgroundColor", "default": "" },
+      "foreground": { "$config": "foregroundColor", "default": "" }
+    },
+    "dataSourceFields": ["dataSourceId"],
+    "empty": "skip-eligible"
+  },
+  "compatibility": {
+    "fallback": "legacy"
+  }
+}

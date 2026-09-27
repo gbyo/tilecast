@@ -9,4 +9,10 @@
 pub const COMPONENT_PRESENTATION_SCHEMA: u32 = 2;
 
 /// `widget.<type>` capability and component version.
-pub const WIDGET_COMPONENTS: &[(&str, u32)] = &[("widget.tilecast.clock", 1), ("widget.tilecast.qr-code", 1)];
+pub const WIDGET_COMPONENTS: &[(&str, u32)] = &[
+    ("widget.tilecast.cards", 1),
+    ("widget.tilecast.clock", 1),
+    ("widget.tilecast.list", 1),
+    ("widget.tilecast.qr-code", 1),
+    ("widget.tilecast.table", 1),
+];

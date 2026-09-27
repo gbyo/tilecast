@@ -676,24 +676,10 @@
         "emptyLabel": "Сообщение при отсутствии данных",
         "emptyHint": "Показывается на экране, когда источник не возвращает подходящих записей."
       },
-      "list": {
-        "primaryField": "Основное поле",
-        "leadingField": "Ведущее поле",
-        "trailingField": "Конечное поле",
-        "showDividers": "Показывать разделители строк"
-      },
       "menu": {
         "presentation": "Представление",
         "modeSingle": "Поля одной записи",
         "modeRows": "Строки «подпись — значение»"
-      },
-      "table": {
-        "showHeader": "Показывать заголовки столбцов",
-        "alternating": "Чередовать фон строк",
-        "columnPresentation": "Отображение столбцов",
-        "columnWidth": "Ширина, %",
-        "formatFor": "Формат поля {{field}}",
-        "alignmentFor": "Выравнивание поля {{field}}"
       },
       "agenda": {
         "timeField": "Поле времени",
@@ -706,14 +692,6 @@
         "prefix": "Префикс",
         "suffix": "Суффикс",
         "emptyState": "Пустое состояние"
-      },
-      "cards": {
-        "subtitleLabel": "подзаголовок",
-        "bodyLabel": "текст",
-        "badgeLabel": "значок",
-        "density": "Плотность",
-        "densityComfortable": "Обычная",
-        "densityCompact": "Компактная"
       },
       "weather": {
         "showLocation": "Местоположение",

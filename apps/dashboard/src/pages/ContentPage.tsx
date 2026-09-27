@@ -2451,13 +2451,13 @@ function AssetDetails(props: {
     />
   ) : props.asset.type === "widget" &&
     props.asset.widget &&
-    ["clock", "date", "ticker", "menu", "list", "table", "agenda"].includes(
+    ["clock", "date", "ticker", "menu", "agenda"].includes(
       props.asset.widget.provider,
     ) ? (
     <NativeAppEditor
       provider={
         props.asset.widget.provider as
-          "clock" | "date" | "ticker" | "menu" | "list" | "table" | "agenda"
+          "clock" | "date" | "ticker" | "menu" | "agenda"
       }
       asset={props.asset}
       csrf={props.csrf}

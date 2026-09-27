@@ -759,6 +759,9 @@ export function WidgetLivePreview({
     case "qrcode":
     case "qr-call-to-action":
     case "qr-code":
+    case "list":
+    case "table":
+    case "cards":
       // Migrated V2 Widgets render the real Web Component through the
       // shared preview host. Each migration deletes its hand-written branch
       // here; zone-specific renderers are never added.
@@ -822,8 +825,6 @@ export function WidgetLivePreview({
           item={item}
         />
       );
-    case "list":
-    case "table":
     case "agenda":
       return (
         <DisplayWidget

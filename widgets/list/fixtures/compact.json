@@ -1,0 +1,58 @@
+{
+  "name": "Compact",
+  "description": "Compact density drops secondary values and tightens rows.",
+  "configuration": {
+    "dataSourceId": "11111111-1111-4111-8111-111111111111",
+    "primaryField": "title",
+    "secondaryField": "detail",
+    "leadingField": "",
+    "trailingField": "budget",
+    "heading": "Projects",
+    "maximumItems": 8,
+    "emptyText": "",
+    "density": "compact",
+    "showDividers": false,
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "documents": {
+    "11111111-1111-4111-8111-111111111111": {
+      "schemaVersion": 1,
+      "datasets": [
+        {
+          "id": "records",
+          "kind": "records",
+          "fields": [
+            { "key": "title", "label": "Title", "type": "text" },
+            { "key": "detail", "label": "Detail", "type": "text" },
+            {
+              "key": "budget",
+              "label": "Budget",
+              "type": "currency",
+              "currency": "USD"
+            }
+          ],
+          "records": [
+            {
+              "id": "r1",
+              "values": {
+                "title": { "kind": "text", "text": "Lobby screen refresh" },
+                "detail": { "kind": "text", "text": "Content team" },
+                "budget": { "kind": "number", "number": 1200 }
+              }
+            },
+            {
+              "id": "r2",
+              "values": {
+                "title": { "kind": "text", "text": "Library kiosk" },
+                "detail": { "kind": "text", "text": "Facilities" },
+                "budget": { "kind": "number", "number": 850 }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expect": "ready"
+}
