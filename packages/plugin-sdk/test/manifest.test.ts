@@ -36,7 +36,6 @@ describe("plugin manifest schema", () => {
       backgroundWorkers: false,
       network: [],
       hardware: [],
-      heartbeat: [],
     });
   });
 
