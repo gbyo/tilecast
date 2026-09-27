@@ -42,7 +42,7 @@ add_executable(tilecast-renderer-wpe
   src/schemes.c
   src/remote-web.c
   src/view.c)
-target_link_libraries(tilecast-renderer-wpe PRIVATE tilecast-media-client tilecast-rw-protocol PkgConfig::WPE PkgConfig::JSONGLIB PkgConfig::GIO PkgConfig::GST PkgConfig::DRM)
+target_link_libraries(tilecast-renderer-wpe PRIVATE tilecast-media-client tilecast-rw-protocol PkgConfig::WPE PkgConfig::JSONGLIB PkgConfig::GIO PkgConfig::GST PkgConfig::DRM m)
 
 # GStreamer source for tcmedia:// loaded into the web process (see
 # src/gst-tcmedia.c). Installed to lib/gstreamer-1.0 of the Edge release.
