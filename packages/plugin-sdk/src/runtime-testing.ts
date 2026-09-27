@@ -5,7 +5,6 @@
  * without the Player runtime host.
  */
 import type {
-  RuntimeMicrophone,
   RuntimePluginContext,
   SurfaceGrant,
   SurfaceSlot,
@@ -39,7 +38,6 @@ export function createTestRuntime(
     clockOffsetMs?: number;
     animationScale?: number;
     reducedMotion?: boolean;
-    microphone?: RuntimeMicrophone;
   } = {},
 ): TestRuntime {
   const offset = options.clockOffsetMs ?? 0;
@@ -83,7 +81,6 @@ export function createTestRuntime(
     awake: () => awake,
     mediaUrl: (assetId, variantId) =>
       `tcmedia://variant/${assetId}/${variantId}`,
-    ...(options.microphone ? { microphone: options.microphone } : {}),
   };
 
   return {

@@ -65,41 +65,6 @@ export interface RuntimePluginClock {
   every(intervalMs: number, callback: () => void): TimerHandle;
 }
 
-/** How a host measures the room for a plugin that declares `microphone`. */
-export type MicrophoneSource = "renderer-microphone" | "host-levels";
-
-/** An open microphone. Closing it releases the device. */
-export interface MicrophoneLevels {
-  close(): void;
-}
-
-/**
- * The Player microphone, for a plugin that declares hardware `microphone`.
- * It yields root-mean-square levels, never audio: no sample leaves the host
- * service, and nothing is recorded or transmitted.
- */
-export interface RuntimeMicrophone {
-  /** Where levels come from, or null when this Player has no microphone path. */
-  readonly source: MicrophoneSource | null;
-  /**
-   * Start measuring. `onLevel` receives RMS levels in [0, 1], or null while
-   * the input is unavailable. Returns null when there is no source.
-   */
-  open(onLevel: (rms: number | null) => void): MicrophoneLevels | null;
-  /**
-   * Report the plugin's state and derived measurements to the Player. With
-   * the `host-levels` source, the host opens its microphone while the
-   * reported status is not "inactive".
-   */
-  report(report: {
-    status: string;
-    level?: number | null;
-    bucket?: unknown;
-  }): void;
-  /** A diagnostic line for the Player's log. Not a playback error. */
-  diagnostic(message: string, detail?: Record<string, unknown>): void;
-}
-
 export interface RuntimePluginContext {
   readonly clock: RuntimePluginClock;
   /** True when motion should be avoided (the platform asks, or a frozen run). */
@@ -115,8 +80,6 @@ export interface RuntimePluginContext {
   awake(): boolean;
   /** Address a cached manifest media variant. */
   mediaUrl(assetId: string, variantId: string): string;
-  /** Present only for a plugin that declares hardware `microphone`. */
-  readonly microphone?: RuntimeMicrophone;
 }
 
 /**

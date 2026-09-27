@@ -13,7 +13,6 @@ import {
 import { ManualClock } from "../clock/scheduler";
 import type { DiscoveredRuntimePlugin } from "./discovery";
 import { RuntimeSurfaceHost, SURFACE_TICK_MS } from "./host";
-import { MicrophoneService } from "./microphone";
 
 const WALL = Date.parse("2026-09-01T15:00:00Z");
 
@@ -82,36 +81,25 @@ function fake(
 
 function hostWith(
   definitions: RuntimePluginDefinition[],
-  options: {
-    hardware?: Record<string, string[]>;
-    animationScale?: number;
-  } = {},
+  options: { animationScale?: number } = {},
 ) {
   const clock = new ManualClock({ wallMs: WALL });
   const stage = document.createElement("div");
   const diagnostics: string[] = [];
-  const microphone = new MicrophoneService({
-    source: "host-levels",
-    clock,
-    report: () => {},
-    diagnostic: () => {},
-  });
   const plugins: DiscoveredRuntimePlugin[] = definitions.map((definition) => ({
     dir: definition.id,
     definition,
-    hardware: options.hardware?.[definition.id] ?? [],
   }));
   const host = new RuntimeSurfaceHost({
     clock,
     plugins,
     animationScale: options.animationScale ?? 1,
     reducedMotion: () => false,
-    microphone,
     mediaUrl: (asset, variant) => `tcmedia://variant/${asset}/${variant}`,
     stage: () => stage,
     diagnostic: (id, message) => diagnostics.push(`${id}: ${message}`),
   });
-  return { host, clock, stage, diagnostics, microphone };
+  return { host, clock, stage, diagnostics };
 }
 
 const entry = (type: string, config: unknown = {}): RuntimeManifestEntry => ({
@@ -447,13 +435,19 @@ describe("runtime surface host: context", () => {
     expect(context.mediaUrl("a", "b")).toBe("tcmedia://variant/a/b");
   });
 
-  it("gives the microphone only to a plugin that declares it", () => {
-    const listens = fake("listens", "live", ["overlay"], () => []);
-    const deaf = fake("deaf", "live", ["overlay"], () => []);
-    hostWith([listens.definition, deaf.definition], {
-      hardware: { listens: ["microphone"] },
-    });
-    expect(listens.probe.context!.microphone?.source).toBe("host-levels");
-    expect(deaf.probe.context!.microphone).toBeUndefined();
+  it("gives every plugin the same identity-free context shape", () => {
+    const first = fake("first", "live", ["overlay"], () => []);
+    const second = fake("second", "live", ["overlay"], () => []);
+    hostWith([first.definition, second.definition]);
+    for (const probe of [first.probe, second.probe]) {
+      expect(Object.keys(probe.context!).sort()).toEqual([
+        "animationScale",
+        "awake",
+        "clock",
+        "invalidate",
+        "mediaUrl",
+        "reducedMotion",
+      ]);
+    }
   });
 });

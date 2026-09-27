@@ -14,14 +14,11 @@ import type {
   RuntimePluginDefinition,
   SurfaceSlot,
 } from "@tilecast/plugin-sdk/runtime";
-import { temporaryAdapters } from "./builtin";
 
 export interface DiscoveredRuntimePlugin {
   /** Directory below plugins/. */
   dir: string;
   definition: RuntimePluginDefinition;
-  /** Player hardware the manifest declares, for example "microphone". */
-  hardware: readonly string[];
 }
 
 export interface RuntimeDiscovery {
@@ -44,15 +41,12 @@ const sameSet = (left: readonly string[], right: readonly string[]) =>
   left.every((value) => right.includes(value));
 
 /**
- * Pair manifests with runtime definitions. `adapters` are MIGRATION ONLY:
- * renderers that still live in this package until their plugin moves. They
- * are checked against their plugin's manifest exactly like a discovered
- * module.
+ * Pair manifests with runtime definitions. Every renderer lives in its own
+ * plugin below plugins/; nothing central lists plugins or renders for them.
  */
 export function discoverRuntimePlugins(
   manifests: ManifestModules,
   modules: RuntimeModules,
-  adapters: readonly RuntimePluginDefinition[] = [],
 ): RuntimeDiscovery {
   const problems: string[] = [];
   const byDir = new Map<string, PluginManifestInput>();
@@ -63,7 +57,6 @@ export function discoverRuntimePlugins(
     dir: string;
     definition: RuntimePluginDefinition | undefined;
     manifest: PluginManifestInput | undefined;
-    adapter: boolean;
   }[] = [];
   for (const [path, module] of Object.entries(modules)) {
     const dir = directoryOf(path);
@@ -71,24 +64,12 @@ export function discoverRuntimePlugins(
       dir,
       definition: module.default,
       manifest: byDir.get(dir),
-      adapter: false,
-    });
-  }
-  for (const definition of adapters) {
-    const entry = [...byDir.entries()].find(
-      ([, manifest]) => manifest.id === definition.id,
-    );
-    candidates.push({
-      dir: entry?.[0] ?? definition.id.replaceAll("_", "-"),
-      definition,
-      manifest: entry?.[1],
-      adapter: true,
     });
   }
 
   const plugins: DiscoveredRuntimePlugin[] = [];
   const typeOwners = new Map<string, string>();
-  for (const { dir, definition, manifest, adapter } of candidates) {
+  for (const { dir, definition, manifest } of candidates) {
     const problem = (message: string) =>
       problems.push(`plugins/${dir}: ${message}`);
     const runtime = manifest?.runtime;
@@ -100,13 +81,7 @@ export function discoverRuntimePlugins(
       problem("has a runtime definition but its manifest declares no runtime");
       continue;
     }
-    if (adapter && runtime.entrypoint) {
-      problem(
-        "declares runtime/index.ts; remove its temporary adapter from the runtime package",
-      );
-      continue;
-    }
-    if (!adapter && runtime.entrypoint !== "./runtime/index.ts") {
+    if (runtime.entrypoint !== "./runtime/index.ts") {
       problem("has runtime/index.ts but the manifest does not declare it");
       continue;
     }
@@ -134,11 +109,7 @@ export function discoverRuntimePlugins(
     for (const type of definition.manifestTypes) {
       typeOwners.set(type, definition.id);
     }
-    plugins.push({
-      dir,
-      definition,
-      hardware: manifest.capabilities?.hardware ?? [],
-    });
+    plugins.push({ dir, definition });
   }
   // One order everywhere: DOM order of containers, evaluation, diagnostics.
   plugins.sort((left, right) =>
@@ -156,5 +127,4 @@ export const runtimeDiscovery: RuntimeDiscovery = discoverRuntimePlugins(
     "../../../../plugins/*/runtime/index.ts",
     { eager: true },
   ),
-  temporaryAdapters,
 );

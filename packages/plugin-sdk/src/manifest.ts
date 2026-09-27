@@ -95,9 +95,6 @@ export const conventionalEntrypoints = {
 /** Docs site sidebar groups a plugin page may be listed in. */
 export const docsSidebarGroups = ["plugins", "review-and-collect"] as const;
 
-/** Player hardware a plugin may use. The host decides whether it exists. */
-export const hardwareCapabilities = ["microphone"] as const;
-
 const hostname = z
   .string()
   .regex(
@@ -176,13 +173,11 @@ export const pluginManifestSchema = z
           .array(hostname)
           .default([])
           .describe("Hosts Tilecast Server contacts for this plugin."),
-        hardware: z.array(z.enum(hardwareCapabilities)).default([]),
       })
       .default({
         playerManifest: false,
         backgroundWorkers: false,
         network: [],
-        hardware: [],
       }),
     server: z
       .strictObject({
