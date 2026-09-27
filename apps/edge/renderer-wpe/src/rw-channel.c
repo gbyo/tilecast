@@ -203,9 +203,9 @@ on_written (GObject *source, GAsyncResult *result, gpointer user_data)
   if (stale)
     return;
   channel->write_in_flight = FALSE;
-  gsize written = 0;
   g_autoptr (GError) error = NULL;
-  if (!g_output_stream_write_finish (G_OUTPUT_STREAM (source), result, &written, &error)) {
+  gssize written = g_output_stream_write_finish (G_OUTPUT_STREAM (source), result, &error);
+  if (written < 0) {
     fail (channel, error != NULL ? error->message : "write failed");
     return;
   }
@@ -215,7 +215,7 @@ on_written (GObject *source, GAsyncResult *result, gpointer user_data)
      * generation: the queue was cleared, so there is nothing to advance. */
     return;
   }
-  head->offset += written;
+  head->offset += (gsize) written;
   if (head->offset < head->length) {
     pump_head (channel);
     return;
