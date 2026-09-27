@@ -20,6 +20,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tilecast/tilecast/apps/server/internal/audit"
 	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
 
@@ -187,22 +188,27 @@ func (i installationService) LockInTx(ctx context.Context, tx pgx.Tx) error {
 
 type auditService struct{}
 
+// RecordInTx writes a plugin audit event through the shared audit path, so
+// plugin events gain the request's attribution automatically: the human
+// user, the calling surface, and the request ID all flow from context. The
+// plugin's explicit UserID wins when the plugin names an actor; otherwise
+// the context principal applies.
 func (auditService) RecordInTx(ctx context.Context, tx pgx.Tx, event plugin.AuditEvent) error {
 	if strings.TrimSpace(event.Action) == "" || strings.TrimSpace(event.ResourceType) == "" {
 		return errors.New("plugin audit event needs an action and a resource type")
 	}
-	metadata := event.Metadata
-	if metadata == nil {
-		metadata = map[string]any{}
+	record := audit.Event{
+		Action:       event.Action,
+		ResourceType: event.ResourceType,
+		ResourceID:   event.ResourceID,
+		ResourceName: event.ResourceName,
+		Metadata:     event.Metadata,
 	}
-	var name *string
-	if event.ResourceName != "" {
-		name = &event.ResourceName
+	if event.UserID != uuid.Nil {
+		actor := event.UserID
+		record.Actor = &actor
 	}
-	_, err := tx.Exec(ctx, `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,resource_name,metadata)
-		VALUES($1,$2,$3,$4,$5,$6,$7)`,
-		uuid.New(), nullableUser(event.UserID), event.Action, event.ResourceType, event.ResourceID, name, metadata)
-	return err
+	return audit.RecordTx(ctx, tx, record)
 }
 
 type manifestService struct {

@@ -45,7 +45,7 @@ func TestDemoResetRequiresOwnerAndCSRF(t *testing.T) {
 		reached = false
 		request := httptest.NewRequest(http.MethodPost, "/api/v1/demo/reset", nil)
 		request.Header.Set("X-CSRF-Token", test.token)
-		request = request.WithContext(context.WithValue(request.Context(), sessionContextKey, auth.Session{User: auth.User{Role: test.role}, CSRFToken: "token"}))
+		request = requestWithTestPrincipal(request, auth.Session{User: auth.User{Role: test.role}, CSRFToken: "token"})
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, request)
 		if response.Code != test.want || reached != (test.want == http.StatusOK) {

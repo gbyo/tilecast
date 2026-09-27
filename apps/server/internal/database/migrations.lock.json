@@ -628,5 +628,17 @@
     "file": "00106_plugin_asset_ownership.sql",
     "owner": "core",
     "sha256": "fe43dadda18ac32fbe96e427cc1ba8762b070a146c05f63d09a889e99001a76d"
+  },
+  {
+    "version": 107,
+    "file": "00107_audit_attribution.sql",
+    "owner": "core",
+    "sha256": "640201693001963306de242dd8a39f50b7d319ca819e2ecd462a0c8a27efa9c6"
+  },
+  {
+    "version": 108,
+    "file": "00108_api_grants.sql",
+    "owner": "core",
+    "sha256": "92a674487eec92067ee6b23bf85eb262105a82fb45c997e46855c1d91a688991"
   }
 ]

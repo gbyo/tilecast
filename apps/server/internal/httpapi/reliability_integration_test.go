@@ -24,7 +24,7 @@ func TestScreenReliabilityBuildsFullPayload(t *testing.T) {
 		routeContext := chi.NewRouteContext()
 		routeContext.URLParams.Add("id", env.screenID.String())
 		request := httptest.NewRequest(http.MethodGet, "/screens/"+env.screenID.String()+"/reliability", nil)
-		request = request.WithContext(context.WithValue(request.Context(), sessionContextKey, env.owner))
+		request = requestWithTestPrincipal(request, env.owner)
 		request = request.WithContext(context.WithValue(request.Context(), chi.RouteCtxKey, routeContext))
 		recorder := httptest.NewRecorder()
 

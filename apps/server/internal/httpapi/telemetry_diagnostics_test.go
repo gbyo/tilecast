@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -299,7 +298,7 @@ func readTelemetryReport(t *testing.T, env activityTestEnvironment) screenTeleme
 	t.Helper()
 	request := httptest.NewRequest(http.MethodGet,
 		"/api/v1/activity/screens/"+env.screenID.String()+"/telemetry?range=24h", nil)
-	request = request.WithContext(context.WithValue(request.Context(), sessionContextKey, env.owner))
+	request = requestWithTestPrincipal(request, env.owner)
 	response := httptest.NewRecorder()
 	env.server.screenTelemetry(response, request)
 	if response.Code != http.StatusOK {

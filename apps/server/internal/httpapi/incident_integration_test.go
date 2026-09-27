@@ -22,7 +22,7 @@ func activityEvent(sequence int64, eventType string, at time.Time) playerActivit
 func readIncidents(t *testing.T, env activityTestEnvironment, query string) []incidentRecord {
 	t.Helper()
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/activity/incidents"+query, nil)
-	request = request.WithContext(context.WithValue(request.Context(), sessionContextKey, env.owner))
+	request = requestWithTestPrincipal(request, env.owner)
 	response := httptest.NewRecorder()
 	env.server.listIncidents(response, request)
 	if response.Code != http.StatusOK {
@@ -43,7 +43,7 @@ func actOnIncident(t *testing.T, env activityTestEnvironment, id uuid.UUID, inpu
 	t.Helper()
 	body, _ := json.Marshal(input)
 	request := httptest.NewRequest(http.MethodPatch, "/api/v1/activity/incidents/"+id.String(), bytes.NewReader(body))
-	request = request.WithContext(context.WithValue(request.Context(), sessionContextKey, env.owner))
+	request = requestWithTestPrincipal(request, env.owner)
 	response := httptest.NewRecorder()
 	env.server.updateIncident(response, request)
 	return response
@@ -283,7 +283,7 @@ func TestIncidentAnalyticsSeparatesAutomaticAndManualRecovery(t *testing.T) {
 		insert("c", 60*time.Minute, "manual", true)
 
 		request := httptest.NewRequest(http.MethodGet, "/api/v1/activity/incidents/analytics?range=7d", nil)
-		request = request.WithContext(context.WithValue(request.Context(), sessionContextKey, env.owner))
+		request = requestWithTestPrincipal(request, env.owner)
 		response := httptest.NewRecorder()
 		env.server.incidentAnalytics(response, request)
 		if response.Code != http.StatusOK {
@@ -324,7 +324,7 @@ func TestIncidentAnalyticsSeparatesAutomaticAndManualRecovery(t *testing.T) {
 func TestIncidentAnalyticsReportsNoDataRatherThanZero(t *testing.T) {
 	withActivityDatabase(t, func(env activityTestEnvironment) {
 		request := httptest.NewRequest(http.MethodGet, "/api/v1/activity/incidents/analytics?range=24h", nil)
-		request = request.WithContext(context.WithValue(request.Context(), sessionContextKey, env.owner))
+		request = requestWithTestPrincipal(request, env.owner)
 		response := httptest.NewRecorder()
 		env.server.incidentAnalytics(response, request)
 		var envelope struct {
