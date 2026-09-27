@@ -4,7 +4,7 @@ Tilecast begins as a modular monolith. The server compiles into one Go binary, s
 
 ## Boundaries
 
-- `cmd/tilecast` owns process startup and graceful shutdown.
+- `cmd/tilecast-server` owns process startup, graceful shutdown, local backup and restore, and emergency MFA reset. The remote `tilecast` CLI lives in `apps/cli` and never links server code.
 - `internal/config` validates environment configuration.
 - `internal/database` owns the connection pool and Goose migrations.
 - `internal/auth` owns password hashing, first-owner setup, users, opaque sessions, and multi-factor authentication.

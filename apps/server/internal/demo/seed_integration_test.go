@@ -61,7 +61,7 @@ func openDemoDatabase(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
-// newTestServices wires the services the way cmd/tilecast does, with a real
+// newTestServices wires the services the way cmd/tilecast-server does, with a real
 // media worker so seeded images are processed rather than faked.
 func newTestServices(t *testing.T, pool *pgxpool.Pool) Services {
 	t.Helper()

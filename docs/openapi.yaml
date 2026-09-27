@@ -74,8 +74,14 @@ paths:
   /api/v1/auth/status:
     get:
       operationId: authStatus
+      description: >-
+        Public. Reports whether one-time setup is still required and, when a valid dashboard session cookie is present, the current user, their role, the CSRF token for unsafe browser requests, the auth method, and whether MFA enrollment is still pending. This is the current-user read for Studio and for future API clients.
       responses:
-        "200": { description: Installation and session state }
+        "200":
+          description: Installation state and, when authenticated, the current user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthStatus" }
   /api/v1/demo:
     get:
       operationId: demoState
@@ -156,7 +162,7 @@ paths:
   /api/v1/auth/passkey/login/options:
     post:
       operationId: passkeyLoginOptions
-      description: Starts a discoverable, username-free WebAuthn ceremony.
+      description: Public. Starts a discoverable, username-free WebAuthn ceremony.
       responses:
         "200": { description: Assertion options and a challenge token }
         "409": { description: Passkeys are unavailable on this installation }
@@ -385,8 +391,18 @@ paths:
   /api/v1/system/identity:
     get:
       operationId: installationIdentity
+      description: >-
+        Public. Safe installation identity for pairing and discovery: product, API version, installation ID, organization name, and whether pairing is enabled. Never includes secrets. Players read this before sending any stored credential.
       responses:
-        "200": { description: Safe Tilecast installation identity }
+        "200":
+          description: Safe Tilecast installation identity
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/InstallationIdentity" }
   /api/v1/content-folders:
     get:
       operationId: listContentFolders
@@ -526,12 +542,16 @@ paths:
   /api/v1/screens:
     get:
       operationId: listScreens
+      description: >-
+        Requires an authenticated dashboard session. A scoped account sees only its own screens; the list and per-screen authorization use the same predicate. Status values are computed server-side, never stored.
       responses:
         "200": { description: Computed screen status list }
         "401": { description: Dashboard authentication required }
   /api/v1/screens/{id}:
     get:
       operationId: getScreen
+      description: >-
+        Requires an authenticated dashboard session. A screen outside the caller's scope answers 404, indistinguishable from unknown.
       parameters:
         - {
             in: path,
@@ -541,6 +561,8 @@ paths:
           }
       responses:
         "200": { description: Screen details }
+        "401": { description: Dashboard authentication required }
+        "404": { description: Screen unknown or outside caller scope }
     patch:
       operationId: updateScreen
       parameters:
@@ -668,10 +690,11 @@ paths:
                 required: [data]
                 properties:
                   data: { $ref: "#/components/schemas/PluginCatalog" }
+        "401": { description: Dashboard authentication required }
   /api/v1/plugins/{pluginId}/install:
     post:
       operationId: installPlugin
-      description: Records a release-owned plugin as installed. Idempotent. Never downloads or runs code.
+      description: Requires the Owner or Administrator role and an enrolled dashboard session. Records a release-owned plugin as installed. Idempotent. Never downloads or runs code.
       parameters:
         - { $ref: "#/components/parameters/PluginID" }
         - { $ref: "#/components/parameters/CSRFToken" }
@@ -696,7 +719,7 @@ paths:
   /api/v1/plugins/{pluginId}/installation:
     delete:
       operationId: removePlugin
-      description: Deletes the installation record. Never deletes plugin data; refuses while plugin-owned resources remain. Idempotent for a plugin that is not installed. An installation row for a plugin this release does not know may also be removed; only the row is deleted.
+      description: Requires the Owner or Administrator role and an enrolled dashboard session. Deletes the installation record. Never deletes plugin data; refuses while plugin-owned resources remain. Idempotent for a plugin that is not installed. An installation row for a plugin this release does not know may also be removed; only the row is deleted.
       parameters:
         - { $ref: "#/components/parameters/PluginID" }
         - { $ref: "#/components/parameters/CSRFToken" }
@@ -712,7 +735,7 @@ paths:
   /api/v1/plugins/dependency-graph:
     get:
       operationId: getDependencyGraph
-      description: Returns the current content and delivery topology. Directed edges run from a dependency to the record that consumes it. Dependency Graph is a Studio system tool, not an installable plugin.
+      description: Requires an authenticated dashboard session. Returns the current content and delivery topology. Directed edges run from a dependency to the record that consumes it. Dependency Graph is a Studio system tool, not an installable plugin.
       responses:
         "200":
           description: Typed dependency nodes and directed consumer edges
@@ -1373,7 +1396,7 @@ paths:
     post:
       operationId: createSchedule
       description: >-
-        The request contains exactly one of playlistId, layoutId, or displayAction. Display Control actions use the closed typed command registry; display_probe is not schedulable.
+        Requires the Owner or Administrator role and an enrolled dashboard session. The request contains exactly one of playlistId, layoutId, or displayAction. Display Control actions use the closed typed command registry; display_probe is not schedulable.
       responses:
         {
           "201": { description: Validated schedule created },
@@ -1440,7 +1463,7 @@ paths:
   /api/v1/widgets:
     post:
       operationId: createWidget
-      description: Creates a reusable Widget or catalog App. An App recipe may atomically provision one hidden managed Data Source while preserving normal dependency and manifest behavior.
+      description: Requires an authenticated dashboard session. Creates a reusable Widget or catalog App. An App recipe may atomically provision one hidden managed Data Source while preserving normal dependency and manifest behavior.
       requestBody:
         required: true
         content:
@@ -1509,7 +1532,7 @@ paths:
         "200": { description: Paginated Data Source summaries }
     post:
       operationId: createDataSource
-      description: Creates a reusable provider-neutral Data Source. Supported providers include calendar, structured feeds, Manual Table, Weather, Transit, CAP Alerts, and Air Quality. Data Sources are not assets and cannot be placed in playlists or Layouts.
+      description: Requires an authenticated dashboard session. Creates a reusable provider-neutral Data Source. Supported providers include calendar, structured feeds, Manual Table, Weather, Transit, CAP Alerts, and Air Quality. Data Sources are not assets and cannot be placed in playlists or Layouts.
       requestBody:
         required: true
         content:
@@ -1560,13 +1583,14 @@ paths:
   /api/v1/data-sources/{provider}/preview:
     post:
       operationId: previewDataSource
-      description: Fetches and parses a candidate Data Source configuration under the safe fetch policy without saving raw data. A previewDate exercises date-aware selection.
+      description: Requires an authenticated dashboard session. Fetches and parses a candidate Data Source configuration under the safe fetch policy without saving raw data. A previewDate exercises date-aware selection.
       parameters:
         - in: path
           name: provider
           required: true
           schema:
             {
+              type: string,
               enum:
                 [
                   calendar,
@@ -1599,7 +1623,7 @@ paths:
   /api/v1/data-sources/{id}/inspect:
     get:
       operationId: inspectSavedDataSource
-      description: Detects fields for a saved RSS, Atom, JSON, or CSV Source using its stored configuration, including uploaded CSV bytes that detail responses strip. Same response shape as the provider inspect route.
+      description: Requires an authenticated dashboard session. Detects fields for a saved RSS, Atom, JSON, or CSV Source using its stored configuration, including uploaded CSV bytes that detail responses strip. Same response shape as the provider inspect route.
       responses:
         "200": { description: Detected fields for the saved Data Source }
         "404": { description: Data Source not found }
@@ -1610,12 +1634,12 @@ paths:
   /api/v1/data-sources/{provider}/inspect:
     post:
       operationId: inspectDataSource
-      description: Reports the fields a candidate RSS, Atom, JSON, or CSV connection contains, with a few sample values per field, a suggested field mapping, and which record fields the Source can fill. Runs under the same safe fetch policy as preview and deliberately does not require a mapping, because the mapping is what it exists to produce.
+      description: Requires an authenticated dashboard session. Reports the fields a candidate RSS, Atom, JSON, or CSV connection contains, with a few sample values per field, a suggested field mapping, and which record fields the Source can fill. Runs under the same safe fetch policy as preview and deliberately does not require a mapping, because the mapping is what it exists to produce.
       parameters:
         - in: path
           name: provider
           required: true
-          schema: { enum: [rss, atom, json, csv] }
+          schema: { type: string, enum: [rss, atom, json, csv] }
       requestBody:
         required: true
         content:
@@ -1635,7 +1659,7 @@ paths:
   /api/v1/layouts:
     get:
       operationId: listLayouts
-      description: Layout summaries include hasUnpublishedChanges, computed by comparing the current draft document with the published document rather than by comparing their independent revision counters.
+      description: Requires an authenticated dashboard session. Layout summaries include hasUnpublishedChanges, computed by comparing the current draft document with the published document rather than by comparing their independent revision counters.
       responses:
         "200": { description: Paginated Layout summaries }
     post:
@@ -1664,7 +1688,7 @@ paths:
   /api/v1/layouts/{id}/draft:
     put:
       operationId: saveLayoutDraft
-      description: Saves a validated draft using expectedDraftRevision optimistic concurrency.
+      description: Requires an authenticated dashboard session. Saves a validated draft using expectedDraftRevision optimistic concurrency.
       responses:
         "200": { description: Draft saved with a new revision and ETag }
         "409": { description: Draft revision conflict }
@@ -1678,7 +1702,7 @@ paths:
         "404": { description: Layout or preview image not found }
     put:
       operationId: updateLayoutPreviewImage
-      description: Stores an aspect-preserving JPEG of at most 500 KB when draftRevision still matches the current Layout draft.
+      description: Requires an authenticated dashboard session. Stores an aspect-preserving JPEG of at most 500 KB when draftRevision still matches the current Layout draft.
       parameters:
         - name: draftRevision
           in: query
@@ -1714,7 +1738,7 @@ paths:
   /api/v1/content-submissions:
     get:
       operationId: listContentSubmissions
-      description: Lists immutable Playlist, Layout, and Campaign submissions. A submission snapshot is not changed by later draft edits.
+      description: Requires an authenticated dashboard session. Lists immutable Playlist, Layout, and Campaign submissions. A submission snapshot is not changed by later draft edits.
       parameters:
         - name: state
           in: query
@@ -2315,7 +2339,7 @@ paths:
       operationId: getScreenPresentationNetwork
       summary: Read a Linux screen's Presentation Network readiness
       description: >-
-        Readiness is server-derived from the assignment and the player's reported helper, NetworkManager, Wi-Fi, revision, and connection facts.
+        Requires an authenticated dashboard session. Readiness is server-derived from the assignment and the player's reported helper, NetworkManager, Wi-Fi, revision, and connection facts.
       responses:
         "200":
           description: Assignment and operator-facing readiness state
@@ -2469,35 +2493,53 @@ paths:
         "409": { description: Command expired or cancelled }
   /api/v1/settings:
     get:
-      {
-        summary: Read typed organization settings,
-        responses: { "200": { description: Settings document and registry } },
-      }
+      operationId: getSettings
+      description: >-
+        Requires an authenticated dashboard session. Reads the typed organization settings document with its registry and revision.
+      responses:
+        "200": { description: Settings document and registry }
+        "401": { description: Dashboard authentication required }
     patch:
-      {
-        summary: Update settings with optimistic revision,
-        responses:
-          {
-            "200": { description: Updated settings },
-            "409": { description: Settings revision conflict },
-            "422": { description: "Unknown, invalid, or hard-limit setting" },
-          },
-      }
+      operationId: updateSettings
+      description: >-
+        Requires the Owner or Administrator role and an enrolled dashboard session. Unsafe requests additionally require the X-CSRF-Token header; bearer requests never send it. Applies only the given keys against the expected revision; a stale revision fails with 409 and changes nothing.
+      parameters:
+        - { $ref: "#/components/parameters/CSRFToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SettingsUpdate" }
+      responses:
+        "200": { description: Updated settings }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Owner or Administrator and CSRF token required }
+        "409": { description: Settings revision conflict }
+        "422": { description: "Unknown, invalid, or hard-limit setting" }
   /api/v1/me/preferences:
     get:
-      {
-        summary: Read current user preferences,
-        responses: { "200": { description: Preference document } },
-      }
+      operationId: getPreferences
+      description: >-
+        Requires an enrolled dashboard session. Reads the calling user's own preferences.
+      responses:
+        "200": { description: Preference document }
+        "401": { description: Dashboard authentication required }
     patch:
-      {
-        summary: Update current user preferences,
-        responses:
-          {
-            "200": { description: Updated preferences },
-            "409": { description: Revision conflict },
-          },
-      }
+      operationId: updatePreferences
+      description: >-
+        Requires an enrolled dashboard session and the X-CSRF-Token header. Updates the calling user's own preferences against the expected revision.
+      parameters:
+        - { $ref: "#/components/parameters/CSRFToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SettingsUpdate" }
+      responses:
+        "200": { description: Updated preferences }
+        "401": { description: Dashboard authentication required }
+        "403": { description: CSRF token required }
+        "409": { description: Revision conflict }
   /api/v1/screen-groups/{id}/policy:
     get:
       {
@@ -2536,10 +2578,15 @@ paths:
       }
   /api/v1/screens/{id}/effective-policy:
     get:
-      {
-        summary: Inspect effective values and inheritance sources,
-        responses: { "200": { description: Effective policy } },
-      }
+      operationId: getEffectivePolicy
+      description: >-
+        Requires an enrolled dashboard session. Reports the effective player policy for one screen with inheritance sources. A screen outside the caller's scope answers 404.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+      responses:
+        "200": { description: Effective policy }
+        "401": { description: Dashboard authentication required }
+        "404": { description: Screen unknown or outside caller scope }
   /api/v1/screens/{id}/reliability:
     get:
       {
@@ -2572,10 +2619,13 @@ paths:
       }
   /api/v1/system/status:
     get:
-      {
-        summary: Safe system diagnostics,
-        responses: { "200": { description: Secret-free status } },
-      }
+      operationId: systemStatus
+      description: >-
+        Requires the Owner or Administrator role and an enrolled dashboard session. Secret-free system diagnostics: migration version, database, connectivity, and queue depths.
+      responses:
+        "200": { description: Secret-free status }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Owner or Administrator required }
   /api/v1/system/maintenance/{action}:
     post:
       {
@@ -2892,11 +2942,13 @@ paths:
         "404": { description: Instance not found }
   /api/v1/alerts/nws:
     get:
+      operationId: getNwsMonitor
       summary: Read the NWS monitor, rules, active matches, and poll health
       responses:
         "200": { description: NWS alert settings }
   /api/v1/alerts/nws/zones:
     get:
+      operationId: listNwsZones
       summary: List official NWS counties and forecast zones for an area
       parameters:
         - {
@@ -2911,18 +2963,21 @@ paths:
         "502": { description: NWS zone catalog unavailable }
   /api/v1/alerts/nws/monitor:
     put:
+      operationId: updateNwsMonitor
       summary: Configure NWS area and zone monitoring
       responses:
         "200": { description: Monitor updated }
         "422": { description: "Invalid area, zone, or interval" }
   /api/v1/alerts/nws/poll:
     post:
+      operationId: pollNwsAlerts
       summary: Retrieve and apply active NWS alerts now
       responses:
         "200": { description: Poll completed }
         "502": { description: NWS retrieval failed }
   /api/v1/alerts/nws/rules:
     post:
+      operationId: createNwsRule
       summary: Create an automatic NWS rule answering with a takeover or a ticker bar
       responses:
         "201": { description: Rule created }
@@ -2937,12 +2992,14 @@ paths:
           schema: { type: string, format: uuid },
         }
     put:
+      operationId: updateNwsRule
       summary: Replace an automatic NWS rule
       responses:
         "200": { description: Rule updated }
         "422":
           { description: "Invalid rule, response mode, or ticker geometry" }
     delete:
+      operationId: deleteNwsRule
       summary: Delete a rule, ending Takeovers it raised and withdrawing its ticker
       responses:
         "200": { description: Rule deleted }
@@ -4743,6 +4800,38 @@ components:
         ownerName: { type: string, minLength: 2, maxLength: 120 }
         username: { type: string, minLength: 3, maxLength: 254 }
         password: { type: string, minLength: 12, maxLength: 1024 }
+    InstallationIdentity:
+      type: object
+      additionalProperties: false
+      required:
+        [product, apiVersion, installationId, organizationName, pairingEnabled]
+      properties:
+        product: { type: string, example: tilecast }
+        apiVersion: { type: string, example: v1 }
+        installationId: { type: string, format: uuid }
+        organizationName: { type: string }
+        pairingEnabled: { type: boolean }
+    AuthStatus:
+      type: object
+      additionalProperties: false
+      required: [setupRequired, authenticated, passkeysAvailable]
+      properties:
+        setupRequired: { type: boolean }
+        authenticated: { type: boolean }
+        passkeysAvailable: { type: boolean }
+        passkeysUnavailableReason: { type: string }
+        demoMode: { type: boolean }
+        user: { type: object }
+        csrfToken: { type: string }
+        authMethod: { type: string }
+        mfaEnrollmentRequired: { type: boolean }
+    SettingsUpdate:
+      type: object
+      additionalProperties: false
+      required: [revision, values]
+      properties:
+        revision: { type: integer, format: int64, minimum: 0 }
+        values: { type: object }
     CountdownBarInput:
       type: object
       additionalProperties: false
