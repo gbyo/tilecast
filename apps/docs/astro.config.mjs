@@ -384,7 +384,20 @@ export default defineConfig({
           items: [
             { slug: "developers" },
             { slug: "developers/demo-mode" },
-            { slug: "developers/plugins" },
+            {
+              label: "Plugin development",
+              collapsed: true,
+              items: [
+                { slug: "developers/plugins" },
+                { slug: "developers/plugins/create" },
+                { slug: "developers/plugins/manifest" },
+                { slug: "developers/plugins/server" },
+                { slug: "developers/plugins/studio" },
+                { slug: "developers/plugins/player" },
+                { slug: "developers/plugins/data-sources" },
+                { slug: "developers/plugins/testing" },
+              ],
+            },
           ],
         },
         {

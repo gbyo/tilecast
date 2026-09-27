@@ -1,0 +1,103 @@
+---
+title: Write the plugin manifest
+description: Declare a plugin's identity, capabilities, entry points, routes, runtime surfaces, and public docs.
+---
+
+The manifest is `plugins/<name>/tilecast.plugin.json`. Tilecast validates it at build time and when the server hosts the plugin.
+
+Use the generated JSON Schema in your editor. The exact field rules live in the [Plugin API v1 engineering reference](https://github.com/gbyo/tilecast/blob/main/docs/plugin-api.md#manifest).
+
+## Identity
+
+These fields describe the plugin in the catalog:
+
+- `apiVersion` is `1`.
+- `id` is the stable snake_case identifier.
+- `definitionVersion` versions the plugin's persisted and Player-facing definition.
+- `name`, `description`, `category`, and `icon` describe it in Studio.
+- `maintainers` lists the people or teams responsible for the subject.
+- `instanceNoun` gives the singular and plural name shown with instance counts.
+- `requirements` tells an operator what the plugin expects before installation.
+- `uses` is plain catalog text describing the Tilecast capabilities it uses.
+
+The directory name is the ID with underscores changed to hyphens.
+
+## Capabilities
+
+Only declare capabilities the implementation uses.
+
+```json
+{
+  "capabilities": {
+    "playerManifest": true,
+    "backgroundWorkers": true,
+    "network": ["api.example.org"]
+  }
+}
+```
+
+`playerManifest` is required when the server projects Player manifest entries. `backgroundWorkers` is required for a `WorkerProvider`. `network` lists server-side hosts the plugin contacts.
+
+`plugin.CheckDeclarations` compares the manifest with the Go interfaces the plugin implements.
+
+## Entry points
+
+The build uses fixed paths:
+
+```json
+{
+  "server": { "entrypoint": "./plugin.go" },
+  "studio": {
+    "route": "/plugins/transit-alerts",
+    "entrypoint": "./studio/index.tsx"
+  },
+  "runtime": {
+    "entrypoint": "./runtime/index.ts",
+    "manifestTypes": ["transit_alert"],
+    "surfaces": ["strip.bottom"],
+    "tier": "scheduled"
+  }
+}
+```
+
+Leave out `runtime` when the plugin does not draw on the Player.
+
+## API routes
+
+A plugin with HTTP routes declares the prefixes it owns and its OpenAPI fragment:
+
+```json
+{
+  "api": {
+    "basePaths": ["/plugins/transit-alerts"],
+    "openapi": "./api/openapi.yaml"
+  }
+}
+```
+
+The server refuses route collisions with core or another plugin.
+
+## Studio routes
+
+`studio.route` is the management route under `/plugins/<directory>`.
+
+Use `studio.additionalRoutes` when the plugin owns a separate Studio surface such as a portal or inbox. The Studio definition must contribute matching `standaloneRoutes`.
+
+## Public docs
+
+A plugin can publish pages from its own directory:
+
+```json
+{
+  "docs": {
+    "pages": [
+      {
+        "source": "./docs/index.mdx",
+        "slug": "operations/plugins/transit-alerts"
+      }
+    ]
+  }
+}
+```
+
+The docs build checks slug collisions and adds declared pages to the public docs collection.
