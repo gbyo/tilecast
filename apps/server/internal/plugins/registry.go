@@ -14,7 +14,6 @@ import (
 // built-in plugins move into plugins/. Each one disappears when its plugin no
 // longer needs a core special case.
 const (
-	CountdownBarID    = "countdown_bar"
 	EmergencyAlertsID = "emergency_alerts"
 	FormsID           = "forms"
 	BrandBugID        = "brand_bug"

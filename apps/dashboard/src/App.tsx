@@ -33,10 +33,6 @@ import { WidgetEditorPage, WidgetsPage } from "./pages/WidgetsPage";
 import { DataSourceEditorPage, DataSourcesPage } from "./pages/DataSourcesPage";
 import { ActivityPage } from "./pages/ActivityPage";
 import { PluginsPage } from "./pages/PluginsPage";
-import {
-  CountdownBarEditorPage,
-  CountdownBarsPage,
-} from "./pages/CountdownBarsPage";
 import { BrandBugEditorPage, BrandBugsPage } from "./pages/BrandBugsPage";
 import { NoiseMeterEditorPage, NoiseMetersPage } from "./pages/NoiseMetersPage";
 import { NoiseMeterHistoryPage } from "./pages/NoiseMeterHistoryPage";
@@ -396,38 +392,6 @@ export const studioRoutes: RouteObject[] = [
           },
           // Routes contributed by plugins/*/studio, discovered at build time.
           ...pluginRouteObjects(),
-          {
-            path: "countdown-bar",
-            handle: { breadcrumb: "Countdown Bar" },
-            children: [
-              {
-                index: true,
-                element: (
-                  <PluginRouteGate pluginId="countdown_bar">
-                    <CountdownBarsPage />
-                  </PluginRouteGate>
-                ),
-              },
-              {
-                path: "new",
-                element: (
-                  <PluginRouteGate pluginId="countdown_bar">
-                    <CountdownBarEditorPage />
-                  </PluginRouteGate>
-                ),
-                handle: { breadcrumb: "New instance" },
-              },
-              {
-                path: ":id",
-                element: (
-                  <PluginRouteGate pluginId="countdown_bar">
-                    <CountdownBarEditorPage />
-                  </PluginRouteGate>
-                ),
-                handle: { breadcrumb: "Instance", resource: "countdown-bar" },
-              },
-            ],
-          },
           {
             path: "emergency-alerts",
             element: (

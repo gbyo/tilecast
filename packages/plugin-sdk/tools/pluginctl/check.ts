@@ -48,12 +48,14 @@ export async function check(repo: Repo): Promise<Problem[]> {
     }
 
     if (manifest.runtime) {
-      requireFile(
-        plugin,
-        manifest.runtime.entrypoint,
-        "runtime.entrypoint",
-        add,
-      );
+      if (manifest.runtime.entrypoint) {
+        requireFile(
+          plugin,
+          manifest.runtime.entrypoint,
+          "runtime.entrypoint",
+          add,
+        );
+      }
       if (!manifest.capabilities.playerManifest) {
         add("a runtime entry needs capabilities.playerManifest");
       }

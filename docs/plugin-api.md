@@ -192,6 +192,15 @@ gives must extend the SDK. It must not read core tables.
 convention: an instances table with `target_scope` and a targets table with
 `(instance_id, target_type, target_id)`. The core owns the SQL of the filter.
 
+### Studio translations
+
+A plugin keeps its Studio strings in `studio/locales/<language>.json`. They
+form the namespace `plugin.<id>`. `usePluginTranslation(id, english)` returns a
+`t` function that checks keys against the English file. The locale test
+requires every supported language for every plugin namespace. Shared plugin
+strings (for example the targeting controls) stay in the Studio `plugins`
+namespace.
+
 ### Routes
 
 A plugin registers routes with `Router.Handle(method, pattern, access,
@@ -277,7 +286,11 @@ consumer read `docs/openapi.yaml`. Do not edit that file.
 `defineStudioPlugin({ id, icon, routes, search })` from `@tilecast/studio`.
 
 The host mounts the routes below the manifest's `studio.route`. It adds the
-plugin name as the breadcrumb and wraps the subtree in the install gate. An
+plugin name as the breadcrumb and wraps the subtree in the install gate. A
+plugin route gives its English breadcrumb in `handle.breadcrumb` and its
+translation key in `handle.breadcrumbKey`. The key is in the plugin
+namespace. The host adds the namespace to the key, and the Studio topbar
+resolves the label with `t()` when it renders. An
 uninstalled plugin's page shows how to install it. The catalog uses the
 discovered routes and icons, so Studio has no central plugin route list and
 no central icon map.
@@ -312,6 +325,12 @@ existing test tools:
 | Declarations match implementation, routes, Init | `plugintest.Conformance` in each plugin    |
 | Install, status, removal, projection, routes    | server host tests with the sample plugin   |
 | Studio discovery and routes                     | Vitest in `apps/dashboard/src/plugin-host` |
+
+A plugin's integration tests use `apps/server/pluginharness`. The harness
+migrates the test database, creates an organization, and hosts the plugin with
+the real host services. It is the only Tilecast Server package that plugin
+code can import, and only in `_test.go` files. This is the same arrangement
+as a test harness that a host application publishes for its extensions.
 
 `packages/plugin-sdk/go/plugintest/sampleplugin` is a test-only plugin that
 implements every contribution point. No core code knows it. The host tests
@@ -392,7 +411,7 @@ Plugin API v1 does not load third-party code. The contract keeps a path open:
 | Milestone | Scope                                                            | Status  |
 | --------- | ---------------------------------------------------------------- | ------- |
 | 1         | Layout, manifest, SDKs, host, discovery, tooling, CODEOWNERS, CI | Done    |
-| 2         | Countdown Bar in `plugins/countdown-bar/`                        | Planned |
+| 2         | Countdown Bar in `plugins/countdown-bar/`                        | Done    |
 | 3         | Generic runtime surface host                                     | Planned |
 | 4         | Brand Bug and Noise Meter                                        | Planned |
 | 5         | Emergency Alerts                                                 | Planned |
@@ -401,4 +420,9 @@ Plugin API v1 does not load third-party code. The contract keeps a path open:
 
 Until a plugin moves, `apps/server/internal/plugins` answers its status,
 removal blockers, and projection through the legacy functions in that
-package. These are the only places where the host still names a plugin.
+package. These are the only places where the server host still names a
+plugin. Countdown Bar has moved: no server or Studio host code names it. Its
+shared Player runtime renderer stays in `packages/player-runtime` until
+milestone 3 gives the runtime a generic surface host. Until then, its manifest
+declares `runtime.manifestTypes` and `runtime.surfaces` without
+`runtime.entrypoint`.

@@ -10,7 +10,13 @@ import {
   type LanguagePreference,
   type SupportedLanguage,
 } from "./languages";
-import { DEFAULT_NAMESPACE, NAMESPACES, englishResources } from "./resources";
+import {
+  DEFAULT_NAMESPACE,
+  NAMESPACES,
+  PLUGIN_NAMESPACES,
+  englishResources,
+  pluginEnglishResources,
+} from "./resources";
 
 export * from "./languages";
 export { NAMESPACES, type Namespace } from "./resources";
@@ -20,13 +26,23 @@ export { NAMESPACES, type Namespace } from "./resources";
 const localeLoaders = import.meta.glob<{ default: Record<string, unknown> }>([
   "../locales/*/*.json",
   "!../locales/en/*.json",
+  "../../../../plugins/*/studio/locales/*.json",
+  "!../../../../plugins/*/studio/locales/en.json",
 ]);
+
+function localePath(language: string, namespace: string) {
+  if (namespace.startsWith("plugin.")) {
+    const directory = namespace.slice("plugin.".length).replaceAll("_", "-");
+    return `../../../../plugins/${directory}/studio/locales/${language}.json`;
+  }
+  return `../locales/${language}/${namespace}.json`;
+}
 
 const lazyLocales: BackendModule = {
   type: "backend",
   init: () => undefined,
   read(language, namespace, callback) {
-    const load = localeLoaders[`../locales/${language}/${namespace}.json`];
+    const load = localeLoaders[localePath(language, namespace)];
     if (!load) {
       callback(null, {});
       return;
@@ -119,9 +135,9 @@ export function initI18n(
       fallbackLng: DEFAULT_LANGUAGE,
       supportedLngs: SUPPORTED_LANGUAGES,
       load: "languageOnly",
-      ns: NAMESPACES,
+      ns: [...NAMESPACES, ...PLUGIN_NAMESPACES],
       defaultNS: DEFAULT_NAMESPACE,
-      resources: { en: englishResources },
+      resources: { en: { ...englishResources, ...pluginEnglishResources } },
       partialBundledLanguages: true,
       // React already escapes rendered strings.
       interpolation: { escapeValue: false },

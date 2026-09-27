@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { MoreHorizontal, PackageMinus } from "lucide-react";
 import { useNavigate } from "react-router";
-import { useAuth } from "../auth/AuthProvider";
+import { useStudioSession } from "../plugin-host/session";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import {
   AlertDialog,
@@ -31,7 +31,6 @@ import {
   usePluginLifecycle,
   type PluginsT,
 } from "./pluginCatalog";
-import { canManage } from "./shared";
 
 /**
  * The overflow menu on an installed plugin's page. Remove is deliberately a
@@ -40,13 +39,13 @@ import { canManage } from "./shared";
  */
 export function PluginActionsMenu({ pluginId }: { pluginId: string }) {
   const { t } = useTranslation(["plugins", "common"]);
-  const auth = useAuth();
+  const session = useStudioSession();
   const navigate = useNavigate();
   const catalog = usePluginCatalog();
-  const { remove } = usePluginLifecycle(auth.status?.csrfToken ?? "");
+  const { remove } = usePluginLifecycle(session.csrfToken);
   const [open, setOpen] = useState(false);
   const plugin = catalog.data?.items.find((item) => item.id === pluginId);
-  if (!plugin?.installed || !canManage(auth.status?.user?.role)) return null;
+  if (!plugin?.installed || !session.canManage) return null;
 
   const blockers = inUseResources(remove.error);
   const failure =

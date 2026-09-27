@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/database"
+	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugintest/sampleplugin"
 )
 
 type installationEnvironment struct {
@@ -114,20 +115,21 @@ func TestFreshInstallationHasNoPluginsInstalled(t *testing.T) {
 
 func TestInstallIsIdempotentAuditedAndInvalidatesManifests(t *testing.T) {
 	withInstallationDatabase(t, func(env installationEnvironment) {
+		sample := NewService(env.pool, nil, WithPlugins(sampleplugin.New()))
 		before := env.manifestVersion(t)
-		item, created, err := env.service.Install(env.ctx, CountdownBarID, env.userID)
+		item, created, err := sample.Install(env.ctx, sampleplugin.ID, env.userID)
 		if err != nil || !created || !item.Installed || item.Configured {
 			t.Fatalf("first install = %+v, created=%v, err=%v", item, created, err)
 		}
 		if after := env.manifestVersion(t); after <= before {
 			t.Fatalf("install did not advance the manifest: %d -> %d", before, after)
 		}
-		if _, created, err = env.service.Install(env.ctx, CountdownBarID, env.userID); err != nil || created {
+		if _, created, err = sample.Install(env.ctx, sampleplugin.ID, env.userID); err != nil || created {
 			t.Fatalf("repeat install created=%v err=%v, want idempotent", created, err)
 		}
 		var audits int
-		if err = env.pool.QueryRow(env.ctx, `SELECT count(*) FROM audit_logs WHERE action='plugin.installed' AND resource_id='countdown_bar'
-			AND metadata->>'definitionVersion'='1'`).Scan(&audits); err != nil || audits != 1 {
+		if err = env.pool.QueryRow(env.ctx, `SELECT count(*) FROM audit_logs WHERE action='plugin.installed' AND resource_id='sample_tally'
+			AND metadata->>'definitionVersion'='2'`).Scan(&audits); err != nil || audits != 1 {
 			t.Fatalf("plugin.installed audits = %d (%v), want 1", audits, err)
 		}
 		if _, _, err = env.service.Install(env.ctx, "some_future_plugin", env.userID); !errors.Is(err, ErrPluginNotFound) {
@@ -146,9 +148,6 @@ func TestInstallIsIdempotentAuditedAndInvalidatesManifests(t *testing.T) {
 
 func TestConfigurationRequiresInstallation(t *testing.T) {
 	withInstallationDatabase(t, func(env installationEnvironment) {
-		if _, err := env.service.CreateCountdownBar(env.ctx, env.userID, validInput()); !errors.Is(err, ErrPluginNotInstalled) {
-			t.Fatalf("countdown create without installation err = %v", err)
-		}
 		if _, err := env.service.CreateBrandBug(env.ctx, env.userID, validBrandBug()); !errors.Is(err, ErrPluginNotInstalled) {
 			t.Fatalf("brand bug create without installation err = %v", err)
 		}
@@ -274,27 +273,27 @@ func TestFormsRemovalIgnoresDeletedForms(t *testing.T) {
 
 func TestManifestRequiresInstallation(t *testing.T) {
 	withInstallationDatabase(t, func(env installationEnvironment) {
-		if _, _, err := env.service.Install(env.ctx, CountdownBarID, env.userID); err != nil {
+		sample := sampleplugin.New()
+		service := NewService(env.pool, nil, WithPlugins(sample))
+		if _, _, err := service.Install(env.ctx, sampleplugin.ID, env.userID); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := env.service.CreateCountdownBar(env.ctx, env.userID, validInput()); err != nil {
-			t.Fatal(err)
-		}
-		items, err := env.service.ManifestForScreen(env.ctx, env.screenID)
-		if err != nil || len(items) != 1 || items[0].Type != "countdown_bar" {
+		sample.Seed("Lobby")
+		items, err := service.ManifestForScreen(env.ctx, env.screenID)
+		if err != nil || len(items) != 1 || items[0].Type != "sample_tally" {
 			t.Fatalf("installed manifest = %+v (%v)", items, err)
 		}
 		// Configuration left behind without an installation — a restore, a
 		// downgrade, or a manual edit — must not reach a Player.
-		if _, err = env.pool.Exec(env.ctx, `DELETE FROM plugin_installations WHERE plugin_id='countdown_bar'`); err != nil {
+		if _, err = env.pool.Exec(env.ctx, `DELETE FROM plugin_installations WHERE plugin_id='sample_tally'`); err != nil {
 			t.Fatal(err)
 		}
-		if items, err = env.service.ManifestForScreen(env.ctx, env.screenID); err != nil || len(items) != 0 {
+		if items, err = service.ManifestForScreen(env.ctx, env.screenID); err != nil || len(items) != 0 {
 			t.Fatalf("uninstalled manifest = %+v (%v), want no plugins", items, err)
 		}
-		entry := env.catalogEntry(t, CountdownBarID)
-		if entry.Installed || len(entry.Attention) != 1 || entry.Attention[0].Code != "data_without_installation" {
-			t.Fatalf("orphaned countdown entry = %+v", entry)
+		entry, err := service.CatalogItem(env.ctx, sampleplugin.ID)
+		if err != nil || entry.Installed || len(entry.Attention) != 1 || entry.Attention[0].Code != "data_without_installation" {
+			t.Fatalf("orphaned sample entry = %+v (%v)", entry, err)
 		}
 	})
 }

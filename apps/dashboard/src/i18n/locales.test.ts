@@ -3,16 +3,27 @@
 // as does a placeholder a translator renamed or a missing plural form.
 import { describe, expect, it } from "vitest";
 import { SUPPORTED_LANGUAGES } from "./languages";
-import { NAMESPACES } from "./resources";
+import { NAMESPACES, PLUGIN_NAMESPACES } from "./resources";
 
 const files = import.meta.glob<Record<string, unknown>>("../locales/*/*.json", {
   eager: true,
   import: "default",
 });
 
+const pluginFiles = import.meta.glob<Record<string, unknown>>(
+  "../../../../plugins/*/studio/locales/*.json",
+  { eager: true, import: "default" },
+);
+
 const PLURAL_SUFFIX = /_(zero|one|two|few|many|other)$/;
 
 function locale(language: string, namespace: string) {
+  if (namespace.startsWith("plugin.")) {
+    const directory = namespace.slice("plugin.".length).replaceAll("_", "-");
+    return pluginFiles[
+      `../../../../plugins/${directory}/studio/locales/${language}.json`
+    ];
+  }
   return files[`../locales/${language}/${namespace}.json`];
 }
 
@@ -81,7 +92,18 @@ describe("locale files", () => {
     }
   });
 
-  for (const namespace of NAMESPACES) {
+  it("give every plugin namespace a file in every language", () => {
+    for (const namespace of PLUGIN_NAMESPACES) {
+      for (const language of SUPPORTED_LANGUAGES) {
+        expect(
+          locale(language, namespace),
+          `${language} ${namespace}`,
+        ).toBeDefined();
+      }
+    }
+  });
+
+  for (const namespace of [...NAMESPACES, ...PLUGIN_NAMESPACES]) {
     const english = flatten(locale("en", namespace));
 
     for (const language of SUPPORTED_LANGUAGES) {

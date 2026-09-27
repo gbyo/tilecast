@@ -1,0 +1,170 @@
+openapi: 3.1.0
+info:
+  title: Countdown Bar plugin API
+  version: "1"
+  license:
+    name: AGPL-3.0-only
+paths:
+  /api/v1/plugins/countdown-bar/instances:
+    get:
+      operationId: listCountdownBarInstances
+      responses:
+        "200": { description: Configured Countdown Bar instances }
+    post:
+      operationId: createCountdownBarInstance
+      parameters:
+        - {
+            $ref: "../../../docs/openapi/core.yaml#/components/parameters/CSRFToken",
+          }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CountdownBarInput" }
+      responses:
+        "201": { description: Countdown Bar instance created }
+        "400": { description: Typed configuration or targets are invalid }
+        "403": { description: Owner or Administrator required }
+  /api/v1/plugins/countdown-bar/instances/{id}:
+    get:
+      operationId: getCountdownBarInstance
+      parameters:
+        - {
+            $ref: "../../../docs/openapi/core.yaml#/components/parameters/ResourceID",
+          }
+      responses:
+        "200": { description: Countdown Bar instance }
+        "404": { description: Instance not found }
+    put:
+      operationId: updateCountdownBarInstance
+      parameters:
+        - {
+            $ref: "../../../docs/openapi/core.yaml#/components/parameters/ResourceID",
+          }
+        - {
+            $ref: "../../../docs/openapi/core.yaml#/components/parameters/CSRFToken",
+          }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CountdownBarInput" }
+      responses:
+        "200": { description: Countdown Bar instance replaced }
+        "400": { description: Typed configuration or targets are invalid }
+        "403": { description: Owner or Administrator required }
+        "404": { description: Instance not found }
+    delete:
+      operationId: deleteCountdownBarInstance
+      parameters:
+        - {
+            $ref: "../../../docs/openapi/core.yaml#/components/parameters/ResourceID",
+          }
+        - {
+            $ref: "../../../docs/openapi/core.yaml#/components/parameters/CSRFToken",
+          }
+      responses:
+        "204": { description: Countdown Bar instance deleted }
+        "403": { description: Owner or Administrator required }
+        "404": { description: Instance not found }
+components:
+  schemas:
+    CountdownBarInput:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          name,
+          message,
+          scheduleType,
+          daysOfWeek,
+          timezone,
+          leadTimeSeconds,
+          completionText,
+          showConfetti,
+          displayMode,
+          heightPx,
+          urgencyEnabled,
+          startingSoonSeconds,
+          urgentSeconds,
+          pulseSeconds,
+          enabled,
+          priority,
+          targetScope,
+          targetIds,
+        ]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 180 }
+        message: { type: string, minLength: 1, maxLength: 280 }
+        scheduleType: { enum: [weekly, one_time] }
+        targetTime: { type: string, pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$" }
+        daysOfWeek:
+          type: array
+          uniqueItems: true
+          items: { type: integer, minimum: 0, maximum: 6 }
+        oneTimeAt: { type: string, format: date-time }
+        timezone: { type: string, minLength: 1, maxLength: 100 }
+        leadTimeSeconds: { type: integer, minimum: 60, maximum: 2592000 }
+        completionText: { type: string, maxLength: 280 }
+        showConfetti:
+          type: boolean
+          default: false
+          description: >-
+            Show a short confetti fall from the top of the Player when the
+            countdown reaches zero. This does not require completion text.
+        displayMode: { enum: [overlay, push] }
+        heightPx: { type: integer, minimum: 40, maximum: 320 }
+        progressFill:
+          enum: [none, drain]
+          default: none
+          description: >-
+            Background treatment behind the bar text. "drain" starts the bar
+            fully tinted when the lead window opens and retreats the tint
+            leftward as the target approaches, leaving only the bar background
+            at zero. Omitted means "none".
+        contentPadding:
+          type: integer
+          minimum: 0
+          maximum: 40
+          default: 4
+          description: >-
+            Share of each side left as a gutter, as a percentage of the bar
+            width. Lowering it gives a long message or a larger type size more
+            room. The default 4 matches the bar's original gutters.
+        textScale:
+          type: integer
+          minimum: 25
+          maximum: 500
+          default: 100
+          description: >-
+            Percentage applied to the height-derived type size, so a bar can
+            carry larger text without changing its height. 100 is the original
+            appearance.
+        urgencyEnabled:
+          type: boolean
+          default: false
+          description: Enable automatic starting-soon, urgent, and final pulse stages.
+        startingSoonSeconds:
+          type: integer
+          minimum: 2
+          maximum: 86400
+          default: 300
+        urgentSeconds:
+          type: integer
+          minimum: 2
+          maximum: 3600
+          default: 60
+        pulseSeconds:
+          type: integer
+          minimum: 1
+          maximum: 60
+          default: 10
+          description: Final seconds during which the urgent bar pulses and grows by 25 percent.
+        enabled: { type: boolean }
+        priority: { type: integer, minimum: -1000, maximum: 1000 }
+        targetScope: { enum: [all, screens, sync_groups, locations] }
+        targetIds:
+          type: array
+          uniqueItems: true
+          maxItems: 250
+          items: { type: string, format: uuid }
