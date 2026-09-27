@@ -1919,7 +1919,12 @@ paths:
       security: [{ sessionCookie: [] }, { userBearer: [] }]
       description: >-
         Requires an authenticated content author with the write scope. Cookie requests additionally require the X-CSRF-Token header; Bearer grants never send it. Creates configuration-only public website content without fetching the page.
-      parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
+      parameters:
+        - in: header
+          name: X-CSRF-Token
+          required: false
+          schema: { type: string }
+          description: Required when authenticating with sessionCookie; omit for userBearer.
       responses:
         {
           "201": { description: Website asset created },
