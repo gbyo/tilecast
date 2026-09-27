@@ -235,9 +235,17 @@ The fullscreen `ComponentWidgetSurface` resolves `prepare()` when the mount is `
 
 The conformance fixture `widget-component` fails when the element has no shadow root, when its styles are not adopted, when a container query does not apply, or when the document records a CSP violation. It runs on Electron and WPE.
 
-## 10. Studio preview
+## 10. Studio preview and authoring
 
-Studio renders V2 Widgets with the real element through `WidgetMount` (PR 2). React owns forms, editor chrome, selection, resize handles, drag and drop, focus and toolbars. The Widget owns only what appears on the display. The gallery keeps its lightweight schematic thumbnails (`WidgetThumbnail.tsx`); they are navigation, not playback previews.
+Studio renders V2 Widgets with the real element through `WidgetMount`. React
+owns forms, editor chrome, source selection, resize controls, focus and
+toolbars. The Widget owns only what appears on the display. The gallery keeps
+its lightweight schematic thumbnails (`WidgetThumbnail.tsx`); they are
+navigation, not playback previews.
+
+The binding Studio editor redesign, source-connection flow, shared preview
+host, and first-wave Widget migration are defined in
+[Widgets V2 authoring and first-wave migration](widgets-v2-authoring-and-first-wave.md).
 
 ## 11. Layout zones
 
@@ -247,9 +255,16 @@ Studio renders V2 Widgets with the real element through `WidgetMount` (PR 2). Re
 
 No V2 Widget has Kotlin or Compose code. Android Players do not report component capabilities, so they receive the compatibility presentation. The Android convergence is a separate project: it hosts the built runtime in a trusted local WebView, implements the host contract and runs the conformance suite. Widgets V2 is not complete across platforms until that convergence reaches parity.
 
-## 13. Future plugin contribution
+## 13. Future extension contribution
 
-Plugin API v1 is frozen and does not change. `defineWidget()`, `tilecast.widget.json` and discovery do not depend on anything a built-in Widget alone can reach. A later Plugin API version can expose Widget modules through the same SDK. Component types are namespaced (`tilecast.` for built-in Widgets) so that plugin Widgets cannot collide with them.
+Plugin API v1 is frozen and does not change. `defineWidget()`,
+`tilecast.widget.json`, and `WidgetMount` are the Widget contribution
+boundary regardless of where a Widget comes from.
+
+The binding plan for core Widgets, plugin-bundled Widgets, declarative Data
+Sources, source provenance, and future independently distributed packages is
+[Tilecast content extension model](content-extension-model.md). Later Widgets
+V2 work must keep the source of a Widget orthogonal to its rendering contract.
 
 ## 14. Tools and tests
 
@@ -282,12 +297,19 @@ Plugin API v1 is frozen and does not change. `defineWidget()`, `tilecast.widget.
 - Skip-when-empty for components (`empty: "skip-eligible"`) is declared but not acted on. A component that is empty shows its empty presentation.
 - Widget-owned copy (for example the default empty title) is English. Clock V2 shows only Intl-formatted text.
 - In the Studio gallery, a Widget module's catalog entry follows the definitions in `contentdefs/definitions`, so Clock now appears last in its category.
-- Studio still previews Clock with its compatibility renderer until PR 2.
+- Studio still previews Clock with its compatibility renderer until the V2
+  authoring/shared-preview work lands.
 
 ## 16. PR sequence
 
-1. Foundation and the Clock vertical slice: this document, both packages, discovery, `widgetctl`, the CSP conformance gate, manifest v16, capability negotiation, `WidgetMount`, fullscreen and Layout plumbing, Storybook foundation and Clock V2.
-2. Studio real preview: the generic custom-element host, the real component in the Widget and Layout editors, the preview resource adapter and the manual preview clock.
-3. Visual and data pilot: Weather, Stat Grid, School Schedule and Chart.
-4. Catalog migration by family.
-5. Separate project: Android shared-runtime convergence.
+1. Foundation and the Clock vertical slice: this document, both packages,
+   discovery, `widgetctl`, the CSP conformance gate, manifest v16, capability
+   negotiation, `WidgetMount`, fullscreen and Layout plumbing, Storybook
+   foundation and Clock V2.
+2. Follow the implementation order in
+   [Widgets V2 authoring and first-wave migration](widgets-v2-authoring-and-first-wave.md):
+   lock source-aware discovery, land the redesigned Studio editor/shared
+   preview, then migrate the first visual catalog by family.
+3. Continue the remaining catalog migration only after the first wave proves
+   the authoring/runtime contracts.
+4. Separate project: Android shared-runtime convergence.
