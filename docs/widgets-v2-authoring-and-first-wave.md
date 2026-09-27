@@ -1107,8 +1107,8 @@ It is for showing the spreadsheet itself.
 
 Structured rows are a Data Source.
 
-The current published-sheet path should become the obvious source to connect
-to List, Table, Cards, Menu Board, Agenda, News, or another compatible Widget.
+Use the current published-sheet path for List, Table, Cards, Menu Board,
+Agenda, News, or another compatible Widget.
 
 Future Google Connections may add private authenticated Sheets without changing
 those Widget contracts.
@@ -1143,7 +1143,7 @@ bbc-news
 ...
 ```
 
-Do not rewrite all asset rows simply to obtain prettier IDs.
+Do not rewrite all asset rows only to change ID formatting.
 
 ### 9.2 Several providers may project to one V2 component
 
@@ -1546,6 +1546,6 @@ replaces them:
    safe V2 preview inputs locally.**
 10. **Legacy provider IDs are compatibility contracts, not the shape of the new
     catalog.**
-11. **Web Integrations do not become Widgets simply because they appear on a
+11. **Web Integrations do not become Widgets because they appear on a
     screen.**
 12. **No Widget gets network access to make its preview or playback easier.**

@@ -12,7 +12,7 @@ import (
 func componentOnlyCatalog(t *testing.T) *contentdefs.Catalog {
 	t.Helper()
 	catalog, err := contentdefs.New([]contentdefs.WidgetDefinition{{
-		ID: "probe", Version: 1, Name: "Probe", Category: "Test", Runtime: "native",
+		ID: "probe", Version: 1, APIVersion: 1, Name: "Probe", Category: "Test", Runtime: "native",
 		PresentationSchemaVersion: 1,
 		RequiredCapabilities:      map[string]int{"content.text": 1},
 		EmptyStateBehavior:        "text",
