@@ -596,6 +596,11 @@ its user documentation, and its tests.
 
 ## Future third-party plugins
 
+The cross-cutting plan for plugin-bundled Widgets and Data Sources, extension
+provenance, independently distributed packages, and future sandboxed execution
+is [Tilecast content extension model](content-extension-model.md). It does not
+reopen Plugin API v1.
+
 Plugin API v1 does not load third-party code. The contract keeps a path open:
 
 - The manifest is data. It names entry points inside the plugin directory,
