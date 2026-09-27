@@ -247,9 +247,16 @@ Studio renders V2 Widgets with the real element through `WidgetMount` (PR 2). Re
 
 No V2 Widget has Kotlin or Compose code. Android Players do not report component capabilities, so they receive the compatibility presentation. The Android convergence is a separate project: it hosts the built runtime in a trusted local WebView, implements the host contract and runs the conformance suite. Widgets V2 is not complete across platforms until that convergence reaches parity.
 
-## 13. Future plugin contribution
+## 13. Future extension contribution
 
-Plugin API v1 is frozen and does not change. `defineWidget()`, `tilecast.widget.json` and discovery do not depend on anything a built-in Widget alone can reach. A later Plugin API version can expose Widget modules through the same SDK. Component types are namespaced (`tilecast.` for built-in Widgets) so that plugin Widgets cannot collide with them.
+Plugin API v1 is frozen and does not change. `defineWidget()`,
+`tilecast.widget.json`, and `WidgetMount` are the Widget contribution
+boundary regardless of where a Widget comes from.
+
+The binding plan for core Widgets, plugin-bundled Widgets, declarative Data
+Sources, source provenance, and future independently distributed packages is
+[Tilecast content extension model](content-extension-model.md). Later Widgets
+V2 work must keep the source of a Widget orthogonal to its rendering contract.
 
 ## 14. Tools and tests
 
