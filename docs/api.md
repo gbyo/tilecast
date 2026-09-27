@@ -200,7 +200,7 @@ Grant scopes are hierarchical — `admin` implies `write` implies `read` — and
 
 CSRF depends on the credential type. Cookie-backed browser requests require `X-CSRF-Token` on unsafe methods, exactly as before. Bearer requests never send it and are never asked for it. Browser security ceremonies stay session-only: MFA enrollment and removal, passkeys, recovery codes, logout, and OAuth approval/denial refuse bearer credentials outright.
 
-Audit rows follow the grant, never the ambient cookie: OAuth Bearer [REDACTED] the `cli` surface (`mcp` for MCP grants) with the client ID, while personal access tokens -- usable by any API client -- carry the `api` surface with the token name, instead of the `studio` surface.
+Audit rows follow the grant, never the ambient cookie. OAuth calls from the CLI carry the `cli` surface. MCP calls carry `mcp`, including when the MCP process uses a stored CLI OAuth grant and sends its fixed `tilecast-mcp` agent. This caller label is audit metadata only; the grant still controls authorization. Personal access tokens, usable by any API client, carry the `api` surface with the token name.
 
 ### Administrative reset
 

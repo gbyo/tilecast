@@ -716,8 +716,14 @@ func (c *Client) GetSchedule(ctx context.Context, id string) (int, []byte, error
 // CreateSchedule creates a schedule from a full input document.
 func (c *Client) CreateSchedule(ctx context.Context, document []byte) (int, []byte, error) {
 	var input gen.CreateScheduleJSONRequestBody
-	if err := json.Unmarshal(document, &input); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(document))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&input); err != nil {
 		return 0, nil, fmt.Errorf("decode schedule document: %w", err)
+	}
+	var extra any
+	if err := decoder.Decode(&extra); err != io.EOF {
+		return 0, nil, fmt.Errorf("schedule document must contain one JSON object")
 	}
 	if strings.TrimSpace(input.Name) == "" {
 		return 0, nil, fmt.Errorf("schedule name is required")

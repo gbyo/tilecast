@@ -54,8 +54,8 @@ func runMCP(cmd *cobra.Command, env *environment) error {
 	if err != nil {
 		return err
 	}
-	// MCP identifies as its own first-party client: the server
-	// auto-provisions its grant row like the CLI's.
+	// MCP uses the resolved grant and declares its calling surface with the
+	// fixed agent. The server still enforces that grant's scopes and role.
 	transport, err := apiclient.New(resolved.ServerURL, func(context.Context) (string, error) {
 		return resolved.Bearer, nil
 	})

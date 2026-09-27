@@ -129,10 +129,18 @@ Facts that constrain the design:
 - The generated Go client owns transport: auth headers, server URL, request
   IDs, pagination helpers, typed errors, revision conflicts, streaming, and
   version detection. It owns no domain logic.
+- A core CLI or MCP operation must have a supported OpenAPI operation and use
+  its generated route. The generic raw JSON call is limited to installed
+  plugin automation paths discovered at runtime. Streaming helpers remain
+  available for large bodies, but no current core CLI or MCP operation uses
+  them.
 - The CLI owns names, grouping, flags, help, tables, prompts, and
   confirmations. Commands are handwritten Cobra commands.
 - MCP owns semantic operator workflows. Tools map to operator intent, not to
   HTTP operations.
+- MCP sends the fixed `tilecast-mcp` agent. A CLI OAuth grant used through
+  MCP is audited as the MCP calling surface; its role, scope ceiling, and
+  revocation remain the grant's. PAT calls remain attributed to `api`.
 - Plugin `automation.yaml` owns presentation mapping only: operation ID to
   CLI path and MCP action, plus risk class. It redefines no HTTP path,
   schema, authorization, or validation.

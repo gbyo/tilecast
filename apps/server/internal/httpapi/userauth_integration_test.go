@@ -402,3 +402,45 @@ func TestGrantAuditSurfacesIgnoreAmbientCookie(t *testing.T) {
 		}
 	})
 }
+
+func TestMCPCallerAttributionAndGrantCeiling(t *testing.T) {
+	withUserAuthServer(t, func(call userAuthCall, service *oauth.Service, userID uuid.UUID, pool *pgxpool.Pool) {
+		request := func(method, path, credential, body string) (int, map[string]any) {
+			t.Helper()
+			r, err := http.NewRequest(method, call.base+path, strings.NewReader(body))
+			if err != nil {
+				t.Fatal(err)
+			}
+			r.Header.Set("Authorization", "Bearer "+credential)
+			r.Header.Set("User-Agent", "tilecast-mcp")
+			response, err := http.DefaultClient.Do(r)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer response.Body.Close()
+			raw, _ := io.ReadAll(response.Body)
+			decoded := map[string]any{}
+			_ = json.Unmarshal(raw, &decoded)
+			return response.StatusCode, decoded
+		}
+		readToken := mustOAuthTokenAs(t, service, userID, oauth.ClientCLI, "read")
+		body := `{"name":"mcp-audit","scopes":["read"],"expiresInDays":30}`
+		if status, response := request(http.MethodPost, "/api/v1/me/security/pats", readToken, body); status != http.StatusForbidden || errorCode(response) != "insufficient_scope" {
+			t.Fatalf("MCP read grant used for admin mutation: %d %v", status, response)
+		}
+		adminToken := mustOAuthTokenAs(t, service, userID, oauth.ClientCLI, "read write admin")
+		if status, response := request(http.MethodPost, "/api/v1/me/security/pats", adminToken, body); status != http.StatusCreated {
+			t.Fatalf("MCP grant mutation: %d %v", status, response)
+		}
+		var surface string
+		if err := pool.QueryRow(t.Context(), `SELECT calling_surface FROM audit_logs WHERE action='oauth.pat_created' AND resource_name='mcp-audit'`).Scan(&surface); err != nil || surface != "mcp" {
+			t.Fatalf("MCP audit surface = %q, %v", surface, err)
+		}
+		if _, err := service.RevokeCredential(t.Context(), adminToken); err != nil {
+			t.Fatal(err)
+		}
+		if status, _ := request(http.MethodGet, "/api/v1/me/preferences", adminToken, ""); status != http.StatusUnauthorized {
+			t.Fatalf("revoked MCP credential still works: %d", status)
+		}
+	})
+}

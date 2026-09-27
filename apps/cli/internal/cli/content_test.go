@@ -68,6 +68,9 @@ func TestScheduleListGetCreate(t *testing.T) {
 	if _, err := f.execute(t, "", "schedule", "create", "--input", `{"targets":[]}`); err == nil {
 		t.Fatal("create without name accepted")
 	}
+	if _, err := f.execute(t, "", "schedule", "create", "--input", `{"name":"Nights","unknown":true}`); err == nil {
+		t.Fatal("unknown schedule field was silently dropped")
+	}
 }
 
 func TestTokenListCreate(t *testing.T) {
