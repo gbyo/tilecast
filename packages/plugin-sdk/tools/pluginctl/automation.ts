@@ -269,7 +269,8 @@ export function resolveAutomation(
         {
           plugin,
           file: automationFileFor(plugin),
-          message: "automation file exists but the plugin declares no OpenAPI fragment",
+          message:
+            "automation file exists but the plugin declares no OpenAPI fragment",
         },
       ],
     };

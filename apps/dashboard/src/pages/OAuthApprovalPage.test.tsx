@@ -59,11 +59,9 @@ describe("OAuthApprovalPage", () => {
 
   it("denies with the parameters it displayed", async () => {
     const user = userEvent.setup();
-    const deny = vi
-      .spyOn(api, "denyOAuth")
-      .mockResolvedValue({
-        redirectUri: "http://127.0.0.1:8471/callback?error=access_denied",
-      });
+    const deny = vi.spyOn(api, "denyOAuth").mockResolvedValue({
+      redirectUri: "http://127.0.0.1:8471/callback?error=access_denied",
+    });
     renderPage();
     await user.click(await screen.findByRole("button", { name: "Deny" }));
     expect(deny).toHaveBeenCalledWith(
