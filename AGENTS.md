@@ -195,7 +195,7 @@ Milestone 3 media tables should reference generated asset IDs. Uploaded filename
 - Zustand is reserved for complex local editor state
 - design tokens come from `packages/design-tokens`
 
-Keep UI state separate from API state. New server operations belong in `src/api/client.ts`; public types belong in `src/api/types.ts`. Polling is currently used for screen status, at a ten-second interval.
+Keep UI state separate from API state. New server operations belong in `src/api/client.ts`; public types belong in `src/api/types.ts`. Plugin-owned operations and types belong in `plugins/<name>/studio/` and reach the API through `studioRequest`; the `src/api` rule above covers non-plugin server operations. Polling is currently used for screen status, at a ten-second interval.
 
 Studio is localized with react-i18next (English source, Spanish, Russian). Follow [`docs/localization.md`](docs/localization.md): new user-visible text goes through `t()` with keys added to every locale in `src/locales/`, never as a hard-coded English literal. Keep English copy unchanged when converting an existing string, because tests assert on it. `npm run i18n:scan -- --check <path>` must be clean for any file you convert.
 
