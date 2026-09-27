@@ -122,11 +122,6 @@ import type {
   WidgetRenderPayload,
 } from "@tilecast/player-runtime/projection";
 import type { StateStore } from "./storage";
-import {
-  NOISE_HISTORY_BATCH,
-  NoiseHistoryQueue,
-  type NoiseHistoryBucket,
-} from "./noise-history";
 import type {
   AirplayAudioMode,
   AirplayCapabilities,
@@ -158,7 +153,6 @@ import {
 import type {
   CommandResultReport,
   Heartbeat,
-  HeartbeatNoiseMeter,
   Manifest,
   ManifestPlugin,
   ManifestItem,
@@ -469,19 +463,6 @@ export class PlayerRuntime {
   private currentItemId: string | null = null;
   private playbackState = "starting";
   private lastHealthyPlaybackAt: string | null = null;
-  /**
-   * Noise Meter state, on the trusted side of the preload boundary.
-   *
-   * The renderer measures a room fifteen to twenty times a second and hands
-   * over one completed aggregate every ten seconds. Nothing about that rate
-   * reaches the network: the queue is drained by the ordinary heartbeat, and
-   * only after the server has acknowledged a batch.
-   */
-  private readonly noiseHistory: NoiseHistoryQueue;
-  private noiseMeterStatus: HeartbeatNoiseMeter["status"] = "inactive";
-  private noiseMeterLevel: number | null = null;
-  /** The batch attached to the heartbeat currently in flight, if any. */
-  private noiseHistoryInFlight: NoiseHistoryBucket[] = [];
   private lastPlaybackError: string | null = null;
   private websiteRecoveryCount = 0;
   private playbackCheckpoint: PlaybackCheckpoint | null = null;
@@ -545,7 +526,6 @@ export class PlayerRuntime {
       null,
       options.fetchImpl ?? fetch,
     );
-    this.noiseHistory = new NoiseHistoryQueue(this.store);
     // Every request counts, from the client's own choke point, so the counters
     // describe all of the player's traffic and not the call sites that
     // remembered to measure.
@@ -640,9 +620,6 @@ export class PlayerRuntime {
       playbackDisabled: false,
     };
 
-    // Buckets accumulated before the last restart are still owed to the server.
-    await this.noiseHistory.load();
-
     this.credential = await loadCredential(this.store);
     if (
       this.credential &&
@@ -713,9 +690,6 @@ export class PlayerRuntime {
     await this.activity?.stop();
     this.preview?.stop();
     this.liveStream?.stop();
-    // An orderly stop must not lose a queued bucket that was waiting for the
-    // batched write.
-    await this.noiseHistory.flush();
     await this.host.stopExternalPresentation?.("process_exit");
   }
 
@@ -1091,16 +1065,6 @@ export class PlayerRuntime {
       this.externalPresentation ? [] : (manifest.plugins ?? []),
       clockOffsetMs,
     );
-    // The local queue prunes with the same window the server prunes with, so a
-    // player that has been offline for a fortnight does not arrive carrying
-    // history the server would delete on receipt.
-    for (const plugin of manifest.plugins ?? []) {
-      if (plugin.type === "noise_meter") {
-        this.noiseHistory.setRetentionDays(
-          plugin.config.historyRetentionDays ?? 7,
-        );
-      }
-    }
     const takeoverNow = takeoverActive(manifest, this.clock.now());
     const quickPresentNow = presentationOverrideActive(
       manifest,
@@ -2753,13 +2717,7 @@ export class PlayerRuntime {
     return fields;
   }
 
-  /**
-   * `includeHistory` is false for the socket fast path. The socket is
-   * fire-and-forget, and history that nobody acknowledges is history that gets
-   * dropped or sent twice, so buckets travel only on the HTTP heartbeat that
-   * answers.
-   */
-  private async buildHeartbeat(includeHistory = false): Promise<Heartbeat> {
+  private async buildHeartbeat(): Promise<Heartbeat> {
     const size = this.host.screenSize();
     const manifest = this.activeManifest;
     // Playback is "healthy" when content is actually on screen and no safe-mode
@@ -2817,10 +2775,6 @@ export class PlayerRuntime {
       ...this.renderProgressHeartbeatFields(),
       ...this.autostartHeartbeatFields(),
     };
-    const noiseMeter = this.noiseMeterHeartbeat(includeHistory);
-    if (noiseMeter) {
-      heartbeat.noiseMeter = noiseMeter;
-    }
     if (this.airplayCapabilities) {
       heartbeat.airplaySupported = this.airplayCapabilities.airplaySupported;
       heartbeat.airplayUxPlayInstalled =
@@ -3026,91 +2980,19 @@ export class PlayerRuntime {
     if (!this.credential || !this.identityVerified) {
       return;
     }
-    // Pending history takes the HTTP heartbeat, because that is the one that
-    // answers. This is the same endpoint on the same cadence — nothing here
-    // adds a request or shortens the interval to drain a backlog faster.
-    const draining = this.noiseHistory.size() > 0;
-    const heartbeat = await this.buildHeartbeat(draining);
+    const heartbeat = await this.buildHeartbeat();
     // Socket is the fast path; HTTP heartbeat is the fallback so presence
     // degrades to "recent"/"stale" honestly rather than flapping.
-    if (!draining && this.socket?.isOpen && this.socket.sendStatus(heartbeat)) {
+    if (this.socket?.isOpen && this.socket.sendStatus(heartbeat)) {
       return;
     }
-    const sent = this.noiseHistoryInFlight;
     try {
-      const acknowledgement = await this.client.heartbeat(heartbeat);
-      // Only now, and only for what the server said it took. A timeout, a 5xx,
-      // or a server that stored nothing leaves the batch exactly where it was.
-      const accepted = acknowledgement.noiseHistory?.accepted ?? 0;
-      if (sent.length > 0 && accepted > 0) {
-        await this.noiseHistory.acknowledge(sent, accepted);
-      }
+      await this.client.heartbeat(heartbeat);
     } catch (err) {
       if (err instanceof ApiError && err.credentialRejected) {
         await this.onCredentialRejected();
       }
-    } finally {
-      this.noiseHistoryInFlight = [];
     }
-  }
-
-  // ------------------------------------------------------------ noise meter
-
-  /**
-   * One report from the renderer's Noise Meter: its current state, and at most
-   * one completed ten-second aggregate.
-   *
-   * This is the only path noise data takes out of the renderer, and it carries
-   * derived numbers. Persistence happens here, in trusted code, so the queue
-   * survives a renderer reload rather than living in the page that produced it.
-   */
-  async onNoiseMeterReport(report: {
-    status?: string;
-    level?: number | null;
-    bucket?: NoiseHistoryBucket | null;
-  }): Promise<void> {
-    const status = report.status;
-    if (
-      status === "active" ||
-      status === "normal" ||
-      status === "loud" ||
-      status === "unavailable" ||
-      status === "inactive"
-    ) {
-      this.noiseMeterStatus = status;
-    }
-    this.noiseMeterLevel =
-      typeof report.level === "number" && Number.isFinite(report.level)
-        ? Math.min(100, Math.max(0, report.level))
-        : null;
-    if (report.bucket) {
-      await this.noiseHistory.add(report.bucket);
-    }
-  }
-
-  /**
-   * The Noise Meter section of a heartbeat. The batch is remembered so the
-   * response can acknowledge exactly what was sent; a heartbeat that never
-   * completes leaves every one of those records queued.
-   */
-  private noiseMeterHeartbeat(
-    includeHistory: boolean,
-  ): HeartbeatNoiseMeter | null {
-    const pending = includeHistory
-      ? this.noiseHistory.peekBatch(NOISE_HISTORY_BATCH)
-      : [];
-    this.noiseHistoryInFlight = pending;
-    if (this.noiseMeterStatus === "inactive" && pending.length === 0) {
-      return null;
-    }
-    const section: HeartbeatNoiseMeter = { status: this.noiseMeterStatus };
-    if (this.noiseMeterLevel !== null) {
-      section.currentLevel = Math.round(this.noiseMeterLevel * 10) / 10;
-    }
-    if (pending.length > 0) {
-      section.pendingHistory = pending;
-    }
-    return section;
   }
 
   // --------------------------------------------------------------- commands
