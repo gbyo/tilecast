@@ -70,7 +70,8 @@ export interface CardsData {
   readonly total: number;
 }
 
-type CardsFieldKey =
+/** The CardsConfig keys that name mapped source fields. */
+type CardFieldKey =
   | "titleField"
   | "subtitleField"
   | "bodyField"
@@ -78,7 +79,7 @@ type CardsFieldKey =
   | "badgeField"
   | "metadataField";
 
-const SLOT_KEYS: Readonly<Record<CardSlot, CardsFieldKey>> = {
+const SLOT_KEYS: Readonly<Record<CardSlot, CardFieldKey>> = {
   title: "titleField",
   subtitle: "subtitleField",
   body: "bodyField",

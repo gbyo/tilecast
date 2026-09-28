@@ -2451,14 +2451,9 @@ function AssetDetails(props: {
     />
   ) : props.asset.type === "widget" &&
     props.asset.widget &&
-    ["clock", "date", "ticker", "menu", "agenda"].includes(
-      props.asset.widget.provider,
-    ) ? (
+    ["clock", "date", "ticker"].includes(props.asset.widget.provider) ? (
     <NativeAppEditor
-      provider={
-        props.asset.widget.provider as
-          "clock" | "date" | "ticker" | "menu" | "agenda"
-      }
+      provider={props.asset.widget.provider as "clock" | "date" | "ticker"}
       asset={props.asset}
       csrf={props.csrf}
       readOnly={!props.canManage}

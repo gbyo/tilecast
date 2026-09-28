@@ -1,0 +1,40 @@
+{
+  "name": "Empty",
+  "description": "A connected source with no usable records reports the empty state.",
+  "configuration": {
+    "dataSourceId": "11111111-1111-4111-8111-111111111111",
+    "titleField": "dish",
+    "descriptionField": "",
+    "priceField": "cost",
+    "categoryField": "",
+    "heading": "Lunch",
+    "maximumItems": 12,
+    "emptyText": "",
+    "density": "comfortable",
+    "showDividers": true,
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "documents": {
+    "11111111-1111-4111-8111-111111111111": {
+      "schemaVersion": 1,
+      "datasets": [
+        {
+          "id": "records",
+          "kind": "records",
+          "fields": [
+            { "key": "dish", "label": "Dish", "type": "text" },
+            {
+              "key": "cost",
+              "label": "Cost",
+              "type": "currency",
+              "currency": "USD"
+            }
+          ],
+          "records": []
+        }
+      ]
+    }
+  },
+  "expect": "empty"
+}

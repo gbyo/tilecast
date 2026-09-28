@@ -21,6 +21,7 @@ export {
   boundText,
   formatDate,
   formatNumber,
+  formatTime,
   formatWidgetValue,
   type DisplayValueOptions,
   localDayKey,
@@ -32,6 +33,15 @@ export {
   type NumberOptions,
   type TimeParts,
 } from "./format.ts";
+export {
+  AGENDA_FIELD_ROLES,
+  fieldForRole,
+  MENU_FIELD_ROLES,
+  suggestFieldMapping,
+  type FieldSlot,
+  type MappableField,
+  type SemanticFieldRole,
+} from "./roles.ts";
 export {
   badge,
   emptyState,

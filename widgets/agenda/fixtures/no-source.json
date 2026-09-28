@@ -1,0 +1,21 @@
+{
+  "name": "No source",
+  "description": "An Agenda with no connected source reports the empty state instead of failing.",
+  "configuration": {
+    "dataSourceId": "",
+    "titleField": "",
+    "startField": "",
+    "endField": "",
+    "locationField": "",
+    "descriptionField": "",
+    "categoryField": "",
+    "heading": "Today",
+    "maximumItems": 20,
+    "groupByDay": true,
+    "hideEnded": true,
+    "emptyText": "",
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "expect": "empty"
+}

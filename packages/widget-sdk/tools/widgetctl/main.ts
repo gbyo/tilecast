@@ -111,6 +111,16 @@ export function authoringUiProblem(
   ) {
     return `${where} has an invalid semantic role`;
   }
+  if (record["legacyKeys"] !== undefined) {
+    const keys = record["legacyKeys"];
+    if (
+      !Array.isArray(keys) ||
+      keys.length === 0 ||
+      keys.some((key) => typeof key !== "string" || !key)
+    ) {
+      return `${where} has invalid legacy-key fallbacks`;
+    }
+  }
   return null;
 }
 

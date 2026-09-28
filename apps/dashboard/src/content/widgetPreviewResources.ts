@@ -78,6 +78,7 @@ function widgetFields(fields: DataSourceField[] | undefined): WidgetField[] {
     label: field.label,
     type: field.type,
     ...(field.currency ? { currency: field.currency } : null),
+    ...(field.role ? { role: field.role } : null),
   }));
 }
 
@@ -190,13 +191,18 @@ export function previewToDataDocument(
           kind: "records",
           fields: widgetFields([
             // i18n-ignore: Data Document field metadata, not Studio chrome.
-            { key: "title", label: "Title", type: "text" },
+            { key: "title", label: "Title", type: "text", role: "title" },
             // i18n-ignore: Data Document field metadata, not Studio chrome.
-            { key: "start", label: "Start", type: "datetime" },
+            { key: "start", label: "Start", type: "datetime", role: "start" },
             // i18n-ignore: Data Document field metadata, not Studio chrome.
-            { key: "end", label: "End", type: "datetime" },
+            { key: "end", label: "End", type: "datetime", role: "end" },
             // i18n-ignore: Data Document field metadata, not Studio chrome.
-            { key: "location", label: "Location", type: "text" },
+            {
+              key: "location",
+              label: "Location",
+              type: "text",
+              role: "location",
+            },
           ]),
           records: data.events.map((event) => ({
             id: event.id,

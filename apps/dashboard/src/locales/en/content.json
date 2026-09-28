@@ -639,37 +639,12 @@
         "separator": "Separator",
         "fieldSeparator": "Field separator"
       },
-      "display": {
-        "displayedFields": "Displayed fields",
-        "noSource": "Select a Data Source to choose its fields.",
-        "maximumHint": "Limits how many rows or events can appear at once.",
-        "emptyLabel": "Message when there is no data",
-        "emptyHint": "Shown on screen when the source returns no usable records."
-      },
-      "menu": {
-        "presentation": "Presentation",
-        "modeSingle": "Fields from one record",
-        "modeRows": "Label and value rows"
-      },
-      "agenda": {
-        "timeField": "Time field",
-        "locationField": "Location field",
-        "descriptionField": "Description field"
-      },
       "metric": {
         "staticLabel": "Static label",
         "precision": "Decimal places",
         "prefix": "Prefix",
         "suffix": "Suffix",
         "emptyState": "Empty state"
-      },
-      "weather": {
-        "showLocation": "Location",
-        "showCurrent": "Current conditions",
-        "showHumidity": "Humidity",
-        "showWind": "Wind",
-        "showPrecipitation": "Precipitation",
-        "forecastDays": "Forecast days"
       },
       "spotlight": {
         "image": "Uploaded image",

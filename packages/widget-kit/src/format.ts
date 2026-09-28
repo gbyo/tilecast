@@ -113,6 +113,23 @@ export function formatDate(
   }).format(epochMs);
 }
 
+/**
+ * The local wall time of one instant ("2:30 PM"), for agenda rows and
+ * other places where the date already has its own label. Like every
+ * display format it is locale- and time-zone explicit.
+ */
+export function formatTime(
+  epochMs: number,
+  options: { locale: string; timeZone: string; hourCycle: HourCycle },
+): string {
+  return dateFormat(options.locale, {
+    timeZone: options.timeZone,
+    hour: "numeric",
+    minute: "2-digit",
+    ...(options.hourCycle === "locale" ? {} : { hourCycle: options.hourCycle }),
+  }).format(epochMs);
+}
+
 /** A key that changes exactly when the local calendar day changes. */
 export function localDayKey(epochMs: number, timeZone: string): string {
   return dateFormat("en-CA", {
@@ -154,6 +171,10 @@ export interface NumberOptions {
 
 export function formatNumber(value: number, options: NumberOptions): string {
   if (!Number.isFinite(value)) return "—";
+  // Percent values arrive as whole units (62 means 62%), matching the
+  // record convention the legacy renderer already uses; Intl formats
+  // fractions, so the conversion happens here, once, for every Widget.
+  if (options.style === "percent") value /= 100;
   const format = cached(
     `n|${options.locale}|${JSON.stringify(options)}`,
     () => {
@@ -218,7 +239,12 @@ export function formatWidgetValue(
     const currency = field?.type === "currency" ? field.currency : undefined;
     return formatNumber(numeric, {
       locale: options.locale,
-      style: currency ? "currency" : "decimal",
+      style:
+        field?.type === "percent"
+          ? "percent"
+          : currency
+            ? "currency"
+            : "decimal",
       currency,
     });
   }

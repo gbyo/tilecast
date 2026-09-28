@@ -40,6 +40,11 @@ export interface WidgetAuthoringUi {
   readonly styleCard?: boolean;
   /** The semantic field role this control suggests, if any. */
   readonly semanticRole?: string;
+  /**
+   * Known legacy source keys for the suggested slot, matched
+   * case-insensitively after declared roles (§4.1 step 2).
+   */
+  readonly legacyKeys?: readonly string[];
 }
 
 /** A configuration-schema field with optional authoring hints. */
@@ -59,6 +64,7 @@ export function authoringUiOf(field: AuthoringField): WidgetAuthoringUi {
     visibleWhen?: WidgetVisibleWhen;
     styleCard?: boolean;
     semanticRole?: string;
+    legacyKeys?: readonly string[];
   } = {};
   if (
     record["section"] === "data" ||
@@ -83,6 +89,13 @@ export function authoringUiOf(field: AuthoringField): WidgetAuthoringUi {
   if (record["styleCard"] === true) out.styleCard = true;
   if (typeof record["semanticRole"] === "string") {
     out.semanticRole = record["semanticRole"];
+  }
+  const legacyKeys = record["legacyKeys"];
+  if (Array.isArray(legacyKeys)) {
+    const keys = legacyKeys.filter(
+      (key): key is string => typeof key === "string" && key !== "",
+    );
+    if (keys.length > 0) out.legacyKeys = keys;
   }
   return out;
 }

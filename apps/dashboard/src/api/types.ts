@@ -1657,6 +1657,7 @@ export type ContentDefinitionField = {
     visibleWhen?: { key: string; equals?: unknown; notEquals?: unknown };
     styleCard?: boolean;
     semanticRole?: string;
+    legacyKeys?: string[];
   };
   mediaTypes?: string[];
   maximumItems?: number;
@@ -1898,6 +1899,11 @@ export type DataSourceField = {
   label: string;
   type: string;
   currency?: string;
+  /**
+   * Optional semantic role from the shared vocabulary
+   * (docs/widgets-v2-authoring-and-first-wave.md §4).
+   */
+  role?: string;
 };
 export type DataSource = {
   id: string;

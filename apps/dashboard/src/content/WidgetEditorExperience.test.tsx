@@ -16,6 +16,7 @@ import { WidgetProviderGallery } from "./SourceEditors";
 import { V2WidgetEditor } from "./V2WidgetEditor";
 import clockManifest from "../../../../widgets/clock/tilecast.widget.json";
 import qrManifest from "../../../../widgets/qr-code/tilecast.widget.json";
+import menuManifest from "../../../../widgets/menu-board/tilecast.widget.json";
 
 afterEach(() => {
   cleanup();
@@ -351,6 +352,106 @@ describe("Widget editor experience", () => {
     const frame = await screen.findByRole("img", { name: "Live preview" });
     await screen.findByText("Preview ready.");
     expect(frame.querySelector("tc-widget-qr-code")).toBeTruthy();
+  });
+
+  it("edits saved legacy Menu content through the generic V2 editor", async () => {
+    vi.spyOn(api, "settings").mockResolvedValue({ values: {} } as never);
+    vi.spyOn(api, "previewSavedDataSource").mockResolvedValue({
+      fields: [
+        { key: "dish", label: "Dish", type: "text" },
+        { key: "cost", label: "Cost", type: "currency", currency: "USD" },
+      ],
+      records: [{ id: "r1", values: { dish: "Tomato soup", cost: "6.5" } }],
+      cachedAt: "2026-09-28T15:00:00Z",
+      usingCachedData: false,
+      attribution: "Lunch sheet",
+      unavailable: false,
+    });
+    vi.spyOn(api, "getDataSource").mockResolvedValue({
+      id: "source-1",
+      provider: "csv",
+      name: "Lunch rows",
+      description: "",
+      configVersion: 2,
+      configuration: {},
+      status: "ready",
+      cachedRecordCount: 1,
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+      diagnostics: {},
+      fields: [
+        { key: "dish", label: "Dish", type: "text" },
+        { key: "cost", label: "Cost", type: "currency", currency: "USD" },
+      ],
+      widgetUsage: [],
+      bindingUsage: [],
+    } as never);
+    const definition: WidgetDefinition = {
+      id: "menu",
+      version: 1,
+      apiVersion: 1,
+      name: "Menu Board",
+      description: "Show items with descriptions and aligned prices.",
+      category: "Data display",
+      icon: "utensils",
+      runtime: "native",
+      configurationSchema: menuManifest.configurationSchema as {
+        fields: ContentDefinitionField[];
+      },
+      defaultConfiguration: menuManifest.defaultConfiguration,
+      component: {
+        type: "tilecast.menu-board",
+        version: 1,
+        tagName: "tc-widget-menu-board",
+        entrypoint: "./runtime/index.ts",
+        configTemplate: menuManifest.component.configTemplate,
+        dataSourceFields: ["dataSourceId"],
+        empty: "skip-eligible",
+      },
+      compatibility: { fallback: "legacy" },
+      presentationSchemaVersion: 1,
+      requiredCapabilities: {},
+      emptyStateBehavior: "text",
+    };
+    // Saved content keeps its persisted legacy label/value keys; the
+    // chained template maps them into the shared component for preview
+    // and compilation.
+    const asset = {
+      id: "asset-menu",
+      name: "Lunch board",
+      widget: {
+        provider: "menu",
+        configuration: {
+          dataSourceId: "source-1",
+          labelField: "dish",
+          valueField: "cost",
+          maximumItems: 6,
+        },
+      },
+    } as unknown as Parameters<typeof V2WidgetEditor>[0]["asset"];
+    renderEditor(
+      <V2WidgetEditor
+        definition={definition}
+        catalog={{
+          revision: "test",
+          compilerVersion: "99",
+          fingerprint: "test",
+          widgets: [definition],
+          dataSources: [],
+        }}
+        asset={asset}
+        csrf="csrf"
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+
+    // The generic inspector groups the semantic pickers under Data; the
+    // preview mounts the real Menu Board element.
+    expect(screen.getByRole("heading", { name: "Data" })).toBeTruthy();
+    const frame = await screen.findByRole("img", { name: "Live preview" });
+    await screen.findByText("Preview ready.");
+    expect(frame.querySelector("tc-widget-menu-board")).toBeTruthy();
   });
 
   it("uses the same guided structure for catalog-defined Widgets", () => {

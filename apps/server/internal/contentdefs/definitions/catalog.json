@@ -256,50 +256,6 @@
       "deprecation": {}
     },
     {
-      "id": "menu",
-      "version": 1,
-      "name": "Menu / Price Board",
-      "description": "Display fields or label/value rows.",
-      "category": "Data-driven",
-      "icon": "utensils",
-      "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
-      "presentationSchemaVersion": 1,
-      "requiredCapabilities": {
-        "layout.surface": 1,
-        "layout.column": 1,
-        "collection.repeat": 2,
-        "content.text": 1,
-        "binding.core": 2
-      },
-      "emptyStateBehavior": "text",
-      "legacyEditor": true,
-      "deprecation": {}
-    },
-    {
-      "id": "agenda",
-      "version": 1,
-      "name": "Agenda",
-      "description": "Group temporal records into an agenda.",
-      "category": "Data-driven",
-      "icon": "calendar",
-      "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
-      "presentationSchemaVersion": 1,
-      "requiredCapabilities": {
-        "layout.surface": 1,
-        "collection.grouped_sections": 1,
-        "collection.repeat": 2,
-        "content.text": 1,
-        "binding.core": 2
-      },
-      "emptyStateBehavior": "text",
-      "legacyEditor": true,
-      "deprecation": {}
-    },
-    {
       "id": "metric",
       "version": 1,
       "name": "Metric",
@@ -312,27 +268,6 @@
       "presentationSchemaVersion": 1,
       "requiredCapabilities": {
         "layout.surface": 1,
-        "content.text": 1,
-        "binding.core": 2
-      },
-      "emptyStateBehavior": "text",
-      "legacyEditor": true,
-      "deprecation": {}
-    },
-    {
-      "id": "weather",
-      "version": 1,
-      "name": "Weather",
-      "description": "Display current conditions and forecast records.",
-      "category": "Data-driven",
-      "icon": "cloud_sun",
-      "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
-      "presentationSchemaVersion": 1,
-      "requiredCapabilities": {
-        "layout.surface": 1,
-        "layout.column": 1,
         "content.text": 1,
         "binding.core": 2
       },
