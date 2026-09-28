@@ -1,223 +1,516 @@
 # Tilecast Generalization and Contributor Architecture Roadmap
 
-Status: proposed
+Status: proposed, reconciled with `main` at `7efc5dee` after Plugin API v1, the programmable control plane, Edge M11, Widgets V2, static plugin Widget composition, and declarative Data Source module composition.
 
-This roadmap describes the next cross-cutting architecture work for Tilecast after the in-progress Plugin API and shared Player Runtime/Edge renderer work. The goal is not to introduce a large framework. The goal is to make Tilecast easier to change safely by turning repeated cross-application agreements into explicit contracts, generated bindings, native implementations, and shared conformance tests.
+This roadmap covers the remaining cross-cutting work that would make Tilecast easier to extend, safer to change, and easier for a new contributor to understand.
 
-## Goals
+The goal is **not** to add a large framework. Tilecast already has good architectural boundaries. The next step is to make those boundaries executable and reusable so contributors do not have to remember which Go, TypeScript, Kotlin, Rust, C, OpenAPI, CI, and documentation files happen to describe the same contract.
 
-Tilecast should make the correct development path obvious:
+The guiding model is:
 
-1. Define or change the contract.
-2. Generate language bindings or registries where generation is useful.
-3. Implement behavior idiomatically in the owning application.
-4. Run shared conformance when multiple implementations must agree.
-5. Run only the affected validation locally and in CI.
-6. Use Demo Mode for real-system integration and browser testing.
+```text
+one contract
+    ↓
+generated mechanical bindings where useful
+    ↓
+idiomatic native implementations
+    ↓
+shared conformance where implementations must agree
+```
 
-A contributor should not need to know which unrelated files happen to duplicate a wire enum, API response, capability identifier, or protocol rule.
+## What has already landed
 
-## Principles
+The first version of this roadmap assumed several architectural projects were still in progress. They are now foundations to build on.
 
-### One specification, native implementations
+### Plugin and extension architecture
 
-Tilecast is intentionally polyglot: Go, TypeScript, Kotlin, Rust, C, Python, and shell all have legitimate roles.
+Plugin API v1 is complete through M7 and frozen. Forms and Emergency Alerts are plugin-owned, Countdown Bar uses the generic runtime surface path, and the remaining core special cases were removed.
 
-Do not introduce FFI, Wasm, or a shared runtime merely to avoid duplicating a small algorithm. For cross-language behavior, prefer:
+Tilecast now also has separate extension contracts for:
 
-- one documented contract;
-- one machine-readable fixture corpus;
-- idiomatic implementations in each language;
-- native tests in each language against the same fixtures.
+- Plugins: `tilecast.plugin.json` + `pluginctl`;
+- Widgets V2: `tilecast.widget.json` + `widgetctl`;
+- declarative Data Sources: `tilecast.datasource.json` + `datactl`.
 
-### Generate mechanics, not product logic
+Plugin-owned static Widgets and declarative Data Sources compose into the same catalogs as root-owned modules.
+
+The root already exposes:
+
+```sh
+npm run extensions:check
+npm run extensions:generate
+```
+
+These commands should become the basis of repository-wide generation rather than introducing a fourth extension manifest or another extension framework.
+
+### Shared Player Runtime and Edge
+
+The shared Player Runtime is real and is hosted by both Electron and WPE. Tilecast Edge M1 through M11 have merged, including the remote-web isolation path.
+
+The runtime already has an unusually strong cross-engine conformance suite:
+
+- deterministic runtime fixtures;
+- a manual clock;
+- Electron and WPE runners;
+- semantic comparison;
+- evidence/error/result comparison;
+- perceptual screenshot comparison.
+
+Do not replace or wrap that system in a generic test framework.
+
+### Widgets V2
+
+Widgets V2 now has:
+
+- first-class Widget modules;
+- the redesigned Studio authoring shell;
+- `WidgetMount` previews using the production renderer;
+- source-aware authoring;
+- the first-wave catalog;
+- plugin-owned Widget composition;
+- generated `widget.<type>` capability lists;
+- Storybook;
+- Playwright visual regression against committed Linux Chromium baselines.
+
+The visual-regression foundation therefore already exists. New work should reuse its deterministic techniques when another surface genuinely needs screenshot baselines rather than adding Chromatic, Percy, or another hosted visual testing dependency.
+
+### Programmable control plane
+
+Tilecast now has:
+
+- user bearer authentication and PATs;
+- the remote `tilecast` CLI;
+- MCP;
+- generic plugin automation;
+- `packages/api-client`, generated with `oapi-codegen` from the composed `docs/openapi.yaml`.
+
+This materially changes the API part of the roadmap. The generated Go client is now the precedent:
+
+```text
+docs/openapi/core.yaml
+        +
+plugins/*/api/openapi.yaml
+        ↓
+      pluginctl
+        ↓
+docs/openapi.yaml
+        ↓
+   oapi-codegen
+        ↓
+packages/api-client
+        ↓
+      CLI / MCP
+```
+
+The Studio should eventually consume the **same HTTP contract** rather than maintain a separate handwritten set of wire types.
+
+### Demo Mode
+
+Demo Mode is already implemented. It runs the real Server, Studio, PostgreSQL schema, migrations, domain services, API, auth/CSRF behavior, pairing flow, and simulated Players.
+
+It has deterministic `basic` and `kitchen-sink` scenarios, fixed IDs, a reset API, and Playwright E2E.
+
+Do not replace it with a mock backend or a second declarative data model.
+
+---
+
+# Architectural principles
+
+## One specification, native implementations
+
+Tilecast is intentionally polyglot. Go, TypeScript, Kotlin, Rust, C, Python, and shell all have legitimate roles.
+
+When behavior must match across languages, prefer:
+
+- one documented semantic contract;
+- one machine-readable fixture corpus where examples can define the behavior;
+- native implementations in each language;
+- native tests consuming the same fixtures.
+
+Do **not** introduce Wasm, FFI, a common embedded interpreter, or a cross-language framework merely to avoid maintaining a small amount of idiomatic code.
+
+## Generate mechanics, not product behavior
 
 Generation is appropriate for:
 
-- API wire types;
-- capability constants;
-- registries;
-- composed OpenAPI;
-- generated documentation/reference artifacts.
+- OpenAPI client/type bindings;
+- extension registries and ledgers;
+- portable JSON Schemas;
+- presentation-capability constants;
+- composed reference artifacts;
+- static indexes that a build tool cannot discover itself.
 
-Do not generate Tilecast domain services, React pages, workflow logic, or whole Go HTTP handlers merely because a generator can.
+Generation is not appropriate for:
 
-### Keep existing architectural boundaries
+- Go domain services;
+- complete server handlers;
+- React pages;
+- CLI UX;
+- MCP workflow design;
+- business logic;
+- arbitrary schema-driven CRUD screens.
 
-This roadmap must not weaken:
+The existing control-plane architecture is the right precedent: the API client is generated, while CLI commands and MCP workflows are hand-designed.
 
-- the Go modular-monolith domain boundaries;
-- Plugin API host boundaries;
-- the shared Player Runtime host contract;
-- Android's native implementation;
-- Edge's daemon/renderer separation;
-- Demo Mode's use of real domain services and APIs.
+## Keep ownership close to the contract
 
-## OSS decisions
+Do not move every shared fixture into one giant `packages/conformance` directory.
 
-### OpenAPI
+A contract should normally keep its fixtures beside the package that owns the contract:
 
-Keep Tilecast's own Plugin API OpenAPI composition.
+- Activity contract fixtures: `packages/api-schema/activity`;
+- manifest/scheduling fixtures: `packages/manifest-schema`;
+- Edge IPC/wire fixtures: `packages/edge-protocol`;
+- runtime rendering fixtures: `packages/player-runtime/conformance`;
+- Widget visual fixtures: Widgets V2 visual suite.
 
-The Plugin API already makes this split:
+Only introduce a new shared contract package when the semantic contract does not already have a natural owner.
 
-- `docs/openapi/core.yaml`: core API;
-- `plugins/*/api/openapi.yaml`: plugin fragments;
-- `pluginctl`: Tilecast-aware composition and plugin-boundary validation;
-- `docs/openapi.yaml`: canonical composed API.
+## One public task interface
 
-Do not replace `pluginctl` composition with a generic bundler. Generic tooling does not understand plugin base-path ownership or Tilecast's plugin boundaries.
+Keep **Make** as the contributor-facing task interface.
+
+Other tools may implement work below Make, but contributors should not need to learn a second repository task language.
+
+Do not adopt Nx, Turborepo, Bazel, Pants, or another monorepo build orchestrator. Tilecast is a polyglot product repository, not primarily a Node monorepo, and the current complexity does not justify moving every toolchain behind another build system.
+
+---
+
+# OSS/tooling decisions
+
+These choices were rechecked against the current architecture.
+
+## OpenAPI: keep `pluginctl`, add generic validation around it
+
+`pluginctl` must remain the composer because it understands Tilecast-specific ownership:
+
+- plugin API base paths;
+- component collisions;
+- plugin automation;
+- generated-file freshness;
+- extension boundaries.
+
+Do not replace it with Redocly's bundler.
+
+Use [Redocly CLI](https://redocly.com/docs/cli/commands/lint/) only for generic OpenAPI/spec correctness and consistency. Its configuration supports repository-local rules in `redocly.yaml`, including built-in `spec`, `recommended`, and stricter rule sets.
+
+Start with a deliberately small configuration. Tilecast already has custom semantic checks in `pluginctl`; do not duplicate every Tilecast-specific rule in Redocly.
+
+## API compatibility: oasdiff
+
+Use [oasdiff](https://github.com/oasdiff/oasdiff) against the composed contract.
+
+Its `breaking` command is designed for CI and distinguishes definite errors from warnings. The rollout should be:
+
+1. report changes in pull requests;
+2. clean the current contract baseline;
+3. block definite `ERR` changes;
+4. keep warnings reviewable unless experience shows a warning class should be promoted.
+
+The comparison must use the pull request's actual base SHA so stacked PRs compare against their own base.
+
+## Studio API typing: openapi-typescript family
+
+Use:
+
+- [openapi-typescript](https://openapi-ts.dev/) for generated TypeScript `paths`/schema types;
+- [openapi-fetch](https://openapi-ts.dev/openapi-fetch/) for the thin browser transport;
+- [openapi-react-query](https://openapi-ts.dev/openapi-react-query/) for typed TanStack Query integration where it improves call sites.
+
+This fits the architecture because Studio already uses TanStack Query and because the existing Go control plane has established that **OpenAPI is the supported HTTP transport contract**.
+
+Do not use OpenAPI Generator to create a large generated Studio SDK or hundreds of generated React hooks.
+
+## Studio HTTP testing: MSW
+
+Use [Mock Service Worker](https://mswjs.io/) for Studio tests that should exercise the HTTP boundary without booting Demo Mode.
+
+MSW works at the network API boundary rather than replacing `fetch` with application-specific mocks, so the same handlers can exercise the real typed browser transport.
+
+Do not auto-generate a complete mock server from OpenAPI. Explicit test handlers remain easier to understand and let each test describe the behavior it cares about.
+
+## Toolchains: mise below Make
+
+Use [mise](https://mise.jdx.dev/) for version selection/bootstrap only.
+
+It should pin the tools for which a contributor reasonably expects the repository to provide a version:
+
+- Node;
+- Go;
+- Rust/rustup;
+- Java.
+
+Keep platform-heavy dependencies such as Docker, the Android SDK, WPE build images, and FFmpeg in `make doctor` checks/documentation rather than pretending mise can make every host identical.
+
+## API property testing: Schemathesis, later
+
+Use [Schemathesis](https://schemathesis.io/) only after response schemas and authentication metadata are complete enough to produce useful failures.
+
+Demo Mode is the correct target because it is disposable and uses the real API.
+
+Start with safe operations and make the job informational or API-change-only before considering it a required check.
+
+---
+
+# Workstream A: unify generation and repository checks
+
+This should be first because the recent extension/control-plane work has created several good generators that the root commands do not yet consistently orchestrate.
+
+## Current gaps
+
+At the current baseline:
+
+- `extensions:generate` already composes Plugin, Widget, and Data Source generation;
+- `extensions:check` already checks all three extension systems;
+- `packages/api-client` has a `go:generate` directive for `oapi-codegen`;
+- root `make check` still calls Plugin and Widget checks separately and does not use `extensions:check`;
+- the Data Source Go module is not treated consistently by the root Go check list;
+- API-client generation freshness is not a first-class root check;
+- expensive Edge/runtime/visual/E2E checks are still separate, which is correct, but there is no clear "everything" command.
+
+## Build
 
 Add:
-
-- **Redocly CLI** for OpenAPI linting and reference correctness;
-- **openapi-typescript** for generated TypeScript wire types;
-- **openapi-fetch** for the small typed Studio HTTP transport;
-- **openapi-react-query** for typed TanStack Query integration;
-- **oasdiff** for semantic API compatibility checks in pull requests.
-
-Do not migrate the Go server to generated handlers. Tilecast's existing Chi handlers, strict decoding, domain services, authentication, CSRF, and plugin route registration should remain explicit.
-
-### Studio API tests
-
-Use **Mock Service Worker (MSW)** for Studio unit/integration tests that exercise HTTP behavior.
-
-MSW complements, rather than replaces, Demo Mode:
-
-- pure logic: Vitest;
-- Studio HTTP integration: Vitest + MSW;
-- real full-stack browser behavior: Demo Mode + Playwright.
-
-### Repository tooling
-
-Keep **Make** as the public task interface.
-
-Use **mise** only for polyglot tool installation/version selection and environment setup.
-
-Do not adopt Nx, Turborepo, Bazel, or another repository-wide build framework. Tilecast is not primarily a JavaScript monorepo, and the cost of forcing Go, Kotlin, Rust, C, Docker, and Node into one build graph is not justified.
-
-### API property testing
-
-After the OpenAPI contract is sufficiently complete, evaluate **Schemathesis** against disposable Demo Mode installations.
-
-Start with safe/read-only endpoints and API-change-only or scheduled CI. Do not make broad stateful fuzzing a required check until signal quality is proven.
-
-## Phase 0: finish the boundaries already in flight
-
-Before large API and Player contract refactors, finish the current architectural work:
-
-- Plugin API v1 through M7, including Forms generalization and removal of remaining plugin-specific host special cases;
-- shared Player Runtime/Edge renderer work that is currently defining the final host/runtime boundary.
-
-Work that does not overlap these boundaries may begin earlier:
-
-- this architecture document;
-- root generation/check command cleanup;
-- affected-area tooling;
-- `make doctor`;
-- toolchain version normalization.
-
-## Phase 1: make OpenAPI executable
-
-### 1.1 Lint the composed contract
-
-Add Redocly configuration and validate `docs/openapi.yaml`.
-
-Require normal JSON operations to define, where applicable:
-
-- unique `operationId`;
-- request schema;
-- success response schema;
-- standard error responses;
-- security behavior;
-- useful descriptions.
-
-Existing incomplete operations should be fixed incrementally before their Studio consumers migrate to generated types.
-
-### 1.2 Verify server route parity
-
-Add a Go test that:
-
-1. builds the production Chi router;
-2. walks registered routes with `chi.Walk`;
-3. parses the composed OpenAPI document;
-4. compares method + path pairs.
-
-Fail when:
-
-- a public API route is registered but undocumented;
-- an OpenAPI operation has no server route;
-- operation IDs are duplicated.
-
-Maintain only a small explicit allowlist for legitimate non-OpenAPI transport endpoints.
-
-This is preferred over generated Go handlers because it preserves Tilecast's server architecture while making the API specification enforceable.
-
-### 1.3 Detect breaking API changes
-
-Compare the pull request's composed OpenAPI to the base revision with `oasdiff`.
-
-Roll out in two steps:
-
-1. report compatibility findings without blocking;
-2. after the existing specification is clean enough, block definite breaking changes.
-
-Intentional breaking changes must be explicit release decisions rather than accidental drift.
-
-## Phase 2: make `@tilecast/api-schema` useful
-
-Turn `packages/api-schema` into the home of generated public API TypeScript contracts while retaining existing shared fixtures such as Activity.
-
-Suggested structure:
-
-```text
-packages/api-schema/
-  package.json
-  README.md
-  generated/
-    openapi.d.ts
-  activity/
-    ...
-  test/
-```
-
-Generate `generated/openapi.d.ts` from `docs/openapi.yaml` with `openapi-typescript`.
-
-Commit generated output and fail CI when regeneration produces a diff. This gives fresh checkouts editor support and makes API changes reviewable.
-
-Introduce root commands:
 
 ```sh
 make generate
 make generated-check
+make check-changed
+make check-all
 ```
 
-These become the umbrella for:
+### `make generate`
 
-- Plugin API generated files;
-- composed OpenAPI;
-- API TypeScript bindings;
-- capability bindings;
-- future small generated registries.
+Order matters:
 
-## Phase 3: replace handwritten Studio transport duplication
+```text
+1. npm run extensions:generate
+      ↓
+   composed docs/openapi.yaml is current
+2. cd packages/api-client && go generate ./...
+      ↓
+   generated Go API client is current
+3. generate TypeScript OpenAPI types
+      ↓
+   Studio contract bindings are current
+4. generate presentation-capability bindings, once that workstream lands
+```
 
-Create one typed transport layer around `openapi-fetch`.
+The OpenAPI consumers must run **after** extension generation because plugin fragments are part of the canonical document.
 
-It owns:
+### `make generated-check`
+
+Do not maintain a second implementation of every generator.
+
+Run the real generators and fail when the working tree changes. In CI this can be a fresh checkout followed by:
+
+```sh
+make generate
+git diff --exit-code -- .
+```
+
+If local use should not modify a contributor's dirty tree, add a small wrapper that refuses to run the check when tracked generated files are already dirty, or performs the check in a temporary worktree. Keep the generator implementations themselves single-source.
+
+### `make check`
+
+Change the existing fast/default check to use the aggregate extension contract:
+
+```text
+extensions:check
+format/lint
+Dashboard unit tests
+Server + first-party Go modules
+packages/api-client tests
+CLI tests
+helper tests
+Android unit/lint
+docs checks
+generated freshness for inexpensive generated artifacts
+```
+
+Do not silently omit `data-sources` simply because it became a separate module later than Plugins and Widgets.
+
+### `make check-all`
+
+Make the expensive boundary explicit rather than hiding it inside normal development:
+
+```text
+make check
++ Linux Player/runtime build + tests
++ Edge fmt/clippy/unit tests
++ Player Runtime Electron/WPE conformance where the Edge image is available
++ Widget visual regression
++ Demo Mode Playwright E2E
++ container build/validation
+```
+
+A contributor should know when a command requires Docker, the Edge image, browsers, or Android tooling.
+
+## Acceptance criteria
+
+- every committed generated artifact has one documented generator;
+- one root command regenerates all generated artifacts in dependency order;
+- CI proves generated files are fresh;
+- `make check` no longer misses a first-party extension module;
+- `make check-all` is the documented full local validation path.
+
+---
+
+# Workstream B: finish making OpenAPI an executable source of truth
+
+The control-plane work already did much of the hard architectural work. The remaining problem is **contract completeness**.
+
+A recent CLI bug was possible because code and tests agreed on a screen-list shape that the real Server did not return. That is exactly the class of error a complete generated contract should make difficult.
+
+## B1. Tighten the existing `pluginctl` conformance checks
+
+Do not create a parallel Tilecast OpenAPI checker.
+
+Extend the current derived-conformance code that already checks:
+
+- duplicate `operationId` values;
+- parameter schemas;
+- JSON request body schemas;
+- response documentation;
+- auth evidence;
+- dangling references;
+- plugin operation IDs;
+- automation exclusions.
+
+The current compatibility bridge intentionally skips some operations without an `operationId` or description. That was useful while the programmable control plane was being built, but it should not be the permanent state.
+
+Move toward this rule:
+
+> Every supported `/api/v1` HTTP operation has a stable `operationId`, description, security declaration, typed request where applicable, and typed response body where applicable.
+
+Browser-only or non-automatable operations still belong in the HTTP contract. "Not exposed through CLI/MCP" is an automation concern, not a reason for the API response to remain untyped.
+
+Keep only a tiny explicit exception list for routes that are genuinely outside the OpenAPI contract.
+
+## B2. Add Server route ↔ OpenAPI parity
+
+Add a Go integration test that builds the production Chi router, including bundled plugin routes, and walks it with `chi.Walk`.
+
+Normalize each route into:
+
+```text
+METHOD /api/v1/path/{parameter}
+```
+
+Parse the composed `docs/openapi.yaml` and collect the same keys.
+
+Fail when:
+
+- a registered `/api/v1` route is absent from OpenAPI;
+- OpenAPI describes an operation the built Server does not register.
+
+Keep non-`/api/v1` health/static transports out of this comparison.
+
+If a tiny number of unusual API transports cannot be represented cleanly, use a named, documented allowlist with tests that fail when an entry becomes stale.
+
+Do not generate the Go handlers from OpenAPI. The test gives Tilecast the benefit of executable parity without replacing the existing Chi/domain architecture.
+
+## B3. Add Redocly as the generic standards layer
+
+Add a pinned `@redocly/cli` development dependency and root `redocly.yaml`.
+
+Start with `recommended` or `spec` plus a deliberately selected set of errors. Do not immediately turn every style warning into a merge blocker.
+
+The division of responsibility should be:
+
+```text
+pluginctl
+  Tilecast ownership and semantic conventions
+
+Redocly
+  generic OpenAPI structure/spec/reference correctness
+
+route parity test
+  actual Server surface matches the document
+
+oasdiff
+  compatibility against the previous document
+```
+
+## B4. Add API compatibility CI
+
+For a pull request:
+
+```sh
+git show "$BASE_SHA:docs/openapi.yaml" > "$RUNNER_TEMP/openapi-base.yaml"
+oasdiff breaking --fail-on ERR   "$RUNNER_TEMP/openapi-base.yaml"   docs/openapi.yaml
+```
+
+During initial rollout, report without failing if the baseline has too much noise.
+
+Once the contract is trustworthy, a definite breaking change should require an explicit API/version decision rather than slipping through as an incidental refactor.
+
+## B5. Make generated Go client freshness explicit
+
+`packages/api-client` is now a first-class consumer of the public contract.
+
+Add it to the generation/freshness path and add tests that ensure its generated layer is reproducible from the committed `docs/openapi.yaml`.
+
+The Go client remains the transport layer for CLI/MCP. Do not move CLI names, prompts, tables, risk classes, or workflow semantics into OpenAPI.
+
+---
+
+# Workstream C: give Studio the same API contract
+
+The Dashboard still has a large handwritten `src/api/types.ts` and `src/api/client.ts`, including its own envelope/error transport.
+
+The goal is not to delete those files in one rewrite. The goal is to make new and migrated domains derive their **wire contract** from the same OpenAPI used by the Go client.
+
+## C1. Turn `@tilecast/api-schema` into the TypeScript contract package
+
+Keep the existing Activity fixtures in the package.
+
+Add generated OpenAPI types, for example:
+
+```text
+packages/api-schema/
+  package.json
+  activity/
+    contract-v2-fixtures.json
+  generated/
+    openapi.d.ts
+  README.md
+```
+
+Generate from **composed** `docs/openapi.yaml` with `openapi-typescript`.
+
+Commit the generated declaration so:
+
+- editor support works immediately after checkout;
+- API changes have reviewable generated diffs;
+- CI can prove freshness.
+
+Do not hand-edit generated types.
+
+## C2. Add one typed browser transport
+
+Create a small transport around `openapi-fetch`.
+
+It should own browser transport mechanics once:
 
 - same-origin credentials;
-- CSRF attachment;
-- standard Tilecast error-envelope decoding;
+- Tilecast's response/error envelope handling;
 - `ApiError`;
-- network errors;
-- proxy/non-JSON failure handling;
-- 204 responses;
-- abort signals.
+- CSRF injection for session-backed unsafe requests;
+- abort signals;
+- empty/204 responses;
+- non-JSON reverse-proxy failures;
+- network errors.
 
-Use `openapi-react-query` for typed TanStack Query integration.
+Do not hide domain behavior here.
 
-Keep semantic domain modules above the transport, for example:
+Keep normalization functions that intentionally support old/mixed Server responses until the compatibility window no longer needs them. A generated wire type does not automatically make compatibility normalization obsolete.
+
+## C3. Add typed TanStack Query integration
+
+Use `openapi-react-query` because Studio already uses TanStack Query.
+
+Prefer small domain modules over literal route strings scattered through components:
 
 ```text
 apps/dashboard/src/api/
@@ -226,329 +519,633 @@ apps/dashboard/src/api/
   query.ts
   domains/
     screens.ts
+    content.ts
     layouts.ts
-    activity.ts
+    settings.ts
+    ...
 ```
 
-Components should normally consume domain query/mutation helpers rather than literal HTTP paths.
+The generated layer knows HTTP paths and payloads. The handwritten domain layer may still own:
 
-Do not generate hundreds of React hook files. Generated wire types and a thin typed query layer are enough.
+- query-key grouping conventions;
+- normalization;
+- optimistic update behavior;
+- invalidation policy;
+- convenient view-facing return types.
 
-Migrate one domain at a time. For each domain:
+Do not generate every React hook.
 
-1. complete the relevant OpenAPI request/response definitions;
-2. regenerate types;
-3. move HTTP calls to the typed transport;
-4. move query/mutation calls to the typed query layer;
-5. delete duplicate handwritten wire types and request wrappers.
+## C4. Migrate incrementally
 
-The long-term goal is for `apps/dashboard/src/api/types.ts` to contain only genuine Studio view models, if any, rather than copies of server DTOs.
+For each domain:
 
-Direct `fetch()` should remain only where the response is intentionally not a normal JSON API object, such as image bytes or streaming transports.
+1. make its OpenAPI responses complete;
+2. regenerate Go + TypeScript contract bindings;
+3. migrate transport calls;
+4. migrate query/mutation calls;
+5. retain any real compatibility normalizers;
+6. delete only the handwritten wire types that are now redundant.
 
-## Phase 4: standardize Studio HTTP tests
+Good early slices are domains with ordinary JSON CRUD/list semantics. Leave unusual streaming/download/security-ceremony calls until the base path is proven.
 
-Adopt MSW for new Studio tests that need HTTP behavior.
+The end state is:
 
-Provide shared test helpers for:
+- `src/api/types.ts` contains only genuine UI/view models or disappears naturally;
+- normal JSON API calls do not define a second wire contract in TypeScript;
+- exceptional binary/streaming transports remain explicit.
 
-- standard success envelopes;
-- standard Tilecast errors;
-- CSRF failures;
-- paginated responses;
-- delayed/network failures.
+---
 
-Retire one-off `stubFetch()` helpers as touched.
+# Workstream D: standardize Studio API tests without replacing real E2E
 
-Do not convert pure unit tests to MSW when no HTTP boundary is involved.
+Adopt MSW for new or migrated tests that need HTTP behavior.
 
-## Phase 5: create the Tilecast conformance system
+Provide a small helper layer for Tilecast conventions:
 
-Create a language-neutral package:
+- `data` envelope;
+- standard error envelope;
+- auth/CSRF failures;
+- paginated list responses;
+- delayed requests;
+- network failure.
+
+Type fixture builders with generated OpenAPI types where practical.
+
+Do **not** generate a complete mock backend from the API contract. Tests should declare behavior explicitly.
+
+The test ladder should be:
 
 ```text
-packages/conformance/
-  README.md
-  catalog.json
-  schema/
-    fixture-set-v1.schema.json
-  fixtures/
-    server-url-policy/
-    scheduling/
-    activity-events/
-    configuration/
-    command-lifecycle/
-    cache-identity/
-    presentation-precedence/
+pure function/component logic
+    Vitest
+
+Studio + HTTP boundary
+    Vitest + MSW
+
+Widget rendering appearance
+    existing Storybook + Playwright visual suite
+
+real Studio/Server/Postgres workflows
+    existing Demo Mode + Playwright
+
+shared display-runtime semantics/visuals
+    existing Player Runtime Electron/WPE conformance
 ```
 
-Fixture files contain inputs and expected semantic outputs, not executable code.
+This avoids duplicating responsibilities across test systems.
 
-Each application uses its native test framework to consume the same fixtures.
+## Reuse the existing visual pattern
 
-Initial candidates should reuse or migrate existing parity work:
+When a stable Studio surface genuinely needs screenshot regression, use the same principles the Widgets V2 suite already established:
 
-- server URL normalization/security policy;
-- schedule resolution;
-- Activity event/session semantics;
-- manifest compatibility behavior;
-- configuration revision acceptance;
-- cache identity;
-- persistent command crash/retry behavior;
-- presentation precedence.
+- Linux Chromium baseline;
+- deterministic data from Demo Mode;
+- reduced motion;
+- fixed viewport;
+- fixed locale/timezone where relevant;
+- hide caret and other unstable browser UI;
+- screenshot only stable surfaces;
+- retain diff artifacts on failure.
 
-Existing Activity and scheduling fixtures should be preserved semantically rather than replaced by new independent test cases.
+Do not blanket-snapshot every Studio page. Visual baselines should cover high-value stable shells/editors where pixel changes are meaningful.
+
+---
+
+# Workstream E: organize cross-language conformance without a junk drawer
+
+The original roadmap proposed moving all shared fixtures into `packages/conformance`. Do **not** do that.
+
+Tilecast now has multiple mature, well-owned conformance systems. Preserve them.
+
+## Existing contract owners
+
+Keep:
+
+- Activity event contract → `packages/api-schema/activity`;
+- schedule/manifest semantics → `packages/manifest-schema`;
+- Edge IPC/media/update wire formats → `packages/edge-protocol`;
+- shared renderer behavior → `packages/player-runtime/conformance`;
+- Widget runtime appearance → `widgets/visual`.
+
+Add a short `docs/conformance.md` inventory explaining which contract owns which fixtures and how to run each suite.
+
+## Add `packages/player-contracts` only for currently ownerless player semantics
+
+Some behavior is duplicated across Players but has no neutral contract owner.
+
+A small package is justified for examples such as:
+
+```text
+packages/player-contracts/
+  README.md
+  server-url-policy/
+    v1.json
+  cache-identity/
+    v1.json
+  configuration-acceptance/
+    v1.json
+  command-lifecycle/
+    v1.json
+```
+
+Do not move schedule or runtime fixtures into this package merely for symmetry.
+
+### First candidate: Server URL policy
+
+Today Android, Electron, and Edge independently implement the same Player URL-security policy. Put the agreed cases in one versioned fixture file and make all three native tests consume it.
+
+Only include the CLI's URL handling if its product policy is intentionally identical. A remote operator CLI and an enrolled signage Player are different trust contexts; do not force them together merely because both parse URLs.
+
+### Other candidates
+
+Add a neutral fixture set only when there are at least two implementations that are supposed to agree:
+
+- cache identity derivation;
+- configuration revision acceptance/rejection;
+- command retry/crash semantics;
+- manifest compatibility decisions not already owned by `manifest-schema`;
+- presentation selection/precedence not already covered by schedule/runtime fixtures.
+
+## Root command
 
 Add:
 
 ```sh
 make conformance
-make conformance AREA=players
 ```
 
-The root command runs native test suites and reports a contract/platform matrix. It does not reimplement the product behavior.
+It delegates to the native suites. It does not implement a new universal runner.
 
-## Phase 6: canonical capability registry
+A useful output is a small matrix of contracts and participating implementations, but the authoritative pass/fail remains each language's normal test framework.
 
-Start this phase only after the shared Player Runtime/Edge host contract stabilizes.
+---
 
-Create a machine-readable registry for externally exchanged Tilecast capability identifiers:
+# Workstream F: remove drift from declarative presentation capabilities
+
+The original roadmap proposed a generic Tilecast capability registry. That is now too broad and would duplicate systems that already exist.
+
+## What is already generated
+
+Widgets V2 already does the right thing:
 
 ```text
-packages/capability-registry/
-  capabilities.json
-  schema.json
-  README.md
+tilecast.widget.json
+      ↓
+   widgetctl
+      ↓
+packages/player-runtime/src/widgets/capabilities.gen.ts
+apps/edge/tilecastd/src/widget_capabilities.rs
 ```
 
-The registry should cover wire-visible capabilities used by:
+Do not replace this.
 
-- Player ↔ Server negotiation;
-- manifest requirements;
-- presentation/runtime features;
-- hardware features;
-- display/control capability identifiers where represented as wire IDs.
+## What is still duplicated
 
-Do not combine unrelated concepts that merely use the word capability, such as Forms authorization permissions.
+The older declarative presentation vocabulary is still repeated in places such as:
 
-Validate the registry with JSON Schema/Ajv and generate native constants for:
+- Server content-definition validation;
+- Android Player presentation support;
+- Electron/reference Player capability reporting;
+- Edge's `NATIVE_CAPABILITIES`.
 
-- TypeScript;
-- Go;
-- Kotlin;
-- Rust.
+Examples include:
 
-Generated files must clearly identify their source and must not be edited manually.
+```text
+layout.surface
+layout.row
+content.text
+content.icon
+collection.repeat
+binding.core
+format.typed
+selection.temporal
+playback.auto_skip
+environment.time
+web.remote
+```
 
-Add checks that discourage introducing new raw capability literals outside the registry, generated output, fixtures, or tests that intentionally exercise unknown capabilities.
+This is the actual registry problem.
 
-The contributor workflow for a new capability becomes:
+## Put the vocabulary with the presentation/manifest contract
 
-1. add the registry entry;
+Prefer a neutral source under `packages/manifest-schema`, for example:
+
+```text
+packages/manifest-schema/
+  presentation-capabilities-v1.json
+```
+
+The file should describe only the presentation capability vocabulary and its contract versions/categories.
+
+Generate the mechanical constants/maps needed by:
+
+- Server Go validation;
+- Player Runtime/legacy Electron TypeScript;
+- Android Kotlin;
+- Edge Rust.
+
+If a platform intentionally supports a lower version or subset, keep the **support profile** platform-owned while importing generated IDs. Do not lie by generating support a platform does not implement.
+
+Keep separate:
+
+- Plugin API declaration capabilities;
+- OAuth/API scopes;
+- Forms authorization capabilities;
+- Player Runtime host capabilities such as `remoteWeb`;
+- hardware/provider-specific diagnostic capability objects.
+
+They are different contracts.
+
+## Acceptance criteria
+
+Adding or renaming a declarative presentation capability should not require searching the repository for string literals.
+
+A capability change should be:
+
+1. update the neutral presentation vocabulary;
 2. run `make generate`;
-3. implement it where relevant;
-4. add or update conformance cases.
+3. implement/support it in the relevant Players;
+4. update conformance fixtures/tests.
 
-## Phase 7: make the repository understand affected areas
+---
 
-Move pull-request path classification out of GitHub Actions shell into repository-owned data.
+# Workstream G: replace CI path heuristics with a repository-owned affected graph
+
+This has become more urgent after the CLI, API client, Widgets, Data Sources, Edge, and extension composition landed.
+
+The current PR workflow still contains a handwritten shell classifier. It knows about many paths, but the dependency graph is now large enough that omissions are easy.
+
+For example, a Data Source module can affect the Server catalog, Studio, container build, docs, extension checks, and E2E. A Widget can affect the runtime, Edge's generated capability list, Server, Studio, docs, visual tests, and container.
+
+## Build
 
 Add:
 
 ```text
 tools/areas.json
 scripts/affected.mjs
+scripts/affected.test.mjs
 ```
 
-Model areas such as:
+Model first-class areas such as:
 
-- Studio;
-- Server;
-- Android Player;
-- Electron Linux Player;
-- Player Runtime;
-- Edge;
-- plugins;
-- docs;
-- container;
-- E2E.
+```text
+server
+cli
+api-client
+studio
+android
+electron
+player-runtime
+edge
+plugins
+widgets
+data-sources
+extensions
+docs
+container
+e2e
+widget-visual
+```
 
-Each area defines source globs, dependencies, and relevant validation commands.
+Each area owns:
 
-For example, a Player Runtime change affects both Electron and Edge runtime validation. A Plugin SDK change affects plugins, Server, Studio, Player Runtime, docs, and generated artifacts.
+- source globs;
+- downstream area dependencies;
+- one or more validation command names.
 
-Use the same affected-area implementation for:
+The script:
+
+1. reads changed paths;
+2. matches direct owners;
+3. computes the transitive downstream closure;
+4. outputs JSON and, when requested, GitHub Actions outputs.
+
+GitHub Actions still owns jobs, service containers, permissions, and caches. The script only answers **what is affected**.
+
+Use the same implementation for:
 
 ```sh
 make check-changed
 ```
 
-and GitHub pull-request validation.
+and PR validation.
 
-This replaces duplicated path knowledge in workflow YAML.
+## Test the classifier
 
-## Phase 8: contributor bootstrap and diagnostics
+This is infrastructure code and should have fixtures.
 
-Keep Make as the public interface.
+Examples:
 
-Add mise configuration for the project's major developer toolchains.
-
-Add:
-
-```sh
-make doctor
+```text
+packages/player-runtime/** → player-runtime + electron + edge + widgets/conformance as appropriate
+widgets/**                → widgets + studio + server + electron + edge + container + docs + visual
+data-sources/**           → data-sources + extensions + studio + server + container + docs + e2e
+packages/api-client/**    → api-client + cli
+docs/openapi/**           → extensions/openapi + api-client + studio API generation + docs
 ```
 
-It should report required, optional, missing, and wrong-version tools, including as relevant:
+A regression in affected-area logic must be caught by tests rather than discovered because a PR skipped CI.
 
-- Node/npm;
-- Go;
-- Rust/rustup;
-- Java;
-- Android SDK;
-- Docker;
-- FFmpeg;
-- Edge development image/support.
+## Do not add a monorepo framework
 
-The doctor should understand affected areas when practical so a documentation-only contributor is not told to install an Android SDK merely to edit prose.
+This graph is small, explicit Tilecast metadata. It should remain understandable from one JSON file and one script.
 
-Normalize Node versions used by local development, CI, and Docker. Prefer an LTS release and upgrade deliberately instead of allowing different environments to drift across major versions.
+---
 
-Add contributor documentation that reduces setup to approximately:
+# Workstream H: contributor bootstrap, toolchain consistency, and `make doctor`
+
+## Current drift to resolve
+
+The current repository demonstrates why this is useful:
+
+- PR Node jobs use Node 22;
+- the dashboard Docker build uses Node 26;
+- Node 24 is the current LTS line;
+- `go.work`/Server/CLI declare Go 1.25.7 while the Server Docker stage currently builds with Go 1.26;
+- Edge already pins Rust 1.98.0;
+- Android CI already clearly pins Java 17.
+
+Not every newer compiler is wrong, but the policy is implicit.
+
+## Decide and document canonical toolchains
+
+For Node, prefer a current LTS release for CI, local development, and production builds unless a concrete dependency requires otherwise. At this baseline that means evaluating Node 24 LTS and moving CI/Docker together if the full suite passes.
+
+For Go, make a deliberate decision instead of leaving `go.work` and Docker on different declared generations:
+
+- either build with the declared repository toolchain;
+- or intentionally adopt the newer Go toolchain and update the repository declarations/tests together.
+
+Do not silently normalize Go versions as part of an unrelated refactor.
+
+Rust continues to use the existing `rust-toolchain.toml`.
+
+Java remains 17 until Android/AGP requirements change.
+
+## Add mise
+
+A root `mise.toml` should pin only the normal language toolchains.
+
+Do not move Make targets into mise tasks. The user-facing commands remain:
 
 ```sh
-git clone ...
-cd tilecast
 mise install
 make bootstrap
 make doctor
 make check-changed
 ```
 
-## Phase 9: evolve existing Demo Mode
+## Add `make doctor`
 
-Do not replace Demo Mode with a parallel declarative mock system.
+Doctor should be a readable diagnostic, not an installer.
 
-Keep its existing properties:
+Check:
 
-- real Server;
-- real Studio;
-- real PostgreSQL;
-- real migrations;
-- real domain services;
-- real API;
-- normal auth/CSRF semantics;
-- pairing through the real protocol;
-- deterministic IDs;
-- simulated players;
-- Playwright integration.
+- Node/npm;
+- Go;
+- Rust/rustup;
+- Java;
+- Docker/Compose;
+- FFmpeg/FFprobe where Server media work is affected;
+- Android SDK/Gradle prerequisites when Android is affected;
+- the Tilecast Edge dev image when Edge Linux/conformance work is affected;
+- browser availability when visual/E2E work is requested.
 
-Continue the rule that scenarios seed through domain services rather than SQL.
+Where practical, accept an area:
 
-Generalize the existing Go scenario builder into composable typed presets and reusable simulated-player profiles.
-
-Useful focused scenarios may include:
-
-- `basic`;
-- `kitchen-sink`;
-- `empty`;
-- `failure-lab`;
-- `compatibility`;
-- `large-library`;
-- `plugin-dev`.
-
-`failure-lab` should intentionally expose difficult UI states such as unavailable content, failed previews, stale/offline screens, mixed capability coverage, failed updates, manifest incompatibility, and plugin attention states.
-
-Provide a TypeScript E2E helper that exposes stable symbolic handles instead of requiring tests to know fixed UUIDs or reset transport details.
-
-For example, tests should be able to request a scenario and reference a named seeded screen without duplicating reset/API mechanics.
-
-## Phase 10: API property testing
-
-After OpenAPI coverage and response schemas are reliable, add Schemathesis against disposable Demo Mode.
-
-Start with:
-
-- GET/HEAD endpoints;
-- endpoints with simple preconditions;
-- API-change-only or scheduled CI.
-
-Expand mutation/stateful testing only after the failure signal is useful.
-
-A failing property test should identify a real contract or server problem rather than merely demonstrate that a complex endpoint requires setup the generator cannot infer.
-
-## Desired end-state workflow
-
-A typical feature should follow this path:
-
-```text
-contract change
-    ↓
-make generate
-    ↓
-generated API/capability bindings
-    ↓
-native implementation
-    ↓
-shared conformance where required
-    ↓
-Studio typed query/UI
-    ↓
-Demo scenario state if needed
-    ↓
-make check-changed
+```sh
+make doctor AREA=docs
+make doctor AREA=edge
 ```
 
-Pull-request validation should automatically cover, as appropriate:
+A docs-only contributor should not be told the Android SDK is mandatory.
 
-- generated artifacts are current;
-- OpenAPI linting;
-- server route/spec parity;
-- API compatibility;
-- native language tests;
-- shared conformance;
-- affected builds;
-- Demo Mode Playwright tests.
+---
 
-## Proposed implementation stack
+# Workstream I: evolve Demo Mode instead of rebuilding it
 
-Use a sequence of reviewable PRs:
+Demo Mode's architecture is already correct.
 
-1. Contracts/conformance ADR and root generation umbrella.
-2. OpenAPI quality gate and route/spec parity.
-3. Generated `@tilecast/api-schema` TypeScript definitions.
-4. Typed Studio transport.
-5. Typed React Query layer and representative domain migrations.
-6. Remaining Studio API migration and duplicate transport/type removal.
-7. API compatibility CI with `oasdiff`.
-8. Conformance package and migration of existing schedule/activity fixtures.
-9. Expanded Player/server conformance fixtures.
-10. Capability registry and generated bindings.
-11. Repository affected-area graph and `make check-changed`.
-12. Contributor bootstrap, mise, `make doctor`, and toolchain normalization.
-13. Demo Mode scenario/profile generalization and E2E symbolic handles.
-14. Selective Schemathesis property testing.
+Keep:
 
-## Sequencing constraints
+- real database and migrations;
+- real Server and Studio;
+- real domain services;
+- real auth and CSRF;
+- real API;
+- pairing through the real protocol;
+- deterministic seed IDs;
+- simulated Players;
+- Playwright against the actual stack;
+- the rule that scenarios seed through domain services, never SQL.
 
-The work does not all need to wait for the same dependency:
+## Generalize the Go builder only where repeated setup exists
 
-- PRs 1, 11, and 12 can begin while Plugin API work is still finishing because they have little architectural overlap.
-- PRs 2 through 7 should target the post-M7 Plugin API shape so the final composed OpenAPI/plugin boundary is migrated once.
-- PRs 8 through 10 should follow stabilization of the shared renderer/host capability work so Player contracts and capabilities are standardized once.
-- Demo Mode improvements can proceed independently once their target feature states exist.
+Do not invent YAML describing the whole Tilecast data model.
 
-## Explicit non-goals
+Prefer composable Go helpers and player profiles inside the existing demo package.
+
+Examples of reusable player profiles, if tests need them repeatedly:
+
+```text
+modern Android
+legacy Android
+Electron
+Edge
+limited presentation capabilities
+stale
+offline
+command failure
+manifest incompatibility
+update failure
+```
+
+## Add scenarios from real testing needs
+
+Keep `basic` and `kitchen-sink`.
+
+Reasonable focused additions are:
+
+- `empty`: first-run/empty-state UI;
+- `failure-lab`: intentional failed/unavailable/stale states;
+- `compatibility`: mixed Player generations/capabilities;
+- `plugin-dev`: installed/uninstalled extension states.
+
+Treat `large-library` as a manual/performance scenario rather than a default E2E fixture unless it proves necessary.
+
+Avoid dozens of scenarios that become another product matrix to maintain.
+
+## Give E2E symbolic handles
+
+Tests should not need to know UUID constants or reset mechanics.
+
+Extend the existing E2E support layer toward:
+
+```ts
+await demo.reset(api, "failure-lab");
+const cafeteria = demo.screen("cafeteria-east");
+```
+
+The fixed IDs remain useful internally; the test API exposes stable names.
+
+## Parallelism later, only if E2E becomes a bottleneck
+
+The current E2E suite serializes because every test resets one installation.
+
+Do not complicate Demo Mode preemptively.
+
+If runtime becomes material, parallelize by running isolated Demo stacks per worker/port rather than weakening reset isolation or sharing mutable scenarios concurrently.
+
+---
+
+# Workstream J: selective API property testing
+
+Do this only after Workstream B substantially completes the response schemas.
+
+Use Schemathesis against a disposable Demo Mode stack.
+
+Start with a curated operation set:
+
+- public identity;
+- authenticated GET/HEAD reads;
+- ordinary list/detail endpoints;
+- simple validation endpoints.
+
+Then consider stateful workflows where setup is deterministic.
+
+Initially run it:
+
+- on a schedule;
+- manually;
+- or when OpenAPI/Server API paths change.
+
+Do not make a noisy fuzzer block every CSS/docs pull request.
+
+Promote it to required CI only for operation classes that have demonstrated stable signal.
+
+---
+
+# Workstream K: reconcile contributor and architecture documentation
+
+Recent implementation moved faster than some repository guidance.
+
+As the work above lands, update:
+
+- `AGENTS.md` package descriptions that still call implemented contract packages "reserved";
+- developer docs for the generated API client;
+- extension contribution docs to point at `extensions:check` / `extensions:generate`;
+- a new `docs/conformance.md` inventory;
+- the documented local validation tiers: `check`, `check-changed`, `check-all`;
+- the generated-file rule: never edit generated output directly;
+- the affected-area/toolchain bootstrap workflow.
+
+Documentation must describe the actual repository commands, not an aspirational second workflow.
+
+---
+
+# Revised implementation order
+
+The original roadmap had fourteen PRs because several foundations did not yet exist. The merged work lets this be smaller and better targeted.
+
+Use roughly this sequence:
+
+| PR | Scope | Why now |
+| --- | --- | --- |
+| 1 | **Generation/check hygiene**: `make generate`, `generated-check`, use `extensions:check`, include Data Sources and `packages/api-client`, document validation tiers | Fixes real omissions immediately and creates the base for later generators |
+| 2 | **Affected-area graph**: `tools/areas.json`, tested `affected.mjs`, `make check-changed`, migrate PR classifier | Every later workstream benefits from correct selective CI |
+| 3 | **OpenAPI completeness**: tighten existing `pluginctl` derived conformance, complete weak response schemas, add Chi route parity | Makes the existing Go client and future TS client trustworthy |
+| 4 | **OpenAPI generic/compat CI**: Redocly + oasdiff | Adds standards and backward-compat checks after the contract baseline is sound |
+| 5 | **Studio API foundation**: generated `@tilecast/api-schema` types + `openapi-fetch` transport | Reuses the same contract as CLI/MCP |
+| 6 | **Studio query/test migration**: `openapi-react-query`, MSW helpers, migrate representative domains | Proves ergonomics before broad conversion |
+| 7 | **Remaining Studio API migration** in reviewable domain slices | Removes duplicate wire types without a flag-day rewrite |
+| 8 | **Conformance inventory + ownerless Player contracts**: `docs/conformance.md`, URL policy first, root `make conformance` | Builds on the existing mature conformance systems rather than replacing them |
+| 9 | **Declarative presentation-capability source** under `manifest-schema` + generated language bindings | Removes a concrete repeated string/version vocabulary; leaves Widget capabilities on `widgetctl` |
+| 10 | **Toolchain/bootstrap**: mise, `make doctor`, resolve Node/Go build-version policy | Contributor quality-of-life after the task graph is explicit |
+| 11 | **Demo Mode focused scenarios/profiles + symbolic E2E handles** | Makes full-stack tests easier to author and reuse |
+| 12 | **Schemathesis pilot** | Only useful after API schemas are complete enough |
+
+These do not need to be a rigid twelve-PR stack. A small phase may combine with an adjacent one when review remains clear. Do not create PRs merely to satisfy the numbering.
+
+---
+
+# Suggested command model after completion
+
+```sh
+# Install/pin language toolchains.
+mise install
+
+# Install repository dependencies.
+make bootstrap
+
+# Explain what this machine is ready to build.
+make doctor
+
+# Regenerate every committed generated artifact.
+make generate
+
+# Prove generated artifacts are fresh.
+make generated-check
+
+# Fast/default repository validation.
+make check
+
+# Run validation required by the current diff.
+make check-changed
+
+# Run cross-language semantic parity suites.
+make conformance
+
+# Expensive complete validation where prerequisites exist.
+make check-all
+
+# Real disposable product stack.
+make demo
+make e2e
+```
+
+Each command should be documented in one place and behave the same locally and in CI.
+
+---
+
+# Definition of done
+
+This roadmap is complete when a contributor can make a cross-cutting feature without repository folklore.
+
+Specifically:
+
+- all supported HTTP operations have a trustworthy composed OpenAPI contract;
+- Server routes and OpenAPI cannot silently diverge;
+- CLI/MCP Go bindings and Studio TypeScript bindings come from that same contract;
+- normal Studio API code no longer copies Server DTOs by hand;
+- API breaking changes are visible in PRs;
+- generated artifacts have one ordered root generation path;
+- changed-file CI decisions come from a tested repository-owned dependency graph;
+- shared semantic behavior has fixtures owned by the relevant contract;
+- the duplicated declarative presentation-capability vocabulary has one source;
+- Widget capabilities continue to come from Widget manifests;
+- Widget visual regression and Player Runtime conformance remain the authoritative systems for their domains;
+- Demo Mode remains the authoritative real-stack browser/integration environment;
+- contributors can discover required toolchains and checks without reading workflow YAML.
+
+---
+
+# Explicit non-goals
 
 This roadmap does **not** propose:
 
-- replacing Make with a monorepo framework;
-- generating the Tilecast Go server from OpenAPI;
-- one universal Player implementation shared through Wasm/FFI;
-- a generic Go CRUD framework;
-- a schema-driven React page framework;
+- replacing Make;
+- adding Nx, Turborepo, Bazel, or Pants;
+- replacing `pluginctl` OpenAPI composition;
+- generating Tilecast's Go handlers/domain services from OpenAPI;
+- generating CLI UX or MCP workflows from OpenAPI;
+- replacing the existing Go `packages/api-client`;
+- one universal Player implementation through Wasm or FFI;
+- moving every fixture into one generic conformance directory;
+- one universal registry for every concept called a capability;
+- replacing Widget capability generation already owned by `widgetctl`;
 - replacing Demo Mode with mocks or YAML;
-- merging every internal concept named "capability" into one registry;
-- introducing a proprietary cloud service or hosted build dependency.
+- replacing the existing Player Runtime or Widget visual-regression suites;
+- a hosted proprietary testing/build dependency.
 
-The intended result is a more explicit and easier-to-contribute-to Tilecast without obscuring the existing architecture behind another framework.
+The intended result is not "more architecture." It is that the architecture Tilecast already has becomes easier to discover, harder to accidentally violate, and cheaper to extend.
