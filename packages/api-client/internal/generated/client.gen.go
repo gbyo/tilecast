@@ -981,6 +981,45 @@ func (e PublicationHistoryItemMethod) Valid() bool {
 	}
 }
 
+// Defines values for SchedulePresentationType.
+const (
+	SchedulePresentationTypeDisplayControl SchedulePresentationType = "display_control"
+	SchedulePresentationTypeLayout         SchedulePresentationType = "layout"
+	SchedulePresentationTypePlaylist       SchedulePresentationType = "playlist"
+)
+
+// Valid indicates whether the value is a known member of the SchedulePresentationType enum.
+func (e SchedulePresentationType) Valid() bool {
+	switch e {
+	case SchedulePresentationTypeDisplayControl:
+		return true
+	case SchedulePresentationTypeLayout:
+		return true
+	case SchedulePresentationTypePlaylist:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ScheduleType.
+const (
+	ScheduleTypeOneTime ScheduleType = "one_time"
+	ScheduleTypeWeekly  ScheduleType = "weekly"
+)
+
+// Valid indicates whether the value is a known member of the ScheduleType enum.
+func (e ScheduleType) Valid() bool {
+	switch e {
+	case ScheduleTypeOneTime:
+		return true
+	case ScheduleTypeWeekly:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ScheduleInputTargetsType.
 const (
 	ScheduleInputTargetsTypeGroup  ScheduleInputTargetsType = "group"
@@ -1011,6 +1050,24 @@ func (e ScheduleInputType) Valid() bool {
 	case ScheduleInputTypeOneTime:
 		return true
 	case ScheduleInputTypeWeekly:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ScheduleTargetType.
+const (
+	ScheduleTargetTypeGroup  ScheduleTargetType = "group"
+	ScheduleTargetTypeScreen ScheduleTargetType = "screen"
+)
+
+// Valid indicates whether the value is a known member of the ScheduleTargetType enum.
+func (e ScheduleTargetType) Valid() bool {
+	switch e {
+	case ScheduleTargetTypeGroup:
+		return true
+	case ScheduleTargetTypeScreen:
 		return true
 	default:
 		return false
@@ -2762,6 +2819,42 @@ type ReviewDecisionRequest struct {
 	Note *string `json:"note,omitempty"`
 }
 
+// Schedule defines model for Schedule.
+type Schedule struct {
+	CreatedAt   time.Time `json:"createdAt"`
+	DailyEnd    *string   `json:"dailyEnd,omitempty"`
+	DailyStart  *string   `json:"dailyStart,omitempty"`
+	DaysOfWeek  []int     `json:"daysOfWeek"`
+	Description string    `json:"description"`
+
+	// DisplayAction A bounded Display Control action. A schedule may contain one action instead of a playlist or Layout. The server validates that only the field belonging to the selected type is present.
+	DisplayAction    *DisplayControlAction    `json:"displayAction,omitempty"`
+	Enabled          bool                     `json:"enabled"`
+	EndDate          *openapi_types.Date      `json:"endDate,omitempty"`
+	Id               openapi_types.UUID       `json:"id"`
+	LayoutId         *openapi_types.UUID      `json:"layoutId,omitempty"`
+	LayoutName       *string                  `json:"layoutName,omitempty"`
+	Name             string                   `json:"name"`
+	OneTimeEnd       *time.Time               `json:"oneTimeEnd,omitempty"`
+	OneTimeStart     *time.Time               `json:"oneTimeStart,omitempty"`
+	PlaylistId       *openapi_types.UUID      `json:"playlistId,omitempty"`
+	PlaylistName     string                   `json:"playlistName"`
+	PresentationType SchedulePresentationType `json:"presentationType"`
+	Priority         int                      `json:"priority"`
+	Specificity      int                      `json:"specificity"`
+	StartDate        *openapi_types.Date      `json:"startDate,omitempty"`
+	Targets          []ScheduleTarget         `json:"targets"`
+	Timezone         string                   `json:"timezone"`
+	Type             ScheduleType             `json:"type"`
+	UpdatedAt        time.Time                `json:"updatedAt"`
+}
+
+// SchedulePresentationType defines model for Schedule.PresentationType.
+type SchedulePresentationType string
+
+// ScheduleType defines model for Schedule.Type.
+type ScheduleType string
+
 // ScheduleInput defines model for ScheduleInput.
 type ScheduleInput struct {
 	DailyEnd    *string `json:"dailyEnd,omitempty"`
@@ -2795,10 +2888,29 @@ type ScheduleInputTargetsType string
 // ScheduleInputType defines model for ScheduleInput.Type.
 type ScheduleInputType string
 
+// ScheduleList defines model for ScheduleList.
+type ScheduleList struct {
+	DefaultTimezone string     `json:"defaultTimezone"`
+	Items           []Schedule `json:"items"`
+	Page            int        `json:"page"`
+	PageSize        int        `json:"pageSize"`
+	Total           int        `json:"total"`
+}
+
 // SchedulePublicationRequest defines model for SchedulePublicationRequest.
 type SchedulePublicationRequest struct {
 	RequestedPublicationAt time.Time `json:"requestedPublicationAt"`
 }
+
+// ScheduleTarget defines model for ScheduleTarget.
+type ScheduleTarget struct {
+	Id   openapi_types.UUID `json:"id"`
+	Name *string            `json:"name,omitempty"`
+	Type ScheduleTargetType `json:"type"`
+}
+
+// ScheduleTargetType defines model for ScheduleTarget.Type.
+type ScheduleTargetType string
 
 // Screen defines model for Screen.
 type Screen struct {
@@ -44050,6 +44162,17 @@ func (r ProviderCatalogResponse) ContentType() string {
 type ListSchedulesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ScheduleList `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListSchedulesResponse) GetJSON200() *struct {
+	Data ScheduleList `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -44084,6 +44207,17 @@ func (r ListSchedulesResponse) ContentType() string {
 type CreateScheduleResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data Schedule `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateScheduleResponse) GetJSON201() *struct {
+	Data Schedule `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -44186,6 +44320,17 @@ func (r DeleteScheduleResponse) ContentType() string {
 type GetScheduleResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data Schedule `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetScheduleResponse) GetJSON200() *struct {
+	Data Schedule `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -44220,6 +44365,17 @@ func (r GetScheduleResponse) ContentType() string {
 type UpdateScheduleResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data Schedule `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateScheduleResponse) GetJSON200() *struct {
+	Data Schedule `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -44254,6 +44410,17 @@ func (r UpdateScheduleResponse) ContentType() string {
 type DisableScheduleResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data Schedule `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DisableScheduleResponse) GetJSON200() *struct {
+	Data Schedule `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -44288,6 +44455,17 @@ func (r DisableScheduleResponse) ContentType() string {
 type EnableScheduleResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data Schedule `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r EnableScheduleResponse) GetJSON200() *struct {
+	Data Schedule `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -59177,6 +59355,21 @@ func ParseListSchedulesResponse(rsp *http.Response) (*ListSchedulesResponse, err
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ScheduleList `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -59191,6 +59384,27 @@ func ParseCreateScheduleResponse(rsp *http.Response) (*CreateScheduleResponse, e
 	response := &CreateScheduleResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data Schedule `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -59241,6 +59455,18 @@ func ParseGetScheduleResponse(rsp *http.Response) (*GetScheduleResponse, error) 
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data Schedule `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
 	return response, nil
 }
 
@@ -59255,6 +59481,18 @@ func ParseUpdateScheduleResponse(rsp *http.Response) (*UpdateScheduleResponse, e
 	response := &UpdateScheduleResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data Schedule `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	}
 
 	return response, nil
@@ -59273,6 +59511,18 @@ func ParseDisableScheduleResponse(rsp *http.Response) (*DisableScheduleResponse,
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data Schedule `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
 	return response, nil
 }
 
@@ -59287,6 +59537,18 @@ func ParseEnableScheduleResponse(rsp *http.Response) (*EnableScheduleResponse, e
 	response := &EnableScheduleResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data Schedule `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	}
 
 	return response, nil
