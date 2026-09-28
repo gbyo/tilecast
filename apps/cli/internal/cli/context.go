@@ -45,8 +45,8 @@ func newContextCommand(env *environment) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				cmd.Println(current.Name)
-				return nil
+				_, err = fmt.Fprintln(cmd.OutOrStdout(), current.Name)
+				return err
 			},
 		},
 		&cobra.Command{

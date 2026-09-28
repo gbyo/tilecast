@@ -37,19 +37,20 @@ func quietFlag(cmd *cobra.Command) bool {
 	return value
 }
 
-// printData renders one result payload: JSON with --json, or the human
-// rendering otherwise.
+// printData renders one result payload on stdout: JSON with --json, or the
+// human rendering otherwise. Cobra's Print helpers write to stderr, so data
+// never goes through them.
 func printData(cmd *cobra.Command, payload any, human func() string) error {
 	if jsonFlag(cmd) {
 		raw, err := json.MarshalIndent(payload, "", "  ")
 		if err != nil {
 			return err
 		}
-		cmd.Println(string(raw))
-		return nil
+		_, err = fmt.Fprintln(cmd.OutOrStdout(), string(raw))
+		return err
 	}
-	cmd.Println(human())
-	return nil
+	_, err := fmt.Fprintln(cmd.OutOrStdout(), human())
+	return err
 }
 
 // timeoutContext bounds one command's server calls. --timeout is a

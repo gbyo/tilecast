@@ -66,11 +66,12 @@ func newFixture(t *testing.T) *cliFixture {
 	settingsRevision := 7
 	settingsValues := map[string]any{"power.active_hours_end": "17:00"}
 	mux.HandleFunc("/api/v1/screens", func(w http.ResponseWriter, r *http.Request) {
-		write(w, map[string]any{"screens": []any{
+		// Mirrors the server's listScreens envelope: data.items plus total.
+		write(w, map[string]any{"items": []any{
 			map[string]any{"id": "11111111-1111-1111-1111-111111111111", "name": "lobby", "status": "online"},
 			map[string]any{"id": "22222222-2222-2222-2222-222222222222", "name": "hall", "status": "stale"},
 			map[string]any{"id": "33333333-3333-3333-3333-333333333333", "name": "hall", "status": "offline"},
-		}})
+		}, "total": 3})
 	})
 	mux.HandleFunc("/api/v1/screens/", func(w http.ResponseWriter, r *http.Request) {
 		rest := strings.TrimPrefix(r.URL.Path, "/api/v1/screens/")

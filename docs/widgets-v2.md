@@ -339,8 +339,9 @@ Player bundle, Studio editor, and conformance. Only its source differs.
 - Skip-when-empty for components (`empty: "skip-eligible"`) is declared but not acted on. A component that is empty shows its empty presentation.
 - Widget-owned copy (for example the default empty title) is English. Clock V2 shows only Intl-formatted text.
 - In the Studio gallery, a Widget module's catalog entry follows the definitions in `contentdefs/definitions`, so Clock now appears last in its category.
-- Studio still previews Clock with its compatibility renderer until the V2
-  authoring/shared-preview work lands.
+- PR 1 left the Studio Clock preview on its compatibility renderer. The V2
+  authoring work replaced it: Studio previews every V2 Widget with the real
+  element through `WidgetMount` (§10).
 
 ## 16. PR sequence
 

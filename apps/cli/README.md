@@ -1,5 +1,8 @@
 # Tilecast remote CLI (`tilecast`)
 
+User guides: [command-line interface](https://tilecast.org/integrations/cli/)
+and [MCP](https://tilecast.org/integrations/mcp/).
+
 This module is the remote management CLI for a Tilecast installation. It
 talks to Tilecast Server over the supported HTTP API. It is a separate Go
 module on purpose: nothing here may import server internals, PostgreSQL
@@ -39,8 +42,9 @@ direct database access.
   Sensitive tools require an explicit confirmation argument. Break-glass
   administration is excluded.
 
-`--json` prints result data as JSON; `--plain` drops table framing;
-`--quiet` suppresses progress and warnings. Read commands do not prompt.
+Result data goes to stdout. `--json` prints it as JSON; `screen list
+--plain` drops column alignment; `--quiet` suppresses progress and
+warnings. Read commands do not prompt.
 Mutations that require confirmation refuse a non-TTY unless `--yes` is
 supplied. Progress and warnings go to stderr, leaving MCP stdout reserved
 for protocol frames.

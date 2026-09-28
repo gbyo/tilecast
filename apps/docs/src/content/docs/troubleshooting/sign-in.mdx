@@ -25,7 +25,7 @@ Try recovery in this order:
 
 1. Use an unused recovery code.
 2. Have an Owner or Administrator reset MFA for an account they are allowed to manage.
-3. If the only Owner is locked out, use the server's break-glass MFA reset command with direct server/database access.
+3. If the only Owner is locked out, run `tilecast-server mfa reset` with the account's username on the server host. It needs shell access and the server's database settings. The remote `tilecast` CLI can't do this.
 
 Resetting MFA signs the account out and removes its enrolled factors.
 

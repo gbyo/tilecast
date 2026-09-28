@@ -18,7 +18,7 @@ journalctl -u tilecast-renderer.service
 ## Common problems
 
 - **No server found:** enter the server address manually. LAN discovery is optional.
-- **Presentation unavailable:** the content needs something Edge can't show yet, such as a Website. Check [content compatibility](../compatibility/) and the [capability matrix](../capabilities/).
+- **Presentation unavailable:** the content needs something Edge can't show, such as AirPlay Present, or it includes a Website or YouTube item while Edge's web helper is unavailable. Check [content compatibility](../compatibility/) and the [capability matrix](../capabilities/).
 - **Renderer keeps restarting:** check Activity and safe mode before you delete any Player data.
 - **Display Control unavailable:** check the reason in `tilecastctl capabilities`, such as missing hardware, a missing permission, a disconnected display, no DDC/CI response, or an unsupported control. See [Display Control troubleshooting](../../troubleshooting/display-control/).
 - **Migration refused or rolled back:** run `sudo /opt/tilecast-edge/current/bin/tilecast-edge-migrate status` for the reason, fix it, and migrate again. See [Migrate](../migrate/#automatic-rollback).

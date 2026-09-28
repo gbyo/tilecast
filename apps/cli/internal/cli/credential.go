@@ -123,10 +123,16 @@ func (r Resolver) Resolve(requireCredential bool) (Resolved, error) {
 		current = found
 	} else {
 		found, err := r.Store.Current()
-		if err != nil {
+		switch {
+		case err == nil:
+			current = found
+		case errors.Is(err, config.ErrNoCurrentContext) && explicitWithoutContext(r.ServerFlag, requireCredential):
+			// Scripts and CI may have no saved context at all. An explicit
+			// server, plus TILECAST_TOKEN when a credential is needed, is
+			// complete on its own.
+		default:
 			return Resolved{}, err
 		}
-		current = found
 	}
 	rawServer, explicitServer := resolveServerRaw(r.ServerFlag)
 	if rawServer == "" {
@@ -205,6 +211,16 @@ func resolveServerRaw(flag string) (string, bool) {
 		return env, true
 	}
 	return "", false
+}
+
+// explicitWithoutContext reports whether the caller supplied everything a
+// command needs without a saved context: a server address from --server or
+// TILECAST_URL, and TILECAST_TOKEN when a credential is required.
+func explicitWithoutContext(serverFlag string, requireCredential bool) bool {
+	if _, explicit := resolveServerRaw(serverFlag); !explicit {
+		return false
+	}
+	return !requireCredential || strings.TrimSpace(os.Getenv("TILECAST_TOKEN")) != ""
 }
 
 // serverBelongsToContext reports whether an explicitly supplied server is
