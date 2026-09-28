@@ -57,6 +57,12 @@ func NewStore(path string) *Store {
 	return &Store{path: path}
 }
 
+// Dir returns the directory holding the config file, which also scopes
+// per-context coordination files such as the OAuth refresh lock.
+func (s *Store) Dir() string {
+	return filepath.Dir(s.path)
+}
+
 func (s *Store) load() (File, error) {
 	var file File
 	raw, err := os.ReadFile(s.path)

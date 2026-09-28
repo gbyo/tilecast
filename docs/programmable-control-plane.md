@@ -204,7 +204,7 @@ operations:
   - operationId: listCountdownBarInstances
     risk: read
     cli:
-      path: [instance, list]
+      path: [countdown-bar, instance, list]
     mcp:
       action: list_instances
 ```
@@ -221,6 +221,27 @@ Constraints:
   reason, for example `browser-only-security-ceremony`.
 - Generic behavior stays predictable. Complex structured input uses
   `--input` or `--file` rather than growth of the automation language.
+- The CLI mounts automated operations below `tilecast plugin`. The stored
+  CLI path is relative to that namespace. Use
+  `tilecast plugin countdown-bar instance list` to list Countdown Bar
+  instances. Automated commands never compete with handwritten top-level
+  commands. No automated root may shadow `list`, `get`, `install`, or
+  `remove`.
+- Global flags work before and after the dynamic path. Use
+  `tilecast --context prod plugin countdown-bar instance list` or
+  `tilecast plugin countdown-bar instance list --context prod` with the
+  same result.
+- Path parameters stay positional. Each value fills exactly one path
+  segment. Reserved characters use path-segment escaping.
+- Query parameters become flags. The flag names come from OpenAPI.
+- `pluginctl` derives parameter and request-body metadata from the
+  plugin OpenAPI fragment into the generated automation artifact.
+  `automation.yaml` stays small. Shapes that generic clients cannot
+  express fail generation with a clear problem.
+- MCP input schemas use the derived metadata. Path parameters keep
+  their types. Query parameters appear with required marks. Request
+  bodies use the operation schema where practical. Only mapped
+  operations participate. Server authorization stays authoritative.
 
 ## Security model
 
