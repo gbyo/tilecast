@@ -456,29 +456,6 @@
       "compatibility": { "fallback": "legacy" }
     },
     {
-      "id": "spotlight",
-      "version": 1,
-      "name": "Spotlight",
-      "description": "Feature one record with optional uploaded artwork.",
-      "category": "Data Display",
-      "icon": "spotlight",
-      "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
-      "presentationSchemaVersion": 1,
-      "requiredCapabilities": {
-        "layout.surface": 1,
-        "layout.column": 1,
-        "content.text": 1,
-        "content.badge": 1,
-        "binding.core": 2
-      },
-      "emptyStateBehavior": "text",
-      "legacyEditor": true,
-      "requiresManifestV13": true,
-      "deprecation": {}
-    },
-    {
       "id": "stat_grid",
       "version": 1,
       "apiVersion": 1,

@@ -300,6 +300,9 @@ func (normalizer definitionConfigNormalizer) normalizeField(ctx context.Context,
 			}
 			text = id.String()
 		case "media_asset":
+			if text == "" && !field.Required {
+				break
+			}
 			id, err := uuid.Parse(text)
 			if err != nil {
 				return nil, fmt.Errorf("%s must identify a media asset", field.Label)

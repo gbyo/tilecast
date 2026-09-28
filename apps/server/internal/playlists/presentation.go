@@ -720,6 +720,15 @@ func compileNativeRoot(provider string, c map[string]any) (PresentationNode, map
 			provider = "stat_grid"
 		}
 	}
+	// A Spotlight edited through the V2 editor saves its date slot as
+	// metadataField. Old Players keep reading the legacy dateField name.
+	if provider == "spotlight" {
+		if stringValue(c, "dateField", "") == "" {
+			if metadata := stringValue(c, "metadataField", ""); metadata != "" {
+				c["dateField"] = metadata
+			}
+		}
+	}
 	switch provider {
 	case "clock":
 		surface.Children = []PresentationNode{text(PresentationBinding{Source: "environment", Path: "currentTime", Format: "time:" + stringValue(c, "format", "locale") + ":" + strconv.FormatBool(boolValue(c["showSeconds"])) + ":" + stringValue(c, "timezone", "")}, "metric")}
