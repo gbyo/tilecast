@@ -84,3 +84,9 @@ export {
   type WidgetAuthoringUi,
   type WidgetVisibleWhen,
 } from "./authoring.ts";
+export {
+  templateReads,
+  upgradeAuthorConfiguration,
+  type AuthorUpgrade,
+  type UpgradeField,
+} from "./upgrade.ts";

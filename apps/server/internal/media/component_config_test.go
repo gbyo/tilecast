@@ -1,0 +1,106 @@
+package media
+
+import (
+	"context"
+	"encoding/json"
+	"strings"
+	"testing"
+
+	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
+)
+
+func normalizeComponent(t *testing.T, provider, raw string) (map[string]any, error) {
+	t.Helper()
+	definition, ok := contentdefs.MustLoad().Widget(provider)
+	if !ok || definition.Component == nil {
+		t.Fatalf("%s has no component", provider)
+	}
+	normalized, err := (componentConfigNormalizer{definition: definition}).Normalize(context.Background(), json.RawMessage(raw))
+	if err != nil {
+		return nil, err
+	}
+	return normalized.(map[string]any), nil
+}
+
+func TestComponentConfigNormalizerFillsSchemaDefaults(t *testing.T) {
+	clock, err := normalizeComponent(t, "clock", `{}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if clock["mode"] != "time" || clock["format"] != "locale" || clock["timezone"] != "" {
+		t.Fatalf("Clock defaults = %v", clock)
+	}
+}
+
+func TestComponentConfigNormalizerKeepsSavedLegacyRowsEditable(t *testing.T) {
+	// A Clock saved before Widgets V2, with its retired sizing keys.
+	clock, err := normalizeComponent(t, "clock", `{"timezone":"Europe/Berlin","format":"12","showSeconds":false,"foregroundColor":"#F5F7FA","backgroundColor":"#0E141B","textScale":150,"contentPadding":5}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if clock["textScale"] != 150 || clock["contentPadding"] != 5 || clock["timezone"] != "Europe/Berlin" {
+		t.Fatalf("retained keys were not kept: %v", clock)
+	}
+	// A Countdown saved before Widgets V2 keeps its local target.
+	countdown, err := normalizeComponent(t, "countdown", `{"target":"2026-12-01T09:00","timezone":"America/New_York","mode":"countdown","recurrence":"weekly","layout":"horizontal","label":"Board","completionText":"","completionAction":"completed_text","showDays":true,"showHours":true,"showMinutes":true,"showSeconds":false,"foregroundColor":"#ffffff","backgroundColor":"#000000"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if countdown["target"] != "2026-12-01T09:00" || countdown["layout"] != "horizontal" {
+		t.Fatalf("Countdown = %v", countdown)
+	}
+	// An older release saved RFC 3339 instants.
+	if _, err = normalizeComponent(t, "countdown", `{"target":"2026-12-01T14:00:00Z"}`); err != nil {
+		t.Fatalf("an RFC 3339 target was refused: %v", err)
+	}
+	// Date and World Clock rows remain valid under their own schemas.
+	if _, err = normalizeComponent(t, "date", `{"timezone":"Asia/Tokyo","format":"short","foregroundColor":"#ffffff","backgroundColor":"#000000"}`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = normalizeComponent(t, "world_clock", `{"zones":[{"label":"Tokyo","timezone":"Asia/Tokyo"},{"label":"Local","timezone":""}],"format":"24","showSeconds":false,"showDate":true,"columns":2,"foregroundColor":"#ffffff","backgroundColor":"#000000"}`); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestComponentConfigNormalizerUpgradesLegacyKeys(t *testing.T) {
+	qr, err := normalizeComponent(t, "qrcode", `{"value":"https://example.org","label":"example.org"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if qr["payload"] != "https://example.org" || qr["shortLabel"] != "example.org" {
+		t.Fatalf("legacy QR keys did not upgrade: %v", qr)
+	}
+	if _, present := qr["value"]; present {
+		t.Fatalf("a consumed legacy key was kept: %v", qr)
+	}
+}
+
+func TestComponentConfigNormalizerRejects(t *testing.T) {
+	for _, test := range []struct{ provider, raw, want string }{
+		{"clock", `{"mode":"calendar"}`, "invalid selection"},
+		{"clock", `{"zones":[{"label":"x","timezone":"Mars/Olympus"}]}`, "IANA timezone"},
+		{"countdown", `{"target":"next tuesday"}`, "local date and time"},
+		{"text", `{"body":""}`, "Message"},
+		{"text", `{"body":"Hi","script":"alert(1)"}`, "unknown field"},
+		// Derived keys come from manifest projection, never from a client.
+		{"image-notice", `{"imageVariantId":"33333333-3333-4333-8333-333333333333"}`, "unknown field"},
+	} {
+		if _, err := normalizeComponent(t, test.provider, test.raw); err == nil || !strings.Contains(err.Error(), test.want) {
+			t.Errorf("%s %s: error %v, want %q", test.provider, test.raw, err, test.want)
+		}
+	}
+}
+
+func TestComponentConfigNormalizerAllowsThemeColors(t *testing.T) {
+	// An optional color left blank follows the display theme.
+	text, err := normalizeComponent(t, "text", `{"body":"Hi","backgroundColor":"","foregroundColor":""}`)
+	if err != nil {
+		t.Fatalf("a blank optional color was refused: %v", err)
+	}
+	if text["backgroundColor"] != "" {
+		t.Fatalf("a blank color was replaced: %v", text)
+	}
+	if _, err = normalizeComponent(t, "text", `{"body":"Hi","backgroundColor":"red"}`); err == nil {
+		t.Fatal("a non-hexadecimal color was accepted")
+	}
+}

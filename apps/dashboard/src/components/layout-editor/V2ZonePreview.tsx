@@ -12,7 +12,10 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { resolveTheme, type WidgetContext } from "@tilecast/widget-sdk";
 import { compileComponentConfig } from "@tilecast/widget-sdk/manifest";
-import type { WidgetComponentRef } from "@tilecast/widget-sdk/mount";
+import type {
+  WidgetComponentRef,
+  WidgetMountState,
+} from "@tilecast/widget-sdk/mount";
 import { api } from "../../api/client";
 import type { Asset } from "../../api/types";
 import { useOrganizationRegionalProfile } from "../../settings/regionalProfile";
@@ -23,6 +26,7 @@ import { useWidgetPreviewResources } from "../../content/widgetPreviewResources"
 import {
   widgetPreviewConfiguration,
   widgetPreviewDataSourceIds,
+  widgetPreviewMedia,
 } from "../../content/widgetPreviewSources";
 
 export function V2ZonePreview({
@@ -31,6 +35,7 @@ export function V2ZonePreview({
   width,
   height,
   overrides,
+  onState,
 }: {
   provider: string;
   asset?: Asset;
@@ -39,6 +44,8 @@ export function V2ZonePreview({
   height: number;
   /** Per-placement overrides win over Widget configuration, as in Studio. */
   overrides?: Record<string, unknown>;
+  /** Mount state, for callers that capture the preview once it settles. */
+  onState?: (state: WidgetMountState) => void;
 }) {
   const { t } = useTranslation(["content", "common"]);
   const regional = useOrganizationRegionalProfile();
@@ -56,16 +63,20 @@ export function V2ZonePreview({
         ?.configurationSchema.fields ?? [],
     [definitions.data, provider],
   );
-  const configuration = useMemo(
+  const preview = useMemo(
     () =>
-      widgetPreviewConfiguration(
-        asset?.widget?.authorConfiguration ??
-          asset?.widget?.configuration ??
-          {},
-        asset?.widget?.managedDataSourceId,
+      widgetPreviewMedia(
+        definitionFields,
+        widgetPreviewConfiguration(
+          asset?.widget?.authorConfiguration ??
+            asset?.widget?.configuration ??
+            {},
+          asset?.widget?.managedDataSourceId,
+        ),
       ),
-    [asset],
+    [asset, definitionFields],
   );
+  const configuration = preview.configuration;
   const dataSourceIds = useMemo(
     () =>
       widgetPreviewDataSourceIds(
@@ -78,6 +89,7 @@ export function V2ZonePreview({
   const { resources, loading: sourcesLoading } = useWidgetPreviewResources(
     dataSourceIds,
     dataSourceIds,
+    preview.media,
   );
   const compiled = useMemo((): WidgetComponentRef | null => {
     if (!component) return null;
@@ -138,6 +150,7 @@ export function V2ZonePreview({
       context={context}
       frame={{ width, height }}
       label={t("widgets.editors.v2.zonePreview")}
+      onState={onState}
     />
   );
 }

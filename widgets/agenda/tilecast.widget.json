@@ -5,7 +5,7 @@
   "version": 1,
   "name": "Agenda",
   "description": "Group upcoming events by day with now and relative status.",
-  "category": "Data display",
+  "category": "Information",
   "icon": "calendar",
   "runtime": "native",
   "configurationSchema": {

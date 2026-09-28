@@ -178,7 +178,7 @@ function renderEditor(editor: ReactNode) {
 }
 
 describe("Widget editor experience", () => {
-  it("organizes and searches the integration catalog", async () => {
+  it("groups visual Widgets by purpose and keeps Web Integrations apart", async () => {
     renderEditor(
       <WidgetProviderGallery onChoose={vi.fn()} onClose={vi.fn()} page />,
     );
@@ -186,8 +186,12 @@ describe("Widget editor experience", () => {
     expect(
       await screen.findByRole("heading", { name: "Featured" }),
     ).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "News" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Google" })).toBeTruthy();
+    // Web Integrations sit apart from the visual catalog; a provider's own
+    // category (News, Google) no longer names a gallery group.
+    expect(screen.getByRole("heading", { name: "Integrations" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Data display" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Google" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "News" })).toBeNull();
     expect(screen.getByRole("button", { name: /Notion/ })).toBeDisabled();
 
     await userEvent.type(screen.getByRole("searchbox"), "spreadsheet");
@@ -227,7 +231,7 @@ describe("Widget editor experience", () => {
       defaultConfiguration: clockManifest.defaultConfiguration,
       component: {
         type: "tilecast.clock",
-        version: 1,
+        version: 2,
         tagName: "tc-widget-clock",
         entrypoint: "./runtime/index.ts",
         configTemplate: clockManifest.component.configTemplate,

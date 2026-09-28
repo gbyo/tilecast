@@ -281,6 +281,8 @@ export interface PreviewResources {
 export function useWidgetPreviewResources(
   dataSourceIds: readonly string[],
   declaredDataSources: readonly string[] = dataSourceIds,
+  /** Media the preview grants; each maps to the asset's preview image. */
+  declaredMedia: readonly { assetId: string; variantId: string }[] = [],
 ): PreviewResources {
   const previews = useQueries({
     queries: dataSourceIds.map((id) => ({
@@ -302,10 +304,16 @@ export function useWidgetPreviewResources(
     if (document) documents.set(id, document);
     else failedIds.push(id);
   });
+  const media = new Map(
+    declaredMedia.map((ref) => [
+      `${ref.assetId}/${ref.variantId}`,
+      api.assetPreviewUrl(ref.assetId),
+    ]),
+  );
   return {
     resources: createWidgetResources(
-      { documents },
-      { dataSources: [...declaredDataSources] },
+      { documents, media },
+      { dataSources: [...declaredDataSources], media: [...declaredMedia] },
     ),
     loading: previews.some((preview) => preview.isLoading),
     failedIds,

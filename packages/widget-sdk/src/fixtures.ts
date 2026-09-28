@@ -49,6 +49,11 @@ export function renderFixture(options: {
   container: HTMLElement;
   registry?: WidgetRegistry;
   mode?: "playback" | "preview";
+  /**
+   * The configTemplate of a compatibility provider the fixture names;
+   * defaults to the module's own template.
+   */
+  configTemplate?: Readonly<Record<string, unknown>>;
 }): RenderedFixture {
   const { definition, manifest, fixture, container } = options;
   const context = fixture.context ?? {};
@@ -56,7 +61,7 @@ export function renderFixture(options: {
     context.now ? Date.parse(context.now) : FIXTURE_NOW,
   );
   const config = compileComponentConfig(
-    manifest.component.configTemplate,
+    options.configTemplate ?? manifest.component.configTemplate,
     fixture.configuration,
   );
   let state: WidgetMountState = { state: "pending" };

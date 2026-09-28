@@ -494,14 +494,10 @@
       "categoriesLabel": "Widget categories",
       "categories": {
         "all": "All",
-        "news": "News",
-        "google": "Google",
-        "designDocuments": "Design & Documents",
-        "dashboards": "Dashboards",
-        "feeds": "Feeds",
-        "video": "Video",
-        "social": "Social",
-        "buildingBlocks": "Building Blocks / Advanced"
+        "essentials": "Essentials",
+        "information": "Information",
+        "dataDisplay": "Data display",
+        "integrations": "Integrations"
       },
       "featured": "Featured",
       "featuredHint": "Recommended integrations for common signage needs.",
@@ -535,13 +531,10 @@
         "widgetName": "Widget name",
         "description": "Description",
         "descriptionHint": "Optional notes for other people managing this installation.",
-        "timezone": "Timezone",
-        "timeFormat": "Time format",
         "label": "Label",
         "format": "Format",
         "alignment": "Alignment",
         "columns": "Columns",
-        "maximumItems": "Maximum items",
         "none": "None",
         "remove": "Remove",
         "valueField": "Value field",
@@ -559,26 +552,13 @@
         "saveWidget": "Save Widget"
       },
       "options": {
-        "organizationFormat": "Use organization setting",
-        "hour12": "12-hour",
-        "hour24": "24-hour",
-        "dateFull": "Full",
-        "dateLong": "Long",
-        "dateMedium": "Medium",
-        "dateShort": "Short",
         "alignLeft": "Left",
         "alignCenter": "Center",
         "alignRight": "Right",
-        "formatText": "Text",
         "formatNumber": "Number",
         "formatInteger": "Integer",
         "formatPercent": "Percent",
-        "formatCurrency": "Currency",
-        "formatDateShort": "Short date",
-        "formatDateLong": "Long date",
-        "speedSlow": "Slow",
-        "speedNormal": "Normal",
-        "speedFast": "Fast"
+        "formatCurrency": "Currency"
       },
       "native": {
         "editTitle": "Edit {{provider}} Widget",
@@ -586,60 +566,11 @@
         "guidanceData": "Connect the information to show, choose how it is presented, and check the live preview.",
         "guidanceSimple": "Configure what appears on screen and check the live preview as you work.",
         "contentGuidanceData": "Start by choosing the data this Widget should use, then map and format the fields that appear.",
-        "contentGuidanceCountdown": "Set the target time, decide what happens when it is reached, and choose which time units appear.",
-        "contentGuidanceWorldClock": "Add each location and its IANA timezone, such as America/New_York or Europe/London.",
-        "contentGuidanceClock": "Choose the timezone and format that should appear on the screen.",
         "contentGuidanceText": "Enter the content people should see and choose how it behaves on screen.",
         "presetNotice": "Guided preset: <strong>{{preset}}</strong>. This saves as a reusable {{provider}} Widget; playback does not depend on the preset.",
         "contentTitle": "Content and behavior",
         "nameHint": "Used to find this Widget in Content and playlists.",
         "completeFields": "Complete the required fields to see a preview."
-      },
-      "clock": {
-        "timezoneHint": "Leave blank to use the organization timezone, or enter any valid IANA timezone ID.",
-        "showSeconds": "Show seconds",
-        "style": "Style",
-        "styleStandard": "Standard",
-        "styleMinimal": "Minimal",
-        "styleAnalog": "Analog",
-        "styleHint": "Standard shows the time with an optional date. Minimal shows the time alone, as large as possible. Analog shows a dial with the digital time beside it. Screens whose Player predates these styles show the time alone.",
-        "showDate": "Show date"
-      },
-      "date": {
-        "dateFormat": "Date format"
-      },
-      "countdown": {
-        "target": "Target date and time",
-        "targetTime": "Target time",
-        "mode": "Mode",
-        "modeDown": "Count down",
-        "modeUp": "Count up",
-        "repeat": "Repeat",
-        "repeatNone": "Does not repeat",
-        "repeatDaily": "Daily",
-        "repeatWeekly": "Weekly",
-        "repeatMonthly": "Monthly",
-        "repeatYearly": "Yearly",
-        "layout": "Layout",
-        "layoutStacked": "Title above countdown",
-        "layoutHorizontal": "Title beside countdown",
-        "layoutOnly": "Countdown only",
-        "completion": "Completion behavior",
-        "completionText": "Show completion text",
-        "hide": "Hide",
-        "completionCountUp": "Continue counting up",
-        "title": "Title",
-        "completionLabel": "Completion text",
-        "units": "Visible units",
-        "unitsDays": "Days",
-        "unitsHours": "Hours",
-        "unitsMinutes": "Minutes",
-        "unitsSeconds": "Seconds"
-      },
-      "ticker": {
-        "fields": "Fields (up to three)",
-        "separator": "Separator",
-        "fieldSeparator": "Field separator"
       },
       "metric": {
         "staticLabel": "Static label",
@@ -677,11 +608,6 @@
         "orientationVertical": "Vertical",
         "orientationHorizontal": "Horizontal",
         "statusField": "Status field"
-      },
-      "worldClock": {
-        "locations": "Locations",
-        "ianaLabel": "IANA timezone",
-        "addLocation": "Add location"
       },
       "appearance": {
         "title": "Appearance",
@@ -796,9 +722,7 @@
       "fieldDescription": "Choose which field from the connected data supplies this value."
     },
     "defaults": {
-      "eventStarted": "Event started",
       "noValue": "No value available",
-      "noItems": "No items available",
       "noInformation": "No information available",
       "noChartData": "No chart data available",
       "noMilestones": "No milestones available",
@@ -806,9 +730,7 @@
       "metricLabel": "Value",
       "seriesFirst": "Series 1",
       "seriesAdded": "Series",
-      "progressLabel": "Progress",
-      "zoneLocal": "Local",
-      "zoneAdded": "Location"
+      "progressLabel": "Progress"
     },
     "errors": {
       "previewWait": "Wait for the Widget preview before saving.",

@@ -623,6 +623,26 @@ function DefinitionControl({
         )}
       </Field>
     );
+  if (field.control === "local_datetime")
+    // A wall-clock time that a sibling timezone field interprets: it is
+    // shown and saved exactly as entered, never converted to an instant.
+    // A saved RFC 3339 instant from an older release shows as its own
+    // wall time until it is edited.
+    return (
+      <Field>
+        <FieldLabel htmlFor={`definition-${field.key}`}>{labelText}</FieldLabel>
+        <DateTimeInput
+          id={`definition-${field.key}`}
+          {...common}
+          aria-label={labelText}
+          value={fieldText(value).slice(0, 16)}
+          onChange={setValue}
+        />
+        {field.description && (
+          <FieldDescription>{field.description}</FieldDescription>
+        )}
+      </Field>
+    );
   const inputType =
     field.control === "number" || field.control === "integer"
       ? "number"

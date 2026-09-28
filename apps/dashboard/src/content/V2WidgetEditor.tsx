@@ -16,6 +16,7 @@ import { useTranslation } from "react-i18next";
 import {
   groupAuthoringFields,
   resolveTheme,
+  upgradeAuthorConfiguration,
   visibleAuthoringFields,
   type WidgetContext,
 } from "@tilecast/widget-sdk";
@@ -52,6 +53,7 @@ import { captureWidgetPreview } from "./widgetPreviewCapture";
 import {
   widgetPreviewConfiguration,
   widgetPreviewDataSourceIds,
+  widgetPreviewMedia,
 } from "./widgetPreviewSources";
 import { widgetSaveErrorMessage } from "./SourceEditors";
 import type { ContentDefinitionCatalog } from "../api/types";
@@ -118,10 +120,24 @@ export function V2WidgetEditor({
   const [description, setDescription] = useState(
     asset?.description ?? definition.description,
   );
+  // A saved Widget opens upgraded to the provider's current schema: legacy
+  // keys fill the fields their configTemplate maps them to, and keys the
+  // provider no longer accepts are left out of the next save
+  // (docs/widgets-v2-catalog.md §8).
   const [configuration, setConfiguration] = useState<Record<string, unknown>>(
-    asset?.widget?.authorConfiguration ??
-      asset?.widget?.configuration ??
-      definition.defaultConfiguration,
+    () => {
+      const saved =
+        asset?.widget?.authorConfiguration ??
+        asset?.widget?.configuration ??
+        definition.defaultConfiguration;
+      if (!asset || !component) return saved;
+      return upgradeAuthorConfiguration(
+        definition.configurationSchema.fields,
+        component.configTemplate,
+        saved,
+        { dropUnknown: true },
+      ).configuration;
+    },
   );
   const touched = useRef(Boolean(asset));
   const markTouched = (next: Record<string, unknown>) => {
@@ -163,10 +179,11 @@ export function V2WidgetEditor({
   }, [clock, previewTime]);
 
   const managedDataSourceId = asset?.widget?.managedDataSourceId;
-  const previewConfiguration = widgetPreviewConfiguration(
-    configuration,
-    managedDataSourceId,
+  const previewMedia = widgetPreviewMedia(
+    definition.configurationSchema.fields,
+    widgetPreviewConfiguration(configuration, managedDataSourceId),
   );
+  const previewConfiguration = previewMedia.configuration;
   const dataSourceIds = widgetPreviewDataSourceIds(
     definition.configurationSchema.fields,
     previewConfiguration,
@@ -175,6 +192,7 @@ export function V2WidgetEditor({
   const { resources, loading: sourcesLoading } = useWidgetPreviewResources(
     dataSourceIds,
     dataSourceIds,
+    previewMedia.media,
   );
 
   // Ordinary form edits compile the component config locally and update the

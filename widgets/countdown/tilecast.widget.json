@@ -1,0 +1,232 @@
+{
+  "$schema": "../../packages/widget-sdk/schema/tilecast-widget.schema.json",
+  "apiVersion": 1,
+  "id": "countdown",
+  "version": 1,
+  "name": "Countdown",
+  "description": "Count down to, or up from, a date and time.",
+  "category": "Essentials",
+  "icon": "timer",
+  "keywords": ["timer", "event", "deadline", "count up"],
+  "runtime": "native",
+  "configurationSchema": {
+    "fields": [
+      {
+        "key": "label",
+        "label": "Title",
+        "description": "What the countdown is for, such as Graduation.",
+        "control": "text",
+        "default": "",
+        "maxLength": 120,
+        "ui": { "section": "content", "order": 1 }
+      },
+      {
+        "key": "target",
+        "label": "Date and time",
+        "description": "The local date and time in the timezone below.",
+        "control": "local_datetime",
+        "default": "",
+        "ui": { "section": "content", "order": 2 }
+      },
+      {
+        "key": "timezone",
+        "label": "Timezone",
+        "description": "Leave blank to use the organization timezone.",
+        "control": "timezone",
+        "default": "",
+        "ui": { "section": "content", "order": 3 }
+      },
+      {
+        "key": "mode",
+        "label": "Direction",
+        "control": "select",
+        "default": "countdown",
+        "options": [
+          { "value": "countdown", "label": "Count down to it" },
+          { "value": "count_up", "label": "Count up from it" }
+        ],
+        "ui": { "section": "behavior", "order": 1 }
+      },
+      {
+        "key": "recurrence",
+        "label": "Repeat",
+        "description": "A repeating countdown keeps the same local time and moves to the next occurrence when it ends.",
+        "control": "select",
+        "default": "none",
+        "options": [
+          { "value": "none", "label": "Does not repeat" },
+          { "value": "daily", "label": "Every day" },
+          { "value": "weekly", "label": "Every week" },
+          { "value": "monthly", "label": "Every month" },
+          { "value": "yearly", "label": "Every year" }
+        ],
+        "ui": {
+          "section": "behavior",
+          "order": 2,
+          "visibleWhen": { "key": "mode", "equals": "countdown" }
+        }
+      },
+      {
+        "key": "completionAction",
+        "label": "When it ends",
+        "control": "select",
+        "default": "completed_text",
+        "options": [
+          { "value": "completed_text", "label": "Show a message" },
+          { "value": "hide", "label": "Hide the countdown" },
+          { "value": "count_up", "label": "Keep counting up" }
+        ],
+        "ui": {
+          "section": "behavior",
+          "order": 3,
+          "visibleWhen": [
+            { "key": "mode", "equals": "countdown" },
+            { "key": "recurrence", "equals": "none" }
+          ]
+        }
+      },
+      {
+        "key": "completionText",
+        "label": "Message",
+        "control": "text",
+        "default": "",
+        "maxLength": 240,
+        "ui": {
+          "section": "behavior",
+          "order": 4,
+          "visibleWhen": [
+            { "key": "mode", "equals": "countdown" },
+            { "key": "recurrence", "equals": "none" },
+            { "key": "completionAction", "equals": "completed_text" }
+          ]
+        }
+      },
+      {
+        "key": "showDays",
+        "label": "Show days",
+        "control": "boolean",
+        "default": true,
+        "ui": { "section": "content", "order": 4 }
+      },
+      {
+        "key": "showHours",
+        "label": "Show hours",
+        "control": "boolean",
+        "default": true,
+        "ui": { "section": "content", "order": 5 }
+      },
+      {
+        "key": "showMinutes",
+        "label": "Show minutes",
+        "control": "boolean",
+        "default": true,
+        "ui": { "section": "content", "order": 6 }
+      },
+      {
+        "key": "showSeconds",
+        "label": "Show seconds",
+        "control": "boolean",
+        "default": false,
+        "ui": { "section": "content", "order": 7 }
+      },
+      {
+        "key": "layout",
+        "label": "Style",
+        "description": "Stacked sets the title over the time. Side by side sets them on one line. Countdown only shows the time alone.",
+        "control": "select",
+        "default": "stacked",
+        "options": [
+          { "value": "stacked", "label": "Stacked" },
+          { "value": "horizontal", "label": "Side by side" },
+          { "value": "countdown_only", "label": "Countdown only" }
+        ],
+        "ui": { "section": "appearance", "order": 1, "styleCard": true }
+      },
+      {
+        "key": "backgroundColor",
+        "label": "Background color",
+        "control": "color",
+        "default": "#0E141B",
+        "ui": { "section": "appearance", "order": 2 }
+      },
+      {
+        "key": "foregroundColor",
+        "label": "Text color",
+        "control": "color",
+        "default": "#F5F7FA",
+        "ui": { "section": "appearance", "order": 3 }
+      },
+      {
+        "key": "textScale",
+        "label": "Text scale",
+        "control": "integer",
+        "minimum": 25,
+        "maximum": 500,
+        "ui": { "hidden": true }
+      },
+      {
+        "key": "contentPadding",
+        "label": "Content padding",
+        "control": "integer",
+        "minimum": 0,
+        "maximum": 40,
+        "ui": { "hidden": true }
+      }
+    ]
+  },
+  "defaultConfiguration": {
+    "label": "",
+    "target": "",
+    "timezone": "",
+    "mode": "countdown",
+    "recurrence": "none",
+    "completionAction": "completed_text",
+    "completionText": "",
+    "showDays": true,
+    "showHours": true,
+    "showMinutes": true,
+    "showSeconds": false,
+    "layout": "stacked",
+    "backgroundColor": "#0E141B",
+    "foregroundColor": "#F5F7FA"
+  },
+  "presentationSchemaVersion": 1,
+  "requiredCapabilities": {
+    "layout.surface": 1,
+    "layout.row": 1,
+    "layout.column": 1,
+    "content.text": 1,
+    "binding.core": 1,
+    "format.typed": 2
+  },
+  "emptyStateBehavior": "text",
+  "legacyEditor": true,
+  "deprecation": {},
+  "component": {
+    "type": "tilecast.countdown",
+    "version": 1,
+    "tagName": "tc-widget-countdown",
+    "entrypoint": "./runtime/index.ts",
+    "configTemplate": {
+      "target": { "$config": "target", "default": "" },
+      "timeZone": { "$config": "timezone", "default": "" },
+      "mode": { "$config": "mode", "default": "countdown" },
+      "recurrence": { "$config": "recurrence", "default": "none" },
+      "style": { "$config": "layout", "default": "stacked" },
+      "label": { "$config": "label", "default": "" },
+      "completionText": { "$config": "completionText", "default": "" },
+      "completionAction": {
+        "$config": "completionAction",
+        "default": "completed_text"
+      },
+      "showDays": { "$config": "showDays", "default": true },
+      "showHours": { "$config": "showHours", "default": true },
+      "showMinutes": { "$config": "showMinutes", "default": true },
+      "showSeconds": { "$config": "showSeconds", "default": false },
+      "background": { "$config": "backgroundColor", "default": "" },
+      "foreground": { "$config": "foregroundColor", "default": "" }
+    },
+    "empty": "render"
+  },
+  "compatibility": { "fallback": "legacy" }
+}
