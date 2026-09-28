@@ -1,35 +1,66 @@
 /**
- * Playlist domain helpers over the typed transport. Path, query, and
- * body shapes come from the generated OpenAPI contract; the handwritten
- * view models in ../types.ts stay, with the playlist normalizers
- * bridging wire and view shapes.
+ * Playlist domain helpers over the typed transport. Playlist CRUD and
+ * revision success bodies are contract-typed and inferred from the
+ * generated OpenAPI schemas; the handwritten view models in ../types.ts
+ * stay, with the playlist normalizers bridging wire and view shapes.
+ * Publish and screen playlist-assignment results stay local until the
+ * contract models them.
  */
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from "../transport";
+import type { components } from "@tilecast/api-schema/generated/openapi";
 import type {
   Playlist,
   PlaylistAssignment,
   PlaylistBulkItemUpdateInput,
+  PlaylistItem,
   PlaylistItemInput,
   PlaylistList,
   PlaylistRestoreResult,
   PlaylistRevisionList,
 } from "../types";
 
+/** Wire shapes of a playlist and playlist list from the generated contract. */
+export type WirePlaylist = components["schemas"]["Playlist"];
+export type WirePlaylistItem = components["schemas"]["PlaylistItem"];
+export type WirePlaylistList = components["schemas"]["PlaylistList"];
+
+/**
+ * The contract leaves item assetStatus an open string: items that point
+ * at a Layout with no published revision report `draft`, outside the
+ * media lifecycle the closed Studio AssetStatus models. The view keeps
+ * the closed type and the runtime value passes through, matching what
+ * the untyped transport delivered before this slice.
+ */
+export function normalizePlaylistItem(
+  item: PlaylistItem | WirePlaylistItem,
+): PlaylistItem {
+  return {
+    ...item,
+    assetStatus: item.assetStatus as PlaylistItem["assetStatus"],
+  };
+}
+
 export function normalizePlaylist(
-  playlist: Playlist | null | undefined,
+  playlist: Playlist | WirePlaylist | null | undefined,
 ): Playlist {
   const source = playlist ?? ({} as Playlist);
   return {
     ...source,
-    items: Array.isArray(source.items) ? source.items : [],
+    items: (Array.isArray(source.items) ? source.items : []).map(
+      normalizePlaylistItem,
+    ),
     warnings: Array.isArray(source.warnings) ? source.warnings : [],
     layoutUsage: Array.isArray(source.layoutUsage) ? source.layoutUsage : [],
+    // List rows serialize detail-only usage and dataSourceIds as null;
+    // the Studio view models both as absent.
+    usage: source.usage ?? undefined,
+    dataSourceIds: source.dataSourceIds ?? undefined,
     hasUnpublishedChanges: Boolean(source.hasUnpublishedChanges),
   };
 }
 
 export function normalizePlaylistList(
-  result: PlaylistList | null | undefined,
+  result: PlaylistList | WirePlaylistList | null | undefined,
 ): PlaylistList {
   const source = result ?? ({} as PlaylistList);
   return {
@@ -236,10 +267,9 @@ export async function unassignPlaylist(
 export function listPlaylistRevisions(
   playlistId: string,
 ): Promise<PlaylistRevisionList> {
-  return apiGet<"/api/v1/playlists/{id}/revisions", PlaylistRevisionList>(
-    "/api/v1/playlists/{id}/revisions",
-    { params: { path: { id: playlistId } } },
-  );
+  return apiGet("/api/v1/playlists/{id}/revisions", {
+    params: { path: { id: playlistId } },
+  });
 }
 
 export function restorePlaylistRevision(
@@ -247,10 +277,7 @@ export function restorePlaylistRevision(
   revision: number,
   csrfToken: string,
 ): Promise<PlaylistRestoreResult> {
-  return apiPost<
-    "/api/v1/playlists/{id}/revisions/{revision}/restore",
-    PlaylistRestoreResult
-  >("/api/v1/playlists/{id}/revisions/{revision}/restore", {
+  return apiPost("/api/v1/playlists/{id}/revisions/{revision}/restore", {
     params: { path: { id: playlistId, revision: String(revision) } },
     csrfToken,
   });
@@ -261,10 +288,11 @@ export function publishPlaylist(
   expectedDraftRevision: number,
   csrfToken: string,
 ): Promise<unknown> {
-  return apiPost<"/api/v1/playlists/{id}/publish", unknown>(
-    "/api/v1/playlists/{id}/publish",
-    { params: { path: { id } }, body: { expectedDraftRevision }, csrfToken },
-  );
+  return apiPost("/api/v1/playlists/{id}/publish", {
+    params: { path: { id } },
+    body: { expectedDraftRevision },
+    csrfToken,
+  });
 }
 
 export async function setPlaylistTagRule(
