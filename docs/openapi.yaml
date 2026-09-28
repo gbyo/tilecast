@@ -1808,7 +1808,15 @@ paths:
           required: false
           schema: { type: integer, minimum: 1, maximum: 100 }
       responses:
-        "200": { description: Proof-of-play records }
+        "200":
+          description: Proof-of-play records
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ProofOfPlayPage" }
         "401": { description: Dashboard authentication required }
         "422":
           description: >-
@@ -1829,7 +1837,15 @@ paths:
           required: false
           schema: { type: string, format: date-time }
       responses:
-        "200": { description: Proof-of-play summary }
+        "200":
+          description: Proof-of-play summary
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ProofSummary" }
         "401": { description: Dashboard authentication required }
         "422": { description: Range or proof filter invalid }
   /api/v1/activity/proof-of-play/export.csv:
@@ -1876,7 +1892,15 @@ paths:
           required: false
           schema: { type: integer, minimum: 1, maximum: 100 }
       responses:
-        "200": { description: Screen events }
+        "200":
+          description: Screen events
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ScreenEventPage" }
         "401": { description: Dashboard authentication required }
         "422":
           description: >-
@@ -8007,6 +8031,203 @@ components:
         items:
           type: array
           items: { $ref: "#/components/schemas/Incident" }
+    ProofResult:
+      type: string
+      enum:
+        [
+          playing,
+          completed,
+          partial,
+          skipped,
+          failed,
+          unknown,
+          recovered,
+          success,
+        ]
+    ProofSessionType:
+      type: string
+      enum: [presentation, content, layout_placement, playlist_item]
+    ProofTerminalReason:
+      type: string
+      enum:
+        [
+          expected_item_boundary,
+          completed_duration,
+          schedule_transition,
+          manifest_replacement,
+          direct_assignment_change,
+          takeover,
+          manual_skip,
+          empty_content,
+          player_restart,
+          process_exit,
+          heartbeat_gap,
+          renderer_failure,
+          decoder_failure,
+          recovery_action,
+          bounded_timeout,
+          unknown,
+        ]
+    ProofOfPlayRecord:
+      type: object
+      additionalProperties: false
+      required:
+        [id, startedAt, screenId, screenName, result, sessionType, details]
+      properties:
+        id: { type: string, format: uuid }
+        startedAt: { type: string, format: date-time }
+        endedAt: { type: string, format: date-time }
+        screenId: { type: string, format: uuid }
+        screenName: { type: string }
+        groupId: { type: string, format: uuid }
+        groupName: { type: string }
+        presentationType: { type: string }
+        presentationId: { type: string }
+        presentationRevision: { type: string }
+        presentationName: { type: string }
+        contentType: { type: string }
+        contentId: { type: string }
+        contentName: { type: string }
+        playlistItemId: { type: string }
+        layoutPlacementId: { type: string }
+        actualDurationMs: { type: integer, format: int64, minimum: 0 }
+        expectedDurationMs: { type: integer, format: int64, minimum: 0 }
+        result: { $ref: "#/components/schemas/ProofResult" }
+        trigger: { type: string }
+        scheduleId: { type: string }
+        takeoverId: { type: string }
+        manifestVersion: { type: integer, format: int64 }
+        failureCode: { type: string }
+        sourceId: { type: string }
+        selectedRecordId: { type: string }
+        selectionDate: { type: string, format: date-time }
+        sourceCachedAt: { type: string, format: date-time }
+        sourceRevision: { type: string }
+        snapshotHash: { type: string }
+        sessionType: { $ref: "#/components/schemas/ProofSessionType" }
+        terminalReason: { $ref: "#/components/schemas/ProofTerminalReason" }
+        details:
+          type: object
+          description: >-
+            Allowlisted event metadata, filtered for the caller's role. Sensitive values stay server-side.
+    ProofOfPlayPage:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ProofOfPlayRecord" }
+        nextCursor: { type: string }
+    ProofSummaryItem:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          key,
+          label,
+          confirmedScreenPlaybackMs,
+          contentExposureMs,
+          records,
+          completed,
+          failures,
+          partial,
+          unknown,
+          interrupted,
+          sessionCompletionPercent,
+        ]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        confirmedScreenPlaybackMs: { type: integer, format: int64, minimum: 0 }
+        contentExposureMs: { type: integer, format: int64, minimum: 0 }
+        records: { type: integer, format: int64, minimum: 0 }
+        completed: { type: integer, format: int64, minimum: 0 }
+        failures: { type: integer, format: int64, minimum: 0 }
+        partial: { type: integer, format: int64, minimum: 0 }
+        unknown: { type: integer, format: int64, minimum: 0 }
+        interrupted: { type: integer, format: int64, minimum: 0 }
+        sessionCompletionPercent: { type: number, minimum: 0, maximum: 100 }
+    ProofSummary:
+      type: object
+      additionalProperties: false
+      required: [dimension, items]
+      properties:
+        dimension: { type: string }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ProofSummaryItem" }
+    ActivitySeverity:
+      type: string
+      enum: [debug, info, warning, error, critical]
+    ActivityCategory:
+      type: string
+      enum:
+        [
+          connectivity,
+          manifest,
+          playback,
+          scheduling,
+          commands,
+          reliability,
+          updates,
+          takeovers,
+          system,
+        ]
+    ScreenEventRecord:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          timestamp,
+          receivedAt,
+          screenId,
+          screenName,
+          sequence,
+          eventType,
+          category,
+          severity,
+          description,
+          result,
+          details,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        timestamp: { type: string, format: date-time }
+        receivedAt: { type: string, format: date-time }
+        screenId: { type: string, format: uuid }
+        screenName: { type: string }
+        groupId: { type: string, format: uuid }
+        groupName: { type: string }
+        sequence:
+          type: [integer, "null"]
+          format: int64
+          description: >-
+            Player sequence, monotonic per device. Null for server-derived transitions, which have no device queue position.
+        eventType: { type: string }
+        category: { $ref: "#/components/schemas/ActivityCategory" }
+        severity: { $ref: "#/components/schemas/ActivitySeverity" }
+        description: { type: string }
+        relatedType: { type: string }
+        relatedId: { type: string }
+        result: { $ref: "#/components/schemas/ProofResult" }
+        manifestVersion: { type: integer, format: int64 }
+        failureCode: { type: string }
+        failureMessage: { type: string }
+        details:
+          type: object
+          description: >-
+            Allowlisted event metadata, filtered for the caller's role. Sensitive values stay server-side.
+    ScreenEventPage:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ScreenEventRecord" }
+        nextCursor: { type: string }
     FleetHealth:
       type: object
       additionalProperties: false
