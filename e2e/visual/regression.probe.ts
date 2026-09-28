@@ -13,11 +13,16 @@ test("a deliberate Studio style regression produces screenshot differences", asy
   await expect(page.getByText("Preview ready.", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Small zone", exact: true }).click();
   await snapshot(page, "widget-editor");
-  await page.addStyleTag({
+  const style = await page.addStyleTag({
     content:
       "[data-slot=input] { background: #ff00ff !important; min-height: 70px !important; }",
   });
-  await expect(snapshot(page, "widget-editor")).rejects.toThrow(
-    /Screenshot comparison failed|pixels|screenshot/i,
-  );
+  try {
+    await expect(snapshot(page, "widget-editor")).rejects.toThrow(
+      /Screenshot comparison failed|pixels|screenshot/i,
+    );
+  } finally {
+    await style.evaluate((element) => element.remove());
+  }
+  await snapshot(page, "widget-editor");
 });

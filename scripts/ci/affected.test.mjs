@@ -186,6 +186,13 @@ test("shared schema contracts distinguish players from ordinary API consumers", 
 });
 test("documentation stays inexpensive", () => {
   assert.deepEqual(selected(["docs/deployment.md"]), ["docs"]);
+  for (const path of [
+    "apps/server/README.md",
+    "apps/edge/README.md",
+    "widgets/clock/README.md",
+    "packages/plugin-sdk/README.md",
+  ])
+    assert.deepEqual(selected([path]), ["docs"], path);
 });
 test("graph, workflows, lockfiles and unknown shared packages fail conservative", () => {
   for (const path of [

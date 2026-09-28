@@ -69,7 +69,9 @@ The functional journeys cover authoring, publication, previews, settings, plugin
 
 Linux Chromium is the committed screenshot authority for Studio and Widgets. The lockfile pins Playwright and its browser revision. Visual jobs use Ubuntu 24.04. The suite fixes the viewport, scale, locale, timezone, theme, and reduced motion. It disables animations and hides the caret during comparison. It waits for fonts, decoded images, and Widget render completion.
 
-Studio fixes browser `Date` while timers and real server time continue. The tests mask server contact times, hardware enrollment dates, notification counts, and pairing expiry. The overview masks its live chart and next schedule change. The Widget suite uses each fixture's manual clock and production mount. Both suites permit at most a 0.5% pixel difference. Do not increase this tolerance to make a failure pass.
+Studio fixes browser `Date` while timers and real server time continue. The tests mask server contact times, enrollment and sign-in dates, update ages, notification counts, and pairing expiry metadata. Screen details mask the effective assignment and next transition values because the server evaluates schedules with real time. Status labels and controls remain visible. The overview masks its live chart, health values, and measured-screen counts. The next schedule panel uses the fixed browser time and remains visible. Widget renderers have no masks. Widget editor snapshots select the 320 × 180 Small zone preset so the full frame is visible.
+
+Simulated Players do not send screenshot captures. Screen detail tests wait for the real Live preview panel and its uncaptured metadata. The Activity snapshot covers the seeded empty Proof of Play state. The Widget suite uses each fixture's manual clock and production mount. Both suites permit at most a 0.5% pixel difference. Do not increase this tolerance to make a failure pass.
 
 On macOS, run the Linux container helper against the running demo:
 

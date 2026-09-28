@@ -3313,7 +3313,7 @@ export function LayoutEditorPage() {
       )}
       <Dialog open={preview} onOpenChange={setPreview}>
         <DialogContent
-          className="layout-preview-overlay"
+          className="layout-preview-overlay translate-x-0 translate-y-0"
           showCloseButton={false}
         >
           <DialogHeader className="sr-only">
@@ -3359,6 +3359,7 @@ export function LayoutEditorPage() {
             className="layout-preview-frame"
             style={{
               aspectRatio: `${document.canvas.width}/${document.canvas.height}`,
+              maxWidth: `calc((100dvh - 96px) * ${document.canvas.width / document.canvas.height})`,
               backgroundColor: document.canvas.backgroundColor,
             }}
           >

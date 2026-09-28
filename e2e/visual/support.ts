@@ -4,12 +4,19 @@ async function settle(page: Page) {
   await expect(page.locator('[data-slot="skeleton"]')).toHaveCount(0);
   await expect(page.getByText("Loading…", { exact: true })).toHaveCount(0);
   await expect(page.locator('[data-slot="toast"]')).toHaveCount(0);
+  await expect
+    .poll(() =>
+      page
+        .locator("img")
+        .evaluateAll((images) =>
+          images.every((image) => image.complete && image.naturalWidth > 0),
+        ),
+    )
+    .toBe(true);
   await page.evaluate(async () => {
     await document.fonts.ready;
     await Promise.all(
-      Array.from(document.images).map((image) =>
-        image.decode().catch(() => undefined),
-      ),
+      Array.from(document.images).map((image) => image.decode()),
     );
     await Promise.all(
       Array.from(document.querySelectorAll("[data-tilecast-widget]")).map(
@@ -31,7 +38,9 @@ export async function snapshot(
   // never status badges, content, controls or the shared Widget renderer.
   const masks = [
     page.getByRole("button", { name: /^Notifications,/ }),
-    page.locator("p").filter({ hasText: /last contact|Paired \d|^Updated / }),
+    page.locator("p").filter({ hasText: /last contact|Paired \d/ }),
+    page.getByText(/^Updated \d/),
+    page.locator("p").filter({ hasText: /Last signed in/ }),
     page
       .locator("dt")
       .filter({ hasText: /^Last contact$/ })

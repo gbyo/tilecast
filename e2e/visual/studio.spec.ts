@@ -53,6 +53,15 @@ for (const [name, path, ready] of states) {
         .getByRole("button", { name: "Small zone", exact: true })
         .click();
     }
+    if (name.startsWith("screen-")) {
+      // Simulated players have no captured image. Wait for the real panel,
+      // including its metadata, rather than capturing the lazy-load fallback.
+      await expect(
+        page
+          .getByRole("complementary", { name: "Live preview" })
+          .getByText("Not captured", { exact: true }),
+      ).toBeVisible();
+    }
     await snapshot(page, name);
   });
 }
@@ -65,6 +74,7 @@ test("overview", async ({ page }) => {
   await snapshot(page, "overview", [
     page.locator(".recharts-wrapper"),
     page.getByRole("region", { name: "Fleet health" }).locator(".tabular-nums"),
+    page.getByRole("button", { name: /^Per screen ·/ }).locator("span"),
   ]);
 });
 
@@ -74,6 +84,16 @@ test("layout-widget-preview", async ({ page }) => {
   await expect(
     page.locator(".layout-preview-frame [data-tilecast-widget]"),
   ).toHaveCount(1);
+  await expect(page.locator(".layout-preview-frame")).toBeInViewport({
+    ratio: 1,
+  });
+  await expect
+    .poll(() =>
+      page
+        .locator(".layout-preview-frame")
+        .evaluate((frame) => frame.clientWidth / frame.clientHeight),
+    )
+    .toBeCloseTo(1080 / 1920, 2);
   await snapshot(page, "layout-widget-preview");
 });
 

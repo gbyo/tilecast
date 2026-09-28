@@ -38,6 +38,10 @@ const rules = [
   [/^(apps\/cli|packages\/api-client)\//, ["cli"]],
   [/^apps\/player-android\//, ["android"]],
   [
+    /^scripts\/(build-player-release|extract-apksigner-sha256)\.sh$/,
+    ["android"],
+  ],
+  [
     /^(apps\/player-linux\/|scripts\/(build-linux-player-release\.sh|verify-linux-player-release\.mjs)$)/,
     ["linux"],
   ],
@@ -136,6 +140,8 @@ const rules = [
   [/^apps\/edge\/ci\//, edgeAreas],
   [/^apps\/edge\/[^/]+$/, edgeAreas],
   [/^deploy\/docker\//, ["container", "e2e"]],
+  [/^\.dockerignore$/, ["container", "e2e"]],
+  [/^\.(prettierignore|prettierrc(?:\.[^/]+)?)$/, ["dashboard", "docs"]],
   [/^(e2e\/|scripts\/demo-reset\.sh$)/, ["e2e"]],
   [
     /^(apps\/docs\/|docs\/|wiki\/|\.github\/logos\/)|(^|\/)README\.md$|^CONTRIBUTING\.md$|^scripts\/check-docs-ste\.sh$/,
@@ -151,6 +157,11 @@ const rules = [
 export function affected(paths, { full = false, fullEdge = false } = {}) {
   const selected = new Set(full ? areas : []);
   for (const path of paths) {
+    // Package READMEs explain a contract; they do not compile into it.
+    if (/(^|\/)README\.md$/.test(path)) {
+      selected.add("docs");
+      continue;
+    }
     let matched = false;
     for (const [pattern, targets] of rules) {
       if (!pattern.test(path)) continue;
