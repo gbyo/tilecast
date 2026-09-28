@@ -2898,6 +2898,21 @@ func (e QueuedPlayerCommandState) Valid() bool {
 	}
 }
 
+// Defines values for RetryUpdateQueuedState.
+const (
+	RetryUpdateQueuedStatePending RetryUpdateQueuedState = "pending"
+)
+
+// Valid indicates whether the value is a known member of the RetryUpdateQueuedState enum.
+func (e RetryUpdateQueuedState) Valid() bool {
+	switch e {
+	case RetryUpdateQueuedStatePending:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SchedulePresentationType.
 const (
 	SchedulePresentationTypeDisplayControl SchedulePresentationType = "display_control"
@@ -3372,6 +3387,48 @@ func (e TakeoverDetailStatus) Valid() bool {
 	case TakeoverDetailStatusCancelled:
 		return true
 	case TakeoverDetailStatusExpired:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UpdateState.
+const (
+	UpdateStateDownloaded           UpdateState = "downloaded"
+	UpdateStateDownloading          UpdateState = "downloading"
+	UpdateStateFailed               UpdateState = "failed"
+	UpdateStateInstalling           UpdateState = "installing"
+	UpdateStateReady                UpdateState = "ready"
+	UpdateStateReconnecting         UpdateState = "reconnecting"
+	UpdateStateSucceeded            UpdateState = "succeeded"
+	UpdateStateVerifying            UpdateState = "verifying"
+	UpdateStateWaitingForPermission UpdateState = "waiting_for_permission"
+	UpdateStateWaitingForUser       UpdateState = "waiting_for_user"
+)
+
+// Valid indicates whether the value is a known member of the UpdateState enum.
+func (e UpdateState) Valid() bool {
+	switch e {
+	case UpdateStateDownloaded:
+		return true
+	case UpdateStateDownloading:
+		return true
+	case UpdateStateFailed:
+		return true
+	case UpdateStateInstalling:
+		return true
+	case UpdateStateReady:
+		return true
+	case UpdateStateReconnecting:
+		return true
+	case UpdateStateSucceeded:
+		return true
+	case UpdateStateVerifying:
+		return true
+	case UpdateStateWaitingForPermission:
+		return true
+	case UpdateStateWaitingForUser:
 		return true
 	default:
 		return false
@@ -6345,6 +6402,51 @@ type PlayerCommandStateUpdate struct {
 // PlayerCommandType defines model for PlayerCommandType.
 type PlayerCommandType string
 
+// PlayerConfig defines model for PlayerConfig.
+type PlayerConfig struct {
+	// Accessibility One effective-configuration category. Keys and value shapes follow the organization policy definitions; players ignore unknown keys.
+	Accessibility PlayerConfigSection `json:"accessibility"`
+
+	// Branding One effective-configuration category. Keys and value shapes follow the organization policy definitions; players ignore unknown keys.
+	Branding PlayerConfigSection `json:"branding"`
+
+	// Cache One effective-configuration category. Keys and value shapes follow the organization policy definitions; players ignore unknown keys.
+	Cache          PlayerConfigSection `json:"cache"`
+	ConfigRevision int64               `json:"configRevision"`
+	GeneratedAt    time.Time           `json:"generatedAt"`
+
+	// LinuxKiosk One effective-configuration category. Keys and value shapes follow the organization policy definitions; players ignore unknown keys.
+	LinuxKiosk PlayerConfigSection `json:"linuxKiosk"`
+
+	// ManagedKiosk One effective-configuration category. Keys and value shapes follow the organization policy definitions; players ignore unknown keys.
+	ManagedKiosk PlayerConfigSection `json:"managedKiosk"`
+
+	// Playback One effective-configuration category. Keys and value shapes follow the organization policy definitions; players ignore unknown keys.
+	Playback PlayerConfigSection `json:"playback"`
+
+	// Power One effective-configuration category. Keys and value shapes follow the organization policy definitions; players ignore unknown keys.
+	Power PlayerConfigSection `json:"power"`
+
+	// PresentationNetwork One effective-configuration category. Keys and value shapes follow the organization policy definitions; players ignore unknown keys.
+	PresentationNetwork *PlayerConfigSection `json:"presentationNetwork,omitempty"`
+
+	// Reliability One effective-configuration category. Keys and value shapes follow the organization policy definitions; players ignore unknown keys.
+	Reliability   PlayerConfigSection `json:"reliability"`
+	SchemaVersion int                 `json:"schemaVersion"`
+
+	// Sync One effective-configuration category. Keys and value shapes follow the organization policy definitions; players ignore unknown keys.
+	Sync PlayerConfigSection `json:"sync"`
+
+	// Updates One effective-configuration category. Keys and value shapes follow the organization policy definitions; players ignore unknown keys.
+	Updates PlayerConfigSection `json:"updates"`
+
+	// Website One effective-configuration category. Keys and value shapes follow the organization policy definitions; players ignore unknown keys.
+	Website PlayerConfigSection `json:"website"`
+}
+
+// PlayerConfigSection One effective-configuration category. Keys and value shapes follow the organization policy definitions; players ignore unknown keys.
+type PlayerConfigSection map[string]interface{}
+
 // PlayerFamily The Player release family. A deployment reaches only screens of its release's family, and for `edge` only screens of its architecture.
 type PlayerFamily = interface{}
 
@@ -7237,6 +7339,14 @@ type RecoveryCodes struct {
 	Codes []string `json:"codes"`
 }
 
+// RetryUpdateQueued defines model for RetryUpdateQueued.
+type RetryUpdateQueued struct {
+	State RetryUpdateQueuedState `json:"state"`
+}
+
+// RetryUpdateQueuedState defines model for RetryUpdateQueued.State.
+type RetryUpdateQueuedState string
+
 // ReviewDecisionRequest defines model for ReviewDecisionRequest.
 type ReviewDecisionRequest struct {
 	Note *string `json:"note,omitempty"`
@@ -8026,6 +8136,14 @@ type TelemetrySnapshot struct {
 	VideoDecoderPath         *string    `json:"videoDecoderPath,omitempty"`
 	WifiLinkSpeedMbps        *int       `json:"wifiLinkSpeedMbps,omitempty"`
 	WifiSignalDbm            *int       `json:"wifiSignalDbm,omitempty"`
+}
+
+// UpdateState defines model for UpdateState.
+type UpdateState string
+
+// UpdateStateReport defines model for UpdateStateReport.
+type UpdateStateReport struct {
+	State UpdateState `json:"state"`
 }
 
 // UploadSession defines model for UploadSession.
@@ -50280,6 +50398,17 @@ func (r ReportPlayerCommandResultResponse) ContentType() string {
 type GetPlayerConfigResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PlayerConfig `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetPlayerConfigResponse) GetJSON200() *struct {
+	Data PlayerConfig `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -50867,6 +50996,17 @@ func (r IngestPlayerTelemetryResponse) ContentType() string {
 type ReportPlayerUpdateStatusResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data UpdateStateReport `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ReportPlayerUpdateStatusResponse) GetJSON200() *struct {
+	Data UpdateStateReport `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -56610,6 +56750,17 @@ func (r CancelUpdateDeploymentResponse) ContentType() string {
 type RetryUpdateDeploymentScreenResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *struct {
+		Data RetryUpdateQueued `json:"data"`
+	}
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r RetryUpdateDeploymentScreenResponse) GetJSON202() *struct {
+	Data RetryUpdateQueued `json:"data"`
+} {
+	return r.JSON202
 }
 
 // GetBody returns the raw response body bytes
@@ -69209,6 +69360,21 @@ func ParseGetPlayerConfigResponse(rsp *http.Response) (*GetPlayerConfigResponse,
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PlayerConfig `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 304:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -69595,6 +69761,24 @@ func ParseReportPlayerUpdateStatusResponse(rsp *http.Response) (*ReportPlayerUpd
 	response := &ReportPlayerUpdateStatusResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data UpdateStateReport `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -73454,6 +73638,24 @@ func ParseRetryUpdateDeploymentScreenResponse(rsp *http.Response) (*RetryUpdateD
 	response := &RetryUpdateDeploymentScreenResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest struct {
+			Data RetryUpdateQueued `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
 	}
 
 	return response, nil
