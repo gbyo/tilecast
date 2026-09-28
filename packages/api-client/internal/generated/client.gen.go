@@ -105,6 +105,27 @@ func (e AuthMethod) Valid() bool {
 	}
 }
 
+// Defines values for BackupJobKind.
+const (
+	BackupJobKindBackup  BackupJobKind = "backup"
+	BackupJobKindRestore BackupJobKind = "restore"
+	BackupJobKindVerify  BackupJobKind = "verify"
+)
+
+// Valid indicates whether the value is a known member of the BackupJobKind enum.
+func (e BackupJobKind) Valid() bool {
+	switch e {
+	case BackupJobKindBackup:
+		return true
+	case BackupJobKindRestore:
+		return true
+	case BackupJobKindVerify:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CampaignBlockContentType.
 const (
 	CampaignBlockContentTypeLayout   CampaignBlockContentType = "layout"
@@ -1067,22 +1088,22 @@ func (e ManifestScheduleType) Valid() bool {
 
 // Defines values for NotificationCategory.
 const (
-	Backup        NotificationCategory = "backup"
-	ContentHealth NotificationCategory = "content_health"
-	Incident      NotificationCategory = "incident"
-	Update        NotificationCategory = "update"
+	NotificationCategoryBackup        NotificationCategory = "backup"
+	NotificationCategoryContentHealth NotificationCategory = "content_health"
+	NotificationCategoryIncident      NotificationCategory = "incident"
+	NotificationCategoryUpdate        NotificationCategory = "update"
 )
 
 // Valid indicates whether the value is a known member of the NotificationCategory enum.
 func (e NotificationCategory) Valid() bool {
 	switch e {
-	case Backup:
+	case NotificationCategoryBackup:
 		return true
-	case ContentHealth:
+	case NotificationCategoryContentHealth:
 		return true
-	case Incident:
+	case NotificationCategoryIncident:
 		return true
-	case Update:
+	case NotificationCategoryUpdate:
 		return true
 	default:
 		return false
@@ -2229,6 +2250,36 @@ func (e SpanStatusDisplayMode) Valid() bool {
 	}
 }
 
+// Defines values for SystemHealthService.
+const (
+	TilecastServer SystemHealthService = "tilecast-server"
+)
+
+// Valid indicates whether the value is a known member of the SystemHealthService enum.
+func (e SystemHealthService) Valid() bool {
+	switch e {
+	case TilecastServer:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SystemHealthStatus.
+const (
+	SystemHealthStatusOk SystemHealthStatus = "ok"
+)
+
+// Valid indicates whether the value is a known member of the SystemHealthStatus enum.
+func (e SystemHealthStatus) Valid() bool {
+	switch e {
+	case SystemHealthStatusOk:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TakeoverStatus.
 const (
 	TakeoverStatusActive    TakeoverStatus = "active"
@@ -2987,13 +3038,13 @@ func (e CreatePersonalAccessTokenJSONBodyScopes) Valid() bool {
 
 // Defines values for TestNotificationWebhook200JSONResponseBodyDataDelivered.
 const (
-	True TestNotificationWebhook200JSONResponseBodyDataDelivered = true
+	TestNotificationWebhook200JSONResponseBodyDataDeliveredTrue TestNotificationWebhook200JSONResponseBodyDataDelivered = true
 )
 
 // Valid indicates whether the value is a known member of the TestNotificationWebhook200JSONResponseBodyDataDelivered enum.
 func (e TestNotificationWebhook200JSONResponseBodyDataDelivered) Valid() bool {
 	switch e {
-	case True:
+	case TestNotificationWebhook200JSONResponseBodyDataDeliveredTrue:
 		return true
 	default:
 		return false
@@ -3075,6 +3126,21 @@ func (e PreviewDisplayGroupControlParamsCommandType) Valid() bool {
 	case PreviewDisplayGroupControlParamsCommandTypeDisplayPowerOn:
 		return true
 	case PreviewDisplayGroupControlParamsCommandTypeDisplayUnmute:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DeleteBackup200JSONResponseBodyDataDeleted.
+const (
+	DeleteBackup200JSONResponseBodyDataDeletedTrue DeleteBackup200JSONResponseBodyDataDeleted = true
+)
+
+// Valid indicates whether the value is a known member of the DeleteBackup200JSONResponseBodyDataDeleted enum.
+func (e DeleteBackup200JSONResponseBodyDataDeleted) Valid() bool {
+	switch e {
+	case DeleteBackup200JSONResponseBodyDataDeletedTrue:
 		return true
 	default:
 		return false
@@ -3273,6 +3339,91 @@ type AuthStatus struct {
 type AuthenticatorCodeRequest struct {
 	// Code The six-digit authenticator code.
 	Code string `json:"code"`
+}
+
+// BackupArchive defines model for BackupArchive.
+type BackupArchive struct {
+	ArchiveSha256    string             `json:"archiveSha256"`
+	Components       []BackupComponent  `json:"components"`
+	CreatedAt        time.Time          `json:"createdAt"`
+	FileName         string             `json:"fileName"`
+	Id               openapi_types.UUID `json:"id"`
+	InstallationId   string             `json:"installationId"`
+	Kind             string             `json:"kind"`
+	OrganizationName string             `json:"organizationName"`
+	SchemaVersion    int                `json:"schemaVersion"`
+	SizeBytes        int                `json:"sizeBytes"`
+	Status           string             `json:"status"`
+	TilecastVersion  string             `json:"tilecastVersion"`
+	Verification     string             `json:"verification"`
+	VerifiedAt       *time.Time         `json:"verifiedAt,omitempty"`
+}
+
+// BackupComponent defines model for BackupComponent.
+type BackupComponent struct {
+	FileCount  int    `json:"fileCount"`
+	Name       string `json:"name"`
+	TotalBytes int    `json:"totalBytes"`
+}
+
+// BackupJob defines model for BackupJob.
+type BackupJob struct {
+	ArchiveId       *openapi_types.UUID `json:"archiveId,omitempty"`
+	CompletedAt     *time.Time          `json:"completedAt,omitempty"`
+	CreatedAt       time.Time           `json:"createdAt"`
+	ErrorCode       *string             `json:"errorCode,omitempty"`
+	ErrorMessage    *string             `json:"errorMessage,omitempty"`
+	Id              openapi_types.UUID  `json:"id"`
+	Kind            BackupJobKind       `json:"kind"`
+	Phase           string              `json:"phase"`
+	ProgressPercent int                 `json:"progressPercent"`
+	Status          string              `json:"status"`
+	Trigger         string              `json:"trigger"`
+}
+
+// BackupJobKind defines model for BackupJob.Kind.
+type BackupJobKind string
+
+// BackupList defines model for BackupList.
+type BackupList struct {
+	Backups []BackupArchive `json:"backups"`
+
+	// CurrentJob Null when no job is active or known.
+	CurrentJob *BackupJob `json:"currentJob"`
+
+	// LastSuccessful Null when no backup has completed yet.
+	LastSuccessful *BackupArchive      `json:"lastSuccessful"`
+	RecentJobs     []BackupJob         `json:"recentJobs"`
+	Schedule       BackupScheduleState `json:"schedule"`
+}
+
+// BackupRestorePlan defines model for BackupRestorePlan.
+type BackupRestorePlan struct {
+	Archive               BackupArchive     `json:"archive"`
+	Components            []BackupComponent `json:"components"`
+	CreatedAt             time.Time         `json:"createdAt"`
+	CurrentInstallationId string            `json:"currentInstallationId"`
+	IdentityMismatch      bool              `json:"identityMismatch"`
+	InstallationId        string            `json:"installationId"`
+	OrganizationName      string            `json:"organizationName"`
+	SchemaVersion         int               `json:"schemaVersion"`
+	SizeBytes             int               `json:"sizeBytes"`
+	TilecastVersion       string            `json:"tilecastVersion"`
+}
+
+// BackupScheduleState defines model for BackupScheduleState.
+type BackupScheduleState struct {
+	LastRunAt *time.Time `json:"lastRunAt,omitempty"`
+	NextRunAt *time.Time `json:"nextRunAt,omitempty"`
+}
+
+// BackupWorkerStatus Live in-memory worker heartbeat for the active job. Unlike the stored BackupJob, it carries no trigger, archive link, timestamps, or error detail.
+type BackupWorkerStatus struct {
+	JobId           openapi_types.UUID `json:"jobId"`
+	Kind            string             `json:"kind"`
+	Phase           string             `json:"phase"`
+	ProgressPercent int                `json:"progressPercent"`
+	Status          string             `json:"status"`
 }
 
 // BulkAssetResult defines model for BulkAssetResult.
@@ -4224,6 +4375,15 @@ type ManifestSchedule struct {
 
 // ManifestScheduleType defines model for ManifestSchedule.Type.
 type ManifestScheduleType string
+
+// MediaDiagnostics defines model for MediaDiagnostics.
+type MediaDiagnostics struct {
+	AvailableStorageBytes int  `json:"availableStorageBytes"`
+	FfmpegAvailable       bool `json:"ffmpegAvailable"`
+	FfprobeAvailable      bool `json:"ffprobeAvailable"`
+	MaximumUploadBytes    int  `json:"maximumUploadBytes"`
+	WorkerCount           int  `json:"workerCount"`
+}
 
 // MultiFactorVerifyRequest defines model for MultiFactorVerifyRequest.
 type MultiFactorVerifyRequest struct {
@@ -5394,6 +5554,13 @@ type SetupRequest struct {
 	Username         string `json:"username"`
 }
 
+// SnapshotUsage defines model for SnapshotUsage.
+type SnapshotUsage struct {
+	Count      int    `json:"count"`
+	Note       string `json:"note"`
+	TotalBytes int    `json:"totalBytes"`
+}
+
 // SpanGeometry defines model for SpanGeometry.
 type SpanGeometry struct {
 	Canvas struct {
@@ -5511,6 +5678,42 @@ type StructuredSourceMapping struct {
 type SubmitContentRequest struct {
 	ExpectedRevision       *int64     `json:"expectedRevision,omitempty"`
 	RequestedPublicationAt *time.Time `json:"requestedPublicationAt,omitempty"`
+}
+
+// SystemHealth defines model for SystemHealth.
+type SystemHealth struct {
+	Service SystemHealthService `json:"service"`
+	Status  SystemHealthStatus  `json:"status"`
+}
+
+// SystemHealthService defines model for SystemHealth.Service.
+type SystemHealthService string
+
+// SystemHealthStatus defines model for SystemHealth.Status.
+type SystemHealthStatus string
+
+// SystemStatus defines model for SystemStatus.
+type SystemStatus struct {
+	ActiveProcessingJobs int    `json:"activeProcessingJobs"`
+	BuildCommit          string `json:"buildCommit"`
+	BuildDate            string `json:"buildDate"`
+	ConnectedScreens     int    `json:"connectedScreens"`
+	Database             struct {
+		MigrationVersion string `json:"migrationVersion"`
+		PostgresVersion  string `json:"postgresVersion"`
+		Status           string `json:"status"`
+	} `json:"database"`
+
+	// Deployment Deployment capability markers.
+	Deployment map[string]interface{} `json:"deployment"`
+	GoVersion  string                 `json:"goVersion"`
+
+	// Media Media diagnostics bag when storage is healthy, a degraded marker otherwise.
+	Media           map[string]interface{} `json:"media"`
+	PendingCommands int                    `json:"pendingCommands"`
+	ServerTimezone  string                 `json:"serverTimezone"`
+	TilecastVersion string                 `json:"tilecastVersion"`
+	UptimeSeconds   int                    `json:"uptimeSeconds"`
 }
 
 // TOTPEnrollment defines model for TOTPEnrollment.
@@ -7064,11 +7267,22 @@ type CreateBackupParams struct {
 	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
+// GetCurrentBackupJob200JSONResponseBody_Data defines parameters for GetCurrentBackupJob.
+type GetCurrentBackupJob200JSONResponseBody_Data struct {
+	union json.RawMessage
+}
+
 // DeleteBackupParams defines parameters for DeleteBackup.
 type DeleteBackupParams struct {
+	// Force Confirm again when deleting the last complete backup.
+	Force *bool `form:"force,omitempty" json:"force,omitempty"`
+
 	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
 	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
+
+// DeleteBackup200JSONResponseBodyDataDeleted defines parameters for DeleteBackup.
+type DeleteBackup200JSONResponseBodyDataDeleted bool
 
 // RestoreBackupJSONBody defines parameters for RestoreBackup.
 type RestoreBackupJSONBody struct {
@@ -7915,6 +8129,68 @@ func (t PresentationReference) MarshalJSON() ([]byte, error) {
 }
 
 func (t *PresentationReference) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsBackupWorkerStatus returns the union data inside the GetCurrentBackupJob200JSONResponseBody_Data as a BackupWorkerStatus
+func (t GetCurrentBackupJob200JSONResponseBody_Data) AsBackupWorkerStatus() (BackupWorkerStatus, error) {
+	var body BackupWorkerStatus
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromBackupWorkerStatus overwrites any union data inside the GetCurrentBackupJob200JSONResponseBody_Data as the provided BackupWorkerStatus
+func (t *GetCurrentBackupJob200JSONResponseBody_Data) FromBackupWorkerStatus(v BackupWorkerStatus) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeBackupWorkerStatus performs a merge with any union data inside the GetCurrentBackupJob200JSONResponseBody_Data, using the provided BackupWorkerStatus
+func (t *GetCurrentBackupJob200JSONResponseBody_Data) MergeBackupWorkerStatus(v BackupWorkerStatus) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsBackupJob returns the union data inside the GetCurrentBackupJob200JSONResponseBody_Data as a BackupJob
+func (t GetCurrentBackupJob200JSONResponseBody_Data) AsBackupJob() (BackupJob, error) {
+	var body BackupJob
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromBackupJob overwrites any union data inside the GetCurrentBackupJob200JSONResponseBody_Data as the provided BackupJob
+func (t *GetCurrentBackupJob200JSONResponseBody_Data) FromBackupJob(v BackupJob) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeBackupJob performs a merge with any union data inside the GetCurrentBackupJob200JSONResponseBody_Data, using the provided BackupJob
+func (t *GetCurrentBackupJob200JSONResponseBody_Data) MergeBackupJob(v BackupJob) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t GetCurrentBackupJob200JSONResponseBody_Data) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *GetCurrentBackupJob200JSONResponseBody_Data) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }
@@ -33176,6 +33452,33 @@ func NewDeleteBackupRequest(server string, id ResourceID, params *DeleteBackupPa
 		return nil, err
 	}
 
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Force != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "force", *params.Force, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
 	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
@@ -51189,6 +51492,17 @@ func (r ResetSettingsResponse) ContentType() string {
 type ListBackupsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data BackupList `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListBackupsResponse) GetJSON200() *struct {
+	Data BackupList `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -51223,6 +51537,17 @@ func (r ListBackupsResponse) ContentType() string {
 type CreateBackupResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *struct {
+		Data BackupJob `json:"data"`
+	}
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r CreateBackupResponse) GetJSON202() *struct {
+	Data BackupJob `json:"data"`
+} {
+	return r.JSON202
 }
 
 // GetBody returns the raw response body bytes
@@ -51257,6 +51582,17 @@ func (r CreateBackupResponse) ContentType() string {
 type GetCurrentBackupJobResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data GetCurrentBackupJob200JSONResponseBody_Data `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetCurrentBackupJobResponse) GetJSON200() *struct {
+	Data GetCurrentBackupJob200JSONResponseBody_Data `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -51291,6 +51627,17 @@ func (r GetCurrentBackupJobResponse) ContentType() string {
 type GetBackupJobResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data BackupJob `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetBackupJobResponse) GetJSON200() *struct {
+	Data BackupJob `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -51325,6 +51672,21 @@ func (r GetBackupJobResponse) ContentType() string {
 type DeleteBackupResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data struct {
+			Deleted DeleteBackup200JSONResponseBodyDataDeleted `json:"deleted"`
+		} `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DeleteBackupResponse) GetJSON200() *struct {
+	Data struct {
+		Deleted DeleteBackup200JSONResponseBodyDataDeleted `json:"deleted"`
+	} `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -51393,6 +51755,17 @@ func (r DownloadBackupResponse) ContentType() string {
 type GetRestorePlanResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data BackupRestorePlan `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetRestorePlanResponse) GetJSON200() *struct {
+	Data BackupRestorePlan `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -51427,6 +51800,17 @@ func (r GetRestorePlanResponse) ContentType() string {
 type RestoreBackupResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *struct {
+		Data BackupJob `json:"data"`
+	}
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r RestoreBackupResponse) GetJSON202() *struct {
+	Data BackupJob `json:"data"`
+} {
+	return r.JSON202
 }
 
 // GetBody returns the raw response body bytes
@@ -51461,6 +51845,17 @@ func (r RestoreBackupResponse) ContentType() string {
 type VerifyBackupResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *struct {
+		Data BackupJob `json:"data"`
+	}
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r VerifyBackupResponse) GetJSON202() *struct {
+	Data BackupJob `json:"data"`
+} {
+	return r.JSON202
 }
 
 // GetBody returns the raw response body bytes
@@ -51495,6 +51890,17 @@ func (r VerifyBackupResponse) ContentType() string {
 type GetSystemHealthResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data SystemHealth `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetSystemHealthResponse) GetJSON200() *struct {
+	Data SystemHealth `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -51608,6 +52014,17 @@ func (r RunSystemMaintenanceResponse) ContentType() string {
 type GetMediaDiagnosticsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data MediaDiagnostics `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetMediaDiagnosticsResponse) GetJSON200() *struct {
+	Data MediaDiagnostics `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -51744,6 +52161,17 @@ func (r PreviewSettingsImportResponse) ContentType() string {
 type GetSnapshotUsageResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data SnapshotUsage `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetSnapshotUsageResponse) GetJSON200() *struct {
+	Data SnapshotUsage `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -51778,6 +52206,17 @@ func (r GetSnapshotUsageResponse) ContentType() string {
 type SystemStatusResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data SystemStatus `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SystemStatusResponse) GetJSON200() *struct {
+	Data SystemStatus `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -66873,6 +67312,24 @@ func ParseListBackupsResponse(rsp *http.Response) (*ListBackupsResponse, error) 
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data BackupList `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -66887,6 +67344,27 @@ func ParseCreateBackupResponse(rsp *http.Response) (*CreateBackupResponse, error
 	response := &CreateBackupResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest struct {
+			Data BackupJob `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -66905,6 +67383,24 @@ func ParseGetCurrentBackupJobResponse(rsp *http.Response) (*GetCurrentBackupJobR
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data GetCurrentBackupJob200JSONResponseBody_Data `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -66921,6 +67417,27 @@ func ParseGetBackupJobResponse(rsp *http.Response) (*GetBackupJobResponse, error
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data BackupJob `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -66935,6 +67452,35 @@ func ParseDeleteBackupResponse(rsp *http.Response) (*DeleteBackupResponse, error
 	response := &DeleteBackupResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data struct {
+				Deleted DeleteBackup200JSONResponseBodyDataDeleted `json:"deleted"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -66969,6 +67515,30 @@ func ParseGetRestorePlanResponse(rsp *http.Response) (*GetRestorePlanResponse, e
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data BackupRestorePlan `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -66983,6 +67553,30 @@ func ParseRestoreBackupResponse(rsp *http.Response) (*RestoreBackupResponse, err
 	response := &RestoreBackupResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest struct {
+			Data BackupJob `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -67001,6 +67595,27 @@ func ParseVerifyBackupResponse(rsp *http.Response) (*VerifyBackupResponse, error
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest struct {
+			Data BackupJob `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -67015,6 +67630,24 @@ func ParseGetSystemHealthResponse(rsp *http.Response) (*GetSystemHealthResponse,
 	response := &GetSystemHealthResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data SystemHealth `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -67075,6 +67708,24 @@ func ParseGetMediaDiagnosticsResponse(rsp *http.Response) (*GetMediaDiagnosticsR
 	response := &GetMediaDiagnosticsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data MediaDiagnostics `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -67141,6 +67792,24 @@ func ParseGetSnapshotUsageResponse(rsp *http.Response) (*GetSnapshotUsageRespons
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data SnapshotUsage `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -67155,6 +67824,24 @@ func ParseSystemStatusResponse(rsp *http.Response) (*SystemStatusResponse, error
 	response := &SystemStatusResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data SystemStatus `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
 	}
 
 	return response, nil
