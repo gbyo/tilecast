@@ -79,6 +79,8 @@ object RemoteWebHostManager {
         if (page.allowedHosts.any { it.isBlank() || it.length > 253 }) return false
         val uri = runCatching { java.net.URI(page.url) }.getOrNull() ?: return false
         if (uri.userInfo != null || uri.host.isNullOrBlank()) return false
+        val host = uri.host.trimEnd('.')
+        if (page.allowedHosts.none { it.trimEnd('.').equals(host, ignoreCase = true) }) return false
         val scheme = uri.scheme?.lowercase() ?: return false
         if (scheme != "https" && scheme != "http") return false
         val port = uri.port
