@@ -374,7 +374,9 @@ func newFixture(t *testing.T) *cliFixture {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	})
 	mux.HandleFunc("/api/v1/activity/overview", func(w http.ResponseWriter, r *http.Request) {
-		write(w, map[string]any{"cards": map[string]any{"screens": 3}, "range": map[string]any{"from": r.URL.Query().Get("from")}})
+		write(w, map[string]any{"cards": map[string]any{"screens": 3},
+			"range":    map[string]any{"from": "2030-01-01T00:00:00Z", "to": "2030-01-02T00:00:00Z"},
+			"timeline": []any{}})
 	})
 	mux.HandleFunc("/api/v1/activity/uptime", func(w http.ResponseWriter, r *http.Request) {
 		window := r.URL.Query().Get("window")
