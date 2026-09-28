@@ -161,16 +161,16 @@ func (e CampaignDestinationType) Valid() bool {
 
 // Defines values for CampaignPreflightIssuesSeverity.
 const (
-	Error   CampaignPreflightIssuesSeverity = "error"
-	Warning CampaignPreflightIssuesSeverity = "warning"
+	CampaignPreflightIssuesSeverityError   CampaignPreflightIssuesSeverity = "error"
+	CampaignPreflightIssuesSeverityWarning CampaignPreflightIssuesSeverity = "warning"
 )
 
 // Valid indicates whether the value is a known member of the CampaignPreflightIssuesSeverity enum.
 func (e CampaignPreflightIssuesSeverity) Valid() bool {
 	switch e {
-	case Error:
+	case CampaignPreflightIssuesSeverityError:
 		return true
-	case Warning:
+	case CampaignPreflightIssuesSeverityWarning:
 		return true
 	default:
 		return false
@@ -1059,6 +1059,96 @@ func (e ManifestScheduleType) Valid() bool {
 	case ManifestScheduleTypeOneTime:
 		return true
 	case ManifestScheduleTypeWeekly:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NotificationCategory.
+const (
+	Backup        NotificationCategory = "backup"
+	ContentHealth NotificationCategory = "content_health"
+	Incident      NotificationCategory = "incident"
+	Update        NotificationCategory = "update"
+)
+
+// Valid indicates whether the value is a known member of the NotificationCategory enum.
+func (e NotificationCategory) Valid() bool {
+	switch e {
+	case Backup:
+		return true
+	case ContentHealth:
+		return true
+	case Incident:
+		return true
+	case Update:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NotificationDeliveryChannel.
+const (
+	Email   NotificationDeliveryChannel = "email"
+	Webhook NotificationDeliveryChannel = "webhook"
+)
+
+// Valid indicates whether the value is a known member of the NotificationDeliveryChannel enum.
+func (e NotificationDeliveryChannel) Valid() bool {
+	switch e {
+	case Email:
+		return true
+	case Webhook:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NotificationDeliverySeverity.
+const (
+	NotificationDeliverySeverityCritical NotificationDeliverySeverity = "critical"
+	NotificationDeliverySeverityError    NotificationDeliverySeverity = "error"
+	NotificationDeliverySeverityInfo     NotificationDeliverySeverity = "info"
+	NotificationDeliverySeverityWarning  NotificationDeliverySeverity = "warning"
+)
+
+// Valid indicates whether the value is a known member of the NotificationDeliverySeverity enum.
+func (e NotificationDeliverySeverity) Valid() bool {
+	switch e {
+	case NotificationDeliverySeverityCritical:
+		return true
+	case NotificationDeliverySeverityError:
+		return true
+	case NotificationDeliverySeverityInfo:
+		return true
+	case NotificationDeliverySeverityWarning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NotificationDeliveryStatus.
+const (
+	NotificationDeliveryStatusCancelled NotificationDeliveryStatus = "cancelled"
+	NotificationDeliveryStatusFailed    NotificationDeliveryStatus = "failed"
+	NotificationDeliveryStatusPending   NotificationDeliveryStatus = "pending"
+	NotificationDeliveryStatusSent      NotificationDeliveryStatus = "sent"
+)
+
+// Valid indicates whether the value is a known member of the NotificationDeliveryStatus enum.
+func (e NotificationDeliveryStatus) Valid() bool {
+	switch e {
+	case NotificationDeliveryStatusCancelled:
+		return true
+	case NotificationDeliveryStatusFailed:
+		return true
+	case NotificationDeliveryStatusPending:
+		return true
+	case NotificationDeliveryStatusSent:
 		return true
 	default:
 		return false
@@ -2139,6 +2229,78 @@ func (e SpanStatusDisplayMode) Valid() bool {
 	}
 }
 
+// Defines values for TakeoverStatus.
+const (
+	TakeoverStatusActive    TakeoverStatus = "active"
+	TakeoverStatusCancelled TakeoverStatus = "cancelled"
+	TakeoverStatusExpired   TakeoverStatus = "expired"
+)
+
+// Valid indicates whether the value is a known member of the TakeoverStatus enum.
+func (e TakeoverStatus) Valid() bool {
+	switch e {
+	case TakeoverStatusActive:
+		return true
+	case TakeoverStatusCancelled:
+		return true
+	case TakeoverStatusExpired:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TakeoverActivationStatus.
+const (
+	TakeoverActivationStatusActive TakeoverActivationStatus = "active"
+)
+
+// Valid indicates whether the value is a known member of the TakeoverActivationStatus enum.
+func (e TakeoverActivationStatus) Valid() bool {
+	switch e {
+	case TakeoverActivationStatusActive:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TakeoverCancellationStatus.
+const (
+	TakeoverCancellationStatusCancelled TakeoverCancellationStatus = "cancelled"
+)
+
+// Valid indicates whether the value is a known member of the TakeoverCancellationStatus enum.
+func (e TakeoverCancellationStatus) Valid() bool {
+	switch e {
+	case TakeoverCancellationStatusCancelled:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TakeoverDetailStatus.
+const (
+	TakeoverDetailStatusActive    TakeoverDetailStatus = "active"
+	TakeoverDetailStatusCancelled TakeoverDetailStatus = "cancelled"
+	TakeoverDetailStatusExpired   TakeoverDetailStatus = "expired"
+)
+
+// Valid indicates whether the value is a known member of the TakeoverDetailStatus enum.
+func (e TakeoverDetailStatus) Valid() bool {
+	switch e {
+	case TakeoverDetailStatusActive:
+		return true
+	case TakeoverDetailStatusCancelled:
+		return true
+	case TakeoverDetailStatusExpired:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for UploadStatus.
 const (
 	UploadStatusCancelled  UploadStatus = "cancelled"
@@ -2817,6 +2979,21 @@ func (e CreatePersonalAccessTokenJSONBodyScopes) Valid() bool {
 	case CreatePersonalAccessTokenJSONBodyScopesRead:
 		return true
 	case CreatePersonalAccessTokenJSONBodyScopesWrite:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TestNotificationWebhook200JSONResponseBodyDataDelivered.
+const (
+	True TestNotificationWebhook200JSONResponseBodyDataDelivered = true
+)
+
+// Valid indicates whether the value is a known member of the TestNotificationWebhook200JSONResponseBodyDataDelivered enum.
+func (e TestNotificationWebhook200JSONResponseBodyDataDelivered) Valid() bool {
+	switch e {
+	case True:
 		return true
 	default:
 		return false
@@ -4056,6 +4233,63 @@ type MultiFactorVerifyRequest struct {
 	Code string `json:"code"`
 }
 
+// NotificationCategory defines model for NotificationCategory.
+type NotificationCategory string
+
+// NotificationDelivery defines model for NotificationDelivery.
+type NotificationDelivery struct {
+	Attempts  int                          `json:"attempts"`
+	Category  NotificationCategory         `json:"category"`
+	Channel   NotificationDeliveryChannel  `json:"channel"`
+	CreatedAt time.Time                    `json:"createdAt"`
+	EventKey  string                       `json:"eventKey"`
+	Id        openapi_types.UUID           `json:"id"`
+	LastError *string                      `json:"lastError,omitempty"`
+	SentAt    *time.Time                   `json:"sentAt,omitempty"`
+	Severity  NotificationDeliverySeverity `json:"severity"`
+	Status    NotificationDeliveryStatus   `json:"status"`
+	Subject   string                       `json:"subject"`
+	Target    string                       `json:"target"`
+}
+
+// NotificationDeliveryChannel defines model for NotificationDelivery.Channel.
+type NotificationDeliveryChannel string
+
+// NotificationDeliverySeverity defines model for NotificationDelivery.Severity.
+type NotificationDeliverySeverity string
+
+// NotificationDeliveryStatus defines model for NotificationDelivery.Status.
+type NotificationDeliveryStatus string
+
+// NotificationStatus defines model for NotificationStatus.
+type NotificationStatus struct {
+	EmailConfigured        bool   `json:"emailConfigured"`
+	EmailUnavailableReason string `json:"emailUnavailableReason"`
+	HasDeliveryHistory     bool   `json:"hasDeliveryHistory"`
+	PendingCount           int    `json:"pendingCount"`
+	RecentFailureCount     int    `json:"recentFailureCount"`
+}
+
+// NotificationWebhook defines model for NotificationWebhook.
+type NotificationWebhook struct {
+	Categories    []NotificationCategory `json:"categories"`
+	CreatedAt     time.Time              `json:"createdAt"`
+	Enabled       bool                   `json:"enabled"`
+	Id            openapi_types.UUID     `json:"id"`
+	LastAttemptAt *time.Time             `json:"lastAttemptAt,omitempty"`
+	LastError     *string                `json:"lastError,omitempty"`
+	LastSuccessAt *time.Time             `json:"lastSuccessAt,omitempty"`
+	Name          string                 `json:"name"`
+	Url           string                 `json:"url"`
+}
+
+// NotificationWebhookCreated The signing secret is returned exactly once. There is no endpoint that reads it back.
+type NotificationWebhookCreated struct {
+	SecretNotice  string              `json:"secretNotice"`
+	SigningSecret string              `json:"signingSecret"`
+	Webhook       NotificationWebhook `json:"webhook"`
+}
+
 // OAuthDecision defines model for OAuthDecision.
 type OAuthDecision struct {
 	Challenge   string               `json:"challenge"`
@@ -5285,6 +5519,85 @@ type TOTPEnrollment struct {
 	Secret          string `json:"secret"`
 }
 
+// Takeover Compact takeover row returned by the takeover list, with live per-state screen counts. The per-screen breakdown requires the detail read.
+type Takeover struct {
+	ActivatedAt        *time.Time         `json:"activatedAt,omitempty"`
+	ActiveCount        int                `json:"activeCount"`
+	AffectedCount      int                `json:"affectedCount"`
+	CancellationReason *string            `json:"cancellationReason,omitempty"`
+	CancelledAt        *time.Time         `json:"cancelledAt,omitempty"`
+	Description        string             `json:"description"`
+	ExpiresAt          time.Time          `json:"expiresAt"`
+	FailedCount        int                `json:"failedCount"`
+	Id                 openapi_types.UUID `json:"id"`
+	Name               string             `json:"name"`
+	PlaylistId         openapi_types.UUID `json:"playlistId"`
+	PlaylistName       string             `json:"playlistName"`
+	PreparingCount     int                `json:"preparingCount"`
+	Status             TakeoverStatus     `json:"status"`
+}
+
+// TakeoverStatus defines model for Takeover.Status.
+type TakeoverStatus string
+
+// TakeoverActivation defines model for TakeoverActivation.
+type TakeoverActivation struct {
+	AffectedCount int                      `json:"affectedCount"`
+	ExpiresAt     time.Time                `json:"expiresAt"`
+	Id            openapi_types.UUID       `json:"id"`
+	Status        TakeoverActivationStatus `json:"status"`
+}
+
+// TakeoverActivationStatus defines model for TakeoverActivation.Status.
+type TakeoverActivationStatus string
+
+// TakeoverCancellation defines model for TakeoverCancellation.
+type TakeoverCancellation struct {
+	Id     openapi_types.UUID         `json:"id"`
+	Status TakeoverCancellationStatus `json:"status"`
+}
+
+// TakeoverCancellationStatus defines model for TakeoverCancellation.Status.
+type TakeoverCancellationStatus string
+
+// TakeoverDetail Takeover detail with the per-screen rollout states. Unlike the list row, the detail carries no aggregate counts.
+type TakeoverDetail struct {
+	ActivatedAt        *time.Time            `json:"activatedAt,omitempty"`
+	CancellationReason *string               `json:"cancellationReason,omitempty"`
+	CancelledAt        *time.Time            `json:"cancelledAt,omitempty"`
+	Description        string                `json:"description"`
+	ExpiresAt          time.Time             `json:"expiresAt"`
+	Id                 openapi_types.UUID    `json:"id"`
+	Name               string                `json:"name"`
+	PlaylistId         openapi_types.UUID    `json:"playlistId"`
+	PlaylistName       string                `json:"playlistName"`
+	Screens            []TakeoverScreenState `json:"screens"`
+	Status             TakeoverDetailStatus  `json:"status"`
+}
+
+// TakeoverDetailStatus defines model for TakeoverDetail.Status.
+type TakeoverDetailStatus string
+
+// TakeoverList defines model for TakeoverList.
+type TakeoverList struct {
+	Items []Takeover `json:"items"`
+	Total int        `json:"total"`
+}
+
+// TakeoverScreenState defines model for TakeoverScreenState.
+type TakeoverScreenState struct {
+	ActivatedAt     *time.Time         `json:"activatedAt,omitempty"`
+	FailureCode     *string            `json:"failureCode,omitempty"`
+	FailureMessage  *string            `json:"failureMessage,omitempty"`
+	LastUpdatedAt   time.Time          `json:"lastUpdatedAt"`
+	ManifestVersion int64              `json:"manifestVersion"`
+	PreparedAt      *time.Time         `json:"preparedAt,omitempty"`
+	RestoredAt      *time.Time         `json:"restoredAt,omitempty"`
+	ScreenId        openapi_types.UUID `json:"screenId"`
+	ScreenName      string             `json:"screenName"`
+	State           string             `json:"state"`
+}
+
 // UploadStatus defines model for UploadStatus.
 type UploadStatus string
 
@@ -6201,6 +6514,11 @@ type RemoveAuthenticatorParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
+// ListNotificationDeliveriesParams defines parameters for ListNotificationDeliveries.
+type ListNotificationDeliveriesParams struct {
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // SendTestNotificationParams defines parameters for SendTestNotification.
 type SendTestNotificationParams struct {
 	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
@@ -6209,10 +6527,9 @@ type SendTestNotificationParams struct {
 
 // CreateNotificationWebhookJSONBody defines parameters for CreateNotificationWebhook.
 type CreateNotificationWebhookJSONBody struct {
-	Categories *[]string `json:"categories,omitempty"`
-	Enabled    *bool     `json:"enabled,omitempty"`
-	Name       string    `json:"name"`
-	Url        string    `json:"url"`
+	Categories *[]NotificationCategory `json:"categories,omitempty"`
+	Name       string                  `json:"name"`
+	Url        string                  `json:"url"`
 }
 
 // CreateNotificationWebhookParams defines parameters for CreateNotificationWebhook.
@@ -6229,10 +6546,10 @@ type DeleteNotificationWebhookParams struct {
 
 // UpdateNotificationWebhookJSONBody defines parameters for UpdateNotificationWebhook.
 type UpdateNotificationWebhookJSONBody struct {
-	Categories *[]string `json:"categories,omitempty"`
-	Enabled    *bool     `json:"enabled,omitempty"`
-	Name       *string   `json:"name,omitempty"`
-	Url        *string   `json:"url,omitempty"`
+	Categories *[]NotificationCategory `json:"categories,omitempty"`
+	Enabled    *bool                   `json:"enabled,omitempty"`
+	Name       *string                 `json:"name,omitempty"`
+	Url        *string                 `json:"url,omitempty"`
 }
 
 // UpdateNotificationWebhookParams defines parameters for UpdateNotificationWebhook.
@@ -6246,6 +6563,9 @@ type TestNotificationWebhookParams struct {
 	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
+
+// TestNotificationWebhook200JSONResponseBodyDataDelivered defines parameters for TestNotificationWebhook.
+type TestNotificationWebhook200JSONResponseBodyDataDelivered bool
 
 // ApproveOAuthRequestParams defines parameters for ApproveOAuthRequest.
 type ApproveOAuthRequestParams struct {
@@ -6770,6 +7090,36 @@ type VerifyBackupParams struct {
 // RunSystemMaintenanceParamsAction defines parameters for RunSystemMaintenance.
 type RunSystemMaintenanceParamsAction string
 
+// CreateTakeoverJSONBody defines parameters for CreateTakeover.
+type CreateTakeoverJSONBody struct {
+	Description *string               `json:"description,omitempty"`
+	ExpiresAt   time.Time             `json:"expiresAt"`
+	GroupIds    *[]openapi_types.UUID `json:"groupIds,omitempty"`
+	Name        string                `json:"name"`
+
+	// Password Current account password, only when the organization requires reauthentication for takeovers.
+	Password   *string               `json:"password,omitempty"`
+	PlaylistId openapi_types.UUID    `json:"playlistId"`
+	ScreenIds  *[]openapi_types.UUID `json:"screenIds,omitempty"`
+}
+
+// CreateTakeoverParams defines parameters for CreateTakeover.
+type CreateTakeoverParams struct {
+	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// CancelTakeoverJSONBody defines parameters for CancelTakeover.
+type CancelTakeoverJSONBody struct {
+	Reason *string `json:"reason,omitempty"`
+}
+
+// CancelTakeoverParams defines parameters for CancelTakeover.
+type CancelTakeoverParams struct {
+	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // CreateUploadSessionParams defines parameters for CreateUploadSession.
 type CreateUploadSessionParams struct {
 	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
@@ -7125,6 +7475,12 @@ type ResetSettingsJSONRequestBody ResetSettingsJSONBody
 
 // RestoreBackupJSONRequestBody defines body for RestoreBackup for application/json ContentType.
 type RestoreBackupJSONRequestBody RestoreBackupJSONBody
+
+// CreateTakeoverJSONRequestBody defines body for CreateTakeover for application/json ContentType.
+type CreateTakeoverJSONRequestBody CreateTakeoverJSONBody
+
+// CancelTakeoverJSONRequestBody defines body for CancelTakeover for application/json ContentType.
+type CancelTakeoverJSONRequestBody CancelTakeoverJSONBody
 
 // CreateUploadSessionJSONRequestBody defines body for CreateUploadSession for application/json ContentType.
 type CreateUploadSessionJSONRequestBody = CreateUploadRequest
@@ -8880,7 +9236,7 @@ type ClientInterface interface {
 	// ListNotificationDeliveries performs a GET /api/v1/notifications/deliveries (the `ListNotificationDeliveries` operationId) request.
 	//
 	// List notification deliveries. Requires an Owner or Administrator with the admin scope.
-	ListNotificationDeliveries(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListNotificationDeliveries(ctx context.Context, params *ListNotificationDeliveriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetNotificationStatus performs a GET /api/v1/notifications/status (the `GetNotificationStatus` operationId) request.
 	//
@@ -10152,12 +10508,23 @@ type ClientInterface interface {
 	// Corresponds with GET /api/v1/takeovers (the `ListTakeovers` operationId).
 	ListTakeovers(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CreateTakeover Activate a Takeover
+	// CreateTakeoverWithBody Activate a Takeover
 	//
-	// Requires an authenticated dashboard user.
+	// Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401.
+	//
+	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with POST /api/v1/takeovers (the `CreateTakeover` operationId).
-	CreateTakeover(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateTakeoverWithBody(ctx context.Context, params *CreateTakeoverParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateTakeover Activate a Takeover
+	//
+	// Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/takeovers (the `CreateTakeover` operationId).
+	CreateTakeover(ctx context.Context, params *CreateTakeoverParams, body CreateTakeoverJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetTakeover Read Takeover and per-screen state
 	//
@@ -10166,12 +10533,23 @@ type ClientInterface interface {
 	// Corresponds with GET /api/v1/takeovers/{id} (the `GetTakeover` operationId).
 	GetTakeover(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// CancelTakeoverWithBody Cancel an active Takeover
+	//
+	// Requires an authenticated dashboard user.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/takeovers/{id}/cancel (the `CancelTakeover` operationId).
+	CancelTakeoverWithBody(ctx context.Context, id openapi_types.UUID, params *CancelTakeoverParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// CancelTakeover Cancel an active Takeover
 	//
 	// Requires an authenticated dashboard user.
 	//
+	// Takes a body of the `application/json` content type.
+	//
 	// Corresponds with POST /api/v1/takeovers/{id}/cancel (the `CancelTakeover` operationId).
-	CancelTakeover(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CancelTakeover(ctx context.Context, id openapi_types.UUID, params *CancelTakeoverParams, body CancelTakeoverJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListUpdateDeployments List Player update deployments, narrowed to the caller's screen scope
 	//
@@ -13868,8 +14246,8 @@ func (c *Client) RemoveAuthenticator(ctx context.Context, params *RemoveAuthenti
 // ListNotificationDeliveries performs a GET /api/v1/notifications/deliveries (the `ListNotificationDeliveries` operationId) request.
 //
 // List notification deliveries. Requires an Owner or Administrator with the admin scope.
-func (c *Client) ListNotificationDeliveries(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListNotificationDeliveriesRequest(c.Server)
+func (c *Client) ListNotificationDeliveries(ctx context.Context, params *ListNotificationDeliveriesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListNotificationDeliveriesRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -17300,13 +17678,34 @@ func (c *Client) ListTakeovers(ctx context.Context, reqEditors ...RequestEditorF
 	return c.Client.Do(req)
 }
 
-// CreateTakeover Activate a Takeover
+// CreateTakeoverWithBody Activate a Takeover
 //
-// Requires an authenticated dashboard user.
+// Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401.
+//
+// Takes any type of body and a specified content type.
 //
 // Corresponds with POST /api/v1/takeovers (the `CreateTakeover` operationId).
-func (c *Client) CreateTakeover(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateTakeoverRequest(c.Server)
+func (c *Client) CreateTakeoverWithBody(ctx context.Context, params *CreateTakeoverParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateTakeoverRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateTakeover Activate a Takeover
+//
+// Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/takeovers (the `CreateTakeover` operationId).
+func (c *Client) CreateTakeover(ctx context.Context, params *CreateTakeoverParams, body CreateTakeoverJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateTakeoverRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -17334,13 +17733,34 @@ func (c *Client) GetTakeover(ctx context.Context, id openapi_types.UUID, reqEdit
 	return c.Client.Do(req)
 }
 
+// CancelTakeoverWithBody Cancel an active Takeover
+//
+// Requires an authenticated dashboard user.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/takeovers/{id}/cancel (the `CancelTakeover` operationId).
+func (c *Client) CancelTakeoverWithBody(ctx context.Context, id openapi_types.UUID, params *CancelTakeoverParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCancelTakeoverRequestWithBody(c.Server, id, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // CancelTakeover Cancel an active Takeover
 //
 // Requires an authenticated dashboard user.
 //
+// Takes a body of the `application/json` content type.
+//
 // Corresponds with POST /api/v1/takeovers/{id}/cancel (the `CancelTakeover` operationId).
-func (c *Client) CancelTakeover(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCancelTakeoverRequest(c.Server, id)
+func (c *Client) CancelTakeover(ctx context.Context, id openapi_types.UUID, params *CancelTakeoverParams, body CancelTakeoverJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCancelTakeoverRequest(c.Server, id, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -26065,7 +26485,7 @@ func NewRemoveAuthenticatorRequestWithBody(server string, params *RemoveAuthenti
 }
 
 // NewListNotificationDeliveriesRequest constructs an http.Request for the ListNotificationDeliveries method
-func NewListNotificationDeliveriesRequest(server string) (*http.Request, error) {
+func NewListNotificationDeliveriesRequest(server string, params *ListNotificationDeliveriesParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -26081,6 +26501,33 @@ func NewListNotificationDeliveriesRequest(server string) (*http.Request, error) 
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -33040,8 +33487,19 @@ func NewListTakeoversRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewCreateTakeoverRequest constructs an http.Request for the CreateTakeover method
-func NewCreateTakeoverRequest(server string) (*http.Request, error) {
+// NewCreateTakeoverRequest calls the generic CreateTakeover builder with application/json body
+func NewCreateTakeoverRequest(server string, params *CreateTakeoverParams, body CreateTakeoverJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateTakeoverRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewCreateTakeoverRequestWithBody constructs an http.Request for the CreateTakeover method, with any body, and a specified content type
+func NewCreateTakeoverRequestWithBody(server string, params *CreateTakeoverParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -33059,9 +33517,24 @@ func NewCreateTakeoverRequest(server string) (*http.Request, error) {
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
 	if err != nil {
 		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-CSRF-Token", headerParam0)
+
 	}
 
 	return req, nil
@@ -33101,8 +33574,19 @@ func NewGetTakeoverRequest(server string, id openapi_types.UUID) (*http.Request,
 	return req, nil
 }
 
-// NewCancelTakeoverRequest constructs an http.Request for the CancelTakeover method
-func NewCancelTakeoverRequest(server string, id openapi_types.UUID) (*http.Request, error) {
+// NewCancelTakeoverRequest calls the generic CancelTakeover builder with application/json body
+func NewCancelTakeoverRequest(server string, id openapi_types.UUID, params *CancelTakeoverParams, body CancelTakeoverJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCancelTakeoverRequestWithBody(server, id, params, "application/json", bodyReader)
+}
+
+// NewCancelTakeoverRequestWithBody constructs an http.Request for the CancelTakeover method, with any body, and a specified content type
+func NewCancelTakeoverRequestWithBody(server string, id openapi_types.UUID, params *CancelTakeoverParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -33127,9 +33611,24 @@ func NewCancelTakeoverRequest(server string, id openapi_types.UUID) (*http.Reque
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
 	if err != nil {
 		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-CSRF-Token", headerParam0)
+
 	}
 
 	return req, nil
@@ -35782,7 +36281,7 @@ type ClientWithResponsesInterface interface {
 	// List notification deliveries. Requires an Owner or Administrator with the admin scope.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	ListNotificationDeliveriesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListNotificationDeliveriesResponse, error)
+	ListNotificationDeliveriesWithResponse(ctx context.Context, params *ListNotificationDeliveriesParams, reqEditors ...RequestEditorFn) (*ListNotificationDeliveriesResponse, error)
 
 	// GetNotificationStatusWithResponse performs a GET /api/v1/notifications/status (the `GetNotificationStatus` operationId) request.
 	//
@@ -37384,14 +37883,23 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /api/v1/takeovers (the `ListTakeovers` operationId).
 	ListTakeoversWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListTakeoversResponse, error)
 
-	// CreateTakeoverWithResponse Activate a Takeover
+	// CreateTakeoverWithBodyWithResponse Activate a Takeover
 	//
-	// Requires an authenticated dashboard user.
+	// Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401.
 	//
-	// Returns a wrapper object for the known response body format(s).
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/takeovers (the `CreateTakeover` operationId).
-	CreateTakeoverWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*CreateTakeoverResponse, error)
+	CreateTakeoverWithBodyWithResponse(ctx context.Context, params *CreateTakeoverParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateTakeoverResponse, error)
+
+	// CreateTakeoverWithResponse Activate a Takeover
+	//
+	// Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/takeovers (the `CreateTakeover` operationId).
+	CreateTakeoverWithResponse(ctx context.Context, params *CreateTakeoverParams, body CreateTakeoverJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTakeoverResponse, error)
 
 	// GetTakeoverWithResponse Read Takeover and per-screen state
 	//
@@ -37402,14 +37910,23 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /api/v1/takeovers/{id} (the `GetTakeover` operationId).
 	GetTakeoverWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetTakeoverResponse, error)
 
+	// CancelTakeoverWithBodyWithResponse Cancel an active Takeover
+	//
+	// Requires an authenticated dashboard user.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/takeovers/{id}/cancel (the `CancelTakeover` operationId).
+	CancelTakeoverWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, params *CancelTakeoverParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CancelTakeoverResponse, error)
+
 	// CancelTakeoverWithResponse Cancel an active Takeover
 	//
 	// Requires an authenticated dashboard user.
 	//
-	// Returns a wrapper object for the known response body format(s).
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/takeovers/{id}/cancel (the `CancelTakeover` operationId).
-	CancelTakeoverWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*CancelTakeoverResponse, error)
+	CancelTakeoverWithResponse(ctx context.Context, id openapi_types.UUID, params *CancelTakeoverParams, body CancelTakeoverJSONRequestBody, reqEditors ...RequestEditorFn) (*CancelTakeoverResponse, error)
 
 	// ListUpdateDeploymentsWithResponse List Player update deployments, narrowed to the caller's screen scope
 	//
@@ -44358,6 +44875,17 @@ func (r RemoveAuthenticatorResponse) ContentType() string {
 type ListNotificationDeliveriesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data []NotificationDelivery `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListNotificationDeliveriesResponse) GetJSON200() *struct {
+	Data []NotificationDelivery `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -44392,6 +44920,17 @@ func (r ListNotificationDeliveriesResponse) ContentType() string {
 type GetNotificationStatusResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data NotificationStatus `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetNotificationStatusResponse) GetJSON200() *struct {
+	Data NotificationStatus `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -44426,6 +44965,21 @@ func (r GetNotificationStatusResponse) ContentType() string {
 type SendTestNotificationResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data struct {
+			SentTo openapi_types.Email `json:"sentTo"`
+		} `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SendTestNotificationResponse) GetJSON200() *struct {
+	Data struct {
+		SentTo openapi_types.Email `json:"sentTo"`
+	} `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -44460,6 +45014,17 @@ func (r SendTestNotificationResponse) ContentType() string {
 type ListNotificationWebhooksResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data []NotificationWebhook `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListNotificationWebhooksResponse) GetJSON200() *struct {
+	Data []NotificationWebhook `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -44494,6 +45059,19 @@ func (r ListNotificationWebhooksResponse) ContentType() string {
 type CreateNotificationWebhookResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		// Data The signing secret is returned exactly once. There is no endpoint that reads it back.
+		Data NotificationWebhookCreated `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateNotificationWebhookResponse) GetJSON201() *struct {
+	// Data The signing secret is returned exactly once. There is no endpoint that reads it back.
+	Data NotificationWebhookCreated `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -44562,6 +45140,17 @@ func (r DeleteNotificationWebhookResponse) ContentType() string {
 type UpdateNotificationWebhookResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data NotificationWebhook `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateNotificationWebhookResponse) GetJSON200() *struct {
+	Data NotificationWebhook `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -44596,6 +45185,21 @@ func (r UpdateNotificationWebhookResponse) ContentType() string {
 type TestNotificationWebhookResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data struct {
+			Delivered TestNotificationWebhook200JSONResponseBodyDataDelivered `json:"delivered"`
+		} `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r TestNotificationWebhookResponse) GetJSON200() *struct {
+	Data struct {
+		Delivered TestNotificationWebhook200JSONResponseBodyDataDelivered `json:"delivered"`
+	} `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -51028,6 +51632,17 @@ func (r SystemStatusResponse) ContentType() string {
 type ListTakeoversResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data TakeoverList `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListTakeoversResponse) GetJSON200() *struct {
+	Data TakeoverList `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -51062,6 +51677,17 @@ func (r ListTakeoversResponse) ContentType() string {
 type CreateTakeoverResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data TakeoverActivation `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateTakeoverResponse) GetJSON201() *struct {
+	Data TakeoverActivation `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -51096,6 +51722,19 @@ func (r CreateTakeoverResponse) ContentType() string {
 type GetTakeoverResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Data Takeover detail with the per-screen rollout states. Unlike the list row, the detail carries no aggregate counts.
+		Data TakeoverDetail `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetTakeoverResponse) GetJSON200() *struct {
+	// Data Takeover detail with the per-screen rollout states. Unlike the list row, the detail carries no aggregate counts.
+	Data TakeoverDetail `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -51130,6 +51769,17 @@ func (r GetTakeoverResponse) ContentType() string {
 type CancelTakeoverResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data TakeoverCancellation `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CancelTakeoverResponse) GetJSON200() *struct {
+	Data TakeoverCancellation `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -55057,8 +55707,8 @@ func (c *ClientWithResponses) RemoveAuthenticatorWithResponse(ctx context.Contex
 // List notification deliveries. Requires an Owner or Administrator with the admin scope.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) ListNotificationDeliveriesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListNotificationDeliveriesResponse, error) {
-	rsp, err := c.ListNotificationDeliveries(ctx, reqEditors...)
+func (c *ClientWithResponses) ListNotificationDeliveriesWithResponse(ctx context.Context, params *ListNotificationDeliveriesParams, reqEditors ...RequestEditorFn) (*ListNotificationDeliveriesResponse, error) {
+	rsp, err := c.ListNotificationDeliveries(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -57955,15 +58605,30 @@ func (c *ClientWithResponses) ListTakeoversWithResponse(ctx context.Context, req
 	return ParseListTakeoversResponse(rsp)
 }
 
-// CreateTakeoverWithResponse Activate a Takeover
+// CreateTakeoverWithBodyWithResponse Activate a Takeover
 //
-// Requires an authenticated dashboard user.
+// Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401.
 //
-// Returns a wrapper object for the known response body format(s).
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /api/v1/takeovers (the `CreateTakeover` operationId).
-func (c *ClientWithResponses) CreateTakeoverWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*CreateTakeoverResponse, error) {
-	rsp, err := c.CreateTakeover(ctx, reqEditors...)
+func (c *ClientWithResponses) CreateTakeoverWithBodyWithResponse(ctx context.Context, params *CreateTakeoverParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateTakeoverResponse, error) {
+	rsp, err := c.CreateTakeoverWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateTakeoverResponse(rsp)
+}
+
+// CreateTakeoverWithResponse Activate a Takeover
+//
+// Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/takeovers (the `CreateTakeover` operationId).
+func (c *ClientWithResponses) CreateTakeoverWithResponse(ctx context.Context, params *CreateTakeoverParams, body CreateTakeoverJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTakeoverResponse, error) {
+	rsp, err := c.CreateTakeover(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -57985,15 +58650,30 @@ func (c *ClientWithResponses) GetTakeoverWithResponse(ctx context.Context, id op
 	return ParseGetTakeoverResponse(rsp)
 }
 
+// CancelTakeoverWithBodyWithResponse Cancel an active Takeover
+//
+// Requires an authenticated dashboard user.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/takeovers/{id}/cancel (the `CancelTakeover` operationId).
+func (c *ClientWithResponses) CancelTakeoverWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, params *CancelTakeoverParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CancelTakeoverResponse, error) {
+	rsp, err := c.CancelTakeoverWithBody(ctx, id, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCancelTakeoverResponse(rsp)
+}
+
 // CancelTakeoverWithResponse Cancel an active Takeover
 //
 // Requires an authenticated dashboard user.
 //
-// Returns a wrapper object for the known response body format(s).
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /api/v1/takeovers/{id}/cancel (the `CancelTakeover` operationId).
-func (c *ClientWithResponses) CancelTakeoverWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*CancelTakeoverResponse, error) {
-	rsp, err := c.CancelTakeover(ctx, id, reqEditors...)
+func (c *ClientWithResponses) CancelTakeoverWithResponse(ctx context.Context, id openapi_types.UUID, params *CancelTakeoverParams, body CancelTakeoverJSONRequestBody, reqEditors ...RequestEditorFn) (*CancelTakeoverResponse, error) {
+	rsp, err := c.CancelTakeover(ctx, id, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -62140,6 +62820,24 @@ func ParseListNotificationDeliveriesResponse(rsp *http.Response) (*ListNotificat
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data []NotificationDelivery `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -62154,6 +62852,21 @@ func ParseGetNotificationStatusResponse(rsp *http.Response) (*GetNotificationSta
 	response := &GetNotificationStatusResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data NotificationStatus `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -62172,6 +62885,32 @@ func ParseSendTestNotificationResponse(rsp *http.Response) (*SendTestNotificatio
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data struct {
+				SentTo openapi_types.Email `json:"sentTo"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 502:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -62188,6 +62927,24 @@ func ParseListNotificationWebhooksResponse(rsp *http.Response) (*ListNotificatio
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data []NotificationWebhook `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -62202,6 +62959,28 @@ func ParseCreateNotificationWebhookResponse(rsp *http.Response) (*CreateNotifica
 	response := &CreateNotificationWebhookResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			// Data The signing secret is returned exactly once. There is no endpoint that reads it back.
+			Data NotificationWebhookCreated `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -62236,6 +63015,30 @@ func ParseUpdateNotificationWebhookResponse(rsp *http.Response) (*UpdateNotifica
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data NotificationWebhook `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -62250,6 +63053,35 @@ func ParseTestNotificationWebhookResponse(rsp *http.Response) (*TestNotification
 	response := &TestNotificationWebhookResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data struct {
+				Delivered TestNotificationWebhook200JSONResponseBodyDataDelivered `json:"delivered"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 502:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -66128,6 +66960,21 @@ func ParseListTakeoversResponse(rsp *http.Response) (*ListTakeoversResponse, err
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data TakeoverList `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -66142,6 +66989,24 @@ func ParseCreateTakeoverResponse(rsp *http.Response) (*CreateTakeoverResponse, e
 	response := &CreateTakeoverResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data TakeoverActivation `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -66160,6 +67025,25 @@ func ParseGetTakeoverResponse(rsp *http.Response) (*GetTakeoverResponse, error) 
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Data Takeover detail with the per-screen rollout states. Unlike the list row, the detail carries no aggregate counts.
+			Data TakeoverDetail `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -66174,6 +67058,24 @@ func ParseCancelTakeoverResponse(rsp *http.Response) (*CancelTakeoverResponse, e
 	response := &CancelTakeoverResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data TakeoverCancellation `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
 	}
 
 	return response, nil

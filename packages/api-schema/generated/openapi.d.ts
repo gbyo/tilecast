@@ -3960,7 +3960,7 @@ export interface paths {
     put?: never;
     /**
      * Activate a Takeover
-     * @description Requires an authenticated dashboard user.
+     * @description Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401.
      */
     post: operations["createTakeover"];
     delete?: never;
@@ -5417,6 +5417,137 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** @description Compact takeover row returned by the takeover list, with live per-state screen counts. The per-screen breakdown requires the detail read. */
+    Takeover: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      description: string;
+      /** Format: uuid */
+      playlistId: string;
+      playlistName: string;
+      /** @enum {string} */
+      status: "active" | "expired" | "cancelled";
+      /** Format: date-time */
+      activatedAt?: string | null;
+      /** Format: date-time */
+      expiresAt: string;
+      /** Format: date-time */
+      cancelledAt?: string | null;
+      cancellationReason?: string;
+      affectedCount: number;
+      activeCount: number;
+      preparingCount: number;
+      failedCount: number;
+    };
+    TakeoverList: {
+      items: components["schemas"]["Takeover"][];
+      total: number;
+    };
+    TakeoverScreenState: {
+      /** Format: uuid */
+      screenId: string;
+      screenName: string;
+      /** Format: int64 */
+      manifestVersion: number;
+      state: string;
+      /** Format: date-time */
+      lastUpdatedAt: string;
+      failureCode?: string | null;
+      failureMessage?: string | null;
+      /** Format: date-time */
+      preparedAt?: string | null;
+      /** Format: date-time */
+      activatedAt?: string | null;
+      /** Format: date-time */
+      restoredAt?: string | null;
+    };
+    /** @description Takeover detail with the per-screen rollout states. Unlike the list row, the detail carries no aggregate counts. */
+    TakeoverDetail: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      description: string;
+      /** @enum {string} */
+      status: "active" | "expired" | "cancelled";
+      /** Format: uuid */
+      playlistId: string;
+      playlistName: string;
+      /** Format: date-time */
+      activatedAt?: string | null;
+      /** Format: date-time */
+      expiresAt: string;
+      /** Format: date-time */
+      cancelledAt?: string | null;
+      cancellationReason?: string;
+      screens: components["schemas"]["TakeoverScreenState"][];
+    };
+    TakeoverActivation: {
+      /** Format: uuid */
+      id: string;
+      /** @enum {string} */
+      status: "active";
+      affectedCount: number;
+      /** Format: date-time */
+      expiresAt: string;
+    };
+    TakeoverCancellation: {
+      /** Format: uuid */
+      id: string;
+      /** @enum {string} */
+      status: "cancelled";
+    };
+    NotificationStatus: {
+      emailConfigured: boolean;
+      emailUnavailableReason: string;
+      pendingCount: number;
+      recentFailureCount: number;
+      hasDeliveryHistory: boolean;
+    };
+    /** @enum {string} */
+    NotificationCategory: "incident" | "content_health" | "backup" | "update";
+    NotificationDelivery: {
+      /** Format: uuid */
+      id: string;
+      eventKey: string;
+      category: components["schemas"]["NotificationCategory"];
+      /** @enum {string} */
+      severity: "info" | "warning" | "error" | "critical";
+      /** @enum {string} */
+      channel: "email" | "webhook";
+      target: string;
+      subject: string;
+      /** @enum {string} */
+      status: "pending" | "sent" | "failed" | "cancelled";
+      attempts: number;
+      lastError?: string;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      sentAt?: string;
+    };
+    NotificationWebhook: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      /** Format: uri */
+      url: string;
+      enabled: boolean;
+      categories: components["schemas"]["NotificationCategory"][];
+      /** Format: date-time */
+      lastAttemptAt?: string;
+      /** Format: date-time */
+      lastSuccessAt?: string;
+      lastError?: string;
+      /** Format: date-time */
+      createdAt: string;
+    };
+    /** @description The signing secret is returned exactly once. There is no endpoint that reads it back. */
+    NotificationWebhookCreated: {
+      webhook: components["schemas"]["NotificationWebhook"];
+      signingSecret: string;
+      secretNotice: string;
+    };
     PluginRequirement: {
       /** @enum {string} */
       kind:
@@ -10322,7 +10453,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["NotificationStatus"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -10350,7 +10485,14 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: {
+              /** Format: email */
+              sentTo: string;
+            };
+          };
+        };
       };
       /** @description No address or address invalid */
       400: {
@@ -10384,7 +10526,9 @@ export interface operations {
   };
   listNotificationDeliveries: {
     parameters: {
-      query?: never;
+      query?: {
+        limit?: number;
+      };
       header?: never;
       path?: never;
       cookie?: never;
@@ -10396,7 +10540,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["NotificationDelivery"][];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -10428,7 +10576,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["NotificationWebhook"][];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -10462,8 +10614,7 @@ export interface operations {
           name: string;
           /** Format: uri */
           url: string;
-          enabled?: boolean;
-          categories?: string[];
+          categories?: components["schemas"]["NotificationCategory"][];
         };
       };
     };
@@ -10473,7 +10624,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["NotificationWebhookCreated"];
+          };
+        };
       };
       /** @description Invalid webhook */
       400: {
@@ -10517,7 +10672,7 @@ export interface operations {
           /** Format: uri */
           url?: string;
           enabled?: boolean;
-          categories?: string[];
+          categories?: components["schemas"]["NotificationCategory"][];
         };
       };
     };
@@ -10527,7 +10682,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["NotificationWebhook"];
+          };
+        };
       };
       /** @description Invalid webhook id or body */
       400: {
@@ -10629,7 +10788,14 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: {
+              /** @enum {boolean} */
+              delivered: true;
+            };
+          };
+        };
       };
       /** @description Webhook id invalid */
       400: {
@@ -17749,6 +17915,17 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
+        content: {
+          "application/json": {
+            data: components["schemas"]["TakeoverList"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
         content?: never;
       };
     };
@@ -17756,14 +17933,43 @@ export interface operations {
   createTakeover: {
     parameters: {
       query?: never;
-      header?: never;
+      header: {
+        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
+        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      };
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": {
+          name: string;
+          description?: string;
+          /** Format: uuid */
+          playlistId: string;
+          screenIds?: string[];
+          groupIds?: string[];
+          /** Format: date-time */
+          expiresAt: string;
+          /** @description Current account password, only when the organization requires reauthentication for takeovers. */
+          password?: string;
+        };
+      };
+    };
     responses: {
       /** @description Takeover activated */
       201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["TakeoverActivation"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
         headers: {
           [name: string]: unknown;
         };
@@ -17794,6 +18000,24 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
+        content: {
+          "application/json": {
+            data: components["schemas"]["TakeoverDetail"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Takeover not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
         content?: never;
       };
     };
@@ -17801,16 +18025,36 @@ export interface operations {
   cancelTakeover: {
     parameters: {
       query?: never;
-      header?: never;
+      header: {
+        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
+        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      };
       path: {
         id: string;
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": {
+          reason?: string;
+        };
+      };
+    };
     responses: {
       /** @description Takeover cancelled */
       200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["TakeoverCancellation"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
         headers: {
           [name: string]: unknown;
         };

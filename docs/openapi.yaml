@@ -1089,7 +1089,15 @@ paths:
       description: >-
         Read email notification status. Requires an authenticated dashboard user with the read scope.
       responses:
-        "200": { description: Notification status }
+        "200":
+          description: Notification status
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/NotificationStatus" }
         "401": { description: Dashboard authentication required }
   /api/v1/notifications/test:
     post:
@@ -1099,7 +1107,20 @@ paths:
       parameters:
         - { $ref: "#/components/parameters/CSRFToken" }
       responses:
-        "200": { description: Test notification sent }
+        "200":
+          description: Test notification sent
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: false
+                    required: [sentTo]
+                    properties:
+                      sentTo: { type: string, format: email }
         "400": { description: No address or address invalid }
         "401": { description: Dashboard authentication required }
         "409": { description: Email not configured }
@@ -1109,8 +1130,20 @@ paths:
       operationId: listNotificationDeliveries
       description: >-
         List notification deliveries. Requires an Owner or Administrator with the admin scope.
+      parameters:
+        - { in: query, name: limit, schema: { type: integer, minimum: 1 } }
       responses:
-        "200": { description: Notification deliveries }
+        "200":
+          description: Notification deliveries
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/NotificationDelivery" }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
   /api/v1/notifications/webhooks:
@@ -1119,7 +1152,17 @@ paths:
       description: >-
         List notification webhooks. Requires an Owner or Administrator with the admin scope.
       responses:
-        "200": { description: Notification webhooks }
+        "200":
+          description: Notification webhooks
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/NotificationWebhook" }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
     post:
@@ -1136,14 +1179,22 @@ paths:
               type: object
               required: [name, url]
               properties:
-                name: { type: string }
+                name: { type: string, minLength: 1 }
                 url: { type: string, format: uri }
-                enabled: { type: boolean }
                 categories:
                   type: array
-                  items: { type: string }
+                  items: { $ref: "#/components/schemas/NotificationCategory" }
       responses:
-        "201": { description: Notification webhook created }
+        "201":
+          description: Notification webhook created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    { $ref: "#/components/schemas/NotificationWebhookCreated" }
         "400": { description: Invalid webhook }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
@@ -1162,14 +1213,22 @@ paths:
             schema:
               type: object
               properties:
-                name: { type: string }
+                name: { type: string, minLength: 1 }
                 url: { type: string, format: uri }
                 enabled: { type: boolean }
                 categories:
                   type: array
-                  items: { type: string }
+                  items: { $ref: "#/components/schemas/NotificationCategory" }
       responses:
-        "200": { description: Notification webhook updated }
+        "200":
+          description: Notification webhook updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/NotificationWebhook" }
         "400": { description: Invalid webhook id or body }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
@@ -1196,7 +1255,20 @@ paths:
         - { $ref: "#/components/parameters/ResourceID" }
         - { $ref: "#/components/parameters/CSRFToken" }
       responses:
-        "200": { description: Test delivery accepted }
+        "200":
+          description: Test delivery accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: false
+                    required: [delivered]
+                    properties:
+                      delivered: { type: boolean, enum: [true] }
         "400": { description: Webhook id invalid }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
@@ -5177,15 +5249,58 @@ paths:
         Requires an authenticated dashboard user.
       operationId: listTakeovers
       summary: List Takeovers
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
       responses:
-        "200": { description: Takeover list }
+        "200":
+          description: Takeover list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/TakeoverList" }
+        "401": { description: Dashboard authentication required }
     post:
       description: >-
-        Requires an authenticated dashboard user.
+        Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401.
       operationId: createTakeover
       summary: Activate a Takeover
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, playlistId, expiresAt]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 180 }
+                description: { type: string, maxLength: 2000 }
+                playlistId: { type: string, format: uuid }
+                screenIds:
+                  type: array
+                  items: { type: string, format: uuid }
+                groupIds:
+                  type: array
+                  items: { type: string, format: uuid }
+                expiresAt: { type: string, format: date-time }
+                password:
+                  type: string
+                  description: >-
+                    Current account password, only when the organization requires reauthentication for takeovers.
       responses:
-        "201": { description: Takeover activated }
+        "201":
+          description: Takeover activated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/TakeoverActivation" }
+        "401": { description: Dashboard authentication required }
         "422": { description: "Invalid targets, playlist, or expiration" }
   /api/v1/takeovers/{id}:
     get:
@@ -5193,6 +5308,7 @@ paths:
         Requires an authenticated dashboard user.
       operationId: getTakeover
       summary: Read Takeover and per-screen state
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
       parameters:
         - {
             in: path,
@@ -5201,13 +5317,24 @@ paths:
             schema: { type: string, format: uuid },
           }
       responses:
-        "200": { description: Takeover detail }
+        "200":
+          description: Takeover detail
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/TakeoverDetail" }
+        "401": { description: Dashboard authentication required }
+        "404": { description: Takeover not found }
   /api/v1/takeovers/{id}/cancel:
     post:
       description: >-
         Requires an authenticated dashboard user.
       operationId: cancelTakeover
       summary: Cancel an active Takeover
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
       parameters:
         - {
             in: path,
@@ -5215,8 +5342,26 @@ paths:
             required: true,
             schema: { type: string, format: uuid },
           }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string, maxLength: 1000 }
       responses:
-        "200": { description: Takeover cancelled }
+        "200":
+          description: Takeover cancelled
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/TakeoverCancellation" }
+        "401": { description: Dashboard authentication required }
         "409": { description: Takeover already ended }
   /api/v1/presentation-networks:
     get:
@@ -6999,6 +7144,185 @@ components:
       name: tilecast_session
       description: Enrolled dashboard session cookie
   schemas:
+    Takeover:
+      type: object
+      additionalProperties: false
+      description: >-
+        Compact takeover row returned by the takeover list, with live per-state screen counts. The per-screen breakdown requires the detail read.
+      required:
+        [
+          id,
+          name,
+          description,
+          playlistId,
+          playlistName,
+          status,
+          expiresAt,
+          affectedCount,
+          activeCount,
+          preparingCount,
+          failedCount,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+        playlistId: { type: string, format: uuid }
+        playlistName: { type: string }
+        status: { type: string, enum: [active, expired, cancelled] }
+        activatedAt: { type: [string, "null"], format: date-time }
+        expiresAt: { type: string, format: date-time }
+        cancelledAt: { type: [string, "null"], format: date-time }
+        cancellationReason: { type: string }
+        affectedCount: { type: integer, minimum: 0 }
+        activeCount: { type: integer, minimum: 0 }
+        preparingCount: { type: integer, minimum: 0 }
+        failedCount: { type: integer, minimum: 0 }
+    TakeoverList:
+      type: object
+      additionalProperties: false
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Takeover" }
+        total: { type: integer, minimum: 0 }
+    TakeoverScreenState:
+      type: object
+      additionalProperties: false
+      required: [screenId, screenName, manifestVersion, state, lastUpdatedAt]
+      properties:
+        screenId: { type: string, format: uuid }
+        screenName: { type: string }
+        manifestVersion: { type: integer, format: int64 }
+        state: { type: string }
+        lastUpdatedAt: { type: string, format: date-time }
+        failureCode: { type: [string, "null"] }
+        failureMessage: { type: [string, "null"] }
+        preparedAt: { type: [string, "null"], format: date-time }
+        activatedAt: { type: [string, "null"], format: date-time }
+        restoredAt: { type: [string, "null"], format: date-time }
+    TakeoverDetail:
+      type: object
+      additionalProperties: false
+      description: >-
+        Takeover detail with the per-screen rollout states. Unlike the list row, the detail carries no aggregate counts.
+      required:
+        [
+          id,
+          name,
+          description,
+          status,
+          playlistId,
+          playlistName,
+          expiresAt,
+          screens,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+        status: { type: string, enum: [active, expired, cancelled] }
+        playlistId: { type: string, format: uuid }
+        playlistName: { type: string }
+        activatedAt: { type: [string, "null"], format: date-time }
+        expiresAt: { type: string, format: date-time }
+        cancelledAt: { type: [string, "null"], format: date-time }
+        cancellationReason: { type: string }
+        screens:
+          type: array
+          items: { $ref: "#/components/schemas/TakeoverScreenState" }
+    TakeoverActivation:
+      type: object
+      additionalProperties: false
+      required: [id, status, affectedCount, expiresAt]
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [active] }
+        affectedCount: { type: integer, minimum: 0 }
+        expiresAt: { type: string, format: date-time }
+    TakeoverCancellation:
+      type: object
+      additionalProperties: false
+      required: [id, status]
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [cancelled] }
+    NotificationStatus:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          emailConfigured,
+          emailUnavailableReason,
+          pendingCount,
+          recentFailureCount,
+          hasDeliveryHistory,
+        ]
+      properties:
+        emailConfigured: { type: boolean }
+        emailUnavailableReason: { type: string }
+        pendingCount: { type: integer, minimum: 0 }
+        recentFailureCount: { type: integer, minimum: 0 }
+        hasDeliveryHistory: { type: boolean }
+    NotificationCategory:
+      type: string
+      enum: [incident, content_health, backup, update]
+    NotificationDelivery:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          eventKey,
+          category,
+          severity,
+          channel,
+          target,
+          subject,
+          status,
+          attempts,
+          createdAt,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        eventKey: { type: string }
+        category: { $ref: "#/components/schemas/NotificationCategory" }
+        severity: { type: string, enum: [info, warning, error, critical] }
+        channel: { type: string, enum: [email, webhook] }
+        target: { type: string }
+        subject: { type: string }
+        status: { type: string, enum: [pending, sent, failed, cancelled] }
+        attempts: { type: integer, minimum: 0 }
+        lastError: { type: string }
+        createdAt: { type: string, format: date-time }
+        sentAt: { type: string, format: date-time }
+    NotificationWebhook:
+      type: object
+      additionalProperties: false
+      required: [id, name, url, enabled, categories, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        url: { type: string, format: uri }
+        enabled: { type: boolean }
+        categories:
+          type: array
+          items: { $ref: "#/components/schemas/NotificationCategory" }
+        lastAttemptAt: { type: string, format: date-time }
+        lastSuccessAt: { type: string, format: date-time }
+        lastError: { type: string }
+        createdAt: { type: string, format: date-time }
+    NotificationWebhookCreated:
+      type: object
+      additionalProperties: false
+      description: >-
+        The signing secret is returned exactly once. There is no endpoint that reads it back.
+      required: [webhook, signingSecret, secretNotice]
+      properties:
+        webhook: { $ref: "#/components/schemas/NotificationWebhook" }
+        signingSecret: { type: string }
+        secretNotice: { type: string }
     PluginRequirement:
       type: object
       required: [kind, label]
