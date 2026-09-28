@@ -35,12 +35,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.webkit.JavaScriptReplyProxy
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -95,29 +98,34 @@ fun SharedRuntimePlayback(
     onProgress: () -> Unit = {},
     onFirstFrame: (itemId: String) -> Unit = {},
     onItemTransition: (itemId: String) -> Unit = {},
+    onPlaybackError: (itemId: String?, message: String) -> Unit = { _, _ -> },
 ) {
     val manifest = session.content.manifest
     val items = manifest.playlist?.items ?: emptyList()
     // Recreated only on renderer death; new presentations reuse the WebView
     // and arrive through state replay plus a numeric nudge.
     var instance by remember { mutableIntStateOf(0) }
+    val crashPolicy = remember { RuntimeCrashPolicy() }
     key(instance) {
-        val crashPolicy = remember { RuntimeCrashPolicy() }
+        val rendererGeneration = crashPolicy.currentGeneration()
         val latestBoundary = rememberUpdatedState(onBoundary)
         val latestError = rememberUpdatedState(onError)
         val latestProgress = rememberUpdatedState(onProgress)
         val latestFirstFrame = rememberUpdatedState(onFirstFrame)
         val latestTransition = rememberUpdatedState(onItemTransition)
-        val runtimeSession = remember {
+        val latestPlaybackError = rememberUpdatedState(onPlaybackError)
+        val runtimeSession = remember(rendererGeneration) {
             RuntimeHostSession(
                 hostVersion, engineVersion,
-                crashPolicy.currentGeneration(),
+                rendererGeneration,
                 items, activationId,
                 { itemId, assetId -> latestBoundary.value(itemId, assetId) },
                 { message -> latestError.value(message) },
                 { latestProgress.value() },
                 { itemId -> latestFirstFrame.value(itemId) },
                 { itemId -> latestTransition.value(itemId) },
+                { itemId, message -> latestPlaybackError.value(itemId, message) },
+                crashPolicy,
             )
         }
         var surfaces by remember { mutableStateOf(emptyList<Surface>()) }
@@ -153,7 +161,10 @@ fun SharedRuntimePlayback(
                 session = session,
                 hostVersion = hostVersion,
                 engineVersion = engineVersion,
-                onIncrementInstance = { instance++ },
+                onIncrementInstance = {
+                    crashPolicy.onRecreated()
+                    instance++
+                },
                 onError = onError,
                 onHandlePageMessage = { payload, generation, reply ->
                     val response = runtimeSession.handlePageMessage(payload, generation, reply)
@@ -243,7 +254,7 @@ private fun RuntimeStageBody(
                 },
             )
             val density = LocalDensity.current.density
-            surfaces.filter { it.visible }.forEach { surface ->
+            surfaces.forEach { surface ->
                 key(surface.surfaceId) {
                     RemoteSurfaceView(
                         surface = surface,
@@ -269,11 +280,37 @@ private fun RemoteSurfaceView(
     val modifier = Modifier
         .offset((px.x / densityScale).dp, (px.y / densityScale).dp)
         .size(((px.width / densityScale).coerceAtLeast(1f)).dp, ((px.height / densityScale).coerceAtLeast(1f)).dp)
+        .alpha(if (surface.visible) 1f else 0f)
     if (surface.page != null) {
         PageRemoteView(surface, modifier, onRemoteEvent)
     } else if (surface.youTube != null) {
         YouTubeRemoteView(surface, origin, modifier, onRemoteEvent)
     }
+}
+
+private fun setPageAudioMuted(view: WebView, muted: Boolean) {
+    if (WebViewFeature.isFeatureSupported(WebViewFeature.MUTE_AUDIO)) {
+        runCatching { WebViewCompat.setAudioMuted(view, muted) }
+        return
+    }
+    val flag = if (muted) "true" else "false"
+    view.evaluateJavascript(
+        """(function(m){
+          var states=window.__tilecastMuteStates||(window.__tilecastMuteStates=new WeakMap());
+          function apply(){
+            document.querySelectorAll('audio,video').forEach(function(el){
+              if(m){if(!states.has(el))states.set(el,!!el.muted);el.muted=true;}
+              else if(states.has(el)){el.muted=states.get(el);states.delete(el);}
+            });
+          }
+          window.__tilecastHostMuted=m;apply();
+          if(!window.__tilecastMuteObserver){
+            window.__tilecastMuteObserver=new MutationObserver(function(){if(window.__tilecastHostMuted)apply();});
+            window.__tilecastMuteObserver.observe(document.documentElement||document,{childList:true,subtree:true});
+          }
+        })($flag);""".trimIndent(),
+        null,
+    )
 }
 
 @SuppressLint("SetJavaScriptEnabled")
@@ -297,6 +334,7 @@ private fun PageRemoteView(
         )
     }
     var lastReload by remember(surface.surfaceId) { mutableIntStateOf(0) }
+    val latestSurface = rememberUpdatedState(surface)
     AndroidView(
         modifier = modifier,
         factory = { context ->
@@ -317,6 +355,7 @@ private fun PageRemoteView(
                     page.cookiePolicy == "first_and_third_party",
                 )
                 if (page.userAgent.isNotBlank()) settings.userAgentString = page.userAgent
+                setPageAudioMuted(this, surface.muted || !surface.visible)
                 webChromeClient = object : WebChromeClient() {
                     override fun onPermissionRequest(request: PermissionRequest) = request.deny()
                     override fun onGeolocationPermissionsShowPrompt(
@@ -339,18 +378,27 @@ private fun PageRemoteView(
                     }
                 }
                 webViewClient = object : WebViewClient() {
-                    override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                        val target = request.url?.toString() ?: return true
-                        if (WebsiteNavigationPolicy.allows(target, site)) return false
-                        onRemoteEvent("navigation-blocked", Uri.parse(target).host)
+                    private fun shouldBlock(target: String?): Boolean {
+                        val url = target ?: return true
+                        if (WebsiteNavigationPolicy.allows(url, site)) return false
+                        onRemoteEvent("navigation-blocked", Uri.parse(url).host)
                         return true
                     }
+
+                    override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
+                        shouldBlock(request.url?.toString())
+
+                    @Suppress("DEPRECATION")
+                    override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean =
+                        shouldBlock(url)
                     override fun onPageCommitVisible(view: WebView, url: String) {
                         onRemoteEvent("stream-ready", null)
                     }
                     override fun onPageFinished(view: WebView, url: String) {
                         view.setInitialScale(page.zoomPercent)
                         view.post { view.scrollTo(page.scrollX, page.scrollY) }
+                        val current = latestSurface.value
+                        setPageAudioMuted(view, current.muted || !current.visible)
                         onRemoteEvent("loaded", null)
                     }
                     override fun onReceivedError(
@@ -399,6 +447,9 @@ private fun PageRemoteView(
             }
         },
         update = { view ->
+            view.isClickable = surface.visible
+            view.isFocusable = surface.visible
+            setPageAudioMuted(view, surface.muted || !surface.visible)
             if (surface.reloadCount != lastReload) {
                 lastReload = surface.reloadCount
                 view.reload()
@@ -486,7 +537,9 @@ private fun YouTubeRemoteView(
             }
             // create() begins muted; activation can immediately unmute the
             // host layer. Apply that state to the already-created IFrame.
-            val shouldMute = content.muted || surface.muted
+            container.isClickable = surface.visible
+            container.isFocusable = surface.visible
+            val shouldMute = content.muted || surface.muted || !surface.visible
             webView?.evaluateJavascript(
                 "if(window.tilecastSetMuted){window.tilecastSetMuted($shouldMute);}if(window.player){window.player.setVolume(${content.volume.coerceIn(0, 100)});}",
                 null,
