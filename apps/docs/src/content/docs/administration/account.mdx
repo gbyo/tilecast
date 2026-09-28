@@ -9,4 +9,13 @@ You can change preferences such as Studio language, appearance, and interface de
 
 You can also add or remove supported second-factor sign-in methods here. If the organization requires MFA, **Settings** controls who must enroll one, while each person manages their own factors in **My Account**.
 
+## Tokens and CLI sign-ins
+
+**Sign-in security** also lists the credentials that act as your account outside the browser:
+
+- **Authorized operators** lists each `tilecast` CLI sign-in you approved. Select **Revoke** to end one immediately. See [Manage Tilecast from the command line](../../integrations/cli/).
+- **Personal access tokens** creates and revokes expiring tokens for scripts, CI jobs, and the CLI. See [Create a personal access token](../../integrations/personal-access-tokens/).
+
+These credentials belong to you and follow your current role. They are separate from the Owner's [integration tokens](../../integrations/tokens/).
+
 For permissions and screen access, see [Users and roles](../users-and-roles/). For organization-wide MFA settings, see [Sign-in security](../sign-in-security/).

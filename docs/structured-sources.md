@@ -6,7 +6,6 @@ Tilecast provides a native RSS / Atom Feed and native JSON, CSV, and Manual Tabl
 
 - The Feed provider detects the feed form and parses supported RSS and Atom entries into one records contract. Title, date, author (including Dublin Core creators), description excerpt, HTTPS link, and safely discovered HTTPS enclosure images are normalized into typed records. Feed HTML is stripped and never rendered. Every fixed feed field declares its semantic role — title as headline, description as summary, date as published_at, source as source_name, plus author, link, and image — so feed-driven Widgets map by role instead of by column name.
 - JSON selects a root array and scalar fields with RFC 6901 JSON Pointer. JavaScript, JMESPath functions, templates, expressions, and server-side scripts are not supported.
-- JSON selects a root array and scalar fields with RFC 6901 JSON Pointer. JavaScript, JMESPath functions, templates, expressions, and server-side scripts are not supported.
 - CSV accepts a public URL or an uploaded UTF-8 file. The parser detects comma, semicolon, tab, or pipe delimiters unless one is selected, requires a header row, validates every row width, and maps columns by exact header name.
 
 ## Feed presets

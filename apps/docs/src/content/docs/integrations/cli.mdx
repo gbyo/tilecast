@@ -1,0 +1,289 @@
+---
+title: Manage Tilecast from the command line
+description: Sign in to Tilecast Server with the tilecast CLI, switch between installations, and manage screens, content, settings, and plugins from a terminal or script.
+---
+
+import { Aside, Steps } from "@astrojs/starlight/components";
+
+The `tilecast` command-line interface (CLI) manages a Tilecast installation from a terminal. It talks to Tilecast Server over the same HTTP API that Studio uses, and it acts as your own Studio account. Your role and screen access apply to every command, exactly as they do in Studio.
+
+Use the CLI to check screens, approve pairing, publish Playlists, read Activity, and run the same tasks from scripts or CI jobs. The same program also runs Tilecast's [MCP server](../mcp/) for AI assistants and other MCP clients.
+
+## What the CLI does not do
+
+The remote CLI never connects to the database or the server's files. Server-host tasks stay with the `tilecast-server` program that runs Tilecast Server:
+
+- backups and restores from the server's shell;
+- the emergency `tilecast-server mfa reset` command for a locked-out Owner;
+- starting the server.
+
+Owners can still create and restore backups in Studio. See [Back up and restore Tilecast](../../administration/backups/) and [sign-in troubleshooting](../../troubleshooting/sign-in/).
+
+## Build the CLI
+
+Tilecast doesn't publish prebuilt `tilecast` binaries. Build the CLI from the [Tilecast repository](https://github.com/gbyo/tilecast). You need Git and the Go version named in `apps/cli/go.mod`.
+
+<Steps>
+
+1. Clone the repository:
+
+   ```sh
+   git clone https://github.com/gbyo/tilecast.git
+   ```
+
+2. Build the CLI from the `apps/cli` directory:
+
+   ```sh title="tilecast/apps/cli"
+   go build -o tilecast ./cmd/tilecast
+   ```
+
+3. Move the `tilecast` binary to a directory on your `PATH`, then check it:
+
+   ```sh
+   tilecast version
+   ```
+
+</Steps>
+
+A local build reports the version `dev`. The CLI checks that each server speaks Tilecast API v1 before it sends a credential.
+
+`tilecast completion bash`, `zsh`, `fish`, or `powershell` prints a shell completion script. For example, to load Bash completion in the current shell:
+
+```sh
+source <(tilecast completion bash)
+```
+
+## Sign in to a server
+
+`tilecast auth login` signs in through Studio in your browser. The CLI never sees your password. It stores the credential in your operating system's credential store: Keychain on macOS, Credential Manager on Windows, or Secret Service on Linux. There is no plain-text fallback.
+
+<Steps>
+
+1. Run `tilecast auth login` with your Tilecast Server address:
+
+   ```sh title="Sign in to Tilecast"
+   tilecast auth login https://signage.example.org
+   ```
+
+2. In the browser window that opens, sign in to Studio if it asks you to. Studio shows the **Authorize access** page.
+3. Check the listed access, then select **Authorize**.
+4. Return to the terminal. The CLI shows the organization, your account, and the name of the saved **context**.
+
+</Steps>
+
+A context is a saved server address plus its credential. The first sign-in names the context after the server's host name, such as `signage.example.org`. Use `--context-name` to choose a shorter name.
+
+The browser must run on the same computer as the CLI, because Studio returns the approval to a temporary address on that computer. If the browser doesn't open, use `--no-browser` and open the printed address yourself. On a server or other computer without a browser, use a [personal access token](#use-a-personal-access-token) instead.
+
+### Choose the access you grant
+
+By default, the CLI asks for `read` and `write` access. The **Authorize access** page describes each one:
+
+| Scope   | Allows                                                         |
+| ------- | -------------------------------------------------------------- |
+| `read`  | Viewing screens, settings, schedules, content, and status.     |
+| `write` | Changing screens, content, schedules, playlists, and settings. |
+| `admin` | Managing users, tokens, grants, and security settings.         |
+
+A scope is a limit, not a permission. An Editor who grants `admin` still can't do what an Editor can't do in Studio. The `tilecast token` commands need `admin`:
+
+```sh title="Sign in with token management"
+tilecast auth login https://signage.example.org --scopes "read write admin"
+```
+
+To give a context read-only access, request only `read`. Tilecast Server then refuses every change from that credential.
+
+### Sign out
+
+`tilecast auth logout` removes the current context's credential from your computer and revokes it on the server. The saved server address stays until you remove the context.
+
+You can also revoke a CLI sign-in from Studio. Open **My Account** > **Sign-in security** and select **Revoke** under **Authorized operators**. Revocation takes effect immediately.
+
+A browser sign-in renews itself while you use it. After 30 days without use, run `tilecast auth login` again.
+
+## Work with several installations
+
+Each `tilecast auth login` saves a context and makes it current. Commands use the current context unless you choose another one.
+
+For example, sign in to a district installation and a test installation:
+
+```sh
+tilecast auth login https://signage.example.org --context-name district
+```
+
+```sh
+tilecast auth login https://signage-lab.example.org --context-name lab
+```
+
+```sh title="List contexts; * marks the current one"
+tilecast context list
+```
+
+```sh title="Switch the current context"
+tilecast context use district
+```
+
+Use `--context` for one command without switching:
+
+```sh
+tilecast --context lab screen list
+```
+
+`tilecast context current` prints the current context's name. `tilecast context rename` and `tilecast context remove` rename or delete a saved context together with its stored credential.
+
+`tilecast status` shows the server, installation, organization, API version, and who you're signed in as. `tilecast whoami` prints your account and role. `tilecast auth status` shows which context and credential the CLI will use.
+
+### How the CLI picks a server
+
+For each command, the CLI uses the first of these that is set:
+
+| Choice     | Command-line flag | Environment variable | Otherwise                       |
+| ---------- | ----------------- | -------------------- | ------------------------------- |
+| Server     | `--server`        | `TILECAST_URL`       | The context's saved address     |
+| Context    | `--context`       | `TILECAST_CONTEXT`   | The current context             |
+| Credential | none              | `TILECAST_TOKEN`     | The context's stored credential |
+
+A stored credential is only sent to the server it was saved for. If `--server` or `TILECAST_URL` points at a different server, the CLI refuses and asks for `TILECAST_TOKEN` instead.
+
+Plain HTTP is allowed only for `localhost`, private network addresses, and `.local` names. A public server needs HTTPS.
+
+The CLI keeps contexts in `tilecast/config.json` in your user configuration directory. Set `TILECAST_CONFIG` to use another file. The file holds server addresses and installation IDs, never credentials.
+
+## Use a personal access token
+
+A [personal access token](../personal-access-tokens/) is a credential that belongs to your account. It suits scripts, CI jobs, and computers without a browser. Create one in **My Account** > **Sign-in security**, then give it to the CLI in one of two ways.
+
+To save it in a context, send it on standard input:
+
+```sh title="Save a token in a context"
+tilecast auth login https://signage.example.org --token-stdin < token.txt
+```
+
+The CLI checks the token with the server before it saves it. This still needs an operating system credential store.
+
+For a CI job, set the server and the token as environment variables from the job's secret store. The CLI then needs no saved context and stores nothing:
+
+```sh title="CI job"
+export TILECAST_URL=https://signage.example.org
+export TILECAST_TOKEN="$SIGNAGE_TOKEN"
+tilecast screen list --json
+```
+
+<Aside type="caution" title="Keep tokens out of command lines">
+
+There is no `--token` flag. Command-line arguments can be seen by other users on the same computer and stay in shell history. Use `--token-stdin` or `TILECAST_TOKEN`, and never commit a token to a repository.
+
+</Aside>
+
+## What you can manage
+
+Commands are grouped by what they manage. Run `tilecast <group> --help` for the exact subcommands and flags.
+
+| Command group | What you can do                                                                                  |
+| ------------- | ------------------------------------------------------------------------------------------------ |
+| `screen`      | List and inspect screens. Update a screen's details, disable or enable it, or revoke its Player. |
+| `pairing`     | List pending pairing requests, look up a pairing code, and approve or reject a request.          |
+| `playlist`    | List and inspect Playlists, and publish a Playlist draft.                                        |
+| `schedule`    | List and inspect schedules, and create a schedule from a JSON document.                          |
+| `settings`    | Read and change organization settings, and read the effective Player policy for one screen.      |
+| `activity`    | Read the Activity overview, uptime, incidents, and playback compliance.                          |
+| `plugin`      | List, inspect, install, and remove built-in plugins, and run commands from installed plugins.    |
+| `token`       | List your personal access tokens and create a new one.                                           |
+| `mcp`         | Run the [Tilecast MCP server](../mcp/).                                                          |
+
+Commands that take a screen accept its ID or its exact name. If two screens share a name, the CLI stops and asks for the ID instead of guessing.
+
+### Examples
+
+Find screens that aren't online (this example uses the separate `jq` tool):
+
+```sh
+tilecast screen list --json | jq -r '.[] | select(.status != "online") | .name'
+```
+
+Inspect one screen as JSON:
+
+```sh
+tilecast screen get "Library entrance" --json
+```
+
+Approve a display that shows the pairing code `K7M2QX`. The first command prints the pairing session ID for the second:
+
+```sh
+tilecast pairing resolve K7M2QX
+```
+
+```sh
+tilecast pairing approve <session-id> --name "Library entrance" \
+  --room-name "Main lobby" --room-number "101" --description "Wall display by the doors"
+```
+
+Publish a Playlist draft. `playlist list` shows each Playlist's ID and whether it has unpublished changes:
+
+```sh
+tilecast playlist list
+```
+
+```sh
+tilecast playlist publish <playlist-id>
+```
+
+Change an organization setting. The CLI changes only the keys you name, and reports a conflict if someone else changed the settings first:
+
+```sh
+tilecast settings set player.playback.default_transition=fade
+```
+
+List open incidents:
+
+```sh
+tilecast activity incidents --status open
+```
+
+## Confirm changes
+
+Commands that affect screens, pairing, publishing, plugins, or tokens ask you to confirm at the terminal. In a script there is no terminal to answer, so these commands stop unless you add `--yes`:
+
+```sh
+tilecast playlist publish <playlist-id> --yes
+```
+
+Read commands never ask.
+
+## Output for scripts
+
+- Result data goes to standard output. Progress messages, prompts, and warnings go to standard error.
+- `--json` prints the result as JSON.
+- `--quiet` hides informational messages and keeps data and errors.
+- `screen list --plain` prints one line per screen without column alignment.
+- `--timeout` limits how long a command waits for the server, such as `--timeout 10s`. The default is 30 seconds.
+- A failed command exits with a non-zero status.
+
+## Commands from plugins
+
+An installed plugin can add its own commands below `tilecast plugin`. The commands come from the server, so they appear when an Owner or Administrator installs the plugin. You don't update the CLI for them.
+
+In current releases, [Countdown Bar](../../operations/plugins/countdown-bar/) adds commands:
+
+```sh title="List Countdown Bar instances"
+tilecast plugin countdown-bar instance list
+```
+
+A plugin command takes IDs as arguments, the same way core commands do. When a command needs a JSON document, pass it with `--file` or `--input`:
+
+```sh
+tilecast plugin countdown-bar instance create --file lunch-countdown.json
+```
+
+The server validates the document and applies your role, as it does for a change made in Studio. A plugin command that deletes or affects screens asks you to confirm, like a core command.
+
+`tilecast plugin list` shows which plugins are installed. If you type a plugin command that doesn't exist, the error lists the plugin commands the server offers.
+
+Plugin developers define these commands in the plugin's `automation.yaml`. See [Build a first-party plugin](../../developers/plugins/#automation-mapping).
+
+## Related pages
+
+- [Connect an MCP client](../mcp/) runs the same operations for AI assistants.
+- [Create a personal access token](../personal-access-tokens/) covers token scopes, lifetimes, and revocation.
+- [HTTP API overview](../../reference/api/) describes the API behind every command.
+- The [programmable control plane reference](https://github.com/gbyo/tilecast/blob/main/docs/programmable-control-plane.md) is the engineering contract for the CLI, MCP, and plugin automation.

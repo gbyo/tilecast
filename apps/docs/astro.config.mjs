@@ -352,6 +352,35 @@ export default defineConfig({
           ],
         },
         {
+          label: "Integrations",
+          collapsed: true,
+          items: [
+            { slug: "integrations" },
+            {
+              label: "Automate as a user",
+              collapsed: true,
+              items: [
+                { label: "Command-line interface", slug: "integrations/cli" },
+                { label: "MCP", slug: "integrations/mcp" },
+                {
+                  label: "Personal access tokens",
+                  slug: "integrations/personal-access-tokens",
+                },
+              ],
+            },
+            {
+              label: "Connect other systems",
+              collapsed: true,
+              items: [
+                { label: "Integration tokens", slug: "integrations/tokens" },
+                { slug: "integrations/manual-table" },
+                { slug: "integrations/fleet-health" },
+                { slug: "integrations/notifications" },
+              ],
+            },
+          ],
+        },
+        {
           label: "Troubleshooting",
           collapsed: true,
           items: [
@@ -365,17 +394,6 @@ export default defineConfig({
             { slug: "troubleshooting/display-control" },
             { slug: "troubleshooting/airplay-networks" },
             { slug: "troubleshooting/sign-in" },
-          ],
-        },
-        {
-          label: "Integrations",
-          collapsed: true,
-          items: [
-            { slug: "integrations" },
-            { slug: "integrations/tokens" },
-            { slug: "integrations/manual-table" },
-            { slug: "integrations/fleet-health" },
-            { slug: "integrations/notifications" },
           ],
         },
         {

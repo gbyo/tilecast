@@ -14,13 +14,15 @@ import { FileTree, LinkButton, Steps } from "@astrojs/starlight/components";
 - tilecast/
   - apps/ Product applications.
     - server/ Go server, HTTP API, and database migrations.
+    - cli/ Remote tilecast CLI and its MCP server.
     - dashboard/ React and TypeScript management app, Tilecast Studio.
     - player-android/ Kotlin and Jetpack Compose Player for Android TV devices.
     - player-linux/ Electron Player for Linux kiosk devices.
     - edge/ Tilecast Edge, the new Linux player: a Rust daemon, a WPE WebKit renderer, update and migration helpers, and a small user-session bridge.
     - docs/ Astro and Starlight public documentation site.
   - plugins/ Bundled plugins, one directory each.
-  - packages/ Shared design tokens, application contracts, and the plugin SDK.
+  - widgets/ Core Widgets, one directory each.
+  - packages/ Shared design tokens, the API client, application contracts, and the plugin and Widget SDKs.
   - deploy/ Docker deployment and optional network integrations.
   - docs/ Engineering references, API descriptions, and implementation contracts.
 
@@ -101,7 +103,10 @@ Follow the [documentation style guide](https://github.com/gbyo/tilecast/blob/mai
 ## Technical references
 
 - [HTTP API overview](../reference/api/) explains the shared API contract and links to the OpenAPI description.
-- [Build a first-party plugin](./plugins/) covers the bundled Plugin API workflow.
+- [Command-line interface](../integrations/cli/) and [MCP](../integrations/mcp/) cover the remote `tilecast` CLI, including how to build it from `apps/cli`.
+- [Build a first-party plugin](./plugins/) covers the bundled Plugin API workflow, including CLI and MCP automation.
+- [Widgets V2](https://github.com/gbyo/tilecast/blob/main/docs/widgets-v2.md) and its [authoring plan](https://github.com/gbyo/tilecast/blob/main/docs/widgets-v2-authoring-and-first-wave.md) describe how core Widgets are built in `widgets/`.
+- [Programmable control plane](https://github.com/gbyo/tilecast/blob/main/docs/programmable-control-plane.md) is the contract for the CLI, MCP, and plugin automation.
 - [Development setup](https://github.com/gbyo/tilecast/blob/main/docs/development.md) covers local database and migration workflows.
 - [Architecture](https://github.com/gbyo/tilecast/blob/main/docs/architecture.md) describes the server and application boundaries.
 - [Android Player development](https://github.com/gbyo/tilecast/blob/main/docs/android-development.md) covers Android build and device workflows.
