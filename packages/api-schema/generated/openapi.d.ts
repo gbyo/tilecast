@@ -5417,6 +5417,123 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    BackupComponent: {
+      name: string;
+      fileCount: number;
+      totalBytes: number;
+    };
+    BackupArchive: {
+      /** Format: uuid */
+      id: string;
+      fileName: string;
+      kind: string;
+      status: string;
+      sizeBytes: number;
+      archiveSha256: string;
+      tilecastVersion: string;
+      schemaVersion: number;
+      installationId: string;
+      organizationName: string;
+      components: components["schemas"]["BackupComponent"][];
+      verification: string;
+      /** Format: date-time */
+      verifiedAt?: string;
+      /** Format: date-time */
+      createdAt: string;
+    };
+    BackupJob: {
+      /** Format: uuid */
+      id: string;
+      /** @enum {string} */
+      kind: "backup" | "verify" | "restore";
+      trigger: string;
+      /** Format: uuid */
+      archiveId?: string;
+      status: string;
+      phase: string;
+      progressPercent: number;
+      errorCode?: string;
+      errorMessage?: string;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      completedAt?: string;
+    };
+    BackupScheduleState: {
+      /** Format: date-time */
+      lastRunAt?: string;
+      /** Format: date-time */
+      nextRunAt?: string;
+    };
+    BackupList: {
+      backups: components["schemas"]["BackupArchive"][];
+      /** @description Null when no job is active or known. */
+      currentJob: components["schemas"]["BackupJob"] | null;
+      recentJobs: components["schemas"]["BackupJob"][];
+      /** @description Null when no backup has completed yet. */
+      lastSuccessful: components["schemas"]["BackupArchive"] | null;
+      schedule: components["schemas"]["BackupScheduleState"];
+    };
+    /** @description Live in-memory worker heartbeat for the active job. Unlike the stored BackupJob, it carries no trigger, archive link, timestamps, or error detail. */
+    BackupWorkerStatus: {
+      /** Format: uuid */
+      jobId: string;
+      kind: string;
+      status: string;
+      phase: string;
+      progressPercent: number;
+    };
+    BackupRestorePlan: {
+      archive: components["schemas"]["BackupArchive"];
+      organizationName: string;
+      installationId: string;
+      tilecastVersion: string;
+      schemaVersion: number;
+      /** Format: date-time */
+      createdAt: string;
+      sizeBytes: number;
+      components: components["schemas"]["BackupComponent"][];
+      identityMismatch: boolean;
+      currentInstallationId: string;
+    };
+    SystemHealth: {
+      /** @enum {string} */
+      status: "ok";
+      /** @enum {string} */
+      service: "tilecast-server";
+    };
+    MediaDiagnostics: {
+      availableStorageBytes: number;
+      maximumUploadBytes: number;
+      workerCount: number;
+      ffmpegAvailable: boolean;
+      ffprobeAvailable: boolean;
+    };
+    SnapshotUsage: {
+      totalBytes: number;
+      count: number;
+      note: string;
+    };
+    SystemStatus: {
+      tilecastVersion: string;
+      buildCommit: string;
+      buildDate: string;
+      uptimeSeconds: number;
+      goVersion: string;
+      database: {
+        status: string;
+        migrationVersion: string;
+        postgresVersion: string;
+      };
+      /** @description Media diagnostics bag when storage is healthy, a degraded marker otherwise. */
+      media: Record<string, never>;
+      activeProcessingJobs: number;
+      pendingCommands: number;
+      connectedScreens: number;
+      serverTimezone: string;
+      /** @description Deployment capability markers. */
+      deployment: Record<string, never>;
+    };
     /** @description Compact takeover row returned by the takeover list, with live per-state screen counts. The per-screen breakdown requires the detail read. */
     Takeover: {
       /** Format: uuid */
@@ -9886,7 +10003,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["SystemHealth"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -9918,7 +10039,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["MediaDiagnostics"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -9950,7 +10075,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["SnapshotUsage"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -10058,7 +10187,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["BackupList"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -10093,7 +10226,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["BackupJob"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -10127,12 +10264,18 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description Current backup job */
+      /** @description Current backup job. The live worker heartbeat when a job is running, otherwise the stored current job. */
       200: {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data:
+              | components["schemas"]["BackupWorkerStatus"]
+              | components["schemas"]["BackupJob"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -10166,7 +10309,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["BackupJob"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -10210,7 +10357,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["BackupJob"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -10251,7 +10402,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["BackupRestorePlan"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -10295,7 +10450,8 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody: {
+    /** @description May be omitted entirely when the archive names this installation; only identity mismatches need confirmation. */
+    requestBody?: {
       content: {
         "application/json": {
           confirmIdentityMismatch?: boolean;
@@ -10308,7 +10464,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["BackupJob"];
+          };
+        };
       };
       /** @description Invalid request body */
       400: {
@@ -10383,7 +10543,10 @@ export interface operations {
   };
   deleteBackup: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Confirm again when deleting the last complete backup. */
+        force?: boolean;
+      };
       header?: {
         /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
         "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
@@ -10400,7 +10563,14 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: {
+              /** @enum {boolean} */
+              deleted: true;
+            };
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -19214,7 +19384,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["SystemStatus"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {

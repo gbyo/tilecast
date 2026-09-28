@@ -995,7 +995,15 @@ paths:
         Read system health. Requires an Owner or Administrator with the read
         scope.
       responses:
-        "200": { description: System health }
+        "200":
+          description: System health
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/SystemHealth" }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
   /api/v1/system/media-diagnostics:
@@ -1005,7 +1013,15 @@ paths:
         Read media pipeline diagnostics. Requires an Owner or Administrator
         with the read scope.
       responses:
-        "200": { description: Media diagnostics }
+        "200":
+          description: Media diagnostics
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/MediaDiagnostics" }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
   /api/v1/system/snapshots/usage:
@@ -1015,7 +1031,15 @@ paths:
         Read snapshot storage usage. Requires an Owner or Administrator with
         the read scope.
       responses:
-        "200": { description: Snapshot storage usage }
+        "200":
+          description: Snapshot storage usage
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/SnapshotUsage" }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
   /api/v1/screens/{id}/snapshots:
@@ -1053,7 +1077,15 @@ paths:
       description: >-
         List system backups. Requires an Owner with the admin scope.
       responses:
-        "200": { description: System backups }
+        "200":
+          description: System backups
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/BackupList" }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
     post:
@@ -1064,7 +1096,15 @@ paths:
       parameters:
         - { $ref: "#/components/parameters/CSRFToken" }
       responses:
-        "202": { description: Backup job started }
+        "202":
+          description: Backup job started
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/BackupJob" }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
         "409": { description: Backup already in progress }
@@ -1075,7 +1115,20 @@ paths:
         Read the current backup job, if any. Requires an Owner with the
         admin scope.
       responses:
-        "200": { description: Current backup job }
+        "200":
+          description: >-
+            Current backup job. The live worker heartbeat when a job is
+            running, otherwise the stored current job.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    oneOf:
+                      - { $ref: "#/components/schemas/BackupWorkerStatus" }
+                      - { $ref: "#/components/schemas/BackupJob" }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
   /api/v1/system/backups/jobs/{id}:
@@ -1086,7 +1139,15 @@ paths:
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses:
-        "200": { description: Backup job }
+        "200":
+          description: Backup job
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/BackupJob" }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
         "404": { description: Backup job not found }
@@ -1100,7 +1161,15 @@ paths:
         - { $ref: "#/components/parameters/ResourceID" }
         - { $ref: "#/components/parameters/CSRFToken" }
       responses:
-        "202": { description: Backup verification started }
+        "202":
+          description: Backup verification started
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/BackupJob" }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
         "404": { description: Backup not found }
@@ -1113,7 +1182,15 @@ paths:
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses:
-        "200": { description: Restore plan }
+        "200":
+          description: Restore plan
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/BackupRestorePlan" }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
         "404": { description: Backup not found }
@@ -1130,7 +1207,10 @@ paths:
         - { $ref: "#/components/parameters/ResourceID" }
         - { $ref: "#/components/parameters/CSRFToken" }
       requestBody:
-        required: true
+        required: false
+        description: >-
+          May be omitted entirely when the archive names this
+          installation; only identity mismatches need confirmation.
         content:
           application/json:
             schema:
@@ -1138,7 +1218,15 @@ paths:
               properties:
                 confirmIdentityMismatch: { type: boolean }
       responses:
-        "202": { description: Restore job started }
+        "202":
+          description: Restore job started
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/BackupJob" }
         "400": { description: Invalid request body }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
@@ -1166,8 +1254,26 @@ paths:
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
         - { $ref: "#/components/parameters/CSRFToken" }
+        - in: query
+          name: force
+          schema: { type: boolean }
+          description: >-
+            Confirm again when deleting the last complete backup.
       responses:
-        "200": { description: Backup deleted }
+        "200":
+          description: Backup deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: false
+                    required: [deleted]
+                    properties:
+                      deleted: { type: boolean, enum: [true] }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
         "404": { description: Backup not found }
@@ -6243,7 +6349,15 @@ paths:
         session. Secret-free system diagnostics: migration version,
         database, connectivity, and queue depths.
       responses:
-        "200": { description: Secret-free status }
+        "200":
+          description: Secret-free status
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/SystemStatus" }
         "401": { description: Dashboard authentication required }
         "403": { description: Owner or Administrator required }
   /api/v1/system/maintenance/{action}:
@@ -6723,6 +6837,213 @@ components:
       name: tilecast_session
       description: Enrolled dashboard session cookie
   schemas:
+    BackupComponent:
+      type: object
+      additionalProperties: false
+      required: [name, fileCount, totalBytes]
+      properties:
+        name: { type: string }
+        fileCount: { type: integer, minimum: 0 }
+        totalBytes: { type: integer, minimum: 0 }
+    BackupArchive:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          fileName,
+          kind,
+          status,
+          sizeBytes,
+          archiveSha256,
+          tilecastVersion,
+          schemaVersion,
+          installationId,
+          organizationName,
+          components,
+          verification,
+          createdAt,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        fileName: { type: string }
+        kind: { type: string }
+        status: { type: string }
+        sizeBytes: { type: integer, minimum: 0 }
+        archiveSha256: { type: string }
+        tilecastVersion: { type: string }
+        schemaVersion: { type: integer, minimum: 1 }
+        installationId: { type: string }
+        organizationName: { type: string }
+        components:
+          type: array
+          items: { $ref: "#/components/schemas/BackupComponent" }
+        verification: { type: string }
+        verifiedAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+    BackupJob:
+      type: object
+      additionalProperties: false
+      required: [id, kind, trigger, status, phase, progressPercent, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [backup, verify, restore] }
+        trigger: { type: string }
+        archiveId: { type: string, format: uuid }
+        status: { type: string }
+        phase: { type: string }
+        progressPercent: { type: integer, minimum: 0, maximum: 100 }
+        errorCode: { type: string }
+        errorMessage: { type: string }
+        createdAt: { type: string, format: date-time }
+        completedAt: { type: string, format: date-time }
+    BackupScheduleState:
+      type: object
+      additionalProperties: false
+      properties:
+        lastRunAt: { type: string, format: date-time }
+        nextRunAt: { type: string, format: date-time }
+    BackupList:
+      type: object
+      additionalProperties: false
+      required: [backups, currentJob, recentJobs, lastSuccessful, schedule]
+      properties:
+        backups:
+          type: array
+          items: { $ref: "#/components/schemas/BackupArchive" }
+        currentJob:
+          oneOf:
+            - { $ref: "#/components/schemas/BackupJob" }
+            - { type: "null" }
+          description: Null when no job is active or known.
+        recentJobs:
+          type: array
+          items: { $ref: "#/components/schemas/BackupJob" }
+        lastSuccessful:
+          oneOf:
+            - { $ref: "#/components/schemas/BackupArchive" }
+            - { type: "null" }
+          description: Null when no backup has completed yet.
+        schedule: { $ref: "#/components/schemas/BackupScheduleState" }
+    BackupWorkerStatus:
+      type: object
+      additionalProperties: false
+      description: >-
+        Live in-memory worker heartbeat for the active job. Unlike the
+        stored BackupJob, it carries no trigger, archive link, timestamps,
+        or error detail.
+      required: [jobId, kind, status, phase, progressPercent]
+      properties:
+        jobId: { type: string, format: uuid }
+        kind: { type: string }
+        status: { type: string }
+        phase: { type: string }
+        progressPercent: { type: integer, minimum: 0, maximum: 100 }
+    BackupRestorePlan:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          archive,
+          organizationName,
+          installationId,
+          tilecastVersion,
+          schemaVersion,
+          createdAt,
+          sizeBytes,
+          components,
+          identityMismatch,
+          currentInstallationId,
+        ]
+      properties:
+        archive: { $ref: "#/components/schemas/BackupArchive" }
+        organizationName: { type: string }
+        installationId: { type: string }
+        tilecastVersion: { type: string }
+        schemaVersion: { type: integer, minimum: 1 }
+        createdAt: { type: string, format: date-time }
+        sizeBytes: { type: integer, minimum: 0 }
+        components:
+          type: array
+          items: { $ref: "#/components/schemas/BackupComponent" }
+        identityMismatch: { type: boolean }
+        currentInstallationId: { type: string }
+    SystemHealth:
+      type: object
+      additionalProperties: false
+      required: [status, service]
+      properties:
+        status: { type: string, enum: [ok] }
+        service: { type: string, enum: [tilecast-server] }
+    MediaDiagnostics:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          availableStorageBytes,
+          maximumUploadBytes,
+          workerCount,
+          ffmpegAvailable,
+          ffprobeAvailable,
+        ]
+      properties:
+        availableStorageBytes: { type: integer, minimum: 0 }
+        maximumUploadBytes: { type: integer, minimum: 1 }
+        workerCount: { type: integer, minimum: 1 }
+        ffmpegAvailable: { type: boolean }
+        ffprobeAvailable: { type: boolean }
+    SnapshotUsage:
+      type: object
+      additionalProperties: false
+      required: [totalBytes, count, note]
+      properties:
+        totalBytes: { type: integer, minimum: 0 }
+        count: { type: integer, minimum: 0 }
+        note: { type: string }
+    SystemStatus:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          tilecastVersion,
+          buildCommit,
+          buildDate,
+          uptimeSeconds,
+          goVersion,
+          database,
+          media,
+          activeProcessingJobs,
+          pendingCommands,
+          connectedScreens,
+          serverTimezone,
+          deployment,
+        ]
+      properties:
+        tilecastVersion: { type: string }
+        buildCommit: { type: string }
+        buildDate: { type: string }
+        uptimeSeconds: { type: integer, minimum: 0 }
+        goVersion: { type: string }
+        database:
+          type: object
+          additionalProperties: false
+          required: [status, migrationVersion, postgresVersion]
+          properties:
+            status: { type: string }
+            migrationVersion: { type: string }
+            postgresVersion: { type: string }
+        media:
+          type: object
+          description: >-
+            Media diagnostics bag when storage is healthy, a degraded
+            marker otherwise.
+        activeProcessingJobs: { type: integer, minimum: 0 }
+        pendingCommands: { type: integer, minimum: 0 }
+        connectedScreens: { type: integer, minimum: 0 }
+        serverTimezone: { type: string }
+        deployment:
+          type: object
+          description: Deployment capability markers.
     Takeover:
       type: object
       additionalProperties: false
