@@ -494,18 +494,20 @@ describe("Widget editor experience", () => {
 
   it("names a plugin-owned Widget's provenance while its plugin is installed", async () => {
     renderGalleryWithPluginSource(true);
-    const card = await screen.findByRole("button", { name: /Siren/ });
+    // The badge shows the plugin's name only after the plugin catalog
+    // query resolves, so waiting for it waits for installation state too.
+    await screen.findByText("Plugin · Emergency Alerts");
+    const card = screen.getByRole("button", { name: /Siren/ });
     expect(card).not.toBeDisabled();
-    expect(screen.getByText("Plugin · Emergency Alerts")).toBeTruthy();
     expect(screen.queryByText(/Requires/)).toBeNull();
   });
 
   it("disables a plugin-owned Widget with its plugin named while uninstalled", async () => {
     const onChoose = vi.fn();
     renderGalleryWithPluginSource(false, onChoose);
-    const card = await screen.findByRole("button", { name: /Siren/ });
+    await screen.findByText("Plugin · Emergency Alerts");
+    const card = screen.getByRole("button", { name: /Siren/ });
     expect(card).toBeDisabled();
-    expect(screen.getByText("Plugin · Emergency Alerts")).toBeTruthy();
     expect(screen.getByText("Requires Emergency Alerts")).toBeTruthy();
     expect(onChoose).not.toHaveBeenCalled();
   });

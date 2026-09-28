@@ -334,6 +334,20 @@ export function scaffold(root: string, target: ScaffoldTarget): string[] {
       `tag ${identities.tagName} is invalid; pick a shorter Widget name`,
     );
   }
+  // Plugin namespaces drop separators, so distinct plugin ids such as
+  // ab_c and a_bc derive the same component type and tag. widgets:check
+  // reports that afterwards; refuse it here before any file is written.
+  const clash = discover(root).widgets.find(
+    (widget) =>
+      widget.manifest.id === identities.id ||
+      widget.manifest.component?.type === identities.type ||
+      widget.manifest.component?.tagName === identities.tagName,
+  );
+  if (clash) {
+    throw new Error(
+      `${location} would reuse the provider id, component type, or tag of ${clash.dir} (${identities.type}); pick another Widget name`,
+    );
+  }
   const schemaPath = plugin
     ? "../../../../packages/widget-sdk/schema/tilecast-widget.schema.json"
     : "../../packages/widget-sdk/schema/tilecast-widget.schema.json";
