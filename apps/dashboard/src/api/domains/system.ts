@@ -439,33 +439,27 @@ export function testNotificationWebhook(
 }
 
 export function listBackups(): Promise<BackupList> {
-  return apiGet<"/api/v1/system/backups", BackupList>("/api/v1/system/backups");
+  return apiGet("/api/v1/system/backups");
 }
 
 export function createBackup(csrfToken: string): Promise<BackupJob> {
-  return apiPost<"/api/v1/system/backups", BackupJob>(
-    "/api/v1/system/backups",
-    {
-      csrfToken,
-    },
-  );
+  return apiPost("/api/v1/system/backups", { csrfToken });
 }
 
 export function verifyBackup(
   id: string,
   csrfToken: string,
 ): Promise<BackupJob> {
-  return apiPost<"/api/v1/system/backups/{id}/verify", BackupJob>(
-    "/api/v1/system/backups/{id}/verify",
-    { params: { path: { id } }, csrfToken },
-  );
+  return apiPost("/api/v1/system/backups/{id}/verify", {
+    params: { path: { id } },
+    csrfToken,
+  });
 }
 
 export function getBackupRestorePlan(id: string): Promise<BackupRestorePlan> {
-  return apiGet<"/api/v1/system/backups/{id}/plan", BackupRestorePlan>(
-    "/api/v1/system/backups/{id}/plan",
-    { params: { path: { id } } },
-  );
+  return apiGet("/api/v1/system/backups/{id}/plan", {
+    params: { path: { id } },
+  });
 }
 
 export function restoreBackup(
@@ -473,10 +467,11 @@ export function restoreBackup(
   confirmIdentityMismatch: boolean,
   csrfToken: string,
 ): Promise<BackupJob> {
-  return apiPost<"/api/v1/system/backups/{id}/restore", BackupJob>(
-    "/api/v1/system/backups/{id}/restore",
-    { params: { path: { id } }, body: { confirmIdentityMismatch }, csrfToken },
-  );
+  return apiPost("/api/v1/system/backups/{id}/restore", {
+    params: { path: { id } },
+    body: { confirmIdentityMismatch },
+    csrfToken,
+  });
 }
 
 export function deleteBackup(
@@ -484,13 +479,10 @@ export function deleteBackup(
   force: boolean,
   csrfToken: string,
 ): Promise<{ deleted: boolean }> {
-  return apiDelete<"/api/v1/system/backups/{id}", { deleted: boolean }>(
-    "/api/v1/system/backups/{id}",
-    {
-      params: { path: { id }, query: force ? { force: true } : {} },
-      csrfToken,
-    },
-  );
+  return apiDelete("/api/v1/system/backups/{id}", {
+    params: { path: { id }, query: force ? { force: true } : {} },
+    csrfToken,
+  });
 }
 
 export function runMaintenance(
