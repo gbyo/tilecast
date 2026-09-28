@@ -77,10 +77,9 @@ export function previewSchedule(
   timestamp: string,
   proposedSchedule?: ScheduleInput,
 ): Promise<SchedulePreview> {
-  return apiPost<"/api/v1/schedules/preview", SchedulePreview>(
-    "/api/v1/schedules/preview",
-    { body: { screenId, timestamp, proposedSchedule } },
-  );
+  return apiPost("/api/v1/schedules/preview", {
+    body: { screenId, timestamp, proposedSchedule },
+  });
 }
 
 export function listCampaigns(search = ""): Promise<CampaignList> {

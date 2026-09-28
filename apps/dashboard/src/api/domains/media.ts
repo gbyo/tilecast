@@ -36,7 +36,6 @@ import type {
   WebsiteDiagnostics,
   WebsiteInput,
   WidgetInput,
-  WidgetPresentation,
 } from "../types";
 
 function fromSearchParams(
@@ -284,21 +283,28 @@ export function updateWebsite(
 }
 
 export function getWebsiteDiagnostics(id: string): Promise<WebsiteDiagnostics> {
-  return apiGet<"/api/v1/assets/{id}/website/diagnostics", WebsiteDiagnostics>(
-    "/api/v1/assets/{id}/website/diagnostics",
-    { params: { path: { id } } },
-  );
+  return apiGet("/api/v1/assets/{id}/website/diagnostics", {
+    params: { path: { id } },
+  });
 }
+
+/**
+ * Wire shape of a compiled Widget presentation from the generated
+ * contract. Definitions without a player fallback answer null, which
+ * callers already treat as a pending preview.
+ */
+export type WireCompiledWidgetPresentation =
+  components["schemas"]["CompiledWidgetPresentation"] | null;
 
 export function compileWidgetPreview(
   provider: WidgetInput["provider"],
   configuration: WidgetInput["configuration"],
   csrfToken: string,
-): Promise<WidgetPresentation> {
-  return apiPost<"/api/v1/widgets/compile-preview", WidgetPresentation>(
-    "/api/v1/widgets/compile-preview",
-    { body: { provider, configuration }, csrfToken },
-  );
+): Promise<WireCompiledWidgetPresentation> {
+  return apiPost("/api/v1/widgets/compile-preview", {
+    body: { provider, configuration },
+    csrfToken,
+  });
 }
 
 export function createWidget(
