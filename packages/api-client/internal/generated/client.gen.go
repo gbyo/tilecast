@@ -251,25 +251,25 @@ func (e AssetType) Valid() bool {
 
 // Defines values for AuthMethod.
 const (
-	Demo         AuthMethod = "demo"
-	Passkey      AuthMethod = "passkey"
-	Password     AuthMethod = "password"
-	RecoveryCode AuthMethod = "recovery_code"
-	Totp         AuthMethod = "totp"
+	AuthMethodDemo         AuthMethod = "demo"
+	AuthMethodPasskey      AuthMethod = "passkey"
+	AuthMethodPassword     AuthMethod = "password"
+	AuthMethodRecoveryCode AuthMethod = "recovery_code"
+	AuthMethodTotp         AuthMethod = "totp"
 )
 
 // Valid indicates whether the value is a known member of the AuthMethod enum.
 func (e AuthMethod) Valid() bool {
 	switch e {
-	case Demo:
+	case AuthMethodDemo:
 		return true
-	case Passkey:
+	case AuthMethodPasskey:
 		return true
-	case Password:
+	case AuthMethodPassword:
 		return true
-	case RecoveryCode:
+	case AuthMethodRecoveryCode:
 		return true
-	case Totp:
+	case AuthMethodTotp:
 		return true
 	default:
 		return false
@@ -1479,6 +1479,21 @@ func (e LayoutSummaryOrientation) Valid() bool {
 	}
 }
 
+// Defines values for LoginChallengeMfaRequired.
+const (
+	LoginChallengeMfaRequiredTrue LoginChallengeMfaRequired = true
+)
+
+// Valid indicates whether the value is a known member of the LoginChallengeMfaRequired enum.
+func (e LoginChallengeMfaRequired) Valid() bool {
+	switch e {
+	case LoginChallengeMfaRequiredTrue:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MFAPolicy.
 const (
 	MFAPolicyAdministrators MFAPolicy = "administrators"
@@ -1527,6 +1542,27 @@ func (e ManifestScheduleType) Valid() bool {
 	case ManifestScheduleTypeOneTime:
 		return true
 	case ManifestScheduleTypeWeekly:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MultiFactorMethod.
+const (
+	MultiFactorMethodPasskey      MultiFactorMethod = "passkey"
+	MultiFactorMethodRecoveryCode MultiFactorMethod = "recovery_code"
+	MultiFactorMethodTotp         MultiFactorMethod = "totp"
+)
+
+// Valid indicates whether the value is a known member of the MultiFactorMethod enum.
+func (e MultiFactorMethod) Valid() bool {
+	switch e {
+	case MultiFactorMethodPasskey:
+		return true
+	case MultiFactorMethodRecoveryCode:
+		return true
+	case MultiFactorMethodTotp:
 		return true
 	default:
 		return false
@@ -4652,6 +4688,17 @@ type AuthStatus struct {
 	User                      *User   `json:"user,omitempty"`
 }
 
+// AuthUser defines model for AuthUser.
+type AuthUser struct {
+	Active      bool               `json:"active"`
+	CreatedAt   time.Time          `json:"createdAt"`
+	Id          openapi_types.UUID `json:"id"`
+	LastLoginAt *time.Time         `json:"lastLoginAt,omitempty"`
+	Name        string             `json:"name"`
+	Role        string             `json:"role"`
+	Username    string             `json:"username"`
+}
+
 // AuthenticatorCodeRequest defines model for AuthenticatorCodeRequest.
 type AuthenticatorCodeRequest struct {
 	// Code The six-digit authenticator code.
@@ -6041,6 +6088,21 @@ type LoginBackground struct {
 	ImageUrl string              `json:"imageUrl"`
 }
 
+// LoginChallenge defines model for LoginChallenge.
+type LoginChallenge struct {
+	ChallengeToken string                    `json:"challengeToken"`
+	Methods        []MultiFactorMethod       `json:"methods"`
+	MfaRequired    LoginChallengeMfaRequired `json:"mfaRequired"`
+}
+
+// LoginChallengeMfaRequired defines model for LoginChallenge.MfaRequired.
+type LoginChallengeMfaRequired bool
+
+// LoginResult Either a signed-in session or a multi-factor challenge. A challenge sets no session cookie; no cookie exists until the factor verifies.
+type LoginResult struct {
+	union json.RawMessage
+}
+
 // MFAPolicy defines model for MFAPolicy.
 type MFAPolicy string
 
@@ -6107,6 +6169,9 @@ type MediaDiagnostics struct {
 	MaximumUploadBytes    int  `json:"maximumUploadBytes"`
 	WorkerCount           int  `json:"workerCount"`
 }
+
+// MultiFactorMethod defines model for MultiFactorMethod.
+type MultiFactorMethod string
 
 // MultiFactorVerifyRequest defines model for MultiFactorVerifyRequest.
 type MultiFactorVerifyRequest struct {
@@ -6305,6 +6370,14 @@ type PairingSessionPoll struct {
 
 // PairingSessionPollStatus defines model for PairingSessionPoll.Status.
 type PairingSessionPollStatus string
+
+// PasskeyAssertionChallenge defines model for PasskeyAssertionChallenge.
+type PasskeyAssertionChallenge struct {
+	ChallengeToken string `json:"challengeToken"`
+
+	// Options WebAuthn public-key assertion options for navigator.credentials.get(), serialized with base64url binary fields. Consumed by the platform authenticator rather than field by field.
+	Options map[string]interface{} `json:"options"`
+}
 
 // PasskeyRegistrationOptions defines model for PasskeyRegistrationOptions.
 type PasskeyRegistrationOptions struct {
@@ -7697,6 +7770,14 @@ type SemanticChange struct {
 	Description string `json:"description"`
 	Kind        string `json:"kind"`
 	Path        string `json:"path"`
+}
+
+// SessionCreated defines model for SessionCreated.
+type SessionCreated struct {
+	AuthMethod            AuthMethod `json:"authMethod"`
+	CsrfToken             string     `json:"csrfToken"`
+	MfaEnrollmentRequired bool       `json:"mfaEnrollmentRequired"`
+	User                  AuthUser   `json:"user"`
 }
 
 // SettingDefinition defines model for SettingDefinition.
@@ -10217,6 +10298,68 @@ type CreateWidgetJSONRequestBody = WidgetInput
 
 // UpdateWidgetJSONRequestBody defines body for UpdateWidget for application/json ContentType.
 type UpdateWidgetJSONRequestBody = WidgetInput
+
+// AsSessionCreated returns the union data inside the LoginResult as a SessionCreated
+func (t LoginResult) AsSessionCreated() (SessionCreated, error) {
+	var body SessionCreated
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromSessionCreated overwrites any union data inside the LoginResult as the provided SessionCreated
+func (t *LoginResult) FromSessionCreated(v SessionCreated) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeSessionCreated performs a merge with any union data inside the LoginResult, using the provided SessionCreated
+func (t *LoginResult) MergeSessionCreated(v SessionCreated) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsLoginChallenge returns the union data inside the LoginResult as a LoginChallenge
+func (t LoginResult) AsLoginChallenge() (LoginChallenge, error) {
+	var body LoginChallenge
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromLoginChallenge overwrites any union data inside the LoginResult as the provided LoginChallenge
+func (t *LoginResult) FromLoginChallenge(v LoginChallenge) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeLoginChallenge performs a merge with any union data inside the LoginResult, using the provided LoginChallenge
+func (t *LoginResult) MergeLoginChallenge(v LoginChallenge) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t LoginResult) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *LoginResult) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
 
 // AsPlaylistBulkItemInput0 returns the union data inside the PlaylistBulkItemInput as a PlaylistBulkItemInput0
 func (t PlaylistBulkItemInput) AsPlaylistBulkItemInput0() (PlaylistBulkItemInput0, error) {
@@ -43824,6 +43967,19 @@ func (r HeadLoginBackgroundImageResponse) ContentType() string {
 type LoginResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Data Either a signed-in session or a multi-factor challenge. A challenge sets no session cookie; no cookie exists until the factor verifies.
+		Data LoginResult `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r LoginResponse) GetJSON200() *struct {
+	// Data Either a signed-in session or a multi-factor challenge. A challenge sets no session cookie; no cookie exists until the factor verifies.
+	Data LoginResult `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -43892,6 +44048,17 @@ func (r LogoutResponse) ContentType() string {
 type MultiFactorPasskeyOptionsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PasskeyAssertionChallenge `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r MultiFactorPasskeyOptionsResponse) GetJSON200() *struct {
+	Data PasskeyAssertionChallenge `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -43926,6 +44093,17 @@ func (r MultiFactorPasskeyOptionsResponse) ContentType() string {
 type VerifyMultiFactorResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data SessionCreated `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r VerifyMultiFactorResponse) GetJSON200() *struct {
+	Data SessionCreated `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -43960,6 +44138,17 @@ func (r VerifyMultiFactorResponse) ContentType() string {
 type PasskeyLoginResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data SessionCreated `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PasskeyLoginResponse) GetJSON200() *struct {
+	Data SessionCreated `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -43994,6 +44183,17 @@ func (r PasskeyLoginResponse) ContentType() string {
 type PasskeyLoginOptionsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PasskeyAssertionChallenge `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PasskeyLoginOptionsResponse) GetJSON200() *struct {
+	Data PasskeyAssertionChallenge `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -44028,6 +44228,17 @@ func (r PasskeyLoginOptionsResponse) ContentType() string {
 type InitialSetupResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data SessionCreated `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r InitialSetupResponse) GetJSON201() *struct {
+	Data SessionCreated `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -65237,6 +65448,22 @@ func ParseLoginResponse(rsp *http.Response) (*LoginResponse, error) {
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Data Either a signed-in session or a multi-factor challenge. A challenge sets no session cookie; no cookie exists until the factor verifies.
+			Data LoginResult `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -65269,6 +65496,27 @@ func ParseMultiFactorPasskeyOptionsResponse(rsp *http.Response) (*MultiFactorPas
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PasskeyAssertionChallenge `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -65283,6 +65531,24 @@ func ParseVerifyMultiFactorResponse(rsp *http.Response) (*VerifyMultiFactorRespo
 	response := &VerifyMultiFactorResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data SessionCreated `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 429:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -65301,6 +65567,21 @@ func ParsePasskeyLoginResponse(rsp *http.Response) (*PasskeyLoginResponse, error
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data SessionCreated `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -65317,6 +65598,21 @@ func ParsePasskeyLoginOptionsResponse(rsp *http.Response) (*PasskeyLoginOptionsR
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PasskeyAssertionChallenge `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -65331,6 +65627,24 @@ func ParseInitialSetupResponse(rsp *http.Response) (*InitialSetupResponse, error
 	response := &InitialSetupResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data SessionCreated `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
