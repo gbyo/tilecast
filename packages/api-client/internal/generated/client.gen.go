@@ -7389,15 +7389,24 @@ type Screen struct {
 
 // ScreenActivity defines model for ScreenActivity.
 type ScreenActivity struct {
-	// CurrentIssue The current playback issue, when one is present. Fields vary by issue source.
-	CurrentIssue           *map[string]interface{} `json:"currentIssue,omitempty"`
-	CurrentPresentation    *string                 `json:"currentPresentation,omitempty"`
-	LastHealthyPlayback    *time.Time              `json:"lastHealthyPlayback,omitempty"`
-	LastSuccessfulPlayback *time.Time              `json:"lastSuccessfulPlayback,omitempty"`
-	PlaybackGaps           int                     `json:"playbackGaps"`
-	RecentEvents           []ScreenEventRecord     `json:"recentEvents"`
-	RecentProof            []ProofOfPlayRecord     `json:"recentProof"`
-	ScreenId               openapi_types.UUID      `json:"screenId"`
+	CurrentIssue           *ScreenAttentionItem `json:"currentIssue,omitempty"`
+	CurrentPresentation    *string              `json:"currentPresentation,omitempty"`
+	LastHealthyPlayback    *time.Time           `json:"lastHealthyPlayback,omitempty"`
+	LastSuccessfulPlayback *time.Time           `json:"lastSuccessfulPlayback,omitempty"`
+	PlaybackGaps           int                  `json:"playbackGaps"`
+	RecentEvents           []ScreenEventRecord  `json:"recentEvents"`
+	RecentProof            []ProofOfPlayRecord  `json:"recentProof"`
+	ScreenId               openapi_types.UUID   `json:"screenId"`
+}
+
+// ScreenAttentionItem defines model for ScreenAttentionItem.
+type ScreenAttentionItem struct {
+	Description string             `json:"description"`
+	Kind        string             `json:"kind"`
+	OccurredAt  time.Time          `json:"occurredAt"`
+	ScreenId    openapi_types.UUID `json:"screenId"`
+	ScreenName  string             `json:"screenName"`
+	Severity    string             `json:"severity"`
 }
 
 // ScreenEventPage defines model for ScreenEventPage.

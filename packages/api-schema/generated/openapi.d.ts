@@ -5712,6 +5712,16 @@ export interface components {
       byFailureCode: components["schemas"]["IncidentBreakdown"][];
       byType: components["schemas"]["IncidentBreakdown"][];
     };
+    ScreenAttentionItem: {
+      /** Format: uuid */
+      screenId: string;
+      screenName: string;
+      kind: string;
+      severity: string;
+      description: string;
+      /** Format: date-time */
+      occurredAt: string;
+    };
     ScreenActivity: {
       /** Format: uuid */
       screenId: string;
@@ -5723,8 +5733,7 @@ export interface components {
       lastHealthyPlayback?: string;
       /** Format: date-time */
       lastSuccessfulPlayback?: string;
-      /** @description The current playback issue, when one is present. Fields vary by issue source. */
-      currentIssue?: Record<string, never>;
+      currentIssue?: components["schemas"]["ScreenAttentionItem"];
     };
     /** @enum {string} */
     ScreenHealth: "healthy" | "impaired" | "offline" | "unmeasured";
