@@ -2189,7 +2189,15 @@ paths:
                 removeCollectionIds:
                   { type: array, items: { type: string, format: uuid } }
       responses:
-        "200": { description: All selected assets organized atomically }
+        "200":
+          description: All selected assets organized atomically
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/BulkAssetResult" }
         "404": { description: An asset or organization record was not found }
         "422": { description: Validation failed }
   /api/v1/player/pairing-sessions:
