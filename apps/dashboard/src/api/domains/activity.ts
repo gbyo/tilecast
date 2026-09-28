@@ -162,6 +162,14 @@ export function getActivityRetention(): Promise<
   return apiGet("/api/v1/activity/retention");
 }
 
+export function getIncident(
+  id: string,
+): Promise<components["schemas"]["IncidentDetail"]> {
+  return apiGet("/api/v1/activity/incidents/{id}", {
+    params: { path: { id } },
+  });
+}
+
 export function updateActivityRetention(
   input: {
     rawEventDays?: number;
