@@ -391,7 +391,8 @@ export function ConnectDataFlow({
     >
       <DialogContent className="max-h-[calc(100vh-2rem)] max-w-5xl overflow-y-auto">
         <DialogHeader className="sr-only">
-          <DialogTitle>
+          {/* The shell renders the visible heading; this names the dialog only. */}
+          <DialogTitle render={<div />}>
             {t("dataSources.createFlow.createTitle", { label: dialogLabel })}
           </DialogTitle>
           <DialogDescription>
