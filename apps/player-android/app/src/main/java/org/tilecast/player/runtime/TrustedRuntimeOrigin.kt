@@ -9,6 +9,7 @@ package org.tilecast.player.runtime
 object TrustedRuntimeOrigin {
     const val SCHEME = "https"
     const val HOST = "appassets.androidplatform.net"
+    const val ASSET_LOADER_PATH_PREFIX = "/assets/"
     const val RUNTIME_PATH_PREFIX = "/assets/shared-runtime/"
     const val ENTRY_PAGE = "/assets/shared-runtime/index.html"
 
