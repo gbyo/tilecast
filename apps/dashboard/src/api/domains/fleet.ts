@@ -1,9 +1,10 @@
 /**
  * Fleet domain helpers over the typed transport: locations,
  * presentation networks, plugins, AirPlay sessions, presentation
- * overrides, and screen groups. Success bodies in this area are not
- * contract-typed yet, so each call states its local Studio response
- * type explicitly until the contract gains schemas.
+ * overrides, and screen groups. Location success bodies are
+ * contract-typed and inferred from the generated OpenAPI schemas;
+ * other areas still state their local Studio response type
+ * explicitly until the contract gains schemas.
  */
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from "../transport";
 import type {
@@ -12,7 +13,6 @@ import type {
   DisplayControlGroupApplyResult,
   DisplayControlGroupPreview,
   EffectivePolicy,
-  Location,
   LocationInput,
   PluginCatalog,
   PluginSummary,
@@ -30,20 +30,12 @@ import type {
   SpanStatus,
 } from "../types";
 
-export function listLocations(): Promise<{
-  items: Location[];
-  total: number;
-}> {
-  return apiGet<"/api/v1/locations", { items: Location[]; total: number }>(
-    "/api/v1/locations",
-  );
+export function listLocations() {
+  return apiGet("/api/v1/locations");
 }
 
-export function createLocation(
-  input: LocationInput,
-  csrfToken: string,
-): Promise<Location> {
-  return apiPost<"/api/v1/locations", Location>("/api/v1/locations", {
+export function createLocation(input: LocationInput, csrfToken: string) {
+  return apiPost("/api/v1/locations", {
     body: input,
     csrfToken,
   });
@@ -53,11 +45,12 @@ export function updateLocation(
   id: string,
   input: LocationInput,
   csrfToken: string,
-): Promise<Location> {
-  return apiPatch<"/api/v1/locations/{id}", Location>(
-    "/api/v1/locations/{id}",
-    { params: { path: { id } }, body: input, csrfToken },
-  );
+) {
+  return apiPatch("/api/v1/locations/{id}", {
+    params: { path: { id } },
+    body: input,
+    csrfToken,
+  });
 }
 
 export function deleteLocation(id: string, csrfToken: string): Promise<void> {
