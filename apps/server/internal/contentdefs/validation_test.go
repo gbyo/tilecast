@@ -237,3 +237,54 @@ func TestAppRecipeValidationRejectsUnknownDependenciesAndConfiguration(t *testin
 		t.Fatal("recipe with unknown author configuration was accepted")
 	}
 }
+
+func nestedSourceWidget() WidgetDefinition {
+	widget := validReleaseWidget()
+	widget.PresentationTemplate = json.RawMessage(`{"type":"surface","children":[{"type":"text","binding":{"source":"literal","value":"ready"}}]}`)
+	widget.ConfigurationSchema = ConfigurationSchema{Fields: []FieldDefinition{
+		{Key: "dataSourceId", Label: "Data Source", Control: "data_source"},
+		{Key: "metrics", Label: "Metrics", Control: "repeating_group", MaximumItems: 6, ItemFields: []FieldDefinition{
+			{Key: "valueField", Label: "Value field", Control: "data_source_field", DataSourceKey: "dataSourceId", DataSourceFieldTypes: []string{"number"}},
+		}},
+	}}
+	return widget
+}
+
+func TestDataSourceKeyValidation(t *testing.T) {
+	if _, err := New([]WidgetDefinition{nestedSourceWidget()}, nil); err != nil {
+		t.Fatalf("explicit valid root source was rejected: %v", err)
+	}
+	implicit := validReleaseWidget()
+	implicit.PresentationTemplate = json.RawMessage(`{"type":"surface","children":[{"type":"text","binding":{"source":"literal","value":"ready"}}]}`)
+	implicit.ConfigurationSchema = ConfigurationSchema{Fields: []FieldDefinition{
+		{Key: "dataSourceId", Label: "Data Source", Control: "data_source"},
+		{Key: "titleField", Label: "Title field", Control: "data_source_field"},
+	}}
+	if _, err := New([]WidgetDefinition{implicit}, nil); err != nil {
+		t.Fatalf("implicit single source was rejected: %v", err)
+	}
+	ambiguous := validReleaseWidget()
+	ambiguous.PresentationTemplate = json.RawMessage(`{"type":"surface","children":[{"type":"text","binding":{"source":"literal","value":"ready"}}]}`)
+	ambiguous.ConfigurationSchema = ConfigurationSchema{Fields: []FieldDefinition{
+		{Key: "firstSource", Label: "First", Control: "data_source"},
+		{Key: "secondSource", Label: "Second", Control: "data_source"},
+		{Key: "titleField", Label: "Title field", Control: "data_source_field"},
+	}}
+	if _, err := New([]WidgetDefinition{ambiguous}, nil); err != nil {
+		t.Fatalf("ambiguous multiple sources without an explicit key must load; writes fail closed instead: %v", err)
+	}
+	expectWidgetError(t, func(w *WidgetDefinition) {
+		*w = nestedSourceWidget()
+		fields := (*w).ConfigurationSchema.Fields
+		fields[1].ItemFields[0].DataSourceKey = "missingSource"
+		(*w).ConfigurationSchema.Fields = fields
+	}, "nested field with a missing referenced source control")
+	expectWidgetError(t, func(w *WidgetDefinition) {
+		*w = validReleaseWidget()
+		w.PresentationTemplate = json.RawMessage(`{"type":"surface","children":[{"type":"text","binding":{"source":"literal","value":"ready"}}]}`)
+		w.ConfigurationSchema = ConfigurationSchema{Fields: []FieldDefinition{
+			{Key: "dataSourceId", Label: "Data Source", Control: "data_source"},
+			{Key: "titleField", Label: "Title field", Control: "data_source_field", DataSourceKey: "missingSource"},
+		}}
+	}, "top-level field with a missing referenced source control")
+}

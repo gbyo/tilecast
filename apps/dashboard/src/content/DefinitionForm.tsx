@@ -232,20 +232,44 @@ function preferredExampleType(key: string, types: string[]) {
 
 type WidgetsT = TFunction<["content", "common"], undefined>;
 
+// collectSelectableFields lists every data_source_field control that reads
+// from the named source, including controls nested inside repeating groups.
+// An explicit dataSourceKey wins; otherwise the level with exactly one Data
+// Source control is unambiguous, mirroring resolveDataSourceKey.
+function collectSelectableFields(
+  fields: ContentDefinitionField[],
+  sourceKey: string,
+): ContentDefinitionField[] {
+  const sourceFields = fields.filter(
+    (candidate) => candidate.control === "data_source",
+  );
+  const selectable: ContentDefinitionField[] = [];
+  for (const candidate of fields) {
+    if (
+      candidate.control === "data_source_field" &&
+      (candidate.dataSourceKey === sourceKey ||
+        (!candidate.dataSourceKey && sourceFields.length === 1))
+    ) {
+      selectable.push(candidate);
+    }
+    if (
+      candidate.control === "repeating_group" &&
+      candidate.itemFields?.length
+    ) {
+      selectable.push(
+        ...collectSelectableFields(candidate.itemFields, sourceKey),
+      );
+    }
+  }
+  return selectable;
+}
+
 export function dataFormatGuideFor(
   sourceField: ContentDefinitionField,
   fields: ContentDefinitionField[],
   t?: WidgetsT,
 ): DataFormatGuide {
-  const sourceFields = fields.filter(
-    (candidate) => candidate.control === "data_source",
-  );
-  const selectableFields = fields.filter(
-    (candidate) =>
-      candidate.control === "data_source_field" &&
-      (candidate.dataSourceKey === sourceField.key ||
-        (!candidate.dataSourceKey && sourceFields.length === 1)),
-  );
+  const selectableFields = collectSelectableFields(fields, sourceField.key);
   const requirements: DataFormatGuide["fields"] = Object.entries(
     sourceField.requiredFields ?? {},
   ).map(([key, type]) => ({

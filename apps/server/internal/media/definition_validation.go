@@ -96,43 +96,133 @@ func (normalizer definitionConfigNormalizer) normalizeObject(ctx context.Context
 }
 
 func (normalizer definitionConfigNormalizer) validateDataSourceFieldSelections(ctx context.Context, fields []contentdefs.FieldDefinition, values map[string]any) error {
-	rawID, _ := values["dataSourceId"].(string)
-	if rawID == "" {
-		return nil
-	}
-	id, err := uuid.Parse(rawID)
-	if err != nil {
-		return errors.New("Data Source is invalid")
-	}
-	var provider string
-	var configuration json.RawMessage
-	if err = normalizer.service.db.QueryRow(ctx, `SELECT provider,configuration FROM data_sources WHERE id=$1 AND deleted_at IS NULL`, id).Scan(&provider, &configuration); err != nil {
-		return errors.New("Data Source is unavailable")
-	}
-	if _, ok := normalizer.service.definitions.DataSource(provider); !ok {
-		return errors.New("Data Source provider is unknown")
-	}
-	types := map[string]string{}
-	for _, output := range normalizer.service.availableDataSourceFields(provider, configuration) {
-		types[output.Key] = output.Type
+	validator := dataSourceSelectionValidator{normalizer: normalizer, root: values, cache: map[string]map[string]string{}}
+	return validator.walk(ctx, fields, values, "")
+}
+
+// dataSourceSelectionValidator checks every populated data_source_field in a
+// normalized configuration, including controls nested inside repeating
+// groups, against the output schema of the Data Source it reads. An
+// explicit dataSourceKey wins; otherwise a definition with exactly one
+// data_source control is unambiguous. When several sources make the
+// relationship ambiguous the check fails closed rather than validating
+// against the wrong source. Field schemas resolve once per Data Source ID.
+type dataSourceSelectionValidator struct {
+	normalizer definitionConfigNormalizer
+	root       map[string]any
+	cache      map[string]map[string]string
+}
+
+func (validator *dataSourceSelectionValidator) walk(ctx context.Context, fields []contentdefs.FieldDefinition, current map[string]any, path string) error {
+	siblings := make([]string, 0, 1)
+	for _, field := range fields {
+		if field.Control == "data_source" {
+			siblings = append(siblings, field.Key)
+		}
 	}
 	for _, field := range fields {
-		if field.Control != "data_source_field" {
-			continue
-		}
-		selected, _ := values[field.Key].(string)
-		if selected == "" && !field.Required {
-			continue
-		}
-		selectedType, exists := types[selected]
-		if !exists {
-			return fmt.Errorf("%s references a field the Data Source does not expose", field.Label)
-		}
-		if len(field.DataSourceFieldTypes) > 0 && !containsString(field.DataSourceFieldTypes, selectedType) {
-			return fmt.Errorf("%s requires a field of type %s", field.Label, strings.Join(field.DataSourceFieldTypes, " or "))
+		switch field.Control {
+		case "data_source_field":
+			if err := validator.checkField(ctx, field, current, siblings, path); err != nil {
+				return err
+			}
+		case "repeating_group":
+			items, ok := groupItems(current[field.Key])
+			if !ok {
+				return fmt.Errorf("%s is invalid", field.Label)
+			}
+			for index, item := range items {
+				if err := validator.walk(ctx, field.ItemFields, item, fmt.Sprintf("%s%s[%d].", path, field.Key, index)); err != nil {
+					return err
+				}
+			}
 		}
 	}
 	return nil
+}
+
+// groupItems reads normalized repeating-group items, which normalizeObject
+// stores as []map[string]any, tolerating the generic []any form.
+func groupItems(value any) ([]map[string]any, bool) {
+	switch items := value.(type) {
+	case nil:
+		return nil, true
+	case []map[string]any:
+		return items, true
+	case []any:
+		out := make([]map[string]any, 0, len(items))
+		for _, entry := range items {
+			item, ok := entry.(map[string]any)
+			if !ok {
+				return nil, false
+			}
+			out = append(out, item)
+		}
+		return out, true
+	default:
+		return nil, false
+	}
+}
+
+func (validator *dataSourceSelectionValidator) checkField(ctx context.Context, field contentdefs.FieldDefinition, current map[string]any, siblings []string, path string) error {
+	label := path + field.Label
+	selected, _ := current[field.Key].(string)
+	key := field.DataSourceKey
+	if key == "" {
+		if len(siblings) != 1 {
+			if selected == "" && !field.Required {
+				return nil
+			}
+			return fmt.Errorf("%s does not identify which Data Source supplies its fields", label)
+		}
+		key = siblings[0]
+	}
+	rawID, _ := current[key].(string)
+	if rawID == "" {
+		rawID, _ = validator.root[key].(string)
+	}
+	if rawID == "" {
+		return nil
+	}
+	types, err := validator.fieldTypes(ctx, rawID)
+	if err != nil {
+		return err
+	}
+	if selected == "" && !field.Required {
+		return nil
+	}
+	selectedType, exists := types[selected]
+	if !exists {
+		return fmt.Errorf("%s references a field the Data Source does not expose", label)
+	}
+	if len(field.DataSourceFieldTypes) > 0 && !containsString(field.DataSourceFieldTypes, selectedType) {
+		return fmt.Errorf("%s requires a field of type %s", label, strings.Join(field.DataSourceFieldTypes, " or "))
+	}
+	return nil
+}
+
+func (validator *dataSourceSelectionValidator) fieldTypes(ctx context.Context, rawID string) (map[string]string, error) {
+	if cached, ok := validator.cache[rawID]; ok {
+		return cached, nil
+	}
+	id, err := uuid.Parse(rawID)
+	if err != nil {
+		return nil, errors.New("Data Source is invalid")
+	}
+	var provider string
+	var configuration json.RawMessage
+	if err = validator.normalizer.service.db.QueryRow(ctx, `SELECT provider,configuration FROM data_sources WHERE id=$1 AND deleted_at IS NULL`, id).Scan(&provider, &configuration); err != nil {
+		return nil, errors.New("Data Source is unavailable")
+	}
+	if _, ok := validator.normalizer.service.definitions.DataSource(provider); !ok {
+		return nil, errors.New("Data Source provider is unknown")
+	}
+	types := map[string]string{}
+	for _, output := range validator.normalizer.service.availableDataSourceFields(provider, configuration) {
+		types[output.Key] = output.Type
+	}
+	validator.cache[rawID] = types
+	return types, nil
 }
 
 func (normalizer definitionConfigNormalizer) normalizeField(ctx context.Context, field contentdefs.FieldDefinition, value any, path string) (any, error) {
