@@ -3171,6 +3171,69 @@ func (e ProofTerminalReason) Valid() bool {
 	}
 }
 
+// Defines values for ProofTerminalReasonFilter.
+const (
+	ProofTerminalReasonFilterBoundedTimeout         ProofTerminalReasonFilter = "bounded_timeout"
+	ProofTerminalReasonFilterCompletedDuration      ProofTerminalReasonFilter = "completed_duration"
+	ProofTerminalReasonFilterDecoderFailure         ProofTerminalReasonFilter = "decoder_failure"
+	ProofTerminalReasonFilterDirectAssignmentChange ProofTerminalReasonFilter = "direct_assignment_change"
+	ProofTerminalReasonFilterEmptyContent           ProofTerminalReasonFilter = "empty_content"
+	ProofTerminalReasonFilterExpectedItemBoundary   ProofTerminalReasonFilter = "expected_item_boundary"
+	ProofTerminalReasonFilterHeartbeatGap           ProofTerminalReasonFilter = "heartbeat_gap"
+	ProofTerminalReasonFilterManifestReplacement    ProofTerminalReasonFilter = "manifest_replacement"
+	ProofTerminalReasonFilterManualSkip             ProofTerminalReasonFilter = "manual_skip"
+	ProofTerminalReasonFilterPlayerRestart          ProofTerminalReasonFilter = "player_restart"
+	ProofTerminalReasonFilterProcessExit            ProofTerminalReasonFilter = "process_exit"
+	ProofTerminalReasonFilterRecoveryAction         ProofTerminalReasonFilter = "recovery_action"
+	ProofTerminalReasonFilterRendererFailure        ProofTerminalReasonFilter = "renderer_failure"
+	ProofTerminalReasonFilterScheduleTransition     ProofTerminalReasonFilter = "schedule_transition"
+	ProofTerminalReasonFilterTakeover               ProofTerminalReasonFilter = "takeover"
+	ProofTerminalReasonFilterUnexpected             ProofTerminalReasonFilter = "unexpected"
+	ProofTerminalReasonFilterUnknown                ProofTerminalReasonFilter = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the ProofTerminalReasonFilter enum.
+func (e ProofTerminalReasonFilter) Valid() bool {
+	switch e {
+	case ProofTerminalReasonFilterBoundedTimeout:
+		return true
+	case ProofTerminalReasonFilterCompletedDuration:
+		return true
+	case ProofTerminalReasonFilterDecoderFailure:
+		return true
+	case ProofTerminalReasonFilterDirectAssignmentChange:
+		return true
+	case ProofTerminalReasonFilterEmptyContent:
+		return true
+	case ProofTerminalReasonFilterExpectedItemBoundary:
+		return true
+	case ProofTerminalReasonFilterHeartbeatGap:
+		return true
+	case ProofTerminalReasonFilterManifestReplacement:
+		return true
+	case ProofTerminalReasonFilterManualSkip:
+		return true
+	case ProofTerminalReasonFilterPlayerRestart:
+		return true
+	case ProofTerminalReasonFilterProcessExit:
+		return true
+	case ProofTerminalReasonFilterRecoveryAction:
+		return true
+	case ProofTerminalReasonFilterRendererFailure:
+		return true
+	case ProofTerminalReasonFilterScheduleTransition:
+		return true
+	case ProofTerminalReasonFilterTakeover:
+		return true
+	case ProofTerminalReasonFilterUnexpected:
+		return true
+	case ProofTerminalReasonFilterUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ProviderCatalogEntryPresentationKind.
 const (
 	ProviderCatalogEntryPresentationKindNative ProviderCatalogEntryPresentationKind = "native"
@@ -6222,8 +6285,8 @@ type ContentReviewQueue struct {
 
 // ContentSubmission defines model for ContentSubmission.
 type ContentSubmission struct {
-	AffectedLocationCount    *int                         `json:"affectedLocationCount,omitempty"`
-	AffectedScreenCount      *int                         `json:"affectedScreenCount,omitempty"`
+	AffectedLocationCount    int                          `json:"affectedLocationCount"`
+	AffectedScreenCount      int                          `json:"affectedScreenCount"`
 	AllowSelfApproval        bool                         `json:"allowSelfApproval"`
 	BasedPublishedRevision   *int64                       `json:"basedPublishedRevision,omitempty"`
 	BasedPublishedRevisionId *openapi_types.UUID          `json:"basedPublishedRevisionId,omitempty"`
@@ -6232,7 +6295,7 @@ type ContentSubmission struct {
 	ContentType              ContentSubmissionContentType `json:"contentType"`
 	CurrentPublishedRevision *int64                       `json:"currentPublishedRevision,omitempty"`
 	Id                       openapi_types.UUID           `json:"id"`
-	NewerWorkingDraft        *bool                        `json:"newerWorkingDraft,omitempty"`
+	NewerWorkingDraft        bool                         `json:"newerWorkingDraft"`
 	PublicationFailureReason *string                      `json:"publicationFailureReason,omitempty"`
 	PublishedAt              *time.Time                   `json:"publishedAt,omitempty"`
 	RequestedPublicationAt   *time.Time                   `json:"requestedPublicationAt,omitempty"`
@@ -8662,6 +8725,9 @@ type ProofSummaryItem struct {
 // ProofTerminalReason defines model for ProofTerminalReason.
 type ProofTerminalReason string
 
+// ProofTerminalReasonFilter A terminal reason, or `unexpected`, which matches every interrupted reason the Interrupted plays metric counts.
+type ProofTerminalReasonFilter string
+
 // ProviderCatalog defines model for ProviderCatalog.
 type ProviderCatalog struct {
 	Providers []ProviderCatalogEntry `json:"providers"`
@@ -10250,24 +10316,24 @@ type GetActivityOverviewParams struct {
 
 // ListProofOfPlayParams defines parameters for ListProofOfPlay.
 type ListProofOfPlayParams struct {
-	From           *time.Time           `form:"from,omitempty" json:"from,omitempty"`
-	To             *time.Time           `form:"to,omitempty" json:"to,omitempty"`
-	Page           *int                 `form:"page,omitempty" json:"page,omitempty"`
-	PageSize       *int                 `form:"pageSize,omitempty" json:"pageSize,omitempty"`
-	Cursor         *string              `form:"cursor,omitempty" json:"cursor,omitempty"`
-	Screen         *openapi_types.UUID  `form:"screen,omitempty" json:"screen,omitempty"`
-	Group          *openapi_types.UUID  `form:"group,omitempty" json:"group,omitempty"`
-	Result         *string              `form:"result,omitempty" json:"result,omitempty"`
-	SessionType    *ProofSessionType    `form:"sessionType,omitempty" json:"sessionType,omitempty"`
-	TerminalReason *ProofTerminalReason `form:"terminalReason,omitempty" json:"terminalReason,omitempty"`
-	Media          *string              `form:"media,omitempty" json:"media,omitempty"`
-	Widget         *string              `form:"widget,omitempty" json:"widget,omitempty"`
-	Content        *string              `form:"content,omitempty" json:"content,omitempty"`
-	Playlist       *string              `form:"playlist,omitempty" json:"playlist,omitempty"`
-	Layout         *string              `form:"layout,omitempty" json:"layout,omitempty"`
-	Schedule       *string              `form:"schedule,omitempty" json:"schedule,omitempty"`
-	Takeover       *string              `form:"takeover,omitempty" json:"takeover,omitempty"`
-	Search         *string              `form:"search,omitempty" json:"search,omitempty"`
+	From           *time.Time                 `form:"from,omitempty" json:"from,omitempty"`
+	To             *time.Time                 `form:"to,omitempty" json:"to,omitempty"`
+	Page           *int                       `form:"page,omitempty" json:"page,omitempty"`
+	PageSize       *int                       `form:"pageSize,omitempty" json:"pageSize,omitempty"`
+	Cursor         *string                    `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Screen         *openapi_types.UUID        `form:"screen,omitempty" json:"screen,omitempty"`
+	Group          *openapi_types.UUID        `form:"group,omitempty" json:"group,omitempty"`
+	Result         *string                    `form:"result,omitempty" json:"result,omitempty"`
+	SessionType    *ProofSessionType          `form:"sessionType,omitempty" json:"sessionType,omitempty"`
+	TerminalReason *ProofTerminalReasonFilter `form:"terminalReason,omitempty" json:"terminalReason,omitempty"`
+	Media          *string                    `form:"media,omitempty" json:"media,omitempty"`
+	Widget         *string                    `form:"widget,omitempty" json:"widget,omitempty"`
+	Content        *string                    `form:"content,omitempty" json:"content,omitempty"`
+	Playlist       *string                    `form:"playlist,omitempty" json:"playlist,omitempty"`
+	Layout         *string                    `form:"layout,omitempty" json:"layout,omitempty"`
+	Schedule       *string                    `form:"schedule,omitempty" json:"schedule,omitempty"`
+	Takeover       *string                    `form:"takeover,omitempty" json:"takeover,omitempty"`
+	Search         *string                    `form:"search,omitempty" json:"search,omitempty"`
 }
 
 // ExportProofOfPlayParams defines parameters for ExportProofOfPlay.
@@ -10278,22 +10344,22 @@ type ExportProofOfPlayParams struct {
 
 // GetProofOfPlaySummaryParams defines parameters for GetProofOfPlaySummary.
 type GetProofOfPlaySummaryParams struct {
-	From           *time.Time           `form:"from,omitempty" json:"from,omitempty"`
-	To             *time.Time           `form:"to,omitempty" json:"to,omitempty"`
-	Dimension      *string              `form:"dimension,omitempty" json:"dimension,omitempty"`
-	Screen         *openapi_types.UUID  `form:"screen,omitempty" json:"screen,omitempty"`
-	Group          *openapi_types.UUID  `form:"group,omitempty" json:"group,omitempty"`
-	Result         *string              `form:"result,omitempty" json:"result,omitempty"`
-	SessionType    *ProofSessionType    `form:"sessionType,omitempty" json:"sessionType,omitempty"`
-	TerminalReason *ProofTerminalReason `form:"terminalReason,omitempty" json:"terminalReason,omitempty"`
-	Media          *string              `form:"media,omitempty" json:"media,omitempty"`
-	Widget         *string              `form:"widget,omitempty" json:"widget,omitempty"`
-	Content        *string              `form:"content,omitempty" json:"content,omitempty"`
-	Playlist       *string              `form:"playlist,omitempty" json:"playlist,omitempty"`
-	Layout         *string              `form:"layout,omitempty" json:"layout,omitempty"`
-	Schedule       *string              `form:"schedule,omitempty" json:"schedule,omitempty"`
-	Takeover       *string              `form:"takeover,omitempty" json:"takeover,omitempty"`
-	Search         *string              `form:"search,omitempty" json:"search,omitempty"`
+	From           *time.Time                 `form:"from,omitempty" json:"from,omitempty"`
+	To             *time.Time                 `form:"to,omitempty" json:"to,omitempty"`
+	Dimension      *string                    `form:"dimension,omitempty" json:"dimension,omitempty"`
+	Screen         *openapi_types.UUID        `form:"screen,omitempty" json:"screen,omitempty"`
+	Group          *openapi_types.UUID        `form:"group,omitempty" json:"group,omitempty"`
+	Result         *string                    `form:"result,omitempty" json:"result,omitempty"`
+	SessionType    *ProofSessionType          `form:"sessionType,omitempty" json:"sessionType,omitempty"`
+	TerminalReason *ProofTerminalReasonFilter `form:"terminalReason,omitempty" json:"terminalReason,omitempty"`
+	Media          *string                    `form:"media,omitempty" json:"media,omitempty"`
+	Widget         *string                    `form:"widget,omitempty" json:"widget,omitempty"`
+	Content        *string                    `form:"content,omitempty" json:"content,omitempty"`
+	Playlist       *string                    `form:"playlist,omitempty" json:"playlist,omitempty"`
+	Layout         *string                    `form:"layout,omitempty" json:"layout,omitempty"`
+	Schedule       *string                    `form:"schedule,omitempty" json:"schedule,omitempty"`
+	Takeover       *string                    `form:"takeover,omitempty" json:"takeover,omitempty"`
+	Search         *string                    `form:"search,omitempty" json:"search,omitempty"`
 }
 
 // UpdateActivityRetentionJSONBody defines parameters for UpdateActivityRetention.
