@@ -61,6 +61,15 @@ import org.tilecast.player.ui.theme.SignalBackground
 import org.tilecast.player.ui.theme.SignalText
 import java.io.File
 import java.time.Instant
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicLong
+
+internal data class RuntimeActivationIdentity(val id: String, val generation: Long)
+
+private val runtimeActivationSequence = AtomicLong(0)
+
+internal fun nextRuntimeActivationIdentity(): RuntimeActivationIdentity =
+    RuntimeActivationIdentity(UUID.randomUUID().toString(), runtimeActivationSequence.incrementAndGet())
 
 data class PlaybackSession(
     val content: PreparedContent,
@@ -73,6 +82,7 @@ data class PlaybackSession(
     val playbackDefaults: PlayerPlaybackDefaults? = null,
     val websitePolicy: PlayerWebsitePolicy? = null,
     val playbackAnchor: Instant? = null,
+    val runtimeActivation: RuntimeActivationIdentity = nextRuntimeActivationIdentity(),
 )
 
 /**
@@ -150,11 +160,20 @@ private fun FullscreenPlaybackBody(
     // Shared-runtime cutover (PR2): fully runtime-renderable playlists play
     // in the trusted Player Runtime WebView. The gate defaults off until
     // device validation flips it; everything else keeps the legacy path.
-    val sharedRuntimeItems = session.content.manifest.playlist?.items ?: emptyList()
+    val rawSharedRuntimeItems = session.content.manifest.playlist?.items ?: emptyList()
+    val sharedRuntimeItems = if (
+        session.content.manifest.syncGroup == null &&
+        session.initialCursor.index in rawSharedRuntimeItems.indices
+    ) {
+        val start = session.initialCursor.index
+        rawSharedRuntimeItems.drop(start) + rawSharedRuntimeItems.take(start)
+    } else {
+        rawSharedRuntimeItems
+    }
     if (org.tilecast.player.runtime.RuntimeCutover.useSharedRuntime(session.content, sharedRuntimeItems)) {
         val runtimeManifest = session.content.manifest
         val runtimeActivity = rememberRuntimeActivityTracker(activityReporter, session)
-        val runtimeActivationId = "manifest-${runtimeManifest.manifestVersion}"
+        val runtimeActivationId = session.runtimeActivation.id
         val runtimeMessage = org.tilecast.player.runtime.RuntimePresentationBuilder.hostMessage(
             org.tilecast.player.runtime.RuntimeScreenState.Playing(
                 content = session.content,
@@ -163,7 +182,7 @@ private fun FullscreenPlaybackBody(
                 playbackDefaults = session.playbackDefaults,
                 websitePolicy = session.websitePolicy,
                 activationId = runtimeActivationId,
-                generation = runtimeManifest.manifestVersion,
+                generation = session.runtimeActivation.generation,
                 takeover = runtimeManifest.effectiveTakeover != null,
                 nowMillis = session.content.serverNow().toEpochMilli(),
                 clockOffsetMillis = session.content.serverClockOffsetMillis ?: 0L,
@@ -185,6 +204,7 @@ private fun FullscreenPlaybackBody(
             onProgress = onProgress,
             onFirstFrame = { onProgress() },
             onItemTransition = { runtimeActivity?.transition(it) },
+            onPlaybackError = { itemId, message -> runtimeActivity?.fail(itemId, message) },
         )
         return
     }
