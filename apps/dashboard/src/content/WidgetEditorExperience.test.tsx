@@ -56,8 +56,8 @@ function renderEditor(editor: ReactNode) {
       {
         id: "google-sheets-display",
         version: 1,
-        name: "Google Sheets",
-        description: "Display a published Google spreadsheet.",
+        name: "Google Sheets — Display",
+        description: "Show the published spreadsheet itself as a web embed.",
         category: "Google",
         icon: "google-sheets",
         kind: "app",
@@ -191,7 +191,9 @@ describe("Widget editor experience", () => {
     expect(screen.getByRole("button", { name: /Notion/ })).toBeDisabled();
 
     await userEvent.type(screen.getByRole("searchbox"), "spreadsheet");
-    expect(screen.getByRole("button", { name: /Google Sheets/ })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: /Google Sheets — Display/ }),
+    ).toBeTruthy();
     expect(screen.queryByRole("button", { name: /ESPN/ })).toBeNull();
   });
 

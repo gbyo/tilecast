@@ -37,9 +37,8 @@ Use the regular Widget and Data Source guides when you need setup instructions.
 | Smartsheet              | `smartsheet`              | app    | Dashboards                 | web     | `dashboards.json`     |
 | Canva                   | `canva`                   | app    | Design & Documents         | web     | `documents.json`      |
 | Notion                  | `notion`                  | app    | Design & Documents         | web     | `documents.json`      |
-| Google Sheets           | `google-sheets-display`   | app    | Google                     | web     | `google.json`         |
+| Google Sheets — Display | `google-sheets-display`   | app    | Google                     | web     | `google.json`         |
 | Google Slides           | `google-slides`           | app    | Google                     | web     | `google.json`         |
-| Google Sheets Data      | `google-sheets-data`      | app    | Google                     | native  | `google.json`         |
 | Alert Banner            | `alert-banner`            | widget | Information                | native  | `information.json`    |
 | Fundraising Thermometer | `fundraising-thermometer` | widget | Information                | native  | `information.json`    |
 | Now and Next            | `now-and-next`            | widget | Schedules                  | native  | `information.json`    |
