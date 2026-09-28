@@ -37,17 +37,30 @@ class RuntimeStateReplayTest {
         assertEquals(2L, current.generation)
     }
 
-    @Test fun commandIsConsumedAfterOneReplay() {
+    @Test fun commandRemainsPendingUntilDeliveredReplayIsAcknowledged() {
         val replay = RuntimeStateReplay()
         replay.offer(msg("""{"type":"presentation","activation":{"activationId":"a1","generation":1},"presentation":{}}"""))
         replay.offer(msg("""{"type":"command","command":"skip-item"}"""))
 
+        val first = replay.collectReplay()
+        assertTrue(first.any { it is HostMessage.Command })
         assertTrue(replay.collectReplay().any { it is HostMessage.Command })
-        val second = replay.collectReplay()
-        assertFalse(second.any { it is HostMessage.Command })
-        assertTrue(second.any { it is HostMessage.Presentation })
 
-        replay.offer(msg("""{"type":"command","command":"retry-item"}"""))
+        replay.acknowledgeDelivered(first)
+        val afterAck = replay.collectReplay()
+        assertFalse(afterAck.any { it is HostMessage.Command })
+        assertTrue(afterAck.any { it is HostMessage.Presentation })
+    }
+
+    @Test fun acknowledgingOlderReplayDoesNotClearNewerCommand() {
+        val replay = RuntimeStateReplay()
+        replay.offer(msg("""{"type":"command","command":"skip-item"}"""))
+        val older = replay.collectReplay()
+
+        // A new command can arrive while the older state response is in flight.
+        replay.offer(msg("""{"type":"command","command":"skip-item"}"""))
+        replay.acknowledgeDelivered(older)
+
         assertTrue(replay.collectReplay().any { it is HostMessage.Command })
     }
 
