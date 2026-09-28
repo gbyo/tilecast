@@ -82,7 +82,7 @@ Screens in the online state use the player socket. The Library screen uses the f
 - It sends `player.status` heartbeats and answers `server.ping`.
 - It claims, acknowledges, and completes queued commands with the result codes of the Android player. A command type that the Android player does not support fails with `command_unsupported`.
 
-The simulator does not download media, render content, or report proof of play.
+The simulator does not download media, render content, or report proof of play. For a preview capture request, it reports `capture_unsupported` through the player upload API. Studio shows a capture error. No image is generated.
 
 Stale, offline, and disabled screens have no simulator. Their last contact is set once at seed time, so they age from that moment. Reset the demo to restore them.
 

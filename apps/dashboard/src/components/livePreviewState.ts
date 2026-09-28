@@ -22,6 +22,7 @@ export function livePreviewState(
 ): LivePreviewState {
   if (!screen || !preview) return "loading";
   if (offlineStatuses.has(screen.status)) return "offline";
+  if (screen.status === "stale" && !preview.imageAvailable) return "offline";
   if (preview.status === "capture_error") return "capture-error";
   if (preview.status === "unavailable") return "unavailable";
   if (!preview.imageAvailable || !preview.capturedAt) return "loading";

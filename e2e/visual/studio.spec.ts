@@ -64,8 +64,15 @@ for (const [name, path, ready] of states) {
         .click();
     }
     if (name.startsWith("screen-")) {
-      // Simulated players have no captured image. Wait for the real panel,
-      // including its metadata, rather than capturing the lazy-load fallback.
+      // Demo players explicitly acknowledge unsupported captures. Screens
+      // without a connected player show Offline rather than awaiting an image.
+      await expect(
+        page
+          .getByRole("complementary", { name: "Live preview" })
+          .getByText(name === "screen-online" ? "Capture error" : "Offline", {
+            exact: true,
+          }),
+      ).toBeVisible();
       await expect(
         page
           .getByRole("complementary", { name: "Live preview" })
