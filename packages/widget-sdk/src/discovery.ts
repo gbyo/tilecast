@@ -212,7 +212,14 @@ export function discoverSourcedWidgets(
       return entry.manifestPath;
     }
   };
+  // Core entries win collisions, so they process first; every other
+  // source follows in directory order. The first declaration of an id,
+  // type, or tag keeps it, and the diagnostic names the rejected
+  // entry's directory.
   const ordered = [...entries].sort((a, b) => {
+    const ca = a.source.kind === "core" ? 0 : 1;
+    const cb = b.source.kind === "core" ? 0 : 1;
+    if (ca !== cb) return ca - cb;
     const ka = dirKey(a);
     const kb = dirKey(b);
     return ka < kb ? -1 : ka > kb ? 1 : 0;
