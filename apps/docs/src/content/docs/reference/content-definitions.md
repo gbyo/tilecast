@@ -20,12 +20,7 @@ Use the regular Widget and Data Source guides when you need setup instructions.
 | Date                    | `date`                    | widget | Essentials                 | native  | `catalog.json`         |
 | QR Code                 | `qrcode`                  | widget | Essentials                 | native  | `catalog.json`         |
 | World Clock             | `world_clock`             | widget | Essentials                 | native  | `catalog.json`         |
-| Metric                  | `metric`                  | widget | Data-driven                | native  | `catalog.json`         |
-| Spotlight               | `spotlight`               | widget | Data Display               | native  | `catalog.json`         |
 | Stat Grid               | `stat_grid`               | widget | Data Display               | native  | `catalog.json`         |
-| Chart                   | `chart`                   | widget | Data Display               | native  | `catalog.json`         |
-| Progress                | `progress`                | widget | Data Display               | native  | `catalog.json`         |
-| Timeline                | `timeline`                | widget | Schedules                  | native  | `catalog.json`         |
 | School Status Banner    | `school-status-banner`    | widget | Information                | native  | `catalog.json`         |
 | Grafana                 | `grafana`                 | app    | Dashboards                 | web     | `dashboards.json`      |
 | Power BI                | `power-bi`                | app    | Dashboards                 | web     | `dashboards.json`      |
@@ -52,16 +47,21 @@ Use the regular Widget and Data Source guides when you need setup instructions.
 | School Schedule         | `schedule-board`          | widget | Schedules                  | native  | `schedule-board.json`  |
 | Agenda                  | `agenda`                  | widget | Information                | native  | `widgets/agenda`       |
 | Cards                   | `cards`                   | widget | Data display               | native  | `widgets/cards`        |
+| Chart                   | `chart`                   | widget | Data display               | native  | `widgets/chart`        |
 | Clock                   | `clock`                   | widget | Essentials                 | native  | `widgets/clock`        |
 | Countdown               | `countdown`               | widget | Essentials                 | native  | `widgets/countdown`    |
 | Image Notice            | `image-notice`            | widget | Essentials                 | native  | `widgets/image-notice` |
 | List                    | `list`                    | widget | Data display               | native  | `widgets/list`         |
 | Menu Board              | `menu`                    | widget | Data display               | native  | `widgets/menu-board`   |
+| Metrics                 | `metric`                  | widget | Data display               | native  | `widgets/metrics`      |
 | News                    | `news`                    | widget | Information                | native  | `widgets/news`         |
+| Progress                | `progress`                | widget | Data display               | native  | `widgets/progress`     |
 | QR Code                 | `qr-code`                 | widget | Essentials                 | native  | `widgets/qr-code`      |
+| Spotlight               | `spotlight`               | widget | Data display               | native  | `widgets/spotlight`    |
 | Table                   | `table`                   | widget | Data display               | native  | `widgets/table`        |
 | Text                    | `text`                    | widget | Essentials                 | native  | `widgets/text`         |
 | Ticker                  | `ticker`                  | widget | Data display               | native  | `widgets/ticker`       |
+| Timeline                | `timeline`                | widget | Schedules                  | native  | `widgets/timeline`     |
 | Weather                 | `weather`                 | widget | Information                | native  | `widgets/weather`      |
 
 ## Data Source definitions

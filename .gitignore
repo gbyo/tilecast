@@ -19,6 +19,7 @@ apps/cli/tilecast
 *.keystore
 *.p12
 apps/player-android/signing.properties
+apps/player-android/app/src/main/assets/shared-runtime/
 tilecast-player.apk
 tilecast-player-update.json
 tilecast-player-update.json.sig

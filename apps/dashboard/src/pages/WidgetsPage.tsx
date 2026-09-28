@@ -32,8 +32,6 @@ import {
   DashboardSearch,
 } from "../components/DashboardListToolbar";
 import {
-  NativeAppEditor,
-  type NativeProvider,
   WidgetProviderGallery,
   YouTubeSourceEditor,
 } from "../content/SourceEditors";
@@ -224,8 +222,6 @@ export function WidgetEditorPage() {
   const asset = widget.data;
   const provider = providerParam ?? asset?.widget?.provider;
   const search = new URLSearchParams(location.search);
-  const presetId = search.get("preset") as
-    import("../api/types").WidgetPreset | null;
   // A Layout links here with returnTo so closing the Widget lands back on the Layout the author
   // was building, rather than on the Widget list.
   const returnTo = inAppPath(search.get("returnTo"));
@@ -329,15 +325,12 @@ export function WidgetEditorPage() {
           definition={definition}
           catalog={definitions.data}
         />
-      ) : definition && !definition.legacyEditor ? (
+      ) : definition ? (
+        // Every remaining definition authors through the generic manifest
+        // editor. There is intentionally no native-editor fallback here; see
+        // WidgetEditorExperience.test.tsx.
         <GenericWidgetEditor {...common} definition={definition} />
-      ) : (
-        <NativeAppEditor
-          {...common}
-          provider={provider as NativeProvider}
-          presetId={asset?.widget?.presetId ?? presetId ?? undefined}
-        />
-      )}
+      ) : null}
       {/* Rendered here rather than inside each provider editor so every Widget reports its
           consumers, and so editing a shared Widget shows what else it would change. */}
       {asset && (

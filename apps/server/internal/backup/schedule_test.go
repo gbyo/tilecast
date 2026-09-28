@@ -74,24 +74,26 @@ func TestNextRunSpringForwardDST(t *testing.T) {
 	// US DST starts 2026-03-08: 02:00-03:00 local time does not exist.
 	loc, _ := time.LoadLocation("America/New_York")
 	cfg := ScheduleConfig{Frequency: "daily", Hour: 2, Minute: 30, Location: loc}
+
 	after := mustParse(t, "2006-01-02 15:04", "2026-03-08 00:00", loc)
 	next := cfg.NextRun(after).In(loc)
-	if next.Day() != 8 {
-		t.Fatalf("expected a run on the gap day, got %s", next)
+	if got := next.Format("2006-01-02 15:04 MST"); got != "2026-03-08 03:30 EDT" {
+		t.Fatalf("expected gap-day run at 03:30 EDT, got %s", got)
 	}
-	// The nonexistent 02:30 normalizes into a real instant on the same day.
-	if next.Hour() == 2 && next.Minute() == 30 {
-		// Normalization may resolve either side of the gap depending on Go's
-		// rules, but the chosen instant must exist.
-		_, offset := next.Zone()
-		if offset == 0 {
-			t.Fatalf("normalized time is not a valid local instant: %s", next)
-		}
+
+	// Go's time.Date maps this nonexistent 02:30 backward to 01:30 EST. The
+	// scheduler must not use that earlier instant: after 01:30, the same day's
+	// shifted occurrence is still pending rather than being skipped entirely.
+	after = mustParse(t, "2006-01-02 15:04", "2026-03-08 01:45", loc)
+	next = cfg.NextRun(after).In(loc)
+	if got := next.Format("2006-01-02 15:04 MST"); got != "2026-03-08 03:30 EDT" {
+		t.Fatalf("expected same-day shifted run after 01:45, got %s", got)
 	}
-	// The following day must be a normal 02:30.
+
+	// The following day returns to the configured wall-clock time.
 	following := cfg.NextRun(next).In(loc)
-	if following.Format("15:04") != "02:30" || following.Day() != 9 {
-		t.Fatalf("expected 2026-03-09 02:30, got %s", following)
+	if got := following.Format("2006-01-02 15:04 MST"); got != "2026-03-09 02:30 EDT" {
+		t.Fatalf("expected 2026-03-09 02:30 EDT, got %s", got)
 	}
 }
 

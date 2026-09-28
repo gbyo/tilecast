@@ -250,7 +250,7 @@ func providerCopy(id string, role ProviderRole) (string, string, string) {
 		"weather":     {"Weather", "Data-driven", "Display current conditions and forecast records."},
 		"spotlight":   {"Spotlight", "Data Display", "Feature one record with optional uploaded artwork."},
 		"stat_grid":   {"Stat Grid", "Data Display", "Display a responsive grid of numeric values."},
-		"chart":       {"Chart", "Data Display", "Plot record or time-series values as a line, bar, or donut chart."},
+		"chart":       {"Chart", "Data Display", "Plot record or time-series values as a line, bar, or area chart."},
 		"progress":    {"Progress", "Data Display", "Show progress toward a numeric target."},
 		"timeline":    {"Timeline", "Schedules", "Display ordered dated milestones and statuses."},
 		"world_clock": {"World Clock", "Essentials", "Show live time in multiple configured timezones."},

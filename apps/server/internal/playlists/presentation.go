@@ -712,6 +712,23 @@ func compileNativeRoot(provider string, c map[string]any) (PresentationNode, map
 			provider = "world_clock"
 		}
 	}
+	// A Metric edited through the V2 editor saves a metrics array instead
+	// of singular fields. Players that predate the component render every
+	// metric like a Stat Grid until PR G removes this path.
+	if provider == "metric" {
+		if _, ok := c["metrics"].([]any); ok {
+			provider = "stat_grid"
+		}
+	}
+	// A Spotlight edited through the V2 editor saves its date slot as
+	// metadataField. Old Players keep reading the legacy dateField name.
+	if provider == "spotlight" {
+		if stringValue(c, "dateField", "") == "" {
+			if metadata := stringValue(c, "metadataField", ""); metadata != "" {
+				c["dateField"] = metadata
+			}
+		}
+	}
 	switch provider {
 	case "clock":
 		surface.Children = []PresentationNode{text(PresentationBinding{Source: "environment", Path: "currentTime", Format: "time:" + stringValue(c, "format", "locale") + ":" + strconv.FormatBool(boolValue(c["showSeconds"])) + ":" + stringValue(c, "timezone", "")}, "metric")}
@@ -801,6 +818,10 @@ func compileNativeRoot(provider string, c map[string]any) (PresentationNode, map
 		caps["layout.column"] = 1
 	case "stat_grid":
 		data := stringValue(c, "dataSourceId", "") + ":records"
+		emptyFallback := stringValue(c, "emptyText", "")
+		if emptyFallback == "" {
+			emptyFallback = stringValue(c, "emptyState", "")
+		}
 		metrics, _ := c["metrics"].([]any)
 		children := make([]PresentationNode, 0, len(metrics))
 		for _, rawMetric := range metrics {
@@ -811,10 +832,23 @@ func compileNativeRoot(provider string, c map[string]any) (PresentationNode, map
 			}
 			children = append(children, PresentationNode{Type: "column", Props: map[string]any{"card": true}, Children: []PresentationNode{
 				text(labelBinding, "label"),
-				text(PresentationBinding{Source: "dataset", Dataset: data, Path: stringValue(metric, "valueField", ""), Format: stringValue(metric, "format", "number"), Prefix: stringValue(metric, "prefix", ""), Suffix: stringValue(metric, "suffix", ""), Fallback: stringValue(c, "emptyState", "")}, "metric"),
+				text(PresentationBinding{Source: "dataset", Dataset: data, Path: stringValue(metric, "valueField", ""), Format: stringValue(metric, "format", "number"), Prefix: stringValue(metric, "prefix", ""), Suffix: stringValue(metric, "suffix", ""), Fallback: emptyFallback}, "metric"),
 			}})
 		}
-		surface.Children = []PresentationNode{{Type: "grid", Props: map[string]any{"columns": intValue(c["columns"], 2)}, Children: children}}
+		// A V2 metric remaps here without a columns key. Defaulting to two
+		// would give a single KPI a two-column grid; size to the metric
+		// count instead. Saved grids keep their explicit column count.
+		columns := intValue(c["columns"], 0)
+		if columns == 0 {
+			columns = len(metrics)
+			if columns < 1 {
+				columns = 1
+			}
+			if columns > 4 {
+				columns = 4
+			}
+		}
+		surface.Children = []PresentationNode{{Type: "grid", Props: map[string]any{"columns": columns}, Children: children}}
 		caps["layout.grid"] = 1
 	case "chart":
 		series, _ := c["series"].([]any)
@@ -822,11 +856,33 @@ func compileNativeRoot(provider string, c map[string]any) (PresentationNode, map
 		for _, rawSeries := range series {
 			value, _ := rawSeries.(map[string]any)
 			fields = append(fields, stringValue(value, "field", ""))
-			labels = append(labels, stringValue(value, "label", stringValue(value, "field", "")))
+			// V2 saves an empty label when the legend should fall back to
+			// the field name. stringValue only falls back when the key is
+			// missing, so an explicit empty string needs the same fallback.
+			label := nonEmptyString(value, "label", "")
+			if label == "" {
+				label = stringValue(value, "field", "")
+			}
+			labels = append(labels, label)
 			colors = append(colors, stringValue(value, "color", ""))
 		}
-		nodeType := stringValue(c, "chartType", "line") + "_chart"
-		dataset := stringValue(c, "dataSourceId", "") + ":" + stringValue(c, "dataset", "records")
+		// Charts edited through the V2 editor save a style. Old Players
+		// render areas as lines; a saved legacy donut keeps its old path
+		// until PR G removes it.
+		chartKind := stringValue(c, "chartType", "line")
+		switch stringValue(c, "style", "") {
+		case "bar":
+			chartKind = "bar"
+		case "line":
+			chartKind = "line"
+		case "area":
+			chartKind = "line"
+		}
+		nodeType := chartKind + "_chart"
+		// V2 saves dataset as "" for "first usable". An explicit empty
+		// string must fall back to "records" like a missing key.
+		datasetName := nonEmptyString(c, "dataset", "records")
+		dataset := stringValue(c, "dataSourceId", "") + ":" + datasetName
 		surface.Children = []PresentationNode{{Type: nodeType, Props: map[string]any{"seriesLabels": labels, "seriesColors": colors, "categoryField": stringValue(c, "categoryField", ""), "timeField": stringValue(c, "timeField", ""), "showLegend": boolValue(c["showLegend"]), "showAxes": boolValue(c["showAxes"]), "minimum": c["minimum"], "maximum": c["maximum"]}, Binding: &PresentationBinding{Source: "dataset", Dataset: dataset, Fields: fields}}}
 		caps["content."+nodeType] = 2
 	case "progress":
@@ -922,6 +978,16 @@ func fieldFormat(c map[string]any, field string) string {
 
 func stringValue(values map[string]any, key, fallback string) string {
 	if value, ok := values[key].(string); ok {
+		return value
+	}
+	return fallback
+}
+
+// nonEmptyString is stringValue with an empty-string fallback: V2 saves
+// "first usable" and "use the field" as "", so old Players need the same
+// default they got when the key was missing entirely.
+func nonEmptyString(values map[string]any, key, fallback string) string {
+	if value, ok := values[key].(string); ok && value != "" {
 		return value
 	}
 	return fallback

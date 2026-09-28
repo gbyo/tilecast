@@ -192,18 +192,6 @@ func (s *Service) widgetProvider(name string) (configNormalizer, error) {
 		return websiteWidgetProvider{s}, nil
 	case "youtube":
 		return youtubeWidgetProvider{s}, nil
-	case "metric":
-		return metricWidgetProvider{s}, nil
-	case "spotlight":
-		return spotlightWidgetProvider{s}, nil
-	case "stat_grid":
-		return statGridWidgetProvider{s}, nil
-	case "chart":
-		return chartWidgetProvider{s}, nil
-	case "progress":
-		return progressWidgetProvider{s}, nil
-	case "timeline":
-		return timelineWidgetProvider{s}, nil
 	default:
 		return nil, errors.New("widget provider is not supported")
 	}
