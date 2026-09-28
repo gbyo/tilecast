@@ -1,5 +1,6 @@
 package org.tilecast.player.runtime
 
+import org.tilecast.player.content.PreparedContent
 import org.tilecast.player.network.ManifestItem
 import org.tilecast.player.network.PlayerManifest
 import org.tilecast.player.runtime.RuntimeBridgeProtocol.RuntimeReport
@@ -15,11 +16,20 @@ object RuntimeCutover {
     @Volatile
     var enabled: Boolean = false
 
-    fun useSharedRuntime(manifest: PlayerManifest, items: List<ManifestItem>): Boolean {
+    fun useSharedRuntime(content: PreparedContent, items: List<ManifestItem>): Boolean {
         if (!enabled) return false
+        val manifest = content.manifest
         if (manifest.layout != null) return false
         if (items.isEmpty()) return false
-        return items.all { RuntimePresentationBuilder.isRuntimeRenderable(manifest, it) }
+        return items.all { item ->
+            if (!RuntimePresentationBuilder.isRuntimeRenderable(manifest, item)) return@all false
+            val variantId = item.variantId
+            val isMedia = variantId != null && manifest.assets.any { it.variantId == variantId }
+            // tcmedia: has deliberately no authenticated network fallback.
+            // A stream-policy or uncached automatic asset stays on legacy
+            // playback, which can fetch it from the server.
+            !isMedia || content.localFiles.containsKey(variantId)
+        }
     }
 }
 
