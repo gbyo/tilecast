@@ -30,12 +30,15 @@ export function V2ZonePreview({
   asset,
   width,
   height,
+  overrides,
 }: {
   provider: string;
   asset?: Asset;
   /** Zone dimensions in preview pixels. Sizes the frame, never the Widget. */
   width: number;
   height: number;
+  /** Per-placement overrides win over Widget configuration, as in Studio. */
+  overrides?: Record<string, unknown>;
 }) {
   const { t } = useTranslation(["content", "common"]);
   const regional = useOrganizationRegionalProfile();
@@ -104,8 +107,12 @@ export function V2ZonePreview({
             ? ("h23" as const)
             : ("locale" as const),
       theme: resolveTheme({
-        background: configuration["backgroundColor"],
-        foreground: configuration["foregroundColor"],
+        background:
+          (overrides?.backgroundColor as string | undefined) ??
+          configuration["backgroundColor"],
+        foreground:
+          (overrides?.foregroundColor as string | undefined) ??
+          configuration["foregroundColor"],
       }),
       motion: { reduced: reducedMotion },
       mode: "preview" as const,
@@ -113,6 +120,7 @@ export function V2ZonePreview({
     [
       clock,
       reducedMotion,
+      overrides,
       regional.locale,
       regional.timezone,
       regional.timeFormat,

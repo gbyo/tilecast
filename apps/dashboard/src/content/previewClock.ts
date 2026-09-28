@@ -15,6 +15,7 @@ export type PreviewClockMode = "live" | "fixed";
 export class PreviewClock implements WidgetClock {
   private mode: PreviewClockMode = "live";
   private fixedMs: number = Date.now();
+  private lastMono: number = 0;
 
   setMode(mode: PreviewClockMode, fixedMs?: number): void {
     this.mode = mode;
@@ -31,7 +32,11 @@ export class PreviewClock implements WidgetClock {
   }
 
   monotonicNow(): number {
-    return this.mode === "fixed" ? this.fixedMs : Date.now();
+    // Fixed mode freezes motion at the instant, but the value must never
+    // move backward when the author scrubs to an earlier instant.
+    const current = this.mode === "fixed" ? this.fixedMs : Date.now();
+    if (current > this.lastMono) this.lastMono = current;
+    return this.lastMono;
   }
 
   after(delayMs: number, run: () => void): WidgetTimer {

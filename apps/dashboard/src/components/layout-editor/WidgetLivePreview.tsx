@@ -572,6 +572,7 @@ export function WidgetLivePreview({
           asset={asset}
           width={item.width * scale}
           height={item.height * scale}
+          overrides={item.overrides}
         />
       );
     case "date":
