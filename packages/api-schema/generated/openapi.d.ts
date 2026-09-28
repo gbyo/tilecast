@@ -7276,23 +7276,31 @@ export interface components {
       presentationOverride?:
         null | components["schemas"]["PresentationOverride"];
     };
+    /** @description Active Quick Present session. The stopped timestamp and reason appear once the session ends. */
     PresentationOverride: {
       /** Format: uuid */
       id: string;
+      /** @enum {string} */
+      targetType: "screen" | "group";
+      /** Format: uuid */
+      targetId: string;
+      targetName: string;
       /** @enum {string} */
       contentType: "playlist" | "layout" | "asset";
       /** Format: uuid */
       contentId: string;
       contentName: string;
+      durationSeconds: number;
       /** Format: date-time */
       startedAt: string;
       /** Format: date-time */
-      expiresAt?: string | null;
-      /** Format: uuid */
-      playlistId?: string | null;
-      /** Format: uuid */
-      layoutId?: string | null;
+      expiresAt?: string;
+      /** @enum {string} */
+      afterAction: "resume";
       wakeDisplay: boolean;
+      /** Format: date-time */
+      stoppedAt?: string;
+      stopReason?: string;
     };
     PresentationOverrideInput: {
       /** @enum {string} */
@@ -18870,6 +18878,20 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
+        content: {
+          "application/json": {
+            data: {
+              items: components["schemas"]["PresentationOverride"][];
+              total: number;
+            };
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
         content?: never;
       };
     };
@@ -18877,7 +18899,10 @@ export interface operations {
   createPresentationOverride: {
     parameters: {
       query?: never;
-      header?: never;
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
+      };
       path?: never;
       cookie?: never;
     };
@@ -18889,6 +18914,17 @@ export interface operations {
     responses: {
       /** @description Quick Present started */
       201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["PresentationOverride"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
         headers: {
           [name: string]: unknown;
         };
@@ -18913,16 +18949,37 @@ export interface operations {
   stopPresentationOverride: {
     parameters: {
       query?: never;
-      header?: never;
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
+      };
       path: {
         id: string;
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description Defaults to "Stopped from Studio" when empty. */
+          reason?: string;
+        };
+      };
+    };
     responses: {
       /** @description Quick Present stopped */
       200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["PresentationOverride"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
         headers: {
           [name: string]: unknown;
         };
