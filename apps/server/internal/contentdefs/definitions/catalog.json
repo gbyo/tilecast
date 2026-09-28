@@ -645,30 +645,6 @@
       "compatibility": { "fallback": "legacy" }
     },
     {
-      "id": "timeline",
-      "version": 1,
-      "name": "Timeline",
-      "description": "Display ordered dated milestones and statuses.",
-      "category": "Schedules",
-      "icon": "timeline",
-      "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
-      "presentationSchemaVersion": 1,
-      "requiredCapabilities": {
-        "layout.surface": 1,
-        "layout.column": 1,
-        "collection.repeat": 2,
-        "content.text": 1,
-        "content.badge": 1,
-        "binding.core": 2
-      },
-      "emptyStateBehavior": "text",
-      "legacyEditor": true,
-      "requiresManifestV13": true,
-      "deprecation": {}
-    },
-    {
       "id": "school-status-banner",
       "version": 1,
       "name": "School Status Banner",

@@ -59,8 +59,8 @@ func nestedValidationService(t *testing.T) (context.Context, *Service, uuid.UUID
 	user := owner.User.ID
 
 	scoresConfig, _ := json.Marshal(ManualSourceConfig{
-		Columns: []ManualColumn{{Key: "label", Label: "Label", Type: "text"}, {Key: "score", Label: "Score", Type: "number"}},
-		Rows:    []ManualRow{{ID: "d43f00ab-b7d9-4c39-a67b-24f7649c558d", Values: map[string]string{"label": "A", "score": "10"}}},
+		Columns: []ManualColumn{{Key: "label", Label: "Label", Type: "text"}, {Key: "score", Label: "Score", Type: "number"}, {Key: "happened", Label: "Happened", Type: "date"}},
+		Rows:    []ManualRow{{ID: "d43f00ab-b7d9-4c39-a67b-24f7649c558d", Values: map[string]string{"label": "A", "score": "10", "happened": "2026-09-28"}}},
 	})
 	scores, err := service.CreateDataSource(ctx, user, DataSourceInput{Provider: "manual", Name: "Scores", Configuration: scoresConfig})
 	if err != nil {
