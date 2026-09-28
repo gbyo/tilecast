@@ -96,6 +96,20 @@ func (worker *DataSourceRefreshWorker) runOne(ctx context.Context) (bool, error)
 	if err != nil {
 		return false, err
 	}
+	// A preserved row whose plugin is not installed stays inert: no fetch,
+	// no attempt, and no diagnostics. Its next look moves forward so it
+	// cannot hold the head of the queue, and reinstalling the plugin makes
+	// it refresh again at that look.
+	inert, err := worker.service.pluginSourceInert(ctx, tx, provider)
+	if err != nil {
+		return false, err
+	}
+	if inert {
+		if _, err = tx.Exec(ctx, `UPDATE data_source_refresh_states SET next_refresh_at=now()+make_interval(secs => $2),updated_at=now() WHERE data_source_id=$1`, dataSourceID, inertRecheckSeconds); err != nil {
+			return false, err
+		}
+		return true, tx.Commit(ctx)
+	}
 	if _, err = tx.Exec(ctx, `UPDATE data_source_refresh_states SET locked_at=now(),locked_by=$2,last_attempt_at=now(),updated_at=now() WHERE data_source_id=$1`, dataSourceID, worker.id); err != nil {
 		return false, err
 	}

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/presentnet"
 )
@@ -149,7 +148,12 @@ func (s *server) createPresentationNetwork(w http.ResponseWriter, r *http.Reques
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	network, err := s.presentationNetworks.Create(r.Context(), user.ID, input.toServiceInput())
 	if err != nil {
 		s.writePresentationNetworkError(w, r, err)
@@ -172,7 +176,12 @@ func (s *server) updatePresentationNetwork(w http.ResponseWriter, r *http.Reques
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	before, err := s.presentationNetworks.Get(r.Context(), id)
 	if err != nil {
 		s.writePresentationNetworkError(w, r, err)
@@ -205,7 +214,12 @@ func (s *server) deletePresentationNetwork(w http.ResponseWriter, r *http.Reques
 	if !ok {
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	network, err := s.presentationNetworks.Delete(r.Context(), id)
 	if err != nil {
 		s.writePresentationNetworkError(w, r, err)
@@ -251,7 +265,12 @@ func (s *server) replacePresentationNetworkAssignments(w http.ResponseWriter, r 
 	if !s.authorizeScreenList(w, r, targets, nil) {
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	assignments, err := s.presentationNetworks.ReplaceAssignments(r.Context(), user.ID, id, input.ScreenIDs)
 	if err != nil {
 		s.writePresentationNetworkError(w, r, err)
@@ -315,7 +334,12 @@ func (s *server) putScreenPresentationNetwork(w http.ResponseWriter, r *http.Req
 		writeError(w, http.StatusUnprocessableEntity, "presentation_network_required", "Choose a Presentation Network.")
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	assignment, err := s.presentationNetworks.Assign(r.Context(), user.ID, id, input.PresentationNetworkID)
 	if err != nil {
 		s.writePresentationNetworkError(w, r, err)
@@ -333,7 +357,12 @@ func (s *server) deleteScreenPresentationNetwork(w http.ResponseWriter, r *http.
 	if !ok {
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	assignment, err := s.presentationNetworks.Unassign(r.Context(), id)
 	if err != nil {
 		s.writePresentationNetworkError(w, r, err)
@@ -610,7 +639,12 @@ func (s *server) testPresentationNetwork(w http.ResponseWriter, r *http.Request)
 			fmt.Sprintf("%s is part of an active AirPlay session. Stop it before testing.", assignment.ScreenName))
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	// The payload carries identifiers only. The credential is fetched by the
 	// player over its own authenticated channel, so it never enters a durable
 	// command row.

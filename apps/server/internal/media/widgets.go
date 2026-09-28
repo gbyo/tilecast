@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
+	"github.com/tilecast/tilecast/apps/server/internal/ids"
 	"github.com/tilecast/tilecast/apps/server/internal/manifestchanges"
 )
 
@@ -169,6 +170,14 @@ func (p webDefinitionWidgetProvider) Normalize(ctx context.Context, raw json.Raw
 }
 
 func (s *Service) widgetProvider(name string) (configNormalizer, error) {
+	// Every provider with a Widgets V2 component validates through its
+	// manifest schema, including the migrated legacy providers.
+	if definition, ok := s.definitions.Widget(name); ok && definition.Component != nil && len(definition.ConfigurationSchema.Fields) > 0 {
+		if !definition.Availability.IsEnabled() {
+			return nil, errors.New(definition.Availability.Reason)
+		}
+		return componentConfigNormalizer{service: s, definition: definition}, nil
+	}
 	if definition, ok := s.definitions.Widget(name); ok && !definition.LegacyEditor {
 		if !definition.Availability.IsEnabled() {
 			return nil, errors.New(definition.Availability.Reason)
@@ -183,24 +192,8 @@ func (s *Service) widgetProvider(name string) (configNormalizer, error) {
 		return websiteWidgetProvider{s}, nil
 	case "youtube":
 		return youtubeWidgetProvider{s}, nil
-	case "clock":
-		return clockWidgetProvider{}, nil
-	case "date":
-		return dateWidgetProvider{}, nil
-	case "qrcode":
-		return qrCodeWidgetProvider{}, nil
-	case "countdown":
-		return countdownWidgetProvider{}, nil
-	case "ticker":
-		return tickerWidgetProvider{s}, nil
-	case "menu", "list", "table", "agenda":
-		return displayWidgetProvider{s, name}, nil
 	case "metric":
 		return metricWidgetProvider{s}, nil
-	case "cards":
-		return cardsWidgetProvider{s}, nil
-	case "weather":
-		return weatherWidgetProvider{s}, nil
 	case "spotlight":
 		return spotlightWidgetProvider{s}, nil
 	case "stat_grid":
@@ -211,8 +204,6 @@ func (s *Service) widgetProvider(name string) (configNormalizer, error) {
 		return progressWidgetProvider{s}, nil
 	case "timeline":
 		return timelineWidgetProvider{s}, nil
-	case "world_clock":
-		return worldClockWidgetProvider{}, nil
 	default:
 		return nil, errors.New("widget provider is not supported")
 	}
@@ -253,7 +244,14 @@ func (s *Service) CreateWidget(ctx context.Context, user uuid.UUID, input Widget
 	if err = tx.QueryRow(ctx, `SELECT id FROM organization_settings WHERE singleton`).Scan(&organizationID); err != nil {
 		return Asset{}, err
 	}
-	id := uuid.New()
+	// A plugin-owned provider may only be created while its plugin is
+	// installed. The installation row is share-locked in this transaction
+	// so a concurrent plugin removal cannot commit between the check and
+	// the insert below.
+	if err = s.lockWidgetSource(ctx, tx, input.Provider); err != nil {
+		return Asset{}, err
+	}
+	id := ids.New(ctx)
 	if _, err = tx.Exec(ctx, `INSERT INTO assets(id,organization_id,name,description,type,original_filename,detected_mime_type,sha256,original_size,processing_status,created_by) VALUES($1,$2,$3,$4,'widget','','application/vnd.tilecast.widget+json',''::bytea,0,'ready',$5)`, id, organizationID, input.Name, input.Description, user); err != nil {
 		return Asset{}, err
 	}
@@ -296,6 +294,10 @@ func (s *Service) UpdateWidget(ctx context.Context, id, user uuid.UUID, input Wi
 	if input.Provider != existing.Widget.Provider {
 		return Asset{}, errors.New("widget provider cannot be changed")
 	}
+	// Updates keep their provider, so no installation lock is taken here:
+	// editing a preserved Widget cannot reactivate unavailable behavior
+	// because creation, assignment validation, and manifest projection all
+	// re-evaluate effective availability at use time.
 	input.Name = strings.TrimSpace(input.Name)
 	input.Description = strings.TrimSpace(input.Description)
 	if input.Name == "" || len(input.Name) > 180 || len(input.Description) > 2000 {

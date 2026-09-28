@@ -1,0 +1,21 @@
+{
+  "name": "Hidden",
+  "description": "A one-time countdown that hides when it ends reports expected empty content.",
+  "configuration": {
+    "label": "Early registration",
+    "target": "2026-09-01T07:00",
+    "timezone": "",
+    "mode": "countdown",
+    "recurrence": "none",
+    "completionAction": "hide",
+    "completionText": "",
+    "showDays": true,
+    "showHours": true,
+    "showMinutes": true,
+    "showSeconds": false,
+    "layout": "stacked",
+    "backgroundColor": "#0E141B",
+    "foregroundColor": "#F5F7FA"
+  },
+  "expect": "empty"
+}

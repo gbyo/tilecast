@@ -199,7 +199,7 @@ func TestOpenExpectedWindowsAreNotJudged(t *testing.T) {
 func readCompliance(t *testing.T, env activityTestEnvironment, query string) complianceReport {
 	t.Helper()
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/activity/compliance"+query, nil)
-	request = request.WithContext(context.WithValue(request.Context(), sessionContextKey, env.owner))
+	request = requestWithTestPrincipal(request, env.owner)
 	response := httptest.NewRecorder()
 	env.server.playbackCompliance(response, request)
 	if response.Code != http.StatusOK {

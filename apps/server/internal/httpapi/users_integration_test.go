@@ -66,7 +66,7 @@ func TestPermanentlyDeleteUserRequiresDeactivationAndPreservesHistory(t *testing
 		routeContext := chi.NewRouteContext()
 		routeContext.URLParams.Add("id", targetID.String())
 		request = request.WithContext(context.WithValue(request.Context(), chi.RouteCtxKey, routeContext))
-		request = request.WithContext(context.WithValue(request.Context(), sessionContextKey, owner))
+		request = requestWithTestPrincipal(request, owner)
 		response := httptest.NewRecorder()
 		s.permanentlyDeleteUser(response, request)
 		return response

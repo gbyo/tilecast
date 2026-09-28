@@ -1,0 +1,19 @@
+{
+  "name": "No source",
+  "description": "A Menu Board with no connected source reports the empty state instead of failing.",
+  "configuration": {
+    "dataSourceId": "",
+    "titleField": "",
+    "descriptionField": "",
+    "priceField": "",
+    "categoryField": "",
+    "heading": "Lunch",
+    "maximumItems": 12,
+    "emptyText": "",
+    "density": "comfortable",
+    "showDividers": true,
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "expect": "empty"
+}

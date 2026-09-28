@@ -12,6 +12,8 @@ import (
 	"sort"
 	"strings"
 	"sync"
+
+	datasources "github.com/tilecast/tilecast/data-sources"
 )
 
 const CompilerVersion = "definition-compiler-v2"
@@ -19,7 +21,7 @@ const CompilerVersion = "definition-compiler-v2"
 var supportedControls = map[string]bool{
 	"text": true, "multiline_text": true, "number": true, "integer": true,
 	"boolean": true, "select": true, "color": true, "date": true,
-	"datetime": true, "timezone": true, "currency_code": true, "url": true, "data_source": true,
+	"datetime": true, "local_datetime": true, "timezone": true, "currency_code": true, "url": true, "data_source": true,
 	"data_source_field": true, "media_asset": true, "repeating_group": true,
 }
 
@@ -220,12 +222,18 @@ type OutputField struct {
 }
 
 type WidgetDefinition struct {
-	ID          string `json:"id"`
-	Version     int    `json:"version"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Category    string `json:"category"`
-	Icon        string `json:"icon"`
+	ID      string `json:"id"`
+	Version int    `json:"version"`
+	// APIVersion is the manifest API version: the shape and semantics of
+	// tilecast.widget.json. It is required for component modules and kept
+	// separate from the persisted definition/config version (Version), the
+	// component runtime version, and any future package version.
+	APIVersion  int             `json:"apiVersion,omitempty"`
+	Source      ExtensionSource `json:"source,omitempty"`
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Category    string          `json:"category"`
+	Icon        string          `json:"icon"`
 	// Thumbnail names the Studio catalog preview drawn for this Widget. Studio falls back
 	// to a generic preview when the name is empty or unknown, so a definition never has to
 	// ship one and an unknown name never breaks the gallery.
@@ -250,6 +258,10 @@ type WidgetDefinition struct {
 	Recipe                    *AppRecipe          `json:"recipe,omitempty"`
 	WebIntegration            *WebIntegration     `json:"webIntegration,omitempty"`
 	Deprecation               Deprecation         `json:"deprecation"`
+	// Component is the Widget's first-class component (docs/widgets-v2.md),
+	// declared by a Widget module below widgets/.
+	Component     *ComponentSpec `json:"component,omitempty"`
+	Compatibility *Compatibility `json:"compatibility,omitempty"`
 }
 
 // Availability lets a release advertise a recognizable integration without claiming
@@ -292,8 +304,13 @@ type WebIntegration struct {
 }
 
 type DataSourceDefinition struct {
-	ID                   string              `json:"id"`
-	Version              int                 `json:"version"`
+	ID      string `json:"id"`
+	Version int    `json:"version"`
+	// Source says where the definition came from: release files and root
+	// data-sources/ modules are core, plugin-owned modules carry their
+	// stable tilecast.plugin.json id. It is injected at load and never
+	// read from the module file itself.
+	Source               ExtensionSource     `json:"source,omitempty"`
 	Name                 string              `json:"name"`
 	Description          string              `json:"description"`
 	Category             string              `json:"category"`
@@ -350,6 +367,9 @@ func New(widgets []WidgetDefinition, dataSources []DataSourceDefinition) (*Catal
 	if catalog.DataSources == nil {
 		catalog.DataSources = []DataSourceDefinition{}
 	}
+	for index := range catalog.Widgets {
+		catalog.Widgets[index].Source = catalog.Widgets[index].Source.Normalized()
+	}
 	if err := inheritPresentationBases(catalog.Widgets); err != nil {
 		return nil, err
 	}
@@ -369,6 +389,58 @@ func New(widgets []WidgetDefinition, dataSources []DataSourceDefinition) (*Catal
 	catalog.Fingerprint = hex.EncodeToString(hasher.Sum(nil))
 	catalog.Revision = catalog.Fingerprint[:16]
 	return catalog, nil
+}
+
+// decodeDataSourceModule decodes one Data Source module manifest into a
+// definition with its discovery source. Like Widget manifests, the file
+// cannot declare its own source: a manifest carrying one is rejected, so
+// a file can never lie about whether it is core- or plugin-owned. The
+// declarative manifest carries apiVersion and $schema siblings that the
+// definition does not; decoding ignores them after datactl validated the
+// manifest shape.
+func decodeDataSourceModule(dir string, raw []byte, source ExtensionSource) (DataSourceDefinition, error) {
+	var definition DataSourceDefinition
+	if err := json.Unmarshal(raw, &definition); err != nil {
+		return DataSourceDefinition{}, fmt.Errorf("%s/%s: %w", dir, datasources.ManifestFile, err)
+	}
+	if definition.Source != (ExtensionSource{}) {
+		return DataSourceDefinition{}, fmt.Errorf("%s: a Data Source manifest must not declare its own source", dir)
+	}
+	definition.Source = source
+	return definition, nil
+}
+
+// loadDataSourceModules decodes every declarative Data Source module into
+// a definition: root data-sources/ modules as core, then the generated
+// plugin-owned ledger (data-sources/plugin_sources.gen.go) with each
+// owning plugin's stable tilecast.plugin.json id. Legacy grouped release
+// files keep loading through the embedded definitions directory; modules
+// join the same catalog and collide fatally on duplicate ids.
+func loadDataSourceModules() ([]DataSourceDefinition, [][]byte, error) {
+	manifests, err := datasources.Manifests()
+	if err != nil {
+		return nil, nil, err
+	}
+	pluginManifests := datasources.PluginSourceManifests()
+	definitions := make([]DataSourceDefinition, 0, len(manifests)+len(pluginManifests))
+	raws := make([][]byte, 0, len(manifests)+len(pluginManifests))
+	for _, manifest := range manifests {
+		definition, err := decodeDataSourceModule("data-sources/"+manifest.Dir, manifest.JSON, CoreSource())
+		if err != nil {
+			return nil, nil, err
+		}
+		definitions = append(definitions, definition)
+		raws = append(raws, manifest.JSON)
+	}
+	for _, manifest := range pluginManifests {
+		definition, err := decodeDataSourceModule(manifest.Dir, []byte(manifest.JSON), PluginSource(manifest.PluginID))
+		if err != nil {
+			return nil, nil, err
+		}
+		definitions = append(definitions, definition)
+		raws = append(raws, []byte(manifest.JSON))
+	}
+	return definitions, raws, nil
 }
 
 func load() (*Catalog, error) {
@@ -403,6 +475,35 @@ func load() (*Catalog, error) {
 		}
 		catalog.Widgets = append(catalog.Widgets, envelope.Widgets...)
 		catalog.DataSources = append(catalog.DataSources, envelope.DataSources...)
+	}
+	// Widgets V2 modules (widgets/<name>/tilecast.widget.json) are catalog
+	// definitions too; the fingerprint covers them like any definition file.
+	modules, raws, err := loadWidgetModules()
+	if err != nil {
+		return nil, err
+	}
+	for index, definition := range modules {
+		hasher.Write([]byte("widgets/" + definition.ID + "\x00" + definition.Source.FingerprintString()))
+		hasher.Write(raws[index])
+	}
+	catalog.Widgets = append(catalog.Widgets, modules...)
+	for index := range catalog.Widgets {
+		catalog.Widgets[index].Source = catalog.Widgets[index].Source.Normalized()
+	}
+	// Declarative Data Source modules (data-sources/<name>) join the same
+	// catalog as the legacy grouped files; the fingerprint covers them
+	// with their source identity like Widget modules.
+	sourceModules, sourceRaws, err := loadDataSourceModules()
+	if err != nil {
+		return nil, err
+	}
+	for index, definition := range sourceModules {
+		hasher.Write([]byte("data-sources/" + definition.ID + "\x00" + definition.Source.FingerprintString()))
+		hasher.Write(sourceRaws[index])
+	}
+	catalog.DataSources = append(catalog.DataSources, sourceModules...)
+	for index := range catalog.DataSources {
+		catalog.DataSources[index].Source = catalog.DataSources[index].Source.Normalized()
 	}
 	if err := inheritPresentationBases(catalog.Widgets); err != nil {
 		return nil, err
@@ -448,8 +549,32 @@ func inheritPresentationBases(widgets []WidgetDefinition) error {
 	return nil
 }
 
+// componentOwner records which definition first declared a component
+// identity, so a repeated identity can be judged a compatibility alias or a
+// collision.
+type componentOwner struct {
+	definitionID string
+	spec         ComponentSpec
+}
+
+// sameComponent reports whether two declarations name the same component:
+// the same type and version rendered by the same element. Their author
+// configuration templates may differ, because each provider generation
+// translates its own persisted keys into that shared component contract.
+func sameComponent(a, b ComponentSpec) bool {
+	return a.Type == b.Type &&
+		a.Version == b.Version &&
+		a.TagName == b.TagName &&
+		a.Entrypoint == b.Entrypoint
+}
+
 func (c *Catalog) validate() error {
+	componentTypes := map[string]componentOwner{}
+	componentTags := map[string]componentOwner{}
 	for _, definition := range c.Widgets {
+		if err := definition.Source.validate(); err != nil {
+			return fmt.Errorf("Widget definition %q: %w", definition.ID, err)
+		}
 		if err := validateIdentity(definition.ID, definition.Version, definition.Name, definition.Category); err != nil {
 			return fmt.Errorf("Widget definition %q: %w", definition.ID, err)
 		}
@@ -477,7 +602,39 @@ func (c *Catalog) validate() error {
 		if err := validateCapabilities(definition.RequiredCapabilities); err != nil {
 			return fmt.Errorf("Widget definition %q: %w", definition.ID, err)
 		}
-		if !definition.LegacyEditor {
+		if err := validateComponent(definition); err != nil {
+			return fmt.Errorf("Widget definition %q: %w", definition.ID, err)
+		}
+		if definition.Component != nil {
+			source := definition.Source.Normalized()
+			if strings.HasPrefix(definition.Component.Type, "tilecast.") && source.Kind != SourceKindCore {
+				return fmt.Errorf("Widget definition %q uses the reserved tilecast namespace from a non-core source", definition.ID)
+			}
+			if source.Kind == SourceKindPackage && !packageOwnsType(source.PackageID, definition.Component.Type) {
+				return fmt.Errorf("Widget definition %q declares component %q outside package namespace %q", definition.ID, definition.Component.Type, source.PackageID)
+			}
+			// Several provider generations may project into one component
+			// (docs/widgets-v2-authoring-and-first-wave.md §9.2): a repeated
+			// component identity is a compatibility alias only when it names
+			// the same version, element and entrypoint. Anything else is a
+			// collision between two different components.
+			if owner, taken := componentTypes[definition.Component.Type]; taken {
+				if !sameComponent(owner.spec, *definition.Component) {
+					return fmt.Errorf("Widget definitions %q and %q declare different components %q", owner.definitionID, definition.ID, definition.Component.Type)
+				}
+			} else {
+				componentTypes[definition.Component.Type] = componentOwner{definitionID: definition.ID, spec: *definition.Component}
+			}
+			if owner, taken := componentTags[definition.Component.TagName]; taken {
+				if !sameComponent(owner.spec, *definition.Component) {
+					return fmt.Errorf("Widget definitions %q and %q declare different components for tag %q", owner.definitionID, definition.ID, definition.Component.TagName)
+				}
+			} else {
+				componentTags[definition.Component.TagName] = componentOwner{definitionID: definition.ID, spec: *definition.Component}
+			}
+		}
+		// A component-only Widget has no compatibility presentation to validate.
+		if !definition.LegacyEditor && definition.HasFallback() {
 			if definition.Runtime == "native" {
 				if len(definition.PresentationTemplate) == 0 {
 					return fmt.Errorf("Widget definition %q is missing a presentation template", definition.ID)
@@ -1017,4 +1174,73 @@ func (c *Catalog) Widget(id string) (WidgetDefinition, bool) {
 func (c *Catalog) DataSource(id string) (DataSourceDefinition, bool) {
 	definition, ok := c.dataSourcesByID[id]
 	return definition, ok
+}
+
+// PluginWidgetProviders returns the sorted provider IDs this catalog
+// attributes to a plugin's static Widget contributions. Removal blockers
+// and lifecycle invalidation derive from this instead of naming plugin IDs.
+func (c *Catalog) PluginWidgetProviders(pluginID string) []string {
+	providers := []string{}
+	for _, definition := range c.Widgets {
+		source := definition.Source.Normalized()
+		if source.Kind == SourceKindPlugin && source.PluginID == pluginID {
+			providers = append(providers, definition.ID)
+		}
+	}
+	sort.Strings(providers)
+	return providers
+}
+
+// StaticWidgetContributors returns the sorted plugin IDs contributing
+// Widget definitions to this catalog. A plugin listed here is
+// player-facing for lifecycle purposes even without Plugin API runtime
+// manifest entries: installing it can reactivate preserved content.
+func (c *Catalog) StaticWidgetContributors() []string {
+	seen := map[string]bool{}
+	contributors := []string{}
+	for _, definition := range c.Widgets {
+		source := definition.Source.Normalized()
+		if source.Kind != SourceKindPlugin || seen[source.PluginID] {
+			continue
+		}
+		seen[source.PluginID] = true
+		contributors = append(contributors, source.PluginID)
+	}
+	sort.Strings(contributors)
+	return contributors
+}
+
+// PluginDataSourceProviders returns the sorted provider IDs this catalog
+// attributes to a plugin's static Data Source contributions. Removal
+// blockers and lifecycle invalidation derive from this instead of naming
+// plugin IDs.
+func (c *Catalog) PluginDataSourceProviders(pluginID string) []string {
+	providers := []string{}
+	for _, definition := range c.DataSources {
+		source := definition.Source.Normalized()
+		if source.Kind == SourceKindPlugin && source.PluginID == pluginID {
+			providers = append(providers, definition.ID)
+		}
+	}
+	sort.Strings(providers)
+	return providers
+}
+
+// StaticDataSourceContributors returns the sorted plugin IDs contributing
+// Data Source definitions to this catalog. A plugin listed here is
+// player-facing for lifecycle purposes even without Plugin API runtime
+// manifest entries: installing it can reactivate preserved content.
+func (c *Catalog) StaticDataSourceContributors() []string {
+	seen := map[string]bool{}
+	contributors := []string{}
+	for _, definition := range c.DataSources {
+		source := definition.Source.Normalized()
+		if source.Kind != SourceKindPlugin || seen[source.PluginID] {
+			continue
+		}
+		seen[source.PluginID] = true
+		contributors = append(contributors, source.PluginID)
+	}
+	sort.Strings(contributors)
+	return contributors
 }

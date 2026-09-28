@@ -1,0 +1,10 @@
+{
+  "frame": {
+    "type": "response",
+    "id": "r1",
+    "error": {
+      "code": "not_authorized",
+      "message": "This request requires the tilecast account."
+    }
+  }
+}

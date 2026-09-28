@@ -1,0 +1,8 @@
+{
+  "frame": {
+    "type": "request",
+    "id": "discover-1",
+    "method": "discovery.list",
+    "params": {}
+  }
+}

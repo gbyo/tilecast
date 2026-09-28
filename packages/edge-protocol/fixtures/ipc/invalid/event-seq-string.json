@@ -1,0 +1,8 @@
+{
+  "frame": {
+    "type": "event",
+    "seq": "1",
+    "event": "renderer.ready",
+    "data": {}
+  }
+}

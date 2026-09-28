@@ -1,0 +1,49 @@
+---
+title: Draw on the Player
+description: Project plugin state into manifests and render it through the shared Player runtime.
+---
+
+A Player-facing plugin has two parts: the server projects manifest entries, and `runtime/index.ts` decides what to draw from those entries.
+
+## Project manifest entries
+
+Implement `plugin.ManifestProjector` on the server.
+
+Each entry has a stable ID, a type declared in `runtime.manifestTypes`, a definition version, and plugin-owned configuration.
+
+When configuration changes, use `Host.Manifests` to invalidate the affected screens through the normal manifest revision path.
+
+## Declare surfaces and a tier
+
+Available surface slots are `strip.top`, `strip.bottom`, the four corners, and `overlay`.
+
+The tiers are `emergency`, `live`, `scheduled`, and `ambient`. A stronger tier wins a shared slot before priority is considered.
+
+Emergency Alerts therefore wins the bottom strip over Countdown Bar.
+
+## Implement the runtime
+
+`runtime/index.ts` default-exports `defineRuntimePlugin(...)`.
+
+The runtime lifecycle has four main jobs:
+
+- `mount` creates persistent elements inside the slot containers.
+- `update` reads manifest entries and returns the slots the plugin wants.
+- `render` updates content from the slots the host granted.
+- `dispose` cleans up plugin-owned state.
+
+The host owns arbitration, strip geometry, push and overlay insets, sleep and wake, reduced motion, and the corrected clock.
+
+Use `context.clock` instead of unmanaged timers. Call `context.invalidate()` when state needs another evaluation.
+
+## Keep styles inside the plugin
+
+Put runtime styles in `runtime/*.css`. Every selector starts with the plugin scope, such as `.tc-transit-alerts`. Keyframe names use the same prefix.
+
+`plugins:check` rejects styles that could reach another plugin or the Player itself.
+
+## Test time-dependent behavior
+
+Use `@tilecast/plugin-sdk/runtime/testing` for a manual clock and deterministic runtime context.
+
+Countdown Bar is the best current example of a scheduled surface with timers, offline evaluation, push geometry, and reduced-motion behavior.

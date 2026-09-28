@@ -1,33 +1,4 @@
 {
-  "approvals": {
-    "eyebrow": "Forms",
-    "title": "Approvals",
-    "description": "Submissions awaiting a review decision across your forms.",
-    "table": {
-      "form": "Form",
-      "submission": "Submission",
-      "submitter": "Submitter",
-      "state": "State",
-      "submitted": "Submitted",
-      "displayWindow": "Display window",
-      "reviewAction": "Review"
-    },
-    "untitledSubmission": "Untitled submission",
-    "untitledSubmissionInline": "untitled submission",
-    "unknownSubmitter": "Unknown",
-    "reviewActionLabel": "Review {{title}} from {{formName}}",
-    "loadErrorTitle": "Could not load approvals",
-    "loadErrorFallback": "Please try again.",
-    "loading": "Loading approvals",
-    "emptyTitle": "Nothing to review",
-    "emptyDescription": "There are no submissions awaiting your decision right now.",
-    "paginationLabel": "Approvals pages",
-    "paginationStatus": "Page {{page}} of {{totalPages}} · {{total}} pending",
-    "displayWindow": {
-      "now": "now",
-      "range": "{{start}} → {{end}}"
-    }
-  },
   "contentReview": {
     "title": "Content review",
     "description": "A playlist or Layout must be approved at its current revision before it can go on a screen. Editing approved content sends it back here.",

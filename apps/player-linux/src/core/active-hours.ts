@@ -166,7 +166,7 @@ export function activeHoursFromConfig(
   const days = Array.isArray(power["activeHoursDays"])
     ? (power["activeHoursDays"] as unknown[])
         .map(Number)
-        .filter((n) => n >= 1 && n <= 7)
+        .filter((n) => Number.isInteger(n) && n >= 1 && n <= 7)
     : [];
   return {
     enabled: true,

@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
+	"github.com/tilecast/tilecast/apps/server/internal/ids"
 	"github.com/tilecast/tilecast/apps/server/internal/manifestchanges"
 	"github.com/tilecast/tilecast/apps/server/internal/plugins"
 	"github.com/tilecast/tilecast/apps/server/internal/scheduling"
@@ -100,7 +101,7 @@ func (s *Service) Create(ctx context.Context, userID uuid.UUID, name, descriptio
 	if err := s.db.QueryRow(ctx, `SELECT id FROM organization_settings WHERE singleton=TRUE`).Scan(&org); err != nil {
 		return Playlist{}, err
 	}
-	id := uuid.New()
+	id := ids.New(ctx)
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return Playlist{}, err
@@ -2004,6 +2005,14 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 			}
 		}
 	}
+	// Effective availability is evaluated once per manifest build: a
+	// plugin-owned Data Source whose plugin is not installed is never
+	// projected as a valid live source, while preserved rows stay in the
+	// database.
+	installed, err := plugins.InstalledSet(ctx, s.db)
+	if err != nil {
+		return Manifest{}, "", err
+	}
 	for _, dependency := range layoutDependencies {
 		switch dependency.Type {
 		case "asset":
@@ -2056,7 +2065,7 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 			}
 			manifest.Widgets = append(manifest.Widgets, widget)
 		case "data_source":
-			if err = s.projectDataSource(ctx, &manifest, dependency.ID); err != nil {
+			if err = s.projectDataSource(ctx, &manifest, installed, dependency.ID); err != nil {
 				return Manifest{}, "", err
 			}
 		}
@@ -2066,14 +2075,11 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 			return Manifest{}, "", err
 		}
 	}
-	if err = s.projectPluginAssets(ctx, &manifest, seen); err != nil {
-		return Manifest{}, "", err
-	}
 	// Project the shared dataset for every Data Source every data-driven widget in
 	// the manifest references. Release-defined widgets may reference more than one.
 	for _, widget := range append([]ManifestWidget(nil), manifest.Widgets...) {
 		for _, id := range s.widgetDataSourceIDs(widget.Provider, widget.Configuration) {
-			if err = s.projectDataSource(ctx, &manifest, id); err != nil {
+			if err = s.projectDataSource(ctx, &manifest, installed, id); err != nil {
 				return Manifest{}, "", err
 			}
 		}
@@ -2101,7 +2107,7 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 		manifest.SchemaVersion = 12
 		manifest.DataSources = []ManifestDataSource{}
 		for _, id := range ids {
-			if err = s.projectDataSource(ctx, &manifest, id); err != nil {
+			if err = s.projectDataSource(ctx, &manifest, installed, id); err != nil {
 				return Manifest{}, "", err
 			}
 		}
@@ -2125,10 +2131,21 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 		}
 	}
 	compiled := make([]*WidgetPresentation, len(manifest.Widgets))
+	components := make([]*WidgetPresentation, len(manifest.Widgets))
 	canCompileV13 := true
+	allowPrivateHTTP := s.orgPrivateHTTP(ctx)
+	organizationTimezone := s.orgTimezone(ctx)
 	for index := range manifest.Widgets {
-		compiled[index], _ = s.compileWidgetPresentationForPreset(manifest.Widgets[index].Provider, manifest.Widgets[index].PresetID, manifest.Widgets[index].Configuration)
-		if compiled[index] == nil {
+		widget := manifest.Widgets[index]
+		if err = s.requireWidgetSourceUsable(installed, widget.Name, widget.Provider); err != nil {
+			return Manifest{}, "", fmt.Errorf("%w: %v", ErrConflict, err)
+		}
+		compiled[index], _ = s.compileWidgetPresentationForPreset(widget.Provider, widget.PresetID, s.compatibilityConfiguration(widget.Provider, widget.Configuration, organizationTimezone), allowPrivateHTTP)
+		components[index], err = s.compileWidgetComponent(widget.Provider, widget.Configuration)
+		if err != nil {
+			return Manifest{}, "", fmt.Errorf("%w: Widget “%s” cannot be compiled: %v", ErrConflict, widget.Name, err)
+		}
+		if compiled[index] == nil && components[index] == nil {
 			canCompileV13 = false
 			break
 		}
@@ -2138,15 +2155,36 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 		return Manifest{}, "", capabilityErr
 	}
 	useV13 := false
+	usesComponents := false
 	if playerCapabilities.Reported && canCompileV13 {
-		for index, presentation := range compiled {
-			if err = checkPresentationCompatibility(ctx, s.db, screenID, manifest.Widgets[index].Name, presentation, playerCapabilities); err != nil {
+		// Each Widget gets its first-class component when this Player renders
+		// that exact type and version, and its compatibility presentation
+		// otherwise (docs/widgets-v2.md §7). Persisted Widgets never change.
+		for index := range compiled {
+			if components[index] != nil {
+				if supported, _ := presentationSupported(components[index], playerCapabilities); supported {
+					compiled[index] = components[index]
+					usesComponents = true
+					continue
+				}
+				if compiled[index] == nil {
+					compiled[index] = components[index]
+				}
+			}
+			if err = checkPresentationCompatibility(ctx, s.db, screenID, manifest.Widgets[index].Name, compiled[index], playerCapabilities); err != nil {
 				return Manifest{}, "", fmt.Errorf("%w: %v", ErrConflict, err)
 			}
 		}
 		useV13 = true
 	} else if requiresV13 {
 		return Manifest{}, "", fmt.Errorf("%w: %v", ErrConflict, sourceCapabilityError(screenDisplayName(ctx, s.db, screenID), v13Blocker))
+	}
+	if !useV13 {
+		for index := range manifest.Widgets {
+			if index < len(components) && components[index] != nil && compiled[index] == nil {
+				return Manifest{}, "", fmt.Errorf("%w: %v", ErrConflict, checkPresentationCompatibility(ctx, s.db, screenID, manifest.Widgets[index].Name, components[index], playerCapabilities))
+			}
+		}
 	}
 	if useV13 {
 		ids := make([]uuid.UUID, 0, len(manifest.DataSources))
@@ -2156,7 +2194,7 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 		manifest.SchemaVersion = 13
 		manifest.DataSources = []ManifestDataSource{}
 		for _, id := range ids {
-			if err = s.projectDataSource(ctx, &manifest, id); err != nil {
+			if err = s.projectDataSource(ctx, &manifest, installed, id); err != nil {
 				return Manifest{}, "", err
 			}
 		}
@@ -2173,7 +2211,14 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 			manifest.Widgets[index].Configuration = nil
 		}
 	}
-	if spanEnabled || manifestHasWebReload(manifest) {
+	if usesComponents {
+		// v16 includes every v15 feature. Crossfade still depends on the
+		// Player's version, exactly as it does for v14.
+		manifest.SchemaVersion = ManifestSchemaComponents
+		if manifestHasCrossfade(manifest) && playerCapabilities.PlayerVersion < crossfadePlayerVersionCode {
+			downgradeManifestCrossfades(&manifest)
+		}
+	} else if spanEnabled || manifestHasWebReload(manifest) {
 		manifest.SchemaVersion = 15
 	} else if manifestHasCrossfade(manifest) {
 		if useV13 && playerCapabilities.PlayerVersion >= crossfadePlayerVersionCode {
@@ -2495,62 +2540,10 @@ func (s *Service) resolveAssetVariant(ctx context.Context, assetID uuid.UUID, re
 	return asset, nil
 }
 
-// projectPluginAssets resolves media a built-in plugin references. Brand Bug is
-// the only plugin with media today: its logo becomes a normal manifest asset so
-// the Player verifies and caches it like any other image and keeps drawing the
-// mark offline.
-//
-// A logo that has become unavailable since the instance was saved drops to a
-// text-only mark rather than failing the manifest — one deleted image must not
-// cost a screen its entire content.
-func (s *Service) projectPluginAssets(ctx context.Context, manifest *Manifest, seen map[uuid.UUID]bool) error {
-	kept := make([]plugins.ManifestPlugin, 0, len(manifest.Plugins))
-	for _, plugin := range manifest.Plugins {
-		config, ok := plugin.Config.(*plugins.ManifestBrandBugConfig)
-		if !ok {
-			kept = append(kept, plugin)
-			continue
-		}
-		if err := s.resolveBrandBugLogo(ctx, manifest, config, seen); err != nil {
-			return err
-		}
-		// A mark left with no logo and no text has nothing to draw; publishing it
-		// would only give the Player an empty corner to reason about.
-		if config.ImageAssetID != nil || strings.TrimSpace(config.Text) != "" {
-			kept = append(kept, plugin)
-		}
-	}
-	manifest.Plugins = kept
-	return nil
-}
-
-func (s *Service) resolveBrandBugLogo(ctx context.Context, manifest *Manifest, config *plugins.ManifestBrandBugConfig, seen map[uuid.UUID]bool) error {
-	if config.ImageAssetID == nil {
-		return nil
-	}
-	asset, err := s.resolveImageVariant(ctx, *config.ImageAssetID)
-	if err != nil {
-		if !errors.Is(err, pgx.ErrNoRows) {
-			return err
-		}
-		config.ImageAssetID = nil
-		return nil
-	}
-	variantID := asset.VariantID
-	config.ImageVariantID = &variantID
-	config.ImageAvailableFrom = asset.AvailableFrom
-	config.ImageExpiresAt = asset.ExpiresAt
-	if !seen[asset.VariantID] {
-		manifest.Assets = append(manifest.Assets, asset)
-		seen[asset.VariantID] = true
-	}
-	return nil
-}
-
 // projectDataSource adds a Data Source to the manifest exactly once, projecting its bounded
 // cached dataset and date-selection policy. The dataset is shared by every widget or binding
 // that references the Data Source; it is never copied into a widget configuration.
-func (s *Service) projectDataSource(ctx context.Context, manifest *Manifest, dataSourceID uuid.UUID) error {
+func (s *Service) projectDataSource(ctx context.Context, manifest *Manifest, installed map[string]bool, dataSourceID uuid.UUID) error {
 	if dataSourceID == uuid.Nil {
 		return nil
 	}
@@ -2564,6 +2557,11 @@ func (s *Service) projectDataSource(ctx context.Context, manifest *Manifest, dat
 	var raw json.RawMessage
 	if err := s.db.QueryRow(ctx, `SELECT name,provider,config_version,configuration FROM data_sources WHERE id=$1 AND deleted_at IS NULL`, dataSourceID).Scan(&dataSource.Name, &dataSource.Provider, &dataSource.ConfigVersion, &raw); err != nil {
 		return fmt.Errorf("%w: required data Source unavailable", ErrConflict)
+	}
+	// A preserved plugin-owned row is never projected as a valid live
+	// source while its plugin is missing.
+	if err := s.requireDataSourceSourceUsable(installed, dataSource.Name, dataSource.Provider); err != nil {
+		return fmt.Errorf("%w: %v", ErrConflict, err)
 	}
 	dataSource.Configuration = raw
 	if s.sources != nil {
@@ -2756,6 +2754,22 @@ func manifestETagForSchedules(base string, schedules []ManifestSchedule) string 
 	return `"sha256-` + hex.EncodeToString(sum[:]) + `"`
 }
 
+// canonicalSelectionSource maps a player's reason for what it shows onto the
+// shared status vocabulary, or reports that the value is not part of it.
+// Every player's resolver produces quick_present while a Quick Present
+// override is on screen. The Linux player names a direct assignment
+// "direct", which is the same selection Android reports as direct_fallback.
+func canonicalSelectionSource(source string) (string, bool) {
+	switch source {
+	case "", "takeover", "quick_present", "schedule", "direct_fallback", "none":
+		return source, true
+	case "direct":
+		return "direct_fallback", true
+	default:
+		return "", false
+	}
+}
+
 func (s *Service) ReportStatus(ctx context.Context, screenID uuid.UUID, status PlayerStatus) error {
 	if len(status.PlaybackState) > 80 || len(status.LastSyncError) > 500 || len(status.LastPlaybackError) > 500 || len(status.ScheduleEvaluationError) > 500 || len(status.WebsiteState) > 40 || len(status.WebsiteFailureCategory) > 80 || len(status.WebsiteCurrentHost) > 253 || len(status.WidgetState) > 40 || len(status.WidgetError) > 120 {
 		return errors.New("player status is invalid")
@@ -2764,9 +2778,11 @@ func (s *Service) ReportStatus(ctx context.Context, screenID uuid.UUID, status P
 	if !widgetProviders[status.WidgetProvider] {
 		return errors.New("player widget status is invalid")
 	}
-	if status.SelectionSource != "" && status.SelectionSource != "takeover" && status.SelectionSource != "schedule" && status.SelectionSource != "direct_fallback" && status.SelectionSource != "none" {
+	source, ok := canonicalSelectionSource(status.SelectionSource)
+	if !ok {
 		return errors.New("player status is invalid")
 	}
+	status.SelectionSource = source
 	websiteStates := map[string]bool{"": true, "idle": true, "loading": true, "loaded": true, "refreshing": true, "failed": true, "timed_out": true, "blocked": true, "showing_fallback": true}
 	websiteErrors := map[string]bool{"": true, "dns_failure": true, "connection_failure": true, "tls_failure": true, "http_error": true, "load_timeout": true, "blocked_navigation": true, "renderer_crash": true, "offline": true, "invalid_configuration": true, "unsupported_scheme": true, "unknown_webview_error": true}
 	if !websiteStates[status.WebsiteState] || !websiteErrors[status.WebsiteFailureCategory] {

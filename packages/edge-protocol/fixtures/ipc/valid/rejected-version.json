@@ -1,0 +1,9 @@
+{
+  "frame": {
+    "type": "rejected",
+    "code": "unsupported_protocol_version",
+    "message": "This tilecastd speaks IPC protocol versions 1 through 1.",
+    "minProtocolVersion": 1,
+    "maxProtocolVersion": 1
+  }
+}

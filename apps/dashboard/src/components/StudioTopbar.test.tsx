@@ -177,11 +177,26 @@ describe("StudioTopbar", () => {
     ]);
   });
 
-  it("keeps the plugin ancestor on a plugin instance route", async () => {
-    vi.spyOn(api, "countdownBar").mockResolvedValue({
-      id: "bar-1",
-      name: "Graduation countdown",
-    } as Awaited<ReturnType<typeof api.countdownBar>>);
+  it("names a plugin instance with the plugin's breadcrumb resource", async () => {
+    // The route and its resource loader come from plugins/countdown-bar;
+    // Studio only follows the contribution.
+    const realFetch = globalThis.fetch;
+    vi.spyOn(globalThis, "fetch").mockImplementation((input, init) =>
+      (typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.href
+          : input.url) === "/api/v1/plugins/countdown-bar/instances/bar-1"
+        ? Promise.resolve(
+            new Response(
+              JSON.stringify({
+                data: { id: "bar-1", name: "Graduation countdown" },
+              }),
+              { status: 200, headers: { "Content-Type": "application/json" } },
+            ),
+          )
+        : realFetch(input, init),
+    );
     renderTopbar("/plugins/countdown-bar/bar-1");
 
     await screen.findByText("Graduation countdown", {
@@ -196,6 +211,22 @@ describe("StudioTopbar", () => {
       },
       { label: "Graduation countdown", href: null, current: true },
     ]);
+  });
+
+  it("translates a plugin breadcrumb from the plugin's own namespace", async () => {
+    await i18n.changeLanguage("es");
+    try {
+      renderTopbar("/plugins/countdown-bar/new");
+      await waitFor(() =>
+        expect(breadcrumbTrail().at(-1)).toEqual({
+          label: "Nueva instancia",
+          href: null,
+          current: true,
+        }),
+      );
+    } finally {
+      await i18n.changeLanguage("en");
+    }
   });
 
   it("names a campaign on its detail route", async () => {

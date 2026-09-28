@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strings"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tilecast/tilecast/apps/server/internal/audit"
 	"github.com/tilecast/tilecast/apps/server/internal/database"
+	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugintest/sampleplugin"
 )
 
 type installationEnvironment struct {
@@ -53,6 +55,11 @@ func withInstallationDatabase(t *testing.T, run func(installationEnvironment)) {
 	if _, err = pool.Exec(ctx, `TRUNCATE organization_settings,users CASCADE`); err != nil {
 		t.Fatal(err)
 	}
+	// The harness calls plugin handlers directly, bypassing the HTTP
+	// middleware that names the calling surface in production. Name the
+	// system surface explicitly so shared-path audit writes attribute
+	// honestly instead of failing loudly on a missing surface.
+	ctx = audit.WithSurface(ctx, audit.SurfaceSystem)
 	env := installationEnvironment{ctx: ctx, pool: pool, service: NewService(pool, nil),
 		userID: uuid.New(), orgID: uuid.New(), screenID: uuid.New()}
 	if _, err = pool.Exec(ctx, `INSERT INTO organization_settings(singleton,organization_name,id) VALUES(TRUE,'Install Test',$1)`, env.orgID); err != nil {
@@ -114,20 +121,21 @@ func TestFreshInstallationHasNoPluginsInstalled(t *testing.T) {
 
 func TestInstallIsIdempotentAuditedAndInvalidatesManifests(t *testing.T) {
 	withInstallationDatabase(t, func(env installationEnvironment) {
+		sample := NewService(env.pool, nil, WithPlugins(sampleplugin.New()))
 		before := env.manifestVersion(t)
-		item, created, err := env.service.Install(env.ctx, CountdownBarID, env.userID)
+		item, created, err := sample.Install(env.ctx, sampleplugin.ID, env.userID)
 		if err != nil || !created || !item.Installed || item.Configured {
 			t.Fatalf("first install = %+v, created=%v, err=%v", item, created, err)
 		}
 		if after := env.manifestVersion(t); after <= before {
 			t.Fatalf("install did not advance the manifest: %d -> %d", before, after)
 		}
-		if _, created, err = env.service.Install(env.ctx, CountdownBarID, env.userID); err != nil || created {
+		if _, created, err = sample.Install(env.ctx, sampleplugin.ID, env.userID); err != nil || created {
 			t.Fatalf("repeat install created=%v err=%v, want idempotent", created, err)
 		}
 		var audits int
-		if err = env.pool.QueryRow(env.ctx, `SELECT count(*) FROM audit_logs WHERE action='plugin.installed' AND resource_id='countdown_bar'
-			AND metadata->>'definitionVersion'='1'`).Scan(&audits); err != nil || audits != 1 {
+		if err = env.pool.QueryRow(env.ctx, `SELECT count(*) FROM audit_logs WHERE action='plugin.installed' AND resource_id='sample_tally'
+			AND metadata->>'definitionVersion'='2'`).Scan(&audits); err != nil || audits != 1 {
 			t.Fatalf("plugin.installed audits = %d (%v), want 1", audits, err)
 		}
 		if _, _, err = env.service.Install(env.ctx, "some_future_plugin", env.userID); !errors.Is(err, ErrPluginNotFound) {
@@ -135,7 +143,7 @@ func TestInstallIsIdempotentAuditedAndInvalidatesManifests(t *testing.T) {
 		}
 		// Forms has no Player surface, so installing it leaves manifests alone.
 		version := env.manifestVersion(t)
-		if _, _, err = env.service.Install(env.ctx, FormsID, env.userID); err != nil {
+		if _, _, err = env.service.Install(env.ctx, "forms", env.userID); err != nil {
 			t.Fatal(err)
 		}
 		if env.manifestVersion(t) != version {
@@ -144,81 +152,13 @@ func TestInstallIsIdempotentAuditedAndInvalidatesManifests(t *testing.T) {
 	})
 }
 
-func TestConfigurationRequiresInstallation(t *testing.T) {
-	withInstallationDatabase(t, func(env installationEnvironment) {
-		if _, err := env.service.CreateCountdownBar(env.ctx, env.userID, validInput()); !errors.Is(err, ErrPluginNotInstalled) {
-			t.Fatalf("countdown create without installation err = %v", err)
-		}
-		if _, err := env.service.CreateBrandBug(env.ctx, env.userID, validBrandBug()); !errors.Is(err, ErrPluginNotInstalled) {
-			t.Fatalf("brand bug create without installation err = %v", err)
-		}
-		if _, err := env.service.CreateNoiseMeter(env.ctx, env.userID, validNoiseMeter()); !errors.Is(err, ErrPluginNotInstalled) {
-			t.Fatalf("noise meter create without installation err = %v", err)
-		}
-		var rows int
-		if err := env.pool.QueryRow(env.ctx, `SELECT count(*) FROM plugin_installations`).Scan(&rows); err != nil || rows != 0 {
-			t.Fatalf("configuration implicitly installed a plugin: %d rows (%v)", rows, err)
-		}
-	})
-}
-
-func TestRemoveIsBlockedWhileResourcesRemain(t *testing.T) {
-	withInstallationDatabase(t, func(env installationEnvironment) {
-		if _, _, err := env.service.Install(env.ctx, NoiseMeterID, env.userID); err != nil {
-			t.Fatal(err)
-		}
-		first, err := env.service.CreateNoiseMeter(env.ctx, env.userID, validNoiseMeter())
-		if err != nil {
-			t.Fatal(err)
-		}
-		second := validNoiseMeter()
-		second.Name = "Library noise"
-		second.Enabled = false
-		secondMeter, err := env.service.CreateNoiseMeter(env.ctx, env.userID, second)
-		if err != nil {
-			t.Fatal(err)
-		}
-		entry := env.catalogEntry(t, NoiseMeterID)
-		if !entry.Installed || !entry.Configured || !entry.Active || entry.InstanceCount != 2 {
-			t.Fatalf("noise meter status = %+v", entry)
-		}
-		err = env.service.Remove(env.ctx, NoiseMeterID, env.userID)
-		var inUse *InUseError
-		if !errors.As(err, &inUse) || len(inUse.Resources) != 1 || inUse.Resources[0].Count != 2 ||
-			inUse.Resources[0].Kind != "noise_meter_instance" || inUse.Resources[0].Label != "meters" {
-			t.Fatalf("remove with meters err = %#v", err)
-		}
-		if inUse.Error() != "Noise Meter cannot be removed while 2 meters remain." {
-			t.Fatalf("message = %q", inUse.Error())
-		}
-		for _, id := range []uuid.UUID{first.ID, secondMeter.ID} {
-			if err = env.service.DeleteNoiseMeter(env.ctx, id, env.userID); err != nil {
-				t.Fatal(err)
-			}
-		}
-		before := env.manifestVersion(t)
-		if err = env.service.Remove(env.ctx, NoiseMeterID, env.userID); err != nil {
-			t.Fatalf("remove empty plugin: %v", err)
-		}
-		if env.manifestVersion(t) <= before {
-			t.Fatal("remove did not advance the manifest")
-		}
-		if err = env.service.Remove(env.ctx, NoiseMeterID, env.userID); err != nil {
-			t.Fatalf("repeat remove should be idempotent, got %v", err)
-		}
-		if entry = env.catalogEntry(t, NoiseMeterID); entry.Installed {
-			t.Fatal("noise meter still installed after remove")
-		}
-	})
-}
-
 func TestEmergencyAlertsRemovalBlockers(t *testing.T) {
 	withInstallationDatabase(t, func(env installationEnvironment) {
-		if _, _, err := env.service.Install(env.ctx, EmergencyAlertsID, env.userID); err != nil {
+		if _, _, err := env.service.Install(env.ctx, "emergency_alerts", env.userID); err != nil {
 			t.Fatal(err)
 		}
 		// Installed with monitoring off is a valid, removable state.
-		entry := env.catalogEntry(t, EmergencyAlertsID)
+		entry := env.catalogEntry(t, "emergency_alerts")
 		if !entry.Installed || entry.Active || entry.Configured {
 			t.Fatalf("installed idle Emergency Alerts = %+v", entry)
 		}
@@ -230,23 +170,37 @@ func TestEmergencyAlertsRemovalBlockers(t *testing.T) {
 			ruleID, env.orgID, env.userID); err != nil {
 			t.Fatal(err)
 		}
-		err := env.service.Remove(env.ctx, EmergencyAlertsID, env.userID)
+		err := env.service.Remove(env.ctx, "emergency_alerts", env.userID)
 		var inUse *InUseError
 		if !errors.As(err, &inUse) || len(inUse.Resources) != 2 {
 			t.Fatalf("remove with monitor and rule err = %#v", err)
 		}
+		if !strings.HasPrefix(inUse.Error(), "Emergency Alerts cannot be removed while ") {
+			t.Fatalf("message = %q", inUse.Error())
+		}
 		if _, err = env.pool.Exec(env.ctx, `UPDATE alert_monitor SET enabled=FALSE; DELETE FROM alert_rules`); err != nil {
 			t.Fatal(err)
 		}
-		if err = env.service.Remove(env.ctx, EmergencyAlertsID, env.userID); err != nil {
+		before := env.manifestVersion(t)
+		if err = env.service.Remove(env.ctx, "emergency_alerts", env.userID); err != nil {
 			t.Fatalf("remove after cleanup: %v", err)
+		}
+		// A Player-facing plugin's removal revises Player manifests.
+		if env.manifestVersion(t) <= before {
+			t.Fatal("remove did not advance the manifest")
+		}
+		if err = env.service.Remove(env.ctx, "emergency_alerts", env.userID); err != nil {
+			t.Fatalf("repeat remove should be idempotent, got %v", err)
+		}
+		if entry = env.catalogEntry(t, "emergency_alerts"); entry.Installed {
+			t.Fatal("Emergency Alerts still installed after remove")
 		}
 	})
 }
 
 func TestFormsRemovalIgnoresDeletedForms(t *testing.T) {
 	withInstallationDatabase(t, func(env installationEnvironment) {
-		if _, _, err := env.service.Install(env.ctx, FormsID, env.userID); err != nil {
+		if _, _, err := env.service.Install(env.ctx, "forms", env.userID); err != nil {
 			t.Fatal(err)
 		}
 		formID := uuid.New()
@@ -255,13 +209,13 @@ func TestFormsRemovalIgnoresDeletedForms(t *testing.T) {
 			t.Fatal(err)
 		}
 		var inUse *InUseError
-		if err := env.service.Remove(env.ctx, FormsID, env.userID); !errors.As(err, &inUse) || inUse.Resources[0].Kind != "form" {
+		if err := env.service.Remove(env.ctx, "forms", env.userID); !errors.As(err, &inUse) || inUse.Resources[0].Kind != "form" {
 			t.Fatalf("remove with a form err = %#v", err)
 		}
 		if _, err := env.pool.Exec(env.ctx, `UPDATE data_sources SET deleted_at=now() WHERE id=$1`, formID); err != nil {
 			t.Fatal(err)
 		}
-		if err := env.service.Remove(env.ctx, FormsID, env.userID); err != nil {
+		if err := env.service.Remove(env.ctx, "forms", env.userID); err != nil {
 			t.Fatalf("remove with only a deleted form: %v", err)
 		}
 		// Removal deletes the installation, never the form's own row.
@@ -274,51 +228,27 @@ func TestFormsRemovalIgnoresDeletedForms(t *testing.T) {
 
 func TestManifestRequiresInstallation(t *testing.T) {
 	withInstallationDatabase(t, func(env installationEnvironment) {
-		if _, _, err := env.service.Install(env.ctx, CountdownBarID, env.userID); err != nil {
+		sample := sampleplugin.New()
+		service := NewService(env.pool, nil, WithPlugins(sample))
+		if _, _, err := service.Install(env.ctx, sampleplugin.ID, env.userID); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := env.service.CreateCountdownBar(env.ctx, env.userID, validInput()); err != nil {
-			t.Fatal(err)
-		}
-		items, err := env.service.ManifestForScreen(env.ctx, env.screenID)
-		if err != nil || len(items) != 1 || items[0].Type != "countdown_bar" {
+		sample.Seed("Lobby")
+		items, err := service.ManifestForScreen(env.ctx, env.screenID)
+		if err != nil || len(items) != 1 || items[0].Type != "sample_tally" {
 			t.Fatalf("installed manifest = %+v (%v)", items, err)
 		}
 		// Configuration left behind without an installation — a restore, a
 		// downgrade, or a manual edit — must not reach a Player.
-		if _, err = env.pool.Exec(env.ctx, `DELETE FROM plugin_installations WHERE plugin_id='countdown_bar'`); err != nil {
+		if _, err = env.pool.Exec(env.ctx, `DELETE FROM plugin_installations WHERE plugin_id='sample_tally'`); err != nil {
 			t.Fatal(err)
 		}
-		if items, err = env.service.ManifestForScreen(env.ctx, env.screenID); err != nil || len(items) != 0 {
+		if items, err = service.ManifestForScreen(env.ctx, env.screenID); err != nil || len(items) != 0 {
 			t.Fatalf("uninstalled manifest = %+v (%v), want no plugins", items, err)
 		}
-		entry := env.catalogEntry(t, CountdownBarID)
-		if entry.Installed || len(entry.Attention) != 1 || entry.Attention[0].Code != "data_without_installation" {
-			t.Fatalf("orphaned countdown entry = %+v", entry)
-		}
-	})
-}
-
-func TestNoiseHistoryIgnoredWhenUninstalled(t *testing.T) {
-	withInstallationDatabase(t, func(env installationEnvironment) {
-		if _, _, err := env.service.Install(env.ctx, NoiseMeterID, env.userID); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := env.service.CreateNoiseMeter(env.ctx, env.userID, validNoiseMeter()); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := env.pool.Exec(env.ctx, `DELETE FROM plugin_installations WHERE plugin_id='noise_meter'`); err != nil {
-			t.Fatal(err)
-		}
-		record := NoiseHistoryRecord{StartedAt: time.Now().UTC().Add(-time.Minute).Truncate(10 * time.Second),
-			AverageLevel: 40, PeakLevel: 60, MonitoredMS: 10000}
-		accepted, err := env.service.RecordNoiseHistory(env.ctx, env.screenID, []NoiseHistoryRecord{record})
-		if err != nil || accepted != 1 {
-			t.Fatalf("uninstalled history accepted=%d err=%v, want consumed so the Player stops resending", accepted, err)
-		}
-		var stored int
-		if err = env.pool.QueryRow(env.ctx, `SELECT count(*) FROM noise_meter_history`).Scan(&stored); err != nil || stored != 0 {
-			t.Fatalf("uninstalled history stored %d rows (%v)", stored, err)
+		entry, err := service.CatalogItem(env.ctx, sampleplugin.ID)
+		if err != nil || entry.Installed || len(entry.Attention) != 1 || entry.Attention[0].Code != "data_without_installation" {
+			t.Fatalf("orphaned sample entry = %+v (%v)", entry, err)
 		}
 	})
 }
@@ -352,6 +282,57 @@ func TestUnknownInstallationsArePreservedAndInert(t *testing.T) {
 		}
 		if err = env.service.Remove(env.ctx, "some_future_plugin", env.userID); !errors.Is(err, ErrPluginNotFound) {
 			t.Fatalf("second removal of unknown plugin err = %v", err)
+		}
+	})
+}
+
+// Brand Bug and Noise Meter were removed. An installation that used them
+// keeps its rows and data, nothing runs or projects for them, and the catalog
+// says they are retired rather than from a newer release.
+func TestRetiredPluginsStayInertWithTheirData(t *testing.T) {
+	withInstallationDatabase(t, func(env installationEnvironment) {
+		exec := func(query string, args ...any) {
+			t.Helper()
+			if _, err := env.pool.Exec(env.ctx, query, args...); err != nil {
+				t.Fatal(err)
+			}
+		}
+		for _, id := range []string{"brand_bug", "noise_meter", "some_future_plugin"} {
+			exec(`INSERT INTO plugin_installations(organization_id,plugin_id) VALUES($1,$2)`, env.orgID, id)
+		}
+		exec(`INSERT INTO brand_bug_instances(id,organization_id,name,corner,text,width_percent,text_size_percent,opacity_percent,
+			margin_percent,text_color,background_style,enabled,target_scope,created_by)
+			VALUES($1,$2,'Sponsor','top_right','Sponsor',12,3,85,3,'#FFFFFF','scrim',TRUE,'all',$3)`, uuid.New(), env.orgID, env.userID)
+		exec(`INSERT INTO noise_meter_instances(id,organization_id,name,warning_level,loud_level,sensitivity,trigger_hold_ms,
+			clear_hold_ms,display_mode,height_px,enabled,target_scope,created_by)
+			VALUES($1,$2,'Cafeteria',60,80,100,1000,3000,'overlay',96,TRUE,'all',$3)`, uuid.New(), env.orgID, env.userID)
+
+		catalog, err := env.service.Catalog(env.ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		retired := map[string]bool{}
+		for _, item := range catalog.UnsupportedInstallations {
+			retired[item.PluginID] = item.Retired
+		}
+		if len(retired) != 3 || !retired["brand_bug"] || !retired["noise_meter"] || retired["some_future_plugin"] {
+			t.Fatalf("unsupported installations = %+v", catalog.UnsupportedInstallations)
+		}
+		for _, item := range catalog.Items {
+			if item.ID == "brand_bug" || item.ID == "noise_meter" {
+				t.Fatalf("retired plugin %s is offered in the catalog", item.ID)
+			}
+		}
+		if items, err := env.service.ManifestForScreen(env.ctx, env.screenID); err != nil || len(items) != 0 {
+			t.Fatalf("retired plugin projected: %+v (%v)", items, err)
+		}
+		// The row can be removed; the plugin's data stays.
+		if err = env.service.Remove(env.ctx, "brand_bug", env.userID); err != nil {
+			t.Fatal(err)
+		}
+		var marks int
+		if err = env.pool.QueryRow(env.ctx, `SELECT count(*) FROM brand_bug_instances`).Scan(&marks); err != nil || marks != 1 {
+			t.Fatalf("brand bug data after removal = %d (%v)", marks, err)
 		}
 	})
 }

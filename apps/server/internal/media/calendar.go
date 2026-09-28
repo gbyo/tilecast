@@ -429,7 +429,7 @@ func (s *Service) DataSourceRefreshDiagnostics(ctx context.Context, id uuid.UUID
 }
 
 func (s *Service) PlayerDataSourceConfiguration(ctx context.Context, assetID uuid.UUID, provider string, raw json.RawMessage) (json.RawMessage, error) {
-	if provider != "calendar" && provider != "rss" && provider != "atom" && provider != "json" && provider != "csv" {
+	if provider != "calendar" && provider != "rss" && provider != "atom" && provider != "feed" && provider != "json" && provider != "csv" {
 		return raw, nil
 	}
 	if provider != "calendar" {

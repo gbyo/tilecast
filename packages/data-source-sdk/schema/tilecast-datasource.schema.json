@@ -1,0 +1,237 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "$schema": { "type": "string" },
+    "apiVersion": { "type": "number", "const": 1 },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{0,79}$" },
+    "version": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "description": { "type": "string", "minLength": 1, "maxLength": 280 },
+    "category": { "type": "string", "minLength": 1, "maxLength": 40 },
+    "icon": { "type": "string", "minLength": 1, "maxLength": 40 },
+    "configurationSchema": {
+      "type": "object",
+      "properties": {
+        "fields": { "type": "array", "items": { "$ref": "#/$defs/__schema0" } }
+      },
+      "required": ["fields"],
+      "additionalProperties": false
+    },
+    "defaultConfiguration": {
+      "type": "object",
+      "propertyNames": { "type": "string" },
+      "additionalProperties": {}
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["scalar", "records", "time_series", "list", "object"]
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$" },
+              "label": { "type": "string", "minLength": 1, "maxLength": 80 },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "text",
+                  "number",
+                  "integer",
+                  "percent",
+                  "currency",
+                  "boolean",
+                  "date",
+                  "datetime",
+                  "duration",
+                  "url",
+                  "asset"
+                ]
+              },
+              "currency": { "type": "string" },
+              "currencyConfigKey": {
+                "type": "string",
+                "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+              },
+              "required": { "type": "boolean" }
+            },
+            "required": ["key", "label", "type"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["kind", "fields"],
+      "additionalProperties": false
+    },
+    "adapterId": {
+      "type": "string",
+      "enum": [
+        "calendar",
+        "structured",
+        "manual_table",
+        "weather",
+        "transit",
+        "cap_alerts",
+        "air_quality",
+        "manual_object",
+        "manual_records",
+        "http_records",
+        "form_records"
+      ]
+    },
+    "fetch": {
+      "type": "object",
+      "properties": {
+        "urlTemplate": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "format": { "type": "string", "enum": ["json", "csv"] },
+        "accept": { "type": "string", "maxLength": 120 },
+        "recordsPath": { "type": "string", "maxLength": 200 },
+        "mapping": {
+          "type": "object",
+          "propertyNames": { "type": "string" },
+          "additionalProperties": { "type": "string" }
+        },
+        "maximumRecords": { "type": "integer", "minimum": 0, "maximum": 500 },
+        "refreshSeconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": ["urlTemplate", "format", "mapping"],
+      "additionalProperties": false
+    },
+    "refreshBehavior": { "type": "string", "enum": ["manual", "interval"] },
+    "requiresManifestV13": { "type": "boolean" },
+    "setup": {
+      "type": "object",
+      "properties": {
+        "eyebrow": { "type": "string", "maxLength": 80 },
+        "tip": { "type": "string", "maxLength": 500 },
+        "steps": {
+          "maxItems": 12,
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 280 }
+        },
+        "emptyState": { "type": "string", "maxLength": 280 }
+      },
+      "additionalProperties": false
+    },
+    "attribution": { "type": "string", "maxLength": 280 },
+    "deprecation": {
+      "type": "object",
+      "properties": {
+        "deprecated": { "type": "boolean" },
+        "replacement": { "type": "string", "maxLength": 80 },
+        "message": { "type": "string", "maxLength": 280 }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "apiVersion",
+    "id",
+    "version",
+    "name",
+    "description",
+    "category",
+    "icon",
+    "configurationSchema",
+    "defaultConfiguration",
+    "outputSchema",
+    "adapterId"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "__schema0": {
+      "type": "object",
+      "properties": {
+        "key": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "description": { "type": "string", "maxLength": 280 },
+        "control": {
+          "type": "string",
+          "enum": [
+            "text",
+            "multiline_text",
+            "number",
+            "integer",
+            "boolean",
+            "select",
+            "color",
+            "date",
+            "datetime",
+            "timezone",
+            "currency_code",
+            "url",
+            "data_source",
+            "data_source_field",
+            "media_asset",
+            "repeating_group"
+          ]
+        },
+        "required": { "type": "boolean" },
+        "default": {},
+        "minimum": { "type": "number" },
+        "maximum": { "type": "number" },
+        "minLength": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "maxLength": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "value": { "type": "string" },
+              "label": { "type": "string" }
+            },
+            "required": ["value", "label"],
+            "additionalProperties": false
+          }
+        },
+        "maximumItems": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "acceptedDataSourceKinds": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "requiredFields": {
+          "type": "object",
+          "propertyNames": { "type": "string" },
+          "additionalProperties": { "type": "string" }
+        },
+        "dataSourceFieldTypes": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "mediaTypes": { "type": "array", "items": { "type": "string" } },
+        "ui": {
+          "type": "object",
+          "propertyNames": { "type": "string" },
+          "additionalProperties": {}
+        },
+        "itemFields": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/__schema0" }
+        }
+      },
+      "required": ["key", "label", "control"],
+      "additionalProperties": false
+    }
+  }
+}

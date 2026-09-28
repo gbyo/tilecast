@@ -1,0 +1,154 @@
+{
+  "$schema": "../../packages/widget-sdk/schema/tilecast-widget.schema.json",
+  "apiVersion": 1,
+  "id": "image-notice",
+  "version": 1,
+  "name": "Image Notice",
+  "description": "Show one uploaded image with an optional caption.",
+  "category": "Essentials",
+  "icon": "image",
+  "thumbnail": "image-notice",
+  "runtime": "native",
+  "configurationSchema": {
+    "fields": [
+      {
+        "key": "imageAssetId",
+        "label": "Image",
+        "description": "An uploaded image from the Media library.",
+        "control": "media_asset",
+        "required": true,
+        "mediaTypes": ["image"],
+        "ui": { "section": "content", "order": 1 }
+      },
+      {
+        "key": "fit",
+        "label": "Image fit",
+        "control": "select",
+        "required": true,
+        "default": "contain",
+        "options": [
+          { "value": "contain", "label": "Fit inside" },
+          { "value": "cover", "label": "Fill and crop" },
+          { "value": "stretch", "label": "Stretch" }
+        ],
+        "ui": { "section": "appearance", "order": 1 }
+      },
+      {
+        "key": "caption",
+        "label": "Caption",
+        "control": "text",
+        "default": "",
+        "maxLength": 200,
+        "ui": { "section": "content", "order": 2 }
+      },
+      {
+        "key": "showCaption",
+        "label": "Show caption",
+        "control": "boolean",
+        "default": true,
+        "ui": { "section": "content", "order": 3 }
+      },
+      {
+        "key": "foregroundColor",
+        "label": "Caption color",
+        "control": "color",
+        "required": true,
+        "default": "#ffffff",
+        "ui": { "section": "appearance", "order": 3 }
+      },
+      {
+        "key": "backgroundColor",
+        "label": "Background color",
+        "control": "color",
+        "required": true,
+        "default": "#000000",
+        "ui": { "section": "appearance", "order": 2 }
+      }
+    ]
+  },
+  "defaultConfiguration": {
+    "fit": "contain",
+    "caption": "",
+    "showCaption": true,
+    "foregroundColor": "#ffffff",
+    "backgroundColor": "#000000"
+  },
+  "presentationSchemaVersion": 1,
+  "presentationTemplate": {
+    "type": "surface",
+    "props": {
+      "backgroundColor": { "$config": "backgroundColor" },
+      "padding": 0
+    },
+    "children": [
+      {
+        "type": "column",
+        "props": { "align": "center", "gap": 8 },
+        "children": [
+          {
+            "type": "asset_image",
+            "props": {
+              "variantId": { "$config": "imageVariantId" },
+              "fit": { "$config": "fit" },
+              "fallbackColor": { "$config": "backgroundColor" },
+              "contentDescription": { "$config": "caption" }
+            }
+          },
+          {
+            "$ifConfig": "showCaption",
+            "type": "text",
+            "props": {
+              "role": "label",
+              "align": "center",
+              "color": { "$config": "foregroundColor" }
+            },
+            "binding": {
+              "source": "literal",
+              "value": { "$config": "caption" }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "requiredCapabilities": {
+    "layout.surface": 1,
+    "layout.column": 1,
+    "content.asset_image": 2,
+    "content.text": 1,
+    "binding.core": 2
+  },
+  "emptyStateBehavior": "text",
+  "requiresManifestV13": true,
+  "setup": {
+    "eyebrow": "No Data Source needed",
+    "tip": "The image is downloaded to the Player, so it keeps showing while the network is down.",
+    "steps": [
+      "Upload the image to the Media library first.",
+      "Select it here and choose how it should fit the screen.",
+      "Optionally add a caption below the image."
+    ]
+  },
+  "deprecation": {
+    "deprecated": true,
+    "message": "Place the image from Media directly in a playlist, a Layout, or Quick Present. Saved Image Notice content keeps working."
+  },
+  "component": {
+    "type": "tilecast.image-notice",
+    "version": 1,
+    "tagName": "tc-widget-image-notice",
+    "entrypoint": "./runtime/index.ts",
+    "configTemplate": {
+      "image": {
+        "assetId": { "$config": "imageAssetId", "default": "" },
+        "variantId": { "$config": "imageVariantId", "default": "" }
+      },
+      "fit": { "$config": "fit", "default": "contain" },
+      "caption": { "$config": "caption", "when": "showCaption", "default": "" },
+      "background": { "$config": "backgroundColor", "default": "" },
+      "foreground": { "$config": "foregroundColor", "default": "" }
+    },
+    "empty": "render"
+  },
+  "compatibility": { "fallback": "template" }
+}

@@ -1,0 +1,58 @@
+---
+title: Bundle Widgets and Data Sources
+description: Ship an ordinary Widget or declarative Data Source inside a plugin directory.
+---
+
+import { FileTree } from "@astrojs/starlight/components";
+
+A plugin can bundle ordinary Widgets and declarative Data Sources. A bundled module is the same module it would be at the repository root: the same manifest, the same conformance, the same runtime. Only its ownership differs. Installing the plugin makes its modules available for creation and playback. You can't remove the plugin while saved content still uses its modules; see [How removal treats bundled content](#how-removal-treats-bundled-content).
+
+## Know the plugin ID
+
+The plugin directory is a location. The `id` in `tilecast.plugin.json` is the identity. They can differ: `plugins/emergency-alerts/` is owned by `emergency_alerts`. Every command below accepts either form and resolves it through the manifest, and every catalog entry records the manifest ID, never the directory name.
+
+## Bundle a Widget
+
+Scaffold the Widget inside the plugin directory:
+
+```sh
+npm run widgets:new -- scoreboard --plugin athletics
+```
+
+The result is an ordinary Widgets V2 Widget: `tilecast.widget.json`, a runtime entry point, and fixtures. No second Widget type exists, and Plugin API v1 does not change.
+
+## Bundle a declarative Data Source
+
+Scaffold the module inside the plugin directory:
+
+```sh
+npm run data-sources:new -- schedule --plugin athletics --adapter http_records
+```
+
+The adapter is one of `manual_object`, `manual_records`, or `http_records`. Those are the only adapters with a declarative binding. A module that needs OAuth, proprietary authentication, or domain workflows is executable code and belongs on `plugin.DataSourceProvider` instead; see [Publish a Data Source or private asset](../data-sources/).
+
+The result is a `tilecast.datasource.json` manifest plus a `fixtures/` sample configuration. The manifest carries no scripts, no SQL, and no credentials.
+
+## Check the contribution
+
+Validate the whole plugin, including nested modules:
+
+```sh
+npm run plugins:check
+```
+
+Run the full Widget and Data Source conformance over the same directories:
+
+```sh
+npm run extensions:check
+```
+
+Both commands fail when a generated file is stale. Regenerate with `npm run extensions:generate` and check again.
+
+## How removal treats bundled content
+
+Removing a plugin never deletes the content authors made from its modules. Removal is blocked while rows still use a contributed provider, with an entry such as `2 Data Sources` and a `delete` resolution. Delete the rows through the library first, then remove the plugin.
+
+A restored database can hold content from a plugin that isn't installed. That content stays saved but unused: Tilecast doesn't assign it, send it to screens, or refresh its data until you install the plugin again.
+
+For the exact contracts, use the [Widgets V2 engineering reference](https://github.com/gbyo/tilecast/blob/main/docs/widgets-v2.md), the [Data Source modules engineering reference](https://github.com/gbyo/tilecast/blob/main/docs/data-source-modules.md), and the [Plugin API v1 engineering reference](https://github.com/gbyo/tilecast/blob/main/docs/plugin-api.md).

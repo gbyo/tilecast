@@ -1,0 +1,12 @@
+{
+  "name": "Default",
+  "description": "A Clock saved with the Studio defaults: organization zone and format, no seconds, no date.",
+  "configuration": {
+    "timezone": "",
+    "format": "locale",
+    "showSeconds": false,
+    "foregroundColor": "#F5F7FA",
+    "backgroundColor": "#0E141B"
+  },
+  "expect": "ready"
+}

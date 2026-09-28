@@ -18,7 +18,9 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
+	"github.com/tilecast/tilecast/apps/server/internal/ids"
 	"github.com/tilecast/tilecast/apps/server/internal/manifestchanges"
+	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
 
 const UploadLifetime = 24 * time.Hour
@@ -40,7 +42,67 @@ type Service struct {
 	cfg         Config
 	invalidator AssetInvalidator
 	definitions *contentdefs.Catalog
+	pluginGate  PluginSourceGate
 	hooks       FinalizationHooks
+	// contributed are plugin-owned Data Source providers. They overlay the
+	// static registry for traits, configuration shape, field discovery,
+	// and authoring-surface metadata; core never names them.
+	contributed map[string]plugin.DataSourceProvider
+}
+
+// SetDataSourceProviders registers plugin-owned Data Source providers. The
+// host calls it once at startup with every bundled plugin's contribution;
+// a provider with no contribution is unknown to generic paths. Malformed
+// provider IDs, duplicate contributions, and collisions with static core
+// providers are startup errors, never silent overwrites.
+func (s *Service) SetDataSourceProviders(providers ...plugin.DataSourceProvider) error {
+	seen := map[string]bool{}
+	for _, provider := range providers {
+		if provider == nil {
+			continue
+		}
+		id := provider.ProviderID()
+		if !plugin.ProviderIDPattern.MatchString(id) {
+			return fmt.Errorf("data source provider id %q is malformed", id)
+		}
+		if seen[id] {
+			return fmt.Errorf("duplicate data source provider %q", id)
+		}
+		if IsStaticDataSourceProvider(id) {
+			return fmt.Errorf("data source provider %q collides with a core provider", id)
+		}
+		seen[id] = true
+	}
+	if s.contributed == nil {
+		s.contributed = map[string]plugin.DataSourceProvider{}
+	}
+	for _, provider := range providers {
+		if provider == nil {
+			continue
+		}
+		s.contributed[provider.ProviderID()] = provider
+	}
+	return nil
+}
+
+// contributedProvider returns the plugin contribution for a provider id, if
+// one is registered.
+func (s *Service) contributedProvider(id string) (plugin.DataSourceProvider, bool) {
+	if s == nil {
+		return nil, false
+	}
+	provider, ok := s.contributed[id]
+	return provider, ok
+}
+
+// externallyManaged reports whether a provider is authored through its own
+// plugin API rather than the generic Data Source paths.
+func (s *Service) externallyManaged(id string) (plugin.DataSourceProvider, bool) {
+	provider, ok := s.contributedProvider(id)
+	if !ok || !provider.ManagedExternally() {
+		return nil, false
+	}
+	return provider, true
 }
 
 // FinalizationHooks is intentionally empty in production. Tests use the
@@ -252,7 +314,7 @@ func (s *Service) FinalizeUpload(ctx context.Context, id, userID uuid.UUID) (Ass
 	if status != UploadFinalizing && offset != expected {
 		return Asset{}, ErrUploadIncomplete
 	}
-	assetID, variantID := uuid.New(), uuid.New()
+	assetID, variantID := ids.New(ctx), uuid.New()
 	if preparedAssetID != nil {
 		assetID = *preparedAssetID
 	}

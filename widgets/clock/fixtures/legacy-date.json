@@ -1,0 +1,25 @@
+{
+  "name": "Legacy Date",
+  "description": "A saved Date Widget maps into the Clock date mode.",
+  "provider": "date",
+  "configuration": {
+    "timezone": "Asia/Tokyo",
+    "format": "medium",
+    "foregroundColor": "#ffffff",
+    "backgroundColor": "#000000",
+    "textScale": 150
+  },
+  "expectConfig": {
+    "mode": "date",
+    "timeZone": "Asia/Tokyo",
+    "format": "locale",
+    "showSeconds": false,
+    "style": "standard",
+    "showDate": false,
+    "dateFormat": "medium",
+    "zones": [],
+    "background": "#000000",
+    "foreground": "#ffffff"
+  },
+  "expect": "ready"
+}
