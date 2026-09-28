@@ -142,10 +142,7 @@ export function retryUpdateScreen(
   screenId: string,
   csrfToken: string,
 ): Promise<{ state: string }> {
-  return apiPost<
-    "/api/v1/update-deployments/{id}/screens/{screenId}/retry",
-    { state: string }
-  >("/api/v1/update-deployments/{id}/screens/{screenId}/retry", {
+  return apiPost("/api/v1/update-deployments/{id}/screens/{screenId}/retry", {
     params: { path: { id: deploymentId, screenId } },
     csrfToken,
   });
