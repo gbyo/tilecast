@@ -12,6 +12,7 @@ import type {
   CampaignPreflight,
   CampaignRelease,
   CampaignSnapshot,
+  ContentReview,
   ContentReviewQueue,
   ContentSubmission,
   ContentSubmissionList,
@@ -173,10 +174,7 @@ export function scheduleContentSubmission(
   requestedPublicationAt: string,
   csrfToken: string,
 ): Promise<ContentSubmission> {
-  return apiPost<
-    "/api/v1/content-submissions/{id}/schedule",
-    ContentSubmission
-  >("/api/v1/content-submissions/{id}/schedule", {
+  return apiPost("/api/v1/content-submissions/{id}/schedule", {
     params: { path: { id } },
     body: { requestedPublicationAt },
     csrfToken,
@@ -187,10 +185,7 @@ export function cancelContentSchedule(
   id: string,
   csrfToken: string,
 ): Promise<ContentSubmission> {
-  return apiPost<
-    "/api/v1/content-submissions/{id}/cancel-schedule",
-    ContentSubmission
-  >("/api/v1/content-submissions/{id}/cancel-schedule", {
+  return apiPost("/api/v1/content-submissions/{id}/cancel-schedule", {
     params: { path: { id } },
     csrfToken,
   });
@@ -209,10 +204,9 @@ export function listPublicationHistory(
 }
 
 export function listContentReviews(state = ""): Promise<ContentReviewQueue> {
-  return apiGet<"/api/v1/content-reviews", ContentReviewQueue>(
-    "/api/v1/content-reviews",
-    { params: { query: state ? { state } : {} } },
-  );
+  return apiGet("/api/v1/content-reviews", {
+    params: { query: state ? { state } : {} },
+  });
 }
 
 export function decideContentReview(
@@ -220,27 +214,26 @@ export function decideContentReview(
   id: string,
   body: { approve: boolean; note?: string; revision?: number },
   csrfToken: string,
-): Promise<unknown> {
-  return apiPost<"/api/v1/content-reviews/{type}/{id}", unknown>(
-    "/api/v1/content-reviews/{type}/{id}",
-    { params: { path: { type: contentType, id } }, body, csrfToken },
-  );
+): Promise<ContentReview> {
+  return apiPost("/api/v1/content-reviews/{type}/{id}", {
+    params: { path: { type: contentType, id } },
+    body,
+    csrfToken,
+  });
 }
 
 export function listContentSubmissions(
   state: SubmissionFilter = "",
 ): Promise<ContentSubmissionList> {
-  return apiGet<"/api/v1/content-submissions", ContentSubmissionList>(
-    "/api/v1/content-submissions",
-    { params: { query: state ? { state } : {} } },
-  );
+  return apiGet("/api/v1/content-submissions", {
+    params: { query: state ? { state } : {} },
+  });
 }
 
 export function getContentSubmission(id: string): Promise<ContentSubmission> {
-  return apiGet<"/api/v1/content-submissions/{id}", ContentSubmission>(
-    "/api/v1/content-submissions/{id}",
-    { params: { path: { id } } },
-  );
+  return apiGet("/api/v1/content-submissions/{id}", {
+    params: { path: { id } },
+  });
 }
 
 export function submitContent(
@@ -250,14 +243,11 @@ export function submitContent(
   requestedPublicationAt?: string,
   expectedRevision?: number,
 ): Promise<ContentSubmission> {
-  return apiPost<"/api/v1/content-submissions/{type}/{id}", ContentSubmission>(
-    "/api/v1/content-submissions/{type}/{id}",
-    {
-      params: { path: { type: contentType, id } },
-      body: { requestedPublicationAt, expectedRevision },
-      csrfToken,
-    },
-  );
+  return apiPost("/api/v1/content-submissions/{type}/{id}", {
+    params: { path: { type: contentType, id } },
+    body: { requestedPublicationAt, expectedRevision },
+    csrfToken,
+  });
 }
 
 export function approveContentSubmission(
@@ -265,10 +255,11 @@ export function approveContentSubmission(
   note: string,
   csrfToken: string,
 ): Promise<ContentSubmission> {
-  return apiPost<"/api/v1/content-submissions/{id}/approve", ContentSubmission>(
-    "/api/v1/content-submissions/{id}/approve",
-    { params: { path: { id } }, body: { note }, csrfToken },
-  );
+  return apiPost("/api/v1/content-submissions/{id}/approve", {
+    params: { path: { id } },
+    body: { note },
+    csrfToken,
+  });
 }
 
 export function requestContentChanges(
@@ -276,10 +267,7 @@ export function requestContentChanges(
   note: string,
   csrfToken: string,
 ): Promise<ContentSubmission> {
-  return apiPost<
-    "/api/v1/content-submissions/{id}/request-changes",
-    ContentSubmission
-  >("/api/v1/content-submissions/{id}/request-changes", {
+  return apiPost("/api/v1/content-submissions/{id}/request-changes", {
     params: { path: { id } },
     body: { note },
     csrfToken,
