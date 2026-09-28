@@ -15097,7 +15097,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["UploadSession"];
+          };
+        };
       };
       /** @description Upload exceeds the configured maximum */
       413: {
@@ -15216,7 +15220,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["Asset"];
+          };
+        };
       };
       /** @description Upload is incomplete */
       409: {

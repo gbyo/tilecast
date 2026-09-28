@@ -6631,6 +6631,20 @@ type TakeoverScreenState struct {
 	State           string             `json:"state"`
 }
 
+// UploadSession defines model for UploadSession.
+type UploadSession struct {
+	AssetId          *openapi_types.UUID `json:"assetId,omitempty"`
+	ExpiresAt        time.Time           `json:"expiresAt"`
+	Filename         string              `json:"filename"`
+	Id               openapi_types.UUID  `json:"id"`
+	MaximumSizeBytes int64               `json:"maximumSizeBytes"`
+	MimeType         string              `json:"mimeType"`
+	Offset           int64               `json:"offset"`
+	SizeBytes        int64               `json:"sizeBytes"`
+	Status           UploadStatus        `json:"status"`
+	UploadEndpoint   string              `json:"uploadEndpoint"`
+}
+
 // UploadStatus defines model for UploadStatus.
 type UploadStatus string
 
@@ -54212,6 +54226,17 @@ func (r RetryUpdateDeploymentScreenResponse) ContentType() string {
 type CreateUploadSessionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data UploadSession `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateUploadSessionResponse) GetJSON201() *struct {
+	Data UploadSession `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -54358,6 +54383,17 @@ func (r AppendUploadBytesResponse) ContentType() string {
 type CompleteUploadResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data Asset `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CompleteUploadResponse) GetJSON200() *struct {
+	Data Asset `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -70550,6 +70586,24 @@ func ParseCreateUploadSessionResponse(rsp *http.Response) (*CreateUploadSessionR
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data UploadSession `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 413:
+		break // No content-type
+
+	case rsp.StatusCode == 507:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -70646,6 +70700,24 @@ func ParseCompleteUploadResponse(rsp *http.Response) (*CompleteUploadResponse, e
 	response := &CompleteUploadResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data Asset `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 415:
+		break // No content-type
+
 	}
 
 	return response, nil
