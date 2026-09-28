@@ -3516,7 +3516,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Publish layout. Requires an authenticated dashboard user. */
+    /** @description Publish layout. Requires an authenticated dashboard user. Publishes the draft the caller read first: the request carries the draft revision it saw, and a 409 means someone else published first. A layout under editorial review answers 202 with the submission instead of publishing. */
     post: operations["publishLayout"];
     delete?: never;
     options?: never;
@@ -6411,6 +6411,216 @@ export interface components {
       /** Format: int64 */
       newRevision: number;
       skippedItems: number;
+    };
+    LayoutPrimitiveBinding: {
+      /** Format: uuid */
+      dataSourceId: string;
+      field: string;
+      prefix?: string;
+      suffix?: string;
+      fallbackText?: string;
+      hideWhenEmpty?: boolean;
+      /** @enum {string} */
+      format?:
+        "text" | "date-short" | "date-long" | "number" | "integer" | "currency";
+    };
+    LayoutPrimitive: {
+      /** @enum {string} */
+      kind: "text" | "rectangle" | "circle" | "line" | "group";
+      text?: string;
+      /**
+       * @description Only bundled fonts are accepted for text primitives
+       * @enum {string}
+       */
+      fontFamily?: "Inter" | "Roboto" | "Source Sans 3" | "Noto Sans";
+      fontSize?: number;
+      /** @enum {integer} */
+      fontWeight?: 400 | 500 | 600 | 700 | 800;
+      /** @enum {string} */
+      textAlign?: "left" | "center" | "right";
+      /** @enum {string} */
+      verticalAlign?: "top" | "center" | "bottom";
+      color?: string;
+      backgroundColor?: string;
+      lineHeight?: number;
+      letterSpacing?: number;
+      padding?: number;
+      borderWidth?: number;
+      borderColor?: string;
+      cornerRadius?: number;
+      maximumLines?: number;
+      /** @enum {string} */
+      overflow?: "clip" | "ellipsis";
+      autoFit?: boolean;
+      minimumFontSize?: number;
+      fillColor?: string;
+      strokeColor?: string;
+      strokeWidth?: number;
+      binding?: components["schemas"]["LayoutPrimitiveBinding"];
+    };
+    LayoutPlayback: {
+      /** @enum {string} */
+      fit?: "contain" | "cover" | "stretch";
+      muted?: boolean;
+      loop?: boolean;
+      /** @enum {string} */
+      fallback?: "hide" | "background" | "previous";
+      cornerRadius?: number;
+    };
+    /** @description Widget placement override bag. Unknown keys are rejected, so only the keys below are accepted. */
+    LayoutPlacementOverrides: {
+      /** @enum {string} */
+      fit?: "contain" | "cover" | "stretch";
+      /** @enum {string} */
+      alignment?: "left" | "center" | "right";
+      foregroundColor?: string;
+      backgroundColor?: string;
+      /** @enum {string} */
+      fallbackVisibility?: "show" | "hide";
+      muted?: boolean;
+    };
+    LayoutPlacement: {
+      /** Format: uuid */
+      id: string;
+      /** @enum {string} */
+      type: "widget" | "asset" | "playlistZone" | "primitive";
+      name: string;
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      layer: number;
+      opacity: number;
+      visible: boolean;
+      locked: boolean;
+      /** Format: uuid */
+      groupId?: string;
+      /** Format: uuid */
+      widgetId?: string;
+      /** Format: uuid */
+      assetId?: string;
+      /** Format: uuid */
+      variantId?: string;
+      /** Format: uuid */
+      playlistId?: string;
+      overrides?: components["schemas"]["LayoutPlacementOverrides"];
+      primitive?: components["schemas"]["LayoutPrimitive"];
+      playback?: components["schemas"]["LayoutPlayback"];
+    };
+    LayoutCanvas: {
+      width: number;
+      height: number;
+      /** @enum {string} */
+      orientation: "landscape" | "portrait" | "custom";
+      backgroundColor: string;
+      /** Format: uuid */
+      backgroundAssetId?: string;
+      /** Format: uuid */
+      backgroundVariantId?: string;
+      safeAreaPercent: number;
+    };
+    LayoutDocument: {
+      /**
+       * @description Only schema version 2 is accepted.
+       * @enum {integer}
+       */
+      schemaVersion: 2;
+      canvas: components["schemas"]["LayoutCanvas"];
+      placements: components["schemas"]["LayoutPlacement"][];
+    };
+    LayoutDependency: {
+      /** @enum {string} */
+      type: "widget" | "asset" | "playlist" | "data_source";
+      /** Format: uuid */
+      id: string;
+    };
+    LayoutUsageItem: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+    };
+    LayoutUsage: {
+      screens: components["schemas"]["LayoutUsageItem"][];
+      schedules: components["schemas"]["LayoutUsageItem"][];
+      campaigns: components["schemas"]["LayoutUsageItem"][];
+    };
+    Layout: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      description: string;
+      /** @enum {string} */
+      orientation: "landscape" | "portrait" | "custom";
+      canvasWidth: number;
+      canvasHeight: number;
+      draft: components["schemas"]["LayoutDocument"];
+      /** Format: int64 */
+      draftRevision: number;
+      /** Format: uuid */
+      publishedRevisionId?: string;
+      /** Format: int64 */
+      publishedRevision?: number;
+      /** Format: date-time */
+      publishedAt?: string;
+      hasUnpublishedChanges: boolean;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      updatedAt: string;
+      previewImageUrl?: string;
+      dependencies: components["schemas"]["LayoutDependency"][];
+      usage: components["schemas"]["LayoutUsage"];
+    };
+    /** @description Compact Layout row returned by the Layout list. The editable draft, dependency list, and usage breakdown require the detail read. */
+    LayoutSummary: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      description: string;
+      /** @enum {string} */
+      orientation: "landscape" | "portrait" | "custom";
+      canvasWidth: number;
+      canvasHeight: number;
+      /** Format: int64 */
+      draftRevision: number;
+      /** Format: uuid */
+      publishedRevisionId?: string;
+      /** Format: int64 */
+      publishedRevision?: number;
+      /** Format: date-time */
+      publishedAt?: string;
+      hasUnpublishedChanges: boolean;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      updatedAt: string;
+      previewImageUrl?: string;
+    };
+    LayoutList: {
+      items: components["schemas"]["LayoutSummary"][];
+      total: number;
+      page: number;
+      pageSize: number;
+    };
+    LayoutRevision: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      layoutId: string;
+      /** Format: int64 */
+      revision: number;
+      document: components["schemas"]["LayoutDocument"];
+      documentSha256: string;
+      /** Format: uuid */
+      publishedBy?: string;
+      /** Format: date-time */
+      publishedAt: string;
+    };
+    LayoutRevisionList: {
+      items: components["schemas"]["LayoutRevision"][];
+      total: number;
+      page: number;
+      pageSize: number;
     };
     PresentationReference:
       | {
@@ -16383,7 +16593,11 @@ export interface operations {
   };
   listLayouts: {
     parameters: {
-      query?: never;
+      query?: {
+        search?: string;
+        page?: number;
+        pageSize?: number;
+      };
       header?: never;
       path?: never;
       cookie?: never;
@@ -16395,6 +16609,17 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
+        content: {
+          "application/json": {
+            data: components["schemas"]["LayoutList"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
         content?: never;
       };
     };
@@ -16402,18 +16627,36 @@ export interface operations {
   createLayout: {
     parameters: {
       query?: never;
-      header?: never;
+      header: {
+        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
+        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      };
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": {
+          name: string;
+          description?: string;
+          /** @enum {string} */
+          orientation: "landscape" | "portrait" | "custom";
+          canvasWidth: number;
+          canvasHeight: number;
+        };
+      };
+    };
     responses: {
       /** @description Layout and initial draft created */
       201: {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["Layout"];
+          };
+        };
       };
       /** @description Layout details rejected */
       422: {
@@ -16440,7 +16683,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["Layout"];
+          };
+        };
       };
       /** @description Layout not found */
       404: {
@@ -16454,7 +16701,10 @@ export interface operations {
   deleteLayout: {
     parameters: {
       query?: never;
-      header?: never;
+      header: {
+        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
+        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      };
       path: {
         id: components["parameters"]["ResourceID"];
       };
@@ -16481,16 +16731,37 @@ export interface operations {
   updateLayout: {
     parameters: {
       query?: never;
-      header?: never;
+      header: {
+        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
+        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      };
       path: {
         id: components["parameters"]["ResourceID"];
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": {
+          name: string;
+          description?: string;
+        };
+      };
+    };
     responses: {
       /** @description Layout metadata updated */
       200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["Layout"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
         headers: {
           [name: string]: unknown;
         };
@@ -16501,20 +16772,34 @@ export interface operations {
   saveLayoutDraft: {
     parameters: {
       query?: never;
-      header?: never;
+      header: {
+        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
+        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      };
       path: {
         id: components["parameters"]["ResourceID"];
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": {
+          expectedDraftRevision: number;
+          document: components["schemas"]["LayoutDocument"];
+        };
+      };
+    };
     responses: {
       /** @description Draft saved with a new revision and ETag */
       200: {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["Layout"];
+          };
+        };
       };
       /** @description Draft revision conflict */
       409: {
@@ -16605,16 +16890,34 @@ export interface operations {
   publishLayout: {
     parameters: {
       query?: never;
-      header?: never;
+      header: {
+        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
+        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      };
       path: {
         id: components["parameters"]["ResourceID"];
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": {
+          expectedDraftRevision: number;
+        };
+      };
+    };
     responses: {
       /** @description Immutable published revision created */
       201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": Record<string, never>;
+        };
+      };
+      /** @description Submitted for editorial review instead of publishing */
+      202: {
         headers: {
           [name: string]: unknown;
         };
@@ -16632,7 +16935,10 @@ export interface operations {
   duplicateLayout: {
     parameters: {
       query?: never;
-      header?: never;
+      header: {
+        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
+        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      };
       path: {
         id: components["parameters"]["ResourceID"];
       };
@@ -16645,13 +16951,27 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
+        content: {
+          "application/json": {
+            data: components["schemas"]["Layout"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
         content?: never;
       };
     };
   };
   listLayoutRevisions: {
     parameters: {
-      query?: never;
+      query?: {
+        page?: number;
+        pageSize?: number;
+      };
       header?: never;
       path: {
         id: components["parameters"]["ResourceID"];
@@ -16665,6 +16985,17 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
+        content: {
+          "application/json": {
+            data: components["schemas"]["LayoutRevisionList"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
         content?: never;
       };
     };
@@ -16672,21 +17003,34 @@ export interface operations {
   restoreLayoutRevision: {
     parameters: {
       query?: never;
-      header?: never;
+      header: {
+        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
+        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      };
       path: {
         id: components["parameters"]["ResourceID"];
         revisionId: string;
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": {
+          expectedDraftRevision: number;
+        };
+      };
+    };
     responses: {
       /** @description Revision copied into a new draft revision */
       200: {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["Layout"];
+          };
+        };
       };
       /** @description Draft revision conflict */
       409: {

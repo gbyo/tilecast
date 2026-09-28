@@ -630,6 +630,402 @@ func (e GitHubDevicePollStatus) Valid() bool {
 	}
 }
 
+// Defines values for LayoutOrientation.
+const (
+	LayoutOrientationCustom    LayoutOrientation = "custom"
+	LayoutOrientationLandscape LayoutOrientation = "landscape"
+	LayoutOrientationPortrait  LayoutOrientation = "portrait"
+)
+
+// Valid indicates whether the value is a known member of the LayoutOrientation enum.
+func (e LayoutOrientation) Valid() bool {
+	switch e {
+	case LayoutOrientationCustom:
+		return true
+	case LayoutOrientationLandscape:
+		return true
+	case LayoutOrientationPortrait:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LayoutCanvasOrientation.
+const (
+	LayoutCanvasOrientationCustom    LayoutCanvasOrientation = "custom"
+	LayoutCanvasOrientationLandscape LayoutCanvasOrientation = "landscape"
+	LayoutCanvasOrientationPortrait  LayoutCanvasOrientation = "portrait"
+)
+
+// Valid indicates whether the value is a known member of the LayoutCanvasOrientation enum.
+func (e LayoutCanvasOrientation) Valid() bool {
+	switch e {
+	case LayoutCanvasOrientationCustom:
+		return true
+	case LayoutCanvasOrientationLandscape:
+		return true
+	case LayoutCanvasOrientationPortrait:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LayoutDependencyType.
+const (
+	LayoutDependencyTypeAsset      LayoutDependencyType = "asset"
+	LayoutDependencyTypeDataSource LayoutDependencyType = "data_source"
+	LayoutDependencyTypePlaylist   LayoutDependencyType = "playlist"
+	LayoutDependencyTypeWidget     LayoutDependencyType = "widget"
+)
+
+// Valid indicates whether the value is a known member of the LayoutDependencyType enum.
+func (e LayoutDependencyType) Valid() bool {
+	switch e {
+	case LayoutDependencyTypeAsset:
+		return true
+	case LayoutDependencyTypeDataSource:
+		return true
+	case LayoutDependencyTypePlaylist:
+		return true
+	case LayoutDependencyTypeWidget:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LayoutDocumentSchemaVersion.
+const (
+	N2 LayoutDocumentSchemaVersion = 2
+)
+
+// Valid indicates whether the value is a known member of the LayoutDocumentSchemaVersion enum.
+func (e LayoutDocumentSchemaVersion) Valid() bool {
+	switch e {
+	case N2:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LayoutPlacementType.
+const (
+	LayoutPlacementTypeAsset        LayoutPlacementType = "asset"
+	LayoutPlacementTypePlaylistZone LayoutPlacementType = "playlistZone"
+	LayoutPlacementTypePrimitive    LayoutPlacementType = "primitive"
+	LayoutPlacementTypeWidget       LayoutPlacementType = "widget"
+)
+
+// Valid indicates whether the value is a known member of the LayoutPlacementType enum.
+func (e LayoutPlacementType) Valid() bool {
+	switch e {
+	case LayoutPlacementTypeAsset:
+		return true
+	case LayoutPlacementTypePlaylistZone:
+		return true
+	case LayoutPlacementTypePrimitive:
+		return true
+	case LayoutPlacementTypeWidget:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LayoutPlacementOverridesAlignment.
+const (
+	LayoutPlacementOverridesAlignmentCenter LayoutPlacementOverridesAlignment = "center"
+	LayoutPlacementOverridesAlignmentLeft   LayoutPlacementOverridesAlignment = "left"
+	LayoutPlacementOverridesAlignmentRight  LayoutPlacementOverridesAlignment = "right"
+)
+
+// Valid indicates whether the value is a known member of the LayoutPlacementOverridesAlignment enum.
+func (e LayoutPlacementOverridesAlignment) Valid() bool {
+	switch e {
+	case LayoutPlacementOverridesAlignmentCenter:
+		return true
+	case LayoutPlacementOverridesAlignmentLeft:
+		return true
+	case LayoutPlacementOverridesAlignmentRight:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LayoutPlacementOverridesFallbackVisibility.
+const (
+	LayoutPlacementOverridesFallbackVisibilityHide LayoutPlacementOverridesFallbackVisibility = "hide"
+	LayoutPlacementOverridesFallbackVisibilityShow LayoutPlacementOverridesFallbackVisibility = "show"
+)
+
+// Valid indicates whether the value is a known member of the LayoutPlacementOverridesFallbackVisibility enum.
+func (e LayoutPlacementOverridesFallbackVisibility) Valid() bool {
+	switch e {
+	case LayoutPlacementOverridesFallbackVisibilityHide:
+		return true
+	case LayoutPlacementOverridesFallbackVisibilityShow:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LayoutPlacementOverridesFit.
+const (
+	LayoutPlacementOverridesFitContain LayoutPlacementOverridesFit = "contain"
+	LayoutPlacementOverridesFitCover   LayoutPlacementOverridesFit = "cover"
+	LayoutPlacementOverridesFitStretch LayoutPlacementOverridesFit = "stretch"
+)
+
+// Valid indicates whether the value is a known member of the LayoutPlacementOverridesFit enum.
+func (e LayoutPlacementOverridesFit) Valid() bool {
+	switch e {
+	case LayoutPlacementOverridesFitContain:
+		return true
+	case LayoutPlacementOverridesFitCover:
+		return true
+	case LayoutPlacementOverridesFitStretch:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LayoutPlaybackFallback.
+const (
+	LayoutPlaybackFallbackBackground LayoutPlaybackFallback = "background"
+	LayoutPlaybackFallbackHide       LayoutPlaybackFallback = "hide"
+	LayoutPlaybackFallbackPrevious   LayoutPlaybackFallback = "previous"
+)
+
+// Valid indicates whether the value is a known member of the LayoutPlaybackFallback enum.
+func (e LayoutPlaybackFallback) Valid() bool {
+	switch e {
+	case LayoutPlaybackFallbackBackground:
+		return true
+	case LayoutPlaybackFallbackHide:
+		return true
+	case LayoutPlaybackFallbackPrevious:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LayoutPlaybackFit.
+const (
+	LayoutPlaybackFitContain LayoutPlaybackFit = "contain"
+	LayoutPlaybackFitCover   LayoutPlaybackFit = "cover"
+	LayoutPlaybackFitStretch LayoutPlaybackFit = "stretch"
+)
+
+// Valid indicates whether the value is a known member of the LayoutPlaybackFit enum.
+func (e LayoutPlaybackFit) Valid() bool {
+	switch e {
+	case LayoutPlaybackFitContain:
+		return true
+	case LayoutPlaybackFitCover:
+		return true
+	case LayoutPlaybackFitStretch:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LayoutPrimitiveFontFamily.
+const (
+	Inter       LayoutPrimitiveFontFamily = "Inter"
+	NotoSans    LayoutPrimitiveFontFamily = "Noto Sans"
+	Roboto      LayoutPrimitiveFontFamily = "Roboto"
+	SourceSans3 LayoutPrimitiveFontFamily = "Source Sans 3"
+)
+
+// Valid indicates whether the value is a known member of the LayoutPrimitiveFontFamily enum.
+func (e LayoutPrimitiveFontFamily) Valid() bool {
+	switch e {
+	case Inter:
+		return true
+	case NotoSans:
+		return true
+	case Roboto:
+		return true
+	case SourceSans3:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LayoutPrimitiveFontWeight.
+const (
+	N400 LayoutPrimitiveFontWeight = 400
+	N500 LayoutPrimitiveFontWeight = 500
+	N600 LayoutPrimitiveFontWeight = 600
+	N700 LayoutPrimitiveFontWeight = 700
+	N800 LayoutPrimitiveFontWeight = 800
+)
+
+// Valid indicates whether the value is a known member of the LayoutPrimitiveFontWeight enum.
+func (e LayoutPrimitiveFontWeight) Valid() bool {
+	switch e {
+	case N400:
+		return true
+	case N500:
+		return true
+	case N600:
+		return true
+	case N700:
+		return true
+	case N800:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LayoutPrimitiveKind.
+const (
+	LayoutPrimitiveKindCircle    LayoutPrimitiveKind = "circle"
+	LayoutPrimitiveKindGroup     LayoutPrimitiveKind = "group"
+	LayoutPrimitiveKindLine      LayoutPrimitiveKind = "line"
+	LayoutPrimitiveKindRectangle LayoutPrimitiveKind = "rectangle"
+	LayoutPrimitiveKindText      LayoutPrimitiveKind = "text"
+)
+
+// Valid indicates whether the value is a known member of the LayoutPrimitiveKind enum.
+func (e LayoutPrimitiveKind) Valid() bool {
+	switch e {
+	case LayoutPrimitiveKindCircle:
+		return true
+	case LayoutPrimitiveKindGroup:
+		return true
+	case LayoutPrimitiveKindLine:
+		return true
+	case LayoutPrimitiveKindRectangle:
+		return true
+	case LayoutPrimitiveKindText:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LayoutPrimitiveOverflow.
+const (
+	Clip     LayoutPrimitiveOverflow = "clip"
+	Ellipsis LayoutPrimitiveOverflow = "ellipsis"
+)
+
+// Valid indicates whether the value is a known member of the LayoutPrimitiveOverflow enum.
+func (e LayoutPrimitiveOverflow) Valid() bool {
+	switch e {
+	case Clip:
+		return true
+	case Ellipsis:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LayoutPrimitiveTextAlign.
+const (
+	LayoutPrimitiveTextAlignCenter LayoutPrimitiveTextAlign = "center"
+	LayoutPrimitiveTextAlignLeft   LayoutPrimitiveTextAlign = "left"
+	LayoutPrimitiveTextAlignRight  LayoutPrimitiveTextAlign = "right"
+)
+
+// Valid indicates whether the value is a known member of the LayoutPrimitiveTextAlign enum.
+func (e LayoutPrimitiveTextAlign) Valid() bool {
+	switch e {
+	case LayoutPrimitiveTextAlignCenter:
+		return true
+	case LayoutPrimitiveTextAlignLeft:
+		return true
+	case LayoutPrimitiveTextAlignRight:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LayoutPrimitiveVerticalAlign.
+const (
+	LayoutPrimitiveVerticalAlignBottom LayoutPrimitiveVerticalAlign = "bottom"
+	LayoutPrimitiveVerticalAlignCenter LayoutPrimitiveVerticalAlign = "center"
+	LayoutPrimitiveVerticalAlignTop    LayoutPrimitiveVerticalAlign = "top"
+)
+
+// Valid indicates whether the value is a known member of the LayoutPrimitiveVerticalAlign enum.
+func (e LayoutPrimitiveVerticalAlign) Valid() bool {
+	switch e {
+	case LayoutPrimitiveVerticalAlignBottom:
+		return true
+	case LayoutPrimitiveVerticalAlignCenter:
+		return true
+	case LayoutPrimitiveVerticalAlignTop:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LayoutPrimitiveBindingFormat.
+const (
+	LayoutPrimitiveBindingFormatCurrency  LayoutPrimitiveBindingFormat = "currency"
+	LayoutPrimitiveBindingFormatDateLong  LayoutPrimitiveBindingFormat = "date-long"
+	LayoutPrimitiveBindingFormatDateShort LayoutPrimitiveBindingFormat = "date-short"
+	LayoutPrimitiveBindingFormatInteger   LayoutPrimitiveBindingFormat = "integer"
+	LayoutPrimitiveBindingFormatNumber    LayoutPrimitiveBindingFormat = "number"
+	LayoutPrimitiveBindingFormatText      LayoutPrimitiveBindingFormat = "text"
+)
+
+// Valid indicates whether the value is a known member of the LayoutPrimitiveBindingFormat enum.
+func (e LayoutPrimitiveBindingFormat) Valid() bool {
+	switch e {
+	case LayoutPrimitiveBindingFormatCurrency:
+		return true
+	case LayoutPrimitiveBindingFormatDateLong:
+		return true
+	case LayoutPrimitiveBindingFormatDateShort:
+		return true
+	case LayoutPrimitiveBindingFormatInteger:
+		return true
+	case LayoutPrimitiveBindingFormatNumber:
+		return true
+	case LayoutPrimitiveBindingFormatText:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LayoutSummaryOrientation.
+const (
+	LayoutSummaryOrientationCustom    LayoutSummaryOrientation = "custom"
+	LayoutSummaryOrientationLandscape LayoutSummaryOrientation = "landscape"
+	LayoutSummaryOrientationPortrait  LayoutSummaryOrientation = "portrait"
+)
+
+// Valid indicates whether the value is a known member of the LayoutSummaryOrientation enum.
+func (e LayoutSummaryOrientation) Valid() bool {
+	switch e {
+	case LayoutSummaryOrientationCustom:
+		return true
+	case LayoutSummaryOrientationLandscape:
+		return true
+	case LayoutSummaryOrientationPortrait:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MFAPolicy.
 const (
 	MFAPolicyAdministrators MFAPolicy = "administrators"
@@ -2361,6 +2757,27 @@ func (e ResetDemoJSONBodyScenario) Valid() bool {
 	}
 }
 
+// Defines values for CreateLayoutJSONBodyOrientation.
+const (
+	CreateLayoutJSONBodyOrientationCustom    CreateLayoutJSONBodyOrientation = "custom"
+	CreateLayoutJSONBodyOrientationLandscape CreateLayoutJSONBodyOrientation = "landscape"
+	CreateLayoutJSONBodyOrientationPortrait  CreateLayoutJSONBodyOrientation = "portrait"
+)
+
+// Valid indicates whether the value is a known member of the CreateLayoutJSONBodyOrientation enum.
+func (e CreateLayoutJSONBodyOrientation) Valid() bool {
+	switch e {
+	case CreateLayoutJSONBodyOrientationCustom:
+		return true
+	case CreateLayoutJSONBodyOrientationLandscape:
+		return true
+	case CreateLayoutJSONBodyOrientationPortrait:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CreatePersonalAccessTokenJSONBodyExpiresInDays.
 const (
 	CreatePersonalAccessTokenJSONBodyExpiresInDaysN30  CreatePersonalAccessTokenJSONBodyExpiresInDays = 30
@@ -3307,6 +3724,249 @@ type InstallationIdentity struct {
 	OrganizationName string             `json:"organizationName"`
 	PairingEnabled   bool               `json:"pairingEnabled"`
 	Product          string             `json:"product"`
+}
+
+// Layout defines model for Layout.
+type Layout struct {
+	CanvasHeight          int                 `json:"canvasHeight"`
+	CanvasWidth           int                 `json:"canvasWidth"`
+	CreatedAt             time.Time           `json:"createdAt"`
+	Dependencies          []LayoutDependency  `json:"dependencies"`
+	Description           string              `json:"description"`
+	Draft                 LayoutDocument      `json:"draft"`
+	DraftRevision         int64               `json:"draftRevision"`
+	HasUnpublishedChanges bool                `json:"hasUnpublishedChanges"`
+	Id                    openapi_types.UUID  `json:"id"`
+	Name                  string              `json:"name"`
+	Orientation           LayoutOrientation   `json:"orientation"`
+	PreviewImageUrl       *string             `json:"previewImageUrl,omitempty"`
+	PublishedAt           *time.Time          `json:"publishedAt,omitempty"`
+	PublishedRevision     *int64              `json:"publishedRevision,omitempty"`
+	PublishedRevisionId   *openapi_types.UUID `json:"publishedRevisionId,omitempty"`
+	UpdatedAt             time.Time           `json:"updatedAt"`
+	Usage                 LayoutUsage         `json:"usage"`
+}
+
+// LayoutOrientation defines model for Layout.Orientation.
+type LayoutOrientation string
+
+// LayoutCanvas defines model for LayoutCanvas.
+type LayoutCanvas struct {
+	BackgroundAssetId   *openapi_types.UUID     `json:"backgroundAssetId,omitempty"`
+	BackgroundColor     string                  `json:"backgroundColor"`
+	BackgroundVariantId *openapi_types.UUID     `json:"backgroundVariantId,omitempty"`
+	Height              int                     `json:"height"`
+	Orientation         LayoutCanvasOrientation `json:"orientation"`
+	SafeAreaPercent     float32                 `json:"safeAreaPercent"`
+	Width               int                     `json:"width"`
+}
+
+// LayoutCanvasOrientation defines model for LayoutCanvas.Orientation.
+type LayoutCanvasOrientation string
+
+// LayoutDependency defines model for LayoutDependency.
+type LayoutDependency struct {
+	Id   openapi_types.UUID   `json:"id"`
+	Type LayoutDependencyType `json:"type"`
+}
+
+// LayoutDependencyType defines model for LayoutDependency.Type.
+type LayoutDependencyType string
+
+// LayoutDocument defines model for LayoutDocument.
+type LayoutDocument struct {
+	Canvas     LayoutCanvas      `json:"canvas"`
+	Placements []LayoutPlacement `json:"placements"`
+
+	// SchemaVersion Only schema version 2 is accepted.
+	SchemaVersion LayoutDocumentSchemaVersion `json:"schemaVersion"`
+}
+
+// LayoutDocumentSchemaVersion Only schema version 2 is accepted.
+type LayoutDocumentSchemaVersion int
+
+// LayoutList defines model for LayoutList.
+type LayoutList struct {
+	Items    []LayoutSummary `json:"items"`
+	Page     int             `json:"page"`
+	PageSize int             `json:"pageSize"`
+	Total    int             `json:"total"`
+}
+
+// LayoutPlacement defines model for LayoutPlacement.
+type LayoutPlacement struct {
+	AssetId *openapi_types.UUID `json:"assetId,omitempty"`
+	GroupId *openapi_types.UUID `json:"groupId,omitempty"`
+	Height  float32             `json:"height"`
+	Id      openapi_types.UUID  `json:"id"`
+	Layer   int                 `json:"layer"`
+	Locked  bool                `json:"locked"`
+	Name    string              `json:"name"`
+	Opacity float32             `json:"opacity"`
+
+	// Overrides Widget placement override bag. Unknown keys are rejected, so only the keys below are accepted.
+	Overrides  *LayoutPlacementOverrides `json:"overrides,omitempty"`
+	Playback   *LayoutPlayback           `json:"playback,omitempty"`
+	PlaylistId *openapi_types.UUID       `json:"playlistId,omitempty"`
+	Primitive  *LayoutPrimitive          `json:"primitive,omitempty"`
+	Type       LayoutPlacementType       `json:"type"`
+	VariantId  *openapi_types.UUID       `json:"variantId,omitempty"`
+	Visible    bool                      `json:"visible"`
+	WidgetId   *openapi_types.UUID       `json:"widgetId,omitempty"`
+	Width      float32                   `json:"width"`
+	X          float32                   `json:"x"`
+	Y          float32                   `json:"y"`
+}
+
+// LayoutPlacementType defines model for LayoutPlacement.Type.
+type LayoutPlacementType string
+
+// LayoutPlacementOverrides Widget placement override bag. Unknown keys are rejected, so only the keys below are accepted.
+type LayoutPlacementOverrides struct {
+	Alignment          *LayoutPlacementOverridesAlignment          `json:"alignment,omitempty"`
+	BackgroundColor    *string                                     `json:"backgroundColor,omitempty"`
+	FallbackVisibility *LayoutPlacementOverridesFallbackVisibility `json:"fallbackVisibility,omitempty"`
+	Fit                *LayoutPlacementOverridesFit                `json:"fit,omitempty"`
+	ForegroundColor    *string                                     `json:"foregroundColor,omitempty"`
+	Muted              *bool                                       `json:"muted,omitempty"`
+}
+
+// LayoutPlacementOverridesAlignment defines model for LayoutPlacementOverrides.Alignment.
+type LayoutPlacementOverridesAlignment string
+
+// LayoutPlacementOverridesFallbackVisibility defines model for LayoutPlacementOverrides.FallbackVisibility.
+type LayoutPlacementOverridesFallbackVisibility string
+
+// LayoutPlacementOverridesFit defines model for LayoutPlacementOverrides.Fit.
+type LayoutPlacementOverridesFit string
+
+// LayoutPlayback defines model for LayoutPlayback.
+type LayoutPlayback struct {
+	CornerRadius *float32                `json:"cornerRadius,omitempty"`
+	Fallback     *LayoutPlaybackFallback `json:"fallback,omitempty"`
+	Fit          *LayoutPlaybackFit      `json:"fit,omitempty"`
+	Loop         *bool                   `json:"loop,omitempty"`
+	Muted        *bool                   `json:"muted,omitempty"`
+}
+
+// LayoutPlaybackFallback defines model for LayoutPlayback.Fallback.
+type LayoutPlaybackFallback string
+
+// LayoutPlaybackFit defines model for LayoutPlayback.Fit.
+type LayoutPlaybackFit string
+
+// LayoutPrimitive defines model for LayoutPrimitive.
+type LayoutPrimitive struct {
+	AutoFit         *bool                   `json:"autoFit,omitempty"`
+	BackgroundColor *string                 `json:"backgroundColor,omitempty"`
+	Binding         *LayoutPrimitiveBinding `json:"binding,omitempty"`
+	BorderColor     *string                 `json:"borderColor,omitempty"`
+	BorderWidth     *float32                `json:"borderWidth,omitempty"`
+	Color           *string                 `json:"color,omitempty"`
+	CornerRadius    *float32                `json:"cornerRadius,omitempty"`
+	FillColor       *string                 `json:"fillColor,omitempty"`
+
+	// FontFamily Only bundled fonts are accepted for text primitives
+	FontFamily      *LayoutPrimitiveFontFamily    `json:"fontFamily,omitempty"`
+	FontSize        *float32                      `json:"fontSize,omitempty"`
+	FontWeight      *LayoutPrimitiveFontWeight    `json:"fontWeight,omitempty"`
+	Kind            LayoutPrimitiveKind           `json:"kind"`
+	LetterSpacing   *float32                      `json:"letterSpacing,omitempty"`
+	LineHeight      *float32                      `json:"lineHeight,omitempty"`
+	MaximumLines    *int                          `json:"maximumLines,omitempty"`
+	MinimumFontSize *float32                      `json:"minimumFontSize,omitempty"`
+	Overflow        *LayoutPrimitiveOverflow      `json:"overflow,omitempty"`
+	Padding         *float32                      `json:"padding,omitempty"`
+	StrokeColor     *string                       `json:"strokeColor,omitempty"`
+	StrokeWidth     *float32                      `json:"strokeWidth,omitempty"`
+	Text            *string                       `json:"text,omitempty"`
+	TextAlign       *LayoutPrimitiveTextAlign     `json:"textAlign,omitempty"`
+	VerticalAlign   *LayoutPrimitiveVerticalAlign `json:"verticalAlign,omitempty"`
+}
+
+// LayoutPrimitiveFontFamily Only bundled fonts are accepted for text primitives
+type LayoutPrimitiveFontFamily string
+
+// LayoutPrimitiveFontWeight defines model for LayoutPrimitive.FontWeight.
+type LayoutPrimitiveFontWeight int
+
+// LayoutPrimitiveKind defines model for LayoutPrimitive.Kind.
+type LayoutPrimitiveKind string
+
+// LayoutPrimitiveOverflow defines model for LayoutPrimitive.Overflow.
+type LayoutPrimitiveOverflow string
+
+// LayoutPrimitiveTextAlign defines model for LayoutPrimitive.TextAlign.
+type LayoutPrimitiveTextAlign string
+
+// LayoutPrimitiveVerticalAlign defines model for LayoutPrimitive.VerticalAlign.
+type LayoutPrimitiveVerticalAlign string
+
+// LayoutPrimitiveBinding defines model for LayoutPrimitiveBinding.
+type LayoutPrimitiveBinding struct {
+	DataSourceId  openapi_types.UUID            `json:"dataSourceId"`
+	FallbackText  *string                       `json:"fallbackText,omitempty"`
+	Field         string                        `json:"field"`
+	Format        *LayoutPrimitiveBindingFormat `json:"format,omitempty"`
+	HideWhenEmpty *bool                         `json:"hideWhenEmpty,omitempty"`
+	Prefix        *string                       `json:"prefix,omitempty"`
+	Suffix        *string                       `json:"suffix,omitempty"`
+}
+
+// LayoutPrimitiveBindingFormat defines model for LayoutPrimitiveBinding.Format.
+type LayoutPrimitiveBindingFormat string
+
+// LayoutRevision defines model for LayoutRevision.
+type LayoutRevision struct {
+	Document       LayoutDocument      `json:"document"`
+	DocumentSha256 string              `json:"documentSha256"`
+	Id             openapi_types.UUID  `json:"id"`
+	LayoutId       openapi_types.UUID  `json:"layoutId"`
+	PublishedAt    time.Time           `json:"publishedAt"`
+	PublishedBy    *openapi_types.UUID `json:"publishedBy,omitempty"`
+	Revision       int64               `json:"revision"`
+}
+
+// LayoutRevisionList defines model for LayoutRevisionList.
+type LayoutRevisionList struct {
+	Items    []LayoutRevision `json:"items"`
+	Page     int              `json:"page"`
+	PageSize int              `json:"pageSize"`
+	Total    int              `json:"total"`
+}
+
+// LayoutSummary Compact Layout row returned by the Layout list. The editable draft, dependency list, and usage breakdown require the detail read.
+type LayoutSummary struct {
+	CanvasHeight          int                      `json:"canvasHeight"`
+	CanvasWidth           int                      `json:"canvasWidth"`
+	CreatedAt             time.Time                `json:"createdAt"`
+	Description           string                   `json:"description"`
+	DraftRevision         int64                    `json:"draftRevision"`
+	HasUnpublishedChanges bool                     `json:"hasUnpublishedChanges"`
+	Id                    openapi_types.UUID       `json:"id"`
+	Name                  string                   `json:"name"`
+	Orientation           LayoutSummaryOrientation `json:"orientation"`
+	PreviewImageUrl       *string                  `json:"previewImageUrl,omitempty"`
+	PublishedAt           *time.Time               `json:"publishedAt,omitempty"`
+	PublishedRevision     *int64                   `json:"publishedRevision,omitempty"`
+	PublishedRevisionId   *openapi_types.UUID      `json:"publishedRevisionId,omitempty"`
+	UpdatedAt             time.Time                `json:"updatedAt"`
+}
+
+// LayoutSummaryOrientation defines model for LayoutSummary.Orientation.
+type LayoutSummaryOrientation string
+
+// LayoutUsage defines model for LayoutUsage.
+type LayoutUsage struct {
+	Campaigns []LayoutUsageItem `json:"campaigns"`
+	Schedules []LayoutUsageItem `json:"schedules"`
+	Screens   []LayoutUsageItem `json:"screens"`
+}
+
+// LayoutUsageItem defines model for LayoutUsageItem.
+type LayoutUsageItem struct {
+	Id   openapi_types.UUID `json:"id"`
+	Name string             `json:"name"`
 }
 
 // Location defines model for Location.
@@ -5370,9 +6030,98 @@ type ReplaceDataSourceRowsJSONBody struct {
 	} `json:"rows"`
 }
 
+// ListLayoutsParams defines parameters for ListLayouts.
+type ListLayoutsParams struct {
+	Search   *string `form:"search,omitempty" json:"search,omitempty"`
+	Page     *int    `form:"page,omitempty" json:"page,omitempty"`
+	PageSize *int    `form:"pageSize,omitempty" json:"pageSize,omitempty"`
+}
+
+// CreateLayoutJSONBody defines parameters for CreateLayout.
+type CreateLayoutJSONBody struct {
+	CanvasHeight int                             `json:"canvasHeight"`
+	CanvasWidth  int                             `json:"canvasWidth"`
+	Description  *string                         `json:"description,omitempty"`
+	Name         string                          `json:"name"`
+	Orientation  CreateLayoutJSONBodyOrientation `json:"orientation"`
+}
+
+// CreateLayoutParams defines parameters for CreateLayout.
+type CreateLayoutParams struct {
+	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// CreateLayoutJSONBodyOrientation defines parameters for CreateLayout.
+type CreateLayoutJSONBodyOrientation string
+
+// DeleteLayoutParams defines parameters for DeleteLayout.
+type DeleteLayoutParams struct {
+	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// UpdateLayoutJSONBody defines parameters for UpdateLayout.
+type UpdateLayoutJSONBody struct {
+	Description *string `json:"description,omitempty"`
+	Name        string  `json:"name"`
+}
+
+// UpdateLayoutParams defines parameters for UpdateLayout.
+type UpdateLayoutParams struct {
+	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// SaveLayoutDraftJSONBody defines parameters for SaveLayoutDraft.
+type SaveLayoutDraftJSONBody struct {
+	Document              LayoutDocument `json:"document"`
+	ExpectedDraftRevision int            `json:"expectedDraftRevision"`
+}
+
+// SaveLayoutDraftParams defines parameters for SaveLayoutDraft.
+type SaveLayoutDraftParams struct {
+	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// DuplicateLayoutParams defines parameters for DuplicateLayout.
+type DuplicateLayoutParams struct {
+	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // UpdateLayoutPreviewImageParams defines parameters for UpdateLayoutPreviewImage.
 type UpdateLayoutPreviewImageParams struct {
 	DraftRevision int64 `form:"draftRevision" json:"draftRevision"`
+}
+
+// PublishLayoutJSONBody defines parameters for PublishLayout.
+type PublishLayoutJSONBody struct {
+	ExpectedDraftRevision int `json:"expectedDraftRevision"`
+}
+
+// PublishLayoutParams defines parameters for PublishLayout.
+type PublishLayoutParams struct {
+	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// ListLayoutRevisionsParams defines parameters for ListLayoutRevisions.
+type ListLayoutRevisionsParams struct {
+	Page     *int `form:"page,omitempty" json:"page,omitempty"`
+	PageSize *int `form:"pageSize,omitempty" json:"pageSize,omitempty"`
+}
+
+// RestoreLayoutRevisionJSONBody defines parameters for RestoreLayoutRevision.
+type RestoreLayoutRevisionJSONBody struct {
+	ExpectedDraftRevision int `json:"expectedDraftRevision"`
+}
+
+// RestoreLayoutRevisionParams defines parameters for RestoreLayoutRevision.
+type RestoreLayoutRevisionParams struct {
+	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
 // UpdatePreferencesParams defines parameters for UpdatePreferences.
@@ -6205,6 +6954,21 @@ type CreateIntegrationTokenJSONRequestBody CreateIntegrationTokenJSONBody
 
 // ReplaceDataSourceRowsJSONRequestBody defines body for ReplaceDataSourceRows for application/json ContentType.
 type ReplaceDataSourceRowsJSONRequestBody ReplaceDataSourceRowsJSONBody
+
+// CreateLayoutJSONRequestBody defines body for CreateLayout for application/json ContentType.
+type CreateLayoutJSONRequestBody CreateLayoutJSONBody
+
+// UpdateLayoutJSONRequestBody defines body for UpdateLayout for application/json ContentType.
+type UpdateLayoutJSONRequestBody UpdateLayoutJSONBody
+
+// SaveLayoutDraftJSONRequestBody defines body for SaveLayoutDraft for application/json ContentType.
+type SaveLayoutDraftJSONRequestBody SaveLayoutDraftJSONBody
+
+// PublishLayoutJSONRequestBody defines body for PublishLayout for application/json ContentType.
+type PublishLayoutJSONRequestBody PublishLayoutJSONBody
+
+// RestoreLayoutRevisionJSONRequestBody defines body for RestoreLayoutRevision for application/json ContentType.
+type RestoreLayoutRevisionJSONRequestBody RestoreLayoutRevisionJSONBody
 
 // UpdatePreferencesJSONRequestBody defines body for UpdatePreferences for application/json ContentType.
 type UpdatePreferencesJSONRequestBody = SettingsUpdate
@@ -7870,37 +8634,58 @@ type ClientInterface interface {
 	// ListLayouts performs a GET /api/v1/layouts (the `ListLayouts` operationId) request.
 	//
 	// Requires an authenticated dashboard session. Layout summaries include hasUnpublishedChanges, computed by comparing the current draft document with the published document rather than by comparing their independent revision counters.
-	ListLayouts(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListLayouts(ctx context.Context, params *ListLayoutsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CreateLayout performs a POST /api/v1/layouts (the `CreateLayout` operationId) request.
+	// CreateLayoutWithBody performs a POST /api/v1/layouts (the `CreateLayout` operationId) request,
+	// with any type of body and a specified content type.
 	//
 	// Create layout. Requires an authenticated dashboard user.
-	CreateLayout(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateLayoutWithBody(ctx context.Context, params *CreateLayoutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateLayout performs a POST /api/v1/layouts (the `CreateLayout` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Create layout. Requires an authenticated dashboard user.
+	CreateLayout(ctx context.Context, params *CreateLayoutParams, body CreateLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteLayout performs a DELETE /api/v1/layouts/{id} (the `DeleteLayout` operationId) request.
 	//
 	// Delete layout. Requires an authenticated dashboard user.
-	DeleteLayout(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteLayout(ctx context.Context, id ResourceID, params *DeleteLayoutParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetLayout performs a GET /api/v1/layouts/{id} (the `GetLayout` operationId) request.
 	//
 	// Get layout. Requires an authenticated dashboard user.
 	GetLayout(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// UpdateLayout performs a PATCH /api/v1/layouts/{id} (the `UpdateLayout` operationId) request.
+	// UpdateLayoutWithBody performs a PATCH /api/v1/layouts/{id} (the `UpdateLayout` operationId) request,
+	// with any type of body and a specified content type.
 	//
 	// Update layout. Requires an authenticated dashboard user.
-	UpdateLayout(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdateLayoutWithBody(ctx context.Context, id ResourceID, params *UpdateLayoutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// SaveLayoutDraft performs a PUT /api/v1/layouts/{id}/draft (the `SaveLayoutDraft` operationId) request.
+	// UpdateLayout performs a PATCH /api/v1/layouts/{id} (the `UpdateLayout` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Update layout. Requires an authenticated dashboard user.
+	UpdateLayout(ctx context.Context, id ResourceID, params *UpdateLayoutParams, body UpdateLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SaveLayoutDraftWithBody performs a PUT /api/v1/layouts/{id}/draft (the `SaveLayoutDraft` operationId) request,
+	// with any type of body and a specified content type.
 	//
 	// Requires an authenticated dashboard session. Saves a validated draft using expectedDraftRevision optimistic concurrency.
-	SaveLayoutDraft(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	SaveLayoutDraftWithBody(ctx context.Context, id ResourceID, params *SaveLayoutDraftParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SaveLayoutDraft performs a PUT /api/v1/layouts/{id}/draft (the `SaveLayoutDraft` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Requires an authenticated dashboard session. Saves a validated draft using expectedDraftRevision optimistic concurrency.
+	SaveLayoutDraft(ctx context.Context, id ResourceID, params *SaveLayoutDraftParams, body SaveLayoutDraftJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DuplicateLayout performs a POST /api/v1/layouts/{id}/duplicate (the `DuplicateLayout` operationId) request.
 	//
 	// Duplicate layout. Requires an authenticated dashboard user.
-	DuplicateLayout(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DuplicateLayout(ctx context.Context, id ResourceID, params *DuplicateLayoutParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetLayoutPreviewImage performs a GET /api/v1/layouts/{id}/preview-image (the `GetLayoutPreviewImage` operationId) request.
 	//
@@ -7912,20 +8697,34 @@ type ClientInterface interface {
 	// Requires an authenticated dashboard session. Stores an aspect-preserving JPEG of at most 500 KB when draftRevision still matches the current Layout draft.
 	UpdateLayoutPreviewImage(ctx context.Context, id ResourceID, params *UpdateLayoutPreviewImageParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// PublishLayout performs a POST /api/v1/layouts/{id}/publish (the `PublishLayout` operationId) request.
+	// PublishLayoutWithBody performs a POST /api/v1/layouts/{id}/publish (the `PublishLayout` operationId) request,
+	// with any type of body and a specified content type.
 	//
-	// Publish layout. Requires an authenticated dashboard user.
-	PublishLayout(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// Publish layout. Requires an authenticated dashboard user. Publishes the draft the caller read first: the request carries the draft revision it saw, and a 409 means someone else published first. A layout under editorial review answers 202 with the submission instead of publishing.
+	PublishLayoutWithBody(ctx context.Context, id ResourceID, params *PublishLayoutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PublishLayout performs a POST /api/v1/layouts/{id}/publish (the `PublishLayout` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Publish layout. Requires an authenticated dashboard user. Publishes the draft the caller read first: the request carries the draft revision it saw, and a 409 means someone else published first. A layout under editorial review answers 202 with the submission instead of publishing.
+	PublishLayout(ctx context.Context, id ResourceID, params *PublishLayoutParams, body PublishLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListLayoutRevisions performs a GET /api/v1/layouts/{id}/revisions (the `ListLayoutRevisions` operationId) request.
 	//
 	// List layout revisions. Requires an authenticated dashboard user.
-	ListLayoutRevisions(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListLayoutRevisions(ctx context.Context, id ResourceID, params *ListLayoutRevisionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// RestoreLayoutRevision performs a POST /api/v1/layouts/{id}/revisions/{revisionId}/restore (the `RestoreLayoutRevision` operationId) request.
+	// RestoreLayoutRevisionWithBody performs a POST /api/v1/layouts/{id}/revisions/{revisionId}/restore (the `RestoreLayoutRevision` operationId) request,
+	// with any type of body and a specified content type.
 	//
 	// Restore layout revision. Requires an authenticated dashboard user.
-	RestoreLayoutRevision(ctx context.Context, id ResourceID, revisionId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	RestoreLayoutRevisionWithBody(ctx context.Context, id ResourceID, revisionId string, params *RestoreLayoutRevisionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RestoreLayoutRevision performs a POST /api/v1/layouts/{id}/revisions/{revisionId}/restore (the `RestoreLayoutRevision` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Restore layout revision. Requires an authenticated dashboard user.
+	RestoreLayoutRevision(ctx context.Context, id ResourceID, revisionId string, params *RestoreLayoutRevisionParams, body RestoreLayoutRevisionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListLocations performs a GET /api/v1/locations (the `ListLocations` operationId) request.
 	//
@@ -12383,8 +13182,24 @@ func (c *Client) GetIntegrationMetrics(ctx context.Context, reqEditors ...Reques
 // ListLayouts performs a GET /api/v1/layouts (the `ListLayouts` operationId) request.
 //
 // Requires an authenticated dashboard session. Layout summaries include hasUnpublishedChanges, computed by comparing the current draft document with the published document rather than by comparing their independent revision counters.
-func (c *Client) ListLayouts(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListLayoutsRequest(c.Server)
+func (c *Client) ListLayouts(ctx context.Context, params *ListLayoutsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListLayoutsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateLayoutWithBody performs a POST /api/v1/layouts (the `CreateLayout` operationId) request,
+// with any type of body and a specified content type.
+//
+// Create layout. Requires an authenticated dashboard user.
+func (c *Client) CreateLayoutWithBody(ctx context.Context, params *CreateLayoutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateLayoutRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -12396,10 +13211,11 @@ func (c *Client) ListLayouts(ctx context.Context, reqEditors ...RequestEditorFn)
 }
 
 // CreateLayout performs a POST /api/v1/layouts (the `CreateLayout` operationId) request.
+// Takes a body of the `application/json` content type.
 //
 // Create layout. Requires an authenticated dashboard user.
-func (c *Client) CreateLayout(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateLayoutRequest(c.Server)
+func (c *Client) CreateLayout(ctx context.Context, params *CreateLayoutParams, body CreateLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateLayoutRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -12413,8 +13229,8 @@ func (c *Client) CreateLayout(ctx context.Context, reqEditors ...RequestEditorFn
 // DeleteLayout performs a DELETE /api/v1/layouts/{id} (the `DeleteLayout` operationId) request.
 //
 // Delete layout. Requires an authenticated dashboard user.
-func (c *Client) DeleteLayout(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteLayoutRequest(c.Server, id)
+func (c *Client) DeleteLayout(ctx context.Context, id ResourceID, params *DeleteLayoutParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteLayoutRequest(c.Server, id, params)
 	if err != nil {
 		return nil, err
 	}
@@ -12440,11 +13256,44 @@ func (c *Client) GetLayout(ctx context.Context, id ResourceID, reqEditors ...Req
 	return c.Client.Do(req)
 }
 
-// UpdateLayout performs a PATCH /api/v1/layouts/{id} (the `UpdateLayout` operationId) request.
+// UpdateLayoutWithBody performs a PATCH /api/v1/layouts/{id} (the `UpdateLayout` operationId) request,
+// with any type of body and a specified content type.
 //
 // Update layout. Requires an authenticated dashboard user.
-func (c *Client) UpdateLayout(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateLayoutRequest(c.Server, id)
+func (c *Client) UpdateLayoutWithBody(ctx context.Context, id ResourceID, params *UpdateLayoutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateLayoutRequestWithBody(c.Server, id, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateLayout performs a PATCH /api/v1/layouts/{id} (the `UpdateLayout` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Update layout. Requires an authenticated dashboard user.
+func (c *Client) UpdateLayout(ctx context.Context, id ResourceID, params *UpdateLayoutParams, body UpdateLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateLayoutRequest(c.Server, id, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SaveLayoutDraftWithBody performs a PUT /api/v1/layouts/{id}/draft (the `SaveLayoutDraft` operationId) request,
+// with any type of body and a specified content type.
+//
+// Requires an authenticated dashboard session. Saves a validated draft using expectedDraftRevision optimistic concurrency.
+func (c *Client) SaveLayoutDraftWithBody(ctx context.Context, id ResourceID, params *SaveLayoutDraftParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSaveLayoutDraftRequestWithBody(c.Server, id, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -12456,10 +13305,11 @@ func (c *Client) UpdateLayout(ctx context.Context, id ResourceID, reqEditors ...
 }
 
 // SaveLayoutDraft performs a PUT /api/v1/layouts/{id}/draft (the `SaveLayoutDraft` operationId) request.
+// Takes a body of the `application/json` content type.
 //
 // Requires an authenticated dashboard session. Saves a validated draft using expectedDraftRevision optimistic concurrency.
-func (c *Client) SaveLayoutDraft(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSaveLayoutDraftRequest(c.Server, id)
+func (c *Client) SaveLayoutDraft(ctx context.Context, id ResourceID, params *SaveLayoutDraftParams, body SaveLayoutDraftJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSaveLayoutDraftRequest(c.Server, id, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -12473,8 +13323,8 @@ func (c *Client) SaveLayoutDraft(ctx context.Context, id ResourceID, reqEditors 
 // DuplicateLayout performs a POST /api/v1/layouts/{id}/duplicate (the `DuplicateLayout` operationId) request.
 //
 // Duplicate layout. Requires an authenticated dashboard user.
-func (c *Client) DuplicateLayout(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDuplicateLayoutRequest(c.Server, id)
+func (c *Client) DuplicateLayout(ctx context.Context, id ResourceID, params *DuplicateLayoutParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDuplicateLayoutRequest(c.Server, id, params)
 	if err != nil {
 		return nil, err
 	}
@@ -12515,11 +13365,28 @@ func (c *Client) UpdateLayoutPreviewImage(ctx context.Context, id ResourceID, pa
 	return c.Client.Do(req)
 }
 
-// PublishLayout performs a POST /api/v1/layouts/{id}/publish (the `PublishLayout` operationId) request.
+// PublishLayoutWithBody performs a POST /api/v1/layouts/{id}/publish (the `PublishLayout` operationId) request,
+// with any type of body and a specified content type.
 //
-// Publish layout. Requires an authenticated dashboard user.
-func (c *Client) PublishLayout(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPublishLayoutRequest(c.Server, id)
+// Publish layout. Requires an authenticated dashboard user. Publishes the draft the caller read first: the request carries the draft revision it saw, and a 409 means someone else published first. A layout under editorial review answers 202 with the submission instead of publishing.
+func (c *Client) PublishLayoutWithBody(ctx context.Context, id ResourceID, params *PublishLayoutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPublishLayoutRequestWithBody(c.Server, id, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PublishLayout performs a POST /api/v1/layouts/{id}/publish (the `PublishLayout` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Publish layout. Requires an authenticated dashboard user. Publishes the draft the caller read first: the request carries the draft revision it saw, and a 409 means someone else published first. A layout under editorial review answers 202 with the submission instead of publishing.
+func (c *Client) PublishLayout(ctx context.Context, id ResourceID, params *PublishLayoutParams, body PublishLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPublishLayoutRequest(c.Server, id, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -12533,8 +13400,24 @@ func (c *Client) PublishLayout(ctx context.Context, id ResourceID, reqEditors ..
 // ListLayoutRevisions performs a GET /api/v1/layouts/{id}/revisions (the `ListLayoutRevisions` operationId) request.
 //
 // List layout revisions. Requires an authenticated dashboard user.
-func (c *Client) ListLayoutRevisions(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListLayoutRevisionsRequest(c.Server, id)
+func (c *Client) ListLayoutRevisions(ctx context.Context, id ResourceID, params *ListLayoutRevisionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListLayoutRevisionsRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RestoreLayoutRevisionWithBody performs a POST /api/v1/layouts/{id}/revisions/{revisionId}/restore (the `RestoreLayoutRevision` operationId) request,
+// with any type of body and a specified content type.
+//
+// Restore layout revision. Requires an authenticated dashboard user.
+func (c *Client) RestoreLayoutRevisionWithBody(ctx context.Context, id ResourceID, revisionId string, params *RestoreLayoutRevisionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRestoreLayoutRevisionRequestWithBody(c.Server, id, revisionId, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -12546,10 +13429,11 @@ func (c *Client) ListLayoutRevisions(ctx context.Context, id ResourceID, reqEdit
 }
 
 // RestoreLayoutRevision performs a POST /api/v1/layouts/{id}/revisions/{revisionId}/restore (the `RestoreLayoutRevision` operationId) request.
+// Takes a body of the `application/json` content type.
 //
 // Restore layout revision. Requires an authenticated dashboard user.
-func (c *Client) RestoreLayoutRevision(ctx context.Context, id ResourceID, revisionId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRestoreLayoutRevisionRequest(c.Server, id, revisionId)
+func (c *Client) RestoreLayoutRevision(ctx context.Context, id ResourceID, revisionId string, params *RestoreLayoutRevisionParams, body RestoreLayoutRevisionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRestoreLayoutRevisionRequest(c.Server, id, revisionId, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -23680,7 +24564,7 @@ func NewGetIntegrationMetricsRequest(server string) (*http.Request, error) {
 }
 
 // NewListLayoutsRequest constructs an http.Request for the ListLayouts method
-func NewListLayoutsRequest(server string) (*http.Request, error) {
+func NewListLayoutsRequest(server string, params *ListLayoutsParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -23696,6 +24580,57 @@ func NewListLayoutsRequest(server string) (*http.Request, error) {
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Search != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "search", *params.Search, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Page != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page", *params.Page, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "pageSize", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -23706,8 +24641,19 @@ func NewListLayoutsRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewCreateLayoutRequest constructs an http.Request for the CreateLayout method
-func NewCreateLayoutRequest(server string) (*http.Request, error) {
+// NewCreateLayoutRequest calls the generic CreateLayout builder with application/json body
+func NewCreateLayoutRequest(server string, params *CreateLayoutParams, body CreateLayoutJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateLayoutRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewCreateLayoutRequestWithBody constructs an http.Request for the CreateLayout method, with any body, and a specified content type
+func NewCreateLayoutRequestWithBody(server string, params *CreateLayoutParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -23725,16 +24671,31 @@ func NewCreateLayoutRequest(server string) (*http.Request, error) {
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
 	if err != nil {
 		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-CSRF-Token", headerParam0)
+
 	}
 
 	return req, nil
 }
 
 // NewDeleteLayoutRequest constructs an http.Request for the DeleteLayout method
-func NewDeleteLayoutRequest(server string, id ResourceID) (*http.Request, error) {
+func NewDeleteLayoutRequest(server string, id ResourceID, params *DeleteLayoutParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -23762,6 +24723,19 @@ func NewDeleteLayoutRequest(server string, id ResourceID) (*http.Request, error)
 	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-CSRF-Token", headerParam0)
+
 	}
 
 	return req, nil
@@ -23801,8 +24775,19 @@ func NewGetLayoutRequest(server string, id ResourceID) (*http.Request, error) {
 	return req, nil
 }
 
-// NewUpdateLayoutRequest constructs an http.Request for the UpdateLayout method
-func NewUpdateLayoutRequest(server string, id ResourceID) (*http.Request, error) {
+// NewUpdateLayoutRequest calls the generic UpdateLayout builder with application/json body
+func NewUpdateLayoutRequest(server string, id ResourceID, params *UpdateLayoutParams, body UpdateLayoutJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateLayoutRequestWithBody(server, id, params, "application/json", bodyReader)
+}
+
+// NewUpdateLayoutRequestWithBody constructs an http.Request for the UpdateLayout method, with any body, and a specified content type
+func NewUpdateLayoutRequestWithBody(server string, id ResourceID, params *UpdateLayoutParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -23827,16 +24812,42 @@ func NewUpdateLayoutRequest(server string, id ResourceID) (*http.Request, error)
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), nil)
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
 	if err != nil {
 		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-CSRF-Token", headerParam0)
+
 	}
 
 	return req, nil
 }
 
-// NewSaveLayoutDraftRequest constructs an http.Request for the SaveLayoutDraft method
-func NewSaveLayoutDraftRequest(server string, id ResourceID) (*http.Request, error) {
+// NewSaveLayoutDraftRequest calls the generic SaveLayoutDraft builder with application/json body
+func NewSaveLayoutDraftRequest(server string, id ResourceID, params *SaveLayoutDraftParams, body SaveLayoutDraftJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSaveLayoutDraftRequestWithBody(server, id, params, "application/json", bodyReader)
+}
+
+// NewSaveLayoutDraftRequestWithBody constructs an http.Request for the SaveLayoutDraft method, with any body, and a specified content type
+func NewSaveLayoutDraftRequestWithBody(server string, id ResourceID, params *SaveLayoutDraftParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -23861,16 +24872,31 @@ func NewSaveLayoutDraftRequest(server string, id ResourceID) (*http.Request, err
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPut, queryURL.String(), nil)
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
 	if err != nil {
 		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-CSRF-Token", headerParam0)
+
 	}
 
 	return req, nil
 }
 
 // NewDuplicateLayoutRequest constructs an http.Request for the DuplicateLayout method
-func NewDuplicateLayoutRequest(server string, id ResourceID) (*http.Request, error) {
+func NewDuplicateLayoutRequest(server string, id ResourceID, params *DuplicateLayoutParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -23898,6 +24924,19 @@ func NewDuplicateLayoutRequest(server string, id ResourceID) (*http.Request, err
 	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-CSRF-Token", headerParam0)
+
 	}
 
 	return req, nil
@@ -23994,8 +25033,19 @@ func NewUpdateLayoutPreviewImageRequest(server string, id ResourceID, params *Up
 	return req, nil
 }
 
-// NewPublishLayoutRequest constructs an http.Request for the PublishLayout method
-func NewPublishLayoutRequest(server string, id ResourceID) (*http.Request, error) {
+// NewPublishLayoutRequest calls the generic PublishLayout builder with application/json body
+func NewPublishLayoutRequest(server string, id ResourceID, params *PublishLayoutParams, body PublishLayoutJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPublishLayoutRequestWithBody(server, id, params, "application/json", bodyReader)
+}
+
+// NewPublishLayoutRequestWithBody constructs an http.Request for the PublishLayout method, with any body, and a specified content type
+func NewPublishLayoutRequestWithBody(server string, id ResourceID, params *PublishLayoutParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -24020,16 +25070,31 @@ func NewPublishLayoutRequest(server string, id ResourceID) (*http.Request, error
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
 	if err != nil {
 		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-CSRF-Token", headerParam0)
+
 	}
 
 	return req, nil
 }
 
 // NewListLayoutRevisionsRequest constructs an http.Request for the ListLayoutRevisions method
-func NewListLayoutRevisionsRequest(server string, id ResourceID) (*http.Request, error) {
+func NewListLayoutRevisionsRequest(server string, id ResourceID, params *ListLayoutRevisionsParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -24054,6 +25119,45 @@ func NewListLayoutRevisionsRequest(server string, id ResourceID) (*http.Request,
 		return nil, err
 	}
 
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Page != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page", *params.Page, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "pageSize", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
@@ -24062,8 +25166,19 @@ func NewListLayoutRevisionsRequest(server string, id ResourceID) (*http.Request,
 	return req, nil
 }
 
-// NewRestoreLayoutRevisionRequest constructs an http.Request for the RestoreLayoutRevision method
-func NewRestoreLayoutRevisionRequest(server string, id ResourceID, revisionId string) (*http.Request, error) {
+// NewRestoreLayoutRevisionRequest calls the generic RestoreLayoutRevision builder with application/json body
+func NewRestoreLayoutRevisionRequest(server string, id ResourceID, revisionId string, params *RestoreLayoutRevisionParams, body RestoreLayoutRevisionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRestoreLayoutRevisionRequestWithBody(server, id, revisionId, params, "application/json", bodyReader)
+}
+
+// NewRestoreLayoutRevisionRequestWithBody constructs an http.Request for the RestoreLayoutRevision method, with any body, and a specified content type
+func NewRestoreLayoutRevisionRequestWithBody(server string, id ResourceID, revisionId string, params *RestoreLayoutRevisionParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -24095,9 +25210,24 @@ func NewRestoreLayoutRevisionRequest(server string, id ResourceID, revisionId st
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
 	if err != nil {
 		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-CSRF-Token", headerParam0)
+
 	}
 
 	return req, nil
@@ -34344,21 +35474,28 @@ type ClientWithResponsesInterface interface {
 	// Requires an authenticated dashboard session. Layout summaries include hasUnpublishedChanges, computed by comparing the current draft document with the published document rather than by comparing their independent revision counters.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	ListLayoutsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListLayoutsResponse, error)
+	ListLayoutsWithResponse(ctx context.Context, params *ListLayoutsParams, reqEditors ...RequestEditorFn) (*ListLayoutsResponse, error)
 
-	// CreateLayoutWithResponse performs a POST /api/v1/layouts (the `CreateLayout` operationId) request.
+	// CreateLayoutWithBodyWithResponse performs a POST /api/v1/layouts (the `CreateLayout` operationId) request,
+	// with any type of body and a specified content type.
 	//
 	// Create layout. Requires an authenticated dashboard user.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	CreateLayoutWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*CreateLayoutResponse, error)
+	CreateLayoutWithBodyWithResponse(ctx context.Context, params *CreateLayoutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateLayoutResponse, error)
+
+	// CreateLayoutWithResponse performs a POST /api/v1/layouts (the `CreateLayout` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Create layout. Requires an authenticated dashboard user.
+	CreateLayoutWithResponse(ctx context.Context, params *CreateLayoutParams, body CreateLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateLayoutResponse, error)
 
 	// DeleteLayoutWithResponse performs a DELETE /api/v1/layouts/{id} (the `DeleteLayout` operationId) request.
 	//
 	// Delete layout. Requires an authenticated dashboard user.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	DeleteLayoutWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*DeleteLayoutResponse, error)
+	DeleteLayoutWithResponse(ctx context.Context, id ResourceID, params *DeleteLayoutParams, reqEditors ...RequestEditorFn) (*DeleteLayoutResponse, error)
 
 	// GetLayoutWithResponse performs a GET /api/v1/layouts/{id} (the `GetLayout` operationId) request.
 	//
@@ -34367,26 +35504,40 @@ type ClientWithResponsesInterface interface {
 	// Returns a wrapper object for the known response body format(s).
 	GetLayoutWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*GetLayoutResponse, error)
 
-	// UpdateLayoutWithResponse performs a PATCH /api/v1/layouts/{id} (the `UpdateLayout` operationId) request.
+	// UpdateLayoutWithBodyWithResponse performs a PATCH /api/v1/layouts/{id} (the `UpdateLayout` operationId) request,
+	// with any type of body and a specified content type.
 	//
 	// Update layout. Requires an authenticated dashboard user.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	UpdateLayoutWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*UpdateLayoutResponse, error)
+	UpdateLayoutWithBodyWithResponse(ctx context.Context, id ResourceID, params *UpdateLayoutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateLayoutResponse, error)
 
-	// SaveLayoutDraftWithResponse performs a PUT /api/v1/layouts/{id}/draft (the `SaveLayoutDraft` operationId) request.
+	// UpdateLayoutWithResponse performs a PATCH /api/v1/layouts/{id} (the `UpdateLayout` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Update layout. Requires an authenticated dashboard user.
+	UpdateLayoutWithResponse(ctx context.Context, id ResourceID, params *UpdateLayoutParams, body UpdateLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLayoutResponse, error)
+
+	// SaveLayoutDraftWithBodyWithResponse performs a PUT /api/v1/layouts/{id}/draft (the `SaveLayoutDraft` operationId) request,
+	// with any type of body and a specified content type.
 	//
 	// Requires an authenticated dashboard session. Saves a validated draft using expectedDraftRevision optimistic concurrency.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	SaveLayoutDraftWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*SaveLayoutDraftResponse, error)
+	SaveLayoutDraftWithBodyWithResponse(ctx context.Context, id ResourceID, params *SaveLayoutDraftParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SaveLayoutDraftResponse, error)
+
+	// SaveLayoutDraftWithResponse performs a PUT /api/v1/layouts/{id}/draft (the `SaveLayoutDraft` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Requires an authenticated dashboard session. Saves a validated draft using expectedDraftRevision optimistic concurrency.
+	SaveLayoutDraftWithResponse(ctx context.Context, id ResourceID, params *SaveLayoutDraftParams, body SaveLayoutDraftJSONRequestBody, reqEditors ...RequestEditorFn) (*SaveLayoutDraftResponse, error)
 
 	// DuplicateLayoutWithResponse performs a POST /api/v1/layouts/{id}/duplicate (the `DuplicateLayout` operationId) request.
 	//
 	// Duplicate layout. Requires an authenticated dashboard user.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	DuplicateLayoutWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*DuplicateLayoutResponse, error)
+	DuplicateLayoutWithResponse(ctx context.Context, id ResourceID, params *DuplicateLayoutParams, reqEditors ...RequestEditorFn) (*DuplicateLayoutResponse, error)
 
 	// GetLayoutPreviewImageWithResponse performs a GET /api/v1/layouts/{id}/preview-image (the `GetLayoutPreviewImage` operationId) request.
 	//
@@ -34402,26 +35553,40 @@ type ClientWithResponsesInterface interface {
 	// Returns a wrapper object for the known response body format(s).
 	UpdateLayoutPreviewImageWithResponse(ctx context.Context, id ResourceID, params *UpdateLayoutPreviewImageParams, reqEditors ...RequestEditorFn) (*UpdateLayoutPreviewImageResponse, error)
 
-	// PublishLayoutWithResponse performs a POST /api/v1/layouts/{id}/publish (the `PublishLayout` operationId) request.
+	// PublishLayoutWithBodyWithResponse performs a POST /api/v1/layouts/{id}/publish (the `PublishLayout` operationId) request,
+	// with any type of body and a specified content type.
 	//
-	// Publish layout. Requires an authenticated dashboard user.
+	// Publish layout. Requires an authenticated dashboard user. Publishes the draft the caller read first: the request carries the draft revision it saw, and a 409 means someone else published first. A layout under editorial review answers 202 with the submission instead of publishing.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	PublishLayoutWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*PublishLayoutResponse, error)
+	PublishLayoutWithBodyWithResponse(ctx context.Context, id ResourceID, params *PublishLayoutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PublishLayoutResponse, error)
+
+	// PublishLayoutWithResponse performs a POST /api/v1/layouts/{id}/publish (the `PublishLayout` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Publish layout. Requires an authenticated dashboard user. Publishes the draft the caller read first: the request carries the draft revision it saw, and a 409 means someone else published first. A layout under editorial review answers 202 with the submission instead of publishing.
+	PublishLayoutWithResponse(ctx context.Context, id ResourceID, params *PublishLayoutParams, body PublishLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*PublishLayoutResponse, error)
 
 	// ListLayoutRevisionsWithResponse performs a GET /api/v1/layouts/{id}/revisions (the `ListLayoutRevisions` operationId) request.
 	//
 	// List layout revisions. Requires an authenticated dashboard user.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	ListLayoutRevisionsWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*ListLayoutRevisionsResponse, error)
+	ListLayoutRevisionsWithResponse(ctx context.Context, id ResourceID, params *ListLayoutRevisionsParams, reqEditors ...RequestEditorFn) (*ListLayoutRevisionsResponse, error)
 
-	// RestoreLayoutRevisionWithResponse performs a POST /api/v1/layouts/{id}/revisions/{revisionId}/restore (the `RestoreLayoutRevision` operationId) request.
+	// RestoreLayoutRevisionWithBodyWithResponse performs a POST /api/v1/layouts/{id}/revisions/{revisionId}/restore (the `RestoreLayoutRevision` operationId) request,
+	// with any type of body and a specified content type.
 	//
 	// Restore layout revision. Requires an authenticated dashboard user.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	RestoreLayoutRevisionWithResponse(ctx context.Context, id ResourceID, revisionId string, reqEditors ...RequestEditorFn) (*RestoreLayoutRevisionResponse, error)
+	RestoreLayoutRevisionWithBodyWithResponse(ctx context.Context, id ResourceID, revisionId string, params *RestoreLayoutRevisionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RestoreLayoutRevisionResponse, error)
+
+	// RestoreLayoutRevisionWithResponse performs a POST /api/v1/layouts/{id}/revisions/{revisionId}/restore (the `RestoreLayoutRevision` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Restore layout revision. Requires an authenticated dashboard user.
+	RestoreLayoutRevisionWithResponse(ctx context.Context, id ResourceID, revisionId string, params *RestoreLayoutRevisionParams, body RestoreLayoutRevisionJSONRequestBody, reqEditors ...RequestEditorFn) (*RestoreLayoutRevisionResponse, error)
 
 	// ListLocationsWithResponse performs a GET /api/v1/locations (the `ListLocations` operationId) request.
 	//
@@ -41930,6 +43095,17 @@ func (r GetIntegrationMetricsResponse) ContentType() string {
 type ListLayoutsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data LayoutList `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListLayoutsResponse) GetJSON200() *struct {
+	Data LayoutList `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -41964,6 +43140,17 @@ func (r ListLayoutsResponse) ContentType() string {
 type CreateLayoutResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data Layout `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateLayoutResponse) GetJSON201() *struct {
+	Data Layout `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -42032,6 +43219,17 @@ func (r DeleteLayoutResponse) ContentType() string {
 type GetLayoutResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data Layout `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetLayoutResponse) GetJSON200() *struct {
+	Data Layout `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -42066,6 +43264,17 @@ func (r GetLayoutResponse) ContentType() string {
 type UpdateLayoutResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data Layout `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateLayoutResponse) GetJSON200() *struct {
+	Data Layout `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -42100,6 +43309,17 @@ func (r UpdateLayoutResponse) ContentType() string {
 type SaveLayoutDraftResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data Layout `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SaveLayoutDraftResponse) GetJSON200() *struct {
+	Data Layout `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -42134,6 +43354,17 @@ func (r SaveLayoutDraftResponse) ContentType() string {
 type DuplicateLayoutResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data Layout `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r DuplicateLayoutResponse) GetJSON201() *struct {
+	Data Layout `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -42236,6 +43467,13 @@ func (r UpdateLayoutPreviewImageResponse) ContentType() string {
 type PublishLayoutResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *map[string]interface{}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r PublishLayoutResponse) GetJSON201() *map[string]interface{} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -42270,6 +43508,17 @@ func (r PublishLayoutResponse) ContentType() string {
 type ListLayoutRevisionsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data LayoutRevisionList `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListLayoutRevisionsResponse) GetJSON200() *struct {
+	Data LayoutRevisionList `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -42304,6 +43553,17 @@ func (r ListLayoutRevisionsResponse) ContentType() string {
 type RestoreLayoutRevisionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data Layout `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RestoreLayoutRevisionResponse) GetJSON200() *struct {
+	Data Layout `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -53225,21 +54485,34 @@ func (c *ClientWithResponses) GetIntegrationMetricsWithResponse(ctx context.Cont
 // Requires an authenticated dashboard session. Layout summaries include hasUnpublishedChanges, computed by comparing the current draft document with the published document rather than by comparing their independent revision counters.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) ListLayoutsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListLayoutsResponse, error) {
-	rsp, err := c.ListLayouts(ctx, reqEditors...)
+func (c *ClientWithResponses) ListLayoutsWithResponse(ctx context.Context, params *ListLayoutsParams, reqEditors ...RequestEditorFn) (*ListLayoutsResponse, error) {
+	rsp, err := c.ListLayouts(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseListLayoutsResponse(rsp)
 }
 
-// CreateLayoutWithResponse performs a POST /api/v1/layouts (the `CreateLayout` operationId) request.
+// CreateLayoutWithBodyWithResponse performs a POST /api/v1/layouts (the `CreateLayout` operationId) request,
+// with any type of body and a specified content type.
 //
 // Create layout. Requires an authenticated dashboard user.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) CreateLayoutWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*CreateLayoutResponse, error) {
-	rsp, err := c.CreateLayout(ctx, reqEditors...)
+func (c *ClientWithResponses) CreateLayoutWithBodyWithResponse(ctx context.Context, params *CreateLayoutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateLayoutResponse, error) {
+	rsp, err := c.CreateLayoutWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateLayoutResponse(rsp)
+}
+
+// CreateLayoutWithResponse performs a POST /api/v1/layouts (the `CreateLayout` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Create layout. Requires an authenticated dashboard user.
+func (c *ClientWithResponses) CreateLayoutWithResponse(ctx context.Context, params *CreateLayoutParams, body CreateLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateLayoutResponse, error) {
+	rsp, err := c.CreateLayout(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -53251,8 +54524,8 @@ func (c *ClientWithResponses) CreateLayoutWithResponse(ctx context.Context, reqE
 // Delete layout. Requires an authenticated dashboard user.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) DeleteLayoutWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*DeleteLayoutResponse, error) {
-	rsp, err := c.DeleteLayout(ctx, id, reqEditors...)
+func (c *ClientWithResponses) DeleteLayoutWithResponse(ctx context.Context, id ResourceID, params *DeleteLayoutParams, reqEditors ...RequestEditorFn) (*DeleteLayoutResponse, error) {
+	rsp, err := c.DeleteLayout(ctx, id, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -53272,26 +54545,52 @@ func (c *ClientWithResponses) GetLayoutWithResponse(ctx context.Context, id Reso
 	return ParseGetLayoutResponse(rsp)
 }
 
-// UpdateLayoutWithResponse performs a PATCH /api/v1/layouts/{id} (the `UpdateLayout` operationId) request.
+// UpdateLayoutWithBodyWithResponse performs a PATCH /api/v1/layouts/{id} (the `UpdateLayout` operationId) request,
+// with any type of body and a specified content type.
 //
 // Update layout. Requires an authenticated dashboard user.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) UpdateLayoutWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*UpdateLayoutResponse, error) {
-	rsp, err := c.UpdateLayout(ctx, id, reqEditors...)
+func (c *ClientWithResponses) UpdateLayoutWithBodyWithResponse(ctx context.Context, id ResourceID, params *UpdateLayoutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateLayoutResponse, error) {
+	rsp, err := c.UpdateLayoutWithBody(ctx, id, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseUpdateLayoutResponse(rsp)
 }
 
-// SaveLayoutDraftWithResponse performs a PUT /api/v1/layouts/{id}/draft (the `SaveLayoutDraft` operationId) request.
+// UpdateLayoutWithResponse performs a PATCH /api/v1/layouts/{id} (the `UpdateLayout` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Update layout. Requires an authenticated dashboard user.
+func (c *ClientWithResponses) UpdateLayoutWithResponse(ctx context.Context, id ResourceID, params *UpdateLayoutParams, body UpdateLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLayoutResponse, error) {
+	rsp, err := c.UpdateLayout(ctx, id, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateLayoutResponse(rsp)
+}
+
+// SaveLayoutDraftWithBodyWithResponse performs a PUT /api/v1/layouts/{id}/draft (the `SaveLayoutDraft` operationId) request,
+// with any type of body and a specified content type.
 //
 // Requires an authenticated dashboard session. Saves a validated draft using expectedDraftRevision optimistic concurrency.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) SaveLayoutDraftWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*SaveLayoutDraftResponse, error) {
-	rsp, err := c.SaveLayoutDraft(ctx, id, reqEditors...)
+func (c *ClientWithResponses) SaveLayoutDraftWithBodyWithResponse(ctx context.Context, id ResourceID, params *SaveLayoutDraftParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SaveLayoutDraftResponse, error) {
+	rsp, err := c.SaveLayoutDraftWithBody(ctx, id, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSaveLayoutDraftResponse(rsp)
+}
+
+// SaveLayoutDraftWithResponse performs a PUT /api/v1/layouts/{id}/draft (the `SaveLayoutDraft` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Requires an authenticated dashboard session. Saves a validated draft using expectedDraftRevision optimistic concurrency.
+func (c *ClientWithResponses) SaveLayoutDraftWithResponse(ctx context.Context, id ResourceID, params *SaveLayoutDraftParams, body SaveLayoutDraftJSONRequestBody, reqEditors ...RequestEditorFn) (*SaveLayoutDraftResponse, error) {
+	rsp, err := c.SaveLayoutDraft(ctx, id, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -53303,8 +54602,8 @@ func (c *ClientWithResponses) SaveLayoutDraftWithResponse(ctx context.Context, i
 // Duplicate layout. Requires an authenticated dashboard user.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) DuplicateLayoutWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*DuplicateLayoutResponse, error) {
-	rsp, err := c.DuplicateLayout(ctx, id, reqEditors...)
+func (c *ClientWithResponses) DuplicateLayoutWithResponse(ctx context.Context, id ResourceID, params *DuplicateLayoutParams, reqEditors ...RequestEditorFn) (*DuplicateLayoutResponse, error) {
+	rsp, err := c.DuplicateLayout(ctx, id, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -53337,13 +54636,26 @@ func (c *ClientWithResponses) UpdateLayoutPreviewImageWithResponse(ctx context.C
 	return ParseUpdateLayoutPreviewImageResponse(rsp)
 }
 
-// PublishLayoutWithResponse performs a POST /api/v1/layouts/{id}/publish (the `PublishLayout` operationId) request.
+// PublishLayoutWithBodyWithResponse performs a POST /api/v1/layouts/{id}/publish (the `PublishLayout` operationId) request,
+// with any type of body and a specified content type.
 //
-// Publish layout. Requires an authenticated dashboard user.
+// Publish layout. Requires an authenticated dashboard user. Publishes the draft the caller read first: the request carries the draft revision it saw, and a 409 means someone else published first. A layout under editorial review answers 202 with the submission instead of publishing.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) PublishLayoutWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*PublishLayoutResponse, error) {
-	rsp, err := c.PublishLayout(ctx, id, reqEditors...)
+func (c *ClientWithResponses) PublishLayoutWithBodyWithResponse(ctx context.Context, id ResourceID, params *PublishLayoutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PublishLayoutResponse, error) {
+	rsp, err := c.PublishLayoutWithBody(ctx, id, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePublishLayoutResponse(rsp)
+}
+
+// PublishLayoutWithResponse performs a POST /api/v1/layouts/{id}/publish (the `PublishLayout` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Publish layout. Requires an authenticated dashboard user. Publishes the draft the caller read first: the request carries the draft revision it saw, and a 409 means someone else published first. A layout under editorial review answers 202 with the submission instead of publishing.
+func (c *ClientWithResponses) PublishLayoutWithResponse(ctx context.Context, id ResourceID, params *PublishLayoutParams, body PublishLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*PublishLayoutResponse, error) {
+	rsp, err := c.PublishLayout(ctx, id, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -53355,21 +54667,34 @@ func (c *ClientWithResponses) PublishLayoutWithResponse(ctx context.Context, id 
 // List layout revisions. Requires an authenticated dashboard user.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) ListLayoutRevisionsWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*ListLayoutRevisionsResponse, error) {
-	rsp, err := c.ListLayoutRevisions(ctx, id, reqEditors...)
+func (c *ClientWithResponses) ListLayoutRevisionsWithResponse(ctx context.Context, id ResourceID, params *ListLayoutRevisionsParams, reqEditors ...RequestEditorFn) (*ListLayoutRevisionsResponse, error) {
+	rsp, err := c.ListLayoutRevisions(ctx, id, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseListLayoutRevisionsResponse(rsp)
 }
 
-// RestoreLayoutRevisionWithResponse performs a POST /api/v1/layouts/{id}/revisions/{revisionId}/restore (the `RestoreLayoutRevision` operationId) request.
+// RestoreLayoutRevisionWithBodyWithResponse performs a POST /api/v1/layouts/{id}/revisions/{revisionId}/restore (the `RestoreLayoutRevision` operationId) request,
+// with any type of body and a specified content type.
 //
 // Restore layout revision. Requires an authenticated dashboard user.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) RestoreLayoutRevisionWithResponse(ctx context.Context, id ResourceID, revisionId string, reqEditors ...RequestEditorFn) (*RestoreLayoutRevisionResponse, error) {
-	rsp, err := c.RestoreLayoutRevision(ctx, id, revisionId, reqEditors...)
+func (c *ClientWithResponses) RestoreLayoutRevisionWithBodyWithResponse(ctx context.Context, id ResourceID, revisionId string, params *RestoreLayoutRevisionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RestoreLayoutRevisionResponse, error) {
+	rsp, err := c.RestoreLayoutRevisionWithBody(ctx, id, revisionId, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRestoreLayoutRevisionResponse(rsp)
+}
+
+// RestoreLayoutRevisionWithResponse performs a POST /api/v1/layouts/{id}/revisions/{revisionId}/restore (the `RestoreLayoutRevision` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Restore layout revision. Requires an authenticated dashboard user.
+func (c *ClientWithResponses) RestoreLayoutRevisionWithResponse(ctx context.Context, id ResourceID, revisionId string, params *RestoreLayoutRevisionParams, body RestoreLayoutRevisionJSONRequestBody, reqEditors ...RequestEditorFn) (*RestoreLayoutRevisionResponse, error) {
+	rsp, err := c.RestoreLayoutRevision(ctx, id, revisionId, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -60019,6 +61344,21 @@ func ParseListLayoutsResponse(rsp *http.Response) (*ListLayoutsResponse, error) 
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data LayoutList `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -60033,6 +61373,21 @@ func ParseCreateLayoutResponse(rsp *http.Response) (*CreateLayoutResponse, error
 	response := &CreateLayoutResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data Layout `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -60067,6 +61422,21 @@ func ParseGetLayoutResponse(rsp *http.Response) (*GetLayoutResponse, error) {
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data Layout `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -60081,6 +61451,21 @@ func ParseUpdateLayoutResponse(rsp *http.Response) (*UpdateLayoutResponse, error
 	response := &UpdateLayoutResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data Layout `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -60099,6 +61484,24 @@ func ParseSaveLayoutDraftResponse(rsp *http.Response) (*SaveLayoutDraftResponse,
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data Layout `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -60113,6 +61516,21 @@ func ParseDuplicateLayoutResponse(rsp *http.Response) (*DuplicateLayoutResponse,
 	response := &DuplicateLayoutResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data Layout `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -60163,6 +61581,22 @@ func ParsePublishLayoutResponse(rsp *http.Response) (*PublishLayoutResponse, err
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest map[string]interface{}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 202:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -60179,6 +61613,21 @@ func ParseListLayoutRevisionsResponse(rsp *http.Response) (*ListLayoutRevisionsR
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data LayoutRevisionList `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -60193,6 +61642,21 @@ func ParseRestoreLayoutRevisionResponse(rsp *http.Response) (*RestoreLayoutRevis
 	response := &RestoreLayoutRevisionResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data Layout `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
 	}
 
 	return response, nil
