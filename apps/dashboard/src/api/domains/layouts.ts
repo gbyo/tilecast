@@ -6,14 +6,24 @@
  * acquisition is an explicitly exceptional transport.
  */
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from "../transport";
+import type { components } from "@tilecast/api-schema/generated/openapi";
 import type {
   Layout,
   LayoutDocument,
   LayoutList,
   LayoutOrientation,
-  LayoutRevision,
   LayoutRevisionList,
 } from "../types";
+
+/**
+ * A layout publish answers 201 with the publication record (editorial
+ * review path) or the immutable revision (direct path), or 202 with the
+ * review submission. The contract types every shape; callers narrow.
+ */
+export type WirePublishLayoutResult =
+  | components["schemas"]["ContentSubmissionPublication"]
+  | components["schemas"]["LayoutRevision"]
+  | components["schemas"]["ContentSubmission"];
 
 function normalizeLayoutDocument(
   document: LayoutDocument | null | undefined,
@@ -147,15 +157,12 @@ export function publishLayout(
   id: string,
   expectedDraftRevision: number,
   csrfToken: string,
-): Promise<LayoutRevision> {
-  return apiPost<"/api/v1/layouts/{id}/publish", LayoutRevision>(
-    "/api/v1/layouts/{id}/publish",
-    {
-      params: { path: { id } },
-      body: { expectedDraftRevision },
-      csrfToken,
-    },
-  );
+): Promise<WirePublishLayoutResult> {
+  return apiPost("/api/v1/layouts/{id}/publish", {
+    params: { path: { id } },
+    body: { expectedDraftRevision },
+    csrfToken,
+  });
 }
 
 export async function duplicateLayout(

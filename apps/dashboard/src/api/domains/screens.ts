@@ -129,10 +129,7 @@ export function confirmPowerAssist(
   results: Omit<PowerAssistResults, "lastTestedAt">,
   csrfToken: string,
 ): Promise<{ screenId: string; lastTestedAt: string }> {
-  return apiPut<
-    "/api/v1/screens/{id}/power-assist",
-    { screenId: string; lastTestedAt: string }
-  >("/api/v1/screens/{id}/power-assist", {
+  return apiPut("/api/v1/screens/{id}/power-assist", {
     params: { path: { id } },
     body: results,
     csrfToken,

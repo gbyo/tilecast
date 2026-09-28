@@ -1,10 +1,9 @@
 /**
- * Playlist domain helpers over the typed transport. Playlist CRUD and
- * revision success bodies are contract-typed and inferred from the
- * generated OpenAPI schemas; the handwritten view models in ../types.ts
- * stay, with the playlist normalizers bridging wire and view shapes.
- * Publish and screen playlist-assignment results stay local until the
- * contract models them.
+ * Playlist domain helpers over the typed transport. Playlist CRUD,
+ * revision, publish, and screen playlist-assignment success bodies are
+ * contract-typed and inferred from the generated OpenAPI schemas; the
+ * handwritten view models in ../types.ts stay, with the playlist
+ * normalizers bridging wire and view shapes.
  */
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from "../transport";
 import type { components } from "@tilecast/api-schema/generated/openapi";
@@ -23,6 +22,11 @@ import type {
 export type WirePlaylist = components["schemas"]["Playlist"];
 export type WirePlaylistItem = components["schemas"]["PlaylistItem"];
 export type WirePlaylistList = components["schemas"]["PlaylistList"];
+export type WireScreenPlaylistAssignment =
+  components["schemas"]["ScreenPlaylistAssignment"];
+export type WirePublishPlaylistResult =
+  | components["schemas"]["ContentSubmissionPublication"]
+  | components["schemas"]["ContentSubmission"];
 
 /**
  * The contract leaves item assetStatus an open string: items that point
@@ -72,7 +76,8 @@ export function normalizePlaylistList(
 }
 
 export function normalizePlaylistAssignment(
-  assignment: PlaylistAssignment | null | undefined,
+  assignment:
+    PlaylistAssignment | WireScreenPlaylistAssignment | null | undefined,
 ): PlaylistAssignment {
   const source = assignment ?? ({} as PlaylistAssignment);
   return {
@@ -287,7 +292,7 @@ export function publishPlaylist(
   id: string,
   expectedDraftRevision: number,
   csrfToken: string,
-): Promise<unknown> {
+): Promise<WirePublishPlaylistResult> {
   return apiPost("/api/v1/playlists/{id}/publish", {
     params: { path: { id } },
     body: { expectedDraftRevision },
