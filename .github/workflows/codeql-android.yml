@@ -56,6 +56,15 @@ jobs:
       - name: Set up Android SDK
         if: steps.changes.outputs.changed == 'true'
         uses: android-actions/setup-android@v4
+      - name: Set up Node
+        if: steps.changes.outputs.changed == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - name: Build shared Player Runtime
+        if: steps.changes.outputs.changed == 'true'
+        run: npm ci && npm run build --workspace @tilecast/player-runtime
       - name: Initialize CodeQL
         if: steps.changes.outputs.changed == 'true'
         uses: github/codeql-action/init@v4.38.2

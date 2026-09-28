@@ -41,6 +41,11 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
       - name: Resolve and validate release
         id: release
         env:
@@ -152,6 +157,11 @@ jobs:
             echo "Android versionCode $current must be greater than published versionCode $previous." >&2
             exit 1
           fi
+
+      - name: Build shared Player Runtime
+        run: |
+          npm ci
+          npm run build --workspace @tilecast/player-runtime
 
       - name: Build, sign, verify, and create release assets
         env:
