@@ -358,6 +358,8 @@ describe("no second source of truth", () => {
     }
   });
 
+  // Regenerates the composed contract and runs full conformance: seconds of
+  // YAML work even unloaded, so it gets an explicit budget instead of the 5s default.
   it("keeps the exclusion set small, justified, and live", async () => {
     expect(EXCLUDED_OPERATIONS.length).toBeLessThanOrEqual(
       MAX_EXCLUDED_OPERATIONS,
@@ -385,5 +387,5 @@ describe("no second source of truth", () => {
     }
     const core = doc(readFileSync(join(repoRoot(), CORE_OPENAPI), "utf8"));
     expect(checkDerivedConformance(doc(composed!), core)).toEqual([]);
-  });
+  }, 30000);
 });
