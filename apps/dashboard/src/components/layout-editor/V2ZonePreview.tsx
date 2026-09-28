@@ -63,10 +63,7 @@ export function V2ZonePreview({
       return {
         type: component.type,
         version: component.version,
-        config: compileComponentConfig(
-          component.configTemplate,
-          configuration,
-        ),
+        config: compileComponentConfig(component.configTemplate, configuration),
       };
     } catch {
       return null;
@@ -95,7 +92,13 @@ export function V2ZonePreview({
       motion: { reduced: false },
       mode: "preview" as const,
     }),
-    [clock, regional.locale, regional.timezone, regional.timeFormat, configuration],
+    [
+      clock,
+      regional.locale,
+      regional.timezone,
+      regional.timeFormat,
+      configuration,
+    ],
   );
 
   if (definitions.isLoading) return null;
