@@ -54,11 +54,11 @@ composite edge compose "docker compose version"
 composite dashboard playwright "npx --no-install playwright --version"
 
 case " $AREA " in
-	*" all "* | *" android " | *" server " | *" edge "*)
+	*" all "* | *" android "*)
 		if [ -n "${ANDROID_HOME:-}" ] && [ -d "$ANDROID_HOME" ]; then
 			echo "ok   ANDROID_HOME $ANDROID_HOME"
 		else
-			echo "MISS ANDROID_HOME (needed for: android; server and edge builds do not need it)"
+			echo "MISS ANDROID_HOME (needed for: android)"
 		fi
 		;;
 esac

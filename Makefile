@@ -19,7 +19,6 @@ check:
 	$(MAKE) plugins-check
 	$(MAKE) widgets-check
 	$(MAKE) data-sources-check
-	$(MAKE) generate
 	$(MAKE) generated-check
 	npm run format:check
 	npm run lint
