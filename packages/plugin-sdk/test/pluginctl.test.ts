@@ -32,7 +32,7 @@ function makeRepo(): string {
   mkdirSync(join(dir, "docs/openapi"), { recursive: true });
   writeFileSync(
     join(dir, "docs/openapi/core.yaml"),
-    "openapi: 3.1.0\ninfo:\n  title: Core\n  version: 1.0.0\npaths:\n  /healthz:\n    get:\n      operationId: health\n      description: The server process is running.\n      responses:\n        '200':\n          description: ok\n          content:\n            application/json:\n              schema:\n                type: object\ncomponents:\n  responses:\n    NotFound:\n      description: Missing\n  schemas:\n    Error:\n      type: object\n",
+    "openapi: 3.1.0\ninfo:\n  title: Core\n  version: 1.0.0\npaths:\n  /healthz:\n    get:\n      operationId: health\n      description: The server process is running.\n      responses:\n        '200':\n          description: ok\n          content:\n            application/json:\n              schema:\n                type: object\n                additionalProperties: true\ncomponents:\n  responses:\n    NotFound:\n      description: Missing\n  schemas:\n    Error:\n      type: object\n      additionalProperties: true\n",
   );
   writeFileSync(
     join(dir, "plugins/review-eligibility.json"),
@@ -92,7 +92,7 @@ function writeCore(dir: string, paths: string[]) {
       ...paths,
       "components:",
       "  schemas:",
-      "    Error: { type: object }",
+      "    Error: { type: object, additionalProperties: true }",
       "",
     ].join("\n"),
   );
@@ -528,10 +528,11 @@ describe("pluginctl", () => {
         "            application/json:",
         "              schema:",
         "                type: object",
+        "                additionalProperties: true",
         "        '404': { $ref: '../../../docs/openapi/core.yaml#/components/responses/NotFound' }",
         "components:",
         "  schemas:",
-        "    TransitFeed: { type: object }",
+        "    TransitFeed: { type: object, additionalProperties: true }",
         "",
       ].join("\n"),
     );
@@ -578,7 +579,7 @@ describe("pluginctl", () => {
       "          description: Things",
       "          content:",
       "            application/json:",
-      "              schema: { type: object }",
+      "              schema: { type: object, additionalProperties: true }",
       "        '204': { description: Nothing left }",
     ]);
     await generateInto(root);

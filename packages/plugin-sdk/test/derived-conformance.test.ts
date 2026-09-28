@@ -50,7 +50,7 @@ responses:
     description: Things
     content:
       application/json:
-        schema: { type: object }
+        schema: { type: object, additionalProperties: true }
   "401": { description: Dashboard authentication required }`),
       ),
     );
@@ -66,12 +66,12 @@ paths:
     get:
       operationId: same
       description: Requires an authenticated dashboard session.
-      responses: { "200": { description: ok, content: { application/json: { schema: { type: object } } } } }
+      responses: { "200": { description: ok, content: { application/json: { schema: { type: object, additionalProperties: true } } } } }
   /api/v1/b:
     get:
       operationId: same
       description: Requires an authenticated dashboard session.
-      responses: { "200": { description: ok, content: { application/json: { schema: { type: object } } } } }
+      responses: { "200": { description: ok, content: { application/json: { schema: { type: object, additionalProperties: true } } } } }
 `),
     );
     expect(problems.map((p) => p.message)).toEqual([
@@ -83,7 +83,7 @@ paths:
     const problems = checkDerivedConformance(
       doc(
         OPERATION(`description: Requires an authenticated dashboard session.
-responses: { "200": { description: ok, content: { application/json: { schema: { type: object } } } } }`),
+responses: { "200": { description: ok, content: { application/json: { schema: { type: object, additionalProperties: true } } } } }`),
       ),
     );
     expect(problems.map((p) => p.message)).toEqual([
@@ -100,7 +100,7 @@ responses:
     description: ok
     content:
       application/json:
-        schema: { type: object }
+        schema: { type: object, additionalProperties: true }
   "401": { description: Dashboard authentication required }`),
       ),
     );
@@ -119,7 +119,7 @@ responses:
     description: ok
     content:
       application/json:
-        schema: { type: object }
+        schema: { type: object, additionalProperties: true }
   "401": { description: Dashboard authentication required }`),
       ),
     );
@@ -137,7 +137,7 @@ responses:
     description: ok
     content:
       application/json:
-        schema: { type: object }
+        schema: { type: object, additionalProperties: true }
   "401": { description: Dashboard authentication required }`),
       ),
     );
@@ -154,7 +154,7 @@ responses:
     description: ok
     content:
       application/json:
-        schema: { type: object }
+        schema: { type: object, additionalProperties: true }
   "401": { description: Dashboard authentication required }`),
       ),
     );
@@ -184,7 +184,7 @@ responses:
 description: Requires an authenticated dashboard session.
 parameters:
   - { name: type, in: query, required: false, schema: { $ref: "#/components/schemas/ThingType" } }
-responses: { "200": { description: ok, content: { application/json: { schema: { type: object } } } } }`) +
+responses: { "200": { description: ok, content: { application/json: { schema: { type: object, additionalProperties: true } } } } }`) +
           `components:
   schemas:
     ThingType: { type: string }
@@ -201,7 +201,7 @@ responses: { "200": { description: ok, content: { application/json: { schema: { 
 description: Requires an authenticated dashboard session.
 parameters:
   - { name: q, in: query, required: false }
-responses: { "200": { description: ok, content: { application/json: { schema: { type: object } } } } }`),
+responses: { "200": { description: ok, content: { application/json: { schema: { type: object, additionalProperties: true } } } } }`),
       ),
     );
     expect(problems.map((p) => p.message)).toEqual([
@@ -219,7 +219,7 @@ requestBody:
   required: true
   content:
     application/json: {}
-responses: { "200": { description: ok, content: { application/json: { schema: { type: object } } } } }`,
+responses: { "200": { description: ok, content: { application/json: { schema: { type: object, additionalProperties: true } } } } }`,
           "/api/v1/things/{id}",
           "patch",
         ),
@@ -247,7 +247,7 @@ description: Requires an authenticated dashboard session.`),
       doc(
         OPERATION(`operationId: getThings
 description: Returns things.
-responses: { "200": { description: ok, content: { application/json: { schema: { type: object } } } } }`),
+responses: { "200": { description: ok, content: { application/json: { schema: { type: object, additionalProperties: true } } } } }`),
       ),
     );
     expect(problems.map((p) => p.message)).toEqual([
@@ -265,7 +265,54 @@ responses:
     description: Identity
     content:
       application/json:
-        schema: { type: object }`),
+        schema: { type: object, additionalProperties: true }`),
+      ),
+    );
+    expect(problems).toEqual([]);
+  });
+
+  it("rejects a bare object schema", () => {
+    const problems = checkDerivedConformance(
+      doc(
+        OPERATION(`operationId: getThings
+description: Requires an authenticated dashboard session.
+responses:
+  "200":
+    description: Things
+    content:
+      application/json:
+        schema:
+          type: object
+          required: [data]
+          properties:
+            data: { type: object }
+  "401": { description: Dashboard authentication required }`),
+      ),
+    );
+    expect(problems).toHaveLength(1);
+    expect(problems[0]?.message).toContain("properties.data");
+    expect(problems[0]?.message).toContain("additionalProperties");
+  });
+
+  it("accepts open, closed-empty, and composed object schemas", () => {
+    const problems = checkDerivedConformance(
+      doc(
+        OPERATION(`operationId: getThings
+description: Requires an authenticated dashboard session.
+responses:
+  "200":
+    description: Things
+    content:
+      application/json:
+        schema:
+          type: object
+          required: [open, empty, either, nullable]
+          properties:
+            open: { type: object, additionalProperties: true }
+            empty: { type: object, additionalProperties: false }
+            either: { oneOf: [{ type: object, properties: { a: { type: string } } }, { type: "null" }] }
+            nullable: { type: [object, "null"], additionalProperties: { type: string } }
+  "401": { description: Dashboard authentication required }`),
       ),
     );
     expect(problems).toEqual([]);
@@ -301,7 +348,7 @@ paths:
     get:
       operationId: ${excluded!.operationId}
       description: Demo-only endpoint for tests.
-      responses: { "200": { description: ok, content: { application/json: { schema: { type: object } } } } }
+      responses: { "200": { description: ok, content: { application/json: { schema: { type: object, additionalProperties: true } } } } }
 `),
     );
     expect(problems).toEqual([]);

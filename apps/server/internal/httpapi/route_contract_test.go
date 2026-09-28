@@ -81,8 +81,7 @@ func walkChiRoutes(t *testing.T, handler http.Handler, routes map[string]bool) {
 // The preview and login-background sub-routers wrap the main router as
 // middleware, so they are walked separately through the same builders the
 // server wires in middleware.go.
-func productionV1Routes(t *testing.T) map[string]bool {
-	t.Helper()
+func productionServerForRoutes() *server {
 	s := &server{
 		campaigns:            &campaigns.Service{},
 		approvals:            &approvals.Service{},
@@ -95,6 +94,12 @@ func productionV1Routes(t *testing.T) map[string]bool {
 		demo:                 &demo.Runtime{},
 	}
 	s.plugins = plugins.NewService(nil, nil, plugins.WithPlugins(bundled.Bundled()...))
+	return s
+}
+
+func productionV1Routes(t *testing.T) map[string]bool {
+	t.Helper()
+	s := productionServerForRoutes()
 	routes := map[string]bool{}
 	walkChiRoutes(t, s.routes(), routes)
 	// The sub-router builders take the fall-through handler as an
