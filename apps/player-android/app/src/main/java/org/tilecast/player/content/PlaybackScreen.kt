@@ -151,8 +151,9 @@ private fun FullscreenPlaybackBody(
     // in the trusted Player Runtime WebView. The gate defaults off until
     // device validation flips it; everything else keeps the legacy path.
     val sharedRuntimeItems = session.content.manifest.playlist?.items ?: emptyList()
-    if (org.tilecast.player.runtime.RuntimeCutover.useSharedRuntime(session.content.manifest, sharedRuntimeItems)) {
+    if (org.tilecast.player.runtime.RuntimeCutover.useSharedRuntime(session.content, sharedRuntimeItems)) {
         val runtimeManifest = session.content.manifest
+        val runtimeActivity = rememberRuntimeActivityTracker(activityReporter, session)
         val runtimeActivationId = "manifest-${runtimeManifest.manifestVersion}"
         val runtimeMessage = org.tilecast.player.runtime.RuntimePresentationBuilder.hostMessage(
             org.tilecast.player.runtime.RuntimeScreenState.Playing(
@@ -166,6 +167,7 @@ private fun FullscreenPlaybackBody(
                 takeover = runtimeManifest.effectiveTakeover != null,
                 nowMillis = session.content.serverNow().toEpochMilli(),
                 clockOffsetMillis = session.content.serverClockOffsetMillis ?: 0L,
+                playbackAnchorMillis = session.playbackAnchor?.toEpochMilli(),
             ),
         )
         val runtimeContext = androidx.compose.ui.platform.LocalContext.current
@@ -175,10 +177,14 @@ private fun FullscreenPlaybackBody(
             activationId = runtimeActivationId,
             hostVersion = org.tilecast.player.BuildConfig.VERSION_NAME,
             engineVersion = androidx.webkit.WebViewCompat.getCurrentWebViewPackage(runtimeContext)?.versionName ?: "unknown",
-            onBoundary = onBoundary,
+            onBoundary = { itemId, assetId ->
+                runtimeActivity?.boundary(itemId)
+                onBoundary(itemId, assetId)
+            },
             onError = onError,
             onProgress = onProgress,
             onFirstFrame = { onProgress() },
+            onItemTransition = { runtimeActivity?.transition(it) },
         )
         return
     }
