@@ -8537,6 +8537,17 @@ components:
         byType:
           type: array
           items: { $ref: "#/components/schemas/IncidentBreakdown" }
+    ScreenAttentionItem:
+      type: object
+      additionalProperties: false
+      required: [screenId, screenName, kind, severity, description, occurredAt]
+      properties:
+        screenId: { type: string, format: uuid }
+        screenName: { type: string }
+        kind: { type: string }
+        severity: { type: string }
+        description: { type: string }
+        occurredAt: { type: string, format: date-time }
     ScreenActivity:
       type: object
       additionalProperties: false
@@ -8553,10 +8564,7 @@ components:
         playbackGaps: { type: integer, minimum: 0 }
         lastHealthyPlayback: { type: string, format: date-time }
         lastSuccessfulPlayback: { type: string, format: date-time }
-        currentIssue:
-          type: object
-          description: >-
-            The current playback issue, when one is present. Fields vary by issue source.
+        currentIssue: { $ref: "#/components/schemas/ScreenAttentionItem" }
     ScreenHealth:
       type: string
       enum: [healthy, impaired, offline, unmeasured]
