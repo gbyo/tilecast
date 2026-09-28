@@ -312,6 +312,96 @@ func (e ContentSubmissionListPolicy) Valid() bool {
 	}
 }
 
+// Defines values for DataSourceDateSelectionDateFormat.
+const (
+	DataSourceDateSelectionDateFormatAuto          DataSourceDateSelectionDateFormat = "auto"
+	DataSourceDateSelectionDateFormatDayFirstDate  DataSourceDateSelectionDateFormat = "day_first_date"
+	DataSourceDateSelectionDateFormatDayFirstShort DataSourceDateSelectionDateFormat = "day_first_short"
+	DataSourceDateSelectionDateFormatDayMonthName  DataSourceDateSelectionDateFormat = "day_month_name"
+	DataSourceDateSelectionDateFormatIsoDate       DataSourceDateSelectionDateFormat = "iso_date"
+	DataSourceDateSelectionDateFormatRfc3339       DataSourceDateSelectionDateFormat = "rfc3339"
+	DataSourceDateSelectionDateFormatUsDate        DataSourceDateSelectionDateFormat = "us_date"
+	DataSourceDateSelectionDateFormatUsShort       DataSourceDateSelectionDateFormat = "us_short"
+)
+
+// Valid indicates whether the value is a known member of the DataSourceDateSelectionDateFormat enum.
+func (e DataSourceDateSelectionDateFormat) Valid() bool {
+	switch e {
+	case DataSourceDateSelectionDateFormatAuto:
+		return true
+	case DataSourceDateSelectionDateFormatDayFirstDate:
+		return true
+	case DataSourceDateSelectionDateFormatDayFirstShort:
+		return true
+	case DataSourceDateSelectionDateFormatDayMonthName:
+		return true
+	case DataSourceDateSelectionDateFormatIsoDate:
+		return true
+	case DataSourceDateSelectionDateFormatRfc3339:
+		return true
+	case DataSourceDateSelectionDateFormatUsDate:
+		return true
+	case DataSourceDateSelectionDateFormatUsShort:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DataSourceDateSelectionMode.
+const (
+	DataSourceDateSelectionModeCurrentWeek   DataSourceDateSelectionMode = "current_week"
+	DataSourceDateSelectionModeCustomRange   DataSourceDateSelectionMode = "custom_range"
+	DataSourceDateSelectionModeNextAvailable DataSourceDateSelectionMode = "next_available"
+	DataSourceDateSelectionModeToday         DataSourceDateSelectionMode = "today"
+	DataSourceDateSelectionModeTomorrow      DataSourceDateSelectionMode = "tomorrow"
+)
+
+// Valid indicates whether the value is a known member of the DataSourceDateSelectionMode enum.
+func (e DataSourceDateSelectionMode) Valid() bool {
+	switch e {
+	case DataSourceDateSelectionModeCurrentWeek:
+		return true
+	case DataSourceDateSelectionModeCustomRange:
+		return true
+	case DataSourceDateSelectionModeNextAvailable:
+		return true
+	case DataSourceDateSelectionModeToday:
+		return true
+	case DataSourceDateSelectionModeTomorrow:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DataSourceDateSelectionNoMatchBehavior.
+const (
+	DataSourceDateSelectionNoMatchBehaviorEmpty         DataSourceDateSelectionNoMatchBehavior = "empty"
+	DataSourceDateSelectionNoMatchBehaviorFallbackText  DataSourceDateSelectionNoMatchBehavior = "fallback_text"
+	DataSourceDateSelectionNoMatchBehaviorHide          DataSourceDateSelectionNoMatchBehavior = "hide"
+	DataSourceDateSelectionNoMatchBehaviorLastKnownGood DataSourceDateSelectionNoMatchBehavior = "last_known_good"
+	DataSourceDateSelectionNoMatchBehaviorNextAvailable DataSourceDateSelectionNoMatchBehavior = "next_available"
+)
+
+// Valid indicates whether the value is a known member of the DataSourceDateSelectionNoMatchBehavior enum.
+func (e DataSourceDateSelectionNoMatchBehavior) Valid() bool {
+	switch e {
+	case DataSourceDateSelectionNoMatchBehaviorEmpty:
+		return true
+	case DataSourceDateSelectionNoMatchBehaviorFallbackText:
+		return true
+	case DataSourceDateSelectionNoMatchBehaviorHide:
+		return true
+	case DataSourceDateSelectionNoMatchBehaviorLastKnownGood:
+		return true
+	case DataSourceDateSelectionNoMatchBehaviorNextAvailable:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DataSourceProvider.
 const (
 	DataSourceProviderAirQuality DataSourceProvider = "air_quality"
@@ -2069,19 +2159,19 @@ func (e CreateAirplaySessionJSONBodyTargetType) Valid() bool {
 
 // Defines values for CreateAirplaySessionJSONBodyTransport.
 const (
-	Auto      CreateAirplaySessionJSONBodyTransport = "auto"
-	Multicast CreateAirplaySessionJSONBodyTransport = "multicast"
-	Unicast   CreateAirplaySessionJSONBodyTransport = "unicast"
+	CreateAirplaySessionJSONBodyTransportAuto      CreateAirplaySessionJSONBodyTransport = "auto"
+	CreateAirplaySessionJSONBodyTransportMulticast CreateAirplaySessionJSONBodyTransport = "multicast"
+	CreateAirplaySessionJSONBodyTransportUnicast   CreateAirplaySessionJSONBodyTransport = "unicast"
 )
 
 // Valid indicates whether the value is a known member of the CreateAirplaySessionJSONBodyTransport enum.
 func (e CreateAirplaySessionJSONBodyTransport) Valid() bool {
 	switch e {
-	case Auto:
+	case CreateAirplaySessionJSONBodyTransportAuto:
 		return true
-	case Multicast:
+	case CreateAirplaySessionJSONBodyTransportMulticast:
 		return true
-	case Unicast:
+	case CreateAirplaySessionJSONBodyTransportUnicast:
 		return true
 	default:
 		return false
@@ -2927,6 +3017,98 @@ type CreateUploadRequest struct {
 	SizeBytes int64  `json:"sizeBytes"`
 }
 
+// DataSource Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider stays an open string because definition and plugin providers extend the registry beyond the request-side enum.
+type DataSource struct {
+	ConfigVersion int                    `json:"configVersion"`
+	Configuration map[string]interface{} `json:"configuration"`
+	CreatedAt     time.Time              `json:"createdAt"`
+	Creator       *struct {
+		Id   openapi_types.UUID `json:"id"`
+		Name string             `json:"name"`
+	} `json:"creator,omitempty"`
+	Description string             `json:"description"`
+	Id          openapi_types.UUID `json:"id"`
+	Name        string             `json:"name"`
+	Provider    string             `json:"provider"`
+	UpdatedAt   time.Time          `json:"updatedAt"`
+}
+
+// DataSourceBindingUsage defines model for DataSourceBindingUsage.
+type DataSourceBindingUsage struct {
+	Field      string             `json:"field"`
+	LayoutId   openapi_types.UUID `json:"layoutId"`
+	LayoutName string             `json:"layoutName"`
+}
+
+// DataSourceDateSelection defines model for DataSourceDateSelection.
+type DataSourceDateSelection struct {
+	CustomEndDate   *string                                `json:"customEndDate,omitempty"`
+	CustomStartDate *string                                `json:"customStartDate,omitempty"`
+	DateFormat      DataSourceDateSelectionDateFormat      `json:"dateFormat"`
+	Enabled         bool                                   `json:"enabled"`
+	ExcludePast     bool                                   `json:"excludePast"`
+	FallbackText    *string                                `json:"fallbackText,omitempty"`
+	Mode            DataSourceDateSelectionMode            `json:"mode"`
+	NoMatchBehavior DataSourceDateSelectionNoMatchBehavior `json:"noMatchBehavior"`
+	Timezone        string                                 `json:"timezone"`
+}
+
+// DataSourceDateSelectionDateFormat defines model for DataSourceDateSelection.DateFormat.
+type DataSourceDateSelectionDateFormat string
+
+// DataSourceDateSelectionMode defines model for DataSourceDateSelection.Mode.
+type DataSourceDateSelectionMode string
+
+// DataSourceDateSelectionNoMatchBehavior defines model for DataSourceDateSelection.NoMatchBehavior.
+type DataSourceDateSelectionNoMatchBehavior string
+
+// DataSourceDetail defines model for DataSourceDetail.
+type DataSourceDetail struct {
+	BindingUsage      []DataSourceBindingUsage `json:"bindingUsage"`
+	CachedRecordCount int                      `json:"cachedRecordCount"`
+	ConfigVersion     int                      `json:"configVersion"`
+	Configuration     map[string]interface{}   `json:"configuration"`
+	CreatedAt         time.Time                `json:"createdAt"`
+	Creator           *struct {
+		Id   openapi_types.UUID `json:"id"`
+		Name string             `json:"name"`
+	} `json:"creator,omitempty"`
+	DateSelection *DataSourceDateSelection `json:"dateSelection,omitempty"`
+	Description   string                   `json:"description"`
+	Diagnostics   DataSourceDiagnostics    `json:"diagnostics"`
+	Fields        []DataSourceField        `json:"fields"`
+	Id            openapi_types.UUID       `json:"id"`
+	Name          string                   `json:"name"`
+	Provider      string                   `json:"provider"`
+	Status        string                   `json:"status"`
+	UpdatedAt     time.Time                `json:"updatedAt"`
+	WidgetUsage   []DataSourceWidgetUsage  `json:"widgetUsage"`
+}
+
+// DataSourceDiagnostics defines model for DataSourceDiagnostics.
+type DataSourceDiagnostics struct {
+	AvailableEventCount   int                `json:"availableEventCount"`
+	AvailableItemCount    int                `json:"availableItemCount"`
+	CacheExpiresAt        *time.Time         `json:"cacheExpiresAt,omitempty"`
+	CacheUpdatedAt        *time.Time         `json:"cacheUpdatedAt,omitempty"`
+	DataSourceId          openapi_types.UUID `json:"dataSourceId"`
+	ErrorCode             *string            `json:"errorCode,omitempty"`
+	HttpResultCategory    *string            `json:"httpResultCategory,omitempty"`
+	LastAttemptedRefresh  *time.Time         `json:"lastAttemptedRefresh,omitempty"`
+	LastSuccessfulRefresh *time.Time         `json:"lastSuccessfulRefresh,omitempty"`
+	ParseStatus           string             `json:"parseStatus"`
+	UsingCachedData       bool               `json:"usingCachedData"`
+}
+
+// DataSourceField defines model for DataSourceField.
+type DataSourceField struct {
+	Currency *string `json:"currency,omitempty"`
+	Key      string  `json:"key"`
+	Label    string  `json:"label"`
+	Role     *string `json:"role,omitempty"`
+	Type     string  `json:"type"`
+}
+
 // DataSourceInput defines model for DataSourceInput.
 type DataSourceInput struct {
 	Configuration map[string]interface{} `json:"configuration"`
@@ -2937,8 +3119,41 @@ type DataSourceInput struct {
 	Provider DataSourceProvider `json:"provider"`
 }
 
+// DataSourceListItem List row with the refresh summary Studio needs to present and select a source without fetching every detail separately.
+type DataSourceListItem struct {
+	CachedRecordCount int                    `json:"cachedRecordCount"`
+	ConfigVersion     int                    `json:"configVersion"`
+	Configuration     map[string]interface{} `json:"configuration"`
+	CreatedAt         time.Time              `json:"createdAt"`
+	Creator           *struct {
+		Id   openapi_types.UUID `json:"id"`
+		Name string             `json:"name"`
+	} `json:"creator,omitempty"`
+	Description string             `json:"description"`
+	Id          openapi_types.UUID `json:"id"`
+	Name        string             `json:"name"`
+	Provider    string             `json:"provider"`
+	Status      string             `json:"status"`
+	UpdatedAt   time.Time          `json:"updatedAt"`
+}
+
+// DataSourceListResult defines model for DataSourceListResult.
+type DataSourceListResult struct {
+	Items    []DataSourceListItem `json:"items"`
+	Page     int                  `json:"page"`
+	PageSize int                  `json:"pageSize"`
+	Total    int                  `json:"total"`
+}
+
 // DataSourceProvider Non-visual Data Source providers.
 type DataSourceProvider string
+
+// DataSourceWidgetUsage defines model for DataSourceWidgetUsage.
+type DataSourceWidgetUsage struct {
+	Id       openapi_types.UUID `json:"id"`
+	Name     string             `json:"name"`
+	Provider string             `json:"provider"`
+}
 
 // DependencyEdge defines model for DependencyEdge.
 type DependencyEdge struct {
@@ -4356,6 +4571,47 @@ type SpanStatus struct {
 
 // SpanStatusDisplayMode defines model for SpanStatus.DisplayMode.
 type SpanStatusDisplayMode string
+
+// StructuredInspection defines model for StructuredInspection.
+type StructuredInspection struct {
+	Available StructuredSourceFields  `json:"available"`
+	Delimiter *string                 `json:"delimiter,omitempty"`
+	Fields    []StructuredSourceField `json:"fields"`
+	Provider  string                  `json:"provider"`
+	RowCount  int                     `json:"rowCount"`
+	Suggested StructuredSourceMapping `json:"suggested"`
+}
+
+// StructuredSourceField defines model for StructuredSourceField.
+type StructuredSourceField struct {
+	Key     string   `json:"key"`
+	Label   string   `json:"label"`
+	Samples []string `json:"samples"`
+	Type    string   `json:"type"`
+}
+
+// StructuredSourceFields defines model for StructuredSourceFields.
+type StructuredSourceFields struct {
+	Author      bool `json:"author"`
+	Date        bool `json:"date"`
+	Description bool `json:"description"`
+	Image       bool `json:"image"`
+	Link        bool `json:"link"`
+	Subtitle    bool `json:"subtitle"`
+	Title       bool `json:"title"`
+}
+
+// StructuredSourceMapping defines model for StructuredSourceMapping.
+type StructuredSourceMapping struct {
+	Date            string             `json:"date"`
+	ImageUrl        string             `json:"imageUrl"`
+	Link            string             `json:"link"`
+	RootList        string             `json:"rootList"`
+	Subtitle        string             `json:"subtitle"`
+	Title           string             `json:"title"`
+	ValueFieldTypes *map[string]string `json:"valueFieldTypes,omitempty"`
+	ValueFields     *map[string]string `json:"valueFields,omitempty"`
+}
 
 // SubmitContentRequest defines model for SubmitContentRequest.
 type SubmitContentRequest struct {
@@ -39642,6 +39898,17 @@ func (r UpdateContentTagResponse) ContentType() string {
 type ListDataSourcesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data DataSourceListResult `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListDataSourcesResponse) GetJSON200() *struct {
+	Data DataSourceListResult `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -39676,6 +39943,19 @@ func (r ListDataSourcesResponse) ContentType() string {
 type CreateDataSourceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		// Data Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider stays an open string because definition and plugin providers extend the registry beyond the request-side enum.
+		Data DataSource `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateDataSourceResponse) GetJSON201() *struct {
+	// Data Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider stays an open string because definition and plugin providers extend the registry beyond the request-side enum.
+	Data DataSource `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -39744,6 +40024,17 @@ func (r DeleteDataSourceResponse) ContentType() string {
 type GetDataSourceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data DataSourceDetail `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetDataSourceResponse) GetJSON200() *struct {
+	Data DataSourceDetail `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -39778,6 +40069,19 @@ func (r GetDataSourceResponse) ContentType() string {
 type UpdateDataSourceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Data Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider stays an open string because definition and plugin providers extend the registry beyond the request-side enum.
+		Data DataSource `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateDataSourceResponse) GetJSON200() *struct {
+	// Data Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider stays an open string because definition and plugin providers extend the registry beyond the request-side enum.
+	Data DataSource `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -39880,6 +40184,17 @@ func (r ReplaceFormGrantsResponse) ContentType() string {
 type DataSourceRefreshDiagnosticsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data DataSourceDiagnostics `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DataSourceRefreshDiagnosticsResponse) GetJSON200() *struct {
+	Data DataSourceDiagnostics `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -39914,6 +40229,19 @@ func (r DataSourceRefreshDiagnosticsResponse) ContentType() string {
 type DuplicateDataSourceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		// Data Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider stays an open string because definition and plugin providers extend the registry beyond the request-side enum.
+		Data DataSource `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r DuplicateDataSourceResponse) GetJSON201() *struct {
+	// Data Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider stays an open string because definition and plugin providers extend the registry beyond the request-side enum.
+	Data DataSource `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -40220,6 +40548,17 @@ func (r RevokeFormGrantResponse) ContentType() string {
 type InspectSavedDataSourceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data StructuredInspection `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r InspectSavedDataSourceResponse) GetJSON200() *struct {
+	Data StructuredInspection `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -40866,6 +41205,17 @@ func (r DeleteFormViewResponse) ContentType() string {
 type InspectDataSourceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data StructuredInspection `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r InspectDataSourceResponse) GetJSON200() *struct {
+	Data StructuredInspection `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -58634,6 +58984,18 @@ func ParseListDataSourcesResponse(rsp *http.Response) (*ListDataSourcesResponse,
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data DataSourceListResult `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
 	return response, nil
 }
 
@@ -58648,6 +59010,22 @@ func ParseCreateDataSourceResponse(rsp *http.Response) (*CreateDataSourceRespons
 	response := &CreateDataSourceResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			// Data Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider stays an open string because definition and plugin providers extend the registry beyond the request-side enum.
+			Data DataSource `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -58682,6 +59060,21 @@ func ParseGetDataSourceResponse(rsp *http.Response) (*GetDataSourceResponse, err
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data DataSourceDetail `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -58696,6 +59089,22 @@ func ParseUpdateDataSourceResponse(rsp *http.Response) (*UpdateDataSourceRespons
 	response := &UpdateDataSourceResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Data Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider stays an open string because definition and plugin providers extend the registry beyond the request-side enum.
+			Data DataSource `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -58746,6 +59155,21 @@ func ParseDataSourceRefreshDiagnosticsResponse(rsp *http.Response) (*DataSourceR
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data DataSourceDiagnostics `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -58760,6 +59184,19 @@ func ParseDuplicateDataSourceResponse(rsp *http.Response) (*DuplicateDataSourceR
 	response := &DuplicateDataSourceResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			// Data Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider stays an open string because definition and plugin providers extend the registry beyond the request-side enum.
+			Data DataSource `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
 	}
 
 	return response, nil
@@ -58904,6 +59341,24 @@ func ParseInspectSavedDataSourceResponse(rsp *http.Response) (*InspectSavedDataS
 	response := &InspectSavedDataSourceResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data StructuredInspection `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -59208,6 +59663,24 @@ func ParseInspectDataSourceResponse(rsp *http.Response) (*InspectDataSourceRespo
 	response := &InspectDataSourceResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data StructuredInspection `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil

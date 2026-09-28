@@ -6824,14 +6824,182 @@ export interface components {
       /** @description Provider-specific configuration. Native text Widgets omit textScale for automatic bounds-first sizing or use 25–500 percent; contentPadding defaults to 10 percent per edge and accepts 0–40. */
       configuration: Record<string, never>;
     };
+    /** @description Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider stays an open string because definition and plugin providers extend the registry beyond the request-side enum. */
     DataSource: {
       /** Format: uuid */
       id: string;
-      provider: components["schemas"]["DataSourceProvider"];
+      provider: string;
       name: string;
-      description?: string;
+      description: string;
       configVersion: number;
       configuration: Record<string, never>;
+      creator?: {
+        /** Format: uuid */
+        id: string;
+        name: string;
+      };
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      updatedAt: string;
+    };
+    /** @description List row with the refresh summary Studio needs to present and select a source without fetching every detail separately. */
+    DataSourceListItem: {
+      /** Format: uuid */
+      id: string;
+      provider: string;
+      name: string;
+      description: string;
+      configVersion: number;
+      configuration: Record<string, never>;
+      creator?: {
+        /** Format: uuid */
+        id: string;
+        name: string;
+      };
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      updatedAt: string;
+      status: string;
+      cachedRecordCount: number;
+    };
+    DataSourceListResult: {
+      items: components["schemas"]["DataSourceListItem"][];
+      total: number;
+      page: number;
+      pageSize: number;
+    };
+    DataSourceDiagnostics: {
+      /** Format: uuid */
+      dataSourceId: string;
+      /** Format: date-time */
+      lastSuccessfulRefresh?: string;
+      /** Format: date-time */
+      lastAttemptedRefresh?: string;
+      httpResultCategory?: string;
+      parseStatus: string;
+      availableEventCount: number;
+      availableItemCount: number;
+      usingCachedData: boolean;
+      /** Format: date-time */
+      cacheUpdatedAt?: string;
+      /** Format: date-time */
+      cacheExpiresAt?: string;
+      errorCode?: string;
+    };
+    DataSourceField: {
+      key: string;
+      label: string;
+      type: string;
+      currency?: string;
+      role?: string;
+    };
+    DataSourceDateSelection: {
+      enabled: boolean;
+      /** @enum {string} */
+      dateFormat:
+        | "auto"
+        | "iso_date"
+        | "us_date"
+        | "us_short"
+        | "day_first_date"
+        | "day_first_short"
+        | "day_month_name"
+        | "rfc3339";
+      timezone: string;
+      /** @enum {string} */
+      mode:
+        | "today"
+        | "tomorrow"
+        | "next_available"
+        | "current_week"
+        | "custom_range";
+      customStartDate?: string;
+      customEndDate?: string;
+      excludePast: boolean;
+      /** @enum {string} */
+      noMatchBehavior:
+        | "fallback_text"
+        | "next_available"
+        | "empty"
+        | "hide"
+        | "last_known_good";
+      fallbackText?: string;
+    };
+    DataSourceWidgetUsage: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      provider: string;
+    };
+    DataSourceBindingUsage: {
+      /** Format: uuid */
+      layoutId: string;
+      layoutName: string;
+      field: string;
+    };
+    DataSourceDetail: {
+      /** Format: uuid */
+      id: string;
+      provider: string;
+      name: string;
+      description: string;
+      configVersion: number;
+      configuration: Record<string, never>;
+      creator?: {
+        /** Format: uuid */
+        id: string;
+        name: string;
+      };
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      updatedAt: string;
+      status: string;
+      diagnostics: components["schemas"]["DataSourceDiagnostics"];
+      fields: components["schemas"]["DataSourceField"][];
+      dateSelection?: components["schemas"]["DataSourceDateSelection"];
+      cachedRecordCount: number;
+      widgetUsage: components["schemas"]["DataSourceWidgetUsage"][];
+      bindingUsage: components["schemas"]["DataSourceBindingUsage"][];
+    };
+    StructuredSourceField: {
+      key: string;
+      label: string;
+      samples: string[];
+      type: string;
+    };
+    StructuredSourceMapping: {
+      rootList: string;
+      title: string;
+      subtitle: string;
+      date: string;
+      imageUrl: string;
+      link: string;
+      valueFields?: {
+        [key: string]: string;
+      };
+      valueFieldTypes?: {
+        [key: string]: string;
+      };
+    };
+    StructuredSourceFields: {
+      title: boolean;
+      subtitle: boolean;
+      date: boolean;
+      author: boolean;
+      description: boolean;
+      image: boolean;
+      link: boolean;
+    };
+    StructuredInspection: {
+      provider: string;
+      fields: components["schemas"]["StructuredSourceField"][];
+      rowCount: number;
+      delimiter?: string;
+      suggested: components["schemas"]["StructuredSourceMapping"];
+      available: components["schemas"]["StructuredSourceFields"];
     };
     DataSourceInput: {
       provider: components["schemas"]["DataSourceProvider"];
@@ -15890,7 +16058,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["DataSourceListResult"];
+          };
+        };
       };
     };
   };
@@ -15912,7 +16084,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["DataSource"];
+          };
+        };
       };
       /** @description Provider configuration rejected */
       422: {
@@ -15939,7 +16115,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["DataSourceDetail"];
+          };
+        };
       };
       /** @description Data Source not found */
       404: {
@@ -15997,7 +16177,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["DataSource"];
+          };
+        };
       };
       /** @description Provider configuration rejected */
       422: {
@@ -16024,7 +16208,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["DataSource"];
+          };
+        };
       };
     };
   };
@@ -16044,7 +16232,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["DataSourceDiagnostics"];
+          };
+        };
       };
       /** @description Data Source refresh diagnostics unavailable */
       404: {
@@ -16123,7 +16315,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["StructuredInspection"];
+          };
+        };
       };
       /** @description Data Source not found */
       404: {
@@ -16163,7 +16359,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["StructuredInspection"];
+          };
+        };
       };
       /** @description Provider does not support field detection */
       404: {
