@@ -31,6 +31,9 @@ class TrustedRuntimeWebView(
     private val crashPolicy: RuntimeCrashPolicy = RuntimeCrashPolicy(),
     private val onRuntimeMessage: (String, Long, JavaScriptReplyProxy?) -> Unit = { _, _, _ -> },
     private val documentStartScript: String = RuntimeBridgeProtocol.bootstrapScript(),
+    /** Serves host-authorized media (tcmedia:) to the trusted page. */
+    private val mediaInterceptor: (url: String, rangeHeader: String?) -> WebResourceResponse? = { _, _ -> null },
+    private val onRendererGone: (deadGeneration: Long) -> Unit = {},
 ) {
     private val appContext = context.applicationContext
     private val assetLoader = WebViewAssetLoader.Builder()
@@ -73,8 +76,15 @@ class TrustedRuntimeWebView(
             override fun shouldInterceptRequest(
                 view: WebView,
                 request: WebResourceRequest,
-            ): WebResourceResponse? = assetLoader.shouldInterceptRequest(request.url)
-                ?: super.shouldInterceptRequest(view, request)
+            ): WebResourceResponse? {
+                val url = request.url?.toString() ?: return super.shouldInterceptRequest(view, request)
+                if (url.startsWith("${MediaAuthorization.SCHEME}:", ignoreCase = true)) {
+                    return mediaInterceptor(url, request.requestHeaders?.get("Range"))
+                        ?: super.shouldInterceptRequest(view, request)
+                }
+                return assetLoader.shouldInterceptRequest(request.url)
+                    ?: super.shouldInterceptRequest(view, request)
+            }
 
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 if (TrustedRuntimeOrigin.allowsTopLevelNavigation(request.url?.toString())) return false
@@ -83,7 +93,8 @@ class TrustedRuntimeWebView(
             }
 
             override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
-                crashPolicy.onRendererGone()
+                val dead = crashPolicy.onRendererGone()
+                onRendererGone(dead)
                 view.post {
                     runCatching {
                         view.stopLoading()
