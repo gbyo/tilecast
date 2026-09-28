@@ -1881,7 +1881,7 @@ export type WidgetPresentation = {
 };
 export type Widget = {
   provider: WidgetProvider;
-  presetId?: WidgetPreset;
+  presetId?: WidgetPreset | null;
   configVersion: number;
   authorConfiguration?: Record<string, unknown>;
   managedDataSourceId?: string;
