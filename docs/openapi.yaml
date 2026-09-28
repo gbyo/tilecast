@@ -7126,9 +7126,9 @@ components:
     CSRFToken:
       in: header
       name: X-CSRF-Token
-      required: true
+      required: false
       schema: { type: string }
-      description: Cookie-backed browser requests only. Bearer grants never send it.
+      description: Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
   securitySchemes:
     deviceBearer:
       type: http
