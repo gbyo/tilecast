@@ -12218,7 +12218,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["BulkAssetResult"];
+          };
+        };
       };
       /** @description An asset or organization record was not found */
       404: {
