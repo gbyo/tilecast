@@ -12,14 +12,8 @@ import {
   AlertDialogTitle,
 } from "../components/ui/alert-dialog";
 import { Button } from "../components/ui/button";
-import {
-  Field,
-  FieldDescription,
-  FieldLabel,
-  FieldTitle,
-} from "../components/ui/field";
+import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
-import { Slider } from "../components/ui/slider";
 import { Switch } from "../components/ui/switch";
 import { Textarea } from "../components/ui/textarea";
 import { toast } from "../components/ui/toast";
@@ -30,9 +24,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
-import { Trans, useTranslation } from "react-i18next";
+import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import QRCode from "qrcode";
 import { api } from "../api/client";
@@ -44,9 +38,6 @@ import {
 } from "../settings/regionalFormatting";
 import type {
   Asset,
-  DataSource,
-  DataSourceField,
-  DataSourceProvider,
   WidgetProvider,
   WidgetPreset,
   YouTubeConfig,
@@ -54,7 +45,6 @@ import type {
   PresentationBinding,
   PresentationNode,
 } from "../api/types";
-import { DataSourcePicker } from "./DataSourcePicker";
 import { WidgetThumbnail } from "./WidgetThumbnail";
 import {
   previewFieldCurrencies,
@@ -1254,96 +1244,6 @@ function PresentationQrCode({ value }: { value: string }) {
     <span>{t("widgets.preview.qrPreparing")}</span>
   );
 }
-
-// The legacy Widget editors reach the shared picker through this thin wrapper so every provider
-// branch below keeps its existing call shape while gaining inline source creation, status, and
-// sample values.
-function DataSourceSelect({
-  value,
-  sources,
-  createProviders,
-  csrf,
-  disabled,
-  onChange,
-}: {
-  value: string;
-  sources: DataSource[];
-  // Providers this Widget accepts, so the Connect flow cannot create a source it would reject.
-  createProviders?: DataSourceProvider[];
-  csrf?: string;
-  disabled?: boolean;
-  onChange: (value: string) => void;
-}) {
-  const { t } = useTranslation(["content", "common"]);
-  return (
-    <DataSourcePicker
-      value={value}
-      description={t("widgets.editors.dataSourceDescription")}
-      sources={sources}
-      createProviders={createProviders}
-      csrf={csrf}
-      disabled={disabled}
-      onChange={onChange}
-    />
-  );
-}
-
-function FieldSelect({
-  label,
-  value,
-  fields,
-  disabled,
-  allowEmpty = false,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  fields: DataSourceField[];
-  disabled?: boolean;
-  allowEmpty?: boolean;
-  onChange: (value: string) => void;
-}) {
-  const { t } = useTranslation(["content", "common"]);
-  const id = useId();
-  const emptyLabel = allowEmpty
-    ? t("widgets.editors.shared.none")
-    : t("widgets.editors.shared.selectSourceFirst");
-  return (
-    <Field>
-      <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      <Select
-        items={[
-          { value: "", label: emptyLabel },
-          ...fields.map((field) => ({
-            value: field.key,
-            label: field.label,
-          })),
-        ]}
-        value={value}
-        disabled={disabled || fields.length === 0}
-        onValueChange={(next) => {
-          if (typeof next === "string") onChange(next);
-        }}
-      >
-        <SelectTrigger id={id} aria-label={label}>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="">{emptyLabel}</SelectItem>
-          {fields.map((field) => (
-            <SelectItem key={field.key} value={field.key}>
-              {field.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <FieldDescription>
-        {t("widgets.editors.fieldDescription")}
-      </FieldDescription>
-    </Field>
-  );
-}
-
 const defaultYouTube: YouTubeConfig = {
   url: "https://www.youtube.com/watch?v=",
   startSeconds: 0,
