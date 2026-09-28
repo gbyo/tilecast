@@ -62,6 +62,14 @@ export {
   componentCapability,
   COMPONENT_TYPE_PATTERN,
   identityProblem,
+  MAX_COMPONENT_CAPABILITY_LENGTH,
+  MAX_COMPONENT_TYPE_LENGTH,
   MAX_COMPONENT_VERSION,
   TAG_NAME_PATTERN,
 } from "./identity.ts";
+export {
+  packageOwnsType,
+  sourceLabel,
+  sourceProblem,
+  type ExtensionSource,
+} from "./source.ts";

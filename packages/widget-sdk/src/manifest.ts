@@ -14,7 +14,9 @@
  */
 import { z } from "zod";
 import {
+  componentCapability,
   COMPONENT_TYPE_PATTERN,
+  MAX_COMPONENT_CAPABILITY_LENGTH,
   MAX_COMPONENT_TYPE_LENGTH,
   MAX_COMPONENT_VERSION,
   TAG_NAME_PATTERN,
@@ -98,9 +100,21 @@ const componentSchema = z
   .object({
     type: z
       .string()
-      .max(MAX_COMPONENT_TYPE_LENGTH)
-      .regex(COMPONENT_TYPE_PATTERN, "must be <namespace>.<name>")
-      .describe("Component type; the Player capability is widget.<type>."),
+      .max(
+        MAX_COMPONENT_TYPE_LENGTH,
+        `must fit widget.<type> within ${MAX_COMPONENT_CAPABILITY_LENGTH} characters`,
+      )
+      .regex(COMPONENT_TYPE_PATTERN, "must be a qualified identity")
+      .refine(
+        (type) =>
+          componentCapability(type).length <= MAX_COMPONENT_CAPABILITY_LENGTH,
+        {
+          message: `the widget.<type> capability must fit within ${MAX_COMPONENT_CAPABILITY_LENGTH} characters`,
+        },
+      )
+      .describe(
+        "Qualified component type; the Player capability is widget.<type>.",
+      ),
     version: z.number().int().min(1).max(MAX_COMPONENT_VERSION),
     tagName: z
       .string()
@@ -131,6 +145,11 @@ const componentSchema = z
 export const widgetManifestSchema = z
   .object({
     $schema: z.string().optional(),
+    apiVersion: z
+      .literal(1)
+      .describe(
+        "Manifest API version: the shape and semantics of tilecast.widget.json.",
+      ),
     id: z.string().regex(catalogIdPattern),
     version: z.number().int().min(1),
     name: z.string().min(1).max(80),

@@ -4,6 +4,11 @@
   "type": "object",
   "properties": {
     "$schema": { "type": "string" },
+    "apiVersion": {
+      "type": "number",
+      "const": 1,
+      "description": "Manifest API version: the shape and semantics of tilecast.widget.json."
+    },
     "id": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{0,79}$" },
     "version": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
     "name": { "type": "string", "minLength": 1, "maxLength": 80 },
@@ -70,9 +75,9 @@
       "properties": {
         "type": {
           "type": "string",
-          "maxLength": 72,
-          "pattern": "^[a-z][a-z0-9]{1,31}\\.[a-z][a-z0-9-]{0,47}$",
-          "description": "Component type; the Player capability is widget.<type>."
+          "maxLength": 73,
+          "pattern": "^[a-z][a-z0-9]{1,31}(\\.[a-z][a-z0-9-]{0,47})+$",
+          "description": "Qualified component type; the Player capability is widget.<type>."
         },
         "version": { "type": "integer", "minimum": 1, "maximum": 100 },
         "tagName": {
@@ -126,6 +131,7 @@
     }
   },
   "required": [
+    "apiVersion",
     "id",
     "version",
     "name",

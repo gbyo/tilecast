@@ -1,9 +1,11 @@
 /**
  * Widget module discovery for widgetctl. A Widget is a directory below
- * widgets/ that contains a tilecast.widget.json; nothing else registers it.
+ * widgets/ or plugins/<plugin>/widgets/ that contains a
+ * tilecast.widget.json; nothing else registers it.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
+import type { ExtensionSource } from "../../src/source.ts";
 import {
   widgetDirPattern,
   widgetFixtureSchema,
@@ -26,6 +28,7 @@ export interface Problem {
 export interface DiscoveredWidget {
   dir: string;
   path: string;
+  source: ExtensionSource;
   manifest: WidgetManifest;
   fixtures: { file: string; fixture: WidgetFixture }[];
 }
@@ -45,22 +48,55 @@ function readJSON(path: string): unknown {
   return JSON.parse(readFileSync(path, "utf8"));
 }
 
+function listDirs(path: string): string[] {
+  if (!existsSync(path)) return [];
+  return readdirSync(path)
+    .filter((name) => {
+      try {
+        return statSync(join(path, name)).isDirectory();
+      } catch {
+        return false;
+      }
+    })
+    .sort();
+}
+
 export function discover(root: string): Repo {
   const widgetsDir = join(root, "widgets");
   const problems: Problem[] = [];
   const widgets: DiscoveredWidget[] = [];
-  const entries = existsSync(widgetsDir)
-    ? readdirSync(widgetsDir).filter((name) =>
-        statSync(join(widgetsDir, name)).isDirectory(),
-      )
-    : [];
-  for (const dir of entries.sort()) {
-    if (dir === "node_modules" || dir.startsWith(".") || RESERVED_DIRS.has(dir))
+  const roots: { dir: string; path: string; source: ExtensionSource }[] = [];
+  for (const name of listDirs(widgetsDir)) {
+    if (
+      name === "node_modules" ||
+      name.startsWith(".") ||
+      RESERVED_DIRS.has(name)
+    ) {
       continue;
-    const path = join(widgetsDir, dir);
+    }
+    roots.push({
+      dir: `widgets/${name}`,
+      path: join(widgetsDir, name),
+      source: { kind: "core" },
+    });
+  }
+  for (const plugin of listDirs(join(root, "plugins"))) {
+    if (plugin === "node_modules" || plugin.startsWith(".")) continue;
+    const pluginWidgets = join(root, "plugins", plugin, "widgets");
+    for (const name of listDirs(pluginWidgets)) {
+      if (name === "node_modules" || name.startsWith(".")) continue;
+      roots.push({
+        dir: `plugins/${plugin}/widgets/${name}`,
+        path: join(pluginWidgets, name),
+        source: { kind: "plugin", pluginId: plugin },
+      });
+    }
+  }
+  for (const { dir, path, source } of roots) {
     const manifestPath = join(path, MANIFEST_FILE);
     const file = relative(root, manifestPath);
-    if (!widgetDirPattern.test(dir)) {
+    const name = dir.split("/").pop() ?? dir;
+    if (!widgetDirPattern.test(name)) {
       problems.push({ widget: dir, message: "directory name is invalid" });
       continue;
     }
@@ -122,7 +158,7 @@ export function discover(root: string): Repo {
         });
       }
     }
-    widgets.push({ dir, path, manifest: parsed.data, fixtures });
+    widgets.push({ dir, path, source, manifest: parsed.data, fixtures });
   }
   return { root, widgetsDir, widgets, problems };
 }

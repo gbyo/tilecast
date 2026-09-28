@@ -10,7 +10,8 @@ import {
   validTimeZone,
   WidgetRegistry,
 } from "../src/index.ts";
-import { discoverWidgets } from "../src/discovery.ts";
+import { discoverSourcedWidgets, discoverWidgets } from "../src/discovery.ts";
+import { MAX_COMPONENT_TYPE_LENGTH } from "../src/identity.ts";
 import {
   compileComponentConfig,
   configLimitProblem,
@@ -30,7 +31,8 @@ const definition = (type: string, tagName: string, version = 1) =>
   });
 
 const manifest = (type: string, tagName: string, version = 1) => ({
-  id: type.split(".")[1]!,
+  id: type.split(".").pop()!,
+  apiVersion: 1 as const,
   version: 1,
   name: "Probe",
   description: "Probe.",
@@ -65,6 +67,23 @@ describe("identity", () => {
       }),
     ).toBeNull();
     expect(componentCapability("tilecast.clock")).toBe("widget.tilecast.clock");
+
+    const boundaryType = `${"a".repeat(25)}.${"b".repeat(47)}`;
+    expect(componentCapability(boundaryType)).toHaveLength(80);
+    expect(
+      identityProblem({
+        type: boundaryType,
+        version: 1,
+        tagName: "acme-boundary",
+      }),
+    ).toBeNull();
+    expect(
+      identityProblem({
+        type: "gbyo.athletics.scoreboard",
+        version: 1,
+        tagName: "acme-scoreboard",
+      }),
+    ).toBeNull();
   });
 
   it.each([
@@ -77,7 +96,7 @@ describe("identity", () => {
     [{ type: "tilecast.clock", version: 1, tagName: "tc-widget-weather" }],
     [
       {
-        type: `acme.${"a".repeat(44)}${"b".repeat(24)}`,
+        type: `${"a".repeat(25)}.${"b".repeat(48)}`,
         version: 1,
         tagName: "acme-x",
       },
@@ -133,7 +152,10 @@ describe("discovery", () => {
         },
       },
     );
-    expect(result.widgets.map((widget) => widget.dir)).toEqual(["clock"]);
+    expect(result.widgets.map((widget) => widget.dir)).toEqual([
+      "widgets/clock",
+    ]);
+    expect(result.widgets[0]!.source).toEqual({ kind: "core" });
     expect(result.problems).toEqual([
       "widgets/lonely: declares ./runtime/index.ts but it does not exist",
       "widgets/orphan: has runtime/index.ts but no tilecast.widget.json",
@@ -151,10 +173,10 @@ describe("discovery", () => {
           "tilecast.a",
           "tc-widget-a",
         ),
-        "/widgets/b/tilecast.widget.json": manifest(
-          "tilecast.a",
-          "tc-widget-a",
-        ),
+        "/widgets/b/tilecast.widget.json": {
+          ...manifest("tilecast.a", "tc-widget-a"),
+          id: "b",
+        },
       },
       {
         "/widgets/a/runtime/index.ts": {
@@ -167,6 +189,96 @@ describe("discovery", () => {
     );
     expect(result.problems).toEqual([
       "widgets/b: type tilecast.a is also declared by widgets/a",
+    ]);
+  });
+
+  it("discovers plugin sources with explicit ownership", () => {
+    const pluginManifest = manifest("athletics.scoreboard", "acme-scoreboard");
+    const result = discoverSourcedWidgets([
+      {
+        manifestPath: "widgets/clock/tilecast.widget.json",
+        modulePath: "widgets/clock/runtime/index.ts",
+        manifest: manifest("tilecast.clock", "tc-widget-clock"),
+        module: {
+          default: definition("tilecast.clock", "tc-widget-clock"),
+        },
+        source: { kind: "core" },
+      },
+      {
+        manifestPath:
+          "plugins/athletics/widgets/scoreboard/tilecast.widget.json",
+        modulePath: "plugins/athletics/widgets/scoreboard/runtime/index.ts",
+        manifest: { ...pluginManifest, id: "scoreboard" },
+        module: {
+          default: definition("athletics.scoreboard", "acme-scoreboard"),
+        },
+        source: { kind: "plugin", pluginId: "athletics" },
+      },
+    ]);
+    expect(result.problems).toEqual([]);
+    expect(result.widgets.map((widget) => widget.dir)).toEqual([
+      "widgets/clock",
+      "plugins/athletics/widgets/scoreboard",
+    ]);
+    expect(result.widgets[1]!.source).toEqual({
+      kind: "plugin",
+      pluginId: "athletics",
+    });
+  });
+
+  it("reports cross-source collisions and ownership violations", () => {
+    const tilecastPlugin = discoverSourcedWidgets([
+      {
+        manifestPath: "plugins/athletics/widgets/clock/tilecast.widget.json",
+        manifest: manifest("tilecast.clock", "tc-widget-clock"),
+        module: {
+          default: definition("tilecast.clock", "tc-widget-clock"),
+        },
+        source: { kind: "plugin", pluginId: "athletics" },
+      },
+    ]);
+    expect(tilecastPlugin.problems).toEqual([
+      "plugins/athletics/widgets/clock: type tilecast.clock uses the reserved tilecast namespace but comes from a non-core source",
+    ]);
+
+    const duplicateId = discoverSourcedWidgets([
+      {
+        manifestPath: "widgets/a/tilecast.widget.json",
+        manifest: manifest("acme.a", "acme-a"),
+        module: { default: definition("acme.a", "acme-a") },
+        source: { kind: "core" },
+      },
+      {
+        manifestPath: "plugins/athletics/widgets/b/tilecast.widget.json",
+        manifest: { ...manifest("acme.b", "acme-b"), id: "a" },
+        module: { default: definition("acme.b", "acme-b") },
+        source: { kind: "plugin", pluginId: "athletics" },
+      },
+    ]);
+    expect(duplicateId.problems).toEqual([
+      "plugins/athletics/widgets/b: provider identity a is also declared by widgets/a",
+    ]);
+    expect(duplicateId.widgets.map((widget) => widget.dir)).toEqual([
+      "widgets/a",
+    ]);
+
+    const outsidePackage = discoverSourcedWidgets([
+      {
+        manifestPath: "widgets/scoreboard/tilecast.widget.json",
+        manifest: manifest("other.scoreboard", "acme-scoreboard"),
+        module: {
+          default: definition("other.scoreboard", "acme-scoreboard"),
+        },
+        source: {
+          kind: "package",
+          packageId: "district96.athletics",
+          packageVersion: "2.1.0",
+          digest: "sha256:abc",
+        },
+      },
+    ]);
+    expect(outsidePackage.problems).toEqual([
+      "widgets/scoreboard: type other.scoreboard is outside package namespace district96.athletics",
     ]);
   });
 });
@@ -188,6 +300,21 @@ describe("manifest", () => {
       renderer: "kotlin",
     };
     expect(widgetManifestSchema.safeParse(unknownKey).success).toBe(false);
+  });
+
+  it("limits the component type so widget.<type> fits the capability bound", () => {
+    const fitting = `a${"b".repeat(31)}.${"c".repeat(40)}`;
+    expect(fitting).toHaveLength(MAX_COMPONENT_TYPE_LENGTH);
+    expect(
+      widgetManifestSchema.safeParse(manifest(fitting, "tc-widget-probe"))
+        .success,
+    ).toBe(true);
+    const overflowing = `${fitting}d`;
+    expect(overflowing).toHaveLength(MAX_COMPONENT_TYPE_LENGTH + 1);
+    expect(
+      widgetManifestSchema.safeParse(manifest(overflowing, "tc-widget-probe"))
+        .success,
+    ).toBe(false);
   });
 
   it("compiles configTemplate with defaults and refuses missing keys", () => {

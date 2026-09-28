@@ -33,7 +33,7 @@ func TestWidgetModulesJoinTheCatalog(t *testing.T) {
 
 func componentDefinition(mutate func(*WidgetDefinition)) WidgetDefinition {
 	definition := WidgetDefinition{
-		ID: "probe", Version: 1, Name: "Probe", Category: "Essentials", Runtime: "native",
+		ID: "probe", Version: 1, APIVersion: 1, Name: "Probe", Category: "Essentials", Runtime: "native",
 		ConfigurationSchema:       ConfigurationSchema{Fields: []FieldDefinition{}},
 		DefaultConfiguration:      map[string]any{},
 		PresentationSchemaVersion: 1,
@@ -57,13 +57,30 @@ func TestComponentValidation(t *testing.T) {
 	if _, err := New([]WidgetDefinition{componentDefinition(nil)}, nil); err != nil {
 		t.Fatalf("valid component rejected: %v", err)
 	}
+	boundaryType := strings.Repeat("a", 25) + "." + strings.Repeat("b", 47)
+	if len("widget."+boundaryType) != 80 {
+		t.Fatalf("test component capability has length %d, want 80", len("widget."+boundaryType))
+	}
+	if _, err := New([]WidgetDefinition{componentDefinition(func(d *WidgetDefinition) {
+		d.Component.Type = boundaryType
+		d.Component.TagName = "acme-boundary"
+	})}, nil); err != nil {
+		t.Fatalf("80-character component capability rejected: %v", err)
+	}
+	if _, err := New([]WidgetDefinition{componentDefinition(func(d *WidgetDefinition) {
+		d.Component.Type = "gbyo.athletics.scoreboard"
+		d.Component.TagName = "acme-scoreboard"
+	})}, nil); err != nil {
+		t.Fatalf("multi-segment component type rejected: %v", err)
+	}
 	cases := map[string]func(*WidgetDefinition){
 		"unnamespaced type": func(d *WidgetDefinition) { d.Component.Type = "probe" },
 		"version zero":      func(d *WidgetDefinition) { d.Component.Version = 0 },
 		"type too long": func(d *WidgetDefinition) {
-			d.Component.Type = "acme." + strings.Repeat("a", 68)
+			d.Component.Type = strings.Repeat("a", 25) + "." + strings.Repeat("b", 48)
 			d.Component.TagName = "acme-long"
 		},
+		"missing apiVersion":  func(d *WidgetDefinition) { d.APIVersion = 0 },
 		"version above 100":   func(d *WidgetDefinition) { d.Component.Version = 101 },
 		"wrong tilecast tag":  func(d *WidgetDefinition) { d.Component.TagName = "tc-widget-other" },
 		"invalid tag":         func(d *WidgetDefinition) { d.Component.TagName = "Probe" },
@@ -97,6 +114,48 @@ func TestComponentValidation(t *testing.T) {
 	duplicate := componentDefinition(func(d *WidgetDefinition) { d.ID = "probe-two" })
 	if _, err := New([]WidgetDefinition{componentDefinition(nil), duplicate}, nil); err == nil || !strings.Contains(err.Error(), "tilecast.probe") {
 		t.Fatalf("duplicate component type accepted: %v", err)
+	}
+	duplicateTag := componentDefinition(func(d *WidgetDefinition) {
+		d.ID = "probe-tag"
+		d.Component.Type = "acme.other"
+	})
+	if _, err := New([]WidgetDefinition{componentDefinition(nil), duplicateTag}, nil); err == nil || !strings.Contains(err.Error(), "tc-widget-probe") {
+		t.Fatalf("duplicate component tag accepted: %v", err)
+	}
+}
+
+func TestSourcedWidgetValidation(t *testing.T) {
+	pluginTilecast := componentDefinition(func(d *WidgetDefinition) {
+		d.ID = "plugin-clock"
+		d.Source = ExtensionSource{Kind: SourceKindPlugin, PluginID: "athletics"}
+	})
+	if _, err := New([]WidgetDefinition{pluginTilecast}, nil); err == nil {
+		t.Fatal("plugin source with a tilecast component type accepted")
+	}
+	outsidePackage := componentDefinition(func(d *WidgetDefinition) {
+		d.ID = "outside"
+		d.Component.Type = "other.scoreboard"
+		d.Component.TagName = "acme-scoreboard"
+		d.Source = ExtensionSource{Kind: SourceKindPackage, PackageID: "district96.athletics", PackageVersion: "2.1.0", Digest: "sha256:abc"}
+	})
+	if _, err := New([]WidgetDefinition{outsidePackage}, nil); err == nil {
+		t.Fatal("package contribution outside its namespace accepted")
+	}
+	insidePackage := componentDefinition(func(d *WidgetDefinition) {
+		d.ID = "inside"
+		d.Component.Type = "district96.athletics.scoreboard"
+		d.Component.TagName = "acme-scoreboard"
+		d.Source = ExtensionSource{Kind: SourceKindPackage, PackageID: "district96.athletics", PackageVersion: "2.1.0", Digest: "sha256:abc"}
+	})
+	if _, err := New([]WidgetDefinition{insidePackage}, nil); err != nil {
+		t.Fatalf("package contribution inside its namespace rejected: %v", err)
+	}
+	badSource := componentDefinition(func(d *WidgetDefinition) {
+		d.ID = "bad-source"
+		d.Source = ExtensionSource{Kind: "marketplace"}
+	})
+	if _, err := New([]WidgetDefinition{badSource}, nil); err == nil {
+		t.Fatal("unknown source kind accepted")
 	}
 }
 

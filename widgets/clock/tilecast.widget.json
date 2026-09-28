@@ -1,5 +1,6 @@
 {
   "$schema": "../../packages/widget-sdk/schema/tilecast-widget.schema.json",
+  "apiVersion": 1,
   "id": "clock",
   "version": 1,
   "name": "Clock",
