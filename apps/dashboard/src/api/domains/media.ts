@@ -1,14 +1,16 @@
 /**
  * Media, widgets, and data-source domain helpers over the typed
  * transport. Path, query, and body shapes come from the generated
- * OpenAPI contract. Asset library and content organization success
- * bodies are contract-typed and inferred from the generated schemas;
- * widgets, uploads, data sources, and definition catalogs still state
- * their local Studio response type explicitly until the contract gains
- * schemas. Blob/streaming upload paths stay on raw fetch in
- * ../client.ts: genuinely exceptional transports.
+ * OpenAPI contract. Asset library, content organization, and data
+ * source CRUD/diagnostics/inspection success bodies are contract-typed
+ * and inferred from the generated schemas; widgets, uploads, preview
+ * payloads, and definition catalogs still state their local Studio
+ * response type explicitly until the contract gains schemas.
+ * Blob/streaming upload paths stay on raw fetch in ../client.ts:
+ * genuinely exceptional transports.
  */
 import { apiDelete, apiGet, apiPatch, apiPost } from "../transport";
+import type { components } from "@tilecast/api-schema/generated/openapi";
 import type {
   AirQualitySourceConfig,
   Asset,
@@ -319,57 +321,85 @@ export function duplicateWidget(id: string, csrfToken: string): Promise<Asset> {
   );
 }
 
+/** Wire shapes of data sources from the generated contract. */
+export type WireDataSource = components["schemas"]["DataSource"];
+export type WireDataSourceDetail = components["schemas"]["DataSourceDetail"];
+export type WireDataSourceDiagnostics =
+  components["schemas"]["DataSourceDiagnostics"];
+
 export function listDataSources(
   params?: URLSearchParams,
 ): Promise<DataSourceListResult> {
-  return apiGet<"/api/v1/data-sources", DataSourceListResult>(
-    "/api/v1/data-sources",
-    {
-      params: {
-        query: fromSearchParams(
-          params ?? new URLSearchParams({ page: "1", pageSize: "100" }),
-        ),
-      },
+  return apiGet("/api/v1/data-sources", {
+    params: {
+      query: fromSearchParams(
+        params ?? new URLSearchParams({ page: "1", pageSize: "100" }),
+      ),
     },
+  });
+}
+
+export async function getDataSource(id: string): Promise<DataSourceDetail> {
+  return normalizeDataSourceDetail(
+    await apiGet("/api/v1/data-sources/{id}", {
+      params: { path: { id } },
+    }),
   );
 }
 
-export function getDataSource(id: string): Promise<DataSourceDetail> {
-  return apiGet<"/api/v1/data-sources/{id}", DataSourceDetail>(
-    "/api/v1/data-sources/{id}",
-    { params: { path: { id } } },
-  );
+/**
+ * The wire diagnostics carry the source id as dataSourceId; the Studio
+ * view inherited the name assetId. The bridge renames it instead of
+ * dropping the link between a source and its refresh state.
+ */
+export function normalizeDataSourceDetail(
+  detail: WireDataSourceDetail,
+): DataSourceDetail {
+  return {
+    ...detail,
+    diagnostics: {
+      ...detail.diagnostics,
+      assetId: detail.diagnostics.dataSourceId,
+    },
+    fields: Array.isArray(detail.fields) ? detail.fields : [],
+    widgetUsage: Array.isArray(detail.widgetUsage) ? detail.widgetUsage : [],
+    bindingUsage: Array.isArray(detail.bindingUsage) ? detail.bindingUsage : [],
+  };
+}
+
+export function normalizeDataSourceDiagnostics(
+  diagnostics: WireDataSourceDiagnostics,
+): SourceRefreshDiagnostics {
+  return { ...diagnostics, assetId: diagnostics.dataSourceId };
 }
 
 export function createDataSource(
   input: DataSourceInput,
   csrfToken: string,
-): Promise<DataSourceDetail> {
-  return apiPost<"/api/v1/data-sources", DataSourceDetail>(
-    "/api/v1/data-sources",
-    { body: input, csrfToken },
-  );
+): Promise<WireDataSource> {
+  return apiPost("/api/v1/data-sources", { body: input, csrfToken });
 }
 
 export function updateDataSource(
   id: string,
   input: DataSourceInput,
   csrfToken: string,
-): Promise<DataSourceDetail> {
-  return apiPatch<"/api/v1/data-sources/{id}", DataSourceDetail>(
-    "/api/v1/data-sources/{id}",
-    { params: { path: { id } }, body: input, csrfToken },
-  );
+): Promise<WireDataSource> {
+  return apiPatch("/api/v1/data-sources/{id}", {
+    params: { path: { id } },
+    body: input,
+    csrfToken,
+  });
 }
 
 export function duplicateDataSource(
   id: string,
   csrfToken: string,
-): Promise<DataSourceDetail> {
-  return apiPost<"/api/v1/data-sources/{id}/duplicate", DataSourceDetail>(
-    "/api/v1/data-sources/{id}/duplicate",
-    { params: { path: { id } }, csrfToken },
-  );
+): Promise<WireDataSource> {
+  return apiPost("/api/v1/data-sources/{id}/duplicate", {
+    params: { path: { id } },
+    csrfToken,
+  });
 }
 
 export function deleteDataSource(id: string, csrfToken: string): Promise<void> {
@@ -379,13 +409,14 @@ export function deleteDataSource(id: string, csrfToken: string): Promise<void> {
   });
 }
 
-export function getDataSourceDiagnostics(
+export async function getDataSourceDiagnostics(
   id: string,
 ): Promise<SourceRefreshDiagnostics> {
-  return apiGet<
-    "/api/v1/data-sources/{id}/diagnostics",
-    SourceRefreshDiagnostics
-  >("/api/v1/data-sources/{id}/diagnostics", { params: { path: { id } } });
+  return normalizeDataSourceDiagnostics(
+    await apiGet("/api/v1/data-sources/{id}/diagnostics", {
+      params: { path: { id } },
+    }),
+  );
 }
 
 export function previewDataSource(
@@ -418,10 +449,7 @@ export function inspectDataSource(
   configuration: StructuredSourceConfig,
   csrfToken: string,
 ): Promise<StructuredInspection> {
-  return apiPost<
-    "/api/v1/data-sources/{provider}/inspect",
-    StructuredInspection
-  >("/api/v1/data-sources/{provider}/inspect", {
+  return apiPost("/api/v1/data-sources/{provider}/inspect", {
     params: { path: { provider } },
     body: { configuration },
     csrfToken,
@@ -431,10 +459,9 @@ export function inspectDataSource(
 export function inspectSavedDataSource(
   id: string,
 ): Promise<StructuredInspection> {
-  return apiGet<"/api/v1/data-sources/{id}/inspect", StructuredInspection>(
-    "/api/v1/data-sources/{id}/inspect",
-    { params: { path: { id } } },
-  );
+  return apiGet("/api/v1/data-sources/{id}/inspect", {
+    params: { path: { id } },
+  });
 }
 
 export function previewSavedDataSource(
