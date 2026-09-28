@@ -5417,6 +5417,18 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** @description Working draft after copying a historical snapshot into it. The document is the native playlist, Layout, or campaign draft, so its keys differ by content type. */
+    EditorialSnapshot: {
+      /** Format: int64 */
+      workingRevision: number;
+      /** Format: int64 */
+      publishedRevision: number | null;
+      /** Format: uuid */
+      publishedRevisionId: string | null;
+      /** @description Native draft document for the content type. */
+      document: Record<string, never>;
+      digest: string;
+    };
     /** @description One piece of content and where it stands. State is pending, approved, or rejected, derived from whether a decision exists for this exact revision. */
     ContentReviewItem: {
       /** @enum {string} */
@@ -17955,7 +17967,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["EditorialSnapshot"];
+          };
+        };
       };
       /** @description Historical snapshot no longer validates */
       422: {
@@ -17987,14 +18003,22 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ContentSubmissionPublication"];
+          };
+        };
       };
       /** @description Rollback submitted for review */
       202: {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ContentSubmissionPublication"];
+          };
+        };
       };
       /** @description Review or concurrency conflict */
       409: {

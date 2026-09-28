@@ -5515,9 +5515,14 @@ paths:
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
       responses:
         "200":
-          {
-            description: Historical snapshot copied to the working draft; live state is unchanged,
-          }
+          description: Historical snapshot copied to the working draft; live state is unchanged
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/EditorialSnapshot" }
         "422": { description: Historical snapshot no longer validates }
   /api/v1/content-history/{type}/{id}/publications/{publicationId}/rollback:
     parameters:
@@ -5537,8 +5542,29 @@ paths:
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
       responses:
         "201":
-          { description: Historical snapshot published as a new publication }
-        "202": { description: Rollback submitted for review }
+          description: Historical snapshot published as a new publication
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    {
+                      $ref: "#/components/schemas/ContentSubmissionPublication",
+                    }
+        "202":
+          description: Rollback submitted for review
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    {
+                      $ref: "#/components/schemas/ContentSubmissionPublication",
+                    }
         "409": { description: Review or concurrency conflict }
   /api/v1/campaigns:
     get:
@@ -7019,6 +7045,30 @@ components:
       name: tilecast_session
       description: Enrolled dashboard session cookie
   schemas:
+    EditorialSnapshot:
+      type: object
+      additionalProperties: false
+      description: >-
+        Working draft after copying a historical snapshot into it. The
+        document is the native playlist, Layout, or campaign draft, so
+        its keys differ by content type.
+      required:
+        [
+          workingRevision,
+          publishedRevision,
+          publishedRevisionId,
+          document,
+          digest,
+        ]
+      properties:
+        workingRevision: { type: integer, format: int64, minimum: 1 }
+        publishedRevision:
+          { type: [integer, "null"], format: int64, minimum: 1 }
+        publishedRevisionId: { type: [string, "null"], format: uuid }
+        document:
+          type: object
+          description: Native draft document for the content type.
+        digest: { type: string }
     ContentReviewItem:
       type: object
       additionalProperties: false
