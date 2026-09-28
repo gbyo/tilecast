@@ -296,10 +296,7 @@ export function createWidget(
   input: WidgetInput,
   csrfToken: string,
 ): Promise<Asset> {
-  return apiPost<"/api/v1/widgets", Asset>("/api/v1/widgets", {
-    body: input,
-    csrfToken,
-  });
+  return apiPost("/api/v1/widgets", { body: input, csrfToken });
 }
 
 export function updateWidget(
@@ -307,7 +304,7 @@ export function updateWidget(
   input: WidgetInput,
   csrfToken: string,
 ): Promise<Asset> {
-  return apiPatch<"/api/v1/widgets/{id}", Asset>("/api/v1/widgets/{id}", {
+  return apiPatch("/api/v1/widgets/{id}", {
     params: { path: { id } },
     body: input,
     csrfToken,
@@ -315,10 +312,10 @@ export function updateWidget(
 }
 
 export function duplicateWidget(id: string, csrfToken: string): Promise<Asset> {
-  return apiPost<"/api/v1/widgets/{id}/duplicate", Asset>(
-    "/api/v1/widgets/{id}/duplicate",
-    { params: { path: { id } }, csrfToken },
-  );
+  return apiPost("/api/v1/widgets/{id}/duplicate", {
+    params: { path: { id } },
+    csrfToken,
+  });
 }
 
 /** Wire shapes of data sources from the generated contract. */
