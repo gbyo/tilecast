@@ -86,4 +86,7 @@ if [ ! -x "$OASDIFF_BIN" ]; then
 	chmod +x "$OASDIFF_BIN"
 	echo "openapi-compat: downloaded oasdiff ${OASDIFF_VERSION} to .tools (gitignored)"
 fi
-"$OASDIFF_BIN" breaking --fail-on ERR "$BASE_SPEC" "$HEAD_SPEC"
+# Spec corrections documented in oasdiff-err-ignore.md (a handler that
+# 400s a missing body cannot break a working client by documenting it).
+# Anything not listed there still fails the gate.
+"$OASDIFF_BIN" breaking --fail-on ERR --err-ignore scripts/ci/oasdiff-err-ignore.md "$BASE_SPEC" "$HEAD_SPEC"
