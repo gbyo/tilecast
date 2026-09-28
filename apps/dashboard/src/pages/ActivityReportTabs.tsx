@@ -13,7 +13,6 @@ import {
 import {
   ActivityPagination,
   activityParams,
-  activityRequest,
   ErrorNotice,
   formatDuration,
   formatWhen,
@@ -26,9 +25,11 @@ import {
 } from "./ActivityShared";
 import {
   getProofOfPlaySummary,
+  listAuditActivity,
   listProofOfPlay,
   listScreenEvents,
   normalizeScreenEvent,
+  type AuditFilters,
   type EventFilters,
   type ProofFilters,
 } from "../api/domains/activity";
@@ -77,7 +78,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "../components/ui/collapsible";
-import type { AuditPage, ProofRecord } from "./ActivityShared";
+import type { ProofRecord } from "./ActivityShared";
 
 export function ProofTab({
   range,
@@ -944,7 +945,10 @@ export function AuditTab({
   if (pagination.cursor) pageParams.set("cursor", pagination.cursor);
   const query = useQuery({
     queryKey: ["activity", "audit", pageParams.toString()],
-    queryFn: () => activityRequest<AuditPage>(`/audit?${pageParams}`),
+    queryFn: () =>
+      listAuditActivity(
+        Object.fromEntries(pageParams.entries()) as AuditFilters,
+      ),
   });
   if (query.isLoading) return <Loading />;
   if (query.error) return <ErrorNotice error={query.error} />;

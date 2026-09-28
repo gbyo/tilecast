@@ -132,3 +132,49 @@ export function listScreenEvents(
     params: { query: filters },
   });
 }
+
+export type AuditFilters = {
+  from?: string;
+  to?: string;
+  page?: number;
+  pageSize?: number;
+  cursor?: string;
+  actor?: string;
+  action?: string;
+  resourceType?: string;
+  result?: string;
+  search?: string;
+};
+
+export function listAuditActivity(
+  filters: AuditFilters,
+): Promise<components["schemas"]["AuditActivityPage"]> {
+  // openapi-fetch drops undefined values; the server treats "" as absent,
+  // so filters pass through unchanged.
+  return apiGet("/api/v1/activity/audit", {
+    params: { query: filters },
+  });
+}
+
+export function getActivityRetention(): Promise<
+  components["schemas"]["ActivityRetention"]
+> {
+  return apiGet("/api/v1/activity/retention");
+}
+
+export function updateActivityRetention(
+  input: {
+    rawEventDays?: number;
+    playbackSessionDays?: number;
+    screenStateDays?: number;
+    auditLogDays?: number;
+    diagnosticMetadataDays?: number;
+    telemetryRollupDays?: number;
+  },
+  csrfToken: string,
+): Promise<components["schemas"]["ActivityRetention"]> {
+  return apiPatch("/api/v1/activity/retention", {
+    body: input,
+    csrfToken,
+  });
+}
