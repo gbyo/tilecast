@@ -204,10 +204,16 @@ export function GitHubOAuthSetupPortal() {
     try {
       await navigator.clipboard.writeText(value);
       setCopied(label);
-      toast.add({ title: `${label} copied.`, type: "success" });
+      toast.add({
+        title: t("common:clipboard.copied", { label }),
+        type: "success",
+      });
       window.setTimeout(() => setCopied(""), 1500);
     } catch {
-      toast.add({ title: `${label} could not be copied.`, type: "error" });
+      toast.add({
+        title: t("common:clipboard.copyFailed", { label }),
+        type: "error",
+      });
     }
   };
 
