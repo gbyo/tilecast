@@ -183,10 +183,14 @@ export class TilecastTimelineWidget extends TilecastWidgetElement<
         position: relative;
         height: 100%;
         min-height: 0;
-        overflow-y: auto;
-        overscroll-behavior: contain;
-        scrollbar-width: none;
+        overflow: hidden;
         padding-left: calc(min(4cqh, 4cqw) + 6px);
+      }
+      .timeline-flow {
+        display: grid;
+        grid-template-rows: repeat(var(--timeline-count), minmax(0, 1fr));
+        height: 100%;
+        min-height: 0;
       }
       .timeline::before {
         content: "";
@@ -202,6 +206,8 @@ export class TilecastTimelineWidget extends TilecastWidgetElement<
         position: relative;
         padding: 0 0 min(2.4cqh, 2.4cqw) 0;
         min-width: 0;
+        min-height: 0;
+        overflow: hidden;
       }
       .milestone::before {
         content: "";
@@ -242,9 +248,6 @@ export class TilecastTimelineWidget extends TilecastWidgetElement<
         -webkit-box-orient: vertical;
       }
       .timeline[data-horizontal] {
-        overflow-x: auto;
-        overflow-y: auto;
-        overscroll-behavior: contain;
         padding-left: 0;
         padding-top: calc(min(4cqh, 4cqw) + 6px);
       }
@@ -257,11 +260,11 @@ export class TilecastTimelineWidget extends TilecastWidgetElement<
         height: 2px;
       }
       .timeline[data-horizontal] .timeline-flow {
-        display: flex;
-        gap: min(5cqh, 5cqw);
+        grid-template-rows: minmax(0, 1fr);
+        grid-template-columns: repeat(var(--timeline-count), minmax(0, 1fr));
+        gap: min(3cqh, 3cqw);
       }
       .timeline[data-horizontal] .milestone {
-        flex: 1 0 180px;
         min-width: 0;
         padding: min(2.4cqh, 2.4cqw) 0 0 0;
       }
@@ -269,17 +272,30 @@ export class TilecastTimelineWidget extends TilecastWidgetElement<
         left: 0.2em;
         top: calc(-1 * min(4cqh, 4cqw) - 1px);
       }
+      .timeline[data-dense] .milestone-body,
+      .timeline[data-dense] .milestone-status {
+        display: none;
+      }
+      .timeline[data-dense] .milestone {
+        padding-bottom: min(1cqh, 1cqw);
+      }
+      .timeline[data-dense] .milestone-date {
+        font-size: clamp(9px, min(2.8cqh, 2.2cqw), 20px);
+      }
+      .timeline[data-dense] .milestone-title {
+        font-size: clamp(10px, min(3.4cqh, 2.8cqw), 32px);
+        -webkit-line-clamp: 1;
+      }
       @container tc-widget (max-width: 300px) {
         .milestone-body,
         .milestone-status {
           display: none;
         }
         .timeline[data-horizontal] .timeline-flow {
-          flex-direction: column;
+          grid-template-columns: minmax(0, 1fr);
+          grid-template-rows: repeat(var(--timeline-count), minmax(0, 1fr));
         }
         .timeline[data-horizontal] {
-          overflow-x: hidden;
-          overflow-y: auto;
           padding-left: calc(min(4cqh, 4cqw) + 6px);
           padding-top: 0;
         }
@@ -292,7 +308,6 @@ export class TilecastTimelineWidget extends TilecastWidgetElement<
           right: auto;
         }
         .timeline[data-horizontal] .milestone {
-          flex: none;
           padding: 0 0 min(2.4cqh, 2.4cqw) 0;
         }
         .timeline[data-horizontal] .milestone::before {
@@ -327,8 +342,12 @@ export class TilecastTimelineWidget extends TilecastWidgetElement<
       <div
         class="timeline"
         ?data-horizontal=${data.orientation === "horizontal"}
+        ?data-dense=${data.milestones.length > 8}
       >
-        <div class="timeline-flow">
+        <div
+          class="timeline-flow"
+          style=${`--timeline-count:${Math.max(1, data.milestones.length)}`}
+        >
           ${data.milestones.map((milestone) => {
             const date = text(milestone.date, milestone.dateField);
             const title = text(milestone.title, milestone.titleField);
