@@ -377,10 +377,12 @@ export function checkDerivedConformance(
         message: `${location} needs a stable operationId`,
       });
     }
+    const description = textOf(
+      findPair(entry.operation, "description"),
+    ).trim();
     const useful =
-      textOf(findPair(entry.operation, "description")) ||
-      textOf(findPair(entry.operation, "summary"));
-    if (useful.trim().length < MIN_DESCRIPTION_LENGTH) {
+      description || textOf(findPair(entry.operation, "summary")).trim();
+    if (useful.length < MIN_DESCRIPTION_LENGTH) {
       problems.push({
         file: COMPOSED_OPENAPI,
         message: `${location} needs a useful description`,
@@ -449,10 +451,12 @@ export function checkFragmentOperationIds(
       } else {
         seen.set(id, `${fragment.plugin} ${location}`);
       }
+      const description = textOf(
+        findPair(entry.operation, "description"),
+      ).trim();
       const useful =
-        textOf(findPair(entry.operation, "description")) ||
-        textOf(findPair(entry.operation, "summary"));
-      if (useful.trim().length < MIN_DESCRIPTION_LENGTH) {
+        description || textOf(findPair(entry.operation, "summary")).trim();
+      if (useful.length < MIN_DESCRIPTION_LENGTH) {
         problems.push({
           plugin: fragment.plugin,
           file: fragment.file,

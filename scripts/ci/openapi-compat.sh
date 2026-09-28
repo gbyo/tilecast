@@ -23,7 +23,7 @@ NORM_HEAD="$(mktemp)"
 trap 'rm -f "$BASE_SPEC" "$NORM_BASE" "$NORM_HEAD"' EXIT INT TERM
 if ! git cat-file -e "$BASE:docs/openapi.yaml" 2>/dev/null; then
 	echo "openapi-compat: base $BASE is not fetchable here; skipping"
-	exit 0
+	exit 1
 fi
 git show "$BASE:docs/openapi.yaml" >"$BASE_SPEC"
 if [ ! -s "$BASE_SPEC" ]; then
@@ -86,4 +86,4 @@ if [ ! -x "$OASDIFF_BIN" ]; then
 	chmod +x "$OASDIFF_BIN"
 	echo "openapi-compat: downloaded oasdiff ${OASDIFF_VERSION} to .tools (gitignored)"
 fi
-"$OASDIFF_BIN" breaking "$BASE_SPEC" "$HEAD_SPEC"
+"$OASDIFF_BIN" breaking --fail-on ERR "$BASE_SPEC" "$HEAD_SPEC"

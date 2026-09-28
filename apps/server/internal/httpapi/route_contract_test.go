@@ -30,43 +30,6 @@ import (
 // cannot go stale and cannot become a dumping ground.
 var contractAllowlist = map[string]string{}
 
-// dispatchedExact names METHOD + path pairs served by the activityRoutes
-// dispatcher (activity_routes.go), which multiplexes inside a middleware
-// handler where chi.Walk cannot see them. The test requires every entry to
-// occur as a string literal in activity_routes.go, so a removed dispatcher
-// path fails instead of going stale.
-var dispatchedExact = map[string]string{
-	"POST /api/v1/player/liveness":                  "device liveness without a playback snapshot",
-	"POST /api/v1/player/telemetry":                 "device telemetry ingest",
-	"POST /api/v1/player/activity-events":           "device activity event ingest",
-	"GET /api/v1/activity/overview":                 "fleet activity overview",
-	"GET /api/v1/activity/uptime":                   "fleet uptime",
-	"GET /api/v1/activity/proof-of-play":            "proof-of-play listing",
-	"GET /api/v1/activity/proof-of-play/summary":    "proof-of-play summary",
-	"GET /api/v1/activity/proof-of-play/export.csv": "proof-of-play CSV export",
-	"GET /api/v1/activity/screen-events":            "screen event listing",
-	"GET /api/v1/activity/audit":                    "audit activity listing",
-	"GET /api/v1/activity/audit/export.csv":         "audit activity CSV export",
-	"GET /api/v1/activity/compliance":               "playback compliance",
-	"GET /api/v1/activity/incidents":                "incident listing",
-	"GET /api/v1/activity/incidents/analytics":      "incident analytics",
-	"GET /api/v1/activity/retention":                "activity retention policy",
-	"PATCH /api/v1/activity/retention":              "activity retention update",
-}
-
-// dispatchedPrefix covers dispatcher-served contract operations below a
-// path prefix, with the methods the dispatcher answers there. Prefix
-// literals must likewise occur in activity_routes.go.
-var dispatchedPrefix = map[string]map[string]string{
-	"/api/v1/activity/screens/": {
-		"GET": "per-screen timelines, telemetry, and activity",
-	},
-	"/api/v1/activity/incidents/": {
-		"GET":   "single incident fetch",
-		"PATCH": "incident update",
-	},
-}
-
 // normalizeRoutePattern drops Chi {name:regexp} constraints, which are an
 // implementation detail; the contract names the parameter.
 func normalizeRoutePattern(pattern string) string {
@@ -180,58 +143,46 @@ func contractV1Operations(t *testing.T) map[string]bool {
 	return ops
 }
 
-// dispatcherSource returns activity_routes.go so the test can verify every
-// dispatched entry still exists there as a string literal.
-func dispatcherSource(t *testing.T) string {
+// dispatcherV1Routes derives METHOD + path pairs from the same registry that
+// activityRoutes uses to serve requests. That makes an undocumented branch or
+// method change visible to the parity check instead of relying on a second list.
+func dispatcherV1Routes(t *testing.T) map[string]bool {
 	t.Helper()
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("cannot locate test file")
-	}
-	raw, err := os.ReadFile(filepath.Join(filepath.Dir(file), "activity_routes.go"))
-	if err != nil {
-		t.Fatalf("read activity dispatcher: %v", err)
-	}
-	return string(raw)
-}
-
-func dispatched(t *testing.T, op string) bool {
-	t.Helper()
-	if _, ok := dispatchedExact[op]; ok {
-		return true
-	}
-	method, path, found := strings.Cut(op, " ")
-	if !found {
-		return false
-	}
-	for prefix, methods := range dispatchedPrefix {
-		if _, ok := methods[method]; ok && strings.HasPrefix(path, prefix) {
-			return true
+	s := &server{}
+	routes := map[string]bool{}
+	for _, route := range s.activityDispatchRoutes() {
+		key := route.method + " " + route.contractPath
+		if routes[key] {
+			t.Errorf("activity dispatcher registers %s more than once", key)
 		}
+		routes[key] = true
 	}
-	return false
+	return routes
 }
 
-// TestRouteContractParity fails on registered /api/v1 routes missing from
-// OpenAPI and on OpenAPI operations with no built server route. Parity
+// TestRouteContractParity fails on served /api/v1 routes missing from
+// OpenAPI and on OpenAPI operations with no production route. Parity
 // problems are fixed by describing the route, never by generating handlers.
 func TestRouteContractParity(t *testing.T) {
-	registered := productionV1Routes(t)
+	served := productionV1Routes(t)
+	for route := range dispatcherV1Routes(t) {
+		served[route] = true
+	}
 	described := contractV1Operations(t)
-	source := dispatcherSource(t)
-	for route := range registered {
+
+	for route := range served {
 		if _, ok := contractAllowlist[route]; ok {
 			continue
 		}
 		if !described[route] {
-			t.Errorf("route %s is registered by the production server but missing from docs/openapi.yaml", route)
+			t.Errorf("route %s is served by the production server but missing from docs/openapi.yaml", route)
 		}
 	}
 	for op := range described {
 		if _, ok := contractAllowlist[op]; ok {
 			continue
 		}
-		if !registered[op] && !dispatched(t, op) {
+		if !served[op] {
 			t.Errorf("operation %s is described in docs/openapi.yaml but has no production server route", op)
 		}
 	}
@@ -239,43 +190,8 @@ func TestRouteContractParity(t *testing.T) {
 		if reason == "" {
 			t.Errorf("allowlist entry %s needs a reason", route)
 		}
-		if !registered[route] && !described[route] {
+		if !served[route] && !described[route] {
 			t.Errorf("allowlist entry %s matches nothing; remove it", route)
-		}
-	}
-	// Every dispatched entry must still exist in the dispatcher source and
-	// must match at least one described operation.
-	for op, reason := range dispatchedExact {
-		if reason == "" {
-			t.Errorf("dispatched entry %s needs a reason", op)
-		}
-		_, path, _ := strings.Cut(op, " ")
-		if !strings.Contains(source, `"`+path+`"`) {
-			t.Errorf("dispatched entry %s no longer occurs in activity_routes.go; remove it", op)
-		}
-		if !described[op] {
-			t.Errorf("dispatched entry %s has no docs/openapi.yaml operation; describe it", op)
-		}
-	}
-	for prefix, methods := range dispatchedPrefix {
-		if !strings.Contains(source, `"`+prefix+`"`) {
-			t.Errorf("dispatched prefix %s no longer occurs in activity_routes.go; remove it", prefix)
-		}
-		for method, reason := range methods {
-			if reason == "" {
-				t.Errorf("dispatched prefix %s %s needs a reason", method, prefix)
-			}
-			matched := false
-			for op := range described {
-				m, path, _ := strings.Cut(op, " ")
-				if m == method && strings.HasPrefix(path, prefix) {
-					matched = true
-					break
-				}
-			}
-			if !matched {
-				t.Errorf("dispatched prefix %s %s matches no docs/openapi.yaml operation", method, prefix)
-			}
 		}
 	}
 }
