@@ -113,6 +113,7 @@ val sharedRuntimeAssets = layout.projectDirectory.dir("src/main/assets/shared-ru
 tasks.register("syncSharedRuntime") {
     group = "tilecast"
     description = "Copies the built shared Player Runtime into app assets."
+    inputs.dir(sharedRuntimeSource)
     outputs.dir(sharedRuntimeAssets)
     doLast {
         val manifest = sharedRuntimeSource.file("runtime-manifest.json").asFile
