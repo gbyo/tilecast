@@ -30,6 +30,7 @@ for (const story of stories) {
         (HTMLElement & { updateComplete?: Promise<unknown> }) | null;
       await widget?.updateComplete;
     });
+    await expect(frame.locator("[data-tilecast-widget]")).toBeVisible();
     await expect(frame).toHaveScreenshot(`${story.id}.png`);
     expect(errors).toEqual([]);
   });

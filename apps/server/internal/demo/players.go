@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"mime/multipart"
 	"net/http"
 	"strings"
 	"sync"
@@ -262,6 +263,9 @@ func (s *Simulator) runSocket(ctx context.Context, player Player) error {
 		switch message.Type {
 		case "server.hello":
 			s.update(player.ScreenID, func(status *PlayerStatus) { status.Connected, status.LastError = true, "" })
+			err = s.handlePreview(ctx, player)
+		case "preview.session_changed":
+			err = s.handlePreview(ctx, player)
 		case "server.ping":
 			err = send(map[string]any{"type": "player.pong", "timestamp": time.Now().UTC().Format(time.RFC3339)})
 		case "manifest.changed", "takeover.changed":
@@ -297,6 +301,9 @@ func (s *Simulator) runHeartbeat(ctx context.Context, player Player) error {
 		}
 		s.update(player.ScreenID, func(status *PlayerStatus) { status.Connected, status.LastError = true, "" })
 		if err := s.handleCommands(ctx, player); err != nil {
+			return err
+		}
+		if err := s.handlePreview(ctx, player); err != nil {
 			return err
 		}
 		select {
@@ -396,15 +403,47 @@ func (s *Simulator) handleCommands(ctx context.Context, player Player) error {
 	return nil
 }
 
+// Demo players have no rendering surface. Acknowledge a capture request through
+// the real upload API without inventing an image or leaving Studio waiting.
+func (s *Simulator) handlePreview(ctx context.Context, player Player) error {
+	var session struct {
+		Active     bool `json:"active"`
+		CaptureNow bool `json:"captureNow"`
+	}
+	if err := s.request(ctx, http.MethodGet, "/api/v1/player/preview-session", player.Credential, nil, &session); err != nil {
+		return err
+	}
+	if !session.Active || !session.CaptureNow {
+		return nil
+	}
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	for key, value := range map[string]string{"playerVersion": player.Device.PlayerVersion, "failureStatus": "capture_unsupported"} {
+		if err := writer.WriteField(key, value); err != nil {
+			return err
+		}
+	}
+	if err := writer.Close(); err != nil {
+		return err
+	}
+	return s.requestBody(ctx, http.MethodPost, "/api/v1/player/preview", player.Credential, &body, writer.FormDataContentType(), nil)
+}
+
 func (s *Simulator) request(ctx context.Context, method, path, credential string, body, target any) error {
 	var reader io.Reader
+	var contentType string
 	if body != nil {
 		encoded, err := json.Marshal(body)
 		if err != nil {
 			return err
 		}
 		reader = bytes.NewReader(encoded)
+		contentType = "application/json"
 	}
+	return s.requestBody(ctx, method, path, credential, reader, contentType, target)
+}
+
+func (s *Simulator) requestBody(ctx context.Context, method, path, credential string, reader io.Reader, contentType string, target any) error {
 	request, err := http.NewRequestWithContext(ctx, method, s.baseURL+path, reader)
 	if err != nil {
 		return err
@@ -412,8 +451,8 @@ func (s *Simulator) request(ctx context.Context, method, path, credential string
 	if credential != "" {
 		request.Header.Set("Authorization", "Bearer "+credential)
 	}
-	if body != nil {
-		request.Header.Set("Content-Type", "application/json")
+	if contentType != "" {
+		request.Header.Set("Content-Type", contentType)
 	}
 	response, err := s.client.Do(request)
 	if err != nil {
