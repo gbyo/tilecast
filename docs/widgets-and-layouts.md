@@ -35,7 +35,7 @@ Data Sources appear under the Data tab of the Studio Content workspace, and are 
 
 A Widget owns how content appears. A Widget is either **standalone** or references exactly **one** Data Source. It owns visual settings, the selected Data Source, selected fields, labels, typography, colors, spacing, record count, empty-state presentation, and provider-specific behavior. It does **not** own fetching, parsing, source refresh, cached records, date selection, or source diagnostics — those belong to the Data Source.
 
-- Standalone providers: **Website, YouTube, Clock, Date, QR Code, Countdown, World Clock**, plus the release-defined **Text Notice, Image Notice, and QR Call to Action**.
+- Standalone providers: **Website, YouTube, Clock, QR Code, Countdown, and Text**. Date and World Clock are Clock modes, Text Notice maps into Text, and Image Notice is compatibility only. See [Widgets V2 final catalog](widgets-v2-catalog.md).
 - Data-driven providers: **Ticker, Menu / Price Board, List, Table, Agenda, Metric, Cards, Weather, Spotlight, Stat Grid, Chart, Progress, Timeline**, plus the release-defined **School Status Banner, Alert Banner, Fundraising Thermometer, Now and Next, Recognition Board, and School Schedule**.
 
 Studio also offers the guided presets **Leaderboard, Status Board, Queue Board, Schedule / Departures, Opening Hours, and Directory**. Presets persist authoring-only `presetId` metadata and compile through their underlying generic provider; the Player does not dispatch on preset identity.
@@ -174,6 +174,8 @@ Two narrow additions extend what a definition may express without weakening that
 - A `repeat` node may declare an **offset**, so one Widget can feature the current record and list the ones that follow it. Now and Next uses an offset of one.
 
 The Widget editor's live preview renders at the current instant by default and can instead render at a date and time the author picks, read in the author's own time zone. The chosen instant drives everything the preview derives from the clock — clock and date formats, countdowns, and the current/next/upcoming record selection — because Studio evaluates those in the browser rather than at compile time; the compiled presentation itself is unchanged. The thumbnail captured on save reflects whatever the preview shows.
+
+The Layout preview fills the Studio window. The canvas retains its aspect ratio and fits below the preview toolbar in both portrait and landscape orientations. Widgets use the shared renderer at the scale of that canvas.
 
 Studio draws a catalog preview for each Widget rather than an icon. The preview is inline SVG built from the definition's `thumbnail` name, follows the active theme, and needs no asset or network request. An unknown or missing name falls back to a generic preview, so a definition from a later release never breaks the gallery.
 

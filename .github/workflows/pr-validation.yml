@@ -5,6 +5,8 @@ on:
   # branch gets the same validation as one against main. The change detector
   # diffs the PR's own base and head.
   pull_request:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -13,6 +15,7 @@ concurrency:
 
 permissions:
   contents: read
+  checks: write
 
 jobs:
   changes:
@@ -28,413 +31,87 @@ jobs:
       e2e: ${{ steps.paths.outputs.e2e }}
       plugins: ${{ steps.paths.outputs.plugins }}
       widgets: ${{ steps.paths.outputs.widgets }}
+      cli: ${{ steps.paths.outputs.cli }}
+      sources: ${{ steps.paths.outputs.sources }}
+      ci: ${{ steps.paths.outputs.ci }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: node --test scripts/ci/*.test.mjs
       - name: Classify changed paths
         id: paths
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          set -euo pipefail
-
-          android=false
-          linux=false
-          server=false
-          dashboard=false
-          container=false
-          docs=false
-          e2e=false
-          plugins=false
-          widgets=false
-
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            android=true
-            linux=true
-            server=true
-            dashboard=true
-            container=true
-            docs=true
-            e2e=true
-            plugins=true
-            widgets=true
+            node scripts/ci/affected.mjs --full --github-output
           else
-            while IFS= read -r path; do
-              # Widgets V2: a Widget reaches the runtime, the Server catalog
-              # and the Linux and Edge capability lists.
-              case "$path" in
-                widgets/*|packages/widget-sdk/*|packages/widget-kit/*|packages/player-runtime/*|package.json|package-lock.json|.github/workflows/*)
-                  widgets=true
-                  ;;
-              esac
-              case "$path" in
-                widgets/*)
-                  server=true
-                  linux=true
-                  container=true
-                  docs=true
-                  ;;
-              esac
-              case "$path" in
-                apps/player-android/*|scripts/build-player-release.sh|scripts/extract-apksigner-sha256.sh)
-                  android=true
-                  ;;
-                apps/player-linux/*|packages/player-runtime/*|scripts/build-linux-player-release.sh|scripts/verify-linux-player-release.mjs)
-                  linux=true
-                  ;;
-                apps/server/*)
-                  server=true
-                  container=true
-                  e2e=true
-                  plugins=true
-                  ;;
-                apps/cli/*)
-                  server=true
-                  ;;
-                apps/docs/*|.github/logos/*)
-                  docs=true
-                  plugins=true
-                  ;;
-                # A bundled plugin reaches the server, Studio, the Player
-                # runtime, the container, and the docs site.
-                # docs/openapi.yaml is generated from the fragments, so a direct
-                # edit must meet the staleness check.
-                plugins/*|packages/plugin-sdk/*|go.work|go.work.sum|.github/CODEOWNERS|docs/openapi/*|docs/openapi.yaml)
-                  plugins=true
-                  server=true
-                  dashboard=true
-                  linux=true
-                  container=true
-                  docs=true
-                  e2e=true
-                  ;;
-                packages/design-tokens/*)
-                  dashboard=true
-                  container=true
-                  docs=true
-                  ;;
-                apps/dashboard/*|packages/*)
-                  dashboard=true
-                  container=true
-                  e2e=true
-                  plugins=true
-                  ;;
-                package.json|package-lock.json)
-                  dashboard=true
-                  linux=true
-                  container=true
-                  docs=true
-                  e2e=true
-                  plugins=true
-                  ;;
-                deploy/docker/*)
-                  container=true
-                  e2e=true
-                  ;;
-                e2e/*|scripts/demo-reset.sh)
-                  e2e=true
-                  ;;
-                docs/*|wiki/*|README.md|*/README.md|scripts/check-docs-ste.sh|Makefile)
-                  docs=true
-                  ;;
-                .github/workflows/*)
-                  android=true
-                  linux=true
-                  server=true
-                  dashboard=true
-                  container=true
-                  docs=true
-                  e2e=true
-                  plugins=true
-                  ;;
-              esac
-            done < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+            node scripts/ci/affected.mjs --base "$BASE_SHA" --head "$HEAD_SHA" --github-output
           fi
 
-          {
-            echo "android=$android"
-            echo "linux=$linux"
-            echo "server=$server"
-            echo "dashboard=$dashboard"
-            echo "container=$container"
-            echo "docs=$docs"
-            echo "e2e=$e2e"
-            echo "plugins=$plugins"
-            echo "widgets=$widgets"
-          } >> "$GITHUB_OUTPUT"
+  ci_contract:
+    needs: changes
+    if: needs.changes.outputs.ci == 'true'
+    uses: ./.github/workflows/validate-ci-contract.yml
 
   android_ci:
-    name: Android CI
     needs: changes
     if: needs.changes.outputs.android == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      checks: write
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: 17
-          cache: gradle
-      - uses: android-actions/setup-android@v4
-      - name: Test, lint, and assemble
-        working-directory: apps/player-android
-        run: ./gradlew testDebugUnitTest lintDebug assembleDebug
-      - name: Test Reporter
-        if: ${{ !cancelled() }}
-        uses: dorny/test-reporter@v3.0.0
-        with:
-          name: Android tests
-          path: apps/player-android/app/build/test-results/testDebugUnitTest/*.xml
-          reporter: java-junit
-          fail-on-empty: false
-
-  linux_player_ci:
-    name: Linux Player release contract
-    needs: changes
-    if: needs.changes.outputs.linux == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm test --workspace @tilecast/player-runtime
-      # The Linux Player imports the runtime's compiled Node entry points.
-      - run: npm run build:node --workspace @tilecast/player-runtime
-      - run: npm run player:linux:test
-      - run: npm run player:linux:build
-      - name: Create test-only release signing keys
-        run: |
-          set -euo pipefail
-          openssl genpkey -algorithm Ed25519 -out "$RUNNER_TEMP/linux-update-private.pem"
-          openssl pkey \
-            -in "$RUNNER_TEMP/linux-update-private.pem" \
-            -pubout \
-            -out "$RUNNER_TEMP/linux-update-public.pem"
-      - name: Build and validate packaged release
-        env:
-          TILECAST_UPDATE_MANIFEST_PRIVATE_KEY: ${{ runner.temp }}/linux-update-private.pem
-          TILECAST_UPDATE_MANIFEST_PUBLIC_KEY_FILE: ${{ runner.temp }}/linux-update-public.pem
-          TILECAST_RELEASE_OUTPUT: ${{ runner.temp }}/linux-player-release
-          TILECAST_RELEASE_CHANNEL: stable
-          TILECAST_RELEASE_NOTES: Pull request release-contract validation
-        run: scripts/build-linux-player-release.sh
+    uses: ./.github/workflows/ci-android.yml
 
   server_ci:
-    name: Server CI
     needs: changes
     if: needs.changes.outputs.server == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      checks: write
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_DB: tilecast_test
-          POSTGRES_USER: tilecast
-          POSTGRES_PASSWORD: tilecast_test_password
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U tilecast -d tilecast_test"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: apps/server/go.mod
-          cache-dependency-path: |
-            apps/server/go.sum
-            apps/cli/go.sum
-            plugins/go.sum
-            packages/plugin-sdk/go/go.sum
-      # go.work puts the bundled plugins and the plugin SDK in the same build.
-      - working-directory: apps/server
-        run: go vet ./... github.com/tilecast/tilecast/plugins/... github.com/tilecast/tilecast/packages/plugin-sdk/go/...
-      - name: Test
-        working-directory: apps/server
-        run: go test -json -p 1 ./... github.com/tilecast/tilecast/plugins/... github.com/tilecast/tilecast/packages/plugin-sdk/go/... > test-results.json
-        env:
-          TEST_DATABASE_URL: postgres://tilecast:tilecast_test_password@localhost:5432/tilecast_test?sslmode=disable
-      - name: Test Reporter
-        if: ${{ !cancelled() }}
-        uses: dorny/test-reporter@v3.0.0
-        with:
-          name: Server tests
-          path: apps/server/test-results.json
-          reporter: golang-json
-          fail-on-empty: false
-      - working-directory: apps/server
-        run: go build ./cmd/tilecast-server
-      - working-directory: apps/cli
-        run: go vet ./...
-      - working-directory: apps/cli
-        run: go test ./...
-      - working-directory: apps/cli
-        run: go build ./cmd/tilecast
+    uses: ./.github/workflows/ci-server.yml
 
   dashboard_ci:
-    name: Dashboard CI
     needs: changes
     if: needs.changes.outputs.dashboard == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      checks: write
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run format:check
-      - run: npm run lint
-      - name: Test
-        working-directory: apps/dashboard
-        run: |
-          mkdir -p test-results
-          npm test -- --reporter=default --reporter=junit --outputFile=test-results/vitest.xml
-      - name: Test Reporter
-        if: ${{ !cancelled() }}
-        uses: dorny/test-reporter@v3.0.0
-        with:
-          name: Dashboard tests
-          path: apps/dashboard/test-results/vitest.xml
-          reporter: java-junit
-          fail-on-empty: false
-      - run: npm run build
+    uses: ./.github/workflows/ci-dashboard.yml
 
-  # The Official Tilecast Plugin Conformance checks that need no build:
-  # manifests, generated files, boundaries, migrations, OpenAPI fragments,
-  # and the SDK's own tests. The Go, Studio, and runtime suites run in their
-  # own jobs above.
+  linux_player_ci:
+    needs: changes
+    if: needs.changes.outputs.linux == 'true'
+    uses: ./.github/workflows/validate-linux.yml
+
   plugins_ci:
-    name: Plugin conformance
     needs: changes
     if: needs.changes.outputs.plugins == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - name: Check plugins and generated files
-        run: npm run plugins:check
-      - name: Test the plugin SDK and pluginctl
-        run: npm test --workspace @tilecast/plugin-sdk
-
-  container_ci:
-    name: Server container
-    needs: changes
-    if: needs.changes.outputs.container == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - name: Validate Compose configuration
-        run: docker compose --env-file deploy/docker/.env.example -f deploy/docker/compose.yml config --quiet
-      - uses: docker/setup-buildx-action@v4
-      - name: Build container
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: deploy/docker/Dockerfile
-          push: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  # Browser smoke tests against a real Demo Mode stack: the production image,
-  # PostgreSQL, and simulated players. A separate job, so the unit-test jobs
-  # keep their feedback time.
-  e2e_ci:
-    name: E2E smoke (Demo Mode)
-    needs: changes
-    if: needs.changes.outputs.e2e == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      TILECAST_DEMO_PORT: "18080"
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
-      - name: Start the demo stack
-        run: make demo
-      - name: Run the smoke suite
-        run: npm run test:e2e
-      - name: Server and database logs
-        if: ${{ failure() }}
-        run: docker compose -f deploy/docker/compose.demo.yml logs --no-color --timestamps > demo-stack.log || true
-      - name: Keep failure artifacts
-        if: ${{ failure() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: e2e-failure
-          path: |
-            e2e/test-results
-            e2e/playwright-report
-            demo-stack.log
-          retention-days: 14
-      - name: Remove the demo stack
-        if: ${{ always() }}
-        run: make demo-down
+    uses: ./.github/workflows/validate-plugins.yml
 
   widgets_ci:
-    name: Widgets V2
     needs: changes
     if: needs.changes.outputs.widgets == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - name: Widget modules, generated files and catalog suite
-        run: npm run widgets:check
-      - name: SDK and kit tests and types
-        run: |
-          npm test --workspace @tilecast/widget-sdk
-          npm test --workspace @tilecast/widget-kit
-          npm run typecheck --workspace @tilecast/widget-sdk
-          npm run typecheck --workspace @tilecast/widget-kit
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
-      - name: Storybook build and visual regression
-        run: npm run widgets:visual
-      - name: Keep visual failures
-        if: ${{ failure() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: widgets-visual
-          path: |
-            widgets/visual/test-results
-            widgets/visual/playwright-report
-          retention-days: 14
+    uses: ./.github/workflows/validate-widgets.yml
+
+  container_ci:
+    needs: changes
+    if: needs.changes.outputs.container == 'true' && needs.changes.outputs.e2e != 'true'
+    uses: ./.github/workflows/validate-container.yml
+
+  e2e_ci:
+    needs: changes
+    if: needs.changes.outputs.e2e == 'true'
+    uses: ./.github/workflows/validate-browser.yml
 
   docs_ci:
-    name: Documentation
     needs: changes
     if: needs.changes.outputs.docs == 'true'
+    uses: ./.github/workflows/validate-docs.yml
+
+  cli_ci:
+    needs: changes
+    if: needs.changes.outputs.cli == 'true'
+    uses: ./.github/workflows/validate-cli.yml
+
+  sources_ci:
+    needs: changes
+    if: needs.changes.outputs.sources == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -443,23 +120,14 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Check ASD-STE100 hard rules
-        run: bash scripts/check-docs-ste.sh
-      - name: Check documentation formatting
-        run: |
-          mapfile -t doc_files < <(rg --files -g '*.md' -g '*.mdx' docs wiki apps packages plugins deploy | sort)
-          doc_files+=(README.md apps/docs)
-          npx prettier --check "${doc_files[@]}"
-      - name: Check the docs site
-        run: npm run docs:check
-      - name: Build the docs site and check its links
-        run: npm run docs:build
+      - run: npm run data-sources:check
 
   required:
     name: Required PR validation
     if: always()
     needs:
       - changes
+      - ci_contract
       - android_ci
       - linux_player_ci
       - server_ci
@@ -468,14 +136,29 @@ jobs:
       - e2e_ci
       - docs_ci
       - plugins_ci
+      - widgets_ci
+      - cli_ci
+      - sources_ci
     runs-on: ubuntu-latest
-    env:
-      RESULTS: ${{ join(needs.*.result, ',') }}
     steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
       - name: Require every selected job to pass
-        run: |
-          if [[ ",$RESULTS," == *,failure,* || ",$RESULTS," == *,cancelled,* ]]; then
-            echo "One or more required validation jobs did not pass: $RESULTS" >&2
-            exit 1
-          fi
-          echo "All selected validation jobs passed: $RESULTS"
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+          SELECTIONS: >-
+            {"ci_contract": ${{ needs.changes.outputs.ci == 'true' }},
+             "android_ci": ${{ needs.changes.outputs.android == 'true' }},
+             "linux_player_ci": ${{ needs.changes.outputs.linux == 'true' }},
+             "server_ci": ${{ needs.changes.outputs.server == 'true' }},
+             "dashboard_ci": ${{ needs.changes.outputs.dashboard == 'true' }},
+             "container_ci": ${{ needs.changes.outputs.container == 'true' && needs.changes.outputs.e2e != 'true' }},
+             "e2e_ci": ${{ needs.changes.outputs.e2e == 'true' }},
+             "docs_ci": ${{ needs.changes.outputs.docs == 'true' }},
+             "plugins_ci": ${{ needs.changes.outputs.plugins == 'true' }},
+             "widgets_ci": ${{ needs.changes.outputs.widgets == 'true' }},
+             "cli_ci": ${{ needs.changes.outputs.cli == 'true' }},
+             "sources_ci": ${{ needs.changes.outputs.sources == 'true' }}}
+        run: node scripts/ci/required.mjs

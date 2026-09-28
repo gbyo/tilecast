@@ -31,6 +31,28 @@ const fixtures = import.meta.glob<unknown>(
 const stories = Object.keys(
   import.meta.glob("../../../../widgets/*/runtime/*.stories.ts"),
 );
+// Compatibility providers live in the Server's release definitions and map
+// into a module's component through their own configTemplate.
+const releaseDefinitions = import.meta.glob<{
+  widgets?: {
+    id: string;
+    configurationSchema?: { fields?: { key: string }[] };
+    component?: {
+      type: string;
+      version: number;
+      configTemplate: Record<string, unknown>;
+    };
+  }[];
+}>("../../../../apps/server/internal/contentdefs/definitions/*.json", {
+  eager: true,
+  import: "default",
+});
+const aliases = new Map(
+  Object.values(releaseDefinitions)
+    .flatMap((file) => file.widgets ?? [])
+    .filter((definition) => definition.component)
+    .map((definition) => [definition.id, definition]),
+);
 
 const discovery = discoverWidgets(manifests, modules);
 const dirOf = (path: string) => /(widgets\/[^/]+)\//.exec(path)![1]!;
@@ -63,6 +85,20 @@ describe("Widget catalog", () => {
         ).toMatchObject({ ok: true });
       });
 
+      it("maps every compatibility provider onto its current version", () => {
+        for (const alias of aliases.values()) {
+          if (alias.component!.type !== widget.definition.type) continue;
+          expect(alias.component!.version).toBe(widget.definition.version);
+          const config = compileComponentConfig(
+            alias.component!.configTemplate,
+            {},
+          );
+          expect(
+            widget.definition.parseConfig(config, widget.definition.version),
+          ).toMatchObject({ ok: true });
+        }
+      });
+
       it("has stories and a ready fixture", () => {
         expect(stories.some((path) => dirOf(path) === dir)).toBe(true);
         const own = Object.entries(fixtures).filter(
@@ -82,11 +118,19 @@ describe("Widget catalog", () => {
         "fixture %s settles as declared",
         async (_name, value) => {
           const fixture = widgetFixtureSchema.parse(value);
+          let configTemplate = widget.manifest.component.configTemplate;
+          if (fixture.provider && fixture.provider !== widget.manifest.id) {
+            const alias = aliases.get(fixture.provider);
+            expect(alias?.component?.type).toBe(widget.definition.type);
+            configTemplate = alias!.component!.configTemplate;
+          }
           const config = compileComponentConfig(
-            widget.manifest.component.configTemplate,
+            configTemplate,
             fixture.configuration,
           );
           expect(configLimitProblem(config)).toBeNull();
+          if (fixture.expectConfig)
+            expect(config).toEqual(fixture.expectConfig);
           const container = document.createElement("div");
           document.body.appendChild(container);
           const rendered = renderFixture({
@@ -94,6 +138,7 @@ describe("Widget catalog", () => {
             manifest: widget.manifest,
             fixture,
             container,
+            configTemplate,
           });
           const element = rendered.mount.element as
             (HTMLElement & { updateComplete?: Promise<unknown> }) | null;

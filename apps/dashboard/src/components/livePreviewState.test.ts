@@ -12,6 +12,17 @@ const preview = {
 } as ScreenPreview;
 
 describe("livePreviewState", () => {
+  it("does not wait for a stale player without a capture, but preserves its cached image", () => {
+    const staleScreen = { ...screen, status: "stale" } as Screen;
+    expect(
+      livePreviewState(staleScreen, {
+        ...preview,
+        status: "loading",
+        imageAvailable: false,
+      }),
+    ).toBe("offline");
+    expect(livePreviewState(staleScreen, preview)).toBe("stale");
+  });
   it("shows a recent image as live", () => {
     expect(
       livePreviewState(screen, preview, Date.parse("2026-07-13T20:00:20Z")),

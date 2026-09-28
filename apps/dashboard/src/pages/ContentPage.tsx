@@ -149,7 +149,7 @@ import type {
   ContentTag,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import { NativeAppEditor, YouTubeSourceEditor } from "../content/SourceEditors";
+import { YouTubeSourceEditor } from "../content/SourceEditors";
 import { V2WidgetEditor } from "../content/V2WidgetEditor";
 import { AssetPreview } from "../components/content/AssetPreview";
 import { droppedFiles } from "../components/content/dragDrop";
@@ -2443,17 +2443,6 @@ function AssetDetails(props: {
   ) : props.asset.type === "widget" &&
     props.asset.widget?.provider === "youtube" ? (
     <YouTubeSourceEditor
-      asset={props.asset}
-      csrf={props.csrf}
-      readOnly={!props.canManage}
-      onClose={props.onDismiss}
-      onSaved={props.onChanged}
-    />
-  ) : props.asset.type === "widget" &&
-    props.asset.widget &&
-    ["clock", "date", "ticker"].includes(props.asset.widget.provider) ? (
-    <NativeAppEditor
-      provider={props.asset.widget.provider as "clock" | "date" | "ticker"}
       asset={props.asset}
       csrf={props.csrf}
       readOnly={!props.canManage}

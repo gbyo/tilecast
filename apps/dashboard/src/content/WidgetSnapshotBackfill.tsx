@@ -11,7 +11,9 @@ import {
   type PreviewDatasetCurrencies,
   type PreviewDatasets,
 } from "./previewRecords";
+import { V2ZonePreview } from "../components/layout-editor/V2ZonePreview";
 import { DeclarativePresentationPreview } from "./SourceEditors";
+import { studioWidgetComponent } from "./studioWidgets";
 import { captureWidgetPreview } from "./widgetPreviewCapture";
 import {
   widgetPreviewConfiguration,
@@ -71,8 +73,65 @@ export function WidgetSnapshotBackfill({
   );
 }
 
-// Renders one Widget off-screen at snapshot width and stores the capture. Laid out rather than
-// hidden, because a capture needs real geometry: `display: none` or a zero-size box produces nothing.
+const SNAPSHOT_FRAME = { width: 960, height: 540 } as const;
+
+/**
+ * Store a capture of a rendered Widget once `ready` says it has painted.
+ * Shared by the V2 and the compatibility capture paths.
+ */
+function useSnapshotUpload(
+  asset: Asset,
+  ready: boolean,
+  failed: boolean,
+  previewRef: React.RefObject<HTMLDivElement | null>,
+  onSettled: () => void,
+) {
+  const { t } = useTranslation(["content"]);
+  const auth = useAuth();
+  const csrf = auth.status?.csrfToken ?? "";
+  const queryClient = useQueryClient();
+  const uploaded = useRef(false);
+  // The capture effect must not restart when the language changes: cleanup
+  // would cancel an in-progress capture that is never retried. The ref always
+  // carries the latest translator for subsequent messages.
+  const tRef = useRef(t);
+  tRef.current = t;
+  useEffect(() => {
+    if (failed) {
+      onSettled();
+      return;
+    }
+    if (!ready || uploaded.current) return;
+    uploaded.current = true;
+    let cancelled = false;
+    // Two frames, so the browser has laid out and painted the preview that was just mounted.
+    const frame = requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        void (async () => {
+          try {
+            const element = previewRef.current;
+            if (cancelled || !element) return;
+            const image = await captureWidgetPreview(element, tRef.current);
+            if (cancelled) return;
+            await api.uploadWidgetPreview(asset.id, image, csrf);
+            if (!cancelled)
+              await queryClient.invalidateQueries({ queryKey: ["assets"] });
+          } catch {
+            // A Widget that cannot be captured keeps its honest unavailable state. The list is not
+            // blocked on it and it is not retried, so one bad Widget cannot stall the rest.
+          } finally {
+            if (!cancelled) onSettled();
+          }
+        })();
+      }),
+    );
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+    };
+  }, [ready, failed, asset.id, csrf, onSettled, queryClient, previewRef]);
+}
+
 function WidgetSnapshotCapture({
   asset,
   onSettled,
@@ -80,18 +139,72 @@ function WidgetSnapshotCapture({
   asset: Asset;
   onSettled: () => void;
 }) {
-  const { t } = useTranslation(["content"]);
+  const definitions = useQuery({
+    queryKey: ["content-definitions"],
+    queryFn: api.contentDefinitions,
+  });
+  if (definitions.isLoading) return null;
+  const provider = asset.widget!.provider;
+  // A Widgets V2 Widget is captured from its real element, the same one the
+  // editor previews and the Player mounts.
+  return studioWidgetComponent(definitions.data, provider) ? (
+    <V2SnapshotCapture asset={asset} onSettled={onSettled} />
+  ) : (
+    <CompatibilitySnapshotCapture asset={asset} onSettled={onSettled} />
+  );
+}
+
+function V2SnapshotCapture({
+  asset,
+  onSettled,
+}: {
+  asset: Asset;
+  onSettled: () => void;
+}) {
+  const previewRef = useRef<HTMLDivElement>(null);
+  const [state, setState] = useState<"pending" | "settled" | "failed">(
+    "pending",
+  );
+  useSnapshotUpload(
+    asset,
+    state === "settled",
+    state === "failed",
+    previewRef,
+    onSettled,
+  );
+  return (
+    <div className="widget-snapshot-backfill" aria-hidden="true">
+      <div ref={previewRef}>
+        <V2ZonePreview
+          provider={asset.widget!.provider}
+          asset={asset}
+          width={SNAPSHOT_FRAME.width}
+          height={SNAPSHOT_FRAME.height}
+          onState={(next) => {
+            if (next.state === "ready" || next.state === "empty")
+              setState("settled");
+            else if (next.state === "error") setState("failed");
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// Renders one Widget that has no V2 component off-screen at snapshot width, through its
+// compatibility presentation, and stores the capture. Laid out rather than hidden, because a
+// capture needs real geometry: `display: none` or a zero-size box produces nothing.
+function CompatibilitySnapshotCapture({
+  asset,
+  onSettled,
+}: {
+  asset: Asset;
+  onSettled: () => void;
+}) {
   const regional = useOrganizationRegionalProfile();
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
-  const queryClient = useQueryClient();
   const previewRef = useRef<HTMLDivElement>(null);
-  const uploaded = useRef(false);
-  // The capture effect must not restart when the language changes: cleanup
-  // would cancel an in-progress capture that is never retried. The ref always
-  // carries the latest translator for subsequent messages.
-  const tRef = useRef(t);
-  tRef.current = t;
   const provider = asset.widget!.provider;
   const authorConfiguration = (asset.widget!.authorConfiguration ??
     asset.widget!.configuration) as Record<string, unknown>;
@@ -157,40 +270,7 @@ function WidgetSnapshotCapture({
   const ready = Boolean(compiled.data) && sourcesSettled;
   const failed = compiled.isError || (definitions.isError && !definition);
 
-  useEffect(() => {
-    if (failed) {
-      onSettled();
-      return;
-    }
-    if (!ready || uploaded.current) return;
-    uploaded.current = true;
-    let cancelled = false;
-    // Two frames, so the browser has laid out and painted the preview that was just mounted.
-    const frame = requestAnimationFrame(() =>
-      requestAnimationFrame(() => {
-        void (async () => {
-          try {
-            const element = previewRef.current;
-            if (cancelled || !element) return;
-            const image = await captureWidgetPreview(element, tRef.current);
-            if (cancelled) return;
-            await api.uploadWidgetPreview(asset.id, image, csrf);
-            if (!cancelled)
-              await queryClient.invalidateQueries({ queryKey: ["assets"] });
-          } catch {
-            // A Widget that cannot be captured keeps its honest unavailable state. The list is not
-            // blocked on it and it is not retried, so one bad Widget cannot stall the rest.
-          } finally {
-            if (!cancelled) onSettled();
-          }
-        })();
-      }),
-    );
-    return () => {
-      cancelled = true;
-      cancelAnimationFrame(frame);
-    };
-  }, [ready, failed, asset.id, csrf, onSettled, queryClient]);
+  useSnapshotUpload(asset, ready, failed, previewRef, onSettled);
 
   return (
     <div className="widget-snapshot-backfill" aria-hidden="true">

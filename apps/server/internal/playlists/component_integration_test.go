@@ -101,8 +101,19 @@ func TestClockComponentChosenForEachPlayer(t *testing.T) {
 		t.Fatalf("Player without widget.tilecast.clock: schema %d, kind %q", manifest.SchemaVersion, onlyWidget(t, manifest).Presentation.Kind)
 	}
 
-	// A Widgets V2 Player gets manifest v16 and the component.
+	// A Player that renders Clock component version 1, from before the
+	// Clock modes, still gets the compatibility presentation.
 	f.reportCapabilities(t, "{1,2}", map[string]int{"widget.tilecast.clock": 1})
+	manifest, _, err = f.service.BuildManifest(f.ctx, f.screen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if manifest.SchemaVersion != 13 || onlyWidget(t, manifest).Presentation.Kind != "native" {
+		t.Fatalf("Player with widget.tilecast.clock@1: schema %d, kind %q", manifest.SchemaVersion, onlyWidget(t, manifest).Presentation.Kind)
+	}
+
+	// A Widgets V2 Player gets manifest v16 and the component.
+	f.reportCapabilities(t, "{1,2}", map[string]int{"widget.tilecast.clock": 2})
 	manifest, _, err = f.service.BuildManifest(f.ctx, f.screen)
 	if err != nil {
 		t.Fatal(err)
@@ -111,16 +122,17 @@ func TestClockComponentChosenForEachPlayer(t *testing.T) {
 	if manifest.SchemaVersion != ManifestSchemaComponents || widget.Presentation.Kind != "component" {
 		t.Fatalf("V2 Player: schema %d, kind %q", manifest.SchemaVersion, widget.Presentation.Kind)
 	}
-	if widget.Presentation.SchemaVersion != 2 || widget.Presentation.RequiredCapabilities["widget.tilecast.clock"] != 1 || widget.Presentation.Native != nil {
+	if widget.Presentation.SchemaVersion != 2 || widget.Presentation.RequiredCapabilities["widget.tilecast.clock"] != 2 || widget.Presentation.Native != nil {
 		t.Fatalf("component presentation is malformed: %+v", widget.Presentation)
 	}
 	component := widget.Presentation.Component
 	want := map[string]any{
 		"timeZone": "Europe/London", "format": "24", "showSeconds": true,
-		"style": "standard", "showDate": false,
-		"background": "#0E141B", "foreground": "#F5F7FA",
+		"style": "standard", "showDate": false, "mode": "time",
+		// Saved colors are normalized to lowercase.
+		"background": "#0e141b", "foreground": "#f5f7fa",
 	}
-	if component.Type != "tilecast.clock" || component.Version != 1 || len(component.DataSources) != 0 {
+	if component.Type != "tilecast.clock" || component.Version != 2 || len(component.DataSources) != 0 {
 		t.Fatalf("component identity is wrong: %+v", component)
 	}
 	for key, value := range want {
@@ -143,7 +155,7 @@ func TestClockComponentChosenForEachPlayer(t *testing.T) {
 
 	// Assignment validation agrees with manifest generation for every profile.
 	for _, schemas := range []string{"{1}", "{1,2}"} {
-		f.reportCapabilities(t, schemas, map[string]int{"widget.tilecast.clock": 1})
+		f.reportCapabilities(t, schemas, map[string]int{"widget.tilecast.clock": 2})
 		if err := f.service.ValidatePresentationTargets(f.ctx, &playlistID, nil, []uuid.UUID{f.screen}, nil); err != nil {
 			t.Fatalf("schemas %s: valid Clock content rejected: %v", schemas, err)
 		}
@@ -183,7 +195,7 @@ func TestClockComponentInLayoutZone(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	f.reportCapabilities(t, "{1,2}", map[string]int{"widget.tilecast.clock": 1})
+	f.reportCapabilities(t, "{1,2}", map[string]int{"widget.tilecast.clock": 2})
 	if err := f.service.ValidatePresentationTargets(f.ctx, nil, &layoutID, []uuid.UUID{f.screen}, nil); err != nil {
 		t.Fatalf("Layout with a component Clock rejected: %v", err)
 	}
