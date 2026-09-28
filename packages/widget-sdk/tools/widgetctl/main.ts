@@ -18,6 +18,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import {
   compileComponentConfig,
@@ -418,4 +419,6 @@ async function main(argv: string[]): Promise<number> {
   }
 }
 
-process.exitCode = await main(process.argv.slice(2));
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+  process.exitCode = await main(process.argv.slice(2));
+}
