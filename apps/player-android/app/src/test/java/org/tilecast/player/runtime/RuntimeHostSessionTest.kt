@@ -97,6 +97,27 @@ class RuntimeHostSessionTest {
         assertTrue(session.remoteWeb.snapshot().isEmpty())
     }
 
+    @Test fun replacementRebindsEvidenceToNewActivationAndItems() {
+        val sink = Sink()
+        val session = session(sink)
+        session.offer(presentationMessage("act1", 1))
+        val replacementItems = listOf(
+            ManifestItem("i2", "a2", "v2", "image", 10_000, "contain", "none", false, 0.5f, deliveryPolicy = "cache"),
+        )
+        session.updatePresentation(replacementItems, "act2")
+        session.offer(presentationMessage("act2", 2))
+
+        session.handlePageMessage(
+            """{"type":"evidence","activationId":"act2","itemId":"i2","kind":"item-started"}""", 1, null,
+        )
+        assertEquals(listOf("i2" to "a2"), sink.boundaries)
+
+        session.handlePageMessage(
+            """{"type":"evidence","itemId":"i2","kind":"item-started"}""", 1, null,
+        )
+        assertEquals(1, sink.boundaries.size)
+    }
+
     @Test fun unknownCallsAreRefusedWithoutState() {
         val session = RuntimeHostSessionTest.Sink().let { session(it) }
         val reply = session.handlePageMessage(
