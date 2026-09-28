@@ -9078,14 +9078,16 @@ type Screen struct {
 
 // ScreenActivity defines model for ScreenActivity.
 type ScreenActivity struct {
-	CurrentIssue           *ScreenAttentionItem `json:"currentIssue,omitempty"`
-	CurrentPresentation    *string              `json:"currentPresentation,omitempty"`
-	LastHealthyPlayback    *time.Time           `json:"lastHealthyPlayback,omitempty"`
-	LastSuccessfulPlayback *time.Time           `json:"lastSuccessfulPlayback,omitempty"`
-	PlaybackGaps           int                  `json:"playbackGaps"`
-	RecentEvents           []ScreenEventRecord  `json:"recentEvents"`
-	RecentProof            []ProofOfPlayRecord  `json:"recentProof"`
-	ScreenId               openapi_types.UUID   `json:"screenId"`
+	CurrentIssue *ScreenAttentionItem `json:"currentIssue,omitempty"`
+
+	// CurrentPresentation The most recent Player-confirmed presentation record. Absent when the Screen has not confirmed one.
+	CurrentPresentation              *ProofOfPlayRecord  `json:"currentPresentation,omitempty"`
+	LastHealthyPlayback              *time.Time          `json:"lastHealthyPlayback,omitempty"`
+	LastSuccessfulManifestActivation *time.Time          `json:"lastSuccessfulManifestActivation,omitempty"`
+	PlaybackGaps                     int                 `json:"playbackGaps"`
+	RecentEvents                     []ScreenEventRecord `json:"recentEvents"`
+	RecentProofOfPlay                []ProofOfPlayRecord `json:"recentProofOfPlay"`
+	ScreenId                         openapi_types.UUID  `json:"screenId"`
 }
 
 // ScreenAssignmentGroup defines model for ScreenAssignmentGroup.

@@ -9186,11 +9186,14 @@ components:
     ScreenActivity:
       type: object
       additionalProperties: false
-      required: [screenId, recentProof, recentEvents, playbackGaps]
+      required: [screenId, recentProofOfPlay, recentEvents, playbackGaps]
       properties:
         screenId: { type: string, format: uuid }
-        currentPresentation: { type: string }
-        recentProof:
+        currentPresentation:
+          description: >-
+            The most recent Player-confirmed presentation record. Absent when the Screen has not confirmed one.
+          $ref: "#/components/schemas/ProofOfPlayRecord"
+        recentProofOfPlay:
           type: array
           items: { $ref: "#/components/schemas/ProofOfPlayRecord" }
         recentEvents:
@@ -9198,7 +9201,7 @@ components:
           items: { $ref: "#/components/schemas/ScreenEventRecord" }
         playbackGaps: { type: integer, minimum: 0 }
         lastHealthyPlayback: { type: string, format: date-time }
-        lastSuccessfulPlayback: { type: string, format: date-time }
+        lastSuccessfulManifestActivation: { type: string, format: date-time }
         currentIssue: { $ref: "#/components/schemas/ScreenAttentionItem" }
     ScreenHealth:
       type: string

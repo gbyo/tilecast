@@ -5725,14 +5725,15 @@ export interface components {
     ScreenActivity: {
       /** Format: uuid */
       screenId: string;
-      currentPresentation?: string;
-      recentProof: components["schemas"]["ProofOfPlayRecord"][];
+      /** @description The most recent Player-confirmed presentation record. Absent when the Screen has not confirmed one. */
+      currentPresentation?: components["schemas"]["ProofOfPlayRecord"];
+      recentProofOfPlay: components["schemas"]["ProofOfPlayRecord"][];
       recentEvents: components["schemas"]["ScreenEventRecord"][];
       playbackGaps: number;
       /** Format: date-time */
       lastHealthyPlayback?: string;
       /** Format: date-time */
-      lastSuccessfulPlayback?: string;
+      lastSuccessfulManifestActivation?: string;
       currentIssue?: components["schemas"]["ScreenAttentionItem"];
     };
     /** @enum {string} */
