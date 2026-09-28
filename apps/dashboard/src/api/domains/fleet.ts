@@ -212,10 +212,7 @@ export function listPresentationOverrides(): Promise<{
   items: PresentationOverride[];
   total: number;
 }> {
-  return apiGet<
-    "/api/v1/presentation-overrides",
-    { items: PresentationOverride[]; total: number }
-  >("/api/v1/presentation-overrides");
+  return apiGet("/api/v1/presentation-overrides");
 }
 
 export function createPresentationOverride(
@@ -230,20 +227,17 @@ export function createPresentationOverride(
   },
   csrfToken: string,
 ): Promise<PresentationOverride> {
-  return apiPost<"/api/v1/presentation-overrides", PresentationOverride>(
-    "/api/v1/presentation-overrides",
-    { body: input, csrfToken },
-  );
+  return apiPost("/api/v1/presentation-overrides", {
+    body: input,
+    csrfToken,
+  });
 }
 
 export function stopPresentationOverride(
   id: string,
   csrfToken: string,
 ): Promise<PresentationOverride> {
-  return apiPost<
-    "/api/v1/presentation-overrides/{id}/stop",
-    PresentationOverride
-  >("/api/v1/presentation-overrides/{id}/stop", {
+  return apiPost("/api/v1/presentation-overrides/{id}/stop", {
     params: { path: { id } },
     body: { reason: "Stopped from Tilecast Studio" },
     csrfToken,
