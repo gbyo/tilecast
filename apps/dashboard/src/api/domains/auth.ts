@@ -27,7 +27,7 @@ import type {
 } from "../types";
 
 export function getAuthStatus(): Promise<AuthStatus> {
-  return apiGet<"/api/v1/auth/status", AuthStatus>("/api/v1/auth/status");
+  return apiGet("/api/v1/auth/status");
 }
 
 export function initialSetup(input: SetupInput): Promise<SessionResult> {
@@ -50,16 +50,13 @@ export function verifyMfa(
 export function getMfaPasskeyOptions(
   challengeToken: string,
 ): Promise<PasskeyCeremony> {
-  return apiPost<"/api/v1/auth/mfa/passkey/options", PasskeyCeremony>(
-    "/api/v1/auth/mfa/passkey/options",
-    { body: { challengeToken } },
-  );
+  return apiPost("/api/v1/auth/mfa/passkey/options", {
+    body: { challengeToken },
+  });
 }
 
 export function getPasskeyLoginOptions(): Promise<PasskeyCeremony> {
-  return apiPost<"/api/v1/auth/passkey/login/options", PasskeyCeremony>(
-    "/api/v1/auth/passkey/login/options",
-  );
+  return apiPost("/api/v1/auth/passkey/login/options");
 }
 
 export function passkeyLogin(
@@ -104,10 +101,7 @@ export function regenerateRecoveryCodes(password: string, csrfToken: string) {
 export function getPasskeyRegistrationOptions(
   csrfToken: string,
 ): Promise<PasskeyCeremony> {
-  return apiPost<"/api/v1/me/security/passkeys/options", PasskeyCeremony>(
-    "/api/v1/me/security/passkeys/options",
-    { csrfToken },
-  );
+  return apiPost("/api/v1/me/security/passkeys/options", { csrfToken });
 }
 
 export function registerPasskey(

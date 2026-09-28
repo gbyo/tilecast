@@ -1,11 +1,12 @@
 /**
  * Schedule, campaign, and editorial-review domain helpers over the typed
- * transport. Schedule CRUD success bodies are contract-typed and
- * inferred from the generated OpenAPI schemas; campaigns, reviews,
- * and the schedule preview still state their local Studio response
- * type explicitly until the contract gains schemas.
+ * transport. Schedule CRUD, campaign publication, and editorial action
+ * success bodies are contract-typed and inferred from the generated
+ * OpenAPI schemas; the handwritten view models in ../types.ts stay for
+ * the shapes Studio owns.
  */
 import { apiDelete, apiGet, apiPatch, apiPost } from "../transport";
+import type { components } from "@tilecast/api-schema/generated/openapi";
 import type {
   Campaign,
   CampaignList,
@@ -83,13 +84,13 @@ export function previewSchedule(
 }
 
 export function listCampaigns(search = ""): Promise<CampaignList> {
-  return apiGet<"/api/v1/campaigns", CampaignList>("/api/v1/campaigns", {
+  return apiGet("/api/v1/campaigns", {
     params: { query: { page: 1, pageSize: 100, search } },
   });
 }
 
 export function getCampaign(id: string): Promise<Campaign> {
-  return apiGet<"/api/v1/campaigns/{id}", Campaign>("/api/v1/campaigns/{id}", {
+  return apiGet("/api/v1/campaigns/{id}", {
     params: { path: { id } },
   });
 }
@@ -98,10 +99,7 @@ export function createCampaign(
   input: { name: string; description?: string; timezone?: string },
   csrfToken: string,
 ): Promise<Campaign> {
-  return apiPost<"/api/v1/campaigns", Campaign>("/api/v1/campaigns", {
-    body: input,
-    csrfToken,
-  });
+  return apiPost("/api/v1/campaigns", { body: input, csrfToken });
 }
 
 export function updateCampaignDraft(
@@ -110,30 +108,25 @@ export function updateCampaignDraft(
   draft: CampaignSnapshot,
   csrfToken: string,
 ): Promise<Campaign> {
-  return apiPatch<"/api/v1/campaigns/{id}/draft", Campaign>(
-    "/api/v1/campaigns/{id}/draft",
-    {
-      params: { path: { id } },
-      body: { expectedDraftRevision, draft },
-      csrfToken,
-    },
-  );
+  return apiPatch("/api/v1/campaigns/{id}/draft", {
+    params: { path: { id } },
+    body: { expectedDraftRevision, draft },
+    csrfToken,
+  });
 }
 
 export function getCampaignPreflight(id: string): Promise<CampaignPreflight> {
-  return apiGet<"/api/v1/campaigns/{id}/preflight", CampaignPreflight>(
-    "/api/v1/campaigns/{id}/preflight",
-    { params: { path: { id } } },
-  );
+  return apiGet("/api/v1/campaigns/{id}/preflight", {
+    params: { path: { id } },
+  });
 }
 
 export function listCampaignReleases(id: string): Promise<{
   items: CampaignRelease[];
 }> {
-  return apiGet<
-    "/api/v1/campaigns/{id}/releases",
-    { items: CampaignRelease[] }
-  >("/api/v1/campaigns/{id}/releases", { params: { path: { id } } });
+  return apiGet("/api/v1/campaigns/{id}/releases", {
+    params: { path: { id } },
+  });
 }
 
 export function restoreCampaignRelease(
@@ -141,24 +134,31 @@ export function restoreCampaignRelease(
   releaseId: string,
   csrfToken: string,
 ): Promise<Campaign> {
-  return apiPost<
-    "/api/v1/campaigns/{id}/releases/{releaseId}/restore",
-    Campaign
-  >("/api/v1/campaigns/{id}/releases/{releaseId}/restore", {
+  return apiPost("/api/v1/campaigns/{id}/releases/{releaseId}/restore", {
     params: { path: { id, releaseId } },
     csrfToken,
   });
 }
 
+/**
+ * Wire shapes of publication results from the generated contract: a
+ * publish answers 201 with the publication record or 202 with the review
+ * submission it created instead.
+ */
+export type WirePublicationResult =
+  | components["schemas"]["ContentSubmissionPublication"]
+  | components["schemas"]["ContentSubmission"];
+
 export function publishCampaign(
   id: string,
   expectedDraftRevision: number,
   csrfToken: string,
-): Promise<unknown> {
-  return apiPost<"/api/v1/campaigns/{id}/publish", unknown>(
-    "/api/v1/campaigns/{id}/publish",
-    { params: { path: { id } }, body: { expectedDraftRevision }, csrfToken },
-  );
+): Promise<WirePublicationResult> {
+  return apiPost("/api/v1/campaigns/{id}/publish", {
+    params: { path: { id } },
+    body: { expectedDraftRevision },
+    csrfToken,
+  });
 }
 
 export function archiveCampaign(id: string, csrfToken: string): Promise<void> {
@@ -194,10 +194,7 @@ export function listPublicationHistory(
   contentType: EditorialContentType,
   id: string,
 ): Promise<{ items: PublicationHistoryItem[] }> {
-  return apiGet<
-    "/api/v1/content-history/{type}/{id}/publications",
-    { items: PublicationHistoryItem[] }
-  >("/api/v1/content-history/{type}/{id}/publications", {
+  return apiGet("/api/v1/content-history/{type}/{id}/publications", {
     params: { path: { type: contentType, id } },
   });
 }
@@ -276,12 +273,12 @@ export function requestContentChanges(
 export function publishContentSubmission(
   id: string,
   csrfToken: string,
-): Promise<unknown> {
+): Promise<components["schemas"]["ContentSubmissionPublication"]> {
   // The server publishes from the path id alone and reads no body.
-  return apiPost<"/api/v1/content-submissions/{id}/publish", unknown>(
-    "/api/v1/content-submissions/{id}/publish",
-    { params: { path: { id } }, csrfToken },
-  );
+  return apiPost("/api/v1/content-submissions/{id}/publish", {
+    params: { path: { id } },
+    csrfToken,
+  });
 }
 
 export function restorePublicationToDraft(
@@ -289,11 +286,8 @@ export function restorePublicationToDraft(
   contentId: string,
   publicationId: string,
   csrfToken: string,
-): Promise<unknown> {
-  return apiPost<
-    "/api/v1/content-history/{type}/{id}/publications/{publicationId}/restore-draft",
-    unknown
-  >(
+): Promise<components["schemas"]["EditorialSnapshot"]> {
+  return apiPost(
     "/api/v1/content-history/{type}/{id}/publications/{publicationId}/restore-draft",
     {
       params: { path: { type: contentType, id: contentId, publicationId } },
@@ -307,11 +301,8 @@ export function rollbackPublication(
   contentId: string,
   publicationId: string,
   csrfToken: string,
-): Promise<unknown> {
-  return apiPost<
-    "/api/v1/content-history/{type}/{id}/publications/{publicationId}/rollback",
-    unknown
-  >(
+): Promise<components["schemas"]["ContentSubmissionPublication"]> {
+  return apiPost(
     "/api/v1/content-history/{type}/{id}/publications/{publicationId}/rollback",
     {
       params: { path: { type: contentType, id: contentId, publicationId } },
@@ -329,13 +320,7 @@ export function comparePublications(
   changed: boolean;
   changes: { kind: string; path: string; description: string }[];
 }> {
-  return apiGet<
-    "/api/v1/content-history/{type}/{id}/compare",
-    {
-      changed: boolean;
-      changes: { kind: string; path: string; description: string }[];
-    }
-  >("/api/v1/content-history/{type}/{id}/compare", {
+  return apiGet("/api/v1/content-history/{type}/{id}/compare", {
     params: {
       path: { type: contentType, id },
       query: { fromPublicationId, toPublicationId },

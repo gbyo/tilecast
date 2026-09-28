@@ -92,18 +92,15 @@ export function deletePlayerRelease(id: string, csrfToken: string) {
 export function listUpdateDeployments(): Promise<{
   items: UpdateDeployment[];
 }> {
-  return apiGet<"/api/v1/update-deployments", { items: UpdateDeployment[] }>(
-    "/api/v1/update-deployments",
-  );
+  return apiGet("/api/v1/update-deployments");
 }
 
 export function getUpdateDeployment(
   id: string,
 ): Promise<UpdateDeploymentDetail> {
-  return apiGet<"/api/v1/update-deployments/{id}", UpdateDeploymentDetail>(
-    "/api/v1/update-deployments/{id}",
-    { params: { path: { id } } },
-  );
+  return apiGet("/api/v1/update-deployments/{id}", {
+    params: { path: { id } },
+  });
 }
 
 export function createUpdateDeployment(
@@ -118,20 +115,14 @@ export function createUpdateDeployment(
   },
   csrfToken: string,
 ): Promise<{ id: string; targetCount: number }> {
-  return apiPost<
-    "/api/v1/update-deployments",
-    { id: string; targetCount: number }
-  >("/api/v1/update-deployments", { body: input, csrfToken });
+  return apiPost("/api/v1/update-deployments", { body: input, csrfToken });
 }
 
 export function cancelUpdateDeployment(
   id: string,
   csrfToken: string,
 ): Promise<{ id: string; status: string }> {
-  return apiPost<
-    "/api/v1/update-deployments/{id}/cancel",
-    { id: string; status: string }
-  >("/api/v1/update-deployments/{id}/cancel", {
+  return apiPost("/api/v1/update-deployments/{id}/cancel", {
     params: { path: { id } },
     csrfToken,
   });
@@ -553,7 +544,7 @@ export function applySettingsImport(
 }
 
 export function getSystemStatus(): Promise<SystemStatus> {
-  return apiGet<"/api/v1/system/status", SystemStatus>("/api/v1/system/status");
+  return apiGet("/api/v1/system/status");
 }
 
 /** Wire shape of the content health report from the generated contract. */

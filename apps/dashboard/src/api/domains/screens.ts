@@ -186,7 +186,7 @@ export async function updateScreen(
   csrfToken: string,
 ): Promise<Screen> {
   return normalizeScreen(
-    await apiPatch<"/api/v1/screens/{id}", Screen>("/api/v1/screens/{id}", {
+    await apiPatch("/api/v1/screens/{id}", {
       params: { path: { id } },
       body: input,
       csrfToken,

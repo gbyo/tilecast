@@ -147,7 +147,7 @@ export function testPresentationNetwork(
 }
 
 export function listPlugins(): Promise<PluginCatalog> {
-  return apiGet<"/api/v1/plugins", PluginCatalog>("/api/v1/plugins");
+  return apiGet("/api/v1/plugins");
 }
 
 /**
@@ -175,9 +175,7 @@ export function removePlugin(id: string, csrfToken: string): Promise<void> {
 }
 
 export function getDependencyGraph(): Promise<DependencyGraph> {
-  return apiGet<"/api/v1/plugins/dependency-graph", DependencyGraph>(
-    "/api/v1/plugins/dependency-graph",
-  );
+  return apiGet("/api/v1/plugins/dependency-graph");
 }
 
 export type WireAirplaySession = components["schemas"]["AirplaySession"];
