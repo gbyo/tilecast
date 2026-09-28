@@ -31,25 +31,20 @@ export function getAuthStatus(): Promise<AuthStatus> {
 }
 
 export function initialSetup(input: SetupInput): Promise<SessionResult> {
-  return apiPost<"/api/v1/auth/setup", SessionResult>("/api/v1/auth/setup", {
-    body: input,
-  });
+  return apiPost("/api/v1/auth/setup", { body: input });
 }
 
 export function login(input: LoginInput): Promise<LoginResult> {
-  return apiPost<"/api/v1/auth/login", LoginResult>("/api/v1/auth/login", {
-    body: input,
-  });
+  return apiPost("/api/v1/auth/login", { body: input });
 }
 
 export function verifyMfa(
   challengeToken: string,
   code: string,
 ): Promise<SessionResult> {
-  return apiPost<"/api/v1/auth/mfa/verify", SessionResult>(
-    "/api/v1/auth/mfa/verify",
-    { body: { challengeToken, code } },
-  );
+  return apiPost("/api/v1/auth/mfa/verify", {
+    body: { challengeToken, code },
+  });
 }
 
 export function getMfaPasskeyOptions(
@@ -71,10 +66,10 @@ export function passkeyLogin(
   challengeToken: string,
   credential: components["schemas"]["WebAuthnAssertion"],
 ): Promise<SessionResult> {
-  return apiPost<"/api/v1/auth/passkey/login", SessionResult>(
-    "/api/v1/auth/passkey/login",
-    { body: credential, headers: { "X-MFA-Challenge": challengeToken } },
-  );
+  return apiPost("/api/v1/auth/passkey/login", {
+    body: credential,
+    headers: { "X-MFA-Challenge": challengeToken },
+  });
 }
 
 export function getSecurityStatus() {
