@@ -3,6 +3,8 @@ package org.tilecast.player.runtime
 import android.webkit.WebResourceResponse
 import java.io.File
 import java.io.FileInputStream
+import java.io.FilterInputStream
+import java.io.InputStream
 
 /** Serves host-authorized cached media to the trusted runtime WebView.
  *
@@ -65,17 +67,48 @@ object TcMediaBridge {
         return headers
     }
 
-    /** Opens the file positioned at [ResolvedMedia.offset].
+    /** Opens exactly the response body declared by [ResolvedMedia].
      *
-     * The stream is not truncated: the caller must read at most
-     * [ResolvedMedia.contentLength] bytes (the framework adapter relies on the
-     * `Content-Length` response header for this).
+     * A 206 body must reach EOF at the end of its Content-Range; WebView is
+     * not required to stop reading merely because Content-Length was set.
      */
-    fun openStream(resolved: ResolvedMedia): FileInputStream? {
+    fun openStream(resolved: ResolvedMedia): InputStream? {
         val file = resolved.file ?: return null
         return runCatching {
-            FileInputStream(file).also { it.skip(resolved.offset) }
+            val stream = FileInputStream(file)
+            stream.channel.position(resolved.offset)
+            BoundedInputStream(stream, resolved.contentLength)
         }.getOrNull()
+    }
+
+    private class BoundedInputStream(
+        input: InputStream,
+        private var remaining: Long,
+    ) : FilterInputStream(input) {
+        override fun read(): Int {
+            if (remaining <= 0) return -1
+            val value = super.read()
+            if (value >= 0) remaining--
+            return value
+        }
+
+        override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+            if (remaining <= 0) return -1
+            val bounded = minOf(length.toLong(), remaining).toInt()
+            val count = super.read(buffer, offset, bounded)
+            if (count > 0) remaining -= count.toLong()
+            return count
+        }
+
+        override fun skip(count: Long): Long {
+            if (remaining <= 0) return 0
+            val skipped = super.skip(minOf(count, remaining))
+            remaining -= skipped
+            return skipped
+        }
+
+        override fun available(): Int =
+            minOf(super.available().toLong(), remaining, Int.MAX_VALUE.toLong()).toInt()
     }
 
     fun toResponse(resolved: ResolvedMedia): WebResourceResponse? {
