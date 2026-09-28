@@ -184,10 +184,26 @@ export function denyOAuth(
   return apiPost("/api/v1/oauth/deny", { body: decision, csrfToken });
 }
 
+/** Wire shape of an authorization grant from the generated contract. */
+export type WireOAuthGrant = components["schemas"]["OAuthGrant"];
+
+/**
+ * The server sends explicit null for never-used or active grants; the
+ * Studio view models those as absent.
+ */
+export function normalizeOAuthGrant(wire: WireOAuthGrant): OAuthGrant {
+  return {
+    ...wire,
+    lastUsedAt: wire.lastUsedAt ?? undefined,
+    revokedAt: wire.revokedAt ?? undefined,
+  };
+}
+
 export function listOAuthGrants(): Promise<{ grants: OAuthGrant[] }> {
-  return apiGet<"/api/v1/me/security/grants", { grants: OAuthGrant[] }>(
-    "/api/v1/me/security/grants",
-  );
+  return apiGet("/api/v1/me/security/grants").then((result) => ({
+    ...result,
+    grants: result.grants.map(normalizeOAuthGrant),
+  }));
 }
 
 export function revokeOAuthGrant(id: string, csrfToken: string): Promise<void> {
@@ -197,25 +213,46 @@ export function revokeOAuthGrant(id: string, csrfToken: string): Promise<void> {
   });
 }
 
+/** Wire shape of a personal access token from the generated contract. */
+export type WirePersonalAccessToken =
+  components["schemas"]["PersonalAccessToken"];
+
+/**
+ * The server sends explicit null for never-used or active tokens; the
+ * Studio view models those as absent.
+ */
+export function normalizePersonalAccessToken(
+  wire: WirePersonalAccessToken,
+): PersonalAccessToken {
+  return {
+    ...wire,
+    lastUsedAt: wire.lastUsedAt ?? undefined,
+    revokedAt: wire.revokedAt ?? undefined,
+  };
+}
+
 export function listPersonalAccessTokens(
   search: string,
 ): Promise<{ pats: PersonalAccessToken[] }> {
-  return apiGet<"/api/v1/me/security/pats", { pats: PersonalAccessToken[] }>(
-    "/api/v1/me/security/pats",
-    {
-      params: { query: search ? { search } : {} },
-    },
-  );
+  return apiGet("/api/v1/me/security/pats", {
+    params: { query: search ? { search } : {} },
+  }).then((result) => ({
+    ...result,
+    pats: result.pats.map(normalizePersonalAccessToken),
+  }));
 }
 
 export function createPersonalAccessToken(
   input: PersonalAccessTokenInput,
   csrfToken: string,
 ): Promise<PersonalAccessTokenCreated> {
-  return apiPost<"/api/v1/me/security/pats", PersonalAccessTokenCreated>(
-    "/api/v1/me/security/pats",
-    { body: input, csrfToken },
-  );
+  return apiPost("/api/v1/me/security/pats", {
+    body: input,
+    csrfToken,
+  }).then((result) => ({
+    ...result,
+    pat: normalizePersonalAccessToken(result.pat),
+  }));
 }
 
 export function resetUserSecurity(
