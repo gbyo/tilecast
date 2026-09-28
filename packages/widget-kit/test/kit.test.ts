@@ -286,7 +286,7 @@ describe("format", () => {
     expect(
       formatWidgetValue(
         { kind: "currency", number: 12 },
-        { key: "price", label: "Price", type: "currency", currency: "USD" },
+        { type: "currency", currency: "USD" },
         { locale },
       ),
     ).toBe("$12.00");
