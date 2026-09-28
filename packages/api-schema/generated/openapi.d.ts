@@ -5417,6 +5417,53 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** @description One piece of content and where it stands. State is pending, approved, or rejected, derived from whether a decision exists for this exact revision. */
+    ContentReviewItem: {
+      /** @enum {string} */
+      contentType: "playlist" | "layout";
+      /** Format: uuid */
+      contentId: string;
+      name: string;
+      /** Format: int64 */
+      revision: number;
+      /** @enum {string} */
+      state: "pending" | "approved" | "rejected";
+      assignedScreens: number;
+      /** Format: date-time */
+      updatedAt: string;
+      authorName?: string;
+      lastNote?: string;
+      /** Format: date-time */
+      lastReviewedAt?: string;
+    };
+    /** @description Legacy current-revision queue. New Studio actions use content submissions; this compatibility route still reports the server-side assignment gate. */
+    ContentReviewQueue: {
+      required: boolean;
+      items: components["schemas"]["ContentReviewItem"][];
+    };
+    ContentReview: {
+      /** Format: uuid */
+      id: string;
+      /** @enum {string} */
+      contentType: "playlist" | "layout";
+      /** Format: uuid */
+      contentId: string;
+      /** Format: int64 */
+      revision: number;
+      /** @enum {string} */
+      decision: "approved" | "rejected";
+      note?: string;
+      /** Format: uuid */
+      reviewedBy?: string;
+      /** Format: date-time */
+      reviewedAt: string;
+    };
+    /** @description Exact submitted snapshot published and recorded in history. The published record carries untagged Go-cased keys from the editorial package. */
+    ContentSubmissionPublication: {
+      submission: components["schemas"]["ContentSubmission"];
+      /** @description Native published record with untagged Go-cased keys. */
+      published: Record<string, never>;
+    };
     /** @enum {string} */
     BulkAction:
       | "assign_playlist"
@@ -11401,7 +11448,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ContentReviewQueue"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -11447,7 +11498,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ContentReview"];
+          };
+        };
       };
       /** @description Invalid type or request body */
       400: {
@@ -17599,7 +17654,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ContentSubmission"];
+          };
+        };
       };
       /** @description Active submission or working-draft conflict */
       409: {
@@ -17640,7 +17699,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ContentSubmission"];
+          };
+        };
       };
       /** @description Submission is no longer actionable */
       409: {
@@ -17681,7 +17744,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ContentSubmission"];
+          };
+        };
       };
       /** @description A non-empty note is required */
       422: {
@@ -17711,7 +17778,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ContentSubmissionPublication"];
+          };
+        };
       };
       /** @description Submission is not approved or is otherwise stale */
       409: {
@@ -17752,7 +17823,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ContentSubmission"];
+          };
+        };
       };
       /** @description Publication time is invalid or submission is not approved */
       422: {
@@ -17782,7 +17857,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ContentSubmission"];
+          };
+        };
       };
     };
   };

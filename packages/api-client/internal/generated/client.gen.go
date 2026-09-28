@@ -285,6 +285,81 @@ func (e CatalogPluginCategory) Valid() bool {
 	}
 }
 
+// Defines values for ContentReviewContentType.
+const (
+	ContentReviewContentTypeLayout   ContentReviewContentType = "layout"
+	ContentReviewContentTypePlaylist ContentReviewContentType = "playlist"
+)
+
+// Valid indicates whether the value is a known member of the ContentReviewContentType enum.
+func (e ContentReviewContentType) Valid() bool {
+	switch e {
+	case ContentReviewContentTypeLayout:
+		return true
+	case ContentReviewContentTypePlaylist:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ContentReviewDecision.
+const (
+	ContentReviewDecisionApproved ContentReviewDecision = "approved"
+	ContentReviewDecisionRejected ContentReviewDecision = "rejected"
+)
+
+// Valid indicates whether the value is a known member of the ContentReviewDecision enum.
+func (e ContentReviewDecision) Valid() bool {
+	switch e {
+	case ContentReviewDecisionApproved:
+		return true
+	case ContentReviewDecisionRejected:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ContentReviewItemContentType.
+const (
+	ContentReviewItemContentTypeLayout   ContentReviewItemContentType = "layout"
+	ContentReviewItemContentTypePlaylist ContentReviewItemContentType = "playlist"
+)
+
+// Valid indicates whether the value is a known member of the ContentReviewItemContentType enum.
+func (e ContentReviewItemContentType) Valid() bool {
+	switch e {
+	case ContentReviewItemContentTypeLayout:
+		return true
+	case ContentReviewItemContentTypePlaylist:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ContentReviewItemState.
+const (
+	ContentReviewItemStateApproved ContentReviewItemState = "approved"
+	ContentReviewItemStatePending  ContentReviewItemState = "pending"
+	ContentReviewItemStateRejected ContentReviewItemState = "rejected"
+)
+
+// Valid indicates whether the value is a known member of the ContentReviewItemState enum.
+func (e ContentReviewItemState) Valid() bool {
+	switch e {
+	case ContentReviewItemStateApproved:
+		return true
+	case ContentReviewItemStatePending:
+		return true
+	case ContentReviewItemStateRejected:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ContentSubmissionContentType.
 const (
 	ContentSubmissionContentTypeCampaign ContentSubmissionContentType = "campaign"
@@ -3827,6 +3902,50 @@ type ContentHealthUnassignedScreen struct {
 	Name string             `json:"name"`
 }
 
+// ContentReview defines model for ContentReview.
+type ContentReview struct {
+	ContentId   openapi_types.UUID       `json:"contentId"`
+	ContentType ContentReviewContentType `json:"contentType"`
+	Decision    ContentReviewDecision    `json:"decision"`
+	Id          openapi_types.UUID       `json:"id"`
+	Note        *string                  `json:"note,omitempty"`
+	ReviewedAt  time.Time                `json:"reviewedAt"`
+	ReviewedBy  *openapi_types.UUID      `json:"reviewedBy,omitempty"`
+	Revision    int64                    `json:"revision"`
+}
+
+// ContentReviewContentType defines model for ContentReview.ContentType.
+type ContentReviewContentType string
+
+// ContentReviewDecision defines model for ContentReview.Decision.
+type ContentReviewDecision string
+
+// ContentReviewItem One piece of content and where it stands. State is pending, approved, or rejected, derived from whether a decision exists for this exact revision.
+type ContentReviewItem struct {
+	AssignedScreens int                          `json:"assignedScreens"`
+	AuthorName      *string                      `json:"authorName,omitempty"`
+	ContentId       openapi_types.UUID           `json:"contentId"`
+	ContentType     ContentReviewItemContentType `json:"contentType"`
+	LastNote        *string                      `json:"lastNote,omitempty"`
+	LastReviewedAt  *time.Time                   `json:"lastReviewedAt,omitempty"`
+	Name            string                       `json:"name"`
+	Revision        int64                        `json:"revision"`
+	State           ContentReviewItemState       `json:"state"`
+	UpdatedAt       time.Time                    `json:"updatedAt"`
+}
+
+// ContentReviewItemContentType defines model for ContentReviewItem.ContentType.
+type ContentReviewItemContentType string
+
+// ContentReviewItemState defines model for ContentReviewItem.State.
+type ContentReviewItemState string
+
+// ContentReviewQueue Legacy current-revision queue. New Studio actions use content submissions; this compatibility route still reports the server-side assignment gate.
+type ContentReviewQueue struct {
+	Items    []ContentReviewItem `json:"items"`
+	Required bool                `json:"required"`
+}
+
 // ContentSubmission defines model for ContentSubmission.
 type ContentSubmission struct {
 	AffectedLocationCount    *int                         `json:"affectedLocationCount,omitempty"`
@@ -3873,6 +3992,13 @@ type ContentSubmissionList struct {
 
 // ContentSubmissionListPolicy defines model for ContentSubmissionList.Policy.
 type ContentSubmissionListPolicy string
+
+// ContentSubmissionPublication Exact submitted snapshot published and recorded in history. The published record carries untagged Go-cased keys from the editorial package.
+type ContentSubmissionPublication struct {
+	// Published Native published record with untagged Go-cased keys.
+	Published  map[string]interface{} `json:"published"`
+	Submission ContentSubmission      `json:"submission"`
+}
 
 // ContentTag defines model for ContentTag.
 type ContentTag struct {
@@ -42009,6 +42135,19 @@ func (r RollbackPublicationResponse) ContentType() string {
 type ListContentReviewsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Data Legacy current-revision queue. New Studio actions use content submissions; this compatibility route still reports the server-side assignment gate.
+		Data ContentReviewQueue `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListContentReviewsResponse) GetJSON200() *struct {
+	// Data Legacy current-revision queue. New Studio actions use content submissions; this compatibility route still reports the server-side assignment gate.
+	Data ContentReviewQueue `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -42043,6 +42182,17 @@ func (r ListContentReviewsResponse) ContentType() string {
 type DecideContentReviewResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ContentReview `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DecideContentReviewResponse) GetJSON200() *struct {
+	Data ContentReview `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -42167,6 +42317,17 @@ func (r GetContentSubmissionResponse) ContentType() string {
 type ApproveContentSubmissionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ContentSubmission `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ApproveContentSubmissionResponse) GetJSON200() *struct {
+	Data ContentSubmission `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -42201,6 +42362,17 @@ func (r ApproveContentSubmissionResponse) ContentType() string {
 type CancelContentPublicationScheduleResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ContentSubmission `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CancelContentPublicationScheduleResponse) GetJSON200() *struct {
+	Data ContentSubmission `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -42235,6 +42407,19 @@ func (r CancelContentPublicationScheduleResponse) ContentType() string {
 type PublishContentSubmissionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		// Data Exact submitted snapshot published and recorded in history. The published record carries untagged Go-cased keys from the editorial package.
+		Data ContentSubmissionPublication `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r PublishContentSubmissionResponse) GetJSON201() *struct {
+	// Data Exact submitted snapshot published and recorded in history. The published record carries untagged Go-cased keys from the editorial package.
+	Data ContentSubmissionPublication `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -42269,6 +42454,17 @@ func (r PublishContentSubmissionResponse) ContentType() string {
 type RequestContentChangesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ContentSubmission `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RequestContentChangesResponse) GetJSON200() *struct {
+	Data ContentSubmission `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -42303,6 +42499,17 @@ func (r RequestContentChangesResponse) ContentType() string {
 type ScheduleContentPublicationResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ContentSubmission `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ScheduleContentPublicationResponse) GetJSON200() *struct {
+	Data ContentSubmission `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -42337,6 +42544,17 @@ func (r ScheduleContentPublicationResponse) ContentType() string {
 type SubmitContentDraftResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data ContentSubmission `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r SubmitContentDraftResponse) GetJSON201() *struct {
+	Data ContentSubmission `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -62013,6 +62231,25 @@ func ParseListContentReviewsResponse(rsp *http.Response) (*ListContentReviewsRes
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Data Legacy current-revision queue. New Studio actions use content submissions; this compatibility route still reports the server-side assignment gate.
+			Data ContentReviewQueue `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -62027,6 +62264,33 @@ func ParseDecideContentReviewResponse(rsp *http.Response) (*DecideContentReviewR
 	response := &DecideContentReviewResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ContentReview `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -62104,6 +62368,24 @@ func ParseApproveContentSubmissionResponse(rsp *http.Response) (*ApproveContentS
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ContentSubmission `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -62118,6 +62400,18 @@ func ParseCancelContentPublicationScheduleResponse(rsp *http.Response) (*CancelC
 	response := &CancelContentPublicationScheduleResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ContentSubmission `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	}
 
 	return response, nil
@@ -62136,6 +62430,25 @@ func ParsePublishContentSubmissionResponse(rsp *http.Response) (*PublishContentS
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			// Data Exact submitted snapshot published and recorded in history. The published record carries untagged Go-cased keys from the editorial package.
+			Data ContentSubmissionPublication `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -62150,6 +62463,21 @@ func ParseRequestContentChangesResponse(rsp *http.Response) (*RequestContentChan
 	response := &RequestContentChangesResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ContentSubmission `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -62168,6 +62496,21 @@ func ParseScheduleContentPublicationResponse(rsp *http.Response) (*ScheduleConte
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ContentSubmission `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -62182,6 +62525,24 @@ func ParseSubmitContentDraftResponse(rsp *http.Response) (*SubmitContentDraftRes
 	response := &SubmitContentDraftResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data ContentSubmission `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
