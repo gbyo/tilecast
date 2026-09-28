@@ -164,6 +164,9 @@ func TestResolveWebAuthnConfig(t *testing.T) {
 	if _, reason := ResolveWebAuthnConfig("Tilecast", "https://192.168.1.40:8443", "", ""); reason == "" {
 		t.Fatal("expected an IP address to disable passkeys")
 	}
+	if _, reason := ResolveWebAuthnConfig("Tilecast", "http://127.0.0.1:8080", "", ""); reason == "" {
+		t.Fatal("expected a loopback IP address to disable passkeys")
+	}
 	if _, reason := ResolveWebAuthnConfig("Tilecast", "http://localhost:8080", "", ""); reason != "" {
 		t.Fatalf("expected localhost to remain usable for development: %s", reason)
 	}
