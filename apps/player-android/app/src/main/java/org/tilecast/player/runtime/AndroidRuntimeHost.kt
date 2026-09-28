@@ -21,6 +21,10 @@ class AndroidRuntimeHost(
 
     fun replayForReady(): List<RuntimeBridgeProtocol.HostMessage> = replay.collectReplay()
 
+    /** Acknowledge a replay only after the page response was delivered. */
+    fun acknowledgeReplay(delivered: List<RuntimeBridgeProtocol.HostMessage>) =
+        replay.acknowledgeDelivered(delivered)
+
     /** Validates one runtime-originated payload; null when refused or stale. */
     fun handleRuntimeMessage(raw: String, generation: Long): RuntimeBridgeProtocol.RuntimeReport? {
         if (!crashPolicy.acceptsReport(generation)) return null
