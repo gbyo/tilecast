@@ -1807,6 +1807,65 @@ paths:
           name: pageSize
           required: false
           schema: { type: integer, minimum: 1, maximum: 100 }
+        - in: query
+          name: cursor
+          required: false
+          schema: { type: string }
+        - in: query
+          name: screen
+          required: false
+          schema: { type: string, format: uuid }
+        - in: query
+          name: group
+          required: false
+          schema: { type: string, format: uuid }
+        - in: query
+          name: result
+          required: false
+          schema: { type: string }
+        - in: query
+          name: sessionType
+          required: false
+          schema: { $ref: "#/components/schemas/ProofSessionType" }
+        - in: query
+          name: terminalReason
+          required: false
+          schema:
+            anyOf:
+              - { $ref: "#/components/schemas/ProofTerminalReason" }
+              - { type: string, enum: [unexpected] }
+        - in: query
+          name: media
+          required: false
+          schema: { type: string }
+        - in: query
+          name: widget
+          required: false
+          schema: { type: string }
+        - in: query
+          name: content
+          required: false
+          schema: { type: string }
+        - in: query
+          name: playlist
+          required: false
+          schema: { type: string }
+        - in: query
+          name: layout
+          required: false
+          schema: { type: string }
+        - in: query
+          name: schedule
+          required: false
+          schema: { type: string }
+        - in: query
+          name: takeover
+          required: false
+          schema: { type: string }
+        - in: query
+          name: search
+          required: false
+          schema: { type: string }
       responses:
         "200":
           description: Proof-of-play records
@@ -1836,6 +1895,65 @@ paths:
           name: to
           required: false
           schema: { type: string, format: date-time }
+        - in: query
+          name: dimension
+          required: false
+          schema: { type: string }
+        - in: query
+          name: screen
+          required: false
+          schema: { type: string, format: uuid }
+        - in: query
+          name: group
+          required: false
+          schema: { type: string, format: uuid }
+        - in: query
+          name: result
+          required: false
+          schema: { type: string }
+        - in: query
+          name: sessionType
+          required: false
+          schema: { $ref: "#/components/schemas/ProofSessionType" }
+        - in: query
+          name: terminalReason
+          required: false
+          schema:
+            anyOf:
+              - { $ref: "#/components/schemas/ProofTerminalReason" }
+              - { type: string, enum: [unexpected] }
+        - in: query
+          name: media
+          required: false
+          schema: { type: string }
+        - in: query
+          name: widget
+          required: false
+          schema: { type: string }
+        - in: query
+          name: content
+          required: false
+          schema: { type: string }
+        - in: query
+          name: playlist
+          required: false
+          schema: { type: string }
+        - in: query
+          name: layout
+          required: false
+          schema: { type: string }
+        - in: query
+          name: schedule
+          required: false
+          schema: { type: string }
+        - in: query
+          name: takeover
+          required: false
+          schema: { type: string }
+        - in: query
+          name: search
+          required: false
+          schema: { type: string }
       responses:
         "200":
           description: Proof-of-play summary
@@ -1891,6 +2009,34 @@ paths:
           name: pageSize
           required: false
           schema: { type: integer, minimum: 1, maximum: 100 }
+        - in: query
+          name: cursor
+          required: false
+          schema: { type: string }
+        - in: query
+          name: screen
+          required: false
+          schema: { type: string, format: uuid }
+        - in: query
+          name: group
+          required: false
+          schema: { type: string, format: uuid }
+        - in: query
+          name: category
+          required: false
+          schema: { type: string }
+        - in: query
+          name: severity
+          required: false
+          schema: { type: string }
+        - in: query
+          name: result
+          required: false
+          schema: { type: string }
+        - in: query
+          name: search
+          required: false
+          schema: { type: string }
       responses:
         "200":
           description: Screen events
