@@ -712,6 +712,14 @@ func compileNativeRoot(provider string, c map[string]any) (PresentationNode, map
 			provider = "world_clock"
 		}
 	}
+	// A Metric edited through the V2 editor saves a metrics array instead
+	// of singular fields. Players that predate the component render every
+	// metric like a Stat Grid until PR G removes this path.
+	if provider == "metric" {
+		if _, ok := c["metrics"].([]any); ok {
+			provider = "stat_grid"
+		}
+	}
 	switch provider {
 	case "clock":
 		surface.Children = []PresentationNode{text(PresentationBinding{Source: "environment", Path: "currentTime", Format: "time:" + stringValue(c, "format", "locale") + ":" + strconv.FormatBool(boolValue(c["showSeconds"])) + ":" + stringValue(c, "timezone", "")}, "metric")}
@@ -801,6 +809,10 @@ func compileNativeRoot(provider string, c map[string]any) (PresentationNode, map
 		caps["layout.column"] = 1
 	case "stat_grid":
 		data := stringValue(c, "dataSourceId", "") + ":records"
+		emptyFallback := stringValue(c, "emptyText", "")
+		if emptyFallback == "" {
+			emptyFallback = stringValue(c, "emptyState", "")
+		}
 		metrics, _ := c["metrics"].([]any)
 		children := make([]PresentationNode, 0, len(metrics))
 		for _, rawMetric := range metrics {
@@ -811,7 +823,7 @@ func compileNativeRoot(provider string, c map[string]any) (PresentationNode, map
 			}
 			children = append(children, PresentationNode{Type: "column", Props: map[string]any{"card": true}, Children: []PresentationNode{
 				text(labelBinding, "label"),
-				text(PresentationBinding{Source: "dataset", Dataset: data, Path: stringValue(metric, "valueField", ""), Format: stringValue(metric, "format", "number"), Prefix: stringValue(metric, "prefix", ""), Suffix: stringValue(metric, "suffix", ""), Fallback: stringValue(c, "emptyState", "")}, "metric"),
+				text(PresentationBinding{Source: "dataset", Dataset: data, Path: stringValue(metric, "valueField", ""), Format: stringValue(metric, "format", "number"), Prefix: stringValue(metric, "prefix", ""), Suffix: stringValue(metric, "suffix", ""), Fallback: emptyFallback}, "metric"),
 			}})
 		}
 		surface.Children = []PresentationNode{{Type: "grid", Props: map[string]any{"columns": intValue(c["columns"], 2)}, Children: children}}

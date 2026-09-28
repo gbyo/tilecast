@@ -456,26 +456,6 @@
       "compatibility": { "fallback": "legacy" }
     },
     {
-      "id": "metric",
-      "version": 1,
-      "name": "Metric",
-      "description": "Highlight a numeric value and supporting label.",
-      "category": "Data-driven",
-      "icon": "gauge",
-      "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
-      "presentationSchemaVersion": 1,
-      "requiredCapabilities": {
-        "layout.surface": 1,
-        "content.text": 1,
-        "binding.core": 2
-      },
-      "emptyStateBehavior": "text",
-      "legacyEditor": true,
-      "deprecation": {}
-    },
-    {
       "id": "spotlight",
       "version": 1,
       "name": "Spotlight",
@@ -501,13 +481,156 @@
     {
       "id": "stat_grid",
       "version": 1,
+      "apiVersion": 1,
       "name": "Stat Grid",
       "description": "Display a responsive grid of numeric values.",
       "category": "Data Display",
       "icon": "grid",
       "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
+      "configurationSchema": {
+        "fields": [
+          {
+            "key": "dataSourceId",
+            "label": "Data Source",
+            "description": "The records or single-object source these metrics read.",
+            "control": "data_source",
+            "acceptedDataSourceKinds": ["records", "object"],
+            "default": "",
+            "ui": { "section": "data", "order": 1 }
+          },
+          {
+            "key": "metrics",
+            "label": "Metrics",
+            "description": "Up to twelve numeric values. Each names its own field.",
+            "control": "repeating_group",
+            "maximumItems": 12,
+            "default": [],
+            "itemFields": [
+              {
+                "key": "valueField",
+                "label": "Value field",
+                "control": "data_source_field",
+                "dataSourceKey": "dataSourceId",
+                "dataSourceFieldTypes": ["number", "integer", "percent", "currency"],
+                "default": ""
+              },
+              {
+                "key": "label",
+                "label": "Label",
+                "control": "text",
+                "maxLength": 80,
+                "default": ""
+              },
+              {
+                "key": "labelField",
+                "label": "Label field",
+                "control": "data_source_field",
+                "dataSourceKey": "dataSourceId",
+                "dataSourceFieldTypes": ["text", "number", "integer", "currency", "percent", "boolean", "date", "datetime"],
+                "default": ""
+              },
+              {
+                "key": "detailField",
+                "label": "Detail field",
+                "control": "data_source_field",
+                "dataSourceKey": "dataSourceId",
+                "dataSourceFieldTypes": ["text", "number", "integer", "currency", "percent", "boolean", "date", "datetime"],
+                "default": ""
+              },
+              {
+                "key": "format",
+                "label": "Format",
+                "control": "select",
+                "default": "number",
+                "options": [
+                  { "value": "number", "label": "Number" },
+                  { "value": "integer", "label": "Whole number" },
+                  { "value": "percent", "label": "Percent" },
+                  { "value": "currency", "label": "Currency" }
+                ]
+              },
+              {
+                "key": "precision",
+                "label": "Decimals",
+                "control": "integer",
+                "minimum": 0,
+                "maximum": 6,
+                "default": 1
+              },
+              {
+                "key": "prefix",
+                "label": "Prefix",
+                "control": "text",
+                "maxLength": 20,
+                "default": ""
+              },
+              {
+                "key": "suffix",
+                "label": "Suffix",
+                "control": "text",
+                "maxLength": 20,
+                "default": ""
+              }
+            ],
+            "ui": { "section": "data", "order": 2 }
+          },
+          {
+            "key": "columns",
+            "label": "Columns",
+            "description": "Legacy grid width. Old Players still read it; the component lays itself out.",
+            "control": "integer",
+            "minimum": 1,
+            "maximum": 4,
+            "default": 2,
+            "ui": { "hidden": true }
+          },
+          {
+            "key": "emptyText",
+            "label": "Empty message",
+            "control": "text",
+            "maxLength": 200,
+            "default": "",
+            "ui": { "section": "content", "order": 1 }
+          },
+          {
+            "key": "backgroundColor",
+            "label": "Background color",
+            "control": "color",
+            "default": "",
+            "ui": { "section": "appearance", "order": 1 }
+          },
+          {
+            "key": "foregroundColor",
+            "label": "Text color",
+            "control": "color",
+            "default": "",
+            "ui": { "section": "appearance", "order": 2 }
+          },
+          {
+            "key": "textScale",
+            "label": "Text scale",
+            "control": "integer",
+            "minimum": 25,
+            "maximum": 500,
+            "ui": { "hidden": true }
+          },
+          {
+            "key": "contentPadding",
+            "label": "Content padding",
+            "control": "integer",
+            "minimum": 0,
+            "maximum": 40,
+            "ui": { "hidden": true }
+          }
+        ]
+      },
+      "defaultConfiguration": {
+        "dataSourceId": "",
+        "metrics": [],
+        "emptyText": "",
+        "backgroundColor": "",
+        "foregroundColor": ""
+      },
       "presentationSchemaVersion": 1,
       "requiredCapabilities": {
         "layout.surface": 1,
@@ -519,7 +642,30 @@
       "emptyStateBehavior": "text",
       "legacyEditor": true,
       "requiresManifestV13": true,
-      "deprecation": {}
+      "deprecation": {
+        "deprecated": true,
+        "replacement": "metric",
+        "message": "Create Metrics instead. Saved Stat Grid content keeps working."
+      },
+      "component": {
+        "type": "tilecast.metrics",
+        "version": 1,
+        "tagName": "tc-widget-metrics",
+        "entrypoint": "./runtime/index.ts",
+        "configTemplate": {
+          "dataSourceId": { "$config": "dataSourceId", "default": "" },
+          "metrics": { "$config": "metrics", "default": [] },
+          "emptyText": {
+            "$config": "emptyText",
+            "default": { "$config": "emptyState", "default": "" }
+          },
+          "background": { "$config": "backgroundColor", "default": "" },
+          "foreground": { "$config": "foregroundColor", "default": "" }
+        },
+        "dataSourceFields": ["dataSourceId"],
+        "empty": "skip-eligible"
+      },
+      "compatibility": { "fallback": "legacy" }
     },
     {
       "id": "chart",

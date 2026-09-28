@@ -1,0 +1,211 @@
+{
+  "$schema": "../../packages/widget-sdk/schema/tilecast-widget.schema.json",
+  "apiVersion": 1,
+  "id": "metric",
+  "version": 1,
+  "name": "Metrics",
+  "description": "Show one numeric KPI or a responsive grid of up to six values.",
+  "category": "Data display",
+  "icon": "gauge",
+  "keywords": ["metric", "kpi", "stat", "number", "percent", "currency"],
+  "runtime": "native",
+  "configurationSchema": {
+    "fields": [
+      {
+        "key": "dataSourceId",
+        "label": "Data Source",
+        "description": "The records or single-object source these metrics read.",
+        "control": "data_source",
+        "acceptedDataSourceKinds": ["records", "object"],
+        "default": "",
+        "ui": { "section": "data", "order": 1 }
+      },
+      {
+        "key": "metrics",
+        "label": "Metrics",
+        "description": "One to six numeric values. Each names its own field.",
+        "control": "repeating_group",
+        "maximumItems": 6,
+        "default": [],
+        "itemFields": [
+          {
+            "key": "valueField",
+            "label": "Value field",
+            "description": "The numeric field this metric displays.",
+            "control": "data_source_field",
+            "dataSourceKey": "dataSourceId",
+            "dataSourceFieldTypes": ["number", "integer", "percent", "currency"],
+            "default": ""
+          },
+          {
+            "key": "label",
+            "label": "Label",
+            "description": "Literal title above the value. Blank uses the field.",
+            "control": "text",
+            "maxLength": 80,
+            "default": ""
+          },
+          {
+            "key": "labelField",
+            "label": "Label field",
+            "description": "Optional. Reads the title from another field.",
+            "control": "data_source_field",
+            "dataSourceKey": "dataSourceId",
+            "dataSourceFieldTypes": ["text", "number", "integer", "currency", "percent", "boolean", "date", "datetime"],
+            "default": ""
+          },
+          {
+            "key": "detailField",
+            "label": "Detail field",
+            "description": "Optional. A small supporting value below the metric.",
+            "control": "data_source_field",
+            "dataSourceKey": "dataSourceId",
+            "dataSourceFieldTypes": ["text", "number", "integer", "currency", "percent", "boolean", "date", "datetime"],
+            "default": ""
+          },
+          {
+            "key": "format",
+            "label": "Format",
+            "control": "select",
+            "default": "number",
+            "options": [
+              { "value": "number", "label": "Number" },
+              { "value": "integer", "label": "Whole number" },
+              { "value": "percent", "label": "Percent" },
+              { "value": "currency", "label": "Currency" }
+            ]
+          },
+          {
+            "key": "precision",
+            "label": "Decimals",
+            "description": "Digits after the decimal point, from none to six.",
+            "control": "integer",
+            "minimum": 0,
+            "maximum": 6,
+            "default": 1
+          },
+          {
+            "key": "prefix",
+            "label": "Prefix",
+            "control": "text",
+            "maxLength": 20,
+            "default": ""
+          },
+          {
+            "key": "suffix",
+            "label": "Suffix",
+            "control": "text",
+            "maxLength": 20,
+            "default": ""
+          }
+        ],
+        "ui": { "section": "data", "order": 2 }
+      },
+      {
+        "key": "emptyText",
+        "label": "Empty message",
+        "description": "Shown when the source returns no usable record.",
+        "control": "text",
+        "maxLength": 200,
+        "default": "",
+        "ui": { "section": "content", "order": 1 }
+      },
+      {
+        "key": "backgroundColor",
+        "label": "Background color",
+        "control": "color",
+        "default": "",
+        "ui": { "section": "appearance", "order": 1 }
+      },
+      {
+        "key": "foregroundColor",
+        "label": "Text color",
+        "control": "color",
+        "default": "",
+        "ui": { "section": "appearance", "order": 2 }
+      },
+      {
+        "key": "alignment",
+        "label": "Alignment",
+        "description": "Legacy presentation detail. Saved rows keep their value.",
+        "control": "select",
+        "default": "center",
+        "options": [
+          { "value": "left", "label": "Left" },
+          { "value": "center", "label": "Center" },
+          { "value": "right", "label": "Right" }
+        ],
+        "ui": { "hidden": true }
+      },
+      {
+        "key": "textScale",
+        "label": "Text scale",
+        "control": "integer",
+        "minimum": 25,
+        "maximum": 500,
+        "ui": { "hidden": true }
+      },
+      {
+        "key": "contentPadding",
+        "label": "Content padding",
+        "control": "integer",
+        "minimum": 0,
+        "maximum": 40,
+        "ui": { "hidden": true }
+      }
+    ]
+  },
+  "defaultConfiguration": {
+    "dataSourceId": "",
+    "metrics": [],
+    "emptyText": "",
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "presentationSchemaVersion": 1,
+  "requiredCapabilities": {
+    "layout.surface": 1,
+    "layout.column": 1,
+    "content.text": 1,
+    "binding.core": 2
+  },
+  "emptyStateBehavior": "text",
+  "legacyEditor": true,
+  "deprecation": {},
+  "component": {
+    "type": "tilecast.metrics",
+    "version": 1,
+    "tagName": "tc-widget-metrics",
+    "entrypoint": "./runtime/index.ts",
+    "configTemplate": {
+      "dataSourceId": { "$config": "dataSourceId", "default": "" },
+      "metrics": {
+        "$config": "metrics",
+        "default": [
+          {
+            "valueField": { "$config": "valueField", "default": "" },
+            "label": { "$config": "label", "default": "" },
+            "labelField": { "$config": "labelField", "default": "" },
+            "detailField": {
+              "$config": "detailField",
+              "default": { "$config": "secondaryField", "default": "" }
+            },
+            "format": { "$config": "format", "default": "number" },
+            "precision": { "$config": "precision", "default": 1 },
+            "prefix": { "$config": "prefix", "default": "" },
+            "suffix": { "$config": "suffix", "default": "" }
+          }
+        ]
+      },
+      "emptyText": {
+        "$config": "emptyText",
+        "default": { "$config": "emptyState", "default": "" }
+      },
+      "background": { "$config": "backgroundColor", "default": "" },
+      "foreground": { "$config": "foregroundColor", "default": "" }
+    },
+    "dataSourceFields": ["dataSourceId"],
+    "empty": "skip-eligible"
+  },
+  "compatibility": { "fallback": "legacy" }
+}

@@ -1,0 +1,85 @@
+{
+  "name": "Legacy Stat Grid",
+  "description": "A saved Stat Grid maps its metric items into the shared component.",
+  "provider": "stat_grid",
+  "configuration": {
+    "dataSourceId": "11111111-1111-4111-8111-111111111111",
+    "metrics": [
+      {
+        "valueField": "students",
+        "label": "Students",
+        "labelField": "",
+        "format": "integer",
+        "precision": 0,
+        "prefix": "",
+        "suffix": ""
+      },
+      {
+        "valueField": "attendance",
+        "label": "",
+        "labelField": "attendanceLabel",
+        "format": "percent",
+        "precision": 1,
+        "prefix": "",
+        "suffix": ""
+      }
+    ],
+    "columns": 2,
+    "emptyState": "",
+    "foregroundColor": "",
+    "backgroundColor": ""
+  },
+  "documents": {
+    "11111111-1111-4111-8111-111111111111": {
+      "schemaVersion": 1,
+      "datasets": [
+        {
+          "id": "records",
+          "kind": "records",
+          "fields": [
+            { "key": "students", "label": "Students", "type": "integer" },
+            { "key": "attendance", "label": "Attendance", "type": "number" },
+            { "key": "attendanceLabel", "label": "Label", "type": "text" }
+          ],
+          "records": [
+            {
+              "id": "r1",
+              "values": {
+                "students": { "kind": "number", "integer": 1284 },
+                "attendance": { "kind": "number", "number": 96.4 },
+                "attendanceLabel": { "kind": "text", "text": "Attendance" }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expectConfig": {
+    "dataSourceId": "11111111-1111-4111-8111-111111111111",
+    "metrics": [
+      {
+        "valueField": "students",
+        "label": "Students",
+        "labelField": "",
+        "format": "integer",
+        "precision": 0,
+        "prefix": "",
+        "suffix": ""
+      },
+      {
+        "valueField": "attendance",
+        "label": "",
+        "labelField": "attendanceLabel",
+        "format": "percent",
+        "precision": 1,
+        "prefix": "",
+        "suffix": ""
+      }
+    ],
+    "emptyText": "",
+    "background": "",
+    "foreground": ""
+  },
+  "expect": "ready"
+}
