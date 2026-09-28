@@ -36,35 +36,76 @@
       "deprecation": {}
     },
     {
-      "id": "clock",
-      "version": 1,
-      "name": "Clock",
-      "description": "Show live local time in a configured timezone.",
-      "category": "Essentials",
-      "icon": "clock",
-      "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
-      "presentationSchemaVersion": 1,
-      "requiredCapabilities": {
-        "layout.surface": 1,
-        "content.text": 1,
-        "binding.core": 1
-      },
-      "emptyStateBehavior": "text",
-      "legacyEditor": true,
-      "deprecation": {}
-    },
-    {
       "id": "date",
       "version": 1,
+      "apiVersion": 1,
       "name": "Date",
       "description": "Show a localized calendar date.",
       "category": "Essentials",
       "icon": "calendar",
       "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
+      "configurationSchema": {
+        "fields": [
+          {
+            "key": "timezone",
+            "label": "Timezone",
+            "description": "Leave blank to use the organization timezone.",
+            "control": "timezone",
+            "default": "",
+            "ui": { "section": "content", "order": 1 }
+          },
+          {
+            "key": "format",
+            "label": "Date format",
+            "control": "select",
+            "default": "locale",
+            "options": [
+              { "value": "locale", "label": "Weekday and date" },
+              { "value": "full", "label": "Weekday and date" },
+              { "value": "long", "label": "Date" },
+              { "value": "medium", "label": "Short date" },
+              { "value": "short", "label": "Numeric date" }
+            ],
+            "ui": { "section": "content", "order": 2 }
+          },
+          {
+            "key": "backgroundColor",
+            "label": "Background color",
+            "control": "color",
+            "default": "#0E141B",
+            "ui": { "section": "appearance", "order": 1 }
+          },
+          {
+            "key": "foregroundColor",
+            "label": "Text and accent color",
+            "control": "color",
+            "default": "#F5F7FA",
+            "ui": { "section": "appearance", "order": 2 }
+          },
+          {
+            "key": "textScale",
+            "label": "Text scale",
+            "control": "integer",
+            "minimum": 25,
+            "maximum": 500,
+            "ui": { "hidden": true }
+          },
+          {
+            "key": "contentPadding",
+            "label": "Content padding",
+            "control": "integer",
+            "minimum": 0,
+            "maximum": 40,
+            "ui": { "hidden": true }
+          }
+        ]
+      },
+      "defaultConfiguration": {
+        "timezone": "",
+        "format": "locale",
+        "backgroundColor": "#0E141B",
+        "foregroundColor": "#F5F7FA"
+      },
       "presentationSchemaVersion": 1,
       "requiredCapabilities": {
         "layout.surface": 1,
@@ -73,18 +114,157 @@
       },
       "emptyStateBehavior": "text",
       "legacyEditor": true,
-      "deprecation": {}
+      "deprecation": {
+        "deprecated": true,
+        "replacement": "clock",
+        "message": "Create a Clock and choose Date instead. Saved Date content keeps working."
+      },
+      "component": {
+        "type": "tilecast.clock",
+        "version": 2,
+        "tagName": "tc-widget-clock",
+        "entrypoint": "./runtime/index.ts",
+        "configTemplate": {
+          "mode": "date",
+          "timeZone": { "$config": "timezone", "default": "" },
+          "format": "locale",
+          "showSeconds": false,
+          "style": "standard",
+          "showDate": false,
+          "dateFormat": { "$config": "format", "default": "locale" },
+          "zones": [],
+          "background": { "$config": "backgroundColor", "default": "" },
+          "foreground": { "$config": "foregroundColor", "default": "" }
+        },
+        "empty": "render"
+      },
+      "compatibility": { "fallback": "legacy" }
     },
     {
       "id": "qrcode",
       "version": 1,
+      "apiVersion": 1,
       "name": "QR Code",
       "description": "Display text or a URL as a scannable code.",
       "category": "Essentials",
       "icon": "qr_code",
       "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
+      "configurationSchema": {
+        "fields": [
+          {
+            "key": "payload",
+            "label": "Link or text",
+            "description": "What the code opens or says when scanned. Keep it short so the code stays readable from a distance.",
+            "control": "text",
+            "maxLength": 2048,
+            "default": "",
+            "ui": { "section": "content", "order": 1 }
+          },
+          {
+            "key": "heading",
+            "label": "Heading",
+            "description": "Tells viewers why they should scan.",
+            "control": "text",
+            "maxLength": 120,
+            "default": "",
+            "ui": {
+              "section": "content",
+              "order": 2,
+              "visibleWhen": { "key": "style", "notEquals": "code" }
+            }
+          },
+          {
+            "key": "instruction",
+            "label": "Instruction",
+            "control": "multiline_text",
+            "maxLength": 300,
+            "default": "",
+            "ui": {
+              "section": "content",
+              "order": 3,
+              "visibleWhen": { "key": "style", "equals": "standard" }
+            }
+          },
+          {
+            "key": "shortLabel",
+            "label": "Short label",
+            "description": "A short line under the code, such as the domain.",
+            "control": "text",
+            "maxLength": 60,
+            "default": "",
+            "ui": {
+              "section": "content",
+              "order": 4,
+              "visibleWhen": { "key": "style", "equals": "standard" }
+            }
+          },
+          {
+            "key": "style",
+            "label": "Style",
+            "description": "Standard pairs the code with its text. Code only shows the code alone for small zones.",
+            "control": "select",
+            "options": [
+              { "value": "standard", "label": "Standard" },
+              { "value": "code", "label": "Code only" }
+            ],
+            "default": "standard",
+            "ui": { "section": "appearance", "order": 1, "styleCard": true }
+          },
+          {
+            "key": "backgroundColor",
+            "label": "Background color",
+            "description": "Keep it light so the code scans reliably.",
+            "control": "color",
+            "default": "#FFFFFF",
+            "ui": { "section": "appearance", "order": 2 }
+          },
+          {
+            "key": "foregroundColor",
+            "label": "Code color",
+            "description": "Keep it dark so the code scans reliably.",
+            "control": "color",
+            "default": "#101418",
+            "ui": { "section": "appearance", "order": 3 }
+          },
+          {
+            "key": "errorCorrection",
+            "label": "Error correction",
+            "control": "select",
+            "options": [
+              { "value": "low", "label": "Low" },
+              { "value": "medium", "label": "Medium" },
+              { "value": "quartile", "label": "Quartile" },
+              { "value": "high", "label": "High" }
+            ],
+            "ui": { "hidden": true }
+          },
+          {
+            "key": "textScale",
+            "label": "Text scale",
+            "control": "integer",
+            "minimum": 25,
+            "maximum": 500,
+            "ui": { "hidden": true }
+          },
+          {
+            "key": "contentPadding",
+            "label": "Content padding",
+            "control": "integer",
+            "minimum": 0,
+            "maximum": 40,
+            "ui": { "hidden": true }
+          }
+        ]
+      },
+      "defaultConfiguration": {
+        "payload": "",
+        "heading": "",
+        "instruction": "",
+        "shortLabel": "",
+        "style": "standard",
+        "backgroundColor": "#FFFFFF",
+        "foregroundColor": "#101418"
+      },
       "presentationSchemaVersion": 1,
       "requiredCapabilities": {
         "layout.surface": 1,
@@ -93,41 +273,151 @@
       },
       "emptyStateBehavior": "text",
       "legacyEditor": true,
-      "deprecation": {}
-    },
-    {
-      "id": "countdown",
-      "version": 1,
-      "name": "Countdown",
-      "description": "Count down to or up from a date and time.",
-      "category": "Essentials",
-      "icon": "timer",
-      "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
-      "presentationSchemaVersion": 1,
-      "requiredCapabilities": {
-        "layout.surface": 1,
-        "layout.row": 1,
-        "layout.column": 1,
-        "content.text": 1,
-        "binding.core": 1,
-        "format.typed": 2
+      "deprecation": {
+        "deprecated": true,
+        "replacement": "qr-code",
+        "message": "Create a QR Code instead. Saved QR Code content keeps working."
       },
-      "emptyStateBehavior": "text",
-      "legacyEditor": true,
-      "deprecation": {}
+      "compatibility": { "fallback": "legacy" },
+      "component": {
+        "type": "tilecast.qr-code",
+        "version": 1,
+        "tagName": "tc-widget-qr-code",
+        "entrypoint": "./runtime/index.ts",
+        "configTemplate": {
+          "payload": {
+            "$config": "payload",
+            "default": { "$config": "value", "default": "" }
+          },
+          "heading": { "$config": "heading", "default": "" },
+          "instruction": { "$config": "instruction", "default": "" },
+          "shortLabel": {
+            "$config": "shortLabel",
+            "default": { "$config": "label", "default": "" }
+          },
+          "style": { "$config": "style", "default": "standard" },
+          "background": { "$config": "backgroundColor", "default": "#FFFFFF" },
+          "foreground": { "$config": "foregroundColor", "default": "#101418" }
+        },
+        "empty": "render"
+      }
     },
     {
       "id": "world_clock",
       "version": 1,
+      "apiVersion": 1,
       "name": "World Clock",
       "description": "Show live time in multiple configured timezones.",
       "category": "Essentials",
       "icon": "clock",
       "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
+      "configurationSchema": {
+        "fields": [
+          {
+            "key": "zones",
+            "label": "Zones",
+            "description": "Up to eight zones. Leave a label blank to show the city name.",
+            "control": "repeating_group",
+            "maximumItems": 8,
+            "itemFields": [
+              {
+                "key": "label",
+                "label": "Label",
+                "control": "text",
+                "default": "",
+                "maxLength": 80
+              },
+              {
+                "key": "timezone",
+                "label": "Timezone",
+                "control": "timezone",
+                "default": ""
+              }
+            ],
+            "default": [],
+            "ui": { "section": "content", "order": 1 }
+          },
+          {
+            "key": "format",
+            "label": "Time format",
+            "control": "select",
+            "default": "locale",
+            "options": [
+              { "value": "locale", "label": "Use organization setting" },
+              { "value": "12", "label": "12-hour" },
+              { "value": "24", "label": "24-hour" }
+            ],
+            "ui": { "section": "content", "order": 2 }
+          },
+          {
+            "key": "showSeconds",
+            "label": "Show seconds",
+            "control": "boolean",
+            "default": false,
+            "ui": { "section": "content", "order": 3 }
+          },
+          {
+            "key": "showDate",
+            "label": "Show date",
+            "control": "boolean",
+            "default": true,
+            "ui": { "section": "content", "order": 4 }
+          },
+          {
+            "key": "columns",
+            "label": "Columns",
+            "control": "integer",
+            "minimum": 1,
+            "maximum": 4,
+            "ui": { "hidden": true }
+          },
+          {
+            "key": "emptyState",
+            "label": "Empty state",
+            "control": "multiline_text",
+            "maxLength": 240,
+            "ui": { "hidden": true }
+          },
+          {
+            "key": "backgroundColor",
+            "label": "Background color",
+            "control": "color",
+            "default": "#0E141B",
+            "ui": { "section": "appearance", "order": 1 }
+          },
+          {
+            "key": "foregroundColor",
+            "label": "Text and accent color",
+            "control": "color",
+            "default": "#F5F7FA",
+            "ui": { "section": "appearance", "order": 2 }
+          },
+          {
+            "key": "textScale",
+            "label": "Text scale",
+            "control": "integer",
+            "minimum": 25,
+            "maximum": 500,
+            "ui": { "hidden": true }
+          },
+          {
+            "key": "contentPadding",
+            "label": "Content padding",
+            "control": "integer",
+            "minimum": 0,
+            "maximum": 40,
+            "ui": { "hidden": true }
+          }
+        ]
+      },
+      "defaultConfiguration": {
+        "zones": [],
+        "format": "locale",
+        "showSeconds": false,
+        "showDate": true,
+        "backgroundColor": "#0E141B",
+        "foregroundColor": "#F5F7FA"
+      },
       "presentationSchemaVersion": 1,
       "requiredCapabilities": {
         "layout.surface": 1,
@@ -139,115 +429,31 @@
       "emptyStateBehavior": "text",
       "legacyEditor": true,
       "requiresManifestV13": true,
-      "deprecation": {}
-    },
-    {
-      "id": "ticker",
-      "version": 1,
-      "name": "Ticker",
-      "description": "Scroll selected fields from a Data Source.",
-      "category": "Data-driven",
-      "icon": "text",
-      "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
-      "presentationSchemaVersion": 1,
-      "requiredCapabilities": {
-        "layout.surface": 1,
-        "content.marquee": 1,
-        "binding.core": 1
+      "deprecation": {
+        "deprecated": true,
+        "replacement": "clock",
+        "message": "Create a Clock and choose World clocks instead. Saved World Clock content keeps working."
       },
-      "emptyStateBehavior": "text",
-      "legacyEditor": true,
-      "deprecation": {}
-    },
-    {
-      "id": "menu",
-      "version": 1,
-      "name": "Menu / Price Board",
-      "description": "Display fields or label/value rows.",
-      "category": "Data-driven",
-      "icon": "utensils",
-      "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
-      "presentationSchemaVersion": 1,
-      "requiredCapabilities": {
-        "layout.surface": 1,
-        "layout.column": 1,
-        "collection.repeat": 2,
-        "content.text": 1,
-        "binding.core": 2
+      "component": {
+        "type": "tilecast.clock",
+        "version": 2,
+        "tagName": "tc-widget-clock",
+        "entrypoint": "./runtime/index.ts",
+        "configTemplate": {
+          "mode": "world",
+          "timeZone": "",
+          "format": { "$config": "format", "default": "locale" },
+          "showSeconds": { "$config": "showSeconds", "default": false },
+          "style": "standard",
+          "showDate": { "$config": "showDate", "default": false },
+          "dateFormat": "locale",
+          "zones": { "$config": "zones", "default": [] },
+          "background": { "$config": "backgroundColor", "default": "" },
+          "foreground": { "$config": "foregroundColor", "default": "" }
+        },
+        "empty": "render"
       },
-      "emptyStateBehavior": "text",
-      "legacyEditor": true,
-      "deprecation": {}
-    },
-    {
-      "id": "list",
-      "version": 1,
-      "name": "List",
-      "description": "Display flexible primary and secondary rows.",
-      "category": "Data-driven",
-      "icon": "list",
-      "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
-      "presentationSchemaVersion": 1,
-      "requiredCapabilities": {
-        "layout.surface": 1,
-        "layout.column": 1,
-        "collection.repeat": 2,
-        "content.text": 1,
-        "binding.core": 2
-      },
-      "emptyStateBehavior": "text",
-      "legacyEditor": true,
-      "deprecation": {}
-    },
-    {
-      "id": "table",
-      "version": 1,
-      "name": "Table",
-      "description": "Display typed records in configurable columns.",
-      "category": "Data-driven",
-      "icon": "table",
-      "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
-      "presentationSchemaVersion": 1,
-      "requiredCapabilities": {
-        "layout.surface": 1,
-        "layout.column": 1,
-        "collection.repeat": 2,
-        "content.text": 1,
-        "binding.core": 2
-      },
-      "emptyStateBehavior": "text",
-      "legacyEditor": true,
-      "deprecation": {}
-    },
-    {
-      "id": "agenda",
-      "version": 1,
-      "name": "Agenda",
-      "description": "Group temporal records into an agenda.",
-      "category": "Data-driven",
-      "icon": "calendar",
-      "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
-      "presentationSchemaVersion": 1,
-      "requiredCapabilities": {
-        "layout.surface": 1,
-        "collection.grouped_sections": 1,
-        "collection.repeat": 2,
-        "content.text": 1,
-        "binding.core": 2
-      },
-      "emptyStateBehavior": "text",
-      "legacyEditor": true,
-      "deprecation": {}
+      "compatibility": { "fallback": "legacy" }
     },
     {
       "id": "metric",
@@ -262,49 +468,6 @@
       "presentationSchemaVersion": 1,
       "requiredCapabilities": {
         "layout.surface": 1,
-        "content.text": 1,
-        "binding.core": 2
-      },
-      "emptyStateBehavior": "text",
-      "legacyEditor": true,
-      "deprecation": {}
-    },
-    {
-      "id": "cards",
-      "version": 1,
-      "name": "Cards",
-      "description": "Display records in a responsive card grid.",
-      "category": "Data-driven",
-      "icon": "grid",
-      "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
-      "presentationSchemaVersion": 1,
-      "requiredCapabilities": {
-        "layout.surface": 1,
-        "layout.grid": 1,
-        "collection.repeat": 2,
-        "content.text": 1,
-        "binding.core": 2
-      },
-      "emptyStateBehavior": "text",
-      "legacyEditor": true,
-      "deprecation": {}
-    },
-    {
-      "id": "weather",
-      "version": 1,
-      "name": "Weather",
-      "description": "Display current conditions and forecast records.",
-      "category": "Data-driven",
-      "icon": "cloud_sun",
-      "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
-      "presentationSchemaVersion": 1,
-      "requiredCapabilities": {
-        "layout.surface": 1,
-        "layout.column": 1,
         "content.text": 1,
         "binding.core": 2
       },
@@ -658,6 +821,25 @@
       "deprecation": {}
     },
     {
+      "id": "feed",
+      "version": 1,
+      "name": "RSS / Atom Feed",
+      "description": "Project a public RSS or Atom feed into typed records. The Server detects the feed form and normalizes it to one records contract.",
+      "category": "Feeds",
+      "icon": "rss",
+      "configurationSchema": { "fields": [] },
+      "defaultConfiguration": {},
+      "outputSchema": { "kind": "records", "fields": [] },
+      "adapterId": "structured",
+      "refreshBehavior": "interval",
+      "legacyEditor": true,
+      "deprecation": {},
+      "setup": {
+        "eyebrow": "News and headlines",
+        "tip": "Tilecast fetches the feed on the Server; Players only receive the normalized cached records. Publisher presets fill in a trusted feed address."
+      }
+    },
+    {
       "id": "rss",
       "version": 1,
       "name": "RSS",
@@ -670,7 +852,11 @@
       "adapterId": "structured",
       "refreshBehavior": "interval",
       "legacyEditor": true,
-      "deprecation": {}
+      "deprecation": {
+        "deprecated": true,
+        "replacement": "feed",
+        "message": "Create an RSS / Atom Feed instead. Saved RSS sources keep working."
+      }
     },
     {
       "id": "atom",
@@ -685,7 +871,11 @@
       "adapterId": "structured",
       "refreshBehavior": "interval",
       "legacyEditor": true,
-      "deprecation": {}
+      "deprecation": {
+        "deprecated": true,
+        "replacement": "feed",
+        "message": "Create an RSS / Atom Feed instead. Saved Atom sources keep working."
+      }
     },
     {
       "id": "json",

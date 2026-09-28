@@ -26,7 +26,7 @@ import {
   SystemPanel,
 } from "../settings/SettingsOperations";
 import { UsersPage } from "./UsersPage";
-import { DependencyGraphPage } from "./DependencyGraphPage";
+import { DependencyExplorerPage } from "./DependencyExplorerPage";
 import { BackupPanel } from "../settings/BackupPanel";
 import { NotificationsPanel } from "../settings/NotificationsPanel";
 import { IntegrationTokensPanel } from "../settings/IntegrationTokensPanel";
@@ -206,7 +206,7 @@ function Destination({
 }) {
   const { t } = useTranslation(["settings", "common"]);
   if (active === "users") return <UsersPage />;
-  if (active === "dependency-graph") return <DependencyGraphPage />;
+  if (active === "dependency-graph") return <DependencyExplorerPage />;
   if (active === "locations") return <LocationsPanel canManage={manageable} />;
   if (active === "system") return <SystemPanel canManage={manageable} />;
   if (active === "backups")

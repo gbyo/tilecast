@@ -1,0 +1,7 @@
+# tilecastd + tilecast-renderer-wpe development and headless CI image.
+FROM tilecast-wpe-dev
+ENV RUSTUP_HOME=/opt/rustup CARGO_HOME=/opt/cargo PATH=/opt/cargo/bin:$PATH
+RUN curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.98.0 \
+    && rustup component add rustfmt clippy
+RUN apt-get update && apt-get install -y --no-install-recommends nodejs npm systemd \
+    && rm -rf /var/lib/apt/lists/*

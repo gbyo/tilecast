@@ -1,0 +1,98 @@
+<!doctype html>
+<html>
+  <head>
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 1280px;
+        height: 720px;
+        background: #400;
+        overflow: hidden;
+      }
+      video {
+        position: absolute;
+        object-fit: fill;
+        background: #000;
+      }
+      #a {
+        left: 40px;
+        top: 40px;
+        width: 800px;
+        height: 450px;
+        border-radius: 24px;
+      }
+      #b {
+        left: 880px;
+        top: 300px;
+        width: 360px;
+        height: 270px;
+        transform: rotate(3deg);
+      }
+    </style>
+  </head>
+  <body>
+    <video
+      id="a"
+      src="tcweb://cap/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      autoplay
+      muted
+      playsinline
+    ></video>
+    <video
+      id="b"
+      src="tcweb://cap/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      autoplay
+      muted
+      playsinline
+    ></video>
+    <script>
+      const t0 = performance.now();
+      for (const v of document.querySelectorAll("video")) {
+        let n = 0,
+          first = null;
+        const cb = (now, meta) => {
+          n++;
+          if (first === null) {
+            first = now;
+            console.log(
+              v.id +
+                ": first frame " +
+                Math.round(now - t0) +
+                "ms " +
+                meta.width +
+                "x" +
+                meta.height,
+            );
+          }
+          v.requestVideoFrameCallback(cb);
+        };
+        v.requestVideoFrameCallback(cb);
+        v.addEventListener("error", () =>
+          console.log(
+            v.id +
+              ": error " +
+              (v.error && v.error.code) +
+              " " +
+              (v.error && v.error.message),
+          ),
+        );
+        v.addEventListener("playing", () => console.log(v.id + ": playing"));
+        v.addEventListener("stalled", () => console.log(v.id + ": stalled"));
+        setInterval(
+          () =>
+            console.log(
+              v.id +
+                ": frames=" +
+                n +
+                " readyState=" +
+                v.readyState +
+                " t=" +
+                v.currentTime.toFixed(2),
+            ),
+          2000,
+        );
+      }
+    </script>
+  </body>
+</html>

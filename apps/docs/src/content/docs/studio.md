@@ -19,6 +19,9 @@ If you are setting up a new screen, first [install a Player](../players/) and [p
 - [Build a Layout](../layouts/) to arrange several areas on one screen.
 - [Coordinate a release with a Campaign](../campaigns/) to publish related schedule changes together.
 - [Review content before publication](./content-review/) when Playlists, Layouts, or Campaigns need approval.
+- [Use the content submission inbox](./content-submissions/) to review the exact snapshot an author submitted.
+- [Build Forms](./forms/) to collect structured submissions that can feed signage.
+- [Review Form records](./forms-approvals/) from the central Approvals inbox.
 
 ## Assign, schedule, and monitor
 

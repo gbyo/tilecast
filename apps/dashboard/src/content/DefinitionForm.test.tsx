@@ -105,7 +105,7 @@ function form(
   fields: ContentDefinitionField[],
   value: Record<string, unknown> = {},
 ) {
-  const onChange = vi.fn();
+  const onChange = vi.fn<(next: Record<string, unknown>) => void>();
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -393,6 +393,49 @@ describe("DefinitionForm data source controls", () => {
     expect(within(chooser).queryByText("Lunch rows")).toBeNull();
   });
 
+  it("resolves a nested field picker against the root Data Source", async () => {
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue(
+      catalog([
+        definition("csv", [{ key: "title", label: "Title", type: "text" }]),
+      ]),
+    );
+    vi.spyOn(api, "listDataSources").mockResolvedValue({
+      items: [source("s-csv", "csv", "Lunch rows")],
+      total: 1,
+      page: 1,
+      pageSize: 100,
+    });
+    vi.spyOn(api, "getDataSource").mockResolvedValue(
+      detail("s-csv", [{ key: "title", label: "Title", type: "text" }]),
+    );
+
+    form(
+      [
+        { key: "dataSourceId", label: "Data", control: "data_source" },
+        {
+          key: "columns",
+          label: "Columns",
+          control: "repeating_group",
+          maximumItems: 6,
+          itemFields: [
+            {
+              key: "field",
+              label: "Field",
+              control: "data_source_field",
+              dataSourceKey: "dataSourceId",
+            },
+            { key: "label", label: "Label", control: "text" },
+          ],
+        },
+      ],
+      { dataSourceId: "s-csv", columns: [{ label: "Name" }] },
+    );
+
+    // The item carries no source id of its own; the picker still lists the
+    // root source's fields instead of rendering no options.
+    expect(await optionsFor("Field")).toContain("Title (text)");
+  });
+
   it("explains the empty state and offers to connect data instead of disabling the control", async () => {
     vi.spyOn(api, "contentDefinitions").mockResolvedValue(
       catalog([definition("csv", [])]),
@@ -419,6 +462,20 @@ describe("DefinitionForm data source controls", () => {
     vi.spyOn(api, "contentDefinitions").mockResolvedValue(
       catalog([definition("csv", []), definition("form", [])]),
     );
+    vi.spyOn(api, "providerCatalog").mockResolvedValue({
+      revision: 1,
+      providers: [
+        {
+          id: "form",
+          role: "data_source",
+          label: "Form",
+          group: "Interactive",
+          description: "Collect submissions.",
+          capabilities: {},
+          uiHints: { gallery: "hidden" },
+        },
+      ],
+    });
     vi.spyOn(api, "listDataSources").mockResolvedValue({
       items: [],
       total: 0,
@@ -581,5 +638,174 @@ describe("DefinitionForm data source controls", () => {
 
     await userEvent.click(toggle);
     expect(onChange).toHaveBeenCalledWith({ showCountdown: false });
+  });
+});
+
+describe("DefinitionForm automatic semantic mapping", () => {
+  const titlePicker: ContentDefinitionField = {
+    key: "titleField",
+    label: "Title",
+    control: "data_source_field",
+    dataSourceFieldTypes: ["text"],
+    ui: { section: "data", semanticRole: "title", legacyKeys: ["name"] },
+  };
+  const sourceControl: ContentDefinitionField = {
+    key: "dataSourceId",
+    label: "Data",
+    control: "data_source",
+  };
+  const menuSource = () =>
+    detail("s-menu", [
+      { key: "dish", label: "Dish", type: "text", role: "title" },
+      { key: "notes", label: "Notes", type: "text" },
+      { key: "cost", label: "Cost", type: "currency" },
+    ]);
+
+  function mocks() {
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue(
+      catalog([
+        definition("csv", [{ key: "dish", label: "Dish", type: "text" }]),
+      ]),
+    );
+    vi.spyOn(api, "listDataSources").mockResolvedValue({
+      items: [source("s-menu", "csv", "Lunch rows")],
+      total: 1,
+      page: 1,
+      pageSize: 100,
+    });
+    vi.spyOn(api, "getDataSource").mockResolvedValue(menuSource());
+  }
+
+  it("fills an empty picker from the declared role when a source connects", async () => {
+    mocks();
+    const { onChange } = form([sourceControl, titlePicker], {
+      dataSourceId: "s-menu",
+    });
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith(
+        expect.objectContaining({ titleField: "dish" }),
+      ),
+    );
+  });
+
+  it("maps feed roles onto ticker text slots when a feed connects", async () => {
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue(
+      catalog([
+        definition("feed", [{ key: "title", label: "Title", type: "text" }]),
+      ]),
+    );
+    vi.spyOn(api, "listDataSources").mockResolvedValue({
+      items: [source("s-feed", "feed", "Morning wire")],
+      total: 1,
+      page: 1,
+      pageSize: 100,
+    });
+    vi.spyOn(api, "getDataSource").mockResolvedValue(
+      detail("s-feed", [
+        { key: "title", label: "Title", type: "text", role: "headline" },
+        {
+          key: "description",
+          label: "Description",
+          type: "text",
+          role: "summary",
+        },
+        { key: "date", label: "Date", type: "datetime", role: "published_at" },
+        { key: "source", label: "Source", type: "text", role: "source_name" },
+      ]),
+    );
+    const primaryPicker: ContentDefinitionField = {
+      key: "primaryField",
+      label: "Primary text field",
+      control: "data_source_field",
+      dataSourceFieldTypes: ["text"],
+      ui: {
+        section: "data",
+        semanticRole: "headline",
+        legacyKeys: ["title", "headline", "field", "name"],
+      },
+    };
+    const secondaryPicker: ContentDefinitionField = {
+      key: "secondaryField",
+      label: "Secondary text field",
+      control: "data_source_field",
+      dataSourceFieldTypes: ["text"],
+      ui: {
+        section: "data",
+        semanticRole: "summary",
+        legacyKeys: ["description", "summary", "source", "date"],
+      },
+    };
+    const { onChange } = form([sourceControl, primaryPicker, secondaryPicker], {
+      dataSourceId: "s-feed",
+    });
+    // Each empty picker maps independently, so the changes arrive separately.
+    await waitFor(() => expect(onChange).toHaveBeenCalledTimes(2));
+    expect(onChange.mock.calls.map(([next]) => next)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ primaryField: "title" }),
+        expect.objectContaining({ secondaryField: "description" }),
+      ]),
+    );
+  });
+
+  it("leaves an author-chosen field alone once the source loads", async () => {
+    mocks();
+    const { onChange } = form([sourceControl, titlePicker], {
+      dataSourceId: "s-menu",
+      titleField: "notes",
+    });
+    // Let the source detail load; the author choice must stand.
+    await screen.findByRole("combobox", { name: "Title" });
+    await waitFor(() =>
+      expect(api.getDataSource).toHaveBeenCalledWith("s-menu"),
+    );
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("remaps a key the newly connected source does not have", async () => {
+    mocks();
+    vi.mocked(api.getDataSource).mockImplementation((id: string) =>
+      Promise.resolve(
+        id === "s-dessert"
+          ? detail("s-dessert", [
+              { key: "sweet", label: "Sweet", type: "text", role: "title" },
+            ])
+          : menuSource(),
+      ),
+    );
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const onChange = vi.fn();
+    const fields = [sourceControl, titlePicker];
+    const { rerender } = render(
+      <QueryClientProvider client={client}>
+        <DefinitionForm
+          fields={fields}
+          value={{ dataSourceId: "s-menu", titleField: "notes" }}
+          onChange={onChange}
+          csrf="csrf-token"
+        />
+      </QueryClientProvider>,
+    );
+    await waitFor(() =>
+      expect(api.getDataSource).toHaveBeenCalledWith("s-menu"),
+    );
+    expect(onChange).not.toHaveBeenCalled();
+    rerender(
+      <QueryClientProvider client={client}>
+        <DefinitionForm
+          fields={fields}
+          value={{ dataSourceId: "s-dessert", titleField: "notes" }}
+          onChange={onChange}
+          csrf="csrf-token"
+        />
+      </QueryClientProvider>,
+    );
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith(
+        expect.objectContaining({ titleField: "sweet" }),
+      ),
+    );
   });
 });

@@ -1,0 +1,36 @@
+---
+title: AirPlay and Presentation Networks
+description: Troubleshoot AirPlay discovery and the optional Wi-Fi Presentation Network on supported Linux Players.
+---
+
+AirPlay on the stable Linux Player works over the local network. The sender must be able to discover and reach the Linux Player directly; Tilecast Server does not relay the AirPlay stream.
+
+## AirPlay is unavailable
+
+Confirm that the Linux Player has the supported AirPlay receiver and media dependencies installed.
+
+AirPlay setup is optional. A problem with AirPlay does not stop normal Tilecast pairing or signage playback.
+
+For a Display Group, the selected AirPlay gateway also needs a working wired IPv4 address for the group session.
+
+## A Presentation Network will not connect
+
+Check that:
+
+- `TILECAST_PRESENTATION_NETWORK_KEY` is set on the server;
+- the Linux host has a working Wi-Fi adapter;
+- NetworkManager and the Tilecast Presentation Network helper are running;
+- the saved SSID, security mode, identity, and certificate settings match the network;
+- the network gives the Player an address with DHCP.
+
+Presentation Network credentials are encrypted in the database with the external key. If you restore a database without the same key, Tilecast cannot read those saved credentials.
+
+## The sender still cannot find the Player
+
+Connecting the Player to Wi-Fi does not guarantee that AirPlay discovery will work.
+
+Guest isolation, multicast filtering, VLANs, and access-point settings can still block the sender from seeing or reaching the Player.
+
+Tilecast does not bridge VLANs, provide an mDNS reflector, turn on NAT or IP forwarding, or bypass client isolation. The network must allow the sender and AirPlay Player to communicate directly.
+
+See [Set up a Presentation Network](../../administration/presentation-networks/) and [Present with AirPlay](../../operations/airplay-present/).

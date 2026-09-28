@@ -1,0 +1,97 @@
+{
+  "name": "Default",
+  "description": "Weather reading a normalized current plus three forecast days.",
+  "configuration": {
+    "dataSourceId": "11111111-1111-4111-8111-111111111111",
+    "showLocation": true,
+    "showCurrent": true,
+    "forecastDays": 3,
+    "showHumidity": true,
+    "showWind": true,
+    "showPrecipitation": true,
+    "emptyText": "",
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "documents": {
+    "11111111-1111-4111-8111-111111111111": {
+      "schemaVersion": 1,
+      "datasets": [
+        {
+          "id": "records",
+          "kind": "records",
+          "fields": [
+            { "key": "kind", "label": "Kind", "type": "text" },
+            { "key": "location", "label": "Location", "type": "text" },
+            { "key": "date", "label": "Date", "type": "date" },
+            { "key": "condition", "label": "Condition", "type": "text" },
+            { "key": "temperature", "label": "Temperature", "type": "number" },
+            { "key": "temperatureUnit", "label": "Unit", "type": "text" },
+            { "key": "high", "label": "High", "type": "number" },
+            { "key": "low", "label": "Low", "type": "number" },
+            { "key": "humidity", "label": "Humidity", "type": "percent" },
+            { "key": "windSpeed", "label": "Wind", "type": "number" },
+            { "key": "windUnit", "label": "Wind unit", "type": "text" },
+            { "key": "precipitation", "label": "Rain", "type": "number" },
+            { "key": "precipitationUnit", "label": "Rain unit", "type": "text" }
+          ],
+          "records": [
+            {
+              "id": "current",
+              "values": {
+                "kind": { "kind": "text", "text": "current" },
+                "location": { "kind": "text", "text": "Riverside" },
+                "date": { "kind": "date", "date": "2026-09-28" },
+                "condition": { "kind": "text", "text": "Partly Cloudy" },
+                "temperature": { "kind": "number", "number": 21.5 },
+                "temperatureUnit": { "kind": "text", "text": "°C" },
+                "humidity": { "kind": "percent", "number": 62 },
+                "windSpeed": { "kind": "number", "number": 3.2 },
+                "windUnit": { "kind": "text", "text": "m/s" },
+                "precipitation": { "kind": "number", "number": 0 },
+                "precipitationUnit": { "kind": "text", "text": "mm" }
+              }
+            },
+            {
+              "id": "day-2026-09-28",
+              "values": {
+                "kind": { "kind": "text", "text": "forecast" },
+                "location": { "kind": "text", "text": "Riverside" },
+                "date": { "kind": "date", "date": "2026-09-28" },
+                "condition": { "kind": "text", "text": "Clear Sky" },
+                "high": { "kind": "number", "number": 24 },
+                "low": { "kind": "number", "number": 15 },
+                "temperatureUnit": { "kind": "text", "text": "°C" }
+              }
+            },
+            {
+              "id": "day-2026-09-29",
+              "values": {
+                "kind": { "kind": "text", "text": "forecast" },
+                "location": { "kind": "text", "text": "Riverside" },
+                "date": { "kind": "date", "date": "2026-09-29" },
+                "condition": { "kind": "text", "text": "Light Rain" },
+                "high": { "kind": "number", "number": 19 },
+                "low": { "kind": "number", "number": 13 },
+                "temperatureUnit": { "kind": "text", "text": "°C" }
+              }
+            },
+            {
+              "id": "day-2026-09-30",
+              "values": {
+                "kind": { "kind": "text", "text": "forecast" },
+                "location": { "kind": "text", "text": "Riverside" },
+                "date": { "kind": "date", "date": "2026-09-30" },
+                "condition": { "kind": "text", "text": "Cloudy" },
+                "high": { "kind": "number", "number": 20 },
+                "low": { "kind": "number", "number": 14 },
+                "temperatureUnit": { "kind": "text", "text": "°C" }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expect": "ready"
+}

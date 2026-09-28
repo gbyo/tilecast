@@ -71,7 +71,7 @@ export function requiredDownloads(
   const wanted = new Map<string, ManifestAsset>();
   const addAsset = (assetId: string, variantId: string | null | undefined) => {
     if (!variantId) {
-      // Layouts, fallbacks, branding, and plugins must carry an exact variant
+      // Layouts, fallbacks, and branding must carry an exact variant
       // reference. Guessing here can make two players render different files
       // when an asset has more than one ready variant.
       return;
@@ -163,15 +163,6 @@ export function requiredDownloads(
         addAsset(placement.assetId, placement.variantId);
       }
     }
-  }
-
-  // A Brand Bug logo is drawn over whatever is playing, including while the
-  // network is gone, so it must be cached before the manifest activates.
-  for (const plugin of manifest.plugins ?? []) {
-    if (plugin.type !== "brand_bug" || !plugin.config.imageAssetId) {
-      continue;
-    }
-    addAsset(plugin.config.imageAssetId, plugin.config.imageVariantId);
   }
 
   return [...wanted.values()];

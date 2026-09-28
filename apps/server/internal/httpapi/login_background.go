@@ -7,7 +7,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/tilecast/tilecast/apps/server/internal/auth"
 )
 
 const defaultLoginBackgroundURL = "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&fm=jpg&q=82&w=2400"
@@ -80,13 +79,17 @@ func (s *server) putLoginBackground(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnprocessableEntity, "login_background_invalid", "The login background must be an image asset.")
 		return
 	}
-	session := r.Context().Value(sessionContextKey).(auth.Session)
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
 	tag, err := s.db.Exec(r.Context(), `
 		INSERT INTO organization_login_branding (organization_id, background_asset_id, updated_by, updated_at)
 		SELECT id, $1, $2, now() FROM organization_settings LIMIT 1
 		ON CONFLICT (organization_id) DO UPDATE
 		SET background_asset_id=EXCLUDED.background_asset_id, updated_by=EXCLUDED.updated_by, updated_at=now()
-	`, assetID, session.User.ID)
+	`, assetID, principal.User.ID)
 	if err != nil {
 		s.internalError(w, r, err)
 		return
@@ -95,17 +98,21 @@ func (s *server) putLoginBackground(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, "setup_required", "Complete Tilecast setup before changing the login background.")
 		return
 	}
-	_, _ = s.db.Exec(r.Context(), `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,metadata) VALUES($1,$2,'branding.login_background_changed','organization',$3,jsonb_build_object('assetId',$4::text))`, uuid.New(), session.User.ID, "login-background", assetID)
+	_, _ = s.db.Exec(r.Context(), `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,metadata) VALUES($1,$2,'branding.login_background_changed','organization',$3,jsonb_build_object('assetId',$4::text))`, uuid.New(), principal.User.ID, "login-background", assetID)
 	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{"assetId": assetID.String(), "imageUrl": "/api/v1/auth/background"}})
 }
 
 func (s *server) deleteLoginBackground(w http.ResponseWriter, r *http.Request) {
-	session := r.Context().Value(sessionContextKey).(auth.Session)
-	_, err := s.db.Exec(r.Context(), `UPDATE organization_login_branding SET background_asset_id=NULL, updated_by=$1, updated_at=now()`, session.User.ID)
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	_, err := s.db.Exec(r.Context(), `UPDATE organization_login_branding SET background_asset_id=NULL, updated_by=$1, updated_at=now()`, principal.User.ID)
 	if err != nil {
 		s.internalError(w, r, err)
 		return
 	}
-	_, _ = s.db.Exec(r.Context(), `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,metadata) VALUES($1,$2,'branding.login_background_reset','organization',$3,'{}'::jsonb)`, uuid.New(), session.User.ID, "login-background")
+	_, _ = s.db.Exec(r.Context(), `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,metadata) VALUES($1,$2,'branding.login_background_reset','organization',$3,'{}'::jsonb)`, uuid.New(), principal.User.ID, "login-background")
 	w.WriteHeader(http.StatusNoContent)
 }

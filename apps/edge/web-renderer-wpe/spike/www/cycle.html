@@ -1,0 +1,33 @@
+<!doctype html>
+<html>
+  <body style="margin: 0; background: #000">
+    <script>
+      // 120 create/destroy cycles of a remote surface element, like the runtime's
+      // dispose path: pause, drop src, load(), remove.
+      let i = 0;
+      function cycle() {
+        if (i === 240) {
+          console.log("cycle: done");
+          return;
+        }
+        const v = document.createElement("video");
+        v.muted = true;
+        v.autoplay = true;
+        v.style.width = "320px";
+        v.src =
+          "tcweb://cap/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        document.body.appendChild(v);
+        v.requestVideoFrameCallback(() => {
+          v.pause();
+          v.removeAttribute("src");
+          v.load();
+          v.remove();
+          i++;
+          if (i % 40 === 0) console.log("cycle: " + i);
+          setTimeout(cycle, 50);
+        });
+      }
+      cycle();
+    </script>
+  </body>
+</html>

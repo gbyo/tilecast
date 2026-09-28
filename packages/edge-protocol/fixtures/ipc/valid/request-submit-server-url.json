@@ -1,0 +1,10 @@
+{
+  "frame": {
+    "type": "request",
+    "id": "setup-1",
+    "method": "setup.submit_server_url",
+    "params": {
+      "url": "https://signage.example.org"
+    }
+  }
+}

@@ -36,6 +36,45 @@ func TestWebsiteURLAndHostPolicy(t *testing.T) {
 		t.Fatal("accepted public HTTP")
 	}
 }
+
+func TestWebsiteRejectsIPv6Literals(t *testing.T) {
+	// IPv6 navigation is out of scope for M11 remote web: the runtime
+	// normalization and the helper policy refuse IPv6, so authoring must
+	// fail explicitly rather than producing content no player can show.
+	s := websiteService(true)
+	urls := []string{
+		"http://[::1]/page",
+		"http://[fd00::1]/page",
+		"http://[fe80::1]/page",
+		"http://[::ffff:10.0.0.5]/page",
+		"https://[2001:db8::1]/page",
+		"http://[::1/page",
+	}
+	for _, raw := range urls {
+		in := validWebsite()
+		in.URL = raw
+		if _, err := s.normalizeWebsite(context.Background(), in); err == nil {
+			t.Errorf("accepted IPv6 website URL %s", raw)
+		}
+	}
+	in := validWebsite()
+	in.AllowedHosts = []string{"::1"}
+	if _, err := s.normalizeWebsite(context.Background(), in); err == nil {
+		t.Error("accepted IPv6 allowed host")
+	}
+	in = validWebsite()
+	in.AllowedHosts = []string{"[fd00::1]"}
+	if _, err := s.normalizeWebsite(context.Background(), in); err == nil {
+		t.Error("accepted bracketed IPv6 allowed host")
+	}
+	// DNS names and IPv4 literals still pass.
+	in = validWebsite()
+	in.URL = "http://intranet.local/page"
+	in.AllowedHosts = []string{"intranet.local", "10.0.0.5"}
+	if _, err := s.normalizeWebsite(context.Background(), in); err != nil {
+		t.Fatalf("rejected DNS/IPv4 website: %v", err)
+	}
+}
 func TestWebsiteSettingsLimits(t *testing.T) {
 	s := websiteService(false)
 	in := validWebsite()

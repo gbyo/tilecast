@@ -6,7 +6,7 @@ import { settingsItems } from "./settings/settingsNavigation";
 import { AuthPage } from "./pages/AuthPage";
 import { DashboardShell, FoundationPage } from "./pages/Dashboard";
 import {
-  PairScreenPage,
+  ScreensPairRoute,
   ScreensPage,
   ScreensWorkspacePage,
 } from "./pages/ScreensPage";
@@ -26,6 +26,7 @@ import {
   ScheduleEditorPage,
 } from "./pages/SchedulesPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { OAuthApprovalPage } from "./pages/OAuthApprovalPage";
 import { MyAccountPage } from "./pages/MyAccountPage";
 import { LayoutsPage } from "./pages/LayoutsPage";
 import { LayoutEditorPage } from "./pages/LayoutEditorPage";
@@ -34,24 +35,10 @@ import { DataSourceEditorPage, DataSourcesPage } from "./pages/DataSourcesPage";
 import { ActivityPage } from "./pages/ActivityPage";
 import { PluginsPage } from "./pages/PluginsPage";
 import {
-  CountdownBarEditorPage,
-  CountdownBarsPage,
-} from "./pages/CountdownBarsPage";
-import { BrandBugEditorPage, BrandBugsPage } from "./pages/BrandBugsPage";
-import { NoiseMeterEditorPage, NoiseMetersPage } from "./pages/NoiseMetersPage";
-import { NoiseMeterHistoryPage } from "./pages/NoiseMeterHistoryPage";
-import { EmergencyAlertsPage } from "./pages/EmergencyAlertsPage";
-import { ApprovalsPage } from "./pages/ApprovalsPage";
-import {
-  FormsListPage,
-  FormsPortalShell,
-  FormPortalDetailPage,
-  FormPortalSubmissionPage,
-} from "./pages/FormsPortalPage";
-import { FormsPluginPage } from "./pages/FormsPluginPage";
-import { CreateFormDataSourcePage } from "./pages/CreateFormDataSourcePage";
-import { FormDataSourcePage } from "./pages/FormDataSourcePage";
-import { PluginRouteGate } from "./plugins/PluginRouteGate";
+  assertStudioRouteCollisions,
+  pluginRouteObjects,
+  pluginStandaloneRouteObjects,
+} from "./plugin-host/routes";
 import { CampaignsPage } from "./pages/CampaignsPage";
 
 const search = (
@@ -75,6 +62,7 @@ const settingsSearch: Partial<
     // Search aliases stay in English in every language: they are matching
     // tokens, not displayed text, and the locale files hold strings only.
     keywords: [
+      "dependency graph",
       "content map",
       "used by",
       "relationships",
@@ -134,6 +122,21 @@ export const studioRoutes: RouteObject[] = [
                   ),
                 },
               },
+              {
+                path: "pair",
+                element: <ScreensPairRoute />,
+                handle: { breadcrumb: "Pair screen" },
+              },
+              {
+                path: "pair/:code",
+                element: <ScreensPairRoute />,
+                handle: { breadcrumb: "Pair screen" },
+              },
+              {
+                path: "pair/request/:requestId",
+                element: <ScreensPairRoute />,
+                handle: { breadcrumb: "Pair screen" },
+              },
             ],
           },
           {
@@ -148,21 +151,6 @@ export const studioRoutes: RouteObject[] = [
                 ["fleet", "bulk", "assign"],
               ),
             },
-          },
-          {
-            path: "pair",
-            element: <PairScreenPage />,
-            handle: { breadcrumb: "Pair screen" },
-          },
-          {
-            path: "pair/:code",
-            element: <PairScreenPage />,
-            handle: { breadcrumb: "Pair screen" },
-          },
-          {
-            path: "pair/request/:requestId",
-            element: <PairScreenPage />,
-            handle: { breadcrumb: "Pair screen" },
           },
           {
             path: ":id",
@@ -254,17 +242,17 @@ export const studioRoutes: RouteObject[] = [
           { index: true, element: <DataSourcesPage /> },
           {
             path: "new",
-            element: <DataSourceEditorPage redirectForms />,
+            element: <DataSourceEditorPage />,
             handle: { breadcrumb: "Create data source" },
           },
           {
             path: "new/:provider",
-            element: <DataSourceEditorPage redirectForms />,
+            element: <DataSourceEditorPage />,
             handle: { breadcrumb: "Create data source" },
           },
           {
             path: ":id",
-            element: <DataSourceEditorPage redirectForms />,
+            element: <DataSourceEditorPage />,
             handle: { breadcrumb: "Data source", resource: "data-source" },
           },
         ],
@@ -392,173 +380,14 @@ export const studioRoutes: RouteObject[] = [
             path: "dependency-graph",
             element: <Navigate to="/settings/dependency-graph" replace />,
           },
-          {
-            path: "countdown-bar",
-            handle: { breadcrumb: "Countdown Bar" },
-            children: [
-              {
-                index: true,
-                element: (
-                  <PluginRouteGate pluginId="countdown_bar">
-                    <CountdownBarsPage />
-                  </PluginRouteGate>
-                ),
-              },
-              {
-                path: "new",
-                element: (
-                  <PluginRouteGate pluginId="countdown_bar">
-                    <CountdownBarEditorPage />
-                  </PluginRouteGate>
-                ),
-                handle: { breadcrumb: "New instance" },
-              },
-              {
-                path: ":id",
-                element: (
-                  <PluginRouteGate pluginId="countdown_bar">
-                    <CountdownBarEditorPage />
-                  </PluginRouteGate>
-                ),
-                handle: { breadcrumb: "Instance", resource: "countdown-bar" },
-              },
-            ],
-          },
-          {
-            path: "emergency-alerts",
-            element: (
-              <PluginRouteGate pluginId="emergency_alerts">
-                <EmergencyAlertsPage />
-              </PluginRouteGate>
-            ),
-            handle: { breadcrumb: "Emergency Alerts" },
-          },
-          {
-            path: "forms",
-            handle: { breadcrumb: "Forms" },
-            children: [
-              {
-                index: true,
-                element: (
-                  <PluginRouteGate pluginId="forms">
-                    <FormsPluginPage />
-                  </PluginRouteGate>
-                ),
-              },
-              {
-                path: "new",
-                element: (
-                  <PluginRouteGate pluginId="forms">
-                    <CreateFormDataSourcePage />
-                  </PluginRouteGate>
-                ),
-                handle: { breadcrumb: "Create form" },
-              },
-              {
-                path: ":id",
-                element: (
-                  <PluginRouteGate pluginId="forms">
-                    <FormDataSourcePage />
-                  </PluginRouteGate>
-                ),
-                handle: { breadcrumb: "Form", resource: "form" },
-              },
-            ],
-          },
-          {
-            path: "brand-bug",
-            handle: { breadcrumb: "Brand Bug / Watermark" },
-            children: [
-              {
-                index: true,
-                element: (
-                  <PluginRouteGate pluginId="brand_bug">
-                    <BrandBugsPage />
-                  </PluginRouteGate>
-                ),
-              },
-              {
-                path: "new",
-                element: (
-                  <PluginRouteGate pluginId="brand_bug">
-                    <BrandBugEditorPage />
-                  </PluginRouteGate>
-                ),
-                handle: { breadcrumb: "New instance" },
-              },
-              {
-                path: ":id",
-                element: (
-                  <PluginRouteGate pluginId="brand_bug">
-                    <BrandBugEditorPage />
-                  </PluginRouteGate>
-                ),
-                handle: { breadcrumb: "Instance", resource: "brand-bug" },
-              },
-            ],
-          },
-          {
-            path: "noise-meter",
-            handle: { breadcrumb: "Noise Meter" },
-            children: [
-              {
-                index: true,
-                element: (
-                  <PluginRouteGate pluginId="noise_meter">
-                    <NoiseMetersPage />
-                  </PluginRouteGate>
-                ),
-              },
-              {
-                path: "new",
-                element: (
-                  <PluginRouteGate pluginId="noise_meter">
-                    <NoiseMeterEditorPage />
-                  </PluginRouteGate>
-                ),
-                handle: { breadcrumb: "New instance" },
-              },
-              {
-                path: ":id",
-                handle: { breadcrumb: "Instance", resource: "noise-meter" },
-                children: [
-                  {
-                    index: true,
-                    element: (
-                      <PluginRouteGate pluginId="noise_meter">
-                        <NoiseMeterEditorPage />
-                      </PluginRouteGate>
-                    ),
-                  },
-                  {
-                    path: "history",
-                    element: (
-                      <PluginRouteGate pluginId="noise_meter">
-                        <NoiseMeterHistoryPage />
-                      </PluginRouteGate>
-                    ),
-                    handle: { breadcrumb: "History" },
-                  },
-                ],
-              },
-            ],
-          },
+          // Routes contributed by plugins/*/studio, discovered at build time.
+          ...pluginRouteObjects(),
         ],
       },
       { path: "users", element: <Navigate to="/settings/users" replace /> },
-      {
-        path: "approvals",
-        element: <ApprovalsPage />,
-        handle: {
-          breadcrumb: "Approvals",
-          search: search(
-            "Approvals",
-            "Review submissions awaiting a decision across your forms",
-            "/approvals",
-            ["forms", "review", "submissions", "inbox"],
-          ),
-        },
-      },
+      // Plugin-owned routes inside the authenticated chrome, discovered at
+      // build time.
+      ...pluginStandaloneRouteObjects({ topLevel: false }),
       {
         path: "activity",
         element: <ActivityPage />,
@@ -593,6 +422,19 @@ export const studioRoutes: RouteObject[] = [
               "appearance",
               "density",
             ],
+          ),
+        },
+      },
+      {
+        path: "oauth/approve",
+        element: <OAuthApprovalPage />,
+        handle: {
+          breadcrumb: "Authorize access",
+          search: search(
+            "Authorize access",
+            "Approve a loopback operator such as the Tilecast CLI",
+            "/oauth/approve",
+            ["oauth", "cli", "authorize", "grant", "token"],
           ),
         },
       },
@@ -653,23 +495,17 @@ export const studioRoutes: RouteObject[] = [
       },
     ],
   },
-  {
-    // The Forms portal is an authenticated area outside the full operator sidebar, reachable from
-    // the account menu. It does not introduce a new role or account mode.
-    path: "/forms",
-    element: <FormsPortalShell />,
-    children: [
-      { index: true, element: <FormsListPage /> },
-      { path: ":id", element: <FormPortalDetailPage /> },
-      { path: ":id/new", element: <FormPortalSubmissionPage /> },
-      {
-        path: ":id/submissions/:recordId",
-        element: <FormPortalSubmissionPage />,
-      },
-    ],
-  },
+  // Plugin-owned top-level routes with their own shell, discovered at
+  // build time.
+  ...pluginStandaloneRouteObjects({ topLevel: true }),
   { path: "*", element: <Navigate to="/" replace /> },
 ];
+
+// A plugin must never shadow a core Studio route. The check runs on the
+// composed tree, so it covers standalone and management routes wherever
+// they mount; a collision fails the shell loudly instead of silently
+// overriding Studio.
+assertStudioRouteCollisions(studioRoutes);
 
 function RoutedApp() {
   return useRoutes(studioRoutes);

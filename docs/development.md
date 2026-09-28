@@ -18,16 +18,30 @@ Run `make check` to do these checks:
 
 Run `make build` to create the dashboard bundle and the server binary. The command copies the bundle into the server embed directory.
 
+## Demo Mode
+
+Run `make demo` to start a disposable installation with sample data and simulated players. Studio opens signed in. Run `npm run test:e2e` to run the browser smoke tests against it. Refer to [`demo-mode.md`](demo-mode.md).
+
 Android player requirements and commands are documented in [`android-development.md`](android-development.md).
 
 ## Migration changes
 
-Add sequential Goose SQL files to `apps/server/internal/database/migrations`. Each migration must contain these sections:
+Tilecast has one Goose version sequence. Core migrations are in `apps/server/internal/database/migrations`. A plugin keeps its migrations in `plugins/<name>/migrations`. Reserve the next version with this command:
+
+```sh
+npm run plugins:migration -- <plugin_id|core> <snake_case_name>
+```
+
+Each migration must contain these sections:
 
 - `-- +goose Up`
 - A functional `-- +goose Down`
 
-The server applies pending migrations during startup. Do not edit a released migration. Add a new migration.
+The server applies pending migrations during startup. Do not edit a released migration. Add a new migration. `npm run plugins:generate` updates `apps/server/internal/database/migrations.lock.json`, and a server test compares the compiled migrations with it. Refer to [`plugin-api.md`](plugin-api.md#migrations).
+
+## Plugins
+
+A bundled plugin is one directory below `plugins/`. Create one with `npm run plugins:new -- <plugin_id>`, and run `npm run plugins:check` before you commit. Refer to [`plugin-api.md`](plugin-api.md).
 
 ## Integration database
 

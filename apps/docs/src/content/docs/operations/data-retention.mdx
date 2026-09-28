@@ -1,0 +1,18 @@
+---
+title: Data retention
+description: Choose how long Tilecast keeps Activity, audit, diagnostic, and telemetry history.
+---
+
+Open **Settings** > **Data retention** to choose how long Tilecast keeps different kinds of operational history.
+
+Retention settings cover data such as Player events, proof-of-play sessions, screen-state history, audit records, diagnostics, and telemetry summaries.
+
+Tilecast limits the available retention ranges so these histories cannot be set to grow forever.
+
+## Telemetry
+
+Tilecast keeps the latest telemetry state separately from historical telemetry summaries. The latest state is updated in place instead of creating a new history row for every high-frequency sample.
+
+Changing retention does not change what Players report. It only changes how long the server keeps eligible history.
+
+Snapshot images have their own limits under [Snapshot history](../snapshot-history/). Full server backups use the retention rules described in [Backup and restore](../../administration/backups/).

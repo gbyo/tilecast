@@ -1,0 +1,40 @@
+---
+title: Edge capability matrix
+description: Compare Tilecast Edge with the stable Linux Player, feature by feature, including what still needs hardware qualification.
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+The Edge column shows what the Edge software does today. Every Edge feature still needs qualification on physical hardware before a Tilecast release supports it on production screens.
+
+- <Badge text="Implemented" variant="success" /> The Edge software does it, and
+  automated tests cover it.
+- <Badge text="Hardware dependent" variant="caution" /> The software is
+  implemented, but whether it works depends on the connected display, adapter,
+  or audio device. It isn't tested on real hardware yet.
+- <Badge text="Not available" variant="note" /> Edge doesn't do it today.
+
+| Capability                                                 | Stable Linux Player                       | Edge                                                                                                                      |
+| ---------------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Images and downloaded video                                | Supported                                 | <Badge text="Implemented" variant="success" /> Codecs and hardware decoding still need hardware testing                   |
+| Native Widgets, Layouts, and playlist zones                | Supported                                 | <Badge text="Implemented" variant="success" />                                                                            |
+| Schedules, Quick Present, and Takeover                     | Supported                                 | <Badge text="Implemented" variant="success" />                                                                            |
+| Synchronized Display Groups                                | Supported                                 | <Badge text="Implemented" variant="success" />                                                                            |
+| Span images, Layouts, and video                            | Supported with current limits             | <Badge text="Implemented" variant="success" /> Unrotated panels. Rotated panels and frame alignment need hardware testing |
+| Countdown Bar and alert ticker                             | Supported                                 | <Badge text="Implemented" variant="success" />                                                                            |
+| Offline restart from prepared content                      | Supported                                 | <Badge text="Implemented" variant="success" />                                                                            |
+| Activity and proof of play                                 | Supported                                 | <Badge text="Implemented" variant="success" />                                                                            |
+| Live preview                                               | Supported                                 | <Badge text="Implemented" variant="success" />                                                                            |
+| Watch live                                                 | Supported                                 | <Badge text="Not available" variant="note" />                                                                             |
+| Player self-update                                         | Supported, no automatic rollback          | <Badge text="Implemented" variant="success" /> With automatic rollback. Needs testing on real hardware                    |
+| Display Control (HDMI-CEC and DDC/CI)                      | Supported through `cec-ctl` and `ddcutil` | <Badge text="Hardware dependent" variant="caution" /> Talks to Linux CEC and DDC devices directly                         |
+| Presentation Network                                       | Supported when provisioned                | <Badge text="Hardware dependent" variant="caution" /> Needs a supported Wi-Fi adapter and NetworkManager                  |
+| Remote Websites and YouTube                                | Supported by Electron webviews            | <Badge text="Implemented" variant="success" /> Isolated helper; needs hardware testing                                    |
+| AirPlay receiver                                           | Supported when provisioned                | <Badge text="Not available" variant="note" /> Not part of Edge 1                                                          |
+| Android Managed Kiosk, Power Assist, Accessibility Control | Android only                              | Not applicable                                                                                                            |
+
+When a newer presentation needs something Edge can't show, Edge keeps playing the last presentation it could show and tells Studio why. See [content compatibility](../compatibility/).
+
+`tilecastctl capabilities` on the Edge computer lists each hardware feature with its current state and a reason, such as a missing adapter or a display that doesn't respond. The [engineering capability matrix](https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-capabilities.md) has the full list of states, reasons, and tests.
+
+The normal Tilecast guides apply to shared tasks such as [Activity](../../operations/activity/), [Live preview](../../operations/live-preview/), [Player commands](../../operations/player-commands/), [Display Control](../../screens/display-control/), [Schedules](../../schedules/), and [Display Groups](../../screens/display-groups/).

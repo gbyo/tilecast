@@ -1,6 +1,6 @@
 # Tilecast Studio UI/UX Redesign Plan
 
-**Status:** Reference implementation plan; visual foundation superseded by the Base Vega baseline
+**Status:** Historical reference implementation plan; visual foundation superseded by the Base Vega baseline. Brand Bug and Noise Meter sections describe retired features and are not current Studio routes.
 **Design system:** shadcn/ui + Base UI + Rhea (historical)
 **Primary shell block:** `dashboard-01`
 **Authentication block:** `login-03`

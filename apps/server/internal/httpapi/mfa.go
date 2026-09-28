@@ -356,7 +356,12 @@ func (s *server) resetUserFactors(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", "The user identifier is not valid.")
 		return
 	}
-	actor := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	actor := principal.User
 	target, err := s.userRole(r, id)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "user_not_found", "That user does not exist.")

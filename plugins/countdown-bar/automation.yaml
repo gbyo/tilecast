@@ -1,0 +1,52 @@
+# Countdown Bar automation mapping (Automation Contract v1).
+#
+# This file maps the plugin's existing OpenAPI operations to operator
+# presentation. It redefines no HTTP path, schema, authorization, or
+# validation: every operationId below comes from ./api/openapi.yaml,
+# and the server stays authoritative for all of them.
+apiVersion: 1
+
+operations:
+  - operationId: listCountdownBarInstances
+    risk: read
+    description: List the configured Countdown Bar instances.
+    cli:
+      path: [countdown-bar, instance, list]
+    mcp:
+      action: list_instances
+
+  - operationId: getCountdownBarInstance
+    risk: read
+    description: Show one Countdown Bar instance.
+    cli:
+      path: [countdown-bar, instance, get]
+    mcp:
+      action: get_instance
+
+  - operationId: createCountdownBarInstance
+    risk: routine
+    description: Create a Countdown Bar instance from a JSON document.
+    cli:
+      path: [countdown-bar, instance, create]
+    mcp:
+      action: create_instance
+    input: document
+
+  - operationId: updateCountdownBarInstance
+    risk: routine
+    description: Replace a Countdown Bar instance from a JSON document.
+    cli:
+      path: [countdown-bar, instance, update]
+    mcp:
+      action: update_instance
+    input: document
+
+  - operationId: deleteCountdownBarInstance
+    risk: sensitive
+    description: Delete a Countdown Bar instance from its target screens.
+    cli:
+      path: [countdown-bar, instance, delete]
+    mcp:
+      action: delete_instance
+
+exclusions: []

@@ -1,0 +1,12 @@
+# Tilecast Edge display control (docs/tilecast-edge.md §4.3): tilecastd
+# reaches HDMI-CEC adapters and the display's DDC/CI bus through the
+# tilecast-display group, never as root. Only tilecast-edge.service joins
+# the group (SupplementaryGroups=); the tilecast account itself is not a
+# member, so the renderer and the session bridge do not inherit it.
+SUBSYSTEM=="cec", KERNEL=="cec[0-9]*", GROUP="tilecast-display", MODE="0660"
+# DDC/CI: only I2C buses whose parent is a display adapter (PCI base class
+# 0x03: VGA, 3D controller, other display), never the SMBus or other I2C
+# devices. ddcutil matches display adapters the same way; unlike ddcutil,
+# access goes to one group that only tilecastd's unit joins, not to the
+# desktop user.
+SUBSYSTEM=="i2c-dev", KERNEL=="i2c-[0-9]*", ATTRS{class}=="0x03*", GROUP="tilecast-display", MODE="0660"

@@ -9,6 +9,7 @@ import { AppSidebar } from "@/components/studio/AppSidebar";
 import { ThemeProvider } from "@/components/studio/ThemeProvider";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
+import { DemoModeBanner } from "@/components/DemoModeBanner";
 import { StudioTopbar } from "@/components/StudioTopbar";
 import {
   LANGUAGE_PREFERENCE_KEY,
@@ -140,6 +141,7 @@ export function DashboardShell() {
           signOutDisabled={auth.isSubmitting}
         />
         <SidebarInset className="min-h-svh overflow-hidden">
+          {auth.status.demoMode ? <DemoModeBanner /> : null}
           <StudioTopbar user={user} csrfToken={auth.status.csrfToken} />
           <div className="min-h-0 flex-1 overflow-auto px-4 py-5 md:px-7 md:py-6">
             <RouteErrorBoundary key={location.pathname}>

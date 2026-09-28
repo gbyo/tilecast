@@ -6,6 +6,7 @@ import starlightPageContextAction from "starlight-page-context-action";
 import starlightOpenAPIPlugin, {
   createOpenAPISidebarGroup,
 } from "starlight-openapi";
+import { pluginPageMarkdown, pluginSidebarItems } from "./plugin-docs.mjs";
 
 const repository = "https://github.com/gbyo/tilecast";
 
@@ -28,7 +29,8 @@ function tilecastDocsPlugin() {
   return {
     name: "tilecast-docs",
     hooks: {
-      "config:setup"({ addRouteMiddleware }) {
+      "config:setup"({ addRouteMiddleware, addIntegration }) {
+        addIntegration(pluginPageMarkdown());
         addRouteMiddleware({
           entrypoint: new URL("./src/route-middleware.mjs", import.meta.url)
             .pathname,
@@ -40,8 +42,7 @@ function tilecastDocsPlugin() {
 }
 
 export default defineConfig({
-  site: "https://gbyo.github.io",
-  base: "/tilecast",
+  site: "https://tilecast.org",
   // GitHub Pages serves each page as a directory index and redirects a path
   // without a slash. Match that locally so relative content links resolve
   // the same way in development and in production.
@@ -131,7 +132,10 @@ export default defineConfig({
       expressiveCode: {
         styleOverrides: { borderRadius: "var(--tc-radius-panel)" },
       },
-      head: [{ tag: "script", content: syncTokenTheme }],
+      head: [
+        { tag: "link", attrs: { rel: "sitemap", href: "/sitemap-index.xml" } },
+        { tag: "script", content: syncTokenTheme },
+      ],
       // Keep the top-level order task-first and arrange each section around
       // the reader's work rather than the filesystem or Studio's own menu.
       sidebar: [
@@ -164,9 +168,15 @@ export default defineConfig({
               ],
             },
             {
-              label: "Review content",
+              label: "Review and collect",
               collapsed: true,
-              items: [{ slug: "studio/content-review" }],
+              items: [
+                { slug: "studio/content-review" },
+                { slug: "studio/content-submissions" },
+                { slug: "studio/forms" },
+                { slug: "studio/forms-approvals" },
+                ...pluginSidebarItems("review-and-collect"),
+              ],
             },
           ],
         },
@@ -186,6 +196,14 @@ export default defineConfig({
               ],
             },
             {
+              label: "Manage screens",
+              collapsed: true,
+              items: [
+                { slug: "screens/archive" },
+                { slug: "screens/bulk-changes" },
+              ],
+            },
+            {
               label: "Groups and walls",
               collapsed: true,
               items: [
@@ -193,7 +211,52 @@ export default defineConfig({
                 { slug: "screens/span-video-walls" },
               ],
             },
+            {
+              label: "Reliability and behavior",
+              collapsed: true,
+              items: [
+                { slug: "players/reliability-kiosk" },
+                { slug: "players/active-hours-power" },
+                { slug: "players/accessibility" },
+              ],
+            },
             { slug: "players/update-a-player" },
+            { slug: "players/capabilities" },
+          ],
+        },
+        {
+          label: "Tilecast Edge",
+          badge: { text: "Preview", variant: "caution" },
+          collapsed: true,
+          items: [
+            { label: "Overview", slug: "edge" },
+            {
+              label: "Get Edge running",
+              collapsed: true,
+              items: [
+                { slug: "edge/requirements" },
+                { slug: "edge/install" },
+                { slug: "edge/migrate" },
+                { slug: "edge/pairing" },
+              ],
+            },
+            {
+              label: "Operate Edge",
+              collapsed: true,
+              items: [
+                { slug: "edge/compatibility" },
+                { slug: "edge/updates" },
+                { slug: "edge/offline-resilience" },
+                { slug: "edge/hardware" },
+                { slug: "edge/monitoring" },
+                { slug: "edge/troubleshooting" },
+              ],
+            },
+            {
+              label: "Understand Edge",
+              collapsed: true,
+              items: [{ slug: "edge/security" }, { slug: "edge/capabilities" }],
+            },
           ],
         },
         {
@@ -202,11 +265,22 @@ export default defineConfig({
           items: [
             { slug: "administration" },
             {
+              label: "Organization",
+              collapsed: true,
+              items: [
+                { slug: "administration/organization" },
+                { slug: "administration/language-regional" },
+                { slug: "administration/branding" },
+                { slug: "administration/locations" },
+              ],
+            },
+            {
               label: "Accounts and access",
               collapsed: true,
               items: [
                 { slug: "administration/users-and-roles" },
                 { slug: "administration/sign-in-security" },
+                { slug: "administration/account" },
               ],
             },
             {
@@ -214,9 +288,23 @@ export default defineConfig({
               collapsed: true,
               items: [
                 { slug: "administration/player-policies" },
+                { slug: "administration/content-settings" },
+                { slug: "administration/networking" },
+                { slug: "administration/server-updates" },
                 { slug: "administration/presentation-networks" },
                 { slug: "administration/player-updates" },
                 { slug: "administration/backups" },
+              ],
+            },
+            {
+              label: "System and data",
+              collapsed: true,
+              items: [
+                { slug: "operations/data-retention" },
+                { slug: "operations/snapshot-history" },
+                { slug: "administration/system" },
+                { slug: "administration/import-export" },
+                { slug: "administration/dependency-graph" },
               ],
             },
           ],
@@ -257,10 +345,8 @@ export default defineConfig({
               collapsed: true,
               items: [
                 { slug: "operations/plugins" },
-                {
-                  slug: "operations/emergency-alerts",
-                  badge: { text: "US", variant: "note" },
-                },
+                // Pages each plugin declares in its tilecast.plugin.json.
+                ...pluginSidebarItems("plugins"),
               ],
             },
           ],
@@ -270,19 +356,77 @@ export default defineConfig({
           collapsed: true,
           items: [
             { slug: "integrations" },
-            { slug: "integrations/tokens" },
-            { slug: "integrations/manual-table" },
-            { slug: "integrations/fleet-health" },
-            { slug: "integrations/notifications" },
+            {
+              label: "Automate as a user",
+              collapsed: true,
+              items: [
+                { label: "Command-line interface", slug: "integrations/cli" },
+                { label: "MCP", slug: "integrations/mcp" },
+                {
+                  label: "Personal access tokens",
+                  slug: "integrations/personal-access-tokens",
+                },
+              ],
+            },
+            {
+              label: "Connect other systems",
+              collapsed: true,
+              items: [
+                { label: "Integration tokens", slug: "integrations/tokens" },
+                { slug: "integrations/manual-table" },
+                { slug: "integrations/fleet-health" },
+                { slug: "integrations/notifications" },
+              ],
+            },
           ],
         },
-        { slug: "developers" },
+        {
+          label: "Troubleshooting",
+          collapsed: true,
+          items: [
+            { slug: "troubleshooting" },
+            { slug: "troubleshooting/server" },
+            { slug: "troubleshooting/pairing-connectivity" },
+            { slug: "troubleshooting/playback" },
+            { slug: "troubleshooting/media" },
+            { slug: "troubleshooting/websites" },
+            { slug: "troubleshooting/player-updates" },
+            { slug: "troubleshooting/display-control" },
+            { slug: "troubleshooting/airplay-networks" },
+            { slug: "troubleshooting/sign-in" },
+          ],
+        },
+        {
+          label: "Developers",
+          collapsed: true,
+          items: [
+            { slug: "developers" },
+            { slug: "developers/demo-mode" },
+            { slug: "developers/testing" },
+            {
+              label: "Plugin development",
+              collapsed: true,
+              items: [
+                { slug: "developers/plugins" },
+                { slug: "developers/plugins/create" },
+                { slug: "developers/plugins/manifest" },
+                { slug: "developers/plugins/server" },
+                { slug: "developers/plugins/studio" },
+                { slug: "developers/plugins/player" },
+                { slug: "developers/plugins/data-sources" },
+                { slug: "developers/plugins/static-content" },
+                { slug: "developers/plugins/testing" },
+              ],
+            },
+          ],
+        },
         {
           label: "Reference",
           collapsed: true,
           items: [
             { slug: "reference" },
             { slug: "reference/api" },
+            { slug: "reference/content-definitions" },
             // Generated OpenAPI endpoint pages were already on main. Keep
             // them under Reference without adding or editing their content.
             createOpenAPISidebarGroup(),

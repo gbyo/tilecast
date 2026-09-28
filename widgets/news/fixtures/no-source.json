@@ -1,0 +1,17 @@
+{
+  "name": "No source",
+  "description": "News with no connected source reports the empty state instead of failing.",
+  "configuration": {
+    "dataSourceId": "",
+    "heading": "Latest news",
+    "maxStories": 8,
+    "showSummary": true,
+    "showPublicationTime": true,
+    "showSource": true,
+    "emptyText": "",
+    "displayStyle": "headlines",
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "expect": "empty"
+}

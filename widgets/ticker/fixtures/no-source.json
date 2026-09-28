@@ -1,0 +1,19 @@
+{
+  "name": "No source",
+  "description": "A Ticker with no connected source reports the empty state instead of failing.",
+  "configuration": {
+    "dataSourceId": "",
+    "primaryField": "",
+    "secondaryField": "",
+    "leadingLabel": "",
+    "separator": " • ",
+    "fieldSeparator": " — ",
+    "maxItems": 15,
+    "direction": "left",
+    "speed": "normal",
+    "emptyText": "",
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "expect": "empty"
+}

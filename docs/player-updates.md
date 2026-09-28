@@ -1,7 +1,8 @@
 # GitHub Player updates
 
-Tilecast distributes Android APK and Linux AppImage Player builds through signed
-published releases at `Gibsonmb71/tilecast`. No Google Play, Amazon Developer,
+Tilecast distributes Android APK and Linux AppImage Player builds, and Tilecast
+Edge release archives, through signed published releases at
+`Gibsonmb71/tilecast`. No Google Play, Amazon Developer,
 or paid Android developer account is required. Unknown-app installation remains
 a one-time local commissioning permission. On Android 12 and newer, eligible
 signed self-updates request Android's supported unattended-update mode. Older
@@ -23,6 +24,15 @@ Linux:
 - `tilecast-player-update-linux.json`
 - `tilecast-player-update-linux.json.sig`
 
+Tilecast Edge (one set for each architecture, `x86_64` or `aarch64`):
+
+- `tilecast-edge-<version>-<arch>.tar.zst`
+- `tilecast-edge-update-<arch>.json`
+- `tilecast-edge-update-<arch>.json.sig`
+
+A direct upload of an Edge release names the envelope `tilecast-edge-update.json`
+and its signature `tilecast-edge-update.json.sig`.
+
 The schema-1 JSON identifies `tilecast-player`, its platform, version code/name,
 stable or beta channel, artifact name/size/SHA-256, and release notes. Android
 also carries application ID `org.tilecast.player`, minimum SDK 23, and signing
@@ -30,6 +40,36 @@ certificate SHA-256. The signature is base64 Ed25519 over the exact JSON bytes.
 Official Tilecast Server builds include the public release-verification key.
 `TILECAST_UPDATE_MANIFEST_PUBLIC_KEY` may override it for custom Player builds;
 the private key is never installed on Tilecast Server.
+
+The Tilecast Edge JSON is the signed update envelope
+([`tilecast-edge.md`](tilecast-edge.md) §15). It identifies `tilecast-edge`,
+`playerFamily: "edge"`, platform `linux`, the architecture, the version code and
+name, the channel, the archive name, size and SHA-256, the SHA-256 of the signed
+release manifest inside the archive and of its SBOM, and the state database schema
+of the release. The same key signs it in the same way. The server refuses an Edge
+envelope that carries Android fields, a wrong archive name, an unknown
+architecture or a version code that does not match its version name.
+
+## Player families
+
+Every release belongs to one Player family:
+
+| Family           | Artifact                                 | Architecture               |
+| ---------------- | ---------------------------------------- | -------------------------- |
+| `android`        | `tilecast-player.apk`                    | Not architecture-specific. |
+| `electron-linux` | `tilecast-player.AppImage`               | Not architecture-specific. |
+| `edge`           | `tilecast-edge-<version>-<arch>.tar.zst` | `x86_64` or `aarch64`.     |
+
+A manifest without `playerFamily` is `android` or `electron-linux` by its
+platform. Version codes must increase within one family and architecture. A
+deployment reaches only screens of its release's family: a screen reports its
+family (`playerFamily`) and, for Edge, its architecture (`playerArchitecture`) in
+the heartbeat. An Edge screen that has not reported them, or reports another
+architecture, is `incompatible`. An Edge release never reaches an Electron or
+Android screen, and an Electron release never reaches an Edge screen. The
+Electron Player also refuses an `install_player_update` command whose
+`playerFamily` is `edge`. The `install_player_update` payload carries
+`playerFamily` and `expectedArtifactSha256` beside the existing fields.
 
 Drafts, arbitrary repositories, arbitrary asset names/URLs, invalid signatures, downgrades, incompatible SDK declarations, checksum mismatches, invalid APK signatures, and signing-certificate mismatches are rejected. A verified APK is streamed to a temporary file beneath `/data/updates`, checked, and atomically renamed. Players download only from their paired Tilecast server using authenticated range requests.
 
@@ -78,8 +118,9 @@ Authenticated GitHub requests receive a substantially higher API allowance than 
 The Owner starts sign-in in Studio, opens GitHub's device page, and enters the displayed one-time code. The private device code remains only in server memory. After approval, Tilecast validates the GitHub account and stores the access token in `/data/updates/github-oauth.json` with owner-only file permissions. The token is never returned through the API, audit metadata, diagnostics, or logs. Disconnecting removes the local credential; the GitHub account can separately revoke the OAuth App grant. `TILECAST_GITHUB_TOKEN` remains supported as an environment-managed override and cannot be disconnected from Studio.
 
 Owners and Administrators deploy a fully verified cached release to screens or
-sync groups. Studio and the server restrict Android releases to Android
-screens and Linux releases to Linux screens. Sync-group membership is resolved
+sync groups. Studio and the server restrict each release to screens of its
+family (and architecture, for Edge). Studio shows Android, Linux and Tilecast
+Edge on separate tabs. Sync-group membership is resolved
 at deployment start and duplicates are removed. Modes are download only,
 install now, and maintenance window. Screen states distinguish downloading,
 verification, permission/user approval, installation, reconnecting, success,
@@ -89,7 +130,8 @@ player never contacts GitHub.
 
 ## Reading a deployment in Studio
 
-The Android/Linux choice is held in the URL as `?platform=linux`, so a reload, a
+The Android, Linux or Tilecast Edge choice is held in the URL (`?platform=linux`,
+`?platform=edge`), so a reload, a
 bookmark, or the back button all return to the fleet the operator was reading
 rather than to Android.
 
@@ -134,7 +176,19 @@ Deployments may start with a deterministic canary cohort. Other targeted screens
 
 ## Settling a deployment
 
-A target in `reconnecting` becomes `succeeded` when an accepted heartbeat or bounded reconciliation confirms all of these conditions:
+A Tilecast Edge target settles only on the screen's explicit report. The Edge
+update helper keeps a new release provisional until the running release
+confirms it (a live server link, a ready renderer and meaningful playback
+evidence for 120 seconds), and only then does the screen send `succeeded`.
+Heartbeat reconciliation never settles an Edge target, and the server refuses a
+`succeeded` report for any other family. A release that does not confirm is
+rolled back on the screen, which reports `failed` with `installerStatus:
+"rolled_back"` and a reason code such as `confirmation_timeout`,
+`rebooted_while_provisional`, `candidate_daemon_restarting` or
+`candidate_daemon_failed`. A canary rollback pauses the deployment like any other
+canary failure.
+
+For the other families, a target in `reconnecting` becomes `succeeded` when an accepted heartbeat or bounded reconciliation confirms all of these conditions:
 
 - Player version code is at or above the expected version.
 - Player uptime is at least 120 seconds, or the Player does not report uptime.

@@ -14,7 +14,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/tilecast/tilecast/apps/server/internal/airplay"
-	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/presentnet"
 )
 
@@ -169,7 +168,12 @@ func (s *server) createAirplaySession(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 422, "airplay_audio_mode_invalid", "AirPlay v1 supports gateway-only audio or no audio.")
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	org, targetName, preferredGateway, screens, err := s.loadAirplayTarget(r.Context(), input.TargetType, input.TargetID)
 	if err != nil {
 		s.writeAirplayError(w, r, err)
@@ -522,7 +526,12 @@ func (s *server) stopAirplaySession(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 422, "airplay_reason_invalid", "The AirPlay stop reason is too long.")
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	record, err := s.getAirplayRecord(r.Context(), id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeError(w, 404, "airplay_session_not_found", "AirPlay session was not found.")

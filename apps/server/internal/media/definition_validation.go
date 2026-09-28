@@ -137,7 +137,7 @@ func (normalizer definitionConfigNormalizer) validateDataSourceFieldSelections(c
 
 func (normalizer definitionConfigNormalizer) normalizeField(ctx context.Context, field contentdefs.FieldDefinition, value any, path string) (any, error) {
 	switch field.Control {
-	case "text", "multiline_text", "color", "date", "datetime", "timezone", "currency_code", "url", "data_source", "data_source_field", "media_asset":
+	case "text", "multiline_text", "color", "date", "datetime", "local_datetime", "timezone", "currency_code", "url", "data_source", "data_source_field", "media_asset":
 		text, ok := value.(string)
 		if !ok {
 			return nil, fmt.Errorf("%s must be text", field.Label)
@@ -157,6 +157,10 @@ func (normalizer definitionConfigNormalizer) normalizeField(ctx context.Context,
 				text = currency.String()
 			}
 		case "color":
+			// An optional color left empty follows the display theme.
+			if text == "" && !field.Required {
+				break
+			}
 			if !definitionColorPattern.MatchString(text) {
 				return nil, fmt.Errorf("%s must be a hexadecimal color", field.Label)
 			}
@@ -174,6 +178,18 @@ func (normalizer definitionConfigNormalizer) normalizeField(ctx context.Context,
 					return nil, fmt.Errorf("%s must be an RFC 3339 datetime", field.Label)
 				}
 				text = parsed.UTC().Format(time.RFC3339)
+			}
+		case "local_datetime":
+			// A wall-clock time that a sibling timezone field interprets.
+			// Saved RFC 3339 instants from older releases stay valid.
+			if text != "" {
+				if _, err := time.Parse("2006-01-02T15:04", text); err != nil {
+					if _, err = time.Parse("2006-01-02T15:04:05", text); err != nil {
+						if _, err = time.Parse(time.RFC3339, text); err != nil {
+							return nil, fmt.Errorf("%s must be a local date and time", field.Label)
+						}
+					}
+				}
 			}
 		case "timezone":
 			if _, err := time.LoadLocation(text); err != nil {

@@ -140,26 +140,6 @@ WITH RECURSIVE refs(kind,id) AS (
 	JOIN refs r ON r.kind='plugin'
 	WHERE s.archived_at IS NULL
 	UNION
-	-- Brand Bug is a plugin dependency, not a playlist dependency. Its image
-	-- still has to invalidate the screen that draws it over every presentation.
-	SELECT s.id
-	FROM screens s
-	JOIN brand_bug_instances b ON b.enabled
-	JOIN refs r ON r.kind='asset' AND r.id=b.image_asset_id
-	WHERE s.archived_at IS NULL AND (
-		b.target_scope='all'
-		OR (b.target_scope='screens' AND EXISTS(
-			SELECT 1 FROM brand_bug_targets t
-			WHERE t.instance_id=b.id AND t.target_type='screens' AND t.target_id=s.id))
-		OR (b.target_scope='locations' AND EXISTS(
-			SELECT 1 FROM brand_bug_targets t
-			WHERE t.instance_id=b.id AND t.target_type='locations' AND t.target_id=s.location_id))
-		OR (b.target_scope='sync_groups' AND EXISTS(
-			SELECT 1 FROM brand_bug_targets t
-			JOIN screen_group_memberships m ON m.screen_group_id=t.target_id AND m.screen_id=s.id
-			WHERE t.instance_id=b.id AND t.target_type='sync_groups'))
-	)
-	UNION
 	-- Organization branding and website default fallbacks are projected into
 	-- every screen's player configuration. An asset mutation therefore has to
 	-- invalidate the configuration/manifest view even when no playlist names it.

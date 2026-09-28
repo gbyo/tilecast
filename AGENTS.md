@@ -44,7 +44,7 @@ Multi-zone layouts and proof-of-play were deferred through milestone 9 and have 
 
 ```text
 apps/server/                 Go application and embedded dashboard host
-  cmd/tilecast/              process startup and graceful shutdown
+  cmd/tilecast-server/     process startup, backup, restore, MFA reset
   internal/auth/             local users, passwords, dashboard sessions, MFA
   internal/config/           validated environment configuration
   internal/database/         pgx pool and embedded Goose migrations
@@ -52,16 +52,25 @@ apps/server/                 Go application and embedded dashboard host
   internal/discovery/        optional mDNS/DNS-SD advertisement
   internal/httpapi/          Chi routes, middleware, JSON contracts, WebSocket
   internal/web/              embedded dashboard files and SPA fallback
+apps/cli/                    remote management CLI (Cobra, no server internals)
+  cmd/tilecast/              CLI entrypoint
+  internal/cli/              handwritten command tree
+plugins/                     bundled first-party plugins, one directory each
+  <name>/tilecast.plugin.json  the plugin manifest (see docs/plugin-api.md)
+  registry_gen.go            generated Go registry; never edit
 apps/dashboard/              React, TypeScript, Vite, TanStack Query
   src/api/                   public browser contract types and fetch client
   src/auth/                  session state and forms
   src/content/               Widget and Data Source authoring controls
   src/navigation/            route metadata and workspace tab definitions
   src/pages/                 authenticated Studio routes
+  src/plugin-host/           plugin discovery and the @tilecast/studio surface
 apps/player-android/         native Android TV application
   app/src/main/              Compose UI and production player code
   app/src/test/              JVM unit tests
   app/src/androidTest/       emulator/device tests
+packages/player-runtime/      shared Player Runtime hosted by Electron and WPE
+packages/plugin-sdk/         Plugin API v1: manifest schema, Go SDK, pluginctl
 packages/api-schema/         reserved shared API contract boundary
 packages/manifest-schema/    reserved for the later player manifest
 packages/layout-schema/      reserved for renderer-neutral layouts
@@ -69,6 +78,7 @@ packages/design-tokens/      shared Studio visual tokens
 deploy/docker/               multi-stage image and Compose setup
 deploy/cloudflare/           optional Tunnel guidance
 docs/                        architecture, API, pairing, deployment, TV setup
+apps/docs/                   public documentation site (Astro Starlight)
 ```
 
 The server is a modular monolith. Preserve small domain packages and thin HTTP handlers. Do not scatter SQL through React code or unrelated handler files.
@@ -159,9 +169,17 @@ Do not store or trust a player-supplied online string. `internal/devices/status.
 
 Return computed status and `lastContactAt`. Do not duplicate the thresholds in React or Android.
 
+### Plugins
+
+A bundled plugin is a directory below `plugins/`. Read [`docs/plugin-api.md`](docs/plugin-api.md) before you change a plugin or the plugin host.
+
+- Keep everything unique to a plugin in its directory. Do not add a plugin identifier to core code; extend the SDK contribution interfaces instead.
+- Plugins import only the plugin SDK, `@tilecast/studio`, and their own files. `npm run plugins:check` enforces this.
+- Never edit generated files: `plugins/registry_gen.go`, `.github/CODEOWNERS`, `docs/openapi.yaml`, `packages/plugin-sdk/schema/tilecast-plugin.schema.json`, and `apps/server/internal/database/migrations.lock.json`. Run `npm run plugins:generate`.
+
 ### Database migrations
 
-Migration files are sequential under `apps/server/internal/database/migrations`.
+Migration files share one sequence. Core files are under `apps/server/internal/database/migrations`; a plugin's files are under `plugins/<name>/migrations`. Reserve a version with `npm run plugins:migration -- <plugin_id|core> <name>`.
 
 - Every file needs `-- +goose Up` and a valid `-- +goose Down` section.
 - Never edit a migration after it has shipped; add a new migration.
@@ -180,7 +198,7 @@ Milestone 3 media tables should reference generated asset IDs. Uploaded filename
 - Zustand is reserved for complex local editor state
 - design tokens come from `packages/design-tokens`
 
-Keep UI state separate from API state. New server operations belong in `src/api/client.ts`; public types belong in `src/api/types.ts`. Polling is currently used for screen status, at a ten-second interval.
+Keep UI state separate from API state. New server operations belong in `src/api/client.ts`; public types belong in `src/api/types.ts`. Plugin-owned operations and types belong in `plugins/<name>/studio/` and reach the API through `studioRequest`; the `src/api` rule above covers non-plugin server operations. Polling is currently used for screen status, at a ten-second interval.
 
 Studio is localized with react-i18next (English source, Spanish, Russian). Follow [`docs/localization.md`](docs/localization.md): new user-visible text goes through `t()` with keys added to every locale in `src/locales/`, never as a hard-coded English literal. Keep English copy unchanged when converting an existing string, because tests assert on it. `npm run i18n:scan -- --check <path>` must be clean for any file you convert.
 
@@ -257,6 +275,13 @@ make check
 make build
 ```
 
+Plugins only:
+
+```sh
+npm run plugins:check      # manifests, boundaries, generated files
+npm run plugins:generate   # rewrite generated files
+```
+
 Dashboard only:
 
 ```sh
@@ -273,13 +298,23 @@ cd apps/server
 gofmt -w $(find . -name '*.go' -type f)
 go vet ./...
 go test ./...
-go build ./cmd/tilecast
+go build ./cmd/tilecast-server
 ```
 
 PostgreSQL integration tests run when `TEST_DATABASE_URL` is set. Test packages use a shared PostgreSQL advisory lock so package-level integration tests do not truncate each other's fixtures.
 
 ```sh
 TEST_DATABASE_URL='postgres://localhost:5432/tilecast_test?sslmode=disable' go test ./...
+```
+
+Remote CLI only:
+
+```sh
+cd apps/cli
+gofmt -w $(find . -name '*.go' -type f)
+go vet ./...
+go test ./...
+go build ./cmd/tilecast
 ```
 
 Android:
@@ -306,7 +341,8 @@ Do not commit:
 
 - `.env` files
 - `node_modules`, Vite `dist`, Gradle `.gradle`, or Android `build`
-- `apps/server/tilecast`
+- `apps/server/tilecast-server`
+- `apps/cli/tilecast`
 - private signing keys or signing passwords
 - Android `local.properties`
 - temporary PostgreSQL data
@@ -316,7 +352,8 @@ Expected local outputs:
 - debug APK: `apps/player-android/app/build/outputs/apk/debug/app-debug.apk`
 - unsigned release APK: `apps/player-android/app/build/outputs/apk/release/app-release-unsigned.apk`
 - dashboard bundle: `apps/dashboard/dist`
-- local server binary: `apps/server/tilecast`
+- local server binary: `apps/server/tilecast-server`
+- local remote CLI binary: `apps/cli/tilecast`
 - Docker image: `tilecast/server:local`
 
 The source `apps/server/internal/web/static/index.html` is a development fallback. Docker and `make build` replace it with the compiled dashboard before building the production server binary. Avoid accidentally committing generated hashed assets there.
@@ -333,7 +370,8 @@ Update documentation with the implementation, not afterward as an approximation.
 
 - `README.md`
 - `docs/architecture.md`
-- `docs/api.md` and `docs/openapi.yaml`
+- `docs/api.md`, `docs/openapi/core.yaml`, and each plugin's `api/openapi.yaml` (the composed `docs/openapi.yaml` is generated)
+- `docs/plugin-api.md`
 - `docs/player-protocol.md`
 - `docs/device-credential-security.md`
 - `docs/android-development.md`
@@ -341,6 +379,13 @@ Update documentation with the implementation, not afterward as an approximation.
 - `docs/deployment.md`
 - `docs/troubleshooting.md`
 - `docs/localization.md`
+
+Tilecast has two documentation sets, and a change must update both where it applies:
+
+- **Engineering docs** in `docs/` are the specifications and contracts listed above. They follow the ASD-STE100 rules in `docs/documentation-style.md`, checked by `make docs-check`.
+- **The public docs site** in `apps/docs/src/content/docs/` is what installers, operators, and contributors read. Update it in the same change whenever you add or change something a user can see or do: a Studio feature, a setting, an install or upgrade step, a Player behavior, or a contributor workflow. It follows `apps/docs/STYLE.md`, not the ASD-STE100 rules. Register a new page in the sidebar in `apps/docs/astro.config.mjs`, link to the engineering doc for the exact contract instead of restating it, and run `npm run docs:build`, which also checks internal links.
+
+A change that only touches internals with no user-visible effect does not need a public docs page.
 
 For Milestone 3 also document media storage, upload limits, FFmpeg inspection/transcoding behavior, range requests, cleanup semantics, and backup implications.
 

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/netip"
 	"net/url"
 	"strconv"
 	"strings"
@@ -110,6 +111,8 @@ type WidgetPresentation struct {
 	RequiredCapabilities map[string]int          `json:"requiredCapabilities"`
 	Native               *NativePresentation     `json:"native,omitempty"`
 	Web                  *WebSandboxPresentation `json:"web,omitempty"`
+	// Component is set for kind "component" (manifest v16, docs/widgets-v2.md).
+	Component *ComponentPresentation `json:"component,omitempty"`
 }
 
 type NativePresentation struct {
@@ -371,7 +374,21 @@ func coerceDocumentValue(kind, raw string) DocumentValue {
 	return DocumentValue{Kind: "text", Text: &raw}
 }
 
+// compileWidgetPresentation compiles a Widget's compatibility presentation:
+// the native or web presentation every capability-reporting Player before
+// Widgets V2 renders. A Widget whose component has no compatibility fallback
+// returns nil; compileWidgetComponent compiles its component.
 func (s *Service) compileWidgetPresentation(provider string, raw json.RawMessage) (*WidgetPresentation, error) {
+	return s.compileWidgetPresentationWithPolicy(provider, raw, false)
+}
+
+// compileWidgetPresentationWithPolicy is the HTTPS-default compiler with an
+// explicit private HTTP allowance. Tests use compileWidgetPresentation and
+// keep the default; request paths pass the organization's flag.
+func (s *Service) compileWidgetPresentationWithPolicy(provider string, raw json.RawMessage, allowPrivateHTTP bool) (*WidgetPresentation, error) {
+	if definition, ok := s.definitions.Widget(provider); ok && !definition.HasFallback() {
+		return nil, nil
+	}
 	if definition, ok := s.definitions.Widget(provider); ok && !definition.LegacyEditor {
 		return compileDefinitionPresentation(definition, raw)
 	}
@@ -385,7 +402,7 @@ func (s *Service) compileWidgetPresentation(provider string, raw json.RawMessage
 		return nil, err
 	}
 	if provider == "website" || provider == "youtube" {
-		return compileWebPresentation(provider, c)
+		return compileWebPresentation(provider, c, allowPrivateHTTP)
 	}
 	root, capabilities, err := compileNativeRoot(provider, c)
 	if err != nil {
@@ -557,9 +574,10 @@ func resolveDefinitionTemplate(value any, configuration map[string]any) (any, bo
 	}
 }
 
-func (s *Service) compileWidgetPresentationForPreset(provider string, presetID *string, raw json.RawMessage) (*WidgetPresentation, error) {
-	presentation, err := s.compileWidgetPresentation(provider, raw)
-	if err != nil || presetID == nil || presentation.Native == nil {
+func (s *Service) compileWidgetPresentationForPreset(provider string, presetID *string, raw json.RawMessage, allowPrivateHTTP bool) (*WidgetPresentation, error) {
+	presentation, err := s.compileWidgetPresentationWithPolicy(provider, raw, allowPrivateHTTP)
+	// A Widget without a compatibility presentation compiles to nil.
+	if err != nil || presetID == nil || presentation == nil || presentation.Native == nil {
 		return presentation, err
 	}
 	switch *presetID {
@@ -601,11 +619,31 @@ func promoteLastTextToBadge(node *PresentationNode) bool {
 	return false
 }
 
-func (s *Service) CompileWidgetPresentation(provider string, raw json.RawMessage) (*WidgetPresentation, error) {
-	return s.compileWidgetPresentation(provider, raw)
+func (s *Service) CompileWidgetPresentation(provider string, raw json.RawMessage, allowPrivateHTTP bool) (*WidgetPresentation, error) {
+	return s.compileWidgetPresentationWithPolicy(provider, raw, allowPrivateHTTP)
 }
 
-func compileWebPresentation(provider string, c map[string]any) (*WidgetPresentation, error) {
+// privateHost mirrors media.privateHost: the loopback, private, link-local,
+// localhost and .local destinations the private HTTP policy covers.
+func privateHost(host string) bool {
+	h := strings.ToLower(host)
+	if h == "localhost" || strings.HasSuffix(h, ".local") {
+		return true
+	}
+	ip, err := netip.ParseAddr(h)
+	return err == nil && (ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast())
+}
+
+// webSchemeAllowed mirrors the website asset policy: HTTPS always, plain
+// HTTP only for private destinations when the organization enables it.
+func webSchemeAllowed(parsed *url.URL, allowPrivateHTTP bool) bool {
+	if parsed.Scheme == "https" {
+		return true
+	}
+	return allowPrivateHTTP && parsed.Scheme == "http" && privateHost(parsed.Hostname())
+}
+
+func compileWebPresentation(provider string, c map[string]any, allowPrivateHTTP bool) (*WidgetPresentation, error) {
 	rawURL, _ := c["url"].(string)
 	if provider == "youtube" {
 		videoID := stringValue(c, "videoId", "")
@@ -617,7 +655,7 @@ func compileWebPresentation(provider string, c map[string]any) (*WidgetPresentat
 		}
 	}
 	parsed, err := url.Parse(rawURL)
-	if err != nil || parsed.Scheme != "https" || parsed.Hostname() == "" {
+	if err != nil || parsed.Hostname() == "" || !webSchemeAllowed(parsed, allowPrivateHTTP) {
 		return nil, errors.New("web presentation URL is invalid")
 	}
 	hosts := stringSlice(c["allowedHosts"])
@@ -663,6 +701,17 @@ func compileNativeRoot(provider string, c map[string]any) (PresentationNode, map
 	text := func(binding PresentationBinding, role string) PresentationNode {
 		return PresentationNode{Type: "text", Props: map[string]any{"color": foreground, "role": role}, Binding: &binding}
 	}
+	// A Clock saved in its date or world clocks mode renders like the
+	// retired Date and World Clock Widgets on Players that predate Clock V2.
+	if provider == "clock" {
+		switch stringValue(c, "mode", "time") {
+		case "date":
+			provider = "date"
+			c["format"] = stringValue(c, "dateFormat", "locale")
+		case "world":
+			provider = "world_clock"
+		}
+	}
 	switch provider {
 	case "clock":
 		surface.Children = []PresentationNode{text(PresentationBinding{Source: "environment", Path: "currentTime", Format: "time:" + stringValue(c, "format", "locale") + ":" + strconv.FormatBool(boolValue(c["showSeconds"])) + ":" + stringValue(c, "timezone", "")}, "metric")}
@@ -698,7 +747,11 @@ func compileNativeRoot(provider string, c map[string]any) (PresentationNode, map
 		caps["format.typed"] = 2
 		caps["environment.time"] = 1
 	case "qrcode":
-		surface.Children = []PresentationNode{{Type: "qr_code", Props: map[string]any{"errorCorrection": stringValue(c, "errorCorrection", "medium")}, Binding: &PresentationBinding{Source: "literal", Value: stringValue(c, "value", "")}}, text(PresentationBinding{Source: "literal", Value: stringValue(c, "label", "")}, "label")}
+		// The QR Code V2 editor saves payload and shortLabel in place of the
+		// legacy value and label keys.
+		payload := stringValue(c, "payload", stringValue(c, "value", ""))
+		label := stringValue(c, "shortLabel", stringValue(c, "label", ""))
+		surface.Children = []PresentationNode{{Type: "qr_code", Props: map[string]any{"errorCorrection": stringValue(c, "errorCorrection", "medium")}, Binding: &PresentationBinding{Source: "literal", Value: payload}}, text(PresentationBinding{Source: "literal", Value: label}, "label")}
 		caps["content.qr_code"] = 1
 	case "world_clock":
 		zones, _ := c["zones"].([]any)
@@ -706,13 +759,19 @@ func compileNativeRoot(provider string, c map[string]any) (PresentationNode, map
 		for _, rawZone := range zones {
 			zone, _ := rawZone.(map[string]any)
 			timeNode := text(PresentationBinding{Source: "environment", Path: "currentTime", Format: "time:" + stringValue(c, "format", "locale") + ":" + strconv.FormatBool(boolValue(c["showSeconds"])) + ":" + stringValue(zone, "timezone", "")}, "metric")
-			zoneChildren := []PresentationNode{text(PresentationBinding{Source: "literal", Value: stringValue(zone, "label", "")}, "label"), timeNode}
+			// World clocks leave a label blank to show the zone's city.
+			label := stringValue(zone, "label", "")
+			if label == "" {
+				city := stringValue(zone, "timezone", "")
+				label = strings.ReplaceAll(city[strings.LastIndex(city, "/")+1:], "_", " ")
+			}
+			zoneChildren := []PresentationNode{text(PresentationBinding{Source: "literal", Value: label}, "label"), timeNode}
 			if boolValue(c["showDate"]) {
 				zoneChildren = append(zoneChildren, text(PresentationBinding{Source: "environment", Path: "currentTime", Format: "date:medium:" + stringValue(zone, "timezone", "")}, "body"))
 			}
 			children = append(children, PresentationNode{Type: "column", Props: map[string]any{"card": true}, Children: zoneChildren})
 		}
-		surface.Children = []PresentationNode{{Type: "grid", Props: map[string]any{"columns": intValue(c["columns"], 2)}, Children: children}}
+		surface.Children = []PresentationNode{{Type: "grid", Props: map[string]any{"columns": intValue(c["columns"], clampInt(len(zones), 1, 4))}, Children: children}}
 		caps["layout.grid"] = 1
 		caps["environment.time"] = 1
 	case "ticker":

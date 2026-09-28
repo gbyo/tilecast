@@ -1,0 +1,8 @@
+{
+  "frame": {
+    "type": "request",
+    "id": "r1",
+    "method": "credential.get",
+    "params": {}
+  }
+}
