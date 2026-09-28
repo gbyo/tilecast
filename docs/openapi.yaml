@@ -683,7 +683,15 @@ paths:
         - { $ref: "#/components/parameters/ResourceID" }
         - { $ref: "#/components/parameters/CSRFToken" }
       responses:
-        "201": { description: Playlist duplicated }
+        "201":
+          description: Playlist duplicated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Playlist" }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
   /api/v1/playlists/{id}/revisions:
@@ -694,7 +702,15 @@ paths:
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses:
-        "200": { description: Playlist revisions }
+        "200":
+          description: Playlist revisions
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PlaylistRevisionList" }
         "401": { description: Dashboard authentication required }
   /api/v1/playlists/{id}/revisions/{revision}/restore:
     post:
@@ -709,7 +725,15 @@ paths:
           schema: { type: string }
         - { $ref: "#/components/parameters/CSRFToken" }
       responses:
-        "200": { description: Revision copied into a new draft revision }
+        "200":
+          description: Revision copied into a new draft revision
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PlaylistRestoreResult" }
         "400": { description: Revision invalid }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
@@ -3256,7 +3280,16 @@ paths:
             name: pageSize,
             schema: { type: integer, minimum: 1, maximum: 100 },
           }
-      responses: { "200": { description: Paginated playlist list } }
+      responses:
+        "200":
+          description: Paginated playlist list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PlaylistList" }
     post:
       operationId: createPlaylist
       description: >-
@@ -3279,27 +3312,47 @@ paths:
                     description: static creates a manually ordered timeline; tag creates an initially empty tag-driven playlist,
                   }
       responses:
-        {
-          "201": { description: Playlist created },
-          "403": { description: Viewer is read-only },
-        }
+        "201":
+          description: Playlist created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Playlist" }
+        "403": { description: Viewer is read-only }
   /api/v1/playlists/{id}:
     parameters: [{ $ref: "#/components/parameters/ResourceID" }]
     get:
-      {
-        description: "Get playlist. Requires an authenticated dashboard user.",
-
-        operationId: getPlaylist,
-        security: [{ sessionCookie: [] }, { userBearer: [] }],
-        responses: { "200": { description: Playlist and ordered items } },
-      }
+      operationId: getPlaylist
+      description: "Get playlist. Requires an authenticated dashboard user."
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      responses:
+        "200":
+          description: Playlist and ordered items
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Playlist" }
     patch:
       operationId: updatePlaylist
       description: >-
         Update playlist. Requires an authenticated dashboard user.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
       responses:
-        { "200": { description: Playlist updated and revision incremented } }
+        "200":
+          description: Playlist updated and revision incremented
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Playlist" }
     delete:
       operationId: deletePlaylist
       description: >-
@@ -3356,10 +3409,16 @@ paths:
               { schema: { $ref: "#/components/schemas/PlaylistItemInput" } },
           }
       responses:
-        {
-          "201": { description: Ready asset added transactionally },
-          "422": { description: Invalid or unavailable asset },
-        }
+        "201":
+          description: Ready asset added transactionally
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Playlist" }
+        "422": { description: Invalid or unavailable asset }
   /api/v1/playlists/{id}/items/order:
     put:
       operationId: reorderPlaylistItems
@@ -3369,7 +3428,15 @@ paths:
         - $ref: "#/components/parameters/ResourceID"
         - $ref: "#/components/parameters/CSRFToken"
       responses:
-        { "200": { description: Complete item order replaced transactionally } }
+        "200":
+          description: Complete item order replaced transactionally
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Playlist" }
   /api/v1/playlists/{id}/items/bulk:
     put:
       operationId: bulkUpdatePlaylistItems
@@ -3384,17 +3451,20 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/PlaylistBulkItemInput" }
       responses:
-        {
-          "200":
-            {
-              description: Selected static playlist items updated transactionally,
-            },
-          "409":
-            {
-              description: Tag-driven playlists do not support manual item updates,
-            },
-          "422": { description: Invalid bulk update or item selection },
-        }
+        "200":
+          description: Selected static playlist items updated transactionally
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Playlist" }
+        "409":
+          {
+            description: Tag-driven playlists do not support manual item updates,
+          }
+        "422": { description: Invalid bulk update or item selection }
   /api/v1/playlists/{id}/tag-rule:
     put:
       operationId: setPlaylistTagRule
@@ -3409,10 +3479,16 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/PlaylistTagRuleInput" }
       responses:
-        {
-          "200": { description: Playlist source and tag rule updated },
-          "422": { description: Invalid tag rule },
-        }
+        "200":
+          description: Playlist source and tag rule updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Playlist" }
+        "422": { description: Invalid tag rule }
   /api/v1/playlists/{id}/items/{itemId}:
     parameters:
       - $ref: "#/components/parameters/ResourceID"
@@ -3427,17 +3503,31 @@ paths:
       description: >-
         Update playlist item. Requires an authenticated dashboard user.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
-      responses: { "200": { description: Playback settings updated } }
+      responses:
+        "200":
+          description: Playback settings updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Playlist" }
     delete:
       operationId: deletePlaylistItem
       description: >-
         Delete playlist item. Requires an authenticated dashboard user.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
       responses:
-        {
-          "200":
-            { description: Item removed and remaining positions normalized },
-        }
+        "200":
+          description: Item removed and remaining positions normalized
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Playlist" }
   /api/v1/screens/{id}/playlist-assignment:
     parameters: [{ $ref: "#/components/parameters/ResourceID" }]
     get:
@@ -7678,6 +7768,226 @@ components:
             minimum: 1,
             description: Fixed duration applied to image items.,
           }
+    PlaylistItem:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          assetId,
+          position,
+          fitMode,
+          transition,
+          audioEnabled,
+          volume,
+          deliveryPolicy,
+          usePlayerDefaults,
+          assetName,
+          assetType,
+          assetStatus,
+          thumbnailUrl,
+          createdAt,
+          updatedAt,
+          dynamic,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        assetId: { type: string, format: uuid }
+        layoutId:
+          {
+            type: string,
+            format: uuid,
+            description: Fullscreen Layout played for durationMs,
+          }
+        position: { type: integer, minimum: 0 }
+        durationMs: { type: integer, format: int64, minimum: 1 }
+        fitMode: { type: string, enum: [contain, cover, stretch] }
+        transition: { type: string, enum: [none, fade, crossfade] }
+        audioEnabled: { type: boolean }
+        volume: { type: number, minimum: 0, maximum: 1 }
+        videoStartOffsetMs: { type: integer, format: int64, minimum: 0 }
+        videoEndOffsetMs: { type: integer, format: int64, minimum: 1 }
+        deliveryPolicy: { type: string, enum: [download, stream, automatic] }
+        usePlayerDefaults: { type: boolean }
+        assetName: { type: string }
+        assetType: { type: string, enum: [image, video, widget, layout] }
+        widgetProvider: { type: string }
+        assetStatus:
+          type: string
+          description: >-
+            Media lifecycle status (uploading through deleted); `draft` when the item points at a Layout with no published revision.
+        assetDurationSeconds: { type: number, minimum: 0 }
+        thumbnailUrl: { type: string }
+        variantId: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        availableFrom: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        dynamic: { type: boolean }
+    PlaylistPreviewItem:
+      type: object
+      additionalProperties: false
+      required: [id, name, type]
+      description: >-
+        Compact visual metadata returned with playlist list rows. Playback configuration is omitted; the playlist detail read stays the source of truth for it.
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        type: { type: string, enum: [image, video, widget, layout] }
+        thumbnailUrl: { type: string }
+    PlaylistLayoutUsage:
+      type: object
+      additionalProperties: false
+      required: [id, name, published]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        published: { type: boolean }
+    PlaylistUsageItem:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+    PlaylistUsage:
+      type: object
+      additionalProperties: false
+      description: >-
+        Screens, schedules, and campaigns that play a playlist. Populated on the detail read only, and shaped like the Layout usage read so one panel renders both.
+      required: [screens, schedules, campaigns]
+      properties:
+        screens:
+          type: array
+          items: { $ref: "#/components/schemas/PlaylistUsageItem" }
+        schedules:
+          type: array
+          items: { $ref: "#/components/schemas/PlaylistUsageItem" }
+        campaigns:
+          type: array
+          items: { $ref: "#/components/schemas/PlaylistUsageItem" }
+    PlaylistTagRule:
+      type: object
+      additionalProperties: false
+      required: [match, imageDurationMs, tags]
+      properties:
+        match: { type: string, enum: [any, all] }
+        imageDurationMs: { type: integer, minimum: 0 }
+        tags:
+          type: array
+          items: { $ref: "#/components/schemas/ContentTag" }
+    Playlist:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          name,
+          description,
+          revision,
+          hasUnpublishedChanges,
+          createdAt,
+          updatedAt,
+          items,
+          itemCount,
+          warnings,
+          layoutUsage,
+          sourceType,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+        revision: { type: integer, format: int64 }
+        draftRevision: { type: integer, format: int64 }
+        publishedRevision: { type: integer, format: int64 }
+        hasUnpublishedChanges: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/PlaylistItem" }
+        itemCount: { type: integer, minimum: 0 }
+        warnings:
+          type: array
+          items: { type: string }
+        layoutUsage:
+          type: array
+          items: { $ref: "#/components/schemas/PlaylistLayoutUsage" }
+        usage:
+          oneOf:
+            - { $ref: "#/components/schemas/PlaylistUsage" }
+            - { type: "null" }
+          description: >-
+            Null on list rows; populated on the detail read only.
+        previewItems:
+          type: array
+          description: >-
+            Compact visual metadata returned by playlist list requests.
+          items: { $ref: "#/components/schemas/PlaylistPreviewItem" }
+        dataSourceIds:
+          type: [array, "null"]
+          description: >-
+            Data Sources reached through this playlist's items. Only IDs; null on list rows and populated on the detail read only.
+          items: { type: string, format: uuid }
+        sourceType: { type: string, enum: [static, tag] }
+        tagRule: { $ref: "#/components/schemas/PlaylistTagRule" }
+    PlaylistList:
+      type: object
+      additionalProperties: false
+      required: [items, total, page, pageSize]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Playlist" }
+        total: { type: integer, minimum: 0 }
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1 }
+    PlaylistRevision:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          revision,
+          name,
+          itemCount,
+          sourceType,
+          createdAt,
+          isCurrent,
+          restorable,
+          missingReferences,
+        ]
+      properties:
+        revision: { type: integer, format: int64, minimum: 1 }
+        name: { type: string }
+        itemCount: { type: integer, minimum: 0 }
+        sourceType: { type: string }
+        createdAt: { type: string, format: date-time }
+        createdBy: { type: string, format: uuid }
+        authorName: { type: string }
+        isCurrent: { type: boolean }
+        restorable: { type: boolean }
+        missingReferences: { type: integer, minimum: 0 }
+    PlaylistRevisionList:
+      type: object
+      additionalProperties: false
+      required: [items, kept]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/PlaylistRevision" }
+        kept: { type: integer, minimum: 1 }
+    PlaylistRestoreResult:
+      type: object
+      additionalProperties: false
+      description: >-
+        A restore is a new edit, not a rewind of history: the state it replaced stays in the history. Skipped items are never resurrected and never silently dropped.
+      required: [playlist, restoredFrom, newRevision, skippedItems]
+      properties:
+        playlist: { $ref: "#/components/schemas/Playlist" }
+        restoredFrom: { type: integer, format: int64, minimum: 1 }
+        newRevision: { type: integer, format: int64, minimum: 1 }
+        skippedItems: { type: integer, minimum: 0 }
     PresentationReference:
       type: object
       additionalProperties: false

@@ -684,6 +684,24 @@ func (e PlayerReleaseVerificationStatus) Valid() bool {
 	}
 }
 
+// Defines values for PlaylistSourceType.
+const (
+	PlaylistSourceTypeStatic PlaylistSourceType = "static"
+	PlaylistSourceTypeTag    PlaylistSourceType = "tag"
+)
+
+// Valid indicates whether the value is a known member of the PlaylistSourceType enum.
+func (e PlaylistSourceType) Valid() bool {
+	switch e {
+	case PlaylistSourceTypeStatic:
+		return true
+	case PlaylistSourceTypeTag:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PlaylistBulkItemInputTransition.
 const (
 	PlaylistBulkItemInputTransitionCrossfade PlaylistBulkItemInputTransition = "crossfade"
@@ -705,21 +723,108 @@ func (e PlaylistBulkItemInputTransition) Valid() bool {
 	}
 }
 
+// Defines values for PlaylistItemAssetType.
+const (
+	PlaylistItemAssetTypeImage  PlaylistItemAssetType = "image"
+	PlaylistItemAssetTypeLayout PlaylistItemAssetType = "layout"
+	PlaylistItemAssetTypeVideo  PlaylistItemAssetType = "video"
+	PlaylistItemAssetTypeWidget PlaylistItemAssetType = "widget"
+)
+
+// Valid indicates whether the value is a known member of the PlaylistItemAssetType enum.
+func (e PlaylistItemAssetType) Valid() bool {
+	switch e {
+	case PlaylistItemAssetTypeImage:
+		return true
+	case PlaylistItemAssetTypeLayout:
+		return true
+	case PlaylistItemAssetTypeVideo:
+		return true
+	case PlaylistItemAssetTypeWidget:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PlaylistItemDeliveryPolicy.
+const (
+	PlaylistItemDeliveryPolicyAutomatic PlaylistItemDeliveryPolicy = "automatic"
+	PlaylistItemDeliveryPolicyDownload  PlaylistItemDeliveryPolicy = "download"
+	PlaylistItemDeliveryPolicyStream    PlaylistItemDeliveryPolicy = "stream"
+)
+
+// Valid indicates whether the value is a known member of the PlaylistItemDeliveryPolicy enum.
+func (e PlaylistItemDeliveryPolicy) Valid() bool {
+	switch e {
+	case PlaylistItemDeliveryPolicyAutomatic:
+		return true
+	case PlaylistItemDeliveryPolicyDownload:
+		return true
+	case PlaylistItemDeliveryPolicyStream:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PlaylistItemFitMode.
+const (
+	PlaylistItemFitModeContain PlaylistItemFitMode = "contain"
+	PlaylistItemFitModeCover   PlaylistItemFitMode = "cover"
+	PlaylistItemFitModeStretch PlaylistItemFitMode = "stretch"
+)
+
+// Valid indicates whether the value is a known member of the PlaylistItemFitMode enum.
+func (e PlaylistItemFitMode) Valid() bool {
+	switch e {
+	case PlaylistItemFitModeContain:
+		return true
+	case PlaylistItemFitModeCover:
+		return true
+	case PlaylistItemFitModeStretch:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PlaylistItemTransition.
+const (
+	PlaylistItemTransitionCrossfade PlaylistItemTransition = "crossfade"
+	PlaylistItemTransitionFade      PlaylistItemTransition = "fade"
+	PlaylistItemTransitionNone      PlaylistItemTransition = "none"
+)
+
+// Valid indicates whether the value is a known member of the PlaylistItemTransition enum.
+func (e PlaylistItemTransition) Valid() bool {
+	switch e {
+	case PlaylistItemTransitionCrossfade:
+		return true
+	case PlaylistItemTransitionFade:
+		return true
+	case PlaylistItemTransitionNone:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PlaylistItemInputDeliveryPolicy.
 const (
-	Automatic PlaylistItemInputDeliveryPolicy = "automatic"
-	Download  PlaylistItemInputDeliveryPolicy = "download"
-	Stream    PlaylistItemInputDeliveryPolicy = "stream"
+	PlaylistItemInputDeliveryPolicyAutomatic PlaylistItemInputDeliveryPolicy = "automatic"
+	PlaylistItemInputDeliveryPolicyDownload  PlaylistItemInputDeliveryPolicy = "download"
+	PlaylistItemInputDeliveryPolicyStream    PlaylistItemInputDeliveryPolicy = "stream"
 )
 
 // Valid indicates whether the value is a known member of the PlaylistItemInputDeliveryPolicy enum.
 func (e PlaylistItemInputDeliveryPolicy) Valid() bool {
 	switch e {
-	case Automatic:
+	case PlaylistItemInputDeliveryPolicyAutomatic:
 		return true
-	case Download:
+	case PlaylistItemInputDeliveryPolicyDownload:
 		return true
-	case Stream:
+	case PlaylistItemInputDeliveryPolicyStream:
 		return true
 	default:
 		return false
@@ -728,19 +833,19 @@ func (e PlaylistItemInputDeliveryPolicy) Valid() bool {
 
 // Defines values for PlaylistItemInputFitMode.
 const (
-	Contain PlaylistItemInputFitMode = "contain"
-	Cover   PlaylistItemInputFitMode = "cover"
-	Stretch PlaylistItemInputFitMode = "stretch"
+	PlaylistItemInputFitModeContain PlaylistItemInputFitMode = "contain"
+	PlaylistItemInputFitModeCover   PlaylistItemInputFitMode = "cover"
+	PlaylistItemInputFitModeStretch PlaylistItemInputFitMode = "stretch"
 )
 
 // Valid indicates whether the value is a known member of the PlaylistItemInputFitMode enum.
 func (e PlaylistItemInputFitMode) Valid() bool {
 	switch e {
-	case Contain:
+	case PlaylistItemInputFitModeContain:
 		return true
-	case Cover:
+	case PlaylistItemInputFitModeCover:
 		return true
-	case Stretch:
+	case PlaylistItemInputFitModeStretch:
 		return true
 	default:
 		return false
@@ -762,6 +867,48 @@ func (e PlaylistItemInputTransition) Valid() bool {
 	case PlaylistItemInputTransitionFade:
 		return true
 	case PlaylistItemInputTransitionNone:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PlaylistPreviewItemType.
+const (
+	PlaylistPreviewItemTypeImage  PlaylistPreviewItemType = "image"
+	PlaylistPreviewItemTypeLayout PlaylistPreviewItemType = "layout"
+	PlaylistPreviewItemTypeVideo  PlaylistPreviewItemType = "video"
+	PlaylistPreviewItemTypeWidget PlaylistPreviewItemType = "widget"
+)
+
+// Valid indicates whether the value is a known member of the PlaylistPreviewItemType enum.
+func (e PlaylistPreviewItemType) Valid() bool {
+	switch e {
+	case PlaylistPreviewItemTypeImage:
+		return true
+	case PlaylistPreviewItemTypeLayout:
+		return true
+	case PlaylistPreviewItemTypeVideo:
+		return true
+	case PlaylistPreviewItemTypeWidget:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PlaylistTagRuleMatch.
+const (
+	PlaylistTagRuleMatchAll PlaylistTagRuleMatch = "all"
+	PlaylistTagRuleMatchAny PlaylistTagRuleMatch = "any"
+)
+
+// Valid indicates whether the value is a known member of the PlaylistTagRuleMatch enum.
+func (e PlaylistTagRuleMatch) Valid() bool {
+	switch e {
+	case PlaylistTagRuleMatchAll:
+		return true
+	case PlaylistTagRuleMatchAny:
 		return true
 	default:
 		return false
@@ -2018,16 +2165,16 @@ func (e DescribeOAuthApprovalParamsCodeChallengeMethod) Valid() bool {
 
 // Defines values for CreatePlaylistJSONBodySourceType.
 const (
-	Static CreatePlaylistJSONBodySourceType = "static"
-	Tag    CreatePlaylistJSONBodySourceType = "tag"
+	CreatePlaylistJSONBodySourceTypeStatic CreatePlaylistJSONBodySourceType = "static"
+	CreatePlaylistJSONBodySourceTypeTag    CreatePlaylistJSONBodySourceType = "tag"
 )
 
 // Valid indicates whether the value is a known member of the CreatePlaylistJSONBodySourceType enum.
 func (e CreatePlaylistJSONBodySourceType) Valid() bool {
 	switch e {
-	case Static:
+	case CreatePlaylistJSONBodySourceTypeStatic:
 		return true
-	case Tag:
+	case CreatePlaylistJSONBodySourceTypeTag:
 		return true
 	default:
 		return false
@@ -2931,6 +3078,37 @@ type PlayerUpdateMetadata struct {
 	VersionName        string `json:"versionName"`
 }
 
+// Playlist defines model for Playlist.
+type Playlist struct {
+	CreatedAt time.Time `json:"createdAt"`
+
+	// DataSourceIds Data Sources reached through this playlist's items. Only IDs; null on list rows and populated on the detail read only.
+	DataSourceIds         *[]openapi_types.UUID `json:"dataSourceIds,omitempty"`
+	Description           string                `json:"description"`
+	DraftRevision         *int64                `json:"draftRevision,omitempty"`
+	HasUnpublishedChanges bool                  `json:"hasUnpublishedChanges"`
+	Id                    openapi_types.UUID    `json:"id"`
+	ItemCount             int                   `json:"itemCount"`
+	Items                 []PlaylistItem        `json:"items"`
+	LayoutUsage           []PlaylistLayoutUsage `json:"layoutUsage"`
+	Name                  string                `json:"name"`
+
+	// PreviewItems Compact visual metadata returned by playlist list requests.
+	PreviewItems      *[]PlaylistPreviewItem `json:"previewItems,omitempty"`
+	PublishedRevision *int64                 `json:"publishedRevision,omitempty"`
+	Revision          int64                  `json:"revision"`
+	SourceType        PlaylistSourceType     `json:"sourceType"`
+	TagRule           *PlaylistTagRule       `json:"tagRule,omitempty"`
+	UpdatedAt         time.Time              `json:"updatedAt"`
+
+	// Usage Null on list rows; populated on the detail read only.
+	Usage    *PlaylistUsage `json:"usage,omitempty"`
+	Warnings []string       `json:"warnings"`
+}
+
+// PlaylistSourceType defines model for Playlist.SourceType.
+type PlaylistSourceType string
+
 // PlaylistBulkItemInput defines model for PlaylistBulkItemInput.
 type PlaylistBulkItemInput struct {
 	// DurationMs Fixed duration applied to image items.
@@ -2950,6 +3128,51 @@ type PlaylistBulkItemInput0 = interface{}
 
 // PlaylistBulkItemInput1 defines model for PlaylistBulkItemInput.1.
 type PlaylistBulkItemInput1 = interface{}
+
+// PlaylistItem defines model for PlaylistItem.
+type PlaylistItem struct {
+	AssetDurationSeconds *float32           `json:"assetDurationSeconds,omitempty"`
+	AssetId              openapi_types.UUID `json:"assetId"`
+	AssetName            string             `json:"assetName"`
+
+	// AssetStatus Media lifecycle status (uploading through deleted); `draft` when the item points at a Layout with no published revision.
+	AssetStatus    string                     `json:"assetStatus"`
+	AssetType      PlaylistItemAssetType      `json:"assetType"`
+	AudioEnabled   bool                       `json:"audioEnabled"`
+	AvailableFrom  *time.Time                 `json:"availableFrom,omitempty"`
+	CreatedAt      time.Time                  `json:"createdAt"`
+	DeliveryPolicy PlaylistItemDeliveryPolicy `json:"deliveryPolicy"`
+	DurationMs     *int64                     `json:"durationMs,omitempty"`
+	Dynamic        bool                       `json:"dynamic"`
+	ExpiresAt      *time.Time                 `json:"expiresAt,omitempty"`
+	FitMode        PlaylistItemFitMode        `json:"fitMode"`
+	Id             openapi_types.UUID         `json:"id"`
+
+	// LayoutId Fullscreen Layout played for durationMs
+	LayoutId           *openapi_types.UUID    `json:"layoutId,omitempty"`
+	Position           int                    `json:"position"`
+	ThumbnailUrl       string                 `json:"thumbnailUrl"`
+	Transition         PlaylistItemTransition `json:"transition"`
+	UpdatedAt          time.Time              `json:"updatedAt"`
+	UsePlayerDefaults  bool                   `json:"usePlayerDefaults"`
+	VariantId          *openapi_types.UUID    `json:"variantId,omitempty"`
+	VideoEndOffsetMs   *int64                 `json:"videoEndOffsetMs,omitempty"`
+	VideoStartOffsetMs *int64                 `json:"videoStartOffsetMs,omitempty"`
+	Volume             float32                `json:"volume"`
+	WidgetProvider     *string                `json:"widgetProvider,omitempty"`
+}
+
+// PlaylistItemAssetType defines model for PlaylistItem.AssetType.
+type PlaylistItemAssetType string
+
+// PlaylistItemDeliveryPolicy defines model for PlaylistItem.DeliveryPolicy.
+type PlaylistItemDeliveryPolicy string
+
+// PlaylistItemFitMode defines model for PlaylistItem.FitMode.
+type PlaylistItemFitMode string
+
+// PlaylistItemTransition defines model for PlaylistItem.Transition.
+type PlaylistItemTransition string
 
 // PlaylistItemInput defines model for PlaylistItemInput.
 type PlaylistItemInput struct {
@@ -2986,6 +3209,70 @@ type PlaylistItemInput0 = interface{}
 // PlaylistItemInput1 defines model for PlaylistItemInput.1.
 type PlaylistItemInput1 = interface{}
 
+// PlaylistLayoutUsage defines model for PlaylistLayoutUsage.
+type PlaylistLayoutUsage struct {
+	Id        openapi_types.UUID `json:"id"`
+	Name      string             `json:"name"`
+	Published bool               `json:"published"`
+}
+
+// PlaylistList defines model for PlaylistList.
+type PlaylistList struct {
+	Items    []Playlist `json:"items"`
+	Page     int        `json:"page"`
+	PageSize int        `json:"pageSize"`
+	Total    int        `json:"total"`
+}
+
+// PlaylistPreviewItem Compact visual metadata returned with playlist list rows. Playback configuration is omitted; the playlist detail read stays the source of truth for it.
+type PlaylistPreviewItem struct {
+	Id           openapi_types.UUID      `json:"id"`
+	Name         string                  `json:"name"`
+	ThumbnailUrl *string                 `json:"thumbnailUrl,omitempty"`
+	Type         PlaylistPreviewItemType `json:"type"`
+}
+
+// PlaylistPreviewItemType defines model for PlaylistPreviewItem.Type.
+type PlaylistPreviewItemType string
+
+// PlaylistRestoreResult A restore is a new edit, not a rewind of history: the state it replaced stays in the history. Skipped items are never resurrected and never silently dropped.
+type PlaylistRestoreResult struct {
+	NewRevision  int64    `json:"newRevision"`
+	Playlist     Playlist `json:"playlist"`
+	RestoredFrom int64    `json:"restoredFrom"`
+	SkippedItems int      `json:"skippedItems"`
+}
+
+// PlaylistRevision defines model for PlaylistRevision.
+type PlaylistRevision struct {
+	AuthorName        *string             `json:"authorName,omitempty"`
+	CreatedAt         time.Time           `json:"createdAt"`
+	CreatedBy         *openapi_types.UUID `json:"createdBy,omitempty"`
+	IsCurrent         bool                `json:"isCurrent"`
+	ItemCount         int                 `json:"itemCount"`
+	MissingReferences int                 `json:"missingReferences"`
+	Name              string              `json:"name"`
+	Restorable        bool                `json:"restorable"`
+	Revision          int64               `json:"revision"`
+	SourceType        string              `json:"sourceType"`
+}
+
+// PlaylistRevisionList defines model for PlaylistRevisionList.
+type PlaylistRevisionList struct {
+	Items []PlaylistRevision `json:"items"`
+	Kept  int                `json:"kept"`
+}
+
+// PlaylistTagRule defines model for PlaylistTagRule.
+type PlaylistTagRule struct {
+	ImageDurationMs int                  `json:"imageDurationMs"`
+	Match           PlaylistTagRuleMatch `json:"match"`
+	Tags            []ContentTag         `json:"tags"`
+}
+
+// PlaylistTagRuleMatch defines model for PlaylistTagRule.Match.
+type PlaylistTagRuleMatch string
+
 // PlaylistTagRuleInput defines model for PlaylistTagRuleInput.
 type PlaylistTagRuleInput struct {
 	Enabled         bool                      `json:"enabled"`
@@ -2996,6 +3283,19 @@ type PlaylistTagRuleInput struct {
 
 // PlaylistTagRuleInputMatch defines model for PlaylistTagRuleInput.Match.
 type PlaylistTagRuleInputMatch string
+
+// PlaylistUsage Screens, schedules, and campaigns that play a playlist. Populated on the detail read only, and shaped like the Layout usage read so one panel renders both.
+type PlaylistUsage struct {
+	Campaigns []PlaylistUsageItem `json:"campaigns"`
+	Schedules []PlaylistUsageItem `json:"schedules"`
+	Screens   []PlaylistUsageItem `json:"screens"`
+}
+
+// PlaylistUsageItem defines model for PlaylistUsageItem.
+type PlaylistUsageItem struct {
+	Id   openapi_types.UUID `json:"id"`
+	Name string             `json:"name"`
+}
 
 // PluginAttention defines model for PluginAttention.
 type PluginAttention struct {
@@ -43693,6 +43993,17 @@ func (r HeadPlayerUpdateArtifactResponse) ContentType() string {
 type ListPlaylistsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PlaylistList `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListPlaylistsResponse) GetJSON200() *struct {
+	Data PlaylistList `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -43727,6 +44038,17 @@ func (r ListPlaylistsResponse) ContentType() string {
 type CreatePlaylistResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data Playlist `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreatePlaylistResponse) GetJSON201() *struct {
+	Data Playlist `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -43795,6 +44117,17 @@ func (r DeletePlaylistResponse) ContentType() string {
 type GetPlaylistResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data Playlist `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetPlaylistResponse) GetJSON200() *struct {
+	Data Playlist `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -43829,6 +44162,17 @@ func (r GetPlaylistResponse) ContentType() string {
 type UpdatePlaylistResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data Playlist `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdatePlaylistResponse) GetJSON200() *struct {
+	Data Playlist `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -43863,6 +44207,17 @@ func (r UpdatePlaylistResponse) ContentType() string {
 type DuplicatePlaylistResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data Playlist `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r DuplicatePlaylistResponse) GetJSON201() *struct {
+	Data Playlist `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -43897,6 +44252,17 @@ func (r DuplicatePlaylistResponse) ContentType() string {
 type AddPlaylistItemResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data Playlist `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r AddPlaylistItemResponse) GetJSON201() *struct {
+	Data Playlist `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -43931,6 +44297,17 @@ func (r AddPlaylistItemResponse) ContentType() string {
 type BulkUpdatePlaylistItemsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data Playlist `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r BulkUpdatePlaylistItemsResponse) GetJSON200() *struct {
+	Data Playlist `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -43965,6 +44342,17 @@ func (r BulkUpdatePlaylistItemsResponse) ContentType() string {
 type ReorderPlaylistItemsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data Playlist `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ReorderPlaylistItemsResponse) GetJSON200() *struct {
+	Data Playlist `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -43999,6 +44387,17 @@ func (r ReorderPlaylistItemsResponse) ContentType() string {
 type DeletePlaylistItemResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data Playlist `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DeletePlaylistItemResponse) GetJSON200() *struct {
+	Data Playlist `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -44033,6 +44432,17 @@ func (r DeletePlaylistItemResponse) ContentType() string {
 type UpdatePlaylistItemResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data Playlist `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdatePlaylistItemResponse) GetJSON200() *struct {
+	Data Playlist `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -44108,6 +44518,17 @@ func (r PublishPlaylistResponse) ContentType() string {
 type ListPlaylistRevisionsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PlaylistRevisionList `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListPlaylistRevisionsResponse) GetJSON200() *struct {
+	Data PlaylistRevisionList `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -44142,6 +44563,19 @@ func (r ListPlaylistRevisionsResponse) ContentType() string {
 type RestorePlaylistRevisionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Data A restore is a new edit, not a rewind of history: the state it replaced stays in the history. Skipped items are never resurrected and never silently dropped.
+		Data PlaylistRestoreResult `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RestorePlaylistRevisionResponse) GetJSON200() *struct {
+	// Data A restore is a new edit, not a rewind of history: the state it replaced stays in the history. Skipped items are never resurrected and never silently dropped.
+	Data PlaylistRestoreResult `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -44176,6 +44610,17 @@ func (r RestorePlaylistRevisionResponse) ContentType() string {
 type SetPlaylistTagRuleResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data Playlist `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SetPlaylistTagRuleResponse) GetJSON200() *struct {
+	Data Playlist `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -59780,6 +60225,18 @@ func ParseListPlaylistsResponse(rsp *http.Response) (*ListPlaylistsResponse, err
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PlaylistList `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
 	return response, nil
 }
 
@@ -59794,6 +60251,21 @@ func ParseCreatePlaylistResponse(rsp *http.Response) (*CreatePlaylistResponse, e
 	response := &CreatePlaylistResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data Playlist `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -59828,6 +60300,18 @@ func ParseGetPlaylistResponse(rsp *http.Response) (*GetPlaylistResponse, error) 
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data Playlist `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
 	return response, nil
 }
 
@@ -59842,6 +60326,18 @@ func ParseUpdatePlaylistResponse(rsp *http.Response) (*UpdatePlaylistResponse, e
 	response := &UpdatePlaylistResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data Playlist `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	}
 
 	return response, nil
@@ -59860,6 +60356,24 @@ func ParseDuplicatePlaylistResponse(rsp *http.Response) (*DuplicatePlaylistRespo
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data Playlist `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -59874,6 +60388,21 @@ func ParseAddPlaylistItemResponse(rsp *http.Response) (*AddPlaylistItemResponse,
 	response := &AddPlaylistItemResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data Playlist `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -59892,6 +60421,24 @@ func ParseBulkUpdatePlaylistItemsResponse(rsp *http.Response) (*BulkUpdatePlayli
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data Playlist `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -59906,6 +60453,18 @@ func ParseReorderPlaylistItemsResponse(rsp *http.Response) (*ReorderPlaylistItem
 	response := &ReorderPlaylistItemsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data Playlist `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	}
 
 	return response, nil
@@ -59924,6 +60483,18 @@ func ParseDeletePlaylistItemResponse(rsp *http.Response) (*DeletePlaylistItemRes
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data Playlist `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
 	return response, nil
 }
 
@@ -59938,6 +60509,18 @@ func ParseUpdatePlaylistItemResponse(rsp *http.Response) (*UpdatePlaylistItemRes
 	response := &UpdatePlaylistItemResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data Playlist `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	}
 
 	return response, nil
@@ -59994,6 +60577,21 @@ func ParseListPlaylistRevisionsResponse(rsp *http.Response) (*ListPlaylistRevisi
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PlaylistRevisionList `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -60010,6 +60608,28 @@ func ParseRestorePlaylistRevisionResponse(rsp *http.Response) (*RestorePlaylistR
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Data A restore is a new edit, not a rewind of history: the state it replaced stays in the history. Skipped items are never resurrected and never silently dropped.
+			Data PlaylistRestoreResult `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -60024,6 +60644,21 @@ func ParseSetPlaylistTagRuleResponse(rsp *http.Response) (*SetPlaylistTagRuleRes
 	response := &SetPlaylistTagRuleResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data Playlist `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil

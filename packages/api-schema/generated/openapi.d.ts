@@ -6270,6 +6270,148 @@ export interface components {
       /** @description Fixed duration applied to image items. */
       durationMs?: number;
     } & (unknown | unknown);
+    PlaylistItem: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      assetId: string;
+      /**
+       * Format: uuid
+       * @description Fullscreen Layout played for durationMs
+       */
+      layoutId?: string;
+      position: number;
+      /** Format: int64 */
+      durationMs?: number;
+      /** @enum {string} */
+      fitMode: "contain" | "cover" | "stretch";
+      /** @enum {string} */
+      transition: "none" | "fade" | "crossfade";
+      audioEnabled: boolean;
+      volume: number;
+      /** Format: int64 */
+      videoStartOffsetMs?: number;
+      /** Format: int64 */
+      videoEndOffsetMs?: number;
+      /** @enum {string} */
+      deliveryPolicy: "download" | "stream" | "automatic";
+      usePlayerDefaults: boolean;
+      assetName: string;
+      /** @enum {string} */
+      assetType: "image" | "video" | "widget" | "layout";
+      widgetProvider?: string;
+      /** @description Media lifecycle status (uploading through deleted); `draft` when the item points at a Layout with no published revision. */
+      assetStatus: string;
+      assetDurationSeconds?: number;
+      thumbnailUrl: string;
+      /** Format: uuid */
+      variantId?: string;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      updatedAt: string;
+      /** Format: date-time */
+      availableFrom?: string;
+      /** Format: date-time */
+      expiresAt?: string;
+      dynamic: boolean;
+    };
+    /** @description Compact visual metadata returned with playlist list rows. Playback configuration is omitted; the playlist detail read stays the source of truth for it. */
+    PlaylistPreviewItem: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      /** @enum {string} */
+      type: "image" | "video" | "widget" | "layout";
+      thumbnailUrl?: string;
+    };
+    PlaylistLayoutUsage: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      published: boolean;
+    };
+    PlaylistUsageItem: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+    };
+    /** @description Screens, schedules, and campaigns that play a playlist. Populated on the detail read only, and shaped like the Layout usage read so one panel renders both. */
+    PlaylistUsage: {
+      screens: components["schemas"]["PlaylistUsageItem"][];
+      schedules: components["schemas"]["PlaylistUsageItem"][];
+      campaigns: components["schemas"]["PlaylistUsageItem"][];
+    };
+    PlaylistTagRule: {
+      /** @enum {string} */
+      match: "any" | "all";
+      imageDurationMs: number;
+      tags: components["schemas"]["ContentTag"][];
+    };
+    Playlist: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      description: string;
+      /** Format: int64 */
+      revision: number;
+      /** Format: int64 */
+      draftRevision?: number;
+      /** Format: int64 */
+      publishedRevision?: number;
+      hasUnpublishedChanges: boolean;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      updatedAt: string;
+      items: components["schemas"]["PlaylistItem"][];
+      itemCount: number;
+      warnings: string[];
+      layoutUsage: components["schemas"]["PlaylistLayoutUsage"][];
+      /** @description Null on list rows; populated on the detail read only. */
+      usage?: components["schemas"]["PlaylistUsage"] | null;
+      /** @description Compact visual metadata returned by playlist list requests. */
+      previewItems?: components["schemas"]["PlaylistPreviewItem"][];
+      /** @description Data Sources reached through this playlist's items. Only IDs; null on list rows and populated on the detail read only. */
+      dataSourceIds?: string[] | null;
+      /** @enum {string} */
+      sourceType: "static" | "tag";
+      tagRule?: components["schemas"]["PlaylistTagRule"];
+    };
+    PlaylistList: {
+      items: components["schemas"]["Playlist"][];
+      total: number;
+      page: number;
+      pageSize: number;
+    };
+    PlaylistRevision: {
+      /** Format: int64 */
+      revision: number;
+      name: string;
+      itemCount: number;
+      sourceType: string;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: uuid */
+      createdBy?: string;
+      authorName?: string;
+      isCurrent: boolean;
+      restorable: boolean;
+      missingReferences: number;
+    };
+    PlaylistRevisionList: {
+      items: components["schemas"]["PlaylistRevision"][];
+      kept: number;
+    };
+    /** @description A restore is a new edit, not a rewind of history: the state it replaced stays in the history. Skipped items are never resurrected and never silently dropped. */
+    PlaylistRestoreResult: {
+      playlist: components["schemas"]["Playlist"];
+      /** Format: int64 */
+      restoredFrom: number;
+      /** Format: int64 */
+      newRevision: number;
+      skippedItems: number;
+    };
     PresentationReference:
       | {
           /** Format: uuid */
@@ -8494,7 +8636,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["Playlist"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -8528,7 +8674,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["PlaylistRevisionList"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -8559,7 +8709,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["PlaylistRestoreResult"];
+          };
+        };
       };
       /** @description Revision invalid */
       400: {
@@ -13973,7 +14127,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["PlaylistList"];
+          };
+        };
       };
     };
   };
@@ -14006,7 +14164,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["Playlist"];
+          };
+        };
       };
       /** @description Viewer is read-only */
       403: {
@@ -14033,7 +14195,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["Playlist"];
+          };
+        };
       };
     };
   };
@@ -14086,7 +14252,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["Playlist"];
+          };
+        };
       };
     };
   };
@@ -14169,7 +14339,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["Playlist"];
+          };
+        };
       };
       /** @description Invalid or unavailable asset */
       422: {
@@ -14199,7 +14373,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["Playlist"];
+          };
+        };
       };
     };
   };
@@ -14226,7 +14404,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["Playlist"];
+          };
+        };
       };
       /** @description Tag-driven playlists do not support manual item updates */
       409: {
@@ -14267,7 +14449,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["Playlist"];
+          };
+        };
       };
       /** @description Invalid tag rule */
       422: {
@@ -14298,7 +14484,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["Playlist"];
+          };
+        };
       };
     };
   };
@@ -14322,7 +14512,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["Playlist"];
+          };
+        };
       };
     };
   };
