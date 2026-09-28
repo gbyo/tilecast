@@ -1,0 +1,16 @@
+{
+  "frame": {
+    "type": "event",
+    "seq": 4,
+    "event": "renderer.item_error",
+    "data": {
+      "activation": {
+        "activationId": "3f2b8c1d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+        "generation": 2
+      },
+      "itemId": "item-1",
+      "code": "media_decode_failed",
+      "message": "The video could not be decoded."
+    }
+  }
+}

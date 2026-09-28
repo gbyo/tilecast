@@ -29,6 +29,16 @@ func TestReleaseDefinitionsValidateAndFingerprintDeterministically(t *testing.T)
 	if definition, ok := first.Widget("notion"); !ok || definition.Availability.IsEnabled() || definition.Availability.Reason == "" {
 		t.Fatal("Notion must remain discoverable with an explicit disabled reason")
 	}
+	display, ok := first.Widget("google-sheets-display")
+	if !ok || display.Name != "Google Sheets — Display" {
+		t.Fatalf("Google Sheets visual embed must carry the Display name: %+v", display)
+	}
+	if _, ok := first.Widget("google-sheets-data"); ok {
+		t.Fatal("the Google Sheets Data placeholder must not remain a third Widget concept")
+	}
+	if _, ok := first.DataSource("google-sheet"); !ok {
+		t.Fatal("the Google Sheet structured Data Source is missing")
+	}
 }
 
 func TestCatalogRejectsDuplicateIDsAndUnsupportedControls(t *testing.T) {

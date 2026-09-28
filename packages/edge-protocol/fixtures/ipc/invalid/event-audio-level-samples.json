@@ -1,0 +1,12 @@
+{
+  "frame": {
+    "type": "event",
+    "seq": 1,
+    "event": "audio.level",
+    "data": {
+      "rms": 0.1,
+      "state": "capturing",
+      "samples": [0.1, -0.2, 0.3]
+    }
+  }
+}

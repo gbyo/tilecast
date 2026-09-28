@@ -22,9 +22,15 @@ export type AuthStatus = {
    */
   passkeysAvailable?: boolean;
   passkeysUnavailableReason?: string;
+  /**
+   * The server runs the disposable Demo Mode installation. Every visitor is
+   * signed in as the sample Owner.
+   */
+  demoMode?: boolean;
 };
 
-export type AuthMethod = "password" | "totp" | "passkey" | "recovery_code";
+export type AuthMethod =
+  "password" | "totp" | "passkey" | "recovery_code" | "demo";
 
 export type MFAMethod = "totp" | "passkey" | "recovery_code";
 
@@ -76,6 +82,57 @@ export type SecurityStatus = {
 export type TOTPEnrollment = {
   provisioningUri: string;
   secret: string;
+};
+
+export type OAuthScopeRequest = {
+  scope: string;
+  description: string;
+};
+
+export type OAuthApproval = {
+  client: { name: string; clientId: string };
+  scopes: OAuthScopeRequest[];
+  redirectUri: string;
+  state: string;
+};
+
+export type OAuthDecision = {
+  client: string;
+  redirectUri: string;
+  scope: string;
+  state: string;
+  challenge: string;
+  method: string;
+};
+
+export type OAuthGrant = {
+  id: string;
+  client: string;
+  scopes: string[];
+  createdAt: string;
+  lastUsedAt?: string;
+  revokedAt?: string;
+};
+
+export type PersonalAccessToken = {
+  id: string;
+  name: string;
+  scopes: string[];
+  createdAt: string;
+  expiresAt: string;
+  lastUsedAt?: string;
+  revokedAt?: string;
+};
+
+export type PersonalAccessTokenInput = {
+  name: string;
+  scopes: string[];
+  expiresInDays: number;
+};
+
+export type PersonalAccessTokenCreated = {
+  token: string;
+  pat: PersonalAccessToken;
 };
 
 /**
@@ -262,6 +319,9 @@ export type Screen = {
   updateDownloadedBytes?: number;
   updateExpectedBytes?: number;
   updateError?: string;
+  /** What the running player reported; absent for players that do not. */
+  playerFamily?: PlayerFamily;
+  playerArchitecture?: string;
   screenWidth: number;
   screenHeight: number;
   density: number;
@@ -534,7 +594,8 @@ export type PlaylistAssignment = {
   lastPlaybackError?: string;
   currentScheduleId?: string;
   currentPlaylistId?: string;
-  selectionSource?: "takeover" | "schedule" | "direct_fallback" | "none";
+  selectionSource?:
+    "takeover" | "quick_present" | "schedule" | "direct_fallback" | "none";
   nextTransitionAt?: string;
   deviceClockOffsetSeconds?: number;
   scheduleEvaluationError?: string;
@@ -827,77 +888,6 @@ export type PresentationOverride = {
   stopReason?: string;
 };
 
-export type NWSAlertMonitor = {
-  enabled: boolean;
-  areas: string[];
-  zones: string[];
-  pollIntervalSeconds: number;
-  lastPolledAt?: string;
-  lastSuccessAt?: string;
-  lastErrorCode?: string;
-  lastMatchedCount: number;
-  updatedAt: string;
-};
-
-export type NWSAlertRule = {
-  id: string;
-  name: string;
-  enabled: boolean;
-  eventNames: string[];
-  minimumSeverity: "Minor" | "Moderate" | "Severe" | "Extreme";
-  minimumUrgency: "Unknown" | "Future" | "Expected" | "Immediate";
-  /**
-   * How a matching alert reaches the screen: `takeover` replaces what is playing
-   * and restores it afterwards, `ticker` leaves playback running and shows the
-   * alert as a bar along the bottom.
-   */
-  responseMode: "takeover" | "ticker";
-  presentationMode: "builtin" | "playlist";
-  playlistId?: string;
-  playlistName?: string;
-  tickerDisplayMode: "overlay" | "push";
-  tickerHeightPx: number;
-  tickerSpeed: "slow" | "medium" | "fast";
-  maximumDurationMinutes: number;
-  screenIds: string[];
-  groupIds: string[];
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type NWSZone = {
-  id: string;
-  name: string;
-  state: string;
-  type: "county" | "forecast";
-};
-
-export type NWSAlertRuleInput = Omit<
-  NWSAlertRule,
-  "id" | "playlistName" | "createdAt" | "updatedAt"
->;
-
-export type NWSAlertActivation = {
-  alertId: string;
-  ruleId: string;
-  ruleName: string;
-  event: string;
-  headline: string;
-  severity: string;
-  urgency: string;
-  areaDescription: string;
-  expiresAt?: string;
-  takeoverId?: string;
-  firstSeenAt: string;
-  lastSeenAt: string;
-};
-
-export type NWSAlertSettings = {
-  monitor: NWSAlertMonitor;
-  rules: NWSAlertRule[];
-  activeAlerts: NWSAlertActivation[];
-};
-
 export type SettingDefinition = {
   key: string;
   category: string;
@@ -1153,6 +1143,8 @@ export type PluginSummary = {
 export type UnsupportedPluginInstallation = {
   pluginId: string;
   installedAt: string;
+  /** An earlier release shipped this plugin and this release removed it. */
+  retired?: boolean;
 };
 
 export type PluginCatalog = {
@@ -1164,6 +1156,8 @@ export type PluginInUseResource = {
   kind: string;
   count: number;
   label: string;
+  /** How the operator resolves it: delete it, switch it off, or wait. */
+  resolution: "delete" | "disable" | "wait";
 };
 
 export type DependencyNodeType =
@@ -1203,161 +1197,6 @@ export type PluginTargeting = {
   targetIds: string[];
 };
 
-export type CountdownBarInput = {
-  name: string;
-  message: string;
-  scheduleType: "weekly" | "one_time";
-  targetTime?: string;
-  daysOfWeek: number[];
-  oneTimeAt?: string;
-  timezone: string;
-  leadTimeSeconds: number;
-  completionText: string;
-  showConfetti: boolean;
-  displayMode: "overlay" | "push";
-  heightPx: number;
-  progressFill: "none" | "drain";
-  contentPadding: number;
-  textScale: number;
-  urgencyEnabled: boolean;
-  startingSoonSeconds: number;
-  urgentSeconds: number;
-  pulseSeconds: number;
-  enabled: boolean;
-  priority: number;
-} & PluginTargeting;
-
-export type CountdownBar = CountdownBarInput & {
-  id: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type BrandBugCorner =
-  "top_left" | "top_right" | "bottom_left" | "bottom_right";
-
-export type BrandBugInput = {
-  name: string;
-  corner: BrandBugCorner;
-  imageAssetId?: string | null;
-  text: string;
-  /** Logo width as a percentage of screen width. */
-  widthPercent: number;
-  /** Caption size as a percentage of screen height. */
-  textSizePercent: number;
-  opacityPercent: number;
-  /** Corner inset as a percentage of the screen's shorter edge. */
-  marginPercent: number;
-  textColor: string;
-  backgroundStyle: "none" | "scrim";
-  startsAt?: string | null;
-  endsAt?: string | null;
-  enabled: boolean;
-  priority: number;
-} & PluginTargeting;
-
-export type BrandBug = BrandBugInput & {
-  id: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type NoiseMeterInput = {
-  name: string;
-  /** Replaces the bar's own TOO LOUD label when set. */
-  message: string;
-  /**
-   * Points on the relative 0-100 noise scale. They are measured against the
-   * Player's own microphone and are not calibrated decibels of any kind.
-   */
-  warningLevel: number;
-  loudLevel: number;
-  /** Percentage applied to the captured signal before it is normalized. */
-  sensitivity: number;
-  triggerHoldMs: number;
-  clearHoldMs: number;
-  displayMode: "overlay" | "push";
-  heightPx: number;
-  /**
-   * History keeps derived ten-second measurements for graphs and reports.
-   * Microphone audio is never recorded or uploaded, so nothing here can turn
-   * it on.
-   */
-  historyEnabled: boolean;
-  historyRetentionDays: number;
-  historyActiveHoursOnly: boolean;
-  /**
-   * The optional window during which the bar may appear. It governs the bar
-   * alone — measurement and history keep their own rules — and an end at or
-   * before the start is an overnight window.
-   */
-  scheduleEnabled: boolean;
-  /** Sunday 0 through Saturday 6. */
-  scheduleDaysOfWeek: number[];
-  scheduleStartTime?: string | null;
-  scheduleEndTime?: string | null;
-  scheduleTimezone: string;
-  enabled: boolean;
-} & PluginTargeting;
-
-export type NoiseMeter = NoiseMeterInput & {
-  id: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type NoiseHistoryRange = "today" | "yesterday" | "7d" | "30d";
-
-export type NoiseHistoryScreen = {
-  screenId: string;
-  name: string;
-  buckets: number;
-  firstAt?: string;
-  lastAt?: string;
-};
-
-export type NoiseHistoryPoint = {
-  at: string;
-  averageLevel: number;
-  peakLevel: number;
-  monitoredMs: number;
-  warningMs: number;
-  loudMs: number;
-  triggerCount: number;
-};
-
-export type NoiseHistoryDay = {
-  date: string;
-  averageLevel: number;
-  peakLevel: number;
-  monitoredMs: number;
-  warningMs: number;
-  loudMs: number;
-  triggerCount: number;
-};
-
-/** Descriptive statistics only: no score, grade, or ranking. */
-export type NoiseHistorySummary = {
-  buckets: number;
-  averageLevel: number | null;
-  peakLevel: number | null;
-  monitoredMs: number;
-  normalMs: number;
-  warningMs: number;
-  loudMs: number;
-  warningEvents: number;
-  longestLoudMs: number;
-  loudestWindowAt?: string;
-  loudestWindowLevel?: number;
-  firstAt?: string;
-  lastAt?: string;
-};
-
-export type NoiseHistoryWindow = {
-  key: NoiseHistoryRange;
-  from: string;
-  to: string;
-};
 export type ScheduleTarget = {
   type: "screen" | "group";
   id: string;
@@ -1431,10 +1270,19 @@ export type SchedulePreview = {
 };
 
 export type PlayerPlatform = "android" | "linux";
+/**
+ * Which player installs a release. `linux` is the operating system of both
+ * the Electron Linux Player (`electron-linux`) and Tilecast Edge (`edge`); a
+ * deployment reaches only screens of its release's family.
+ */
+export type PlayerFamily = "android" | "electron-linux" | "edge";
 export type PlayerRelease = {
   id: string;
   tag: string;
   platform: PlayerPlatform;
+  playerFamily?: PlayerFamily;
+  /** The CPU architecture of an Edge release; empty for the other families. */
+  architecture?: string;
   source: "github" | "upload";
   channel: "stable" | "beta";
   versionCode: number;
@@ -1459,6 +1307,8 @@ export type PlayerReleaseImport = Pick<
   PlayerRelease,
   | "id"
   | "platform"
+  | "playerFamily"
+  | "architecture"
   | "source"
   | "versionCode"
   | "versionName"
@@ -1502,6 +1352,8 @@ export type UpdateDeployment = {
   status: string;
   createdAt: string;
   platform: PlayerPlatform;
+  playerFamily?: PlayerFamily;
+  architecture?: string;
   versionCode: number;
   versionName: string;
   targetCount: number;
@@ -1559,6 +1411,8 @@ export type UpdateDeploymentDetail = {
   createdAt: string;
   completedAt?: string;
   platform: PlayerPlatform;
+  playerFamily?: PlayerFamily;
+  architecture?: string;
   versionCode: number;
   versionName: string;
   artifactSizeBytes: number;
@@ -1748,6 +1602,7 @@ export type LegacyDataSourceProvider =
   | "calendar"
   | "rss"
   | "atom"
+  | "feed"
   | "json"
   | "csv"
   | "manual"
@@ -1756,350 +1611,6 @@ export type LegacyDataSourceProvider =
   | "cap_alerts"
   | "air_quality";
 export type DataSourceProvider = LegacyDataSourceProvider | (string & {});
-
-// --- Form Data Sources ---
-// These mirror the server JSON contracts in apps/server/internal/forms/types.go.
-
-export type FormCapability =
-  "manage" | "submit" | "view_own" | "view_all" | "review" | "approve";
-
-export type FormFieldControl =
-  | "short_text"
-  | "long_text"
-  | "number"
-  | "integer"
-  | "boolean"
-  | "select"
-  | "multi_select"
-  | "date"
-  | "datetime"
-  | "url"
-  | "image"
-  | "section"
-  | "help_text";
-
-export type FormSelectOption = { value: string; label: string };
-
-export type FormField = {
-  key: string;
-  label: string;
-  description?: string;
-  control: FormFieldControl;
-  required?: boolean;
-  default?: string;
-  options?: FormSelectOption[];
-  minimum?: number;
-  maximum?: number;
-  minLength?: number;
-  maxLength?: number;
-};
-
-export type FormSchema = {
-  title?: string;
-  description?: string;
-  fields: FormField[];
-};
-
-export type FormRevision = {
-  id: string;
-  dataSourceId: string;
-  revisionNumber: number;
-  title: string;
-  description: string;
-  schema: FormSchema;
-  publishedAt: string;
-};
-
-export type FormWorkflowState = {
-  key: string;
-  label: string;
-  position: number;
-  eligibleForOutput: boolean;
-  initial: boolean;
-  terminal: boolean;
-  // Read-only usage decoration from GetForm: how many records are in the state, and whether the
-  // state key may still be renamed/removed (false once any record references it).
-  recordCount?: number;
-  removable?: boolean;
-};
-
-export type FormWorkflowTransition = {
-  from: string;
-  to: string;
-  label: string;
-  requiredCapability: FormCapability;
-  position: number;
-};
-
-export type FormWorkflow = {
-  states: FormWorkflowState[];
-  transitions: FormWorkflowTransition[];
-};
-
-export type FormFilterOperator =
-  | "equals"
-  | "not_equals"
-  | "contains"
-  | "empty"
-  | "not_empty"
-  | "greater_than"
-  | "less_than";
-
-export type FormSortDirection = "asc" | "desc";
-
-export type FormView = {
-  id: string;
-  key: string;
-  name: string;
-  includedStates: string[];
-  fieldFilters: {
-    field: string;
-    operator: FormFilterOperator;
-    value: string;
-  }[];
-  timeFilter: {
-    enabled: boolean;
-    startField?: string;
-    endField?: string;
-    startBeforeNow?: boolean;
-    endAfterNow?: boolean;
-  };
-  sort: { field: string; direction: FormSortDirection }[];
-  outputFields: string[];
-  recordLimit: number;
-  position: number;
-};
-
-export type FormDataSource = {
-  id: string;
-  name: string;
-  description: string;
-  createdBy?: string;
-  createdAt: string;
-  updatedAt: string;
-  draftSchema: FormSchema;
-  publishedRevision?: FormRevision;
-  workflow: FormWorkflow;
-  views: FormView[];
-  grantedCapabilities: FormCapability[];
-};
-
-// --- Studio 2C: views, outputs, access ---
-
-// FormViewInput is the create/update/preview payload for a saved view.
-export type FormViewInput = {
-  key: string;
-  name: string;
-  includedStates: string[];
-  fieldFilters: {
-    field: string;
-    operator: FormFilterOperator;
-    value: string;
-  }[];
-  timeFilter: {
-    enabled: boolean;
-    startField?: string;
-    endField?: string;
-    startBeforeNow?: boolean;
-    endAfterNow?: boolean;
-  };
-  sort: { field: string; direction: FormSortDirection }[];
-  outputFields: string[];
-  recordLimit: number;
-  position: number;
-};
-
-// FormTypedField / FormTypedRecord / FormTypedDataset mirror the server's typed-dataset shapes
-// returned by the view preview and the Outputs tab.
-export type FormTypedField = { key: string; label: string; type: string };
-export type FormTypedRecord = { id: string; values: Record<string, string> };
-export type FormTypedDataset = {
-  id: string;
-  kind: string;
-  fields?: FormTypedField[];
-  records?: FormTypedRecord[];
-};
-
-export type FormOutputUsage = {
-  widgets: number;
-  layouts: number;
-  names: string[];
-};
-
-export type FormOutputView = {
-  key: string;
-  name: string;
-  fields: FormTypedField[];
-  recordCount: number;
-  previewRecords: FormTypedRecord[];
-  usage: FormOutputUsage;
-};
-
-export type FormOutputs = {
-  views: FormOutputView[];
-  lastSuccessAt?: string | null;
-  nextRefreshAt?: string | null;
-  usingCachedData: boolean;
-  errorCode?: string | null;
-  stale: boolean;
-};
-
-export type FormAccessEntry = {
-  userId: string;
-  name: string;
-  username: string;
-  role: string;
-  capabilities: FormCapability[];
-  isCreator: boolean;
-  isGlobalOwner: boolean;
-};
-
-export type FormDirectoryUser = {
-  id: string;
-  name: string;
-  username: string;
-  role: string;
-};
-
-export type CreateFormInput = {
-  name: string;
-  description: string;
-  draftSchema: FormSchema;
-};
-
-export type FormMetadataInput = { name: string; description: string };
-
-// --- Form submissions, records, approvals (Studio 2B) ---
-
-// SubmissionCounts buckets a user's own submissions by workflow-derived meaning.
-export type FormSubmissionCounts = {
-  draft: number;
-  submitted: number;
-  changesRequested: number;
-  total: number;
-};
-
-// FormSummary is a lightweight accessible-form entry for the Forms portal and navigation.
-export type FormSummary = {
-  id: string;
-  name: string;
-  description: string;
-  publishedRevisionNumber?: number;
-  grantedCapabilities: FormCapability[];
-  submissionCounts: FormSubmissionCounts;
-};
-
-// FormRecord is one submission row.
-export type FormRecord = {
-  id: string;
-  dataSourceId: string;
-  revisionId: string;
-  state: string;
-  values: Record<string, unknown>;
-  submittedBy?: string;
-  submitterName: string;
-  displayTitle: string;
-  priority: number;
-  displayAt?: string | null;
-  expiresAt?: string | null;
-  eligible: boolean;
-  version: number;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type FormRecordPage = {
-  items: FormRecord[];
-  total: number;
-  page: number;
-  pageSize: number;
-};
-
-export type FormRecordEvent = {
-  id: string;
-  eventType: string;
-  fromState?: string;
-  toState?: string;
-  actorName?: string;
-  note?: string;
-  createdAt: string;
-};
-
-export type FormRecordComment = {
-  id: string;
-  authorName: string;
-  body: string;
-  createdAt: string;
-};
-
-export type FormAttachment = {
-  id: string;
-  assetId: string;
-  fieldKey: string;
-};
-
-// FormAvailableTransition is a workflow transition the server has authorized for the viewer.
-export type FormAvailableTransition = {
-  to: string;
-  toLabel: string;
-  label: string;
-  requiredCapability: FormCapability;
-  requiresNote: boolean;
-};
-
-// FormRecordDetail is a record decorated server-side with its immutable revision and the exact
-// actions the viewer may take, so the UI never re-implements authorization.
-export type FormRecordDetail = FormRecord & {
-  revision?: FormRevision;
-  events: FormRecordEvent[];
-  comments: FormRecordComment[];
-  attachments: FormAttachment[];
-  canEdit: boolean;
-  canComment: boolean;
-  canDelete: boolean;
-  availableTransitions: FormAvailableTransition[];
-};
-
-export type FormApprovalItem = {
-  recordId: string;
-  dataSourceId: string;
-  formName: string;
-  title: string;
-  submitterName: string;
-  state: string;
-  stateLabel: string;
-  displayAt?: string | null;
-  expiresAt?: string | null;
-  submittedAt: string;
-};
-
-export type FormApprovalPage = {
-  items: FormApprovalItem[];
-  total: number;
-  page: number;
-  pageSize: number;
-};
-
-// Tri-state display-metadata fields for record create/update. `undefined` (omitted) preserves the
-// stored value, `null` clears it, and a value sets it — mirroring the server's Optional[T] contract.
-export type FormRecordInput = {
-  values: Record<string, unknown>;
-  displayTitle?: string | null;
-  priority?: number | null;
-  displayAt?: string | null;
-  expiresAt?: string | null;
-  version?: number;
-};
-
-export type FormRecordListParams = {
-  states?: string[];
-  search?: string;
-  sort?: "newest" | "oldest" | "priority" | "updated";
-  // mine scopes the list to the caller's own submissions server-side (used by the Forms portal).
-  mine?: boolean;
-  page?: number;
-  pageSize?: number;
-};
 
 export type ContentDefinitionField = {
   key: string;
@@ -2115,6 +1626,7 @@ export type ContentDefinitionField = {
     | "color"
     | "date"
     | "datetime"
+    | "local_datetime"
     | "timezone"
     | "currency_code"
     | "url"
@@ -2136,13 +1648,62 @@ export type ContentDefinitionField = {
   // source supplies this field list. A definition with exactly one `data_source` field may omit
   // it. Required to disambiguate when a definition references more than one Data Source.
   dataSourceKey?: string;
+  /**
+   * V2 authoring hints driving the generic Widget inspector: inspector
+   * section, ordering, conditional visibility, visual style-card
+   * presentation, and semantic-field suggestion.
+   */
+  ui?: {
+    section?: "data" | "content" | "appearance" | "behavior";
+    order?: number;
+    visibleWhen?:
+      | { key: string; equals?: unknown; notEquals?: unknown }
+      | { key: string; equals?: unknown; notEquals?: unknown }[];
+    hidden?: boolean;
+    styleCard?: boolean;
+    semanticRole?: string;
+    legacyKeys?: string[];
+  };
   mediaTypes?: string[];
   maximumItems?: number;
   itemFields?: ContentDefinitionField[];
 };
+export type ExtensionSource =
+  | { kind: "core" }
+  | { kind: "plugin"; pluginId: string }
+  | {
+      kind: "package";
+      packageId: string;
+      packageVersion: string;
+      digest: string;
+    };
 export type WidgetDefinition = {
   id: WidgetProvider;
   version: number;
+  /** Manifest API version for component modules; absent for legacy definitions. */
+  apiVersion?: number;
+  /** Where the definition came from; absent means release-owned core. */
+  source?: ExtensionSource;
+  /** First-class V2 component for migrated Widgets; absent otherwise. */
+  component?: {
+    type: string;
+    version: number;
+    tagName: string;
+    entrypoint: string;
+    configTemplate: Record<string, unknown>;
+    dataSourceFields?: string[];
+    empty: "render" | "skip-eligible";
+  };
+  compatibility?: { fallback: "legacy" | "template" | "none" };
+  /**
+   * Superseded providers stay resolvable for saved content but disappear
+   * from new creation once their replacement proves parity.
+   */
+  deprecation?: {
+    deprecated?: boolean;
+    replacement?: string;
+    message?: string;
+  };
   name: string;
   description: string;
   category: string;
@@ -2175,6 +1736,8 @@ export type ContentDefinitionSetup = {
 export type DataSourceDefinition = {
   id: DataSourceProvider;
   version: number;
+  /** Where the definition came from; absent means release-owned core. */
+  source?: ExtensionSource;
   name: string;
   description: string;
   category: string;
@@ -2198,6 +1761,15 @@ export type DataSourceDefinition = {
   legacyEditor?: boolean;
   requiresManifestV13?: boolean;
   setup?: ContentDefinitionSetup;
+  /**
+   * Superseded providers stay resolvable for saved content but disappear
+   * from new creation once their replacement proves parity.
+   */
+  deprecation?: {
+    deprecated?: boolean;
+    replacement?: string;
+    message?: string;
+  };
 };
 export type ContentDefinitionCatalog = {
   revision: string;
@@ -2343,6 +1915,11 @@ export type DataSourceField = {
   label: string;
   type: string;
   currency?: string;
+  /**
+   * Optional semantic role from the shared vocabulary
+   * (docs/widgets-v2-authoring-and-first-wave.md §4).
+   */
+  role?: string;
 };
 export type DataSource = {
   id: string;
@@ -2585,6 +2162,9 @@ export type ClockWidgetConfig = {
   backgroundColor: string;
   textScale?: number;
   contentPadding?: number;
+  /** Clock V2 appearance (docs/widgets-v2.md). Older Players ignore it. */
+  style?: "standard" | "minimal" | "analog";
+  showDate?: boolean;
 };
 export type DateWidgetConfig = {
   timezone: string;

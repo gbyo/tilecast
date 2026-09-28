@@ -1,0 +1,491 @@
+{
+  "$comment": "Widgets V2 final catalog decisions. docs/widgets-v2-catalog.md explains each fate. apps/server/internal/contentdefs/catalog_decisions_test.go enforces this file against the release catalog: every Widget provider has exactly one entry, and every entry with status done agrees with its definition.",
+  "fates": {
+    "v2": "KEEP + REDESIGN AS V2",
+    "collapse": "COLLAPSE INTO ANOTHER V2 WIDGET",
+    "style": "REPURPOSE AS A STYLE/PRESET",
+    "web": "WEB INTEGRATION, NOT WIDGET",
+    "compat": "COMPATIBILITY-ONLY / HIDDEN",
+    "remove": "REMOVE ENTIRELY IF UNUSED AND SAFE"
+  },
+  "providers": [
+    {
+      "provider": "text",
+      "name": "Text",
+      "fate": "v2",
+      "component": "tilecast.text",
+      "creation": true,
+      "pr": "A",
+      "status": "done"
+    },
+    {
+      "provider": "text-notice",
+      "name": "Text Notice",
+      "fate": "compat",
+      "component": "tilecast.text",
+      "canonical": "text",
+      "creation": false,
+      "pr": "A",
+      "status": "done"
+    },
+    {
+      "provider": "clock",
+      "name": "Clock",
+      "fate": "v2",
+      "component": "tilecast.clock",
+      "creation": true,
+      "pr": "A",
+      "status": "done"
+    },
+    {
+      "provider": "date",
+      "name": "Date",
+      "fate": "collapse",
+      "component": "tilecast.clock",
+      "canonical": "clock",
+      "style": "date",
+      "creation": false,
+      "pr": "A",
+      "status": "done"
+    },
+    {
+      "provider": "world_clock",
+      "name": "World Clock",
+      "fate": "collapse",
+      "component": "tilecast.clock",
+      "canonical": "clock",
+      "style": "world",
+      "creation": false,
+      "pr": "A",
+      "status": "done"
+    },
+    {
+      "provider": "countdown",
+      "name": "Countdown",
+      "fate": "v2",
+      "component": "tilecast.countdown",
+      "creation": true,
+      "pr": "A",
+      "status": "done"
+    },
+    {
+      "provider": "qr-code",
+      "name": "QR Code",
+      "fate": "v2",
+      "component": "tilecast.qr-code",
+      "creation": true,
+      "pr": "#729",
+      "status": "done"
+    },
+    {
+      "provider": "qrcode",
+      "name": "QR Code (legacy)",
+      "fate": "compat",
+      "component": "tilecast.qr-code",
+      "canonical": "qr-code",
+      "creation": false,
+      "pr": "#729",
+      "status": "done"
+    },
+    {
+      "provider": "qr-call-to-action",
+      "name": "QR Call to Action",
+      "fate": "collapse",
+      "component": "tilecast.qr-code",
+      "canonical": "qr-code",
+      "creation": false,
+      "pr": "#729",
+      "status": "done"
+    },
+    {
+      "provider": "image-notice",
+      "name": "Image Notice",
+      "fate": "compat",
+      "component": "tilecast.image-notice",
+      "creation": false,
+      "pr": "A",
+      "status": "done"
+    },
+
+    {
+      "provider": "metric",
+      "name": "Metrics",
+      "fate": "v2",
+      "component": "tilecast.metrics",
+      "creation": true,
+      "pr": "B",
+      "status": "planned"
+    },
+    {
+      "provider": "stat_grid",
+      "name": "Stat Grid",
+      "fate": "collapse",
+      "component": "tilecast.metrics",
+      "canonical": "metric",
+      "creation": false,
+      "pr": "B",
+      "status": "planned"
+    },
+    {
+      "provider": "progress",
+      "name": "Progress",
+      "fate": "v2",
+      "component": "tilecast.progress",
+      "creation": true,
+      "pr": "B",
+      "status": "planned"
+    },
+    {
+      "provider": "fundraising-thermometer",
+      "name": "Fundraising Thermometer",
+      "fate": "style",
+      "component": "tilecast.progress",
+      "canonical": "progress",
+      "style": "thermometer",
+      "creation": false,
+      "pr": "B",
+      "status": "planned"
+    },
+    {
+      "provider": "spotlight",
+      "name": "Spotlight",
+      "fate": "v2",
+      "component": "tilecast.spotlight",
+      "creation": true,
+      "pr": "B",
+      "status": "planned"
+    },
+    {
+      "provider": "chart",
+      "name": "Chart",
+      "fate": "v2",
+      "component": "tilecast.chart",
+      "creation": true,
+      "pr": "B",
+      "status": "planned"
+    },
+    {
+      "provider": "timeline",
+      "name": "Timeline",
+      "fate": "v2",
+      "component": "tilecast.timeline",
+      "creation": true,
+      "pr": "B",
+      "status": "planned"
+    },
+
+    {
+      "provider": "status",
+      "name": "Status",
+      "fate": "v2",
+      "component": "tilecast.status",
+      "creation": true,
+      "pr": "C",
+      "status": "planned"
+    },
+    {
+      "provider": "school-status-banner",
+      "name": "School Status Banner",
+      "fate": "collapse",
+      "component": "tilecast.status",
+      "canonical": "status",
+      "style": "panel",
+      "creation": false,
+      "pr": "C",
+      "status": "planned"
+    },
+    {
+      "provider": "alert-banner",
+      "name": "Alert Banner",
+      "fate": "collapse",
+      "component": "tilecast.status",
+      "canonical": "status",
+      "style": "banner",
+      "creation": false,
+      "pr": "C",
+      "status": "planned"
+    },
+    {
+      "provider": "agenda",
+      "name": "Agenda",
+      "fate": "v2",
+      "component": "tilecast.agenda",
+      "creation": true,
+      "pr": "#730",
+      "status": "done"
+    },
+    {
+      "provider": "now-and-next",
+      "name": "Now and Next",
+      "fate": "collapse",
+      "component": "tilecast.agenda",
+      "canonical": "agenda",
+      "style": "now-next",
+      "creation": false,
+      "pr": "C",
+      "status": "planned"
+    },
+    {
+      "provider": "schedule-board",
+      "name": "School Schedule",
+      "fate": "collapse",
+      "component": "tilecast.agenda",
+      "canonical": "agenda",
+      "style": "schedule-board",
+      "creation": false,
+      "pr": "C",
+      "status": "planned"
+    },
+    {
+      "provider": "cards",
+      "name": "Cards",
+      "fate": "v2",
+      "component": "tilecast.cards",
+      "creation": true,
+      "pr": "#729",
+      "status": "done"
+    },
+    {
+      "provider": "recognition-board",
+      "name": "Recognition Board",
+      "fate": "collapse",
+      "component": "tilecast.cards",
+      "canonical": "cards",
+      "creation": false,
+      "pr": "C",
+      "status": "planned"
+    },
+
+    {
+      "provider": "list",
+      "name": "List",
+      "fate": "v2",
+      "component": "tilecast.list",
+      "creation": true,
+      "pr": "#729",
+      "status": "done"
+    },
+    {
+      "provider": "table",
+      "name": "Table",
+      "fate": "v2",
+      "component": "tilecast.table",
+      "creation": true,
+      "pr": "#729",
+      "status": "done"
+    },
+    {
+      "provider": "menu",
+      "name": "Menu Board",
+      "fate": "v2",
+      "component": "tilecast.menu-board",
+      "creation": true,
+      "pr": "#730",
+      "status": "done"
+    },
+    {
+      "provider": "weather",
+      "name": "Weather",
+      "fate": "v2",
+      "component": "tilecast.weather",
+      "creation": true,
+      "pr": "#730",
+      "status": "done"
+    },
+    {
+      "provider": "news",
+      "name": "News",
+      "fate": "v2",
+      "component": "tilecast.news",
+      "creation": true,
+      "pr": "#731",
+      "status": "done"
+    },
+    {
+      "provider": "ticker",
+      "name": "Ticker",
+      "fate": "v2",
+      "component": "tilecast.ticker",
+      "creation": true,
+      "pr": "#731",
+      "status": "done"
+    },
+    {
+      "provider": "news-feed",
+      "name": "News Feed",
+      "fate": "compat",
+      "component": "tilecast.news",
+      "canonical": "news",
+      "creation": false,
+      "pr": "#731",
+      "status": "done"
+    },
+    {
+      "provider": "espn",
+      "name": "ESPN",
+      "fate": "compat",
+      "component": "tilecast.news",
+      "canonical": "news",
+      "creation": false,
+      "pr": "#731",
+      "status": "done"
+    },
+    {
+      "provider": "custom-rss",
+      "name": "Custom RSS",
+      "fate": "compat",
+      "component": "tilecast.news",
+      "canonical": "news",
+      "creation": false,
+      "pr": "#731",
+      "status": "done"
+    },
+    {
+      "provider": "atom-feed",
+      "name": "Atom Feed",
+      "fate": "compat",
+      "component": "tilecast.news",
+      "canonical": "news",
+      "creation": false,
+      "pr": "#731",
+      "status": "done"
+    },
+    {
+      "provider": "bbc-news",
+      "name": "BBC News",
+      "fate": "compat",
+      "component": "tilecast.news",
+      "canonical": "news",
+      "creation": false,
+      "pr": "#731",
+      "status": "done"
+    },
+    {
+      "provider": "sky-news",
+      "name": "Sky News",
+      "fate": "compat",
+      "component": "tilecast.news",
+      "canonical": "news",
+      "creation": false,
+      "pr": "#731",
+      "status": "done"
+    },
+    {
+      "provider": "the-guardian",
+      "name": "The Guardian",
+      "fate": "compat",
+      "component": "tilecast.news",
+      "canonical": "news",
+      "creation": false,
+      "pr": "#731",
+      "status": "done"
+    },
+    {
+      "provider": "rss-ticker",
+      "name": "RSS Ticker",
+      "fate": "compat",
+      "component": "tilecast.ticker",
+      "canonical": "ticker",
+      "creation": false,
+      "pr": "#731",
+      "status": "done"
+    },
+
+    {
+      "provider": "website",
+      "name": "Website",
+      "fate": "web",
+      "creation": true,
+      "pr": "A",
+      "status": "done"
+    },
+    {
+      "provider": "youtube",
+      "name": "YouTube",
+      "fate": "web",
+      "creation": true,
+      "pr": "A",
+      "status": "done"
+    },
+    {
+      "provider": "google-slides",
+      "name": "Google Slides",
+      "fate": "web",
+      "creation": true,
+      "pr": "#732",
+      "status": "done"
+    },
+    {
+      "provider": "google-sheets-display",
+      "name": "Google Sheets — Display",
+      "fate": "web",
+      "creation": true,
+      "pr": "#732",
+      "status": "done"
+    },
+    {
+      "provider": "grafana",
+      "name": "Grafana",
+      "fate": "web",
+      "creation": true,
+      "pr": "A",
+      "status": "done"
+    },
+    {
+      "provider": "power-bi",
+      "name": "Power BI",
+      "fate": "web",
+      "creation": true,
+      "pr": "A",
+      "status": "done"
+    },
+    {
+      "provider": "tableau-public",
+      "name": "Tableau",
+      "fate": "web",
+      "creation": true,
+      "pr": "A",
+      "status": "done"
+    },
+    {
+      "provider": "looker-studio",
+      "name": "Looker Studio",
+      "fate": "web",
+      "creation": true,
+      "pr": "A",
+      "status": "done"
+    },
+    {
+      "provider": "airtable",
+      "name": "Airtable",
+      "fate": "web",
+      "creation": true,
+      "pr": "A",
+      "status": "done"
+    },
+    {
+      "provider": "smartsheet",
+      "name": "Smartsheet",
+      "fate": "web",
+      "creation": true,
+      "pr": "A",
+      "status": "done"
+    },
+    {
+      "provider": "canva",
+      "name": "Canva",
+      "fate": "web",
+      "creation": true,
+      "pr": "A",
+      "status": "done"
+    },
+    {
+      "provider": "notion",
+      "name": "Notion",
+      "fate": "web",
+      "creation": true,
+      "pr": "A",
+      "status": "done"
+    }
+  ]
+}

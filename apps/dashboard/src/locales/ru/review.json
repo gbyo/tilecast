@@ -1,33 +1,4 @@
 {
-  "approvals": {
-    "eyebrow": "Формы",
-    "title": "Согласования",
-    "description": "Материалы, ожидающие решения по проверке, во всех ваших формах.",
-    "table": {
-      "form": "Форма",
-      "submission": "Материал",
-      "submitter": "Автор",
-      "state": "Состояние",
-      "submitted": "Отправлен",
-      "displayWindow": "Период показа",
-      "reviewAction": "Проверить"
-    },
-    "untitledSubmission": "Материал без названия",
-    "untitledSubmissionInline": "материал без названия",
-    "unknownSubmitter": "Неизвестно",
-    "reviewActionLabel": "Проверить {{title}} из {{formName}}",
-    "loadErrorTitle": "Не удалось загрузить согласования",
-    "loadErrorFallback": "Повторите попытку.",
-    "loading": "Загрузка согласований",
-    "emptyTitle": "Нет материалов для проверки",
-    "emptyDescription": "Сейчас нет материалов, ожидающих вашего решения.",
-    "paginationLabel": "Страницы согласований",
-    "paginationStatus": "Страница {{page}} из {{totalPages}} · на согласовании: {{total}}",
-    "displayWindow": {
-      "now": "сейчас",
-      "range": "{{start}} → {{end}}"
-    }
-  },
   "contentReview": {
     "title": "Проверка контента",
     "description": "Плейлист или макет должен быть согласован в текущей версии, прежде чем попадёт на экран. Изменение согласованного контента возвращает его сюда.",

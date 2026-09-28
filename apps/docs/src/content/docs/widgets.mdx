@@ -1,11 +1,42 @@
 ---
 title: Create and reuse Widgets
-description: Configure reusable visual content in Tilecast Studio and connect it to a Data Source when needed.
+description: Choose a Widget by what the screen should show, connect a compatible Data Source, and check the result in Studio's live preview.
 ---
 
 import { Steps } from "@astrojs/starlight/components";
 
-A **Widget** is a reusable visual item, such as a clock, a notice, or a view of live data. Add a Widget to a Playlist or place it on a Layout. A Widget is separate from its **Data Source**: the Data Source provides values, and the Widget decides how to show them.
+A **Widget** is a reusable visual item, such as a clock, a list of announcements, or a weather forecast. Add a Widget to a Playlist or place it on a Layout.
+
+Start with what the screen should look like. Where the information comes from is a separate choice. The Widget decides how things look, and a **Data Source** supplies the information. For example, a News Widget can show a feed from one publisher today and a different feed tomorrow without changing its design. One Data Source, such as a Google Sheet, can feed a Table on one screen and a Ticker on another.
+
+Some Widgets, such as Clock and QR Code, need no Data Source. You enter their content directly.
+
+## Choose a Widget
+
+Choose by what you want people to see. The **Works with** column says what kind of Data Source each one needs.
+
+| Widget         | Use it to show                                                                             | Works with                                                         |
+| -------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| **Clock**      | The current time, in a **Standard**, **Minimal**, or **Analog** style.                     | No Data Source.                                                    |
+| **QR Code**    | A scannable link or text, with an optional heading and instruction.                        | No Data Source.                                                    |
+| **List**       | Short rows, each with main and secondary text, such as announcements or a staff directory. | Any records source.                                                |
+| **Table**      | Rows and columns that people compare, such as a bus schedule or game results.              | Any records source. You choose the columns.                        |
+| **Cards**      | Records that each stand on their own, with a title, body, badge, and optional image.       | Any records source.                                                |
+| **Ticker**     | One continuous scrolling line of short items, such as headlines or closures.               | Any records source, such as a feed, Manual Table, or Google Sheet. |
+| **News**       | Feed headlines with an optional summary, publication time, and source name.                | An RSS / Atom Feed, or another source with headline fields.        |
+| **Menu Board** | Items with descriptions and aligned prices, grouped into sections.                         | Menu Items, or another source with item names and prices.          |
+| **Agenda**     | Upcoming events grouped by day, with the current event marked.                             | A Calendar, Events, or another source with a start date or time.   |
+| **Weather**    | Current conditions and a forecast of several days.                                         | A Weather Data Source.                                             |
+
+A **records source** is any Data Source that provides rows of fields, such as a feed, a CSV file, a Google Sheet, a Manual Table, or a plugin source like Forms. See [Connect a Data Source](../data-sources/).
+
+News shows text only. It doesn't show article images.
+
+The catalog also includes other Widgets, such as Text Notice, Countdown, World Clock, Chart, and Alert Banner, and web Apps such as Website, YouTube, Google Slides, and **Google Sheets — Display**. A web App shows a page or a document as it appears online; see [Website Apps](../website-content/). The [content definition reference](../reference/content-definitions/) lists everything your Tilecast version includes.
+
+### Choices that moved
+
+Studio no longer offers feed-specific Widgets, such as **Custom RSS**, **Atom Feed**, **RSS Ticker**, **News Feed**, and the publisher Apps. The older QR Code Widget and **QR Call to Action** are replaced by the current **QR Code**. For feeds, use **News** or **Ticker** with an **RSS / Atom Feed** Data Source. Widgets you already saved with the older choices keep working, and you can still edit them.
 
 ## Create a Widget
 
@@ -14,13 +45,55 @@ An Owner, Administrator, or Editor can create and edit Widgets.
 <Steps>
 
 1. Open **Content** > **Widgets**, then select **Create Widget**.
-2. Search or choose a category in the catalog. The available Apps and building blocks depend on the definitions installed on your Tilecast Server. A disabled catalog item shows why it isn't available.
-3. Configure the selected Widget. For a data-driven Widget, select a compatible Data Source, map the fields it should show, and choose its display options. Some Widgets use settings you enter directly instead.
-4. Check the live preview, enter a name, and select **Save Widget**.
+2. Search the catalog or choose a category, then select the Widget that matches what the screen should show. A disabled catalog item shows why it isn't available.
+3. For a Widget that shows data, open the **Data Source** control under **Data**. The **Choose data** list shows only the sources this Widget can use. Select one, or select **Connect new data** to create a Data Source without leaving the editor.
+4. Check the fields under **Data**. Studio fills them in from the source, and you can change each one.
+5. Set the options under **Content** and **Appearance**, such as a heading, the maximum number of items, a style, or colors.
+6. Check the live preview. Under **Widget details**, enter a **Widget name**, then select **Save Widget**.
 
 </Steps>
 
-The editor's controls vary by Widget. If no compatible Data Source appears in the picker, choose a provider that supplies the kind of values this Widget accepts, or create a new one from the picker. See [Data Sources](../data-sources/).
+If **Choose data** lists no sources, create one with **Connect new data**, or create it from **Content** > **Data Sources**. The list offers only sources whose data this Widget can show.
+
+### How Studio fills the fields
+
+When you connect a source, Studio chooses a field for each empty field control:
+
+1. It first uses fields the source marks with a meaning. An RSS / Atom Feed marks its title as the headline, its description as the summary, and its date as the publication time.
+2. It then uses fields with a familiar name, such as `title`, `price`, or `start`.
+3. It then offers any field of a compatible type, such as a date for an Agenda's **Start field**.
+
+Change any field Studio chose. If you switch to another source, Studio keeps your choices that the new source also has and fills in the rest.
+
+Some Widgets need your choices. A Table shows only the **Columns** you add. An Agenda can't place an event without a **Start field**. News and Weather read their source's fields directly and have no field controls.
+
+## Check the live preview
+
+The preview in the Widget editor uses the same Widget renderer as current Linux and Tilecast Edge Players. What you see there is what those screens show.
+
+- **Preview size** switches between **Landscape 16:9**, **Portrait 9:16**, **Wide strip**, **Tall sidebar**, **Small zone**, and a **Custom** size. Widgets arrange themselves for the space they have, so check the sizes where you plan to use the Widget.
+- **Preview time** is **Live** by default. Select **At a time** to see how a Clock, Agenda, or other time-based Widget looks at a chosen date and time.
+- The preview uses the Data Source's current data. If the source has no data yet, the preview shows the Widget's empty message.
+
+Below the preview, Studio reports whether the preview is ready, empty, or can't render, with the reason. When you save, Studio also stores the preview as the Widget's thumbnail.
+
+## Choose a Clock style
+
+The Clock Widget has three styles. Pick one under **Appearance**:
+
+- **Standard**: the time in large type, with the seconds and AM/PM beside it. Turn on **Show date** to add the day and date below.
+- **Minimal**: the time alone, as large as it fits.
+- **Analog**: a clock face, with the digital time and the optional date beside or below it.
+
+The Clock arranges itself for the space it has. In a wide strip it becomes a single line, in a tall sidebar it stacks the hours over the minutes, and in a small Layout zone it shows only the time. You don't adjust sizes by hand. The live preview shows the style you chose at each preview size.
+
+## Which Players show these Widgets
+
+Current Linux Players and Tilecast Edge show the Widgets in the table above the way the Studio preview does.
+
+Android Players, and Linux Players that haven't been updated, show a compatibility version instead. It shows the same information, but it can look different from the preview. For example, the Clock shows the time on its own, without the chosen style. To see the current design, [update the Player](../players/update-a-player/).
+
+**News** and **QR Code** have no compatibility version. Tilecast won't assign them to a screen whose Player can't show them. Use a current Linux Player or Tilecast Edge for these Widgets. For the technical rules, see [Widgets V2](https://github.com/gbyo/tilecast/blob/main/docs/widgets-v2.md).
 
 ## Reuse a Widget
 
@@ -30,7 +103,7 @@ In a Layout, the **Widgets** section opens the Apps picker. Add the Widget to th
 
 ## When a Widget has no current data
 
-Check the Data Source's status and refresh diagnostics in **Content** > **Data Sources**. A Widget may have an empty-state or fallback setting, depending on its definition. The Layout inspector also lets you choose whether an unavailable App placement is shown or hidden. These options vary by Widget; preview the result before publishing.
+Check the Data Source's status and refresh diagnostics in **Content** > **Data Sources**. Most data Widgets have an **Empty message** option under **Content**, which the screen shows when the source returns nothing to display. The Layout inspector also lets you choose whether an unavailable App placement is shown or hidden. Preview the result before publishing.
 
 ## Next steps
 

@@ -6,16 +6,37 @@ import { MemoryRouter } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SidebarNavigation } from "../../pages/Dashboard";
-import { api } from "../../api/client";
-import type { FormSummary } from "../../api/types";
 
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
+type GrantedCapability =
+  "manage" | "submit" | "view_own" | "view_all" | "review" | "approve";
+
+/**
+ * The sidebar reaches the Forms plugin through its real HTTP path: the
+ * plugin's own visibility query calls GET /api/v1/forms, and the generic
+ * shell only renders the contribution. Stubbing fetch keeps the plugin's
+ * visibility logic (not a mock of it) under test.
+ */
+function stubFormsFetch(items: { grantedCapabilities: GrantedCapability[] }[]) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ data: { items } }),
+      }),
+    ),
+  );
+}
+
 function renderNav(pathname = "/") {
-  vi.spyOn(api, "listForms").mockResolvedValue([]);
+  stubFormsFetch([]);
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -101,10 +122,8 @@ describe("static sidebar groups", () => {
   });
 });
 
-describe("sidebar Approvals capability", () => {
-  const summary = (
-    capabilities: FormSummary["grantedCapabilities"],
-  ): FormSummary => ({
+describe("plugin-contributed Approvals entry", () => {
+  const summary = (capabilities: GrantedCapability[]) => ({
     id: "form-1",
     name: "Announcements",
     description: "",
@@ -117,8 +136,49 @@ describe("sidebar Approvals capability", () => {
     },
   });
 
+  function renderWithForms(
+    forms: { grantedCapabilities: GrantedCapability[] }[],
+  ) {
+    stubFormsFetch(forms);
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    return render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={["/"]}>
+          <SidebarNavigation />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+  }
+
   it("shows Approvals only when a form grants review", async () => {
-    vi.spyOn(api, "listForms").mockResolvedValue([summary(["review"])]);
+    renderWithForms([summary(["review"])]);
+
+    expect(
+      await screen.findByRole("link", { name: "Approvals" }),
+    ).toHaveAttribute("href", "/approvals");
+  });
+
+  it("hides Approvals when nothing grants review, and fails closed on error", async () => {
+    const { unmount } = renderWithForms([summary(["submit"])]);
+    // A submitter sees no inbox; the entry is the Forms plugin's own
+    // visibility decision, not shell logic.
+    await screen.findByRole("link", { name: "Settings" });
+    expect(screen.queryByRole("link", { name: "Approvals" })).toBeNull();
+    unmount();
+    cleanup();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Promise.resolve({
+          ok: false,
+          status: 500,
+          json: () => Promise.resolve({}),
+        }),
+      ),
+    );
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
@@ -129,9 +189,7 @@ describe("sidebar Approvals capability", () => {
         </MemoryRouter>
       </QueryClientProvider>,
     );
-
-    expect(
-      await screen.findByRole("link", { name: "Approvals" }),
-    ).toHaveAttribute("href", "/approvals");
+    await screen.findByRole("link", { name: "Settings" });
+    expect(screen.queryByRole("link", { name: "Approvals" })).toBeNull();
   });
 });

@@ -8,6 +8,11 @@ import (
 )
 
 func (s *server) listScreenEvents(w http.ResponseWriter, r *http.Request) {
+	role, ok := activityRole(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
 	window, err := parseActivityWindow(r)
 	if err != nil {
 		writeError(w, http.StatusUnprocessableEntity, "activity_range_invalid", err.Error())
@@ -63,7 +68,6 @@ func (s *server) listScreenEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer rows.Close()
-	role := activitySession(r).User.Role
 	items := make([]screenEventRecord, 0, page.Limit+1)
 	for rows.Next() {
 		var item screenEventRecord

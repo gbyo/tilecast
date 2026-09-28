@@ -1,0 +1,11 @@
+{
+  "frame": {
+    "type": "event",
+    "seq": 1,
+    "event": "noise.report",
+    "data": {
+      "status": "normal",
+      "pcm": "UklGRiQAAABXQVZF"
+    }
+  }
+}

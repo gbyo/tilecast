@@ -1,33 +1,18 @@
-import {
-  AudioLines,
-  ClipboardList,
-  Clock3,
-  Puzzle,
-  Siren,
-  Stamp,
-  type LucideIcon,
-} from "lucide-react";
+import { Puzzle } from "lucide-react";
+import { studioPluginById } from "../plugin-host/discovery";
 
 /**
- * The server owns every plugin's name, route, and status; Studio only maps the
- * bounded icon identifier to a component. An identifier this bundle does not
- * know gets the generic icon rather than dropping the plugin.
+ * A plugin's icon comes from its own Studio entry point. A plugin this bundle
+ * has no Studio code for — a newer release's installation, for example — gets
+ * the generic icon rather than being dropped.
  */
-const pluginIcons: Record<string, LucideIcon> = {
-  clock: Clock3,
-  siren: Siren,
-  "clipboard-list": ClipboardList,
-  stamp: Stamp,
-  "audio-lines": AudioLines,
-};
-
 export function PluginIcon({
-  icon,
+  pluginId,
   className,
 }: {
-  icon: string;
+  pluginId: string;
   className?: string;
 }) {
-  const Icon = pluginIcons[icon] ?? Puzzle;
+  const Icon = studioPluginById(pluginId)?.definition.icon ?? Puzzle;
   return <Icon className={className} aria-hidden="true" />;
 }

@@ -1,0 +1,30 @@
+name: validate-container
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  validate:
+    name: Server container
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Validate Compose configuration
+        run: docker compose --env-file deploy/docker/.env.example -f deploy/docker/compose.yml config --quiet
+      - uses: docker/setup-buildx-action@v4
+      - name: Build container
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          push: false
+          cache-from: type=gha,scope=server
+          cache-to: type=gha,scope=server,mode=max
+
+  # Browser smoke tests against a real Demo Mode stack: the production image,
+  # PostgreSQL, and simulated players. A separate job, so the unit-test jobs
+  # keep their feedback time.

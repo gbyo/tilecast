@@ -4,11 +4,13 @@ Milestone 1 exposes JSON endpoints under `/api/v1`. Successful responses use `{"
 
 Milestone 9 adds Player release check/cache endpoints, Owner-only GitHub device-authorization start/poll/disconnect endpoints, deployment list/detail/create/cancel/retry endpoints, and device-authenticated update metadata, byte-range APK, and status endpoints. Only targeted screens can retrieve APK data. GitHub access tokens are never included in API responses. See [player-updates.md](player-updates.md) and `openapi.yaml`.
 
+Every Player release has a family (`android`, `electron-linux` or `edge`) and, for Tilecast Edge, an architecture (`x86_64` or `aarch64`). `GET /api/v1/player-releases` and the deployment list and detail return `playerFamily` and `architecture`. The upload accepts a Tilecast Edge archive with its signed envelope `tilecast-edge-update.json`. A deployment targets only screens that report the release's family and architecture in their heartbeat (`playerFamily`, `playerArchitecture`); other screens of the family are `incompatible`, and a deployment with no compatible target is refused with `422`. `GET /api/v1/player/updates/{releaseId}` returns the signed envelope (`signedManifest`, `manifestSignature`), `architecture` and `stateSchemaVersion` for an Edge release, and `GET /api/v1/player/updates/{releaseId}/artifact` serves the archive of every Linux family with range requests. `POST /api/v1/player/update-deployments/{deploymentId}/status` accepts `succeeded` only for an Edge release; it is the only way an Edge target settles. The Edge contract is in [tilecast-edge.md](tilecast-edge.md) §15 and its security review in [tilecast-edge-update-threat-review.md](tilecast-edge-update-threat-review.md).
+
 Playlist items may reference either a ready Asset (`assetId`) or a published Layout (`layoutId`), never both. Layout items require a positive `durationMs`, play fullscreen for that interval, and use stream delivery because their referenced media and widgets are projected separately into the Player manifest. A Layout that transitively contains the destination playlist is rejected to prevent recursive playback.
 
 Milestone 10 adds `GET /screens/{id}/reliability` for capability-versus-requested-state diagnostics and `PUT /screens/{id}/power-assist` for explicit administrator confirmation of physical sleep, wake, TV, input-selection, and startup test results. Persistent commands add `retry_player_recovery`, `exit_safe_mode`, `power_assist_sleep`, and `power_assist_wake`; all use empty typed payloads and remain Owner/Administrator-only.
 
-Installable built-in plugins are listed at `GET /plugins`: every plugin the release offers, each with `installed`, `configured`, `active`, `instanceCount`, and advisory `attention`, plus `unsupportedInstallations` for rows a newer release left behind. Owner or Administrator with CSRF install a plugin with `POST /plugins/{pluginId}/install` (`201` the first time, `200` when repeated, `404 plugin_not_found` for an unknown identifier) and remove one with `DELETE /plugins/{pluginId}/installation` (`204`, idempotent). Removal never deletes plugin data and answers `409 plugin_in_use`, with the remaining resources in `error.details`, while the plugin still owns any. Configuration routes answer `409 plugin_not_installed` for a plugin that is not installed rather than installing it. The catalog includes Forms, whose existing form and record endpoints remain below `/forms` and `/data-sources/{id}`, and Player-facing plugins such as Countdown Bar and Brand Bug / Watermark. Dependency Graph is a system tool, not a plugin; its read-only API remains at `GET /plugins/dependency-graph`. The graph returns typed nodes and directed edges from each dependency to its consumer across Data Sources, media, Widgets, Layouts, playlists, Campaigns, schedules, sync groups, and screens. Countdown Bar instances are managed below `/plugins/countdown-bar/instances`, Brand Bug instances below `/plugins/brand-bug/instances`, and Noise Meter instances below `/plugins/noise-meter/instances`; Owner or Administrator and CSRF are required for create, replace, and delete. Noise Meter levels are a relative 0-100 scale measured by the Linux Player's own microphone, not calibrated decibels, and no audio or sample is ever sent to the server. Its history is read below `/plugins/noise-meter/instances/{id}/history/` — summary, series, daily, screens, and `export.csv` — and is written only by Players, on the ordinary `POST /player/heartbeat`, in its optional `noiseMeter` object. The heartbeat response reports `data.noiseHistory.accepted`, and a Player keeps its batch until it sees that count. See [Installable built-in plugins](plugins.md) for plugin behavior, installation, and boundaries.
+Installable built-in plugins are listed at `GET /plugins`, with installation and status plus `unsupportedInstallations` for old rows. This release offers Countdown Bar, Emergency Alerts, and Forms. Owner or Administrator with CSRF can install a supported plugin with `POST /plugins/{pluginId}/install` and remove an installation with `DELETE /plugins/{pluginId}/installation`. Removing a row never deletes plugin data. The retired `brand_bug` and `noise_meter` rows are marked `retired: true`, remain inert, and can be removed; unknown rows from newer releases remain distinguishable. Countdown Bar instances are managed below `/plugins/countdown-bar/instances`; Forms retain their form and record endpoints below `/forms` and `/data-sources/{id}`. The Dependency Explorer is a Studio system tool at `GET /plugins/dependency-graph`. Old Players may send a `noiseMeter` object on `POST /player/heartbeat`; the server accepts and ignores it without storing history or updating status. See [Installable built-in plugins](plugins.md) for the current contract.
 
 ## System
 
@@ -113,6 +115,11 @@ Login body:
 { "username": "owner@example.org", "password": "a long unique password" }
 ```
 
+In Demo Mode (`TILECAST_ENV=demo`), the status response also contains `"demoMode": true`, and a request with no valid session receives a new session for the demo Owner with `authMethod` `demo`. Two Demo Mode endpoints exist only on such an installation:
+
+- `GET /api/v1/demo` — returns the scenario and the state of each simulated player.
+- `POST /api/v1/demo/reset` — replaces all data with a scenario, for example `{ "scenario": "basic" }`. Requires the Owner role and `X-CSRF-Token`. Refer to [`demo-mode.md`](demo-mode.md).
+
 Authentication and setup are rate-limited per directly connected client address. When a reverse proxy is introduced, keep it on a trusted network; configurable trusted-proxy address handling will be added before internet-facing player APIs.
 
 ## Multi-factor authentication
@@ -166,6 +173,34 @@ These endpoints require the session cookie, and mutations require `X-CSRF-Token`
 - `POST /api/v1/me/security/passkeys` — posts the raw credential with `X-MFA-Challenge`. The passkey is named from the authenticator's AAGUID; no name is accepted.
 - `PATCH /api/v1/me/security/passkeys/{id}` — renames a passkey.
 - `POST /api/v1/me/security/passkeys/{id}/remove` — requires `{ "password": "…" }`.
+- `GET /api/v1/me/security/grants` — lists this account's OAuth authorization grants newest first, revoked included.
+- `DELETE /api/v1/me/security/grants/{id}` — revokes one grant and every token under it, effective immediately. Personal access tokens are revoked through this same endpoint.
+- `GET /api/v1/me/security/pats?search=` — lists this account's personal access tokens newest first with display metadata only, never secrets. Expired and revoked tokens stay listed until explicitly revoked.
+- `POST /api/v1/me/security/pats` — enrolled session plus CSRF, or a Bearer [REDACTED] the admin scope. Creates a named personal access token (`{ "name", "scopes", "expiresInDays" }`, lifetime one of 7, 30, 90, or 365 days — there is no permanent token) and returns the plaintext secret exactly once. Only SHA-256 hashes are stored.
+
+### Loopback operators (OAuth)
+
+The installation acts as its own authorization server so the `tilecast` CLI can work as the signed-in user without ever seeing a password or session cookie. Only the authorization-code flow with PKCE S256 exists, only for loopback redirects, and only with explicit per-grant approval in Studio at `/oauth/approve`. There is no client registration UI and no general OAuth provider. The client IDs `tilecast-cli` and `tilecast-mcp` are stable protocol constants validated as-is, not database rows; personal access tokens ride the generic grant table directly with no OAuth client of any kind.
+
+- `GET /api/v1/oauth/authorize` — enrolled session. Describes the request (client, scopes, redirect) for the approval screen. Stores nothing.
+- `POST /api/v1/oauth/approve` — enrolled session plus CSRF. Records the grant and returns the loopback redirect carrying the single-use, ten-minute code.
+- `POST /api/v1/oauth/deny` — answers the client with `access_denied` and records nothing.
+- `POST /api/v1/oauth/token` — public and rate-limited. Exchanges a code with its verifier, or rotates a refresh token. Access tokens live fifteen minutes; refresh tokens live thirty days and rotate on every use. Reusing a rotated refresh token revokes the whole grant.
+- `POST /api/v1/oauth/revoke` — public and rate-limited. Revokes the grant behind the presented credential.
+
+Scopes are `read`, `write`, and `admin`. Grants always intersect the user's current role and screen scope at use time, so disabling an account or narrowing its scope takes effect immediately.
+
+Personal access tokens ride the same grant model with their own `tcp_` prefix, so a secret always reveals its kind. They are created directly in Studio (creation form, then a confirmation screen showing the secret once) rather than through a client approval flow. Every token expires — the lifespan picker offers 7, 30, 90, or 365 days and permanence is not an option. An expired token is inert for authentication but stays listed with its name, scopes, and expiry until explicitly revoked; there is no renewal, so a token that must live longer is replaced by creating a new one. Scripts and CI present a token with `TILECAST_URL` plus `TILECAST_TOKEN` environment variables.
+
+### Management authentication
+
+Management routes share one boundary, `requireUser`, which accepts either an enrolled dashboard session cookie or `Authorization: Bearer` with an OAuth access token (`tca_`) or personal access token (`tcp_`). Both produce the same principal: the live user row, so disabling an account or changing its role or screen scope takes effect on the next request, with the grant contributing only its identity and scope ceiling. The credential source is explicit: a request carrying an `Authorization` header is authenticated as that Bearer [REDACTED] not at all, and never falls back to an ambient browser cookie. Device credentials (`tc_device_`), integration tokens (`tci_`), and refresh secrets are never accepted here, exactly as sessions are never accepted as player credentials.
+
+Grant scopes are hierarchical — `admin` implies `write` implies `read` — and every management route names the scope it needs: reads take `read`, mutations take `write`, and user, token, grant, backup, and security administration take `admin` on top of the role check. A user who owes the organization a second factor is gated with `mfa_enrollment_required` on either credential.
+
+CSRF depends on the credential type. Cookie-backed browser requests require `X-CSRF-Token` on unsafe methods, exactly as before. Bearer requests never send it and are never asked for it. Browser security ceremonies stay session-only: MFA enrollment and removal, passkeys, recovery codes, logout, and OAuth approval/denial refuse bearer credentials outright.
+
+Audit rows follow the grant, never the ambient cookie. OAuth calls from the CLI carry the `cli` surface. MCP calls carry `mcp`, including when the MCP process uses a stored CLI OAuth grant and sends its fixed `tilecast-mcp` agent. This caller label is audit metadata only; the grant still controls authorization. Personal access tokens, usable by any API client, carry the `api` surface with the token name.
 
 ### Administrative reset
 
@@ -209,7 +244,7 @@ Screens reference an optional `locationId` and carry independent optional `roomN
 - `PATCH /api/v1/locations/{id}`
 - `DELETE /api/v1/locations/{id}`
 
-The machine-readable subset is in [`openapi.yaml`](openapi.yaml).
+The machine-readable subset is in [`openapi.yaml`](openapi.yaml). `pluginctl` generates that file from [`openapi/core.yaml`](openapi/core.yaml) and the `api/openapi.yaml` fragment of each plugin. Edit the source files, then run `npm run plugins:generate`. Refer to [`plugin-api.md`](plugin-api.md#openapi).
 
 ## Media uploads and library
 

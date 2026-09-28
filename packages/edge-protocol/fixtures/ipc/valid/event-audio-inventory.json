@@ -1,0 +1,14 @@
+{
+  "frame": {
+    "type": "event",
+    "seq": 1,
+    "event": "audio.inventory",
+    "data": {
+      "pipewire": "available",
+      "sources": 1,
+      "sinks": 2,
+      "defaultSource": true,
+      "defaultSink": true
+    }
+  }
+}

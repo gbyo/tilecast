@@ -1,0 +1,21 @@
+{
+  "type": "create",
+  "surfaceId": "s-1",
+  "width": 1280,
+  "height": 720,
+  "muted": true,
+  "visible": false,
+  "content": {
+    "kind": "page",
+    "url": "http://10.0.0.5/menu",
+    "allowedHosts": ["10.0.0.5"],
+    "javascriptEnabled": true,
+    "domStorageEnabled": true,
+    "cookiePolicy": "disabled",
+    "userAgent": "",
+    "zoomPercent": 100,
+    "scrollX": 0,
+    "scrollY": 120,
+    "backgroundColor": "#0E141B"
+  }
+}

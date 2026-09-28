@@ -3,6 +3,7 @@
     {
       "id": "text-notice",
       "version": 1,
+      "apiVersion": 1,
       "name": "Text Notice",
       "description": "Show a heading and message without connecting a Data Source.",
       "category": "Essentials",
@@ -16,13 +17,15 @@
             "label": "Heading",
             "control": "text",
             "default": "",
-            "maxLength": 120
+            "maxLength": 120,
+            "ui": { "section": "content", "order": 1 }
           },
           {
             "key": "showHeading",
             "label": "Show heading",
             "control": "boolean",
-            "default": true
+            "default": true,
+            "ui": { "section": "content", "order": 2 }
           },
           {
             "key": "body",
@@ -31,7 +34,8 @@
             "required": true,
             "minLength": 1,
             "maxLength": 1000,
-            "default": "Write your announcement here."
+            "default": "Write your announcement here.",
+            "ui": { "section": "content", "order": 3 }
           },
           {
             "key": "align",
@@ -42,7 +46,8 @@
             "options": [
               { "value": "left", "label": "Left" },
               { "value": "center", "label": "Center" }
-            ]
+            ],
+            "ui": { "section": "appearance", "order": 1 }
           },
           {
             "key": "bodyLines",
@@ -51,21 +56,24 @@
             "required": true,
             "default": 6,
             "minimum": 1,
-            "maximum": 12
+            "maximum": 12,
+            "ui": { "hidden": true }
           },
           {
             "key": "foregroundColor",
             "label": "Text color",
             "control": "color",
             "required": true,
-            "default": "#ffffff"
+            "default": "#ffffff",
+            "ui": { "section": "appearance", "order": 3 }
           },
           {
             "key": "backgroundColor",
             "label": "Background color",
             "control": "color",
             "required": true,
-            "default": "#12253a"
+            "default": "#12253a",
+            "ui": { "section": "appearance", "order": 2 }
           }
         ]
       },
@@ -140,136 +148,36 @@
           "Save and add it to a playlist, Layout, or screen."
         ]
       },
-      "deprecation": {}
-    },
-    {
-      "id": "image-notice",
-      "version": 1,
-      "name": "Image Notice",
-      "description": "Show one uploaded image with an optional caption.",
-      "category": "Essentials",
-      "icon": "image",
-      "thumbnail": "image-notice",
-      "runtime": "native",
-      "configurationSchema": {
-        "fields": [
-          {
-            "key": "imageAssetId",
-            "label": "Image",
-            "description": "An uploaded image from the Media library.",
-            "control": "media_asset",
-            "required": true,
-            "mediaTypes": ["image"]
-          },
-          {
-            "key": "fit",
-            "label": "Image fit",
-            "control": "select",
-            "required": true,
-            "default": "contain",
-            "options": [
-              { "value": "contain", "label": "Fit inside" },
-              { "value": "cover", "label": "Fill and crop" },
-              { "value": "stretch", "label": "Stretch" }
-            ]
-          },
-          {
-            "key": "caption",
-            "label": "Caption",
-            "control": "text",
-            "default": "",
-            "maxLength": 200
-          },
-          {
-            "key": "showCaption",
-            "label": "Show caption",
-            "control": "boolean",
-            "default": true
-          },
-          {
-            "key": "foregroundColor",
-            "label": "Caption color",
-            "control": "color",
-            "required": true,
-            "default": "#ffffff"
-          },
-          {
-            "key": "backgroundColor",
-            "label": "Background color",
-            "control": "color",
-            "required": true,
-            "default": "#000000"
-          }
-        ]
+      "deprecation": {
+        "deprecated": true,
+        "replacement": "text",
+        "message": "Create a Text Widget instead. Saved Text Notice content keeps working."
       },
-      "defaultConfiguration": {
-        "fit": "contain",
-        "caption": "",
-        "showCaption": true,
-        "foregroundColor": "#ffffff",
-        "backgroundColor": "#000000"
-      },
-      "presentationSchemaVersion": 1,
-      "presentationTemplate": {
-        "type": "surface",
-        "props": {
-          "backgroundColor": { "$config": "backgroundColor" },
-          "padding": 0
+      "component": {
+        "type": "tilecast.text",
+        "version": 1,
+        "tagName": "tc-widget-text",
+        "entrypoint": "./runtime/index.ts",
+        "configTemplate": {
+          "heading": {
+            "$config": "heading",
+            "when": "showHeading",
+            "default": ""
+          },
+          "body": { "$config": "body", "default": "" },
+          "style": "standard",
+          "align": { "$config": "align", "default": "center" },
+          "background": { "$config": "backgroundColor", "default": "" },
+          "foreground": { "$config": "foregroundColor", "default": "" }
         },
-        "children": [
-          {
-            "type": "column",
-            "props": { "align": "center", "gap": 8 },
-            "children": [
-              {
-                "type": "asset_image",
-                "props": {
-                  "variantId": { "$config": "imageVariantId" },
-                  "fit": { "$config": "fit" },
-                  "fallbackColor": { "$config": "backgroundColor" },
-                  "contentDescription": { "$config": "caption" }
-                }
-              },
-              {
-                "$ifConfig": "showCaption",
-                "type": "text",
-                "props": {
-                  "role": "label",
-                  "align": "center",
-                  "color": { "$config": "foregroundColor" }
-                },
-                "binding": {
-                  "source": "literal",
-                  "value": { "$config": "caption" }
-                }
-              }
-            ]
-          }
-        ]
+        "empty": "render"
       },
-      "requiredCapabilities": {
-        "layout.surface": 1,
-        "layout.column": 1,
-        "content.asset_image": 2,
-        "content.text": 1,
-        "binding.core": 2
-      },
-      "emptyStateBehavior": "text",
-      "requiresManifestV13": true,
-      "setup": {
-        "eyebrow": "No Data Source needed",
-        "tip": "The image is downloaded to the Player, so it keeps showing while the network is down.",
-        "steps": [
-          "Upload the image to the Media library first.",
-          "Select it here and choose how it should fit the screen.",
-          "Optionally add a caption below the image."
-        ]
-      },
-      "deprecation": {}
+      "compatibility": { "fallback": "template" }
     },
     {
       "id": "qr-call-to-action",
       "version": 1,
+      "apiVersion": 1,
       "name": "QR Call to Action",
       "description": "Pair a scannable code with a heading and short instruction.",
       "category": "Essentials",
@@ -399,7 +307,32 @@
           "Preview from the distance viewers will actually stand at."
         ]
       },
-      "deprecation": {}
+      "deprecation": {
+        "deprecated": true,
+        "replacement": "qr-code",
+        "message": "Create a QR Code instead. Saved QR Call to Action content keeps working."
+      },
+      "compatibility": { "fallback": "template" },
+      "component": {
+        "type": "tilecast.qr-code",
+        "version": 1,
+        "tagName": "tc-widget-qr-code",
+        "entrypoint": "./runtime/index.ts",
+        "configTemplate": {
+          "payload": { "$config": "url", "default": "" },
+          "heading": { "$config": "heading", "default": "" },
+          "instruction": {
+            "$config": "body",
+            "default": "",
+            "when": "showBody"
+          },
+          "shortLabel": { "$config": "shortLabel", "default": "" },
+          "style": { "$config": "style", "default": "standard" },
+          "background": { "$config": "backgroundColor", "default": "#FFFFFF" },
+          "foreground": { "$config": "foregroundColor", "default": "#101418" }
+        },
+        "empty": "render"
+      }
     }
   ],
   "dataSources": []

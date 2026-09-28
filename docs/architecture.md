@@ -4,7 +4,7 @@ Tilecast begins as a modular monolith. The server compiles into one Go binary, s
 
 ## Boundaries
 
-- `cmd/tilecast` owns process startup and graceful shutdown.
+- `cmd/tilecast-server` owns process startup, graceful shutdown, local backup and restore, and emergency MFA reset. The remote `tilecast` CLI lives in `apps/cli` and never links server code.
 - `internal/config` validates environment configuration.
 - `internal/database` owns the connection pool and Goose migrations.
 - `internal/auth` owns password hashing, first-owner setup, users, opaque sessions, and multi-factor authentication.
@@ -12,7 +12,7 @@ Tilecast begins as a modular monolith. The server compiles into one Go binary, s
 - `internal/presentnet` owns Presentation Network validation, AES-256-GCM credential envelopes, organization network definitions, Linux screen assignments, and player provisioning material. Its only plaintext-secret path is the authenticated player endpoint; Studio, audit, command, and configuration contracts use redacted metadata.
 - `internal/media` owns resumable upload state, generated storage keys, local storage, trusted inspection, compatibility decisions, persistent jobs, and delivery metadata.
 - `internal/playlists` owns ordered playlists, direct assignments, per-screen manifest versions, manifest contracts, and summarized synchronization status.
-- `internal/plugins` owns the closed built-in plugin registry (compiled definitions in `registry.go`) and installation lifecycle (`installation.go`, backed by `plugin_installations`). Installation is the top-level runtime gate: an uninstalled or unknown plugin contributes no manifest entries, its NWS poller and Forms worker do no work, and its Noise Meter history is dropped. It also owns Countdown Bar, Brand Bug / Watermark, and Noise Meter instances and targets, the projection of live Emergency Alerts tickers, and per-screen plugin projection. Noise Meter carries only thresholds: its measurement is local to the Linux Player, and no audio or sample reaches the Server. Media a plugin references is resolved by manifest assembly in `internal/playlists`, so a Brand Bug logo is verified and cached like any other asset. The registry also covers bounded workflow plugins such as Forms, whose approved records continue through the ordinary Data Source projection. Plugins do not load third-party code and reach the Linux renderer on a channel independent of presentation playback.
+- `internal/plugins` owns the built-in registry, installation lifecycle, and legacy Emergency Alerts and Forms integration. Installation gates runtime projection and background work. Countdown Bar is a bundled plugin. Brand Bug and Noise Meter are retired: old installation rows and tables remain for compatibility, while the catalog distinguishes retired rows from unknown newer plugins. Neither retired feature is projected into new manifests or configured in Studio. Old `noiseMeter` heartbeats are accepted and ignored. Plugins reach the Linux renderer on a channel independent of presentation playback.
 - `internal/web` serves immutable dashboard assets and the SPA fallback.
 - `apps/dashboard/src/api` owns browser API types and transport behavior.
 - Presentation Network Wi-Fi is a sidecar to the Linux Player's Ethernet path. The unprivileged Electron process talks to the narrowly scoped root-owned `tilecast-networkd` helper over a Unix socket; the helper owns only Tilecast-named NetworkManager profiles and never changes the existing Ethernet profile.
@@ -88,6 +88,8 @@ Manifest v12 introduces a renderer-neutral typed record boundary between Data So
 
 Manifest v13 extends that boundary into a declarative presentation runtime. The Server-owned release catalog in `internal/contentdefs` is the runtime source of truth for Widget and Data Source metadata, form schemas, output schemas, adapter IDs, presentation templates, and exact capability requirements. `internal/media` validates release-defined configuration and dispatches trusted acquisition through adapter IDs; `internal/playlists` resolves trusted placeholders into a provider-neutral native node tree before the manifest is sent. Android validates capabilities and interprets final documents instead of selecting a renderer from the provider name.
 
+Widgets V2 (manifest v16) add first-class Widget components. A Widget module below `widgets/` carries its catalog entry and its component in one `tilecast.widget.json`; the Server embeds those files through the `widgets` Go module, and the Player Runtime and Studio discover the same modules when they are built. For each screen, `internal/playlists` sends the component to a Player that reports its exact `widget.<type>` capability and the Widget's compatibility presentation to every other Player. See [widgets-v2.md](widgets-v2.md).
+
 Catalog Apps extend that boundary without collapsing it. An App recipe atomically provisions a Widget and an explicitly owned, hidden Data Source, then stores the source ID in the compiled Widget configuration so the existing relational usage, invalidation, readiness, and manifest paths remain authoritative. Release-defined Web Integrations compile a closed host policy and built-in URL normalization into the provider-neutral web descriptor; manifest v15 adds bounded periodic reload and requires web runtime 2. Players remain provider-agnostic. See [Adding a Tilecast App](adding-a-tilecast-app.md).
 
 ## Form Data Sources
@@ -138,3 +140,14 @@ The closed typed registry separates organization settings, preferences, group po
 ## Milestone 9 player updates
 
 The `updates` domain owns an optional fixed GitHub Releases provider, direct signed-release import, Ed25519-signed release manifests, Android APK-signature verification, private persistent cache, deployment snapshots, and per-screen state. Both release sources converge on one verified Player release model. Update commands reuse PostgreSQL command delivery; APK bytes use a device-authenticated range endpoint and never enter content manifests. Success remains provisional until the updated player reconnects with the expected version code. See [player-updates.md](player-updates.md).
+
+## Tilecast Edge
+
+Tilecast Edge is the Linux player that replaces the Electron Linux Player. The design is [`tilecast-edge.md`](tilecast-edge.md); the implementation state is in [`tilecast-edge-next.md`](tilecast-edge-next.md).
+
+On each Linux player:
+
+- `tilecastd` (Rust, `apps/edge`) runs as the fixed `tilecast` account. It owns the server relationship, the device credential, SQLite state, the content-addressed store and renderer supervision.
+- `tilecast-renderer-wpe` (C, WPE WebKit 2.54+ on WPEPlatform) shows what `tilecastd` sends over a versioned Unix socket. It holds no credential.
+
+The server stays the only authority, and Edge uses the ordinary player API: identity, pairing, heartbeat, the player WebSocket, manifests, commands and authenticated downloads. The server has no Edge-specific domain package or endpoint. A player keeps playing from its local state and verified content when the server is unreachable.

@@ -21,6 +21,7 @@ import {
 import { api, ApiError } from "../api/client";
 import { apiErrorMessage, useFormatLocale } from "../i18n";
 import type { DataSource, DataSourceDefinition } from "../api/types";
+import { galleryHiddenProviders } from "../content/dataSourceProviderMeta";
 import { useAuth } from "../auth/AuthProvider";
 import {
   DashboardListToolbar,
@@ -86,8 +87,6 @@ import { providerLabel, sourceIcon } from "../content/dataSourceProviderMeta";
 import { SourceStatus } from "../content/DataSourcePicker";
 import { UsedByPanel } from "../content/UsedByPanel";
 import { canManageContent } from "./ContentPage";
-import { CreateFormDataSourcePage } from "./CreateFormDataSourcePage";
-import { FormDataSourcePage } from "./FormDataSourcePage";
 
 type SourceAction = {
   label: string;
@@ -120,20 +119,26 @@ export function DataSourcesPage() {
     queryKey: ["content-definitions"],
     queryFn: api.contentDefinitions,
   });
+  const catalog = useQuery({
+    queryKey: ["provider-catalog"],
+    queryFn: api.providerCatalog,
+  });
+  const hiddenProviders = new Set(galleryHiddenProviders(catalog.data));
   const providerOptions = [
     { value: "", label: t("dataSources.list.allTypes") },
     ...(definitions.data?.dataSources ?? [])
-      .filter((item) => item.id !== "form")
+      .filter((item) => !hiddenProviders.has(item.id))
       .map((item) => ({ value: item.id, label: item.name })),
   ];
   const definitionsByProvider = new Map<string, DataSourceDefinition>(
     (definitions.data?.dataSources ?? [])
-      .filter((item) => item.id !== "form")
+      .filter((item) => !hiddenProviders.has(item.id))
       .map((item) => [item.id, item]),
   );
   const visibleDataSources =
-    dataSources.data?.items?.filter((source) => source.provider !== "form") ??
-    [];
+    dataSources.data?.items?.filter(
+      (source) => !hiddenProviders.has(source.provider),
+    ) ?? [];
   const duplicate = useMutation({
     mutationFn: (id: string) => api.duplicateDataSource(id, csrf),
     onSuccess: (created) => {
@@ -471,11 +476,7 @@ function DataSourceRow({
   );
 }
 
-export function DataSourceEditorPage({
-  redirectForms = false,
-}: {
-  redirectForms?: boolean;
-} = {}) {
+export function DataSourceEditorPage() {
   const { t } = useTranslation(["content", "common"]);
   const auth = useAuth();
   const navigate = useNavigate();
@@ -491,6 +492,10 @@ export function DataSourceEditorPage({
     queryKey: ["content-definitions"],
     queryFn: api.contentDefinitions,
   });
+  const catalog = useQuery({
+    queryKey: ["provider-catalog"],
+    queryFn: api.providerCatalog,
+  });
   const dataSource = detail.data;
   const provider = providerParam ?? dataSource?.provider;
   const close = () => void navigate("/data-sources");
@@ -500,15 +505,32 @@ export function DataSourceEditorPage({
   const definition = definitions.data?.dataSources?.find(
     (candidate) => candidate.id === provider,
   );
-
-  if (providerParam === "form" && redirectForms) {
-    return <Navigate to="/plugins/forms/new" replace />;
+  // Providers authored through a canonical plugin surface (their contribution
+  // names a canonical creator/editor and hides them from the gallery) redirect
+  // to that surface, so legacy /data-sources/... links keep working without
+  // the generic UI naming the provider.
+  const canonical = (providerId: string | undefined) =>
+    catalog.data?.providers?.find(
+      (entry) => entry.role === "data_source" && entry.id === providerId,
+    )?.uiHints;
+  const creator = providerParam
+    ? canonical(providerParam)?.canonicalCreator
+    : undefined;
+  if (creator) {
+    return <Navigate to={creator} replace />;
   }
   if (!id && !providerParam) {
+    if (catalog.isLoading)
+      return (
+        <Skeleton
+          className="h-24"
+          aria-label={t("dataSources.detail.loadingSource")}
+        />
+      );
     return (
       <section className="app-editor-route">
         <DataSourceProviderGallery
-          exclude={["form"]}
+          exclude={galleryHiddenProviders(catalog.data)}
           page
           onClose={close}
           onChoose={(choice) => void navigate(`/data-sources/new/${choice}`)}
@@ -523,15 +545,10 @@ export function DataSourceEditorPage({
         aria-label={t("dataSources.detail.loadingSource")}
       />
     );
-  // Form Data Sources use a dedicated, full-width management page rather than the compact generic
-  // editor shell, and enforce per-form capabilities instead of only global roles.
-  if (provider === "form") {
-    return redirectForms ? (
-      <Navigate to={`/plugins/forms/${id}${location.search}`} replace />
-    ) : dataSource ? (
-      <FormDataSourcePage dataSource={dataSource} />
-    ) : (
-      <CreateFormDataSourcePage />
+  const editor = provider ? canonical(provider)?.canonicalEditor : undefined;
+  if (editor && id) {
+    return (
+      <Navigate to={`${editor.replace(":id", id)}${location.search}`} replace />
     );
   }
   if (definitions.isLoading)

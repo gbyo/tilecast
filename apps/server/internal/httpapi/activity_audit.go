@@ -39,8 +39,12 @@ type auditActivityPage struct {
 }
 
 func (s *server) listAuditActivity(w http.ResponseWriter, r *http.Request) {
-	session := activitySession(r)
-	if session.User.Role == "viewer" {
+	principal, ok := activityPrincipal(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	if principal.User.Role == "viewer" {
 		writeError(w, http.StatusForbidden, "activity_audit_restricted", "Audit Log access requires Editor, Administrator, or Owner access.")
 		return
 	}
@@ -57,7 +61,7 @@ func (s *server) listAuditActivity(w http.ResponseWriter, r *http.Request) {
 
 	clauses := []string{"a.created_at >= $1", "a.created_at < $2"}
 	args := []any{window.From, window.To}
-	if session.User.Role == "editor" {
+	if principal.User.Role == "editor" {
 		clauses = append(clauses, "a.resource_type IN ('asset','media','source','widget','playlist','layout','campaign','schedule')")
 	}
 	if err := appendActivityUUIDFilter(&clauses, &args, "a.user_id = $%d", queryValue(r, "actor")); err != nil {
@@ -108,11 +112,11 @@ func (s *server) listAuditActivity(w http.ResponseWriter, r *http.Request) {
 		if item.Summary == "" {
 			item.Summary = auditPlainLanguage(item.Action, item.ResourceType, item.ResourceName)
 		}
-		if !activityCanSeeSensitive(session.User.Role) {
+		if !activityCanSeeSensitive(principal.User.Role) {
 			item.IPAddress = ""
 			item.RequestID = ""
 		}
-		item.Metadata = activityMetadata(raw, sensitive, session.User.Role)
+		item.Metadata = activityMetadata(raw, sensitive, principal.User.Role)
 		items = append(items, item)
 	}
 	if rows.Err() != nil {
@@ -129,7 +133,12 @@ func (s *server) listAuditActivity(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) exportAuditActivity(w http.ResponseWriter, r *http.Request) {
-	if !activityCanExport(activitySession(r).User.Role) {
+	role, ok := activityRole(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	if !activityCanExport(role) {
 		writeError(w, http.StatusForbidden, "activity_export_restricted", "Activity exports require Owner or Administrator access.")
 		return
 	}

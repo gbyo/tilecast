@@ -1,0 +1,16 @@
+# Starts the Tilecast Edge session bridge in the tilecast account's session
+# while tilecastd's socket exists, so the bridge runs only while Edge does.
+# Installed in /etc/systemd/user and enabled for every user manager;
+# ConditionUser= limits it to the tilecast account, whose user manager runs
+# at boot because tilecast-edge-migrate turns lingering on for it.
+[Unit]
+Description=Tilecast Edge session bridge trigger
+Documentation=https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge.md
+ConditionUser=tilecast
+
+[Path]
+PathExists=/run/tilecast-edge/edge.sock
+Unit=tilecast-session-bridge.service
+
+[Install]
+WantedBy=default.target

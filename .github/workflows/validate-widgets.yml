@@ -1,0 +1,41 @@
+name: validate-widgets
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  validate:
+    name: Widgets V2
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Widget modules, generated files and catalog suite
+        run: npm run widgets:check
+      - name: SDK and kit tests and types
+        run: |
+          npm test --workspace @tilecast/widget-sdk
+          npm test --workspace @tilecast/widget-kit
+          npm run typecheck --workspace @tilecast/widget-sdk
+          npm run typecheck --workspace @tilecast/widget-kit
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Storybook build and visual regression
+        run: npm run widgets:visual
+      - name: Keep visual failures
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: widgets-visual
+          path: |
+            widgets/visual/test-results
+            widgets/visual/playwright-report
+          retention-days: 14

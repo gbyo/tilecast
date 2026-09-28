@@ -1,0 +1,40 @@
+# Imports the legacy player's state into Edge (M7 migration step 8). Started
+# by the migrator after the legacy player stopped and before Edge starts;
+# never enabled. It reads the copy the migrator made in the Edge state
+# directory, so it never needs the kiosk account's home. It needs the
+# network for the installation identity check.
+[Unit]
+Description=Tilecast Edge legacy import
+Documentation=https://github.com/gbyo/tilecast/blob/main/apps/edge/packaging/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=tilecast
+Group=tilecast
+ExecStart=/opt/tilecast-edge/current/bin/tilecastd import-legacy --from /var/lib/tilecast-edge/legacy-copy --refresh
+StandardOutput=truncate:/run/tilecast-edge-migrate/import.json
+# Only the JSON result goes to the file; diagnostics go to the journal.
+StandardError=journal
+TimeoutStartSec=15min
+StateDirectory=tilecast-edge
+StateDirectoryMode=0700
+# The daemon's runtime directory, which the importer checks for a running
+# daemon. The daemon is stopped while the import runs.
+RuntimeDirectory=tilecast-edge
+RuntimeDirectoryMode=0750
+UMask=0077
+ProtectHome=yes
+ProtectSystem=strict
+PrivateTmp=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+LockPersonality=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+MemoryDenyWriteExecute=yes

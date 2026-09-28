@@ -12,7 +12,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/displaycontrol"
 )
 
@@ -230,7 +229,12 @@ func (s *server) applyGroupDisplayControl(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusConflict, "display_control_preview_stale", "Display capabilities changed. Review the group preview again.")
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	results := make([]groupDisplayControlResult, 0, len(preview.Screens))
 	queued := 0
 	failed := 0

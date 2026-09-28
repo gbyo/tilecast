@@ -1,0 +1,11 @@
+{
+  "frame": {
+    "type": "event",
+    "seq": 1,
+    "event": "audio.level",
+    "data": {
+      "rms": null,
+      "state": "recording"
+    }
+  }
+}

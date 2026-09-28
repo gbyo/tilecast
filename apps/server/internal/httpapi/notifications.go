@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/notify"
 )
 
@@ -56,8 +55,12 @@ func (s *server) listNotificationDeliveries(w http.ResponseWriter, r *http.Reque
 // account. Allowing an arbitrary address would turn an authenticated Studio
 // session into a small open relay.
 func (s *server) sendTestNotification(w http.ResponseWriter, r *http.Request) {
-	session, _ := r.Context().Value(sessionContextKey).(auth.Session)
-	preferences, err := s.settings.Preferences(r.Context(), session.User.ID)
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	preferences, err := s.settings.Preferences(r.Context(), principal.User.ID)
 	if err != nil {
 		s.internalError(w, r, err)
 		return
@@ -109,8 +112,12 @@ func (s *server) createNotificationWebhook(w http.ResponseWriter, r *http.Reques
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	session, _ := r.Context().Value(sessionContextKey).(auth.Session)
-	webhook, secret, err := s.notifications.CreateWebhook(r.Context(), session.User.ID, body.Name, body.URL, body.Categories)
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	webhook, secret, err := s.notifications.CreateWebhook(r.Context(), principal.User.ID, body.Name, body.URL, body.Categories)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_webhook", err.Error())
 		return
@@ -119,7 +126,7 @@ func (s *server) createNotificationWebhook(w http.ResponseWriter, r *http.Reques
 	_, _ = s.db.Exec(r.Context(), `
 		INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,resource_name,result,summary)
 		VALUES($1,$2,'notifications.webhook_created','notification_webhook',$3,$4,'success','Notification webhook created')`,
-		uuid.New(), session.User.ID, webhook.ID.String(), webhook.Name)
+		uuid.New(), principal.User.ID, webhook.ID.String(), webhook.Name)
 
 	writeJSON(w, http.StatusCreated, map[string]any{"data": map[string]any{
 		"webhook": webhook,
@@ -166,11 +173,15 @@ func (s *server) updateNotificationWebhook(w http.ResponseWriter, r *http.Reques
 		writeError(w, http.StatusBadRequest, "invalid_webhook", err.Error())
 		return
 	}
-	session, _ := r.Context().Value(sessionContextKey).(auth.Session)
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
 	_, _ = s.db.Exec(r.Context(), `
 		INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,resource_name,result,summary)
 		VALUES($1,$2,'notifications.webhook_updated','notification_webhook',$3,$4,'success','Notification webhook updated')`,
-		uuid.New(), session.User.ID, webhook.ID.String(), webhook.Name)
+		uuid.New(), principal.User.ID, webhook.ID.String(), webhook.Name)
 	writeJSON(w, http.StatusOK, map[string]any{"data": webhook})
 }
 
@@ -187,11 +198,15 @@ func (s *server) deleteNotificationWebhook(w http.ResponseWriter, r *http.Reques
 		s.internalError(w, r, err)
 		return
 	}
-	session, _ := r.Context().Value(sessionContextKey).(auth.Session)
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
 	_, _ = s.db.Exec(r.Context(), `
 		INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,result,summary)
 		VALUES($1,$2,'notifications.webhook_deleted','notification_webhook',$3,'success','Notification webhook deleted')`,
-		uuid.New(), session.User.ID, id.String())
+		uuid.New(), principal.User.ID, id.String())
 	w.WriteHeader(http.StatusNoContent)
 }
 

@@ -1,0 +1,17 @@
+{
+  "name": "No source",
+  "description": "Weather with no connected source reports the empty state instead of failing.",
+  "configuration": {
+    "dataSourceId": "",
+    "showLocation": true,
+    "showCurrent": true,
+    "forecastDays": 3,
+    "showHumidity": true,
+    "showWind": true,
+    "showPrecipitation": true,
+    "emptyText": "",
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "expect": "empty"
+}
