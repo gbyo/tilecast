@@ -36,14 +36,19 @@ class RuntimeStateReplay {
         }
     }
 
-    /** Ordered snapshot for a runtime that just became ready. */
-    fun collectReplay(): List<HostMessage> = listOfNotNull(
-        presentation,
-        plugins,
-        identify,
-        command,
-        discoveredServer,
-    )
+    /** Ordered snapshot for a runtime that just became ready. Commands are actions,
+     * so consume them after one delivery instead of replaying them to every new runtime. */
+    fun collectReplay(): List<HostMessage> {
+        val replay = listOfNotNull(
+            presentation,
+            plugins,
+            identify,
+            command,
+            discoveredServer,
+        )
+        command = null
+        return replay
+    }
 
     fun clearVolatile() {
         identify = null
