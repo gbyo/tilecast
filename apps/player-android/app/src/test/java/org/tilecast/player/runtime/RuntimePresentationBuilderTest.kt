@@ -9,7 +9,11 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.junit.Assert.*
 import org.junit.Test
+import org.tilecast.player.content.PlaybackCursor
+import org.tilecast.player.content.PlaybackSession
 import org.tilecast.player.content.PreparedContent
+import org.tilecast.player.content.nextRuntimeActivationIdentity
+import org.tilecast.player.content.runtimePlaylistItems
 import org.tilecast.player.network.ManifestAsset
 import org.tilecast.player.network.ManifestItem
 import org.tilecast.player.network.ManifestSyncGroup
@@ -17,6 +21,8 @@ import org.tilecast.player.network.ManifestWebsite
 import org.tilecast.player.network.ManifestWidget
 import org.tilecast.player.network.PlayerBranding
 import org.tilecast.player.network.PlayerManifest
+import org.tilecast.player.network.WebSandboxPresentation
+import org.tilecast.player.network.WidgetPresentation
 
 class RuntimePresentationBuilderTest {
     private fun item(
@@ -117,6 +123,58 @@ class RuntimePresentationBuilderTest {
         )
         assertTrue(built["audioEnabled"]!!.jsonPrimitive.content.toBoolean())
         assertTrue(RuntimePresentationBuilder.isRuntimeRenderable(manifest, items[0]))
+    }
+
+    @Test fun preservesRemoteWidgetKeepWarmLifecycle() {
+        val descriptor = WebSandboxPresentation(
+            mode = "remote",
+            url = "https://example.com/widget",
+            allowedHosts = listOf("example.com"),
+            lifecycle = "keep_warm",
+            warmSeconds = 45,
+        )
+        val widget = ManifestWidget(
+            assetId = "rw1",
+            name = "Remote",
+            presentation = WidgetPresentation(schemaVersion = 1, kind = "web", web = descriptor),
+        )
+        val items = listOf(item("irw", "rw1", null, "widget", 15_000))
+        val manifest = manifest(items).copy(widgets = listOf(widget))
+        val remote = RuntimePresentationBuilder.build(playing(manifest, items))
+            ["items"]!!.jsonArray[0].jsonObject["remoteWeb"]!!.jsonObject["presentation"]!!.jsonObject
+        assertEquals("keep_warm", remote["lifecycle"]!!.jsonPrimitive.content)
+        assertEquals(45, remote["warmSeconds"]!!.jsonPrimitive.content.toInt())
+    }
+
+    @Test fun runtimeResumeProjectsSavedCursorWithoutAffectingSyncOrder() {
+        val items = listOf(
+            item("i1", "a1", "v1", "image", 10_000),
+            item("i2", "a1", "v1", "image", 10_000),
+            item("i3", "a1", "v1", "image", 10_000),
+        )
+        val plainManifest = manifest(items)
+        val resumed = PlaybackSession(
+            content = PreparedContent(plainManifest, emptyMap()),
+            serverUrl = "https://example.com",
+            credential = "c",
+            initialCursor = PlaybackCursor(1, 0),
+        )
+        assertEquals(listOf("i2", "i3", "i1"), runtimePlaylistItems(resumed).map { it.id })
+
+        val synchronized = resumed.copy(
+            content = PreparedContent(
+                plainManifest.copy(syncGroup = ManifestSyncGroup("g1", "2026-09-01T12:00:00Z")),
+                emptyMap(),
+            ),
+        )
+        assertEquals(listOf("i1", "i2", "i3"), runtimePlaylistItems(synchronized).map { it.id })
+    }
+
+    @Test fun runtimeActivationIdentityChangesMonotonically() {
+        val first = nextRuntimeActivationIdentity()
+        val second = nextRuntimeActivationIdentity()
+        assertNotEquals(first.id, second.id)
+        assertTrue(second.generation > first.generation)
     }
 
     @Test fun forwardsLegacyWidgetsOpaquelyWithoutInterpreting() {
