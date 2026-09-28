@@ -45,6 +45,7 @@ class RuntimeEvidenceRouter(
     private val onProgress: () -> Unit,
     private val onFirstFrame: (itemId: String) -> Unit = {},
     private val onItemTransition: (itemId: String) -> Unit = {},
+    private val onPlaybackError: (itemId: String?, message: String) -> Unit = { _, _ -> },
 ) {
     private var activationId: String = activationId
     private var assetByItem: Map<String, String> = items.associate { it.id to it.assetId }
@@ -64,7 +65,10 @@ class RuntimeEvidenceRouter(
                 if (report.outcome == "rejected") onError("shared presentation rejected")
             }
             is RuntimeReport.Evidence -> handleEvidence(report)
-            is RuntimeReport.PlaybackError -> onError(report.message)
+            is RuntimeReport.PlaybackError -> {
+                onPlaybackError(report.itemId, report.message)
+                onError(report.message)
+            }
         }
         return true
     }
