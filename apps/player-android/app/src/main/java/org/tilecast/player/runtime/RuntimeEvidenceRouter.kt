@@ -2,7 +2,6 @@ package org.tilecast.player.runtime
 
 import org.tilecast.player.content.PreparedContent
 import org.tilecast.player.network.ManifestItem
-import org.tilecast.player.network.PlayerManifest
 import org.tilecast.player.runtime.RuntimeBridgeProtocol.RuntimeReport
 
 /** Feature gate for the shared-runtime presentation cutover.
