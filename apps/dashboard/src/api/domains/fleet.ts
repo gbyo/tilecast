@@ -1,12 +1,14 @@
 /**
  * Fleet domain helpers over the typed transport: locations,
  * presentation networks, plugins, AirPlay sessions, presentation
- * overrides, and screen groups. Location, presentation-network, and
- * player-policy success bodies are contract-typed and inferred from
- * the generated OpenAPI schemas; other areas still state their local
- * Studio response type explicitly until the contract gains schemas.
+ * overrides, and screen groups. Location, presentation-network,
+ * player-policy, group, span, and display-control success bodies are
+ * contract-typed and inferred from the generated OpenAPI schemas;
+ * other areas still state their local Studio response type explicitly
+ * until the contract gains schemas.
  */
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from "../transport";
+import type { components } from "@tilecast/api-schema/generated/openapi";
 import type {
   AirplaySession,
   DependencyGraph,
@@ -249,10 +251,9 @@ export function stopPresentationOverride(
 }
 
 export async function listScreenGroups(search = ""): Promise<ScreenGroupList> {
-  const result = await apiGet<"/api/v1/screen-groups", ScreenGroupList>(
-    "/api/v1/screen-groups",
-    { params: { query: { page: 1, pageSize: 100, search } } },
-  );
+  const result = await apiGet("/api/v1/screen-groups", {
+    params: { query: { page: 1, pageSize: 100, search } },
+  });
   return {
     ...result,
     items: (Array.isArray(result.items) ? result.items : []).map(
@@ -261,7 +262,13 @@ export async function listScreenGroups(search = ""): Promise<ScreenGroupList> {
   };
 }
 
-export function normalizeScreenGroup(group: ScreenGroup): ScreenGroup {
+/** Wire shapes of a screen group and span status from the generated contract. */
+export type WireScreenGroup = components["schemas"]["ScreenGroup"];
+export type WireSpanStatus = components["schemas"]["SpanStatus"];
+
+export function normalizeScreenGroup(
+  group: ScreenGroup | WireScreenGroup,
+): ScreenGroup {
   return {
     ...group,
     displayMode: group.displayMode === "span" ? "span" : "mirror",
@@ -271,30 +278,56 @@ export function normalizeScreenGroup(group: ScreenGroup): ScreenGroup {
 
 export async function getScreenGroup(id: string): Promise<ScreenGroup> {
   return normalizeScreenGroup(
-    await apiGet<"/api/v1/screen-groups/{id}", ScreenGroup>(
-      "/api/v1/screen-groups/{id}",
-      { params: { path: { id } } },
-    ),
+    await apiGet("/api/v1/screen-groups/{id}", {
+      params: { path: { id } },
+    }),
   );
 }
 
-export function getSpanStatus(id: string): Promise<SpanStatus> {
-  return apiGet<"/api/v1/screen-groups/{id}/span", SpanStatus>(
-    "/api/v1/screen-groups/{id}/span",
-    { params: { path: { id } } },
+export async function getSpanStatus(id: string): Promise<SpanStatus> {
+  return normalizeSpanStatus(
+    await apiGet("/api/v1/screen-groups/{id}/span", {
+      params: { path: { id } },
+    }),
   );
 }
 
-export function previewDisplayControlGroup(
+/**
+ * The contract leaves panel bezels optional; the server always sends
+ * them and the Studio view requires them, so the bridge defaults
+ * missing edges to zero rather than failing the call.
+ */
+export function normalizeSpanStatus(status: WireSpanStatus): SpanStatus {
+  return {
+    ...status,
+    geometry: {
+      ...status.geometry,
+      panels: (Array.isArray(status.geometry.panels)
+        ? status.geometry.panels
+        : []
+      ).map((panel) => ({
+        ...panel,
+        bezelLeft: panel.bezelLeft ?? 0,
+        bezelTop: panel.bezelTop ?? 0,
+        bezelRight: panel.bezelRight ?? 0,
+        bezelBottom: panel.bezelBottom ?? 0,
+      })),
+    },
+    preparations: Array.isArray(status.preparations) ? status.preparations : [],
+  };
+}
+
+export async function previewDisplayControlGroup(
   id: string,
   commandType: DisplayControlGroupPreview["commandType"],
 ): Promise<DisplayControlGroupPreview> {
-  return apiGet<
+  const preview = await apiGet(
     "/api/v1/screen-groups/{id}/display-control/preview",
-    DisplayControlGroupPreview
-  >("/api/v1/screen-groups/{id}/display-control/preview", {
-    params: { path: { id }, query: { commandType } },
-  });
+    { params: { path: { id }, query: { commandType } } },
+  );
+  // Memberless groups serialize the preview selection as null; the
+  // Studio view reads an empty selection.
+  return { ...preview, screens: preview.screens ?? [] };
 }
 
 export function applyDisplayControlGroup(
@@ -303,10 +336,7 @@ export function applyDisplayControlGroup(
   fingerprint: string,
   csrfToken: string,
 ): Promise<DisplayControlGroupApplyResult> {
-  return apiPost<
-    "/api/v1/screen-groups/{id}/display-control",
-    DisplayControlGroupApplyResult
-  >("/api/v1/screen-groups/{id}/display-control", {
+  return apiPost("/api/v1/screen-groups/{id}/display-control", {
     params: { path: { id } },
     body: { commandType, fingerprint },
     csrfToken,
@@ -323,10 +353,11 @@ export async function updateSpanGeometry(
   csrfToken: string,
 ): Promise<ScreenGroup> {
   return normalizeScreenGroup(
-    await apiPut<"/api/v1/screen-groups/{id}/span", ScreenGroup>(
-      "/api/v1/screen-groups/{id}/span",
-      { params: { path: { id } }, body: input, csrfToken },
-    ),
+    await apiPut("/api/v1/screen-groups/{id}/span", {
+      params: { path: { id } },
+      body: input,
+      csrfToken,
+    }),
   );
 }
 
@@ -335,10 +366,7 @@ export async function createScreenGroup(
   csrfToken: string,
 ): Promise<ScreenGroup> {
   return normalizeScreenGroup(
-    await apiPost<"/api/v1/screen-groups", ScreenGroup>(
-      "/api/v1/screen-groups",
-      { body: input, csrfToken },
-    ),
+    await apiPost("/api/v1/screen-groups", { body: input, csrfToken }),
   );
 }
 
@@ -353,10 +381,11 @@ export async function updateScreenGroup(
   csrfToken: string,
 ): Promise<ScreenGroup> {
   return normalizeScreenGroup(
-    await apiPatch<"/api/v1/screen-groups/{id}", ScreenGroup>(
-      "/api/v1/screen-groups/{id}",
-      { params: { path: { id } }, body: input, csrfToken },
-    ),
+    await apiPatch("/api/v1/screen-groups/{id}", {
+      params: { path: { id } },
+      body: input,
+      csrfToken,
+    }),
   );
 }
 
@@ -376,10 +405,11 @@ export async function addScreenToGroup(
   csrfToken: string,
 ): Promise<ScreenGroup> {
   return normalizeScreenGroup(
-    await apiPost<"/api/v1/screen-groups/{id}/screens", ScreenGroup>(
-      "/api/v1/screen-groups/{id}/screens",
-      { params: { path: { id } }, body: { screenId }, csrfToken },
-    ),
+    await apiPost("/api/v1/screen-groups/{id}/screens", {
+      params: { path: { id } },
+      body: { screenId },
+      csrfToken,
+    }),
   );
 }
 
@@ -400,10 +430,11 @@ export async function assignSyncGroupPlaylist(
   csrfToken: string,
 ): Promise<ScreenGroup> {
   return normalizeScreenGroup(
-    await apiPut<"/api/v1/screen-groups/{id}/playlist-assignment", ScreenGroup>(
-      "/api/v1/screen-groups/{id}/playlist-assignment",
-      { params: { path: { id } }, body: { playlistId }, csrfToken },
-    ),
+    await apiPut("/api/v1/screen-groups/{id}/playlist-assignment", {
+      params: { path: { id } },
+      body: { playlistId },
+      csrfToken,
+    }),
   );
 }
 
@@ -413,10 +444,11 @@ export async function assignSyncGroupLayout(
   csrfToken: string,
 ): Promise<ScreenGroup> {
   return normalizeScreenGroup(
-    await apiPut<"/api/v1/screen-groups/{id}/playlist-assignment", ScreenGroup>(
-      "/api/v1/screen-groups/{id}/playlist-assignment",
-      { params: { path: { id } }, body: { layoutId }, csrfToken },
-    ),
+    await apiPut("/api/v1/screen-groups/{id}/playlist-assignment", {
+      params: { path: { id } },
+      body: { layoutId },
+      csrfToken,
+    }),
   );
 }
 
@@ -425,10 +457,7 @@ export async function unassignSyncGroupPlaylist(
   csrfToken: string,
 ): Promise<ScreenGroup> {
   return normalizeScreenGroup(
-    await apiDelete<
-      "/api/v1/screen-groups/{id}/playlist-assignment",
-      ScreenGroup
-    >("/api/v1/screen-groups/{id}/playlist-assignment", {
+    await apiDelete("/api/v1/screen-groups/{id}/playlist-assignment", {
       params: { path: { id } },
       csrfToken,
     }),
