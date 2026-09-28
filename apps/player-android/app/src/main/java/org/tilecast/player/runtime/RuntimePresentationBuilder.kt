@@ -176,7 +176,9 @@ object RuntimePresentationBuilder {
                     loadTimeoutSeconds = descriptor.loadTimeoutSeconds,
                     reloadIntervalSeconds = descriptor.reload
                         ?.takeIf { it.mode == "periodic" }?.intervalSeconds,
-                    lifecycle = "destroy_on_hide",
+                    lifecycle = descriptor.lifecycle
+                        .takeIf { it == "destroy_on_hide" || it == "keep_warm" }
+                        ?: "destroy_on_hide",
                     warmSeconds = descriptor.warmSeconds,
                     onlineOnly = descriptor.onlineOnly,
                     failureBehavior = descriptor.fallbackBehavior,
