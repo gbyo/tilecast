@@ -70,6 +70,43 @@ func TestStoredCredentialBoundToSavedServer(t *testing.T) {
 	}
 }
 
+func TestExplicitServerAndTokenNeedNoSavedContext(t *testing.T) {
+	f := newFixture(t)
+	t.Setenv("TILECAST_CONTEXT", "")
+	t.Setenv("TILECAST_URL", "https://signage.example.org")
+	t.Setenv("TILECAST_TOKEN", "tcp_ci")
+	r := Resolver{Store: f.env.config, Secrets: f.env.secrets}
+	resolved, err := r.Resolve(true)
+	if err != nil {
+		t.Fatalf("env-only resolve = %v, want success", err)
+	}
+	if resolved.ServerURL != "https://signage.example.org" || resolved.Bearer != "tcp_ci" || resolved.FromStore {
+		t.Fatalf("resolved = %+v", resolved)
+	}
+
+	t.Setenv("TILECAST_URL", "")
+	r = Resolver{ServerFlag: "https://signage.example.org", Store: f.env.config, Secrets: f.env.secrets}
+	if _, err := r.Resolve(true); err != nil {
+		t.Fatalf("flag-only resolve = %v, want success", err)
+	}
+
+	// Without a token, a missing context still reports the login hint
+	// instead of an empty stored-credential error.
+	t.Setenv("TILECAST_TOKEN", "")
+	if _, err := r.Resolve(true); !errors.Is(err, config.ErrNoCurrentContext) {
+		t.Fatalf("no-token resolve = %v, want ErrNoCurrentContext", err)
+	}
+	// Anonymous calls such as status need only the server address.
+	if _, err := r.Resolve(false); err != nil {
+		t.Fatalf("anonymous resolve = %v, want success", err)
+	}
+	// No server and no context is still an error.
+	r = Resolver{Store: f.env.config, Secrets: f.env.secrets}
+	if _, err := r.Resolve(false); !errors.Is(err, config.ErrNoCurrentContext) {
+		t.Fatalf("empty resolve = %v, want ErrNoCurrentContext", err)
+	}
+}
+
 func TestServerURLPolicyEnforcedCentrally(t *testing.T) {
 	f := newFixture(t)
 	mustUpsertHome(t, f)
