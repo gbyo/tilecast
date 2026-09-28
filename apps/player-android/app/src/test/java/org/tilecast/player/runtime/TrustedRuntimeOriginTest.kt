@@ -8,6 +8,14 @@ class TrustedRuntimeOriginTest {
         assertTrue(TrustedRuntimeOrigin.isTrustedDocument(TrustedRuntimeOrigin.entryUrl))
     }
 
+    @Test fun assetLoaderRootMapsEntryToPackagedSharedRuntime() {
+        assertTrue(TrustedRuntimeOrigin.RUNTIME_PATH_PREFIX.startsWith(TrustedRuntimeOrigin.ASSET_LOADER_PATH_PREFIX))
+        assertEquals(
+            "shared-runtime/index.html",
+            TrustedRuntimeOrigin.ENTRY_PAGE.removePrefix(TrustedRuntimeOrigin.ASSET_LOADER_PATH_PREFIX),
+        )
+    }
+
     @Test fun trustsRuntimeSubresources() {
         assertTrue(TrustedRuntimeOrigin.isTrustedDocument("https://appassets.androidplatform.net/assets/shared-runtime/runtime.js"))
         assertTrue(TrustedRuntimeOrigin.isTrustedDocument("https://appassets.androidplatform.net/assets/shared-runtime/fonts/geist-latin-wght-normal.woff2"))
