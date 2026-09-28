@@ -7411,12 +7411,15 @@ export interface components {
     ChallengeTokenRequest: {
       challengeToken: string;
     };
+    /** @enum {string} */
+    AccountRole:
+      "owner" | "administrator" | "editor" | "contributor" | "viewer";
     AuthUser: {
       /** Format: uuid */
       id: string;
       name: string;
       username: string;
-      role: string;
+      role: components["schemas"]["AccountRole"];
       active: boolean;
       /** Format: date-time */
       createdAt: string;

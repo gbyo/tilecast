@@ -11018,6 +11018,9 @@ components:
       required: [challengeToken]
       properties:
         challengeToken: { type: string }
+    AccountRole:
+      type: string
+      enum: [owner, administrator, editor, contributor, viewer]
     AuthUser:
       type: object
       additionalProperties: false
@@ -11026,7 +11029,7 @@ components:
         id: { type: string, format: uuid }
         name: { type: string }
         username: { type: string }
-        role: { type: string }
+        role: { $ref: "#/components/schemas/AccountRole" }
         active: { type: boolean }
         createdAt: { type: string, format: date-time }
         lastLoginAt: { type: string, format: date-time }
