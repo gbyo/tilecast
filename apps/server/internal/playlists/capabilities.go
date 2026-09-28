@@ -192,7 +192,9 @@ func (s *Service) presentationRequirements(ctx context.Context, q presentationQu
 			return nil, "", err
 		}
 		if err = s.requireWidgetSourceUsable(installed, requirement.Name, requirement.Provider); err != nil {
-			return nil, "", fmt.Errorf("compile Widget %q: %w", requirement.Name, err)
+			// A conflict the author can resolve by installing the plugin,
+			// reported exactly as manifest generation reports it.
+			return nil, "", fmt.Errorf("%w: %v", ErrConflict, err)
 		}
 		sourceIDs = append(sourceIDs, s.widgetDataSourceIDs(requirement.Provider, requirement.Configuration)...)
 		requirement.Presentation, err = s.compileWidgetPresentationForPreset(requirement.Provider, requirement.PresetID, requirement.Configuration, allowPrivateHTTP)

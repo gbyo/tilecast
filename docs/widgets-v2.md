@@ -293,8 +293,10 @@ Player bundle, Studio editor, and conformance. Only its source differs.
 - Effective availability is static definition AND plugin installation. A
   plugin-owned provider cannot be created, assigned, or projected while its
   plugin is not installed; creation locks the installation row in the same
-  transaction so removal cannot race it. Persisted rows survive removal and
-  become usable again on reinstall.
+  transaction so removal cannot race it. The API refuses creation with
+  `409 plugin_not_installed`, and assignment and manifest generation refuse
+  with `409 playlist_conflict`. Persisted rows survive removal and become
+  usable again on reinstall.
 - Removing a plugin with remaining contributed Widgets is blocked with one
   `widget` blocker naming the row count and the `delete` resolution.
   Installing or removing a plugin with static contributions invalidates

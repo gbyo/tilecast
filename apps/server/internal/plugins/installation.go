@@ -163,7 +163,13 @@ func InstalledSet(ctx context.Context, db installedSetDB) (map[string]bool, erro
 // between the check and the insert. Content packages call this through an
 // injected gate so media never imports plugin implementation details.
 func (s *Service) LockPluginSource(ctx context.Context, tx pgx.Tx, pluginID string) error {
-	return s.lockInstallation(ctx, tx, pluginID)
+	err := s.lockInstallation(ctx, tx, pluginID)
+	if errors.Is(err, ErrPluginNotFound) {
+		// A contribution whose plugin this release does not host can
+		// never be installed, so it is unavailable, not a server fault.
+		return fmt.Errorf("plugin %q: %w", pluginID, ErrPluginNotInstalled)
+	}
+	return err
 }
 
 // installations reads every installation row, split into known plugins and

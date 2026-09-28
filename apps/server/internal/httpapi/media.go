@@ -884,9 +884,15 @@ func (s *server) mediaDiagnostics(w http.ResponseWriter, r *http.Request) {
 
 func (s *server) writeMediaError(w http.ResponseWriter, r *http.Request, err error) {
 	var dependency *media.DependencyError
+	var unavailable *media.PluginUnavailableError
 	switch {
 	case errors.As(err, &dependency):
 		writeError(w, http.StatusConflict, "resource_in_use", dependency.Error())
+	case errors.As(err, &unavailable):
+		// The request is valid; the owning plugin is not installed. Checked
+		// before the text-matching cases below, which would otherwise decide
+		// the status from words in the message.
+		writeError(w, http.StatusConflict, "plugin_not_installed", unavailable.Error())
 	case errors.Is(err, media.ErrNotFound):
 		writeError(w, http.StatusNotFound, "not_found", "The requested media resource was not found.")
 	case errors.Is(err, media.ErrUploadTooLarge):
