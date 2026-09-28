@@ -63,11 +63,14 @@ object MediaAuthorization {
         val dash = spec.indexOf('-')
         if (dash <= 0) return RangeDecision.Invalid("bad range")
         val start = spec.substring(0, dash).toLongOrNull() ?: return RangeDecision.Invalid("bad range")
+        if (start < 0) return RangeDecision.Invalid("bad range")
         val endText = spec.substring(dash + 1)
-        val endInclusive = if (endText.isEmpty()) length - 1 else {
-            endText.toLongOrNull() ?: return RangeDecision.Invalid("bad range")
+        if (endText.isEmpty()) {
+            if (start >= length) return RangeDecision.Unsatisfiable(length)
+            return RangeDecision.Partial(ByteRange(start, length - 1), length)
         }
-        if (start < 0 || endInclusive < start) return RangeDecision.Invalid("bad range")
+        val endInclusive = endText.toLongOrNull() ?: return RangeDecision.Invalid("bad range")
+        if (endInclusive < start) return RangeDecision.Invalid("bad range")
         if (start >= length) return RangeDecision.Unsatisfiable(length)
         return RangeDecision.Partial(ByteRange(start, minOf(endInclusive, length - 1)), length)
     }
