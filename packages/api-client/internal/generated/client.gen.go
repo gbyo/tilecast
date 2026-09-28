@@ -126,6 +126,33 @@ func (e BackupJobKind) Valid() bool {
 	}
 }
 
+// Defines values for BulkAction.
+const (
+	AssignLayout    BulkAction = "assign_layout"
+	AssignPlaylist  BulkAction = "assign_playlist"
+	ClearAssignment BulkAction = "clear_assignment"
+	SendCommand     BulkAction = "send_command"
+	SetEnabled      BulkAction = "set_enabled"
+)
+
+// Valid indicates whether the value is a known member of the BulkAction enum.
+func (e BulkAction) Valid() bool {
+	switch e {
+	case AssignLayout:
+		return true
+	case AssignPlaylist:
+		return true
+	case ClearAssignment:
+		return true
+	case SendCommand:
+		return true
+	case SetEnabled:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CampaignBlockContentType.
 const (
 	CampaignBlockContentTypeLayout   CampaignBlockContentType = "layout"
@@ -3486,9 +3513,55 @@ type BackupWorkerStatus struct {
 	Status          string             `json:"status"`
 }
 
+// BulkAction defines model for BulkAction.
+type BulkAction string
+
 // BulkAssetResult defines model for BulkAssetResult.
 type BulkAssetResult struct {
 	Updated int `json:"updated"`
+}
+
+// BulkOperation defines model for BulkOperation.
+type BulkOperation struct {
+	Action        BulkAction         `json:"action"`
+	AppliedCount  int                `json:"appliedCount"`
+	CreatedAt     time.Time          `json:"createdAt"`
+	FailedCount   int                `json:"failedCount"`
+	Id            openapi_types.UUID `json:"id"`
+	Results       []BulkScreenChange `json:"results"`
+	Reversible    bool               `json:"reversible"`
+	ScreenCount   int                `json:"screenCount"`
+	SkippedCount  int                `json:"skippedCount"`
+	UndoExpiresAt *time.Time         `json:"undoExpiresAt,omitempty"`
+	UndoneAt      *time.Time         `json:"undoneAt,omitempty"`
+}
+
+// BulkPreview What an operator confirms. The counts add up to the screen list and are never computed twice.
+type BulkPreview struct {
+	Action            BulkAction         `json:"action"`
+	BlockedCount      int                `json:"blockedCount"`
+	ChangeCount       int                `json:"changeCount"`
+	GroupAddedCount   int                `json:"groupAddedCount"`
+	Reversible        bool               `json:"reversible"`
+	Screens           []BulkScreenChange `json:"screens"`
+	UnchangedCount    int                `json:"unchangedCount"`
+	UndoWindowMinutes int                `json:"undoWindowMinutes"`
+	Warnings          []string           `json:"warnings"`
+}
+
+// BulkScreenChange One screen inside a bulk preview or result. Current and Next are written for a person to read, not parsed.
+type BulkScreenChange struct {
+	Applied   *bool              `json:"applied,omitempty"`
+	Blocked   *string            `json:"blocked,omitempty"`
+	Changes   bool               `json:"changes"`
+	Current   string             `json:"current"`
+	Error     *string            `json:"error,omitempty"`
+	FromGroup *string            `json:"fromGroup,omitempty"`
+	Location  *string            `json:"location,omitempty"`
+	Name      string             `json:"name"`
+	Next      string             `json:"next"`
+	ScreenId  openapi_types.UUID `json:"screenId"`
+	Selected  bool               `json:"selected"`
 }
 
 // Campaign defines model for Campaign.
@@ -7223,6 +7296,11 @@ type ApplyBulkOperationParams struct {
 	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
+// ListBulkOperationsParams defines parameters for ListBulkOperations.
+type ListBulkOperationsParams struct {
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // UndoBulkOperationParams defines parameters for UndoBulkOperation.
 type UndoBulkOperationParams struct {
 	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
@@ -10473,7 +10551,7 @@ type ClientInterface interface {
 	// ListBulkOperations performs a GET /api/v1/screens/bulk/operations (the `ListBulkOperations` operationId) request.
 	//
 	// List recent fleet bulk operations. Requires an Owner or Administrator with the read scope.
-	ListBulkOperations(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListBulkOperations(ctx context.Context, params *ListBulkOperationsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UndoBulkOperation performs a POST /api/v1/screens/bulk/operations/{id}/undo (the `UndoBulkOperation` operationId) request.
 	//
@@ -16915,8 +16993,8 @@ func (c *Client) ApplyBulkOperation(ctx context.Context, params *ApplyBulkOperat
 // ListBulkOperations performs a GET /api/v1/screens/bulk/operations (the `ListBulkOperations` operationId) request.
 //
 // List recent fleet bulk operations. Requires an Owner or Administrator with the read scope.
-func (c *Client) ListBulkOperations(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListBulkOperationsRequest(c.Server)
+func (c *Client) ListBulkOperations(ctx context.Context, params *ListBulkOperationsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListBulkOperationsRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -31695,7 +31773,7 @@ func NewApplyBulkOperationRequestWithBody(server string, params *ApplyBulkOperat
 }
 
 // NewListBulkOperationsRequest constructs an http.Request for the ListBulkOperations method
-func NewListBulkOperationsRequest(server string) (*http.Request, error) {
+func NewListBulkOperationsRequest(server string, params *ListBulkOperationsParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -31711,6 +31789,33 @@ func NewListBulkOperationsRequest(server string) (*http.Request, error) {
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -38025,7 +38130,7 @@ type ClientWithResponsesInterface interface {
 	// List recent fleet bulk operations. Requires an Owner or Administrator with the read scope.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	ListBulkOperationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListBulkOperationsResponse, error)
+	ListBulkOperationsWithResponse(ctx context.Context, params *ListBulkOperationsParams, reqEditors ...RequestEditorFn) (*ListBulkOperationsResponse, error)
 
 	// UndoBulkOperationWithResponse performs a POST /api/v1/screens/bulk/operations/{id}/undo (the `UndoBulkOperation` operationId) request.
 	//
@@ -50033,6 +50138,17 @@ func (r ListScreensResponse) ContentType() string {
 type ListArchivedScreensResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ScreenList `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListArchivedScreensResponse) GetJSON200() *struct {
+	Data ScreenList `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -50067,6 +50183,17 @@ func (r ListArchivedScreensResponse) ContentType() string {
 type ApplyBulkOperationResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data BulkOperation `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ApplyBulkOperationResponse) GetJSON200() *struct {
+	Data BulkOperation `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -50101,6 +50228,17 @@ func (r ApplyBulkOperationResponse) ContentType() string {
 type ListBulkOperationsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data []BulkOperation `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListBulkOperationsResponse) GetJSON200() *struct {
+	Data []BulkOperation `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -50135,6 +50273,17 @@ func (r ListBulkOperationsResponse) ContentType() string {
 type UndoBulkOperationResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data BulkOperation `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UndoBulkOperationResponse) GetJSON200() *struct {
+	Data BulkOperation `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -50169,6 +50318,19 @@ func (r UndoBulkOperationResponse) ContentType() string {
 type PreviewBulkOperationResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Data What an operator confirms. The counts add up to the screen list and are never computed twice.
+		Data BulkPreview `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PreviewBulkOperationResponse) GetJSON200() *struct {
+	// Data What an operator confirms. The counts add up to the screen list and are never computed twice.
+	Data BulkPreview `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -58530,8 +58692,8 @@ func (c *ClientWithResponses) ApplyBulkOperationWithResponse(ctx context.Context
 // List recent fleet bulk operations. Requires an Owner or Administrator with the read scope.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) ListBulkOperationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListBulkOperationsResponse, error) {
-	rsp, err := c.ListBulkOperations(ctx, reqEditors...)
+func (c *ClientWithResponses) ListBulkOperationsWithResponse(ctx context.Context, params *ListBulkOperationsParams, reqEditors ...RequestEditorFn) (*ListBulkOperationsResponse, error) {
+	rsp, err := c.ListBulkOperations(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -66640,6 +66802,21 @@ func ParseListArchivedScreensResponse(rsp *http.Response) (*ListArchivedScreensR
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ScreenList `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -66654,6 +66831,33 @@ func ParseApplyBulkOperationResponse(rsp *http.Response) (*ApplyBulkOperationRes
 	response := &ApplyBulkOperationResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data BulkOperation `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -66672,6 +66876,24 @@ func ParseListBulkOperationsResponse(rsp *http.Response) (*ListBulkOperationsRes
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data []BulkOperation `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -66688,6 +66910,30 @@ func ParseUndoBulkOperationResponse(rsp *http.Response) (*UndoBulkOperationRespo
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data BulkOperation `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -66702,6 +66948,31 @@ func ParsePreviewBulkOperationResponse(rsp *http.Response) (*PreviewBulkOperatio
 	response := &PreviewBulkOperationResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Data What an operator confirms. The counts add up to the screen list and are never computed twice.
+			Data BulkPreview `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil

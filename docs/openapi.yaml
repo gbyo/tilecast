@@ -799,7 +799,15 @@ paths:
       description: >-
         List archived screens. Requires an authenticated dashboard user with the read scope.
       responses:
-        "200": { description: Archived screens }
+        "200":
+          description: Archived screens
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ScreenList" }
         "401": { description: Dashboard authentication required }
   /api/v1/settings/reset:
     post:
@@ -853,7 +861,15 @@ paths:
                 commandType: { type: string }
                 commandPayload: { type: object }
       responses:
-        "200": { description: Bulk operation preview }
+        "200":
+          description: Bulk operation preview
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/BulkPreview" }
         "400": { description: Invalid request body }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role or screen scope }
@@ -884,7 +900,15 @@ paths:
                 commandPayload: { type: object }
                 expectedChangeCount: { type: integer }
       responses:
-        "200": { description: Bulk operation applied }
+        "200":
+          description: Bulk operation applied
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/BulkOperation" }
         "400": { description: Invalid request body }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role or screen scope }
@@ -895,8 +919,20 @@ paths:
       operationId: listBulkOperations
       description: >-
         List recent fleet bulk operations. Requires an Owner or Administrator with the read scope.
+      parameters:
+        - { in: query, name: limit, schema: { type: integer, minimum: 1 } }
       responses:
-        "200": { description: Recent bulk operations }
+        "200":
+          description: Recent bulk operations
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/BulkOperation" }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
   /api/v1/screens/bulk/operations/{id}/undo:
@@ -908,7 +944,15 @@ paths:
         - { $ref: "#/components/parameters/ResourceID" }
         - { $ref: "#/components/parameters/CSRFToken" }
       responses:
-        "200": { description: Bulk operation reversed }
+        "200":
+          description: Bulk operation reversed
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/BulkOperation" }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role or screen scope }
         "404": { description: Bulk operation not found }
@@ -7305,6 +7349,94 @@ components:
       name: tilecast_session
       description: Enrolled dashboard session cookie
   schemas:
+    BulkAction:
+      type: string
+      enum:
+        [
+          assign_playlist,
+          assign_layout,
+          clear_assignment,
+          set_enabled,
+          send_command,
+        ]
+    BulkScreenChange:
+      type: object
+      additionalProperties: false
+      description: >-
+        One screen inside a bulk preview or result. Current and Next are written for a person to read, not parsed.
+      required: [screenId, name, current, next, changes, selected]
+      properties:
+        screenId: { type: string, format: uuid }
+        name: { type: string }
+        location: { type: string }
+        current: { type: string }
+        next: { type: string }
+        changes: { type: boolean }
+        blocked: { type: string }
+        fromGroup: { type: string }
+        selected: { type: boolean }
+        applied: { type: boolean }
+        error: { type: string }
+    BulkPreview:
+      type: object
+      additionalProperties: false
+      description: >-
+        What an operator confirms. The counts add up to the screen list and are never computed twice.
+      required:
+        [
+          action,
+          screens,
+          changeCount,
+          unchangedCount,
+          blockedCount,
+          groupAddedCount,
+          warnings,
+          reversible,
+          undoWindowMinutes,
+        ]
+      properties:
+        action: { $ref: "#/components/schemas/BulkAction" }
+        screens:
+          type: array
+          items: { $ref: "#/components/schemas/BulkScreenChange" }
+        changeCount: { type: integer, minimum: 0 }
+        unchangedCount: { type: integer, minimum: 0 }
+        blockedCount: { type: integer, minimum: 0 }
+        groupAddedCount: { type: integer, minimum: 0 }
+        warnings:
+          type: array
+          items: { type: string }
+        reversible: { type: boolean }
+        undoWindowMinutes: { type: integer, minimum: 0 }
+    BulkOperation:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          action,
+          screenCount,
+          appliedCount,
+          skippedCount,
+          failedCount,
+          results,
+          reversible,
+          createdAt,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        action: { $ref: "#/components/schemas/BulkAction" }
+        screenCount: { type: integer, minimum: 0 }
+        appliedCount: { type: integer, minimum: 0 }
+        skippedCount: { type: integer, minimum: 0 }
+        failedCount: { type: integer, minimum: 0 }
+        results:
+          type: array
+          items: { $ref: "#/components/schemas/BulkScreenChange" }
+        reversible: { type: boolean }
+        undoExpiresAt: { type: string, format: date-time }
+        undoneAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
     SettingsExportOrganization:
       type: object
       additionalProperties: false
