@@ -35,8 +35,9 @@ export function useNavigationWarning(
         event.ctrlKey ||
         event.shiftKey ||
         event.altKey
-      )
+      ) {
         return;
+      }
 
       event.preventDefault();
       void confirm({ title: message, action: "Discard changes" }).then(
