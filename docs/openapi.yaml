@@ -840,7 +840,16 @@ paths:
           schema: { type: string, format: uuid }
         - { $ref: "#/components/parameters/CSRFToken" }
       responses:
-        "200": { description: Command cancelled }
+        "200":
+          description: Command cancelled
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    { $ref: "#/components/schemas/PlayerCommandStateUpdate" }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role or screen scope }
         "409": { description: Command already completed }
@@ -6204,14 +6213,30 @@ paths:
       operationId: listScreenCommands
       summary: List recent screen commands
       responses:
-        "200": { description: Command history }
+        "200":
+          description: Command history
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PlayerCommandList" }
     post:
       operationId: sendScreenCommand
       summary: Queue a typed operational, Display Control, or bounded player-recovery command
       description: >-
         Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
       responses:
-        "202": { description: Command queued }
+        "202":
+          description: Command queued
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/QueuedPlayerCommand" }
         "429": { description: Pending command limit reached }
   /api/v1/player/commands:
     get:
@@ -6220,7 +6245,15 @@ paths:
       operationId: listPlayerCommands
       summary: Retrieve executable commands for the authenticated player
       responses:
-        "200": { description: Stable command list }
+        "200":
+          description: Stable command list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/DevicePlayerCommandList" }
   /api/v1/player/commands/{id}/acknowledge:
     parameters:
       - { $ref: "#/components/parameters/ResourceID" }
@@ -6230,7 +6263,16 @@ paths:
       operationId: acknowledgePlayerCommand
       summary: Acknowledge a player command
       responses:
-        "200": { description: Command acknowledged }
+        "200":
+          description: Command acknowledged
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    { $ref: "#/components/schemas/PlayerCommandStateUpdate" }
   /api/v1/player/commands/{id}/result:
     parameters:
       - { $ref: "#/components/parameters/ResourceID" }
@@ -6240,7 +6282,16 @@ paths:
       operationId: reportPlayerCommandResult
       summary: Report a safe command result
       responses:
-        "200": { description: Result accepted idempotently }
+        "200":
+          description: Result accepted idempotently
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    { $ref: "#/components/schemas/PlayerCommandStateUpdate" }
         "409": { description: Command expired or cancelled }
   /api/v1/settings:
     get:
@@ -10280,6 +10331,123 @@ components:
         page: { type: integer, minimum: 1 }
         pageSize: { type: integer, minimum: 1 }
         defaultTimezone: { type: string }
+    PlayerCommandType:
+      type: string
+      enum:
+        [
+          sync_now,
+          reload_playback,
+          identify_screen,
+          clear_media_cache,
+          clear_website_data,
+          disable_playback,
+          enable_playback,
+          install_player_update,
+          retry_player_recovery,
+          exit_safe_mode,
+          power_assist_sleep,
+          power_assist_wake,
+          retry_current_item,
+          skip_current_item,
+          recreate_renderer,
+          recreate_playback_session,
+          restart_activity,
+          restart_player_process,
+          resynchronize_player,
+          run_player_self_test,
+          install_autostart,
+          remove_autostart,
+          prepare_airplay_session,
+          stop_airplay_session,
+          test_airplay_support,
+          display_power_on,
+          display_power_off,
+          display_set_input,
+          display_set_volume,
+          display_mute,
+          display_unmute,
+          display_set_brightness,
+          display_probe,
+          provision_presentation_network,
+          test_presentation_network,
+        ]
+    PlayerCommandState:
+      type: string
+      enum:
+        [
+          pending,
+          delivered,
+          acknowledged,
+          running,
+          succeeded,
+          failed,
+          cancelled,
+          expired,
+        ]
+    PlayerCommand:
+      type: object
+      additionalProperties: false
+      required: [id, type, payload, state, createdAt, expiresAt]
+      properties:
+        id: { type: string, format: uuid }
+        type: { $ref: "#/components/schemas/PlayerCommandType" }
+        payload:
+          type: object
+          description: Per-type command arguments validated at queue time.
+        state: { $ref: "#/components/schemas/PlayerCommandState" }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        deliveredAt: { type: [string, "null"], format: date-time }
+        acknowledgedAt: { type: [string, "null"], format: date-time }
+        completedAt: { type: [string, "null"], format: date-time }
+        resultCode: { type: [string, "null"] }
+        resultMessage: { type: [string, "null"] }
+    PlayerCommandList:
+      type: object
+      additionalProperties: false
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/PlayerCommand" }
+        total: { type: integer, minimum: 0 }
+    QueuedPlayerCommand:
+      type: object
+      additionalProperties: false
+      required: [id, state, expiresAt]
+      properties:
+        id: { type: string, format: uuid }
+        state: { type: string, enum: [pending] }
+        expiresAt: { type: string, format: date-time }
+    PlayerCommandStateUpdate:
+      type: object
+      additionalProperties: false
+      required: [id, state]
+      properties:
+        id: { type: string, format: uuid }
+        state: { $ref: "#/components/schemas/PlayerCommandState" }
+    DevicePlayerCommand:
+      type: object
+      additionalProperties: false
+      required: [id, type, payload, idempotencyKey, state, createdAt, expiresAt]
+      properties:
+        id: { type: string, format: uuid }
+        type: { $ref: "#/components/schemas/PlayerCommandType" }
+        payload:
+          type: object
+          description: Per-type command arguments validated at queue time.
+        idempotencyKey: { type: string, format: uuid }
+        state: { $ref: "#/components/schemas/PlayerCommandState" }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+    DevicePlayerCommandList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/DevicePlayerCommand" }
     DisplayControlAction:
       type: object
       additionalProperties: false

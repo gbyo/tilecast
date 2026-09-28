@@ -7223,6 +7223,107 @@ export interface components {
       pageSize: number;
       defaultTimezone: string;
     };
+    /** @enum {string} */
+    PlayerCommandType:
+      | "sync_now"
+      | "reload_playback"
+      | "identify_screen"
+      | "clear_media_cache"
+      | "clear_website_data"
+      | "disable_playback"
+      | "enable_playback"
+      | "install_player_update"
+      | "retry_player_recovery"
+      | "exit_safe_mode"
+      | "power_assist_sleep"
+      | "power_assist_wake"
+      | "retry_current_item"
+      | "skip_current_item"
+      | "recreate_renderer"
+      | "recreate_playback_session"
+      | "restart_activity"
+      | "restart_player_process"
+      | "resynchronize_player"
+      | "run_player_self_test"
+      | "install_autostart"
+      | "remove_autostart"
+      | "prepare_airplay_session"
+      | "stop_airplay_session"
+      | "test_airplay_support"
+      | "display_power_on"
+      | "display_power_off"
+      | "display_set_input"
+      | "display_set_volume"
+      | "display_mute"
+      | "display_unmute"
+      | "display_set_brightness"
+      | "display_probe"
+      | "provision_presentation_network"
+      | "test_presentation_network";
+    /** @enum {string} */
+    PlayerCommandState:
+      | "pending"
+      | "delivered"
+      | "acknowledged"
+      | "running"
+      | "succeeded"
+      | "failed"
+      | "cancelled"
+      | "expired";
+    PlayerCommand: {
+      /** Format: uuid */
+      id: string;
+      type: components["schemas"]["PlayerCommandType"];
+      /** @description Per-type command arguments validated at queue time. */
+      payload: Record<string, never>;
+      state: components["schemas"]["PlayerCommandState"];
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      expiresAt: string;
+      /** Format: date-time */
+      deliveredAt?: string | null;
+      /** Format: date-time */
+      acknowledgedAt?: string | null;
+      /** Format: date-time */
+      completedAt?: string | null;
+      resultCode?: string | null;
+      resultMessage?: string | null;
+    };
+    PlayerCommandList: {
+      items: components["schemas"]["PlayerCommand"][];
+      total: number;
+    };
+    QueuedPlayerCommand: {
+      /** Format: uuid */
+      id: string;
+      /** @enum {string} */
+      state: "pending";
+      /** Format: date-time */
+      expiresAt: string;
+    };
+    PlayerCommandStateUpdate: {
+      /** Format: uuid */
+      id: string;
+      state: components["schemas"]["PlayerCommandState"];
+    };
+    DevicePlayerCommand: {
+      /** Format: uuid */
+      id: string;
+      type: components["schemas"]["PlayerCommandType"];
+      /** @description Per-type command arguments validated at queue time. */
+      payload: Record<string, never>;
+      /** Format: uuid */
+      idempotencyKey: string;
+      state: components["schemas"]["PlayerCommandState"];
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      expiresAt: string;
+    };
+    DevicePlayerCommandList: {
+      items: components["schemas"]["DevicePlayerCommand"][];
+    };
     /** @description A bounded Display Control action. A schedule may contain one action instead of a playlist or Layout. The server validates that only the field belonging to the selected type is present. */
     DisplayControlAction: {
       /** @enum {string} */
@@ -10086,7 +10187,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["PlayerCommandStateUpdate"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -19490,7 +19595,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["PlayerCommandList"];
+          };
+        };
       };
     };
   };
@@ -19510,7 +19619,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["QueuedPlayerCommand"];
+          };
+        };
       };
       /** @description Pending command limit reached */
       429: {
@@ -19535,7 +19648,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["DevicePlayerCommandList"];
+          };
+        };
       };
     };
   };
@@ -19555,7 +19672,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["PlayerCommandStateUpdate"];
+          };
+        };
       };
     };
   };
@@ -19575,7 +19696,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["PlayerCommandStateUpdate"];
+          };
+        };
       };
       /** @description Command expired or cancelled */
       409: {
