@@ -45,7 +45,7 @@ class TcMediaBridgeTest {
         val body = TcMediaBridge.openStream(resolved)!!.readBytes()
         assertEquals(1024 - 100, body.size)
         assertEquals(videoBytes[100], body[0])
-        assertContentEquals(videoBytes.copyOfRange(100, 200), body.copyOfRange(0, 100))
+        assertArrayEquals(videoBytes.copyOfRange(100, 200), body.copyOfRange(0, 100))
     }
 
     @Test fun servesSuffixAndOpenRanges() {
