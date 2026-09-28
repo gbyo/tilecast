@@ -1,9 +1,13 @@
 /**
  * Authentication and account-security domain helpers over the typed
- * transport. The WebAuthn ceremonies keep their X-MFA-Challenge header,
- * passed explicitly per call; CSRF stays the authoritative token option.
- * Credential payloads use the contract WebAuthn schemas; the ceremony
- * serializers in ../../auth/webauthn produce exactly these shapes.
+ * transport. Security status, TOTP enrollment, recovery codes, and
+ * passkey registration success bodies are contract-typed and inferred
+ * from the generated schemas. The WebAuthn ceremonies keep their
+ * X-MFA-Challenge header, passed explicitly per call; CSRF stays the
+ * authoritative token option. Credential payloads use the contract
+ * WebAuthn schemas; the ceremony serializers in ../../auth/webauthn
+ * produce exactly these shapes. Ceremony option payloads stay
+ * description-only until the ceremony HTTP legs are migrated.
  */
 import type { components } from "@tilecast/api-schema/generated/openapi";
 import { apiDelete, apiGet, apiPatch, apiPost } from "../transport";
@@ -14,15 +18,12 @@ import type {
   OAuthApproval,
   OAuthDecision,
   OAuthGrant,
-  Passkey,
   PasskeyCeremony,
   PersonalAccessToken,
   PersonalAccessTokenCreated,
   PersonalAccessTokenInput,
-  SecurityStatus,
   SessionResult,
   SetupInput,
-  TOTPEnrollment,
 } from "../types";
 
 export function getAuthStatus(): Promise<AuthStatus> {
@@ -76,27 +77,19 @@ export function passkeyLogin(
   );
 }
 
-export function getSecurityStatus(): Promise<SecurityStatus> {
-  return apiGet<"/api/v1/me/security", SecurityStatus>("/api/v1/me/security");
+export function getSecurityStatus() {
+  return apiGet("/api/v1/me/security");
 }
 
-export function beginTotpEnrollment(
-  csrfToken: string,
-): Promise<TOTPEnrollment> {
-  return apiPost<"/api/v1/me/security/totp", TOTPEnrollment>(
-    "/api/v1/me/security/totp",
-    { csrfToken },
-  );
+export function beginTotpEnrollment(csrfToken: string) {
+  return apiPost("/api/v1/me/security/totp", { csrfToken });
 }
 
-export function confirmTotpEnrollment(
-  code: string,
-  csrfToken: string,
-): Promise<SecurityStatus> {
-  return apiPost<"/api/v1/me/security/totp/confirm", SecurityStatus>(
-    "/api/v1/me/security/totp/confirm",
-    { body: { code }, csrfToken },
-  );
+export function confirmTotpEnrollment(code: string, csrfToken: string) {
+  return apiPost("/api/v1/me/security/totp/confirm", {
+    body: { code },
+    csrfToken,
+  });
 }
 
 export function removeTotp(password: string, csrfToken: string): Promise<void> {
@@ -106,14 +99,11 @@ export function removeTotp(password: string, csrfToken: string): Promise<void> {
   });
 }
 
-export function regenerateRecoveryCodes(
-  password: string,
-  csrfToken: string,
-): Promise<{ codes: string[] }> {
-  return apiPost<"/api/v1/me/security/recovery-codes", { codes: string[] }>(
-    "/api/v1/me/security/recovery-codes",
-    { body: { password }, csrfToken },
-  );
+export function regenerateRecoveryCodes(password: string, csrfToken: string) {
+  return apiPost("/api/v1/me/security/recovery-codes", {
+    body: { password },
+    csrfToken,
+  });
 }
 
 export function getPasskeyRegistrationOptions(
@@ -129,15 +119,12 @@ export function registerPasskey(
   challengeToken: string,
   credential: components["schemas"]["WebAuthnCredential"],
   csrfToken: string,
-): Promise<Passkey> {
-  return apiPost<"/api/v1/me/security/passkeys", Passkey>(
-    "/api/v1/me/security/passkeys",
-    {
-      body: credential,
-      headers: { "X-MFA-Challenge": challengeToken },
-      csrfToken,
-    },
-  );
+) {
+  return apiPost("/api/v1/me/security/passkeys", {
+    body: credential,
+    headers: { "X-MFA-Challenge": challengeToken },
+    csrfToken,
+  });
 }
 
 export function renamePasskey(
