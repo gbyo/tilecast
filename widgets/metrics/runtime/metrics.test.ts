@@ -141,9 +141,9 @@ describe("Metrics configuration", () => {
 
   it("accepts up to twelve metrics so saved Stat Grids keep rendering", () => {
     const metrics = new Array(12).fill({ ...item });
-    expect(
-      parseMetricsConfig({ dataSourceId: SOURCE, metrics }),
-    ).toMatchObject({ ok: true, config: { metrics } });
+    expect(parseMetricsConfig({ dataSourceId: SOURCE, metrics })).toMatchObject(
+      { ok: true, config: { metrics } },
+    );
   });
 });
 

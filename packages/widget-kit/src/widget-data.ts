@@ -27,9 +27,7 @@ export function fieldRef(
 }
 
 /** An optional finite number: null when absent, undefined when invalid. */
-export function optionalFinite(
-  value: unknown,
-): number | null | undefined {
+export function optionalFinite(value: unknown): number | null | undefined {
   if (value === undefined || value === null) return null;
   if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
   return value;

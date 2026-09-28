@@ -171,7 +171,10 @@ describe("Spotlight data resolution", () => {
       base,
       fixtureResources({
         documents: recordsDocument([
-          { id: "r1", values: { ...values, title: { kind: "text", text: "  " } } },
+          {
+            id: "r1",
+            values: { ...values, title: { kind: "text", text: "  " } },
+          },
           { id: "r2", values },
         ]),
       }),

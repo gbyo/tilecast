@@ -285,7 +285,8 @@ function collectSelectableFields(
       candidate.control === "data_source_field" &&
       (candidate.dataSourceKey === sourceKey ||
         (!candidate.dataSourceKey &&
-          (sourceFields.length === 1 || (sourceFields.length === 0 && rootSingle))))
+          (sourceFields.length === 1 ||
+            (sourceFields.length === 0 && rootSingle))))
     ) {
       selectable.push(candidate);
     }

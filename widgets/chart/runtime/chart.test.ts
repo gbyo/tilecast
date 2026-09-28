@@ -175,8 +175,7 @@ describe("Chart domain correctness", () => {
     const count = 3;
     for (let index = 0; index < count; index += 1) {
       const labelX = categoryLabelX(index, count, "bar");
-      const slotCenter =
-        34 + ((index + 0.5) / count) * (392 - 34);
+      const slotCenter = 34 + ((index + 0.5) / count) * (392 - 34);
       expect(labelX).toBeCloseTo(slotCenter, 5);
     }
     expect(categoryLabelX(0, 1, "bar")).toBe((34 + 392) / 2);

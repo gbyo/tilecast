@@ -216,9 +216,7 @@ export function categoryLabelX(
 ): number {
   if (style !== "bar") return scaleX(index, count);
   if (count <= 1) return (PLOT_LEFT + PLOT_RIGHT) / 2;
-  return (
-    PLOT_LEFT + ((index + 0.5) / count) * (PLOT_RIGHT - PLOT_LEFT)
-  );
+  return PLOT_LEFT + ((index + 0.5) / count) * (PLOT_RIGHT - PLOT_LEFT);
 }
 
 /**
