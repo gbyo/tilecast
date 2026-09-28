@@ -22,3 +22,13 @@ jobs:
         run: npm run plugins:check
       - name: Test the plugin SDK and pluginctl
         run: npm test --workspace @tilecast/plugin-sdk
+      - name: Lint the composed OpenAPI contract
+        run: npm run openapi:lint
+      - name: Check OpenAPI backward compatibility
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ -n "$BASE_SHA" ]; then
+            git fetch --no-tags --depth=1 origin "$BASE_SHA" || true
+          fi
+          npm run openapi:compat

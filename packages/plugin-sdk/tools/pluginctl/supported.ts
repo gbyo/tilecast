@@ -6,10 +6,15 @@
  * reads the composed document and derives its expectations from what it
  * finds there:
  *
+ * - a stable operationId on every /api/v1 operation (core plus fragments)
+ * - a useful description (description or summary) on every /api/v1
+ *   operation, so an undescribed operation can no longer stay outside
+ *   the surface by staying undescribed
  * - operationId uniqueness (global, core plus plugin fragments)
  * - typed path/query parameters wherever parameters are declared inline
  * - request schemas wherever request bodies exist
  * - response documentation and success schemas where appropriate
+ *   (a 101 Switching Protocols is the success case for upgrades)
  * - authentication evidence (a `security` declaration, a CSRF parameter,
  *   a documented 401, or an explicit auth description) on every
  *   non-public operation; operations that declare themselves public are
@@ -59,6 +64,9 @@ export const EXCLUDED_OPERATIONS: ExcludedOperation[] = [
       "Demo-mode introspection for the local demo stack only; not part of the supported management API.",
   },
 ];
+
+/** Minimum useful-description length, so a placeholder cannot pass. */
+export const MIN_DESCRIPTION_LENGTH = 12;
 
 /** Hard cap on exclusions so the exception set cannot become an allowlist. */
 export const MAX_EXCLUDED_OPERATIONS = 8;
@@ -148,9 +156,11 @@ function checkParameters(
     if (ref !== null) continue;
     const schema = findPair(item, "schema");
     const name = textOf(findPair(item, "name")) || "unknown";
+    const schemaRef =
+      isMap(schema) && typeof scalar(findPair(schema, "$ref")) === "string";
     if (
       !isMap(schema) ||
-      typeof scalar(findPair(schema, "type")) !== "string"
+      (!schemaRef && typeof scalar(findPair(schema, "type")) !== "string")
     ) {
       problems.push({
         file: COMPOSED_OPENAPI,
@@ -207,14 +217,17 @@ function checkResponses(
     });
     return;
   }
+  // A 101 Switching Protocols is the success case for protocol upgrades
+  // such as the authenticated player WebSocket; everything else succeeds
+  // with 2xx.
   const success = responses.items.find((pair) => {
     const code = scalar(pair.key);
-    return code !== null && code.startsWith("2");
+    return code !== null && (code.startsWith("2") || code === "101");
   });
   if (success === undefined) {
     problems.push({
       file: COMPOSED_OPENAPI,
-      message: `${location} must document a 2xx response`,
+      message: `${location} must document a 2xx response (or 101 for a protocol upgrade)`,
     });
     return;
   }
@@ -325,13 +338,14 @@ function checkReferences(doc: Document, problems: Problem[]): void {
  *
  * `composed` is the merged core-plus-fragments document: operationId
  * uniqueness and local reference resolution hold globally across it.
- * `core` carries the per-operation structural rules (typed parameters,
- * request/response schemas, authentication evidence). Plugin fragments
- * only owe stable operationIds at this layer — see
- * checkFragmentOperationIds — so describing a core operation opts it
- * into conformance, which is what makes the rule a ratchet instead of a
- * second contract. Operations without a description are not yet surface
- * and are skipped.
+ * `core` carries the per-operation rules: every /api/v1 operation owes a
+ * stable operationId and a useful description (description or summary),
+ * plus typed parameters, request/response schemas, and authentication
+ * evidence. Plugin fragments owe stable operationIds and useful
+ * descriptions at this layer — see checkFragmentOperationIds. There is
+ * no undescribed back door: adding an /api/v1 operation means
+ * describing it in OpenAPI, which is what makes the rule a ratchet
+ * instead of a second contract.
  */
 export function checkDerivedConformance(
   composed: Document,
@@ -351,10 +365,28 @@ export function checkDerivedConformance(
     }
   }
   for (const entry of collectOperations(core)) {
+    if (!entry.path.startsWith("/api/v1")) continue;
     const id = scalar(findPair(entry.operation, "operationId"));
+    const location =
+      id === null
+        ? `${entry.method.toUpperCase()} ${entry.path}`
+        : `${entry.method.toUpperCase()} ${entry.path} (${id})`;
+    if (id === null) {
+      problems.push({
+        file: COMPOSED_OPENAPI,
+        message: `${location} needs a stable operationId`,
+      });
+    }
+    const useful =
+      textOf(findPair(entry.operation, "description")) ||
+      textOf(findPair(entry.operation, "summary"));
+    if (useful.trim().length < MIN_DESCRIPTION_LENGTH) {
+      problems.push({
+        file: COMPOSED_OPENAPI,
+        message: `${location} needs a useful description`,
+      });
+    }
     if (id === null) continue;
-    if (textOf(findPair(entry.operation, "description")) === "") continue;
-    const location = `${entry.method.toUpperCase()} ${entry.path} (${id})`;
     if (excluded.has(id)) continue;
     checkParameters(entry.operation, location, problems);
     checkRequestBody(entry.operation, location, problems);
@@ -367,8 +399,9 @@ export function checkDerivedConformance(
 
 /**
  * Every plugin fragment operation needs a stable operationId before
- * automation can refer to it. Fragment operationIds share the global
- * uniqueness namespace with core, enforced on the composed document.
+ * automation can refer to it, and a useful description like every other
+ * /api/v1 operation. Fragment operationIds share the global uniqueness
+ * namespace with core, enforced on the composed document.
  */
 export function checkFragmentOperationIds(
   fragments: { plugin: string; file: string; text: string }[],
@@ -415,6 +448,16 @@ export function checkFragmentOperationIds(
         });
       } else {
         seen.set(id, `${fragment.plugin} ${location}`);
+      }
+      const useful =
+        textOf(findPair(entry.operation, "description")) ||
+        textOf(findPair(entry.operation, "summary"));
+      if (useful.trim().length < MIN_DESCRIPTION_LENGTH) {
+        problems.push({
+          plugin: fragment.plugin,
+          file: fragment.file,
+          message: `${location} needs a useful description`,
+        });
       }
     }
   }

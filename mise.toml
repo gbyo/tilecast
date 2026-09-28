@@ -1,0 +1,7 @@
+# Tilecast contributor tooling. Runtime selection only: the versions below
+# match CI and Docker. Rust is pinned by apps/edge/rust-toolchain.toml and
+# Java must stay 17 for the Android build; both are checked by make doctor.
+[tools]
+node = "22"
+go = "1.25.7"
+java = "17"

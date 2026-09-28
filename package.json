@@ -24,6 +24,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "npm run lint --workspace @tilecast/dashboard",
+    "openapi:lint": "redocly lint docs/openapi.yaml",
+    "openapi:compat": "./scripts/ci/openapi-compat.sh",
     "test": "npm run test --workspace @tilecast/dashboard",
     "test:e2e": "playwright test -c e2e/playwright.config.ts",
     "test:visual": "playwright test -c e2e/visual/playwright.config.ts",
@@ -48,6 +50,8 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
+    "@redocly/cli": "2.54.3",
+    "openapi-typescript": "7.13.0",
     "prettier": "^3.9.6",
     "yaml": "^2.9.1"
   }

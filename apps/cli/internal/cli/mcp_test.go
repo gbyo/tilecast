@@ -57,7 +57,7 @@ func TestMCPBackendReads(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if record, ok := screen.(screenRecord); !ok || record["name"] != "lobby" {
+	if record, ok := screen.(screenRecord); !ok || record.Name != "lobby" {
 		t.Fatalf("screen_get = %#v", screen)
 	}
 	if _, err := backend.screenGet(ctx, map[string]any{}); err == nil {

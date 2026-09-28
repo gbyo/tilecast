@@ -4,6 +4,7 @@ info:
   version: 0.10.0
   license:
     name: AGPL-3.0-only
+    identifier: AGPL-3.0-only
   description: >-
     Management authentication accepts either an enrolled dashboard session
     cookie or a bearer user grant (an OAuth access token or a personal
@@ -47,6 +48,8 @@ paths:
   /api/v1/install/linux:
     get:
       operationId: installableLinuxPlayerRelease
+      description: >-
+        Public. Read the cached Linux player release metadata.
       responses:
         "200":
           { description: "Latest stable, verified, cached Linux Player release
@@ -55,11 +58,15 @@ paths:
   /api/v1/install/linux/artifact:
     get:
       operationId: installableLinuxPlayerArtifact
+      description: >-
+        Public. Download the verified Linux player AppImage.
       responses:
         "200": { description: Verified Linux Player AppImage }
         "404": { description: No installable Linux Player release is cached }
     head:
       operationId: headInstallableLinuxPlayerArtifact
+      description: >-
+        Public. Inspect the verified Linux player AppImage without downloading it.
       responses:
         "200": { description: Verified Linux Player AppImage metadata }
         "404": { description: No installable Linux Player release is cached }
@@ -71,11 +78,15 @@ paths:
         "200": { description: Verified UxPlay 1.73.6 source archive }
     head:
       operationId: headInstallableUxPlayArtifact
+      description: >-
+        Public. Inspect the pinned UxPlay artifact without downloading it.
       responses:
         "200": { description: Verified UxPlay 1.73.6 source archive metadata }
   /api/v1/install/airplay/uxplay.sha256:
     get:
       operationId: installableUxPlayChecksum
+      description: >-
+        Public. Read the pinned UxPlay artifact checksum.
       responses:
         "200":
           { description: Pinned lowercase SHA-256 of the UxPlay source archive }
@@ -120,12 +131,14 @@ paths:
                 scenario: { type: string, enum: [basic, kitchen-sink] }
       responses:
         "200":
-          { description: Scenario restored, with the new session CSRF token }
+          { description: "Scenario restored, with the new session CSRF token" }
         "403": { description: Owner role or CSRF token missing }
         "422": { description: Unknown scenario }
   /api/v1/auth/setup:
     post:
       operationId: initialSetup
+      description: >-
+        Public. Create the organization and initial Owner account during first-run setup.
       requestBody:
         required: true
         content:
@@ -139,6 +152,8 @@ paths:
   /api/v1/auth/login:
     post:
       operationId: login
+      description: >-
+        Rate-limited. Exchange an enrolled account's credentials for a dashboard session.
       responses:
         "200":
           description: >-
@@ -205,12 +220,16 @@ paths:
   /api/v1/me/security:
     get:
       operationId: securityStatus
+      description: >-
+        Security status. Requires an enrolled dashboard session.
       responses:
         "200": { description: "Enrolled factors, passkeys, and policy state" }
         "401": { description: Authentication required }
   /api/v1/me/security/totp:
     post:
       operationId: beginAuthenticatorEnrollment
+      description: >-
+        Begin authenticator enrollment. Requires an enrolled dashboard session.
       parameters:
         - in: header
           name: X-CSRF-Token
@@ -222,6 +241,8 @@ paths:
   /api/v1/me/security/totp/confirm:
     post:
       operationId: confirmAuthenticatorEnrollment
+      description: >-
+        Confirm authenticator enrollment. Requires an enrolled dashboard session.
       parameters:
         - in: header
           name: X-CSRF-Token
@@ -279,6 +300,8 @@ paths:
   /api/v1/me/security/passkeys/options:
     post:
       operationId: passkeyRegistrationOptions
+      description: >-
+        Passkey registration options. Requires an enrolled dashboard session.
       parameters:
         - in: header
           name: X-CSRF-Token
@@ -314,6 +337,8 @@ paths:
   /api/v1/me/security/passkeys/{id}:
     patch:
       operationId: renamePasskey
+      description: >-
+        Rename passkey. Requires an enrolled dashboard session.
       parameters:
         - in: path
           name: id
@@ -391,7 +416,9 @@ paths:
           }
       responses:
         "200": { description: Approval description }
-        "400": { description: Unknown client, redirect, scope, or challenge }
+        "400":
+          description: >-
+            Unknown client, redirect, scope, or challenge
         "401": { description: Dashboard authentication required }
   /api/v1/oauth/approve:
     post:
@@ -410,7 +437,9 @@ paths:
             schema: { $ref: "#/components/schemas/OAuthDecision" }
       responses:
         "200": { description: Loopback redirect carrying the code }
-        "400": { description: Unknown client, redirect, scope, or challenge }
+        "400":
+          description: >-
+            Unknown client, redirect, scope, or challenge
         "401": { description: Dashboard authentication required }
         "403": { description: CSRF token required }
   /api/v1/oauth/deny:
@@ -447,7 +476,9 @@ paths:
             schema: { $ref: "#/components/schemas/OAuthTokenRequest" }
       responses:
         "200": { description: Opaque access and refresh tokens }
-        "400": { description: Expired, used, mismatched, or revoked grant }
+        "400":
+          description: >-
+            Expired, used, mismatched, or revoked grant
         "429": { description: Too many authentication attempts }
   /api/v1/oauth/revoke:
     post:
@@ -539,9 +570,1658 @@ paths:
                 expiresInDays: { type: integer, enum: [7, 30, 90, 365] }
       responses:
         "201": { description: PAT created with one-time secret }
-        "400": { description: Invalid name, scopes, or lifetime }
+        "400":
+          description: >-
+            Invalid name, scopes, or lifetime
         "401": { description: Dashboard authentication required }
         "403": { description: CSRF token required }
+  /api/v1/content-folders/{id}:
+    patch:
+      operationId: updateContentFolder
+      description: >-
+        Rename, move, or redescribe a content folder. Requires a content
+        author with the write scope. Cookie-authenticated unsafe requests
+        require X-CSRF-Token.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                description: { type: string }
+                parentId: { type: [string, "null"], format: uuid }
+      responses:
+        "200": { description: Content folder updated }
+        "400": { description: Invalid request body }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+    delete:
+      operationId: deleteContentFolder
+      description: >-
+        Delete a content folder, moving its direct content to Unfiled and
+        its child folders to the root. Requires a content manager with the
+        write scope. Cookie-authenticated unsafe requests require
+        X-CSRF-Token.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      responses:
+        "200": { description: Content folder deleted }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+  /api/v1/content-collections/{id}:
+    patch:
+      operationId: updateContentCollection
+      description: >-
+        Rename or redescribe a content collection. Requires a content author
+        with the write scope. Cookie-authenticated unsafe requests require
+        X-CSRF-Token.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                description: { type: string }
+      responses:
+        "200": { description: Content collection updated }
+        "400": { description: Invalid request body }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+    delete:
+      operationId: deleteContentCollection
+      description: >-
+        Delete a content collection without deleting its content. Requires a
+        content manager with the write scope. Cookie-authenticated unsafe
+        requests require X-CSRF-Token.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      responses:
+        "200": { description: Content collection deleted }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+  /api/v1/content-tags/{id}:
+    patch:
+      operationId: updateContentTag
+      description: >-
+        Rename or recolor a content tag. Requires a content author with the
+        write scope. Cookie-authenticated unsafe requests require
+        X-CSRF-Token.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                color: { type: string }
+      responses:
+        "200": { description: Content tag updated }
+        "400": { description: Invalid request body }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+    delete:
+      operationId: deleteContentTag
+      description: >-
+        Delete a content tag, removing only its relationships. A tag
+        referenced by a tag-driven playlist is refused until the playlist
+        rule changes. Requires a content manager with the write scope.
+        Cookie-authenticated unsafe requests require X-CSRF-Token.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      responses:
+        "200": { description: Content tag deleted }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+  /api/v1/playlists/{id}/duplicate:
+    post:
+      operationId: duplicatePlaylist
+      description: >-
+        Duplicate a playlist. Requires a content author with the write
+        scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      responses:
+        "201": { description: Playlist duplicated }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+  /api/v1/playlists/{id}/revisions:
+    get:
+      operationId: listPlaylistRevisions
+      description: >-
+        List a playlist's revisions. Requires an authenticated dashboard
+        user with the read scope.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+      responses:
+        "200": { description: Playlist revisions }
+        "401": { description: Dashboard authentication required }
+  /api/v1/playlists/{id}/revisions/{revision}/restore:
+    post:
+      operationId: restorePlaylistRevision
+      description: >-
+        Restore a playlist revision into a new draft revision. Requires a
+        content manager. Cookie-authenticated unsafe requests require
+        X-CSRF-Token.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+        - in: path
+          name: revision
+          required: true
+          schema: { type: string }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      responses:
+        "200": { description: Revision copied into a new draft revision }
+        "400": { description: Revision invalid }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+  /api/v1/screens/{id}/commands/{commandId}/cancel:
+    post:
+      operationId: cancelPlayerCommand
+      description: >-
+        Cancel a pending player command. Requires an Owner or Administrator
+        with the write scope. Cookie-authenticated unsafe requests require
+        X-CSRF-Token.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+        - in: path
+          name: commandId
+          required: true
+          schema: { type: string, format: uuid }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      responses:
+        "200": { description: Command cancelled }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role or screen scope }
+        "409": { description: Command already completed }
+  /api/v1/data-sources/{id}/preview:
+    get:
+      operationId: previewSavedDataSource
+      description: >-
+        Preview a saved data source, optionally as of a preview date.
+        Requires a content author with the read scope.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+        - in: query
+          name: previewDate
+          required: false
+          schema: { type: string }
+      responses:
+        "200": { description: Data source preview }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+  /api/v1/screens/archive:
+    get:
+      operationId: listArchivedScreens
+      description: >-
+        List archived screens. Requires an authenticated dashboard user with
+        the read scope.
+      responses:
+        "200": { description: Archived screens }
+        "401": { description: Dashboard authentication required }
+  /api/v1/settings/reset:
+    post:
+      operationId: resetSettings
+      description: >-
+        Reset settings to defaults, optionally scoped to one category at the
+        current revision. Requires an Owner or Administrator with the admin
+        scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+      parameters:
+        - { $ref: "#/components/parameters/CSRFToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                revision: { type: integer }
+                category: { type: string }
+      responses:
+        "200": { description: Settings reset }
+        "400": { description: Invalid request body }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+  /api/v1/screens/bulk/preview:
+    post:
+      operationId: previewBulkOperation
+      description: >-
+        Preview a fleet bulk operation without applying it: per-screen
+        current and next state, whether each screen changes, and why a
+        screen is blocked. Requires an Owner or Administrator with the
+        write scope. Preview is a read of what would change, so it needs
+        no CSRF token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [screenIds, action]
+              properties:
+                screenIds:
+                  type: array
+                  items: { type: string, format: uuid }
+                action: { type: string }
+                playlistId: { type: string, format: uuid }
+                layoutId: { type: string, format: uuid }
+                enabled: { type: boolean }
+                commandType: { type: string }
+                commandPayload: { type: object }
+      responses:
+        "200": { description: Bulk operation preview }
+        "400": { description: Invalid request body }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role or screen scope }
+        "422": { description: Bulk operation invalid }
+  /api/v1/screens/bulk/apply:
+    post:
+      operationId: applyBulkOperation
+      description: >-
+        Apply a fleet bulk operation, refusing with 409 when the fleet no
+        longer matches the confirmed preview's expected change count.
+        Requires an Owner or Administrator with the write scope.
+        Cookie-authenticated unsafe requests require X-CSRF-Token.
+      parameters:
+        - { $ref: "#/components/parameters/CSRFToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [screenIds, action]
+              properties:
+                screenIds:
+                  type: array
+                  items: { type: string, format: uuid }
+                action: { type: string }
+                playlistId: { type: string, format: uuid }
+                layoutId: { type: string, format: uuid }
+                enabled: { type: boolean }
+                commandType: { type: string }
+                commandPayload: { type: object }
+                expectedChangeCount: { type: integer }
+      responses:
+        "200": { description: Bulk operation applied }
+        "400": { description: Invalid request body }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role or screen scope }
+        "409": { description: Fleet changed since the confirmed preview }
+        "422": { description: Bulk operation invalid }
+  /api/v1/screens/bulk/operations:
+    get:
+      operationId: listBulkOperations
+      description: >-
+        List recent fleet bulk operations. Requires an Owner or
+        Administrator with the read scope.
+      responses:
+        "200": { description: Recent bulk operations }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+  /api/v1/screens/bulk/operations/{id}/undo:
+    post:
+      operationId: undoBulkOperation
+      description: >-
+        Reverse a reversible bulk operation inside its undo window. Requires
+        an Owner or Administrator with the write scope.
+        Cookie-authenticated unsafe requests require X-CSRF-Token.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      responses:
+        "200": { description: Bulk operation reversed }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role or screen scope }
+        "404": { description: Bulk operation not found }
+        "409": { description: Operation not reversible or undo unavailable }
+  /api/v1/system/health:
+    get:
+      operationId: getSystemHealth
+      description: >-
+        Read system health. Requires an Owner or Administrator with the read
+        scope.
+      responses:
+        "200": { description: System health }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+  /api/v1/system/media-diagnostics:
+    get:
+      operationId: getMediaDiagnostics
+      description: >-
+        Read media pipeline diagnostics. Requires an Owner or Administrator
+        with the read scope.
+      responses:
+        "200": { description: Media diagnostics }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+  /api/v1/system/snapshots/usage:
+    get:
+      operationId: getSnapshotUsage
+      description: >-
+        Read snapshot storage usage. Requires an Owner or Administrator with
+        the read scope.
+      responses:
+        "200": { description: Snapshot storage usage }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+  /api/v1/screens/{id}/snapshots:
+    get:
+      operationId: listScreenSnapshots
+      description: >-
+        List a screen's snapshots. Requires an authenticated dashboard user
+        with the read scope.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+      responses:
+        "200": { description: Screen snapshots }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Screen scope forbids this screen }
+  /api/v1/screens/{id}/snapshots/{snapshotId}/image:
+    get:
+      operationId: getScreenSnapshotImage
+      description: >-
+        Download a screen snapshot image. Requires an authenticated
+        dashboard user with the read scope.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+        - in: path
+          name: snapshotId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Snapshot image }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Screen scope forbids this screen }
+        "404": { description: Snapshot not found }
+  /api/v1/system/backups:
+    get:
+      operationId: listBackups
+      description: >-
+        List system backups. Requires an Owner with the admin scope.
+      responses:
+        "200": { description: System backups }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+    post:
+      operationId: createBackup
+      description: >-
+        Start a system backup. Requires an Owner with the admin scope.
+        Cookie-authenticated unsafe requests require X-CSRF-Token.
+      parameters:
+        - { $ref: "#/components/parameters/CSRFToken" }
+      responses:
+        "202": { description: Backup job started }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+        "409": { description: Backup already in progress }
+  /api/v1/system/backups/jobs/current:
+    get:
+      operationId: getCurrentBackupJob
+      description: >-
+        Read the current backup job, if any. Requires an Owner with the
+        admin scope.
+      responses:
+        "200": { description: Current backup job }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+  /api/v1/system/backups/jobs/{id}:
+    get:
+      operationId: getBackupJob
+      description: >-
+        Read a backup job. Requires an Owner with the admin scope.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+      responses:
+        "200": { description: Backup job }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+        "404": { description: Backup job not found }
+  /api/v1/system/backups/{id}/verify:
+    post:
+      operationId: verifyBackup
+      description: >-
+        Verify a system backup. Requires an Owner with the admin scope.
+        Cookie-authenticated unsafe requests require X-CSRF-Token.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      responses:
+        "202": { description: Backup verification started }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+        "404": { description: Backup not found }
+  /api/v1/system/backups/{id}/plan:
+    get:
+      operationId: getRestorePlan
+      description: >-
+        Read the restore plan for a system backup. Requires an Owner with
+        the admin scope.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+      responses:
+        "200": { description: Restore plan }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+        "404": { description: Backup not found }
+        "422": { description: Backup archive unreadable }
+  /api/v1/system/backups/{id}/restore:
+    post:
+      operationId: restoreBackup
+      description: >-
+        Restore a system backup, confirming identity mismatch explicitly
+        when the archive names another installation. Requires an Owner with
+        the admin scope. Cookie-authenticated unsafe requests require
+        X-CSRF-Token.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                confirmIdentityMismatch: { type: boolean }
+      responses:
+        "202": { description: Restore job started }
+        "400": { description: Invalid request body }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+        "404": { description: Backup not found }
+  /api/v1/system/backups/{id}/download:
+    get:
+      operationId: downloadBackup
+      description: >-
+        Download a system backup archive. Requires an Owner with the admin
+        scope.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+      responses:
+        "200": { description: Backup archive download }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+        "404": { description: Backup not found }
+  /api/v1/system/backups/{id}:
+    delete:
+      operationId: deleteBackup
+      description: >-
+        Delete a system backup. The last complete backup is protected until
+        confirmed again. Requires an Owner with the write scope.
+        Cookie-authenticated unsafe requests require X-CSRF-Token.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      responses:
+        "200": { description: Backup deleted }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+        "404": { description: Backup not found }
+        "409": { description: Job active or last complete backup }
+        "422": { description: Archive incomplete }
+  /api/v1/notifications/status:
+    get:
+      operationId: getNotificationStatus
+      description: >-
+        Read email notification status. Requires an authenticated dashboard
+        user with the read scope.
+      responses:
+        "200": { description: Notification status }
+        "401": { description: Dashboard authentication required }
+  /api/v1/notifications/test:
+    post:
+      operationId: sendTestNotification
+      description: >-
+        Send a test notification to the caller's own address. Requires an
+        authenticated dashboard user with the write scope.
+        Cookie-authenticated unsafe requests require X-CSRF-Token.
+      parameters:
+        - { $ref: "#/components/parameters/CSRFToken" }
+      responses:
+        "200": { description: Test notification sent }
+        "400": { description: No address or address invalid }
+        "401": { description: Dashboard authentication required }
+        "409": { description: Email not configured }
+        "502": { description: Mail server rejected the message }
+  /api/v1/notifications/deliveries:
+    get:
+      operationId: listNotificationDeliveries
+      description: >-
+        List notification deliveries. Requires an Owner or Administrator
+        with the admin scope.
+      responses:
+        "200": { description: Notification deliveries }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+  /api/v1/notifications/webhooks:
+    get:
+      operationId: listNotificationWebhooks
+      description: >-
+        List notification webhooks. Requires an Owner or Administrator with
+        the admin scope.
+      responses:
+        "200": { description: Notification webhooks }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+    post:
+      operationId: createNotificationWebhook
+      description: >-
+        Create a notification webhook. Requires an Owner or Administrator
+        with the admin scope. Cookie-authenticated unsafe requests require
+        X-CSRF-Token.
+      parameters:
+        - { $ref: "#/components/parameters/CSRFToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, url]
+              properties:
+                name: { type: string }
+                url: { type: string, format: uri }
+                enabled: { type: boolean }
+                categories:
+                  type: array
+                  items: { type: string }
+      responses:
+        "201": { description: Notification webhook created }
+        "400": { description: Invalid webhook }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+  /api/v1/notifications/webhooks/{id}:
+    put:
+      operationId: updateNotificationWebhook
+      description: >-
+        Update a notification webhook. Requires an Owner or Administrator
+        with the admin scope. Cookie-authenticated unsafe requests require
+        X-CSRF-Token.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                url: { type: string, format: uri }
+                enabled: { type: boolean }
+                categories:
+                  type: array
+                  items: { type: string }
+      responses:
+        "200": { description: Notification webhook updated }
+        "400": { description: Invalid webhook id or body }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+        "404": { description: Webhook not found }
+    delete:
+      operationId: deleteNotificationWebhook
+      description: >-
+        Delete a notification webhook. Requires an Owner or Administrator
+        with the admin scope. Cookie-authenticated unsafe requests require
+        X-CSRF-Token.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      responses:
+        "204": { description: Notification webhook deleted }
+        "400": { description: Webhook id invalid }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+        "404": { description: Webhook not found }
+  /api/v1/notifications/webhooks/{id}/test:
+    post:
+      operationId: testNotificationWebhook
+      description: >-
+        Send a test delivery to a notification webhook. Requires an Owner or
+        Administrator with the admin scope. Cookie-authenticated unsafe
+        requests require X-CSRF-Token.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      responses:
+        "200": { description: Test delivery accepted }
+        "400": { description: Webhook id invalid }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+        "404": { description: Webhook missing or disabled }
+        "502": { description: Receiver rejected the test }
+  /api/v1/integration-tokens:
+    get:
+      operationId: listIntegrationTokens
+      description: >-
+        List integration tokens. Requires an Owner with the admin scope.
+      responses:
+        "200": { description: Integration tokens }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+    post:
+      operationId: createIntegrationToken
+      description: >-
+        Mint an integration token: a standing inbound capability for data
+        sources or activity reads. Requires an Owner with the admin scope.
+        Cookie-authenticated unsafe requests require X-CSRF-Token.
+      parameters:
+        - { $ref: "#/components/parameters/CSRFToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, scopes]
+              properties:
+                name: { type: string }
+                scopes:
+                  type: array
+                  items: { type: string }
+                dataSourceIds:
+                  type: array
+                  items: { type: string, format: uuid }
+                expiresAt: { type: string, format: date-time }
+      responses:
+        "201": { description: Integration token created with one-time secret }
+        "400": { description: Invalid request body }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+        "422": { description: Token invalid }
+  /api/v1/integration-tokens/{id}:
+    delete:
+      operationId: revokeIntegrationToken
+      description: >-
+        Revoke an integration token. Requires an Owner with the admin scope.
+        Cookie-authenticated unsafe requests require X-CSRF-Token.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      responses:
+        "204": { description: Integration token revoked }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+        "404": { description: Token missing or already revoked }
+  /api/v1/integration/data-sources/{id}/rows:
+    put:
+      operationId: replaceDataSourceRows
+      description: >-
+        Replace every row of a manual table data source, at most 500 rows
+        per write. An integration token authenticates this call with the
+        data-source write scope.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rows]
+              properties:
+                rows:
+                  type: array
+                  maxItems: 500
+                  items:
+                    type: object
+                    required: [values]
+                    properties:
+                      values:
+                        type: object
+                        additionalProperties: { type: string }
+      responses:
+        "200": { description: Rows replaced }
+        "400": { description: Invalid request body }
+        "401": { description: Integration authentication required }
+        "403": { description: Insufficient scope }
+        "404": { description: Data source not found }
+        "422": { description: Rows invalid }
+  /api/v1/integration/activity/fleet:
+    get:
+      operationId: getIntegrationFleetHealth
+      description: >-
+        Read fleet health for integrations. An integration token
+        authenticates this call with the activity read scope.
+      responses:
+        "200": { description: Fleet health }
+        "401": { description: Integration authentication required }
+        "403": { description: Insufficient scope }
+  /api/v1/integration/metrics:
+    get:
+      operationId: getIntegrationMetrics
+      description: >-
+        Read integration metrics. An integration token authenticates this
+        call with the activity read scope.
+      responses:
+        "200": { description: Integration metrics }
+        "401": { description: Integration authentication required }
+        "403": { description: Insufficient scope }
+  /api/v1/content-reviews:
+    get:
+      operationId: listContentReviews
+      description: >-
+        List content reviews, optionally filtered by state. Anyone who can
+        author content can see where it stands. Requires an authenticated
+        dashboard user with the read scope.
+      parameters:
+        - in: query
+          name: state
+          required: false
+          schema: { type: string }
+      responses:
+        "200": { description: Content reviews }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+  /api/v1/content-reviews/{type}/{id}:
+    post:
+      operationId: decideContentReview
+      description: >-
+        Approve or reject a content review with an optional note. Requires a
+        content manager. Cookie-authenticated unsafe requests require
+        X-CSRF-Token.
+      parameters:
+        - in: path
+          name: type
+          required: true
+          schema: { type: string, enum: [playlist, layout] }
+        - { $ref: "#/components/parameters/ResourceID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [approve]
+              properties:
+                approve: { type: boolean }
+                note: { type: string }
+                revision: { type: integer }
+      responses:
+        "200": { description: Content review decided }
+        "400": { description: Invalid type or request body }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+        "404": { description: Review not found }
+        "409": { description: Review invalid }
+  /api/v1/content-health:
+    get:
+      operationId: getContentHealth
+      description: >-
+        Read content health. Requires an authenticated dashboard user with
+        the read scope.
+      responses:
+        "200": { description: Content health report }
+        "401": { description: Dashboard authentication required }
+  /api/v1/player/telemetry:
+    post:
+      operationId: ingestPlayerTelemetry
+      description: >-
+        Ingest a player telemetry snapshot. Requires an authenticated player
+        credential.
+      security: [{ deviceBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [observedAt]
+              properties:
+                observedAt: { type: string, format: date-time }
+                currentItemId: { type: string }
+                itemStartedAt: { type: string, format: date-time }
+                lastMeaningfulProgressAt: { type: string, format: date-time }
+                playbackStallDurationMs: { type: integer }
+                stallReason: { type: string }
+                rendererState: { type: string }
+                rendererResponding: { type: boolean }
+                expectedMotion: { type: boolean }
+                serverRoundTripMs: { type: integer }
+                downloadQueueCount: { type: integer }
+                bytesRemaining: { type: integer }
+                cacheUsedBytes: { type: integer }
+                cacheLimitBytes: { type: integer }
+                freeStorageBytes: { type: integer }
+                processUptimeSeconds: { type: integer }
+                deviceUptimeSeconds: { type: integer }
+      responses:
+        "202": { description: Telemetry accepted }
+        "400": { description: Telemetry invalid }
+        "401": { description: Credential invalid or revoked }
+        "422": { description: Telemetry timestamp or interval invalid }
+  /api/v1/player/activity-events:
+    post:
+      operationId: ingestPlayerActivityEvents
+      description: >-
+        Ingest a batch of 1 to 200 player activity events; the event shape
+        follows docs/activity-event-contract.md. Requires an authenticated
+        player credential.
+      security: [{ deviceBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [events]
+              properties:
+                events:
+                  type: array
+                  minItems: 1
+                  maxItems: 200
+                  items:
+                    type: object
+                    required: [id, sequence, eventType, occurredAt]
+                    properties:
+                      id: { type: string, format: uuid }
+                      sequence: { type: integer }
+                      eventType: { type: string }
+                      category: { type: string }
+                      severity: { type: string }
+                      occurredAt: { type: string, format: date-time }
+                      elapsedRealtimeMs: { type: integer }
+                      playerTimezone: { type: string }
+                      manifestVersion: { type: integer }
+                      presentationType: { type: string }
+                      presentationId: { type: string }
+                      presentationRevision: { type: string }
+                      contentType: { type: string }
+                      contentId: { type: string }
+      responses:
+        "202": { description: Activity events accepted }
+        "400": { description: Activity batch invalid }
+        "401": { description: Credential invalid or revoked }
+        "422": { description: Activity batch or event invalid }
+  /api/v1/activity/proof-of-play:
+    get:
+      operationId: listProofOfPlay
+      description: >-
+        List Player-confirmed proof-of-play records. Requires an
+        authenticated dashboard user with the read scope.
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      parameters:
+        - in: query
+          name: from
+          required: false
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          required: false
+          schema: { type: string, format: date-time }
+        - in: query
+          name: page
+          required: false
+          schema: { type: integer, minimum: 1 }
+        - in: query
+          name: pageSize
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100 }
+      responses:
+        "200": { description: Proof-of-play records }
+        "401": { description: Dashboard authentication required }
+        "422":
+          description: >-
+            Range, page, or proof filter invalid
+  /api/v1/activity/proof-of-play/summary:
+    get:
+      operationId: getProofOfPlaySummary
+      description: >-
+        Summarize Player-confirmed proof of play by dimension. Requires an
+        authenticated dashboard user with the read scope.
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      parameters:
+        - in: query
+          name: from
+          required: false
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          required: false
+          schema: { type: string, format: date-time }
+      responses:
+        "200": { description: Proof-of-play summary }
+        "401": { description: Dashboard authentication required }
+        "422": { description: Range or proof filter invalid }
+  /api/v1/activity/proof-of-play/export.csv:
+    get:
+      operationId: exportProofOfPlay
+      description: >-
+        Export Player-confirmed proof of play as CSV. Requires an Owner or
+        Administrator with the read scope.
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      parameters:
+        - in: query
+          name: from
+          required: false
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          required: false
+          schema: { type: string, format: date-time }
+      responses:
+        "200": { description: Proof-of-play CSV export }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Exports require Owner or Administrator access }
+        "422": { description: Range or proof filter invalid }
+  /api/v1/activity/screen-events:
+    get:
+      operationId: listScreenEvents
+      description: >-
+        List screen connectivity events. Requires an authenticated dashboard
+        user with the read scope.
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      parameters:
+        - in: query
+          name: from
+          required: false
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          required: false
+          schema: { type: string, format: date-time }
+        - in: query
+          name: page
+          required: false
+          schema: { type: integer, minimum: 1 }
+        - in: query
+          name: pageSize
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100 }
+      responses:
+        "200": { description: Screen events }
+        "401": { description: Dashboard authentication required }
+        "422":
+          description: >-
+            Range, page, screen, or group filter invalid
+  /api/v1/activity/audit:
+    get:
+      operationId: listAuditActivity
+      description: >-
+        List audit log activity. Requires an Editor, Administrator, or Owner
+        with the read scope.
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      parameters:
+        - in: query
+          name: from
+          required: false
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          required: false
+          schema: { type: string, format: date-time }
+        - in: query
+          name: page
+          required: false
+          schema: { type: integer, minimum: 1 }
+        - in: query
+          name: pageSize
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100 }
+      responses:
+        "200": { description: Audit activity }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Audit log access requires Editor or above }
+        "422":
+          description: >-
+            Range, page, or actor filter invalid
+  /api/v1/activity/audit/export.csv:
+    get:
+      operationId: exportAuditActivity
+      description: >-
+        Export audit log activity as CSV. Requires an Owner or Administrator
+        with the read scope.
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      parameters:
+        - in: query
+          name: from
+          required: false
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          required: false
+          schema: { type: string, format: date-time }
+      responses:
+        "200": { description: Audit activity CSV export }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Exports require Owner or Administrator access }
+        "422": { description: Range or actor filter invalid }
+  /api/v1/activity/screens/{id}:
+    get:
+      operationId: getScreenActivity
+      description: >-
+        Read a screen's activity. Requires an authenticated dashboard user
+        with the read scope.
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+        - in: query
+          name: from
+          required: false
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          required: false
+          schema: { type: string, format: date-time }
+      responses:
+        "200": { description: Screen activity }
+        "401": { description: Dashboard authentication required }
+  /api/v1/activity/screens/{id}/timeline:
+    get:
+      operationId: getScreenTimeline
+      description: >-
+        Read a screen's activity timeline. Requires an authenticated
+        dashboard user with the read scope.
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+        - in: query
+          name: from
+          required: false
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          required: false
+          schema: { type: string, format: date-time }
+      responses:
+        "200": { description: Screen timeline }
+        "401": { description: Dashboard authentication required }
+  /api/v1/activity/screens/{id}/telemetry:
+    get:
+      operationId: getScreenTelemetry
+      description: >-
+        Read a screen's telemetry. Requires an Owner or Administrator with
+        the read scope.
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+        - in: query
+          name: from
+          required: false
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          required: false
+          schema: { type: string, format: date-time }
+      responses:
+        "200": { description: Screen telemetry }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+  /api/v1/activity/incidents/analytics:
+    get:
+      operationId: getIncidentAnalytics
+      description: >-
+        Read incident analytics. Requires an authenticated dashboard user
+        with the read scope.
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      parameters:
+        - in: query
+          name: from
+          required: false
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          required: false
+          schema: { type: string, format: date-time }
+      responses:
+        "200": { description: Incident analytics }
+        "401": { description: Dashboard authentication required }
+        "422": { description: Range invalid }
+  /api/v1/activity/retention:
+    get:
+      operationId: getActivityRetention
+      description: >-
+        Read the activity retention policy. Requires an Owner or
+        Administrator with the read scope.
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      responses:
+        "200": { description: Activity retention policy }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+    patch:
+      operationId: updateActivityRetention
+      description: >-
+        Update the activity retention policy within deployment hard limits.
+        Requires an Owner or Administrator with the write scope.
+        Cookie-authenticated unsafe requests require X-CSRF-Token.
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/CSRFToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rawEventDays: { type: integer, minimum: 7, maximum: 365 }
+                playbackSessionDays:
+                  { type: integer, minimum: 30, maximum: 2555 }
+                screenStateDays: { type: integer, minimum: 30, maximum: 2555 }
+                auditLogDays: { type: integer, minimum: 90, maximum: 3650 }
+                diagnosticMetadataDays:
+                  { type: integer, minimum: 7, maximum: 180 }
+                telemetryRollupDays: { type: integer, minimum: 7, maximum: 400 }
+      responses:
+        "200": { description: Activity retention policy updated }
+        "400": { description: Retention values invalid }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+        "422": { description: Retention values exceed hard limits }
+  /api/v1/player-releases/{id}:
+    delete:
+      operationId: deletePlayerRelease
+      description: >-
+        Delete a cached player release. Refused while the release is
+        downloading. Requires an Owner with the admin scope.
+        Cookie-authenticated unsafe requests require X-CSRF-Token.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      responses:
+        "200": { description: Player release deleted }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+        "404": { description: Player release not found }
+        "409": { description: Release is downloading }
+  /api/v1/player-releases/github/configuration:
+    post:
+      operationId: configureGitHubReleases
+      description: >-
+        Configure the GitHub OAuth App used for player release device
+        authorization. Requires an Owner with the admin scope.
+        Cookie-authenticated unsafe requests require X-CSRF-Token.
+      parameters:
+        - { $ref: "#/components/parameters/CSRFToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [clientId]
+              properties:
+                clientId: { type: string }
+      responses:
+        "200": { description: GitHub releases configured }
+        "400": { description: Invalid request body }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+        "409": { description: Client ID environment-managed or connected }
+        "422": { description: GitHub Client ID invalid }
+        "503": { description: GitHub sign-in unavailable }
+  /api/v1/install/presentation-network/helper:
+    get:
+      operationId: downloadPresentationNetworkHelper
+      description: >-
+        Public. Download the root-owned Presentation Network helper script
+        with its SHA-256 ETag.
+      responses:
+        "200": { description: Helper script download }
+    head:
+      operationId: headPresentationNetworkHelper
+      description: >-
+        Public. Inspect the Presentation Network helper script without
+        downloading it.
+      responses:
+        "200": { description: Helper script metadata }
+  /api/v1/install/presentation-network/helper.sha256:
+    get:
+      operationId: getPresentationNetworkHelperChecksum
+      description: >-
+        Public. Read the hex digest of the Presentation Network helper
+        script bytes.
+      responses:
+        "200": { description: Helper script checksum }
+  /api/v1/player/preview-session:
+    get:
+      operationId: getPlayerPreviewSession
+      description: >-
+        Read the screen's current preview session for uploading frames.
+        Requires an authenticated player credential.
+      security: [{ deviceBearer: [] }]
+      responses:
+        "200": { description: Current preview session }
+        "401": { description: Credential invalid or revoked }
+  /api/v1/player/preview:
+    post:
+      operationId: uploadPlayerPreview
+      description: >-
+        Upload a screen preview frame as multipart form data with the JPEG
+        image part (at most 500 KB) and optional playerVersion,
+        failureStatus, and RFC 3339 capturedAt fields. Requires an
+        authenticated player credential.
+      security: [{ deviceBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image: { type: string, format: binary }
+                playerVersion: { type: string }
+                failureStatus: { type: string }
+                capturedAt: { type: string, format: date-time }
+      responses:
+        "204": { description: Preview frame accepted }
+        "400": { description: Preview image unreadable or malformed }
+        "401": { description: Credential invalid or revoked }
+        "413": { description: Preview image exceeded 500 KB }
+        "422": { description: Preview timestamp or frame invalid }
+  /api/v1/screens/{id}/preview-session:
+    post:
+      operationId: renewScreenPreview
+      description: >-
+        Renew a screen preview session, optionally forcing a fresh capture.
+        Requires an enrolled dashboard session. Cookie-authenticated unsafe
+        requests require X-CSRF-Token.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                forceCapture: { type: boolean }
+      responses:
+        "200": { description: Preview session renewed }
+        "400": { description: Invalid request body }
+        "401": { description: Dashboard authentication required }
+  /api/v1/screens/{id}/preview:
+    get:
+      operationId: getScreenPreview
+      description: >-
+        Read a screen's latest preview metadata. Requires an enrolled
+        dashboard session.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+      responses:
+        "200": { description: Latest screen preview }
+        "401": { description: Dashboard authentication required }
+  /api/v1/screens/{id}/preview/image:
+    get:
+      operationId: getScreenPreviewImage
+      description: >-
+        Download a screen's latest preview image. Requires an enrolled
+        dashboard session.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+      responses:
+        "200": { description: Preview JPEG image }
+        "401": { description: Dashboard authentication required }
+        "404": { description: Screen or preview not found }
+        "409": { description: Preview session expired }
+  /api/v1/auth/background:
+    get:
+      operationId: getLoginBackgroundImage
+      description: >-
+        Public. Serve the configured login background image, redirecting to
+        the default artwork when none is configured.
+      responses:
+        "200": { description: Login background image }
+        "307": { description: Redirect to default artwork }
+    head:
+      operationId: headLoginBackgroundImage
+      description: >-
+        Public. Inspect the configured login background image without
+        downloading it.
+      responses:
+        "200": { description: Login background image metadata }
+        "307": { description: Redirect to default artwork }
+  /api/v1/settings/login-background:
+    get:
+      operationId: getLoginBackground
+      description: >-
+        Read the login background selection. Requires an enrolled dashboard
+        session.
+      responses:
+        "200": { description: Login background selection }
+        "401": { description: Dashboard authentication required }
+    put:
+      operationId: putLoginBackground
+      description: >-
+        Select the login background image asset. Requires an Owner or
+        Administrator in an enrolled dashboard session.
+        Cookie-authenticated unsafe requests require X-CSRF-Token.
+      parameters:
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assetId]
+              properties:
+                assetId: { type: string, format: uuid }
+      responses:
+        "200": { description: Login background selected }
+        "400": { description: Invalid request body }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+        "409": { description: Setup is not complete }
+        "422": { description: Asset is not a valid image asset }
+    delete:
+      operationId: deleteLoginBackground
+      description: >-
+        Clear the login background selection. Requires an Owner or
+        Administrator in an enrolled dashboard session.
+        Cookie-authenticated unsafe requests require X-CSRF-Token.
+      parameters:
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema: { type: string }
+      responses:
+        "204": { description: Login background cleared }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+  /api/v1/screens/{id}/live-stream:
+    post:
+      operationId: startLiveStream
+      description: >-
+        Start a live MJPEG relay session for a screen. Requires an
+        authenticated dashboard user with the write scope.
+        Cookie-authenticated unsafe requests require X-CSRF-Token.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema: { type: string }
+      responses:
+        "201": { description: Live stream session started }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Screen scope forbids this screen }
+  /api/v1/screens/{id}/live-stream/{sessionId}/renew:
+    post:
+      operationId: renewLiveStream
+      description: >-
+        Renew a live MJPEG relay session. Requires an authenticated
+        dashboard user with the write scope. Cookie-authenticated unsafe
+        requests require X-CSRF-Token.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+        - in: path
+          name: sessionId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Live stream session renewed }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Screen scope forbids this screen }
+        "404": { description: Live stream session not found }
+  /api/v1/screens/{id}/live-stream/{sessionId}:
+    delete:
+      operationId: endLiveStream
+      description: >-
+        End a live MJPEG relay session. Requires an authenticated dashboard
+        user with the write scope. Cookie-authenticated unsafe requests
+        require X-CSRF-Token.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+        - in: path
+          name: sessionId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema: { type: string }
+      responses:
+        "204": { description: Live stream session ended }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Screen scope forbids this screen }
+        "404": { description: Live stream session not found }
+  /api/v1/screens/{id}/live-stream/{sessionId}/mjpeg:
+    get:
+      operationId: watchLiveStream
+      description: >-
+        Watch a live MJPEG relay session as a multipart stream. Requires an
+        authenticated dashboard user with the read scope.
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+        - in: path
+          name: sessionId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: MJPEG stream }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Screen scope forbids this screen }
+        "404": { description: Live stream session not found }
+  /api/v1/player/live-stream-session:
+    get:
+      operationId: getPlayerLiveStreamSession
+      description: >-
+        Read the screen's current live stream session, if any. Requires an
+        authenticated player credential.
+      security: [{ deviceBearer: [] }]
+      responses:
+        "200": { description: Current live stream session }
+        "401": { description: Credential invalid or revoked }
+  /api/v1/airplay/sessions:
+    post:
+      operationId: createAirplaySession
+      description: >-
+        Start a temporary AirPlay Present session on a screen or screen
+        group. Requires an Owner or Administrator with the write scope.
+        Cookie-authenticated unsafe requests require X-CSRF-Token.
+      parameters:
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [targetType, targetId]
+              properties:
+                targetType: { type: string, enum: [screen, group] }
+                targetId: { type: string, format: uuid }
+                durationMinutes: { type: integer, enum: [15, 30, 60] }
+                transport: { type: string, enum: [auto, unicast, multicast] }
+                audioMode: { type: string, enum: [gateway_only, none] }
+      responses:
+        "202": { description: AirPlay session accepted }
+        "400": { description: Invalid request body }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role or screen scope }
+        "409": { description: Selected displays already have an active session }
+        "422":
+          { description: "Target, duration, transport, or readiness invalid" }
+  /api/v1/airplay/sessions/{id}:
+    get:
+      operationId: getAirplaySession
+      description: >-
+        Get an AirPlay Present session. Requires an authenticated dashboard
+        user.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: AirPlay session }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Screen scope forbids this session }
+        "404": { description: AirPlay session not found }
+  /api/v1/airplay/sessions/{id}/stop:
+    post:
+      operationId: stopAirplaySession
+      description: >-
+        Stop an AirPlay Present session. Requires an Owner or Administrator
+        with the write scope. Cookie-authenticated unsafe requests require
+        X-CSRF-Token.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string, maxLength: 120 }
+      responses:
+        "200": { description: AirPlay session stopped }
+        "400": { description: Invalid request body }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role or screen scope }
+        "404": { description: AirPlay session not found }
+        "422": { description: Stop reason too long }
+  /api/v1/users:
+    get:
+      operationId: listUsers
+      description: >-
+        List dashboard user accounts. Requires an Owner or Administrator
+        with the admin scope.
+      responses:
+        "200": { description: User accounts with MFA enrollment state }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+    post:
+      operationId: createUser
+      description: >-
+        Create a dashboard user account. Requires an Owner or Administrator
+        with the admin scope. Only an Owner may create Owner or
+        Administrator accounts. Cookie-authenticated unsafe requests require
+        X-CSRF-Token.
+      parameters:
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, username, password, role]
+              properties:
+                name: { type: string }
+                username: { type: string }
+                password: { type: string }
+                role:
+                  type: string
+                  enum: [owner, administrator, editor, contributor, viewer]
+                active: { type: boolean }
+      responses:
+        "201": { description: User account created }
+        "400": { description: Invalid request body }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+        "409": { description: Username already in use }
+        "422":
+          description: >-
+            Name, username, password, or role invalid
+  /api/v1/users/{id}:
+    patch:
+      operationId: updateUser
+      description: >-
+        Update a dashboard user account. Requires an Owner or Administrator
+        with the admin scope. Cookie-authenticated unsafe requests require
+        X-CSRF-Token.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                username: { type: string }
+                password: { type: string }
+                role:
+                  type: string
+                  enum: [owner, administrator, editor, contributor, viewer]
+                active: { type: boolean }
+      responses:
+        "200": { description: User account updated }
+        "400": { description: Invalid request body }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+        "404": { description: User not found }
+        "409":
+          { description: "Username in use, self-deactivation, or last Owner" }
+        "422":
+          description: >-
+            Name, username, password, or role invalid
+    delete:
+      operationId: deleteUser
+      description: >-
+        Deactivate a dashboard user account. Requires an Owner or
+        Administrator with the admin scope. Cookie-authenticated unsafe
+        requests require X-CSRF-Token.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema: { type: string }
+      responses:
+        "204": { description: User account deactivated }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+        "404": { description: User not found }
+        "409": { description: Cannot deactivate self or the last Owner }
   /api/v1/users/{id}/security/reset:
     post:
       operationId: resetUserSecurity
@@ -586,6 +2266,8 @@ paths:
   /api/v1/auth/logout:
     post:
       operationId: logout
+      description: >-
+        Logout. Requires an enrolled dashboard session.
       parameters:
         - in: header
           name: X-CSRF-Token
@@ -616,34 +2298,48 @@ paths:
   /api/v1/content-folders:
     get:
       operationId: listContentFolders
+      description: >-
+        List content folders. Requires an authenticated dashboard user.
       responses:
         "200": { description: Installation content folders with asset counts }
     post:
       operationId: createContentFolder
+      description: >-
+        Create content folder. Requires an authenticated dashboard user.
       responses:
         "201": { description: Folder created }
         "422": { description: Validation failed }
   /api/v1/content-collections:
     get:
       operationId: listContentCollections
+      description: >-
+        List content collections. Requires an authenticated dashboard user.
       responses:
         "200": { description: Installation collections with asset counts }
     post:
       operationId: createContentCollection
+      description: >-
+        Create content collection. Requires an authenticated dashboard user.
       responses:
         "201": { description: Collection created }
   /api/v1/content-tags:
     get:
       operationId: listContentTags
+      description: >-
+        List content tags. Requires an authenticated dashboard user.
       responses:
         "200": { description: Installation tags with asset counts }
     post:
       operationId: createContentTag
+      description: >-
+        Create content tag. Requires an authenticated dashboard user.
       responses:
         "201": { description: Tag created }
   /api/v1/assets/bulk-organize:
     post:
       operationId: bulkOrganizeAssets
+      description: >-
+        Bulk organize assets. Requires an authenticated dashboard user.
       requestBody:
         required: true
         content:
@@ -677,6 +2373,8 @@ paths:
   /api/v1/player/pairing-sessions:
     post:
       operationId: createPairingSession
+      description: >-
+        Public. Start a pairing session and return the visible code with its private poll secret.
       responses:
         "201": { description: Pairing session created }
         "409": { description: Installation identity mismatch }
@@ -684,6 +2382,8 @@ paths:
   /api/v1/player/pairing-sessions/{id}:
     get:
       operationId: pollPairingSession
+      description: >-
+        Poll a pairing session; the private poll secret authenticates this call. Never use the visible pairing code to poll.
       parameters:
         - {
             in: path,
@@ -703,6 +2403,8 @@ paths:
   /api/v1/player/enroll:
     post:
       operationId: enrollPlayer
+      description: >-
+        Redeem a one-time enrollment token for the permanent device credential, returned exactly once. The enrollment token authenticates this call.
       responses:
         "201": { description: Device credential returned exactly once }
         "409": { description: Enrollment token already used }
@@ -756,6 +2458,8 @@ paths:
   /api/v1/player/socket:
     get:
       operationId: playerSocket
+      description: >-
+        Player socket. Requires an authenticated player credential.
       security: [{ deviceBearer: [] }]
       responses:
         "101": { description: Player WebSocket connected }
@@ -894,6 +2598,36 @@ paths:
         "200": { description: Incident detail with timeline }
         "401": { description: Dashboard authentication required }
         "404": { description: incident_not_found }
+    patch:
+      operationId: updateIncident
+      description: >-
+        Apply an operator action to an incident; every action is appended to
+        the incident timeline with its actor. Requires an Owner or
+        Administrator with the write scope. Cookie-authenticated unsafe
+        requests require X-CSRF-Token.
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action: { type: string }
+                assignedTo: { type: string }
+                reason: { type: string }
+                notes: { type: string }
+      responses:
+        "200": { description: Incident updated }
+        "400": { description: Incident action invalid }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+        "404": { description: Incident not found }
+        "422": { description: Assignee invalid }
   /api/v1/screens:
     get:
       operationId: listScreens
@@ -904,7 +2638,15 @@ paths:
         authorization use the same predicate. Status values are computed
         server-side, never stored.
       responses:
-        "200": { description: Computed screen status list }
+        "200":
+          description: Computed screen status list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ScreenList" }
         "401": { description: Dashboard authentication required }
   /api/v1/screens/{id}:
     get:
@@ -922,7 +2664,15 @@ paths:
             schema: { type: string, format: uuid },
           }
       responses:
-        "200": { description: Screen details }
+        "200":
+          description: Screen details
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Screen" }
         "401": { description: Dashboard authentication required }
         "404": { description: Screen unknown or outside caller scope }
     patch:
@@ -953,12 +2703,22 @@ paths:
                 roomNumber: { type: string, maxLength: 80 }
                 description: { type: string, maxLength: 1000 }
       responses:
-        "200": { description: Screen updated }
+        "200":
+          description: Screen updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Screen" }
         "401": { description: Dashboard authentication required }
         "403": { description: Owner or Administrator required }
   /api/v1/screens/{id}/player-history:
     get:
       operationId: listScreenPlayerHistory
+      description: >-
+        List screen player history. Requires an authenticated dashboard user.
       parameters:
         - {
             in: path,
@@ -1050,10 +2810,14 @@ paths:
   /api/v1/locations:
     get:
       operationId: listLocations
+      description: >-
+        List locations. Requires an authenticated dashboard user.
       responses:
         "200": { description: Reusable locations with assigned screen counts }
     post:
       operationId: createLocation
+      description: >-
+        Create location. Requires an authenticated dashboard user.
       responses:
         "201": { description: Location created }
         "403": { description: Owner or Administrator required }
@@ -1062,6 +2826,8 @@ paths:
   /api/v1/locations/{id}:
     patch:
       operationId: updateLocation
+      description: >-
+        Update location. Requires an authenticated dashboard user.
       parameters:
         - {
             in: path,
@@ -1075,6 +2841,8 @@ paths:
           { description: A case-insensitive matching location already exists }
     delete:
       operationId: deleteLocation
+      description: >-
+        Delete location. Requires an authenticated dashboard user.
       parameters:
         - {
             in: path,
@@ -1136,7 +2904,9 @@ paths:
         - { $ref: "#/components/parameters/PluginID" }
         - { $ref: "#/components/parameters/CSRFToken" }
       responses:
-        "204": { description: Plugin removed, or was not installed }
+        "204":
+          description: >-
+            Plugin removed, or was not installed
         "403": { description: Owner or Administrator and CSRF token required }
         "404": { description: plugin_not_found }
         "409":
@@ -1270,6 +3040,8 @@ paths:
   /api/v1/uploads:
     post:
       operationId: createUploadSession
+      description: >-
+        Create upload session. Requires an authenticated dashboard user.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
       requestBody:
         required: true
@@ -1284,6 +3056,8 @@ paths:
     parameters: [{ $ref: "#/components/parameters/ResourceID" }]
     head:
       operationId: inspectUploadSession
+      description: >-
+        Inspect upload session. Requires an authenticated dashboard user.
       responses:
         "204":
           description: Current upload state
@@ -1295,6 +3069,8 @@ paths:
             Upload-Expires: { schema: { type: string, format: date-time } }
     patch:
       operationId: appendUploadBytes
+      description: >-
+        Append upload bytes. Requires an authenticated dashboard user.
       parameters:
         - $ref: "#/components/parameters/CSRFToken"
         - {
@@ -1313,12 +3089,16 @@ paths:
         "409": { description: Offset mismatch }
     delete:
       operationId: cancelUpload
+      description: >-
+        Cancel upload. Requires an authenticated dashboard user.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
       responses:
         { "204": { description: Upload cancelled and temporary data removed } }
   /api/v1/uploads/{id}/complete:
     post:
       operationId: completeUpload
+      description: >-
+        Complete upload. Requires an authenticated dashboard user.
       parameters:
         - $ref: "#/components/parameters/ResourceID"
         - $ref: "#/components/parameters/CSRFToken"
@@ -1329,6 +3109,8 @@ paths:
   /api/v1/assets:
     get:
       operationId: listAssets
+      description: >-
+        List assets. Requires an authenticated dashboard user.
       parameters:
         - { in: query, name: page, schema: { type: integer, minimum: 1 } }
         - {
@@ -1362,6 +3144,8 @@ paths:
   /api/v1/assets/archive:
     post:
       operationId: archiveAssets
+      description: >-
+        Archive assets. Requires an authenticated dashboard user.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
       requestBody:
         required: true
@@ -1386,6 +3170,8 @@ paths:
   /api/v1/assets/restore:
     post:
       operationId: restoreAssets
+      description: >-
+        Restore assets. Requires an authenticated dashboard user.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
       requestBody:
         required: true
@@ -1407,9 +3193,13 @@ paths:
     parameters: [{ $ref: "#/components/parameters/ResourceID" }]
     get:
       operationId: getAsset
+      description: >-
+        Get asset. Requires an authenticated dashboard user.
       responses: { "200": { description: Trusted metadata and variants } }
     patch:
       operationId: updateAsset
+      description: >-
+        Update asset. Requires an authenticated dashboard user.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
       requestBody:
         content:
@@ -1430,6 +3220,8 @@ paths:
         }
     delete:
       operationId: deleteAsset
+      description: >-
+        Delete asset. Requires an authenticated dashboard user.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
       responses:
         {
@@ -1439,6 +3231,8 @@ paths:
   /api/v1/assets/{id}/retry:
     post:
       operationId: retryAssetProcessing
+      description: >-
+        Retry asset processing. Requires an authenticated dashboard user.
       parameters:
         - $ref: "#/components/parameters/ResourceID"
         - $ref: "#/components/parameters/CSRFToken"
@@ -1449,12 +3243,16 @@ paths:
   /api/v1/assets/{id}/thumbnail:
     get:
       operationId: getAssetThumbnail
+      description: >-
+        Get asset thumbnail. Requires an authenticated dashboard user.
       parameters: [{ $ref: "#/components/parameters/ResourceID" }]
       responses: { "200": { description: Authenticated thumbnail or poster } }
   /api/v1/assets/{id}/preview:
     parameters: [{ $ref: "#/components/parameters/ResourceID" }]
     get:
       operationId: getAssetPlaybackPreview
+      description: >-
+        Get asset playback preview. Requires an authenticated dashboard user.
       responses:
         {
           "200": { description: Player-compatible image or video bytes },
@@ -1462,6 +3260,8 @@ paths:
         }
     head:
       operationId: headAssetPlaybackPreview
+      description: >-
+        Head asset playback preview. Requires an authenticated dashboard user.
       responses: { "200": { description: Preview headers } }
   /api/v1/player/assets/{assetId}/variants/{variantId}:
     parameters:
@@ -1479,6 +3279,8 @@ paths:
         }
     get:
       operationId: downloadPlayerVariant
+      description: >-
+        Download player variant. Requires an authenticated player credential.
       security: [{ deviceBearer: [] }]
       parameters:
         - {
@@ -1497,6 +3299,8 @@ paths:
         "416": { description: Range not satisfiable }
     head:
       operationId: inspectPlayerVariant
+      description: >-
+        Inspect player variant. Requires an authenticated player credential.
       security: [{ deviceBearer: [] }]
       responses:
         {
@@ -1508,6 +3312,8 @@ paths:
   /api/v1/playlists:
     get:
       operationId: listPlaylists
+      description: >-
+        List playlists. Requires an authenticated dashboard user.
       security: [{ sessionCookie: [] }, { userBearer: [] }]
       parameters:
         - { in: query, name: search, schema: { type: string } }
@@ -1520,6 +3326,8 @@ paths:
       responses: { "200": { description: Paginated playlist list } }
     post:
       operationId: createPlaylist
+      description: >-
+        Create playlist. Requires an authenticated dashboard user.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
       requestBody:
         required: true
@@ -1546,17 +3354,23 @@ paths:
     parameters: [{ $ref: "#/components/parameters/ResourceID" }]
     get:
       {
+        description: "Get playlist. Requires an authenticated dashboard user.",
+
         operationId: getPlaylist,
         security: [{ sessionCookie: [] }, { userBearer: [] }],
         responses: { "200": { description: Playlist and ordered items } },
       }
     patch:
       operationId: updatePlaylist
+      description: >-
+        Update playlist. Requires an authenticated dashboard user.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
       responses:
         { "200": { description: Playlist updated and revision incremented } }
     delete:
       operationId: deletePlaylist
+      description: >-
+        Delete playlist. Requires an authenticated dashboard user.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
       responses:
         {
@@ -1600,6 +3414,8 @@ paths:
   /api/v1/playlists/{id}/items:
     post:
       operationId: addPlaylistItem
+      description: >-
+        Add playlist item. Requires an authenticated dashboard user.
       parameters:
         - $ref: "#/components/parameters/ResourceID"
         - $ref: "#/components/parameters/CSRFToken"
@@ -1618,6 +3434,8 @@ paths:
   /api/v1/playlists/{id}/items/order:
     put:
       operationId: reorderPlaylistItems
+      description: >-
+        Reorder playlist items. Requires an authenticated dashboard user.
       parameters:
         - $ref: "#/components/parameters/ResourceID"
         - $ref: "#/components/parameters/CSRFToken"
@@ -1626,6 +3444,8 @@ paths:
   /api/v1/playlists/{id}/items/bulk:
     put:
       operationId: bulkUpdatePlaylistItems
+      description: >-
+        Bulk update playlist items. Requires an authenticated dashboard user.
       parameters:
         - $ref: "#/components/parameters/ResourceID"
         - $ref: "#/components/parameters/CSRFToken"
@@ -1649,6 +3469,8 @@ paths:
   /api/v1/playlists/{id}/tag-rule:
     put:
       operationId: setPlaylistTagRule
+      description: >-
+        Set playlist tag rule. Requires an authenticated dashboard user.
       parameters:
         - $ref: "#/components/parameters/ResourceID"
         - $ref: "#/components/parameters/CSRFToken"
@@ -1673,10 +3495,14 @@ paths:
         }
     patch:
       operationId: updatePlaylistItem
+      description: >-
+        Update playlist item. Requires an authenticated dashboard user.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
       responses: { "200": { description: Playback settings updated } }
     delete:
       operationId: deletePlaylistItem
+      description: >-
+        Delete playlist item. Requires an authenticated dashboard user.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
       responses:
         {
@@ -1687,6 +3513,8 @@ paths:
     parameters: [{ $ref: "#/components/parameters/ResourceID" }]
     get:
       {
+        description: "Get playlist assignment. Requires an authenticated dashboard user.",
+
         operationId: getPlaylistAssignment,
         responses:
           { "200": { description: "Assignment, manifest, download, playback, and
@@ -1694,6 +3522,8 @@ paths:
       }
     put:
       operationId: assignPresentation
+      description: >-
+        Assign presentation. Requires an authenticated dashboard user.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
       requestBody:
         required: true
@@ -1707,11 +3537,15 @@ paths:
         }
     delete:
       operationId: removePlaylistAssignment
+      description: >-
+        Remove playlist assignment. Requires an authenticated dashboard user.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
       responses: { "200": { description: Direct assignment removed } }
   /api/v1/player/manifest:
     get:
       operationId: getPlayerManifest
+      description: >-
+        Get player manifest. Requires an authenticated player credential.
       security: [{ deviceBearer: [] }]
       parameters:
         [{ in: header, name: If-None-Match, schema: { type: string } }]
@@ -1729,6 +3563,8 @@ paths:
   /api/v1/player/span-panels/{id}:
     get:
       operationId: getPlayerSpanPanel
+      description: >-
+        Get player span panel. Requires an authenticated player credential.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       security: [{ deviceBearer: [] }]
@@ -1738,6 +3574,8 @@ paths:
         "404": { description: Panel is unavailable or not ready }
     head:
       operationId: headPlayerSpanPanel
+      description: >-
+        Head player span panel. Requires an authenticated player credential.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       security: [{ deviceBearer: [] }]
@@ -1745,6 +3583,8 @@ paths:
   /api/v1/screen-groups:
     get:
       operationId: listScreenGroups
+      description: >-
+        List screen groups. Requires an authenticated dashboard user.
       responses:
         {
           "200":
@@ -1754,6 +3594,8 @@ paths:
         }
     post:
       operationId: createScreenGroup
+      description: >-
+        Create screen group. Requires an authenticated dashboard user.
       parameters:
         [
           {
@@ -1771,6 +3613,8 @@ paths:
   /api/v1/screen-groups/{id}:
     get:
       operationId: getScreenGroup
+      description: >-
+        Get screen group. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses:
@@ -1781,11 +3625,15 @@ paths:
         }
     patch:
       operationId: updateScreenGroup
+      description: >-
+        Update screen group. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses: { "200": { description: Display Group updated } }
     delete:
       operationId: deleteScreenGroup
+      description: >-
+        Delete screen group. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses:
@@ -1793,6 +3641,8 @@ paths:
   /api/v1/screen-groups/{id}/span:
     get:
       operationId: getSpanGeometryAndPreparation
+      description: >-
+        Get span geometry and preparation. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses:
@@ -1802,6 +3652,8 @@ paths:
         }
     put:
       operationId: updateSpanGeometry
+      description: >-
+        Update span geometry. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
         - { $ref: "#/components/parameters/CSRFToken" }
@@ -1818,6 +3670,8 @@ paths:
   /api/v1/screen-groups/{id}/display-control/preview:
     get:
       operationId: previewDisplayGroupControl
+      description: >-
+        Preview display group control. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
         - in: query
@@ -1839,6 +3693,8 @@ paths:
   /api/v1/screen-groups/{id}/display-control:
     post:
       operationId: applyDisplayGroupControl
+      description: >-
+        Apply display group control. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
         - in: header
@@ -1871,6 +3727,8 @@ paths:
   /api/v1/screen-groups/{id}/screens:
     post:
       operationId: addScreenGroupMember
+      description: >-
+        Add screen group member. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses:
@@ -1881,6 +3739,8 @@ paths:
   /api/v1/screen-groups/{id}/screens/{screenId}:
     delete:
       operationId: removeScreenGroupMember
+      description: >-
+        Remove screen group member. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
         - in: path
@@ -1892,6 +3752,8 @@ paths:
   /api/v1/screen-groups/{id}/playlist-assignment:
     put:
       operationId: assignSyncGroupPresentation
+      description: >-
+        Assign sync group presentation. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       requestBody:
@@ -1908,6 +3770,8 @@ paths:
         }
     delete:
       operationId: unassignSyncGroupPlaylist
+      description: >-
+        Unassign sync group playlist. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses:
@@ -1960,18 +3824,22 @@ paths:
           "201": { description: Validated schedule created },
           "401": { description: Authentication required },
           "403":
-            { description: Role, scope, or cookie CSRF requirement not met },
+            { description: "Role, scope, or cookie CSRF requirement not met" },
           "422": { description: Schedule or target validation failed },
         }
   /api/v1/schedules/{id}:
     get:
       operationId: getSchedule
+      description: >-
+        Get schedule. Requires an authenticated dashboard user.
       security: [{ sessionCookie: [] }, { userBearer: [] }]
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses: { "200": { description: Schedule and normalized targets } }
     patch:
       operationId: updateSchedule
+      description: >-
+        Update schedule. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses:
@@ -1981,24 +3849,32 @@ paths:
         }
     delete:
       operationId: deleteSchedule
+      description: >-
+        Delete schedule. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses: { "204": { description: Schedule soft deleted } }
   /api/v1/schedules/{id}/enable:
     post:
       operationId: enableSchedule
+      description: >-
+        Enable schedule. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses: { "200": { description: Schedule enabled } }
   /api/v1/schedules/{id}/disable:
     post:
       operationId: disableSchedule
+      description: >-
+        Disable schedule. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses: { "200": { description: Schedule disabled } }
   /api/v1/schedules/preview:
     post:
       operationId: previewSchedule
+      description: >-
+        Preview schedule. Requires an authenticated dashboard user.
       responses:
         {
           "200":
@@ -2029,6 +3905,8 @@ paths:
   /api/v1/assets/{id}/website:
     patch:
       operationId: updateWebsiteAsset
+      description: >-
+        Update website asset. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
         - { $ref: "#/components/parameters/CSRFToken" }
@@ -2043,6 +3921,8 @@ paths:
   /api/v1/assets/{id}/website/diagnostics:
     get:
       operationId: websiteDiagnostics
+      description: >-
+        Website diagnostics. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses:
@@ -2063,18 +3943,24 @@ paths:
   /api/v1/provider-catalog:
     get:
       operationId: providerCatalog
+      description: >-
+        Provider catalog. Requires an authenticated dashboard user.
       responses:
         "200":
           description: Closed Widget and Data Source provider metadata
   /api/v1/content-definitions:
     get:
       operationId: contentDefinitions
+      description: >-
+        Content definitions. Requires an authenticated dashboard user.
       responses:
         "200":
           description: Authoritative release-owned Widget and Data Source definitions, schemas, templates, adapters, and capability requirements
   /api/v1/widgets/compile-preview:
     post:
       operationId: compileWidgetPreview
+      description: >-
+        Compile widget preview. Requires an authenticated dashboard user.
       responses:
         "200":
           description: Declarative presentation schema v1 document
@@ -2083,6 +3969,8 @@ paths:
   /api/v1/widgets/{id}:
     patch:
       operationId: updateWidget
+      description: >-
+        Update widget. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       requestBody:
@@ -2112,6 +4000,8 @@ paths:
   /api/v1/widgets/{id}/duplicate:
     post:
       operationId: duplicateWidget
+      description: >-
+        Duplicate widget. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses:
@@ -2119,6 +4009,8 @@ paths:
   /api/v1/data-sources:
     get:
       operationId: listDataSources
+      description: >-
+        List data sources. Requires an authenticated dashboard user.
       responses:
         "200": { description: Paginated Data Source summaries }
     post:
@@ -2135,6 +4027,8 @@ paths:
   /api/v1/data-sources/{id}:
     get:
       operationId: getDataSource
+      description: >-
+        Get data source. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses:
@@ -2144,6 +4038,8 @@ paths:
         "404": { description: Data Source not found }
     patch:
       operationId: updateDataSource
+      description: >-
+        Update data source. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       requestBody:
@@ -2157,6 +4053,8 @@ paths:
         "422": { description: Provider configuration rejected }
     delete:
       operationId: deleteDataSource
+      description: >-
+        Delete data source. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses:
@@ -2168,6 +4066,8 @@ paths:
   /api/v1/data-sources/{id}/duplicate:
     post:
       operationId: duplicateDataSource
+      description: >-
+        Duplicate data source. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses:
@@ -2175,6 +4075,8 @@ paths:
   /api/v1/data-sources/{id}/diagnostics:
     get:
       operationId: dataSourceRefreshDiagnostics
+      description: >-
+        Data source refresh diagnostics. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses:
@@ -2266,12 +4168,16 @@ paths:
         "200": { description: Paginated Layout summaries }
     post:
       operationId: createLayout
+      description: >-
+        Create layout. Requires an authenticated dashboard user.
       responses:
         "201": { description: Layout and initial draft created }
         "422": { description: Layout details rejected }
   /api/v1/layouts/{id}:
     get:
       operationId: getLayout
+      description: >-
+        Get layout. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses:
@@ -2282,12 +4188,16 @@ paths:
         "404": { description: Layout not found }
     patch:
       operationId: updateLayout
+      description: >-
+        Update layout. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses:
         "200": { description: Layout metadata updated }
     delete:
       operationId: deleteLayout
+      description: >-
+        Delete layout. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses:
@@ -2329,6 +4239,8 @@ paths:
   /api/v1/layouts/{id}/publish:
     post:
       operationId: publishLayout
+      description: >-
+        Publish layout. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses:
@@ -2337,6 +4249,8 @@ paths:
   /api/v1/layouts/{id}/duplicate:
     post:
       operationId: duplicateLayout
+      description: >-
+        Duplicate layout. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses:
@@ -2344,6 +4258,8 @@ paths:
   /api/v1/layouts/{id}/revisions:
     get:
       operationId: listLayoutRevisions
+      description: >-
+        List layout revisions. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses:
@@ -2351,6 +4267,8 @@ paths:
   /api/v1/layouts/{id}/revisions/{revisionId}/restore:
     post:
       operationId: restoreLayoutRevision
+      description: >-
+        Restore layout revision. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
         - in: path
@@ -2393,6 +4311,8 @@ paths:
     parameters: [{ $ref: "#/components/parameters/ResourceID" }]
     get:
       operationId: getContentSubmission
+      description: >-
+        Get content submission. Requires an authenticated dashboard user.
       responses:
         "200":
           description: Exact immutable submission snapshot
@@ -2428,6 +4348,8 @@ paths:
     parameters: [{ $ref: "#/components/parameters/ResourceID" }]
     post:
       operationId: approveContentSubmission
+      description: >-
+        Approve content submission. Requires an authenticated dashboard user.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
       requestBody:
         content:
@@ -2441,6 +4363,8 @@ paths:
     parameters: [{ $ref: "#/components/parameters/ResourceID" }]
     post:
       operationId: requestContentChanges
+      description: >-
+        Request content changes. Requires an authenticated dashboard user.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
       requestBody:
         required: true
@@ -2454,6 +4378,8 @@ paths:
     parameters: [{ $ref: "#/components/parameters/ResourceID" }]
     post:
       operationId: publishContentSubmission
+      description: >-
+        Publish content submission. Requires an authenticated dashboard user.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
       responses:
         "201":
@@ -2466,6 +4392,8 @@ paths:
     parameters: [{ $ref: "#/components/parameters/ResourceID" }]
     post:
       operationId: scheduleContentPublication
+      description: >-
+        Schedule content publication. Requires an authenticated dashboard user.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
       requestBody:
         required: true
@@ -2482,6 +4410,8 @@ paths:
     parameters: [{ $ref: "#/components/parameters/ResourceID" }]
     post:
       operationId: cancelContentPublicationSchedule
+      description: >-
+        Cancel content publication schedule. Requires an authenticated dashboard user.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
       responses:
         "200": { description: Schedule cancelled; submission is approved again }
@@ -2494,6 +4424,8 @@ paths:
       - { $ref: "#/components/parameters/ResourceID" }
     get:
       operationId: listPublicationHistory
+      description: >-
+        List publication history. Requires an authenticated dashboard user.
       responses:
         "200":
           description: Immutable publication checkpoints, newest first
@@ -2530,6 +4462,8 @@ paths:
         schema: { type: string, format: uuid }
     get:
       operationId: comparePublications
+      description: >-
+        Compare publications. Requires an authenticated dashboard user.
       responses:
         "200":
           description: Semantic publication differences
@@ -2564,6 +4498,8 @@ paths:
         schema: { type: string, format: uuid }
     post:
       operationId: restorePublicationAsDraft
+      description: >-
+        Restore publication as draft. Requires an authenticated dashboard user.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
       responses:
         "200":
@@ -2584,6 +4520,8 @@ paths:
         schema: { type: string, format: uuid }
     post:
       operationId: rollbackPublication
+      description: >-
+        Rollback publication. Requires an authenticated dashboard user.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
       responses:
         "201":
@@ -2593,6 +4531,8 @@ paths:
   /api/v1/campaigns:
     get:
       operationId: listCampaigns
+      description: >-
+        List campaigns. Requires an authenticated dashboard user.
       parameters:
         - { in: query, name: search, schema: { type: string } }
         - { in: query, name: page, schema: { type: integer, minimum: 1 } }
@@ -2622,6 +4562,8 @@ paths:
                       pageSize: { type: integer }
     post:
       operationId: createCampaign
+      description: >-
+        Create campaign. Requires an authenticated dashboard user.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
       requestBody:
         required: true
@@ -2642,6 +4584,8 @@ paths:
     parameters: [{ $ref: "#/components/parameters/ResourceID" }]
     get:
       operationId: getCampaign
+      description: >-
+        Get campaign. Requires an authenticated dashboard user.
       responses:
         "200":
           description: Campaign draft and lifecycle state
@@ -2654,12 +4598,16 @@ paths:
                   data: { $ref: "#/components/schemas/Campaign" }
     delete:
       operationId: archiveCampaign
+      description: >-
+        Archive campaign. Requires an authenticated dashboard user.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
       responses: { "204": { description: Campaign archived } }
   /api/v1/campaigns/{id}/draft:
     parameters: [{ $ref: "#/components/parameters/ResourceID" }]
     patch:
       operationId: updateCampaignDraft
+      description: >-
+        Update campaign draft. Requires an authenticated dashboard user.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
       requestBody:
         required: true
@@ -2682,6 +4630,8 @@ paths:
     parameters: [{ $ref: "#/components/parameters/ResourceID" }]
     get:
       operationId: preflightCampaign
+      description: >-
+        Preflight campaign. Requires an authenticated dashboard user.
       responses:
         "200":
           description: Readiness, target, revision, and schedule preflight
@@ -2696,6 +4646,8 @@ paths:
     parameters: [{ $ref: "#/components/parameters/ResourceID" }]
     get:
       operationId: listCampaignReleases
+      description: >-
+        List campaign releases. Requires an authenticated dashboard user.
       responses:
         "200":
           description: Immutable Campaign release history
@@ -2721,6 +4673,8 @@ paths:
         schema: { type: string, format: uuid }
     post:
       operationId: restoreCampaignRelease
+      description: >-
+        Restore campaign release. Requires an authenticated dashboard user.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
       responses:
         "200":
@@ -2755,16 +4709,25 @@ paths:
         "422": { description: Preflight failed }
   /api/v1/takeovers:
     get:
+      description: >-
+        Requires an authenticated dashboard user.
+      operationId: listTakeovers
       summary: List Takeovers
       responses:
         "200": { description: Takeover list }
     post:
+      description: >-
+        Requires an authenticated dashboard user.
+      operationId: createTakeover
       summary: Activate a Takeover
       responses:
         "201": { description: Takeover activated }
         "422": { description: "Invalid targets, playlist, or expiration" }
   /api/v1/takeovers/{id}:
     get:
+      description: >-
+        Requires an authenticated dashboard user.
+      operationId: getTakeover
       summary: Read Takeover and per-screen state
       parameters:
         - {
@@ -2777,6 +4740,9 @@ paths:
         "200": { description: Takeover detail }
   /api/v1/takeovers/{id}/cancel:
     post:
+      description: >-
+        Requires an authenticated dashboard user.
+      operationId: cancelTakeover
       summary: Cancel an active Takeover
       parameters:
         - {
@@ -2829,14 +4795,14 @@ paths:
           }
         "422":
           {
-            description: Network,
-            authentication,
-            or credential validation failed,
+            description: "Network, authentication, or credential validation failed",
           }
   /api/v1/presentation-networks/{id}:
     parameters:
       - $ref: "#/components/parameters/ResourceID"
     get:
+      description: >-
+        Requires an authenticated dashboard user.
       operationId: getPresentationNetwork
       summary: Read a redacted Presentation Network and its assignments
       responses:
@@ -2878,9 +4844,7 @@ paths:
           }
         "422":
           {
-            description: Network,
-            authentication,
-            or credential validation failed,
+            description: "Network, authentication, or credential validation failed",
           }
     delete:
       operationId: deletePresentationNetwork
@@ -2920,9 +4884,7 @@ paths:
                 $ref: "#/components/schemas/PresentationNetworkAssignmentsResponse"
         "403":
           {
-            description: Insufficient role,
-            CSRF failure,
-            or screen outside scope,
+            description: "Insufficient role, CSRF failure, or screen outside scope",
           }
         "404": { description: Presentation Network or screen not found }
         "422": { description: Screen is not Linux or assignment limit exceeded }
@@ -2953,9 +4915,7 @@ paths:
                 $ref: "#/components/schemas/PresentationNetworkTestResponse"
         "403":
           {
-            description: Insufficient role,
-            CSRF failure,
-            or screen outside scope,
+            description: "Insufficient role, CSRF failure, or screen outside scope",
           }
         "404": { description: Presentation Network or screen not found }
         "409":
@@ -3001,9 +4961,7 @@ paths:
                 $ref: "#/components/schemas/PresentationNetworkAssignmentResponse"
         "403":
           {
-            description: Insufficient role,
-            CSRF failure,
-            or screen outside scope,
+            description: "Insufficient role, CSRF failure, or screen outside scope",
           }
         "404": { description: Screen or Presentation Network not found }
         "422": { description: Screen is not Linux }
@@ -3021,9 +4979,7 @@ paths:
                 $ref: "#/components/schemas/PresentationNetworkAssignmentResponse"
         "403":
           {
-            description: Insufficient role,
-            CSRF failure,
-            or screen outside scope,
+            description: "Insufficient role, CSRF failure, or screen outside scope",
           }
         "404": { description: Screen not found }
   /api/v1/player/presentation-network:
@@ -3051,9 +5007,7 @@ paths:
                 $ref: "#/components/schemas/PresentationNetworkProvisioningResponse"
         "401":
           {
-            description: Permanent player credential missing,
-            invalid,
-            or revoked,
+            description: "Permanent player credential missing, invalid, or revoked",
           }
         "404": { description: Authenticated screen has no assignment }
         "409":
@@ -3064,11 +5018,15 @@ paths:
           { description: Presentation Network encryption key is not configured }
   /api/v1/presentation-overrides:
     get:
+      description: >-
+        Requires an authenticated dashboard user.
       operationId: listPresentationOverrides
       summary: List active Quick Present sessions
       responses:
         "200": { description: Active temporary presentation overrides }
     post:
+      description: >-
+        Requires an authenticated dashboard user.
       operationId: createPresentationOverride
       summary: Start Quick Present
       requestBody:
@@ -3086,6 +5044,8 @@ paths:
         "422": { description: Destination or content validation failed }
   /api/v1/presentation-overrides/{id}/stop:
     post:
+      description: >-
+        Requires an authenticated dashboard user.
       operationId: stopPresentationOverride
       summary: Stop Quick Present
       parameters:
@@ -3102,21 +5062,30 @@ paths:
     parameters:
       - { $ref: "#/components/parameters/ResourceID" }
     get:
+      description: >-
+        Requires an authenticated dashboard user.
+      operationId: listScreenCommands
       summary: List recent screen commands
       responses:
         "200": { description: Command history }
     post:
+      operationId: sendScreenCommand
       summary: Queue a typed operational, Display Control, or bounded player-recovery command
       description: >-
         Display Control command types are display_power_on,
         display_power_off, display_set_input, display_set_volume,
         display_mute, display_unmute, display_set_brightness, and
         display_probe. They are capability-gated by the target Player.
+        Requires an Owner or Administrator with the write scope.
+        Cookie-authenticated unsafe requests require X-CSRF-Token.
       responses:
         "202": { description: Command queued }
         "429": { description: Pending command limit reached }
   /api/v1/player/commands:
     get:
+      description: >-
+        Requires an authenticated player credential.
+      operationId: listPlayerCommands
       summary: Retrieve executable commands for the authenticated player
       responses:
         "200": { description: Stable command list }
@@ -3124,6 +5093,9 @@ paths:
     parameters:
       - { $ref: "#/components/parameters/ResourceID" }
     post:
+      description: >-
+        Requires an authenticated player credential.
+      operationId: acknowledgePlayerCommand
       summary: Acknowledge a player command
       responses:
         "200": { description: Command acknowledged }
@@ -3131,6 +5103,9 @@ paths:
     parameters:
       - { $ref: "#/components/parameters/ResourceID" }
     post:
+      description: >-
+        Requires an authenticated player credential.
+      operationId: reportPlayerCommandResult
       summary: Report a safe command result
       responses:
         "200": { description: Result accepted idempotently }
@@ -3201,12 +5176,20 @@ paths:
   /api/v1/screen-groups/{id}/policy:
     get:
       {
+        description: "Requires an authenticated dashboard user.",
+
+        operationId: getGroupPolicy,
+
         summary: Read group player policy,
         parameters: [{ $ref: "#/components/parameters/ResourceID" }],
         responses: { "200": { description: Group policy } },
       }
     put:
       {
+        description: "Requires an authenticated dashboard user.",
+
+        operationId: putGroupPolicy,
+
         summary: Replace typed group policy,
         parameters: [{ $ref: "#/components/parameters/ResourceID" }],
         responses:
@@ -3217,6 +5200,10 @@ paths:
       }
     delete:
       {
+        description: "Requires an authenticated dashboard user.",
+
+        operationId: deleteGroupPolicy,
+
         summary: Reset group policy,
         parameters: [{ $ref: "#/components/parameters/ResourceID" }],
         responses: { "204": { description: Policy reset } },
@@ -3226,16 +5213,28 @@ paths:
       - { $ref: "#/components/parameters/ResourceID" }
     get:
       {
+        description: "Requires an authenticated dashboard user.",
+
+        operationId: getScreenPolicy,
+
         summary: Read screen player policy,
         responses: { "200": { description: Screen policy } },
       }
     put:
       {
+        description: "Requires an authenticated dashboard user.",
+
+        operationId: putScreenPolicy,
+
         summary: Replace typed screen policy,
         responses: { "200": { description: Updated policy } },
       }
     delete:
       {
+        description: "Requires an authenticated dashboard user.",
+
+        operationId: deleteScreenPolicy,
+
         summary: Reset screen policy,
         responses: { "204": { description: Policy reset } },
       }
@@ -3255,14 +5254,41 @@ paths:
         "404": { description: Screen unknown or outside caller scope }
   /api/v1/screens/{id}/reliability:
     get:
-      { summary: "Read commissioning, zero-touch readiness, Android reliability,
-          and Power Assist state", parameters: [{ $ref: "#/components/parameters/ResourceID" }], responses: { "200": { description: Capability and effective-state diagnostics }, "404": { description: Screen not found } } }
+      {
+        description: "Requires an authenticated dashboard user.",
+
+        operationId: getScreenReliability,
+        summary: "Read commissioning, zero-touch readiness, Android reliability,
+          and Power Assist state",
+        parameters: [{ $ref: "#/components/parameters/ResourceID" }],
+        responses:
+          {
+            "200": { description: Capability and effective-state diagnostics },
+            "404": { description: Screen not found },
+          },
+      }
   /api/v1/screens/{id}/power-assist:
-    put: { summary: "Store administrator-confirmed sleep, wake, CEC, input, and
-          startup test results", parameters: [{ $ref: "#/components/parameters/ResourceID" }], responses: { "200": { description: Confirmation stored }, "422": { description: Invalid result state } } }
+    put:
+      {
+        description: "Requires an authenticated dashboard user.",
+
+        operationId: setScreenPowerAssist,
+        summary: "Store administrator-confirmed sleep, wake, CEC, input, and
+          startup test results",
+        parameters: [{ $ref: "#/components/parameters/ResourceID" }],
+        responses:
+          {
+            "200": { description: Confirmation stored },
+            "422": { description: Invalid result state },
+          },
+      }
   /api/v1/player/config:
     get:
       {
+        description: "Requires an authenticated player credential.",
+
+        operationId: getPlayerConfig,
+
         summary: Retrieve effective player configuration,
         responses:
           {
@@ -3284,6 +5310,10 @@ paths:
   /api/v1/system/maintenance/{action}:
     post:
       {
+        description: "Requires an authenticated dashboard user.",
+
+        operationId: runSystemMaintenance,
+
         summary: Run a fixed safe maintenance action,
         parameters: [{ $ref: "#/components/parameters/MaintenanceAction" }],
         responses:
@@ -3295,12 +5325,20 @@ paths:
   /api/v1/system/settings/export:
     get:
       {
+        description: "Requires an authenticated dashboard user.",
+
+        operationId: exportSettings,
+
         summary: Export non-secret settings,
         responses: { "200": { description: Versioned settings export } },
       }
   /api/v1/system/settings/import/preview:
     post:
       {
+        description: "Requires an authenticated dashboard user.",
+
+        operationId: previewSettingsImport,
+
         summary: Validate settings import without applying,
         responses:
           {
@@ -3311,6 +5349,10 @@ paths:
   /api/v1/system/settings/import/apply:
     post:
       {
+        description: "Requires an authenticated dashboard user.",
+
+        operationId: applySettingsImport,
+
         summary: Apply confirmed settings import,
         responses:
           {
@@ -3320,10 +5362,16 @@ paths:
       }
   /api/v1/player-releases:
     get:
+      description: >-
+        Requires an authenticated dashboard user.
+      operationId: listPlayerReleases
       summary: List fixed-repository Tilecast Player releases and verification state
       responses: { "200": { description: Release list } }
   /api/v1/player-releases/check:
     post:
+      description: >-
+        Requires an authenticated dashboard user.
+      operationId: checkPlayerRelease
       summary: Check Gibsonmb71/tilecast GitHub Releases
       responses:
         {
@@ -3332,12 +5380,18 @@ paths:
         }
   /api/v1/player-releases/github/device:
     post:
+      description: >-
+        Requires an authenticated dashboard user.
+      operationId: startGitHubDeviceFlow
       summary: Start Owner-authorized GitHub OAuth device flow
       responses:
         "201": { description: One-time user code and verification URL }
         "503": { description: GitHub OAuth client ID is not configured }
   /api/v1/player-releases/github/device/poll:
     post:
+      description: >-
+        Requires an authenticated dashboard user.
+      operationId: pollGitHubDeviceFlow
       summary: Poll an active GitHub OAuth device flow
       responses:
         "200": { description: "Pending, connected, denied, or expired state" }
@@ -3345,12 +5399,16 @@ paths:
         "502": { description: GitHub authorization failure }
   /api/v1/player-releases/github:
     delete:
+      description: >-
+        Requires an authenticated dashboard user.
+      operationId: disconnectGitHub
       summary: Remove a device-authorized GitHub credential from Tilecast Server
       responses:
         "204": { description: Local GitHub credential removed }
         "409": { description: Authentication is managed by environment token }
   /api/v1/player-releases/upload:
     post:
+      operationId: uploadPlayerRelease
       summary: Upload and verify a signed Tilecast Player release bundle
       description: >-
         Accepts one release's three files as multipart files: the artifact, the
@@ -3399,8 +5457,7 @@ paths:
                       apkSizeBytes:
                         {
                           type: integer,
-                          description: The artifact size,
-                          for every family.,
+                          description: "The artifact size, for every family.",
                         }
                       duplicate: { type: boolean }
         "401": { description: Invalid publishing token }
@@ -3410,6 +5467,9 @@ paths:
     parameters:
       - { $ref: "#/components/parameters/ResourceID" }
     post:
+      description: >-
+        Requires an authenticated dashboard user.
+      operationId: cachePlayerRelease
       summary: Download and verify a signed Player APK into private cache
       responses:
         {
@@ -3418,9 +5478,15 @@ paths:
         }
   /api/v1/update-deployments:
     get:
+      description: >-
+        Requires an authenticated dashboard user.
+      operationId: listUpdateDeployments
       summary: List Player update deployments, narrowed to the caller's screen scope
       responses: { "200": { description: Deployment list } }
     post:
+      description: >-
+        Requires an authenticated dashboard user.
+      operationId: createUpdateDeployment
       summary: Create a deduplicated screen and group deployment with an optional canary cohort
       responses:
         {
@@ -3432,6 +5498,9 @@ paths:
     parameters:
       - { $ref: "#/components/parameters/ResourceID" }
     get:
+      description: >-
+        Requires an authenticated dashboard user.
+      operationId: getUpdateDeployment
       summary:
         Read the deployment header, release artifact size, and per-screen update
         state for the screens in the caller's scope
@@ -3447,6 +5516,9 @@ paths:
     parameters:
       - { $ref: "#/components/parameters/ResourceID" }
     post:
+      description: >-
+        Requires an authenticated dashboard user.
+      operationId: cancelUpdateDeployment
       summary: Cancel pending update work on every screen the deployment reaches
       responses:
         {
@@ -3469,6 +5541,9 @@ paths:
         required: true
         schema: { type: string, format: uuid }
     post:
+      description: >-
+        Requires an authenticated dashboard user.
+      operationId: retryUpdateDeploymentScreen
       summary: Retry a failed screen update idempotently
       responses:
         {
@@ -3483,6 +5558,9 @@ paths:
         required: true
         schema: { type: string }
     get:
+      description: >-
+        Requires an authenticated player credential.
+      operationId: getPlayerUpdate
       summary: Get targeted verified Player update metadata
       responses:
         "200":
@@ -3501,7 +5579,9 @@ paths:
         required: true
         schema: { type: string }
     get:
+      operationId: downloadPlayerUpdateArtifact
       summary: Download or resume the authenticated cached release artifact
+      security: [{ deviceBearer: [] }]
       description: >-
         The artifact of every family (the AppImage, the APK or the Tilecast
         Edge archive), with `Accept-Ranges: bytes`, a strong `ETag` of its
@@ -3515,6 +5595,21 @@ paths:
           "404": { description: Verified artifact unavailable },
           "416": { description: Invalid range },
         }
+    head:
+      operationId: headPlayerUpdateArtifact
+      description: >-
+        Inspect the authenticated cached release artifact without
+        downloading it. Requires an authenticated player credential.
+      security: [{ deviceBearer: [] }]
+      parameters:
+        - in: path
+          name: releaseId
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Artifact metadata }
+        "401": { description: Credential invalid or revoked }
+        "403": { description: Screen is not targeted }
   /api/v1/player/updates/{releaseId}/apk:
     parameters:
       - in: path
@@ -3522,6 +5617,9 @@ paths:
         required: true
         schema: { type: string }
     head:
+      description: >-
+        Requires an authenticated player credential.
+      operationId: headPlayerUpdateApk
       summary: Inspect authenticated APK range metadata
       responses:
         {
@@ -3529,6 +5627,9 @@ paths:
           "403": { description: Screen is not targeted },
         }
     get:
+      description: >-
+        Requires an authenticated player credential.
+      operationId: downloadPlayerUpdateApk
       summary: Download or resume authenticated cached APK
       responses:
         {
@@ -3543,6 +5644,9 @@ paths:
         required: true
         schema: { type: string, format: uuid }
     post:
+      description: >-
+        Requires an authenticated player credential.
+      operationId: reportPlayerUpdateStatus
       summary: Report bounded Player update preparation and installer status
       requestBody:
         required: true
@@ -3592,8 +5696,7 @@ paths:
           "409": { description: Deployment cancelled or complete },
           "422":
             {
-              description: Invalid status,
-              or `succeeded` for a release that is not Tilecast Edge,
+              description: "Invalid status, or `succeeded` for a release that is not Tilecast Edge",
             },
         }
 components:
@@ -3712,8 +5815,7 @@ components:
         managementPath:
           {
             type: string,
-            description: Studio route; a navigation hint,
-            not an authorization boundary,
+            description: "Studio route; a navigation hint, not an authorization boundary",
           }
         instanceNounSingular: { type: string }
         instanceNounPlural: { type: string }
@@ -4746,8 +6848,8 @@ components:
       required: [id, type, timezone, priority, specificity]
       properties:
         id: { type: string, format: uuid }
-        playlistId: { type: string, format: uuid, nullable: true }
-        layoutId: { type: string, format: uuid, nullable: true }
+        playlistId: { type: [string, "null"], format: uuid }
+        layoutId: { type: [string, "null"], format: uuid }
         displayAction:
           oneOf:
             - { type: "null" }
@@ -4756,12 +6858,12 @@ components:
         timezone: { type: string }
         priority: { type: integer, minimum: -999, maximum: 999 }
         specificity: { type: integer }
-        startDate: { type: string, format: date, nullable: true }
-        endDate: { type: string, format: date, nullable: true }
-        oneTimeStart: { type: string, format: date-time, nullable: true }
-        oneTimeEnd: { type: string, format: date-time, nullable: true }
-        dailyStart: { type: string, nullable: true }
-        dailyEnd: { type: string, nullable: true }
+        startDate: { type: [string, "null"], format: date }
+        endDate: { type: [string, "null"], format: date }
+        oneTimeStart: { type: [string, "null"], format: date-time }
+        oneTimeEnd: { type: [string, "null"], format: date-time }
+        dailyStart: { type: [string, "null"] }
+        dailyEnd: { type: [string, "null"] }
         daysOfWeek:
           type: array
           items: { type: integer, minimum: 0, maximum: 6 }
@@ -4888,9 +6990,9 @@ components:
         contentId: { type: string, format: uuid }
         contentName: { type: string }
         startedAt: { type: string, format: date-time }
-        expiresAt: { type: string, format: date-time, nullable: true }
-        playlistId: { type: string, format: uuid, nullable: true }
-        layoutId: { type: string, format: uuid, nullable: true }
+        expiresAt: { type: [string, "null"], format: date-time }
+        playlistId: { type: [string, "null"], format: uuid }
+        layoutId: { type: [string, "null"], format: uuid }
         wakeDisplay: { type: boolean }
     PresentationOverrideInput:
       type: object
@@ -4948,7 +7050,6 @@ components:
         provider: { $ref: "#/components/schemas/WidgetProvider" }
         presetId:
           {
-            type: string,
             enum:
               [
                 leaderboard,
@@ -4958,7 +7059,7 @@ components:
                 opening_hours,
                 directory,
               ],
-            nullable: true,
+            type: [string, "null"],
           }
         configVersion: { type: integer, minimum: 1 }
         authorConfiguration:
@@ -4981,7 +7082,6 @@ components:
         provider: { $ref: "#/components/schemas/WidgetProvider" }
         presetId:
           {
-            type: string,
             enum:
               [
                 leaderboard,
@@ -4991,7 +7091,7 @@ components:
                 opening_hours,
                 directory,
               ],
-            nullable: true,
+            type: [string, "null"],
           }
         name: { type: string, minLength: 1, maxLength: 180 }
         description: { type: string, maxLength: 2000 }
@@ -5185,6 +7285,126 @@ components:
         installationId: { type: string, format: uuid }
         organizationName: { type: string }
         pairingEnabled: { type: boolean }
+    ScreenStatus:
+      type: string
+      enum: [online, recent, stale, offline, disabled, revoked]
+    ScreenLocation:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          name,
+          addressLine1,
+          addressLine2,
+          city,
+          state,
+          postalCode,
+          country,
+          screenCount,
+          createdAt,
+          updatedAt,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        addressLine1: { type: string }
+        addressLine2: { type: string }
+        city: { type: string }
+        state: { type: string }
+        postalCode: { type: string }
+        country: { type: string }
+        latitude: { type: number }
+        longitude: { type: number }
+        screenCount: { type: integer }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    Screen:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          name,
+          description,
+          location,
+          roomName,
+          roomNumber,
+          platform,
+          deviceManufacturer,
+          deviceModel,
+          androidVersion,
+          playerVersion,
+          screenWidth,
+          screenHeight,
+          density,
+          locale,
+          timezone,
+          enabled,
+          pairedAt,
+          status,
+          hasActiveCredential,
+          createdAt,
+          updatedAt,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+        location: { type: string }
+        locationId: { type: string, format: uuid }
+        locationDetails: { $ref: "#/components/schemas/ScreenLocation" }
+        roomName: { type: string }
+        roomNumber: { type: string }
+        syncGroupId: { type: string, format: uuid }
+        syncGroupName: { type: string }
+        nowPlayingName: { type: string }
+        nowPlayingType: { type: string }
+        platform: { type: string }
+        deviceManufacturer: { type: string }
+        deviceModel: { type: string }
+        androidVersion: { type: string }
+        playerVersion: { type: string }
+        playerVersionCode: { type: integer, format: int64 }
+        androidSdk: { type: integer }
+        installerSource: { type: string }
+        installPermissionStatus: { type: string }
+        currentUpdateDeploymentId: { type: string, format: uuid }
+        updateState: { type: string }
+        updateDownloadedBytes: { type: integer, format: int64 }
+        updateExpectedBytes: { type: integer, format: int64 }
+        updateError: { type: string }
+        playerFamily: { type: string }
+        playerArchitecture: { type: string }
+        screenWidth: { type: integer }
+        screenHeight: { type: integer }
+        density: { type: number, format: float }
+        locale: { type: string }
+        timezone: { type: string }
+        availableStorageBytes: { type: integer, format: int64 }
+        uptimeSeconds: { type: integer, format: int64 }
+        enabled: { type: boolean }
+        pairedAt: { type: string, format: date-time }
+        lastConnectedAt: { type: string, format: date-time }
+        lastDisconnectedAt: { type: string, format: date-time }
+        lastHeartbeatAt: { type: string, format: date-time }
+        lastKnownIp: { type: string }
+        lastContactAt: { type: string, format: date-time }
+        status: { $ref: "#/components/schemas/ScreenStatus" }
+        hasActiveCredential: { type: boolean }
+        archivedAt: { type: string, format: date-time }
+        archivedReason: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ScreenList:
+      type: object
+      additionalProperties: false
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Screen" }
+        total: { type: integer, minimum: 0 }
     User:
       type: object
       additionalProperties: false

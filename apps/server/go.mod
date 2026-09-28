@@ -15,14 +15,15 @@ require (
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/oklog/ulid/v2 v2.1.2
 	github.com/pressly/goose/v3 v3.27.3
+	github.com/tilecast/tilecast/data-sources v0.0.0
 	github.com/tilecast/tilecast/packages/plugin-sdk/go v0.0.0
 	github.com/tilecast/tilecast/plugins v0.0.0
 	github.com/tilecast/tilecast/widgets v0.0.0
-	github.com/tilecast/tilecast/data-sources v0.0.0
 	golang.org/x/crypto v0.54.0
 	golang.org/x/image v0.44.0
 	golang.org/x/text v0.40.0
 	google.golang.org/protobuf v1.36.11
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -36,9 +37,11 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/klauspost/compress v1.19.1 // indirect
+	github.com/kr/text v0.2.0 // indirect
 	github.com/mfridman/interpolate v0.0.2 // indirect
 	github.com/miekg/dns v1.1.27 // indirect
 	github.com/philhofer/fwd v1.2.0 // indirect
+	github.com/rogpeppe/go-internal v1.16.0 // indirect
 	github.com/sethvargo/go-retry v0.4.0 // indirect
 	github.com/teambition/rrule-go v1.8.2 // indirect
 	github.com/tinylib/msgp v1.6.4 // indirect
@@ -53,8 +56,8 @@ require (
 // repository (see go.work). The replacements keep a build without the
 // workspace, such as the server container, resolving them locally.
 replace (
+	github.com/tilecast/tilecast/data-sources => ../../data-sources
 	github.com/tilecast/tilecast/packages/plugin-sdk/go => ../../packages/plugin-sdk/go
 	github.com/tilecast/tilecast/plugins => ../../plugins
 	github.com/tilecast/tilecast/widgets => ../../widgets
-	github.com/tilecast/tilecast/data-sources => ../../data-sources
 )

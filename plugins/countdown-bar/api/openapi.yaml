@@ -8,10 +8,14 @@ paths:
   /api/v1/plugins/countdown-bar/instances:
     get:
       operationId: listCountdownBarInstances
+      description: List configured Countdown Bar instances.
       responses:
         "200": { description: Configured Countdown Bar instances }
     post:
       operationId: createCountdownBarInstance
+      description: >-
+        Create a Countdown Bar instance. Requires an Owner or
+        Administrator.
       parameters:
         - {
             $ref: "../../../docs/openapi/core.yaml#/components/parameters/CSRFToken",
@@ -28,6 +32,7 @@ paths:
   /api/v1/plugins/countdown-bar/instances/{id}:
     get:
       operationId: getCountdownBarInstance
+      description: Get a Countdown Bar instance.
       parameters:
         - {
             $ref: "../../../docs/openapi/core.yaml#/components/parameters/ResourceID",
@@ -37,6 +42,9 @@ paths:
         "404": { description: Instance not found }
     put:
       operationId: updateCountdownBarInstance
+      description: >-
+        Replace a Countdown Bar instance. Requires an Owner or
+        Administrator.
       parameters:
         - {
             $ref: "../../../docs/openapi/core.yaml#/components/parameters/ResourceID",
@@ -56,6 +64,9 @@ paths:
         "404": { description: Instance not found }
     delete:
       operationId: deleteCountdownBarInstance
+      description: >-
+        Delete a Countdown Bar instance. Requires an Owner or
+        Administrator.
       parameters:
         - {
             $ref: "../../../docs/openapi/core.yaml#/components/parameters/ResourceID",

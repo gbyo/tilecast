@@ -501,6 +501,7 @@ describe("pluginctl", () => {
         "  /api/v1/plugins/transit-alerts/feeds:",
         "    get:",
         "      operationId: listTransitFeeds",
+        "      description: List configured transit feeds.",
         "      responses:",
         "        '200': { description: Feeds }",
         "        '404': { $ref: '../../../docs/openapi/core.yaml#/components/responses/NotFound' }",
@@ -544,10 +545,12 @@ paths:
   /api/v1/plugins/room-comfort/thermostats:
     get:
       operationId: listThermostats
+      description: List configured thermostats.
       responses:
         "200": { description: Thermostats }
     post:
       operationId: setThermostat
+      description: Set a thermostat target temperature.
       responses:
         "201": { description: Set }
 `,

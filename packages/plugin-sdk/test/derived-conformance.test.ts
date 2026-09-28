@@ -79,21 +79,86 @@ paths:
     ]);
   });
 
-  it("skips described operations without an operationId", () => {
+  it("requires a stable operationId on /api/v1 operations", () => {
     const problems = checkDerivedConformance(
       doc(
-        OPERATION(`description: Undocumented legacy endpoint.
+        OPERATION(`description: Requires an authenticated dashboard session.
 responses: { "200": { description: ok } }`),
+      ),
+    );
+    expect(problems.map((p) => p.message)).toEqual([
+      "GET /api/v1/things needs a stable operationId",
+    ]);
+  });
+
+  it("requires a useful description on /api/v1 operations", () => {
+    const problems = checkDerivedConformance(
+      doc(
+        OPERATION(`operationId: getThings
+responses:
+  "200": { description: ok }
+  "401": { description: Dashboard authentication required }`),
+      ),
+    );
+    expect(problems.map((p) => p.message)).toEqual([
+      "GET /api/v1/things (getThings) needs a useful description",
+    ]);
+  });
+
+  it("accepts a summary as the useful description", () => {
+    const problems = checkDerivedConformance(
+      doc(
+        OPERATION(`operationId: getThings
+summary: List things.
+responses:
+  "200": { description: ok }
+  "401": { description: Dashboard authentication required }`),
       ),
     );
     expect(problems).toEqual([]);
   });
 
-  it("skips operations without a description: undescribed is not surface", () => {
+  it("rejects placeholder descriptions", () => {
     const problems = checkDerivedConformance(
       doc(
         OPERATION(`operationId: getThings
-responses: { "200": { description: ok } }`),
+description: TODO.
+responses:
+  "200": { description: ok }
+  "401": { description: Dashboard authentication required }`),
+      ),
+    );
+    expect(problems.map((p) => p.message)).toEqual([
+      "GET /api/v1/things (getThings) needs a useful description",
+    ]);
+  });
+
+  it("accepts a 101 upgrade as the success case", () => {
+    const problems = checkDerivedConformance(
+      doc(
+        OPERATION(`operationId: getSocket
+description: Requires an authenticated player credential.
+security: [{ deviceBearer: [] }]
+responses:
+  "101": { description: Player WebSocket connected }
+  "401": { description: Credential invalid or revoked }`),
+      ),
+    );
+    expect(problems).toEqual([]);
+  });
+
+  it("accepts a referenced parameter schema", () => {
+    const problems = checkDerivedConformance(
+      doc(
+        OPERATION(`operationId: getThings
+description: Requires an authenticated dashboard session.
+parameters:
+  - { name: type, in: query, required: false, schema: { $ref: "#/components/schemas/ThingType" } }
+responses: { "200": { description: ok } }`) +
+          `components:
+  schemas:
+    ThingType: { type: string }
+`,
       ),
     );
     expect(problems).toEqual([]);
@@ -205,7 +270,7 @@ paths:
   /api/v1/demo:
     get:
       operationId: ${excluded!.operationId}
-      description: Demo only.
+      description: Demo-only endpoint for tests.
       responses: { "200": { description: ok } }
 `),
     );
@@ -214,7 +279,7 @@ paths:
 });
 
 describe("fragment operationIds", () => {
-  it("requires stable IDs and uniqueness", () => {
+  it("requires stable IDs, descriptions, and uniqueness", () => {
     const problems = checkFragmentOperationIds([
       {
         plugin: "a",
@@ -234,7 +299,9 @@ describe("fragment operationIds", () => {
     ]);
     expect(problems.map((p) => p.message)).toEqual([
       "GET /api/v1/a needs a stable operationId before automation can refer to it",
+      "GET /api/v1/b needs a useful description",
       "operationId dup is also used by b GET /api/v1/b",
+      "GET /api/v1/c needs a useful description",
     ]);
   });
 });

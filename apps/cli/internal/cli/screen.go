@@ -13,24 +13,21 @@ import (
 	apiclient "github.com/tilecast/tilecast/packages/api-client"
 )
 
-// screenRecord is the display subset the CLI reads off a generic screen
-// payload. Unknown members stay empty rather than failing: the server
-// owns the shape, the CLI only renders it.
-type screenRecord map[string]any
+// screenRecord is the contract-typed screen resource generated from
+// docs/openapi.yaml. Decoding into the generated type (instead of a
+// generic map) keeps field renames and removals as build failures.
+type screenRecord = apiclient.Screen
 
 func screenID(record screenRecord) string {
-	value, _ := record["id"].(string)
-	return value
+	return record.Id.String()
 }
 
 func screenName(record screenRecord) string {
-	value, _ := record["name"].(string)
-	return value
+	return record.Name
 }
 
 func screenStatus(record screenRecord) string {
-	value, _ := record["status"].(string)
-	return value
+	return string(record.Status)
 }
 
 func newScreenCommand(env *environment) *cobra.Command {
@@ -113,17 +110,17 @@ func resolveScreen(ctx context.Context, transport *apiclient.Client, ref string)
 	if id, err := uuid.Parse(ref); err == nil {
 		status, body, err := transport.GetScreen(ctx, id.String())
 		if err != nil {
-			return nil, err
+			return screenRecord{}, err
 		}
 		var record screenRecord
 		if err := apiclient.DecodeBody(status, body, &record); err != nil {
-			return nil, notFoundAsUnknown(err, ref)
+			return screenRecord{}, notFoundAsUnknown(err, ref)
 		}
 		return record, nil
 	}
 	screens, err := fetchScreens(ctx, transport)
 	if err != nil {
-		return nil, err
+		return screenRecord{}, err
 	}
 	var matched []screenRecord
 	for _, screen := range screens {
@@ -133,18 +130,18 @@ func resolveScreen(ctx context.Context, transport *apiclient.Client, ref string)
 	}
 	switch len(matched) {
 	case 0:
-		return nil, fmt.Errorf("no screen named %q (or it is outside your scope); pass an ID", ref)
+		return screenRecord{}, fmt.Errorf("no screen named %q (or it is outside your scope); pass an ID", ref)
 	case 1:
 		// The list carries display fields only. Management commands
 		// prefill from the full record, so resolve through get: a name
 		// that lists but does not read is reported, never half-filled.
 		status, body, err := transport.GetScreen(ctx, screenID(matched[0]))
 		if err != nil {
-			return nil, err
+			return screenRecord{}, err
 		}
 		var record screenRecord
 		if err := apiclient.DecodeBody(status, body, &record); err != nil {
-			return nil, notFoundAsUnknown(err, ref)
+			return screenRecord{}, notFoundAsUnknown(err, ref)
 		}
 		return record, nil
 	default:
@@ -152,7 +149,7 @@ func resolveScreen(ctx context.Context, transport *apiclient.Client, ref string)
 		for _, screen := range matched {
 			ids = append(ids, screenID(screen))
 		}
-		return nil, fmt.Errorf("name %q is ambiguous (%s); pass an ID", ref, strings.Join(ids, ", "))
+		return screenRecord{}, fmt.Errorf("name %q is ambiguous (%s); pass an ID", ref, strings.Join(ids, ", "))
 	}
 }
 
