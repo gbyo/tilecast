@@ -93,6 +93,7 @@ object TcMediaBridge {
         }
 
         override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+            if (length == 0) return 0
             if (remaining <= 0) return -1
             val bounded = minOf(length.toLong(), remaining).toInt()
             val count = super.read(buffer, offset, bounded)
