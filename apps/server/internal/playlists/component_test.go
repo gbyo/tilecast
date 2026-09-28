@@ -84,6 +84,14 @@ func TestLegacyQrProvidersProjectIntoQrCode(t *testing.T) {
 	if component.Component.Type != "tilecast.qr-code" || component.Component.Config["payload"] != "https://example.org" || component.Component.Config["heading"] != "Scan" || component.Component.Config["instruction"] != "Point your camera." {
 		t.Fatalf("call-to-action config did not project: %+v", component.Component)
 	}
+	hiddenBody := json.RawMessage(`{"url":"https://example.org","heading":"Scan","body":"Point your camera.","showBody":false,"foregroundColor":"#ffffff","backgroundColor":"#12253a"}`)
+	component, err = service.compileWidgetComponent("qr-call-to-action", hiddenBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if component.Component.Type != "tilecast.qr-code" || component.Component.Config["instruction"] != "" {
+		t.Fatalf("hidden call-to-action body leaked into instruction: %+v", component.Component)
+	}
 	canonical := json.RawMessage(`{"payload":"https://example.org","heading":"","instruction":"","shortLabel":"","style":"standard","backgroundColor":"#FFFFFF","foregroundColor":"#101418"}`)
 	component, err = service.compileWidgetComponent("qr-code", canonical)
 	if err != nil {

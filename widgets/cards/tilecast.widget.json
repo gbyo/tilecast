@@ -75,7 +75,7 @@
         "label": "Image field",
         "description": "Only managed media the Widget can already resolve is shown; anything else stays hidden.",
         "control": "data_source_field",
-        "dataSourceFieldTypes": ["text", "url"],
+        "dataSourceFieldTypes": ["text", "url", "asset"],
         "default": "",
         "ui": { "section": "data", "order": 5 }
       },
