@@ -177,9 +177,7 @@ function fieldsByKey(
   return fields;
 }
 
-function firstObjectValues(
-  document: WidgetDataDocument,
-): {
+function firstObjectValues(document: WidgetDataDocument): {
   values: Readonly<Record<string, WidgetValue>>;
   fields: Readonly<Record<string, WidgetField>>;
 } | null {
