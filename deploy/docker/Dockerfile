@@ -26,7 +26,7 @@ COPY data-sources data-sources
 COPY plugins plugins
 RUN npm run build --workspace @tilecast/dashboard
 
-FROM golang:1.26-alpine AS server
+FROM golang:1.27-alpine AS server
 RUN apk add --no-cache ca-certificates git
 # The server module replaces the bundled plugins and the plugin SDK with their
 # directories in this repository, so all three modules keep their repository
