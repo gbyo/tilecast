@@ -115,10 +115,7 @@ export function listPendingPairings(): Promise<{
   items: PairingRequest[];
   total: number;
 }> {
-  return apiGet<
-    "/api/v1/screens/pairing/pending",
-    { items: PairingRequest[]; total: number }
-  >("/api/v1/screens/pairing/pending");
+  return apiGet("/api/v1/screens/pairing/pending");
 }
 
 export function listBulkOperations(limit = 10): Promise<BulkOperation[]> {
@@ -144,10 +141,7 @@ export function confirmPowerAssist(
 }
 
 export function resolvePairing(code: string): Promise<PairingRequest> {
-  return apiPost<"/api/v1/screens/pairing/resolve", PairingRequest>(
-    "/api/v1/screens/pairing/resolve",
-    { body: { code } },
-  );
+  return apiPost("/api/v1/screens/pairing/resolve", { body: { code } });
 }
 
 export async function approvePairing(
@@ -165,10 +159,11 @@ export async function approvePairing(
   csrfToken: string,
 ): Promise<Screen> {
   return normalizeScreen(
-    await apiPost<"/api/v1/screens/pairing/{id}/approve", Screen>(
-      "/api/v1/screens/pairing/{id}/approve",
-      { params: { path: { id } }, body: input, csrfToken },
-    ),
+    await apiPost("/api/v1/screens/pairing/{id}/approve", {
+      params: { path: { id } },
+      body: input,
+      csrfToken,
+    }),
   );
 }
 
