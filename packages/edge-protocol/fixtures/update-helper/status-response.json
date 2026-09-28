@@ -1,0 +1,28 @@
+{
+  "ok": true,
+  "code": "status",
+  "status": {
+    "current": {
+      "versionName": "0.2.0",
+      "versionCode": 2000,
+      "manifestSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "installed": ["0.2.0", "0.1.0"],
+    "transaction": {
+      "transactionId": "5f0c2b8e-6c1f-4c55-9a53-2a7c3b8f1d10",
+      "candidate": {
+        "versionName": "0.2.0",
+        "versionCode": 2000,
+        "manifestSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "previous": {
+        "versionName": "0.1.0",
+        "versionCode": 1000,
+        "manifestSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "phase": "provisional",
+      "schemaIncompatible": false,
+      "provisionalRemainingMs": 480000
+    }
+  }
+}

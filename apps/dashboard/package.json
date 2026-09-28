@@ -7,8 +7,9 @@
   "scripts": {
     "build": "tsc -b && vite build",
     "dev": "vite",
-    "lint": "eslint . --max-warnings=0",
+    "lint": "eslint . --max-warnings=0 && eslint --max-warnings=0 ../../plugins",
     "test": "vitest run",
+    "coverage": "vitest run --coverage",
     "i18n:scan": "node scripts/i18n-scan.mjs"
   },
   "dependencies": {
@@ -19,6 +20,8 @@
     "@tanstack/react-query": "^5.101.4",
     "@tanstack/react-table": "^9.2.4",
     "@tilecast/design-tokens": "*",
+    "@tilecast/widget-kit": "*",
+    "@tilecast/widget-sdk": "*",
     "class-variance-authority": "^0.7.1",
     "cmdk": "^1.1.1",
     "cn": "^0.4.0",
@@ -27,6 +30,7 @@
     "input-otp": "^1.5.0",
     "lucide-react": "^0.525.0",
     "qrcode": "^1.5.4",
+    "qrcode-generator": "^2.0.4",
     "react": "^19.2.8",
     "react-day-picker": "^10.0.1",
     "react-dom": "^19.2.8",
@@ -51,6 +55,7 @@
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^6.0.4",
+    "@vitest/coverage-v8": "^4.1.10",
     "eslint": "^10.8.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.3",

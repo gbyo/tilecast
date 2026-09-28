@@ -1,29 +1,15 @@
 import type {
-  CreateFormInput,
-  FormDataSource,
-  FormMetadataInput,
-  FormRevision,
-  FormSchema,
-  FormSummary,
-  FormRecord,
-  FormRecordPage,
-  FormRecordDetail,
-  FormRecordComment,
-  FormRecordInput,
-  FormRecordListParams,
-  FormApprovalPage,
-  FormWorkflow,
-  FormView,
-  FormViewInput,
-  FormTypedDataset,
-  FormOutputs,
-  FormAccessEntry,
-  FormDirectoryUser,
   AuthStatus,
   LoginInput,
   LoginResult,
   SessionResult,
   SecurityStatus,
+  OAuthApproval,
+  OAuthDecision,
+  OAuthGrant,
+  PersonalAccessToken,
+  PersonalAccessTokenCreated,
+  PersonalAccessTokenInput,
   TOTPEnrollment,
   PasskeyCeremony,
   Passkey,
@@ -76,11 +62,6 @@ import type {
   PlayerCommand,
   Takeover,
   PresentationOverride,
-  NWSAlertMonitor,
-  NWSAlertRule,
-  NWSAlertRuleInput,
-  NWSAlertSettings,
-  NWSZone,
   SettingsDocument,
   PolicyDocument,
   EffectivePolicy,
@@ -145,18 +126,7 @@ import type {
   BackupRestorePlan,
   PluginCatalog,
   PluginSummary,
-  BrandBug,
-  BrandBugInput,
   DependencyGraph,
-  CountdownBar,
-  CountdownBarInput,
-  NoiseMeter,
-  NoiseMeterInput,
-  NoiseHistoryDay,
-  NoiseHistoryPoint,
-  NoiseHistoryScreen,
-  NoiseHistorySummary,
-  NoiseHistoryWindow,
 } from "./types";
 
 type DataResponse<T> = { data: T };
@@ -179,7 +149,12 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+/**
+ * One request to the Tilecast API below /api/v1, unwrapping the `data`
+ * envelope and raising ApiError for the error envelope. Plugins reach it as
+ * `studioRequest` from `@tilecast/studio`.
+ */
+export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/api/v1${path}`, {
     ...init,
     credentials: "same-origin",
@@ -347,54 +322,6 @@ async function apiFailure(response: Response): Promise<never> {
     response.status,
     body.error?.code ?? "unknown_error",
   );
-}
-
-// formRecordBody serializes a record create/update body honoring the server's tri-state contract:
-// a field left `undefined` is omitted (preserve), `null` is sent as null (clear), and any other
-// value is sent as-is (set).
-function formRecordBody(input: FormRecordInput): string {
-  const body: Record<string, unknown> = { values: input.values };
-  if (input.displayTitle !== undefined) body.displayTitle = input.displayTitle;
-  if (input.priority !== undefined) body.priority = input.priority;
-  if (input.displayAt !== undefined) body.displayAt = input.displayAt;
-  if (input.expiresAt !== undefined) body.expiresAt = input.expiresAt;
-  if (input.version !== undefined) body.version = input.version;
-  return JSON.stringify(body);
-}
-
-// readFileAsBase64 returns the base64 payload of a File (without the data: URL prefix), for the
-// JSON attachment upload endpoint.
-function readFileAsBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = typeof reader.result === "string" ? reader.result : "";
-      const comma = result.indexOf(",");
-      resolve(comma >= 0 ? result.slice(comma + 1) : result);
-    };
-    reader.onerror = () =>
-      reject(
-        new ApiError(
-          "Could not read the selected file.",
-          0,
-          "file_read_failed",
-        ),
-      );
-    reader.readAsDataURL(file);
-  });
-}
-
-// formRecordQuery builds the query string for the paginated records list.
-function formRecordQuery(params: FormRecordListParams = {}): string {
-  const query = new URLSearchParams();
-  if (params.states && params.states.length > 0)
-    query.set("states", params.states.join(","));
-  if (params.search) query.set("search", params.search);
-  if (params.sort) query.set("sort", params.sort);
-  if (params.page) query.set("page", String(params.page));
-  if (params.pageSize) query.set("pageSize", String(params.pageSize));
-  const encoded = query.toString();
-  return encoded ? `?${encoded}` : "";
 }
 
 const playerReleaseContentTypes: Record<string, string> = {
@@ -1177,6 +1104,40 @@ export const api = {
       headers: { "X-CSRF-Token": csrfToken },
       body: JSON.stringify({ password }),
     }),
+  describeOAuthApproval: (params: URLSearchParams) =>
+    request<OAuthApproval>(`/oauth/authorize?${params.toString()}`),
+  approveOAuth: (decision: OAuthDecision, csrfToken: string) =>
+    request<{ redirectUri: string }>("/oauth/approve", {
+      method: "POST",
+      headers: { "X-CSRF-Token": csrfToken },
+      body: JSON.stringify(decision),
+    }),
+  denyOAuth: (decision: OAuthDecision, csrfToken: string) =>
+    request<{ redirectUri: string }>("/oauth/deny", {
+      method: "POST",
+      headers: { "X-CSRF-Token": csrfToken },
+      body: JSON.stringify(decision),
+    }),
+  listOAuthGrants: () =>
+    request<{ grants: OAuthGrant[] }>("/me/security/grants"),
+  revokeOAuthGrant: (id: string, csrfToken: string) =>
+    request<void>(`/me/security/grants/${id}`, {
+      method: "DELETE",
+      headers: { "X-CSRF-Token": csrfToken },
+    }),
+  listPersonalAccessTokens: (search: string) =>
+    request<{ pats: PersonalAccessToken[] }>(
+      `/me/security/pats${search ? `?search=${encodeURIComponent(search)}` : ""}`,
+    ),
+  createPersonalAccessToken: (
+    input: PersonalAccessTokenInput,
+    csrfToken: string,
+  ) =>
+    request<PersonalAccessTokenCreated>("/me/security/pats", {
+      method: "POST",
+      headers: { "X-CSRF-Token": csrfToken },
+      body: JSON.stringify(input),
+    }),
   resetUserSecurity: (id: string, csrfToken: string) =>
     request<void>(`/users/${id}/security/reset`, {
       method: "POST",
@@ -1288,100 +1249,6 @@ export const api = {
       headers: { "X-CSRF-Token": csrfToken },
     }),
   dependencyGraph: () => request<DependencyGraph>("/plugins/dependency-graph"),
-  countdownBars: () =>
-    request<{ items: CountdownBar[]; total: number }>(
-      "/plugins/countdown-bar/instances",
-    ),
-  countdownBar: (id: string) =>
-    request<CountdownBar>(`/plugins/countdown-bar/instances/${id}`),
-  createCountdownBar: (input: CountdownBarInput, csrfToken: string) =>
-    request<CountdownBar>("/plugins/countdown-bar/instances", {
-      method: "POST",
-      headers: { "X-CSRF-Token": csrfToken },
-      body: JSON.stringify(input),
-    }),
-  updateCountdownBar: (
-    id: string,
-    input: CountdownBarInput,
-    csrfToken: string,
-  ) =>
-    request<CountdownBar>(`/plugins/countdown-bar/instances/${id}`, {
-      method: "PUT",
-      headers: { "X-CSRF-Token": csrfToken },
-      body: JSON.stringify(input),
-    }),
-  deleteCountdownBar: (id: string, csrfToken: string) =>
-    request<void>(`/plugins/countdown-bar/instances/${id}`, {
-      method: "DELETE",
-      headers: { "X-CSRF-Token": csrfToken },
-    }),
-  brandBugs: () =>
-    request<{ items: BrandBug[]; total: number }>(
-      "/plugins/brand-bug/instances",
-    ),
-  brandBug: (id: string) =>
-    request<BrandBug>(`/plugins/brand-bug/instances/${id}`),
-  createBrandBug: (input: BrandBugInput, csrfToken: string) =>
-    request<BrandBug>("/plugins/brand-bug/instances", {
-      method: "POST",
-      headers: { "X-CSRF-Token": csrfToken },
-      body: JSON.stringify(input),
-    }),
-  updateBrandBug: (id: string, input: BrandBugInput, csrfToken: string) =>
-    request<BrandBug>(`/plugins/brand-bug/instances/${id}`, {
-      method: "PUT",
-      headers: { "X-CSRF-Token": csrfToken },
-      body: JSON.stringify(input),
-    }),
-  deleteBrandBug: (id: string, csrfToken: string) =>
-    request<void>(`/plugins/brand-bug/instances/${id}`, {
-      method: "DELETE",
-      headers: { "X-CSRF-Token": csrfToken },
-    }),
-  noiseMeters: () =>
-    request<{ items: NoiseMeter[]; total: number }>(
-      "/plugins/noise-meter/instances",
-    ),
-  noiseMeter: (id: string) =>
-    request<NoiseMeter>(`/plugins/noise-meter/instances/${id}`),
-  createNoiseMeter: (input: NoiseMeterInput, csrfToken: string) =>
-    request<NoiseMeter>("/plugins/noise-meter/instances", {
-      method: "POST",
-      headers: { "X-CSRF-Token": csrfToken },
-      body: JSON.stringify(input),
-    }),
-  updateNoiseMeter: (id: string, input: NoiseMeterInput, csrfToken: string) =>
-    request<NoiseMeter>(`/plugins/noise-meter/instances/${id}`, {
-      method: "PUT",
-      headers: { "X-CSRF-Token": csrfToken },
-      body: JSON.stringify(input),
-    }),
-  deleteNoiseMeter: (id: string, csrfToken: string) =>
-    request<void>(`/plugins/noise-meter/instances/${id}`, {
-      method: "DELETE",
-      headers: { "X-CSRF-Token": csrfToken },
-    }),
-  // History reads. The Player writes history only on its ordinary heartbeat;
-  // these are the separate Studio queries, and the server does the aggregating
-  // so a month never arrives as a quarter of a million points.
-  noiseHistoryScreens: (id: string, params: URLSearchParams) =>
-    request<{ items: NoiseHistoryScreen[]; total: number }>(
-      `/plugins/noise-meter/instances/${id}/history/screens?${params}`,
-    ),
-  noiseHistorySummary: (id: string, params: URLSearchParams) =>
-    request<{ range: NoiseHistoryWindow; summary: NoiseHistorySummary }>(
-      `/plugins/noise-meter/instances/${id}/history/summary?${params}`,
-    ),
-  noiseHistorySeries: (id: string, params: URLSearchParams) =>
-    request<{
-      range: NoiseHistoryWindow;
-      resolution: string;
-      points: NoiseHistoryPoint[];
-    }>(`/plugins/noise-meter/instances/${id}/history/series?${params}`),
-  noiseHistoryDaily: (id: string, params: URLSearchParams) =>
-    request<{ range: NoiseHistoryWindow; days: NoiseHistoryDay[] }>(
-      `/plugins/noise-meter/instances/${id}/history/daily?${params}`,
-    ),
   createLocation: (input: LocationInput, csrfToken: string) =>
     request<Location>("/locations", {
       method: "POST",
@@ -1594,51 +1461,6 @@ export const api = {
       headers: { "X-CSRF-Token": csrfToken },
       body: JSON.stringify({ reason }),
     }),
-  nwsAlertSettings: () => request<NWSAlertSettings>("/alerts/nws"),
-  nwsZones: (area: string) =>
-    request<{ items: NWSZone[] }>(
-      `/alerts/nws/zones?area=${encodeURIComponent(area)}`,
-    ),
-  updateNWSAlertMonitor: (
-    input: {
-      enabled: boolean;
-      areas: string[];
-      zones: string[];
-      pollIntervalSeconds: number;
-    },
-    csrfToken: string,
-  ) =>
-    request<NWSAlertMonitor>("/alerts/nws/monitor", {
-      method: "PUT",
-      headers: { "X-CSRF-Token": csrfToken },
-      body: JSON.stringify(input),
-    }),
-  pollNWSAlerts: (csrfToken: string) =>
-    request<NWSAlertSettings>("/alerts/nws/poll", {
-      method: "POST",
-      headers: { "X-CSRF-Token": csrfToken },
-    }),
-  createNWSAlertRule: (input: NWSAlertRuleInput, csrfToken: string) =>
-    request<NWSAlertRule>("/alerts/nws/rules", {
-      method: "POST",
-      headers: { "X-CSRF-Token": csrfToken },
-      body: JSON.stringify(input),
-    }),
-  updateNWSAlertRule: (
-    id: string,
-    input: NWSAlertRuleInput,
-    csrfToken: string,
-  ) =>
-    request<NWSAlertRule>(`/alerts/nws/rules/${id}`, {
-      method: "PUT",
-      headers: { "X-CSRF-Token": csrfToken },
-      body: JSON.stringify(input),
-    }),
-  deleteNWSAlertRule: (id: string, csrfToken: string) =>
-    request<{ id: string; deleted: boolean }>(`/alerts/nws/rules/${id}`, {
-      method: "DELETE",
-      headers: { "X-CSRF-Token": csrfToken },
-    }),
   assets: (params: URLSearchParams) =>
     request<AssetList>(`/assets?${params.toString()}`),
   contentFolders: () => request<ContentFolder[]>("/content-folders"),
@@ -1830,209 +1652,7 @@ export const api = {
       method: "DELETE",
       headers: { "X-CSRF-Token": csrfToken },
     }),
-  // Form Data Sources. Creation is a dedicated endpoint; the detail, metadata, draft, and
-  // publish operations are namespaced under the parent Data Source id.
-  createForm: (input: CreateFormInput, csrfToken: string) =>
-    request<FormDataSource>("/forms", {
-      method: "POST",
-      headers: { "X-CSRF-Token": csrfToken },
-      body: JSON.stringify(input),
-    }),
-  getForm: (id: string) => request<FormDataSource>(`/data-sources/${id}/form`),
-  updateFormMetadata: (
-    id: string,
-    input: FormMetadataInput,
-    csrfToken: string,
-  ) =>
-    request<FormDataSource>(`/data-sources/${id}/form`, {
-      method: "PATCH",
-      headers: { "X-CSRF-Token": csrfToken },
-      body: JSON.stringify(input),
-    }),
-  updateFormDraft: (id: string, schema: FormSchema, csrfToken: string) =>
-    request<FormDataSource>(`/data-sources/${id}/form/draft`, {
-      method: "PATCH",
-      headers: { "X-CSRF-Token": csrfToken },
-      body: JSON.stringify({ schema }),
-    }),
-  publishForm: (id: string, csrfToken: string) =>
-    request<FormRevision>(`/data-sources/${id}/form/publish`, {
-      method: "POST",
-      headers: { "X-CSRF-Token": csrfToken },
-    }),
-  // Accessible forms for the Forms portal and navigation.
-  listForms: () =>
-    request<{ items: FormSummary[] }>("/forms").then((result) => result.items),
-  // Records / submissions.
-  listFormRecords: (id: string, params?: FormRecordListParams) =>
-    request<FormRecordPage>(
-      `/data-sources/${id}/records${formRecordQuery(params)}`,
-    ),
-  getFormRecord: (id: string, recordId: string) =>
-    request<FormRecordDetail>(`/data-sources/${id}/records/${recordId}`),
-  createFormRecord: (id: string, input: FormRecordInput, csrfToken: string) =>
-    request<FormRecord>(`/data-sources/${id}/records`, {
-      method: "POST",
-      headers: { "X-CSRF-Token": csrfToken },
-      body: formRecordBody(input),
-    }),
-  updateFormRecord: (
-    id: string,
-    recordId: string,
-    input: FormRecordInput,
-    csrfToken: string,
-  ) =>
-    request<FormRecord>(`/data-sources/${id}/records/${recordId}`, {
-      method: "PATCH",
-      headers: { "X-CSRF-Token": csrfToken },
-      body: formRecordBody(input),
-    }),
-  deleteFormRecord: (id: string, recordId: string, csrfToken: string) =>
-    request<void>(`/data-sources/${id}/records/${recordId}`, {
-      method: "DELETE",
-      headers: { "X-CSRF-Token": csrfToken },
-    }),
-  transitionFormRecord: (
-    id: string,
-    recordId: string,
-    input: { toState: string; note?: string; version: number },
-    csrfToken: string,
-  ) =>
-    request<FormRecord>(`/data-sources/${id}/records/${recordId}/transitions`, {
-      method: "POST",
-      headers: { "X-CSRF-Token": csrfToken },
-      body: JSON.stringify(input),
-    }),
-  addFormRecordComment: (
-    id: string,
-    recordId: string,
-    body: string,
-    csrfToken: string,
-  ) =>
-    request<FormRecordComment>(
-      `/data-sources/${id}/records/${recordId}/comments`,
-      {
-        method: "POST",
-        headers: { "X-CSRF-Token": csrfToken },
-        body: JSON.stringify({ body }),
-      },
-    ),
-  // Attachments. Upload/replace and remove return the updated record detail.
-  // Attachment upload/removal use optimistic concurrency: the caller passes the record's current
-  // version, and the returned detail carries the incremented version to use for the next action.
-  uploadFormRecordAttachment: async (
-    id: string,
-    recordId: string,
-    file: File,
-    fieldKey: string,
-    version: number,
-    csrfToken: string,
-  ) => {
-    const data = await readFileAsBase64(file);
-    return request<FormRecordDetail>(
-      `/data-sources/${id}/records/${recordId}/attachments`,
-      {
-        method: "POST",
-        headers: { "X-CSRF-Token": csrfToken },
-        body: JSON.stringify({
-          fieldKey,
-          fileName: file.name,
-          contentType: file.type,
-          data,
-          version,
-        }),
-      },
-    );
-  },
-  removeFormRecordAttachment: (
-    id: string,
-    recordId: string,
-    attachmentId: string,
-    version: number,
-    csrfToken: string,
-  ) =>
-    request<FormRecordDetail>(
-      `/data-sources/${id}/records/${recordId}/attachments/${attachmentId}?version=${version}`,
-      { method: "DELETE", headers: { "X-CSRF-Token": csrfToken } },
-    ),
-  // The stable URL for a record's attachment image (served with session credentials).
-  formAttachmentContentUrl: (
-    id: string,
-    recordId: string,
-    attachmentId: string,
-  ) =>
-    `/api/v1/data-sources/${id}/records/${recordId}/attachments/${attachmentId}/content`,
-  // Workflow, views, outputs, and access (Studio 2C).
-  configureFormWorkflow: (
-    id: string,
-    workflow: FormWorkflow,
-    csrfToken: string,
-  ) =>
-    request<FormDataSource>(`/data-sources/${id}/form/workflow`, {
-      method: "PUT",
-      headers: { "X-CSRF-Token": csrfToken },
-      body: JSON.stringify(workflow),
-    }),
-  upsertFormView: (id: string, input: FormViewInput, csrfToken: string) =>
-    request<FormView>(`/data-sources/${id}/views`, {
-      method: "PUT",
-      headers: { "X-CSRF-Token": csrfToken },
-      body: JSON.stringify(input),
-    }),
-  previewFormView: (id: string, input: FormViewInput, csrfToken: string) =>
-    request<FormTypedDataset>(`/data-sources/${id}/views/preview`, {
-      method: "POST",
-      headers: { "X-CSRF-Token": csrfToken },
-      body: JSON.stringify(input),
-    }),
-  deleteFormView: (id: string, viewId: string, csrfToken: string) =>
-    request<void>(`/data-sources/${id}/views/${viewId}`, {
-      method: "DELETE",
-      headers: { "X-CSRF-Token": csrfToken },
-    }),
-  getFormOutputs: (id: string) =>
-    request<FormOutputs>(`/data-sources/${id}/outputs`),
-  rebuildFormOutputs: (id: string, csrfToken: string) =>
-    request<FormOutputs>(`/data-sources/${id}/outputs/rebuild`, {
-      method: "POST",
-      headers: { "X-CSRF-Token": csrfToken },
-    }),
-  listFormAccess: (id: string) =>
-    request<{ entries: FormAccessEntry[] }>(`/data-sources/${id}/access`).then(
-      (result) => result.entries,
-    ),
-  replaceFormGrants: (
-    id: string,
-    userId: string,
-    capabilities: string[],
-    csrfToken: string,
-  ) =>
-    request<{ entries: FormAccessEntry[] }>(
-      `/data-sources/${id}/access/${userId}`,
-      {
-        method: "PUT",
-        headers: { "X-CSRF-Token": csrfToken },
-        body: JSON.stringify({ capabilities }),
-      },
-    ).then((result) => result.entries),
-  searchFormUsers: (id: string, search: string) => {
-    const query = new URLSearchParams();
-    if (search) query.set("search", search);
-    const encoded = query.toString();
-    return request<{ items: FormDirectoryUser[] }>(
-      `/data-sources/${id}/user-directory${encoded ? `?${encoded}` : ""}`,
-    ).then((result) => result.items);
-  },
-  // Central approvals inbox.
-  listApprovals: (params?: { page?: number; pageSize?: number }) => {
-    const query = new URLSearchParams();
-    if (params?.page) query.set("page", String(params.page));
-    if (params?.pageSize) query.set("pageSize", String(params.pageSize));
-    const encoded = query.toString();
-    return request<FormApprovalPage>(
-      `/approvals${encoded ? `?${encoded}` : ""}`,
-    );
-  },
+
   dataSourceDiagnostics: (id: string) =>
     request<SourceRefreshDiagnostics>(`/data-sources/${id}/diagnostics`),
   previewDataSource: (

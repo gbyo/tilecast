@@ -474,6 +474,7 @@
     "selectionScheduledNamed": "Programado · {{name}}",
     "selectionScheduleFallback": "horario",
     "selectionDirect": "Alternativo directo",
+    "selectionQuickPresent": "Muestra ahora",
     "selectionNone": "Sin contenido",
     "nextScheduledChange": "Próximo cambio programado",
     "notGrouped": "Sin agrupar",

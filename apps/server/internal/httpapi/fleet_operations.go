@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/fleetops"
 )
@@ -58,7 +57,12 @@ func (s *server) applyBulkOperation(w http.ResponseWriter, r *http.Request) {
 	if body.ExpectedChangeCount != nil {
 		expected = *body.ExpectedChangeCount
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	operation, err := s.fleet.Apply(r.Context(), user.ID, body.Request, expected)
 	switch {
 	case errors.Is(err, fleetops.ErrStale):
@@ -80,7 +84,12 @@ func (s *server) undoBulkOperation(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	operation, err := s.fleet.Undo(r.Context(), user.ID, user.Role, id)
 	switch {
 	case errors.Is(err, fleetops.ErrNotFound):
@@ -107,8 +116,12 @@ func (s *server) undoBulkOperation(w http.ResponseWriter, r *http.Request) {
 
 func (s *server) listBulkOperations(w http.ResponseWriter, r *http.Request) {
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	session, _ := r.Context().Value(sessionContextKey).(auth.Session)
-	operations, err := s.fleet.Recent(r.Context(), session.User.ID, session.User.Role, limit)
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	operations, err := s.fleet.Recent(r.Context(), principal.User.ID, principal.User.Role, limit)
 	if err != nil {
 		s.internalError(w, r, err)
 		return

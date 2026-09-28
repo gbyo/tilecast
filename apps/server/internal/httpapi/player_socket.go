@@ -116,7 +116,7 @@ func (s *server) playerSocket(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 			case timestamp := <-pingTicker.C:
-				if err := send(map[string]any{"type": "server.ping", "timestamp": timestamp.UTC().Format(time.RFC3339)}); err != nil {
+				if err := send(map[string]any{"type": "server.ping", "timestamp": timestamp.UTC().Format(time.RFC3339Nano)}); err != nil {
 					cancel()
 					return
 				}

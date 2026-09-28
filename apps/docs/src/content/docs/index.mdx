@@ -1,10 +1,51 @@
 ---
 title: Actually open source signage.
-description: Self-hosted digital signage for Android TV and Linux displays.
+description: Tilecast is open-source, self-hosted digital signage software for Android TV and Linux. Manage screens, playlists, schedules, layouts, and media on your own server.
 template: splash
 head:
   - tag: title
-    content: Tilecast Docs
+    content: Tilecast — Actually Open Source Digital Signage
+  - tag: meta
+    attrs:
+      property: og:title
+      content: Tilecast — Actually Open Source Digital Signage
+  - tag: meta
+    attrs:
+      property: og:description
+      content: Tilecast is open-source, self-hosted digital signage software for Android TV and Linux. Manage your screens and content from your own server.
+  - tag: meta
+    attrs:
+      property: og:type
+      content: website
+  - tag: meta
+    attrs:
+      property: og:url
+      content: https://tilecast.org/
+  - tag: meta
+    attrs:
+      property: og:site_name
+      content: Tilecast
+  - tag: meta
+    attrs:
+      property: og:locale
+      content: en_US
+  - tag: meta
+    attrs:
+      name: twitter:card
+      content: summary
+  - tag: meta
+    attrs:
+      name: twitter:title
+      content: Tilecast — Actually Open Source Digital Signage
+  - tag: meta
+    attrs:
+      name: twitter:description
+      content: Open-source, self-hosted digital signage for Android TV and Linux. Run Tilecast on your own server and keep your screens and content under your control.
+  - tag: script
+    attrs:
+      type: application/ld+json
+    content: >-
+      {"@context":"https://schema.org","@type":"SoftwareApplication","name":"Tilecast","url":"https://tilecast.org/","description":"Open-source, self-hosted digital signage software for Android TV and Linux.","applicationCategory":"BusinessApplication","operatingSystem":"Linux, Android TV","isAccessibleForFree":true,"license":"https://www.gnu.org/licenses/agpl-3.0.html","sameAs":"https://github.com/gbyo/tilecast"}
 hero:
   tagline: Tilecast is self-hosted digital signage for Android TV and Linux displays. Run the server on your own hardware, manage screens in Studio, and keep your content under your control.
   actions:
@@ -38,8 +79,8 @@ import { CardGrid, LinkCard } from "@astrojs/starlight/components";
     href="studio/"
   />
   <LinkCard
-    title="Integrate with Tilecast"
-    description="Send data from another system and read fleet health with integration tokens."
+    title="Automate and integrate"
+    description="Manage Tilecast from the command line or an MCP client, and connect other systems with tokens and webhooks."
     href="integrations/"
   />
 </CardGrid>

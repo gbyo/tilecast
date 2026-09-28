@@ -13,21 +13,23 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/tilecast/tilecast/apps/server/internal/alerts"
 	"github.com/tilecast/tilecast/apps/server/internal/approvals"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/backup"
 	"github.com/tilecast/tilecast/apps/server/internal/campaigns"
 	"github.com/tilecast/tilecast/apps/server/internal/contenthealth"
+	"github.com/tilecast/tilecast/apps/server/internal/demo"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/fleetops"
-	"github.com/tilecast/tilecast/apps/server/internal/forms"
+
 	"github.com/tilecast/tilecast/apps/server/internal/integrations"
 	"github.com/tilecast/tilecast/apps/server/internal/layouts"
 	"github.com/tilecast/tilecast/apps/server/internal/livestream"
 	"github.com/tilecast/tilecast/apps/server/internal/media"
 	"github.com/tilecast/tilecast/apps/server/internal/notify"
+	"github.com/tilecast/tilecast/apps/server/internal/oauth"
 	"github.com/tilecast/tilecast/apps/server/internal/playlists"
 	"github.com/tilecast/tilecast/apps/server/internal/plugins"
 	"github.com/tilecast/tilecast/apps/server/internal/presentations"
@@ -36,6 +38,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/settings"
 	"github.com/tilecast/tilecast/apps/server/internal/snapshots"
 	"github.com/tilecast/tilecast/apps/server/internal/span"
+	"github.com/tilecast/tilecast/apps/server/internal/takeovers"
 	"github.com/tilecast/tilecast/apps/server/internal/updates"
 )
 
@@ -43,7 +46,6 @@ type Dependencies struct {
 	Auth                 *auth.Service
 	Devices              *devices.Service
 	Media                *media.Service
-	Forms                *forms.Service
 	Playlists            *playlists.Service
 	Campaigns            *campaigns.Service
 	Presentations        *presentations.Service
@@ -52,7 +54,7 @@ type Dependencies struct {
 	Scheduling           *scheduling.Service
 	Settings             *settings.Service
 	Updates              *updates.Service
-	Alerts               *alerts.Service
+	Takeovers            *takeovers.Service
 	Notifications        *notify.Service
 	ContentHealth        *contenthealth.Service
 	Fleet                *fleetops.Service
@@ -71,6 +73,9 @@ type Dependencies struct {
 	Backups              *backup.Service
 	BackupWorker         *backup.Worker
 	BackupLimits         backup.Limits
+	// Demo is set only when TILECAST_ENV is demo. It is the single switch for
+	// every Demo Mode behavior in the request layer.
+	Demo *demo.Runtime
 }
 
 type OperationsConfig struct {
@@ -86,7 +91,6 @@ type server struct {
 	auth                          *auth.Service
 	devices                       *devices.Service
 	media                         *media.Service
-	forms                         *forms.Service
 	playlists                     *playlists.Service
 	campaigns                     *campaigns.Service
 	presentations                 *presentations.Service
@@ -104,11 +108,12 @@ type server struct {
 	operations                    OperationsConfig
 	settings                      *settings.Service
 	updates                       *updates.Service
-	alerts                        *alerts.Service
+	takeovers                     *takeovers.Service
 	notifications                 *notify.Service
 	contentHealthService          *contenthealth.Service
 	fleet                         *fleetops.Service
 	integrations                  *integrations.Service
+	oauth                         *oauth.Service
 	approvals                     *approvals.Service
 	snapshots                     *snapshots.Service
 	span                          *span.Service
@@ -122,6 +127,7 @@ type server struct {
 	backupLimits                  backup.Limits
 	publicURL                     string
 	installLimiter                *rateLimiter
+	demo                          *demo.Runtime
 }
 
 type contextKey string
@@ -148,7 +154,6 @@ func New(deps Dependencies) *API {
 		auth:              deps.Auth,
 		devices:           deps.Devices,
 		media:             deps.Media,
-		forms:             deps.Forms,
 		playlists:         deps.Playlists,
 		campaigns:         deps.Campaigns,
 		presentations:     deps.Presentations,
@@ -171,11 +176,12 @@ func New(deps Dependencies) *API {
 		operations:           deps.Operations,
 		settings:             deps.Settings,
 		updates:              deps.Updates,
-		alerts:               deps.Alerts,
+		takeovers:            deps.Takeovers,
 		notifications:        deps.Notifications,
 		contentHealthService: deps.ContentHealth,
 		fleet:                deps.Fleet,
 		integrations:         deps.Integrations,
+		oauth:                oauth.NewService(deps.DB),
 		approvals:            deps.Approvals,
 		snapshots:            deps.Snapshots,
 		span:                 deps.Span,
@@ -185,6 +191,7 @@ func New(deps Dependencies) *API {
 		backups:              deps.Backups,
 		backupWorker:         deps.BackupWorker,
 		backupLimits:         deps.BackupLimits,
+		demo:                 deps.Demo,
 	}
 	if s.fleet != nil {
 		// The command path lives on the server, so bulk sending and single
@@ -203,18 +210,21 @@ func New(deps Dependencies) *API {
 	if s.operations.MaxTakeoverDurationHours == 0 {
 		s.operations = OperationsConfig{24, 250, 50, 10, 120, 30}
 	}
+	if s.takeovers == nil && s.db != nil && s.playlists != nil {
+		var notifier takeovers.Notifier
+		if s.devices != nil {
+			notifier = s.devices
+		}
+		s.takeovers = takeovers.NewService(s.db, s.playlists, notifier, time.Duration(s.operations.MaxTakeoverDurationHours)*time.Hour)
+	}
 	return &API{Handler: s.routes(), server: s}
 }
 
 func (s *server) requireRoles(roles ...string) func(http.Handler) http.Handler {
-	allowed := make(map[string]bool, len(roles))
-	for _, role := range roles {
-		allowed[role] = true
-	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			session, ok := r.Context().Value(sessionContextKey).(auth.Session)
-			if !ok || !allowed[session.User.Role] {
+			principal, ok := principalOf(r)
+			if !ok || !principal.HasRole(roles...) {
 				writeError(w, http.StatusForbidden, "insufficient_role", "Owner or Administrator access is required.")
 				return
 			}
@@ -261,9 +271,41 @@ func (s *server) authStatus(w http.ResponseWriter, r *http.Request) {
 		"passkeysAvailable":         passkeysAvailable,
 		"passkeysUnavailableReason": passkeyReason,
 	}
+	if s.demo != nil {
+		result["demoMode"] = true
+	}
 	if !required {
-		if cookie, err := r.Cookie(s.cookieName); err == nil {
-			if session, err := s.auth.Authenticate(r.Context(), cookie.Value); err == nil {
+		var session auth.Session
+		authenticated := false
+		if header := r.Header.Get("Authorization"); header != "" {
+			// An explicit Authorization header is the authentication
+			// attempt: a Bearer [REDACTED] grant answers whoami for API clients, or
+			// the caller is anonymous. There is no cookie or demo
+			// fallback behind an explicit credential. Only the user
+			// identity is reported; there is no session and therefore
+			// no CSRF token.
+			if credential, ok := parseAuthorization(header, "Bearer"); ok {
+				if grant, err := s.oauth.LookupBearer(r.Context(), credential); err == nil {
+					if user, err := s.activeUser(r.Context(), grant.UserID); err == nil && user.ID != uuid.Nil {
+						pending, _ := s.enrollmentPending(r.Context(), user, s.mfaPolicy(r))
+						result["authenticated"] = true
+						result["user"] = user
+						result["authMethod"] = grant.BearerAuthMethod()
+						result["mfaEnrollmentRequired"] = pending
+						authenticated = true
+					}
+				}
+			}
+		} else {
+			if cookie, err := r.Cookie(s.cookieName); err == nil {
+				if session, err = s.auth.Authenticate(r.Context(), cookie.Value); err == nil {
+					authenticated = true
+				}
+			}
+			if !authenticated {
+				session, authenticated = s.demoSession(r.Context(), w)
+			}
+			if authenticated && result["authenticated"] != true {
 				result["authenticated"] = true
 				result["user"] = session.User
 				result["csrfToken"] = session.CSRFToken
@@ -369,7 +411,11 @@ func (s *server) requireSession(next http.Handler) http.Handler {
 			writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
 			return
 		}
-		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), sessionContextKey, session)))
+		// The session stays the credential. The principal is the user:
+		// management authorization below reads it, and future bearer
+		// credentials will produce the same shape.
+		ctx := context.WithValue(r.Context(), sessionContextKey, session)
+		next.ServeHTTP(w, r.WithContext(auth.WithPrincipal(ctx, auth.PrincipalFromSession(session))))
 	})
 }
 
@@ -379,7 +425,7 @@ func (s *server) requireSession(next http.Handler) http.Handler {
 // check rather than a dashboard redirect.
 func (s *server) requireEnrollment(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if session, ok := r.Context().Value(sessionContextKey).(auth.Session); ok && session.EnrollmentPending {
+		if principal, ok := principalOf(r); ok && principal.EnrollmentPending {
 			writeError(w, http.StatusForbidden, "mfa_enrollment_required", "This organization requires multi-factor authentication. Finish enrollment to continue.")
 			return
 		}
@@ -389,7 +435,18 @@ func (s *server) requireEnrollment(next http.Handler) http.Handler {
 
 func (s *server) requireCSRF(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		session := r.Context().Value(sessionContextKey).(auth.Session)
+		// CSRF depends on the credential type. A bearer grant carries no
+		// ambient browser authority, so API clients never manufacture an
+		// X-CSRF-Token; only cookie-backed browser requests need one.
+		if principal, ok := principalOf(r); ok && principal.CredentialKind == auth.CredentialKindGrant {
+			next.ServeHTTP(w, r)
+			return
+		}
+		session, ok := r.Context().Value(sessionContextKey).(auth.Session)
+		if !ok {
+			writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+			return
+		}
 		provided := r.Header.Get("X-CSRF-Token")
 		if len(provided) != len(session.CSRFToken) || subtle.ConstantTimeCompare([]byte(provided), []byte(session.CSRFToken)) != 1 {
 			writeError(w, http.StatusForbidden, "csrf_failed", "The request could not be verified.")

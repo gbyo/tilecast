@@ -1,0 +1,11 @@
+{
+  "frame": {
+    "type": "hello",
+    "minProtocolVersion": 1,
+    "maxProtocolVersion": 1,
+    "role": "session_bridge",
+    "client": "tilecast-session-bridge",
+    "clientVersion": "0.1.0",
+    "features": []
+  }
+}

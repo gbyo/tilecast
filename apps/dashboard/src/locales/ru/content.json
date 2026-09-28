@@ -524,19 +524,17 @@
       "categoriesLabel": "Категории виджетов",
       "categories": {
         "all": "Все",
-        "news": "Новости",
-        "google": "Google",
-        "designDocuments": "Дизайн и документы",
-        "dashboards": "Дашборды",
-        "feeds": "Ленты",
-        "video": "Видео",
-        "social": "Соцсети",
-        "buildingBlocks": "Блоки / Продвинутые"
+        "essentials": "Основное",
+        "information": "Информация",
+        "dataDisplay": "Отображение данных",
+        "integrations": "Интеграции"
       },
       "featured": "Рекомендуемые",
       "featuredHint": "Рекомендуемые интеграции для типовых задач цифровых вывесок.",
       "noResults": "По этому запросу виджеты не найдены.",
-      "noMatch": "Ни одно приложение или виджет не соответствует запросу «{{search}}»."
+      "noMatch": "Ни одно приложение или виджет не соответствует запросу «{{search}}».",
+      "sourcePlugin": "Плагин · {{name}}",
+      "requiresPlugin": "Требуется {{name}}"
     },
     "preview": {
       "webUnavailable": "URL веб-презентации недоступен.",
@@ -563,13 +561,10 @@
         "widgetName": "Название виджета",
         "description": "Описание",
         "descriptionHint": "Необязательные заметки для других, кто управляет этой установкой.",
-        "timezone": "Часовой пояс",
-        "timeFormat": "Формат времени",
         "label": "Подпись",
         "format": "Формат",
         "alignment": "Выравнивание",
         "columns": "Столбцы",
-        "maximumItems": "Максимум элементов",
         "none": "Нет",
         "remove": "Удалить",
         "valueField": "Поле значения",
@@ -587,126 +582,25 @@
         "saveWidget": "Сохранить виджет"
       },
       "options": {
-        "organizationFormat": "Использовать настройки организации",
-        "hour12": "12-часовой",
-        "hour24": "24-часовой",
-        "dateFull": "Полный",
-        "dateLong": "Длинный",
-        "dateMedium": "Средний",
-        "dateShort": "Краткий",
         "alignLeft": "Слева",
         "alignCenter": "По центру",
         "alignRight": "Справа",
-        "formatText": "Текст",
         "formatNumber": "Число",
         "formatInteger": "Целое число",
         "formatPercent": "Процент",
-        "formatCurrency": "Валюта",
-        "formatDateShort": "Краткая дата",
-        "formatDateLong": "Полная дата",
-        "speedSlow": "Медленная",
-        "speedNormal": "Обычная",
-        "speedFast": "Быстрая"
+        "formatCurrency": "Валюта"
       },
       "native": {
         "editTitle": "Изменить виджет {{provider}}",
         "createTitle": "Создать виджет {{provider}}",
-        "qrCodeName": "QR-код",
         "guidanceData": "Подключите данные для показа, настройте оформление и проверьте предпросмотр.",
         "guidanceSimple": "Настройте содержимое экрана и проверяйте предпросмотр в процессе.",
         "contentGuidanceData": "Сначала выберите данные для виджета, затем настройте поля.",
-        "contentGuidanceCountdown": "Укажите целевое время, действие по его достижении и видимые единицы.",
-        "contentGuidanceQr": "Введите адрес для перехода после сканирования и добавьте подпись на экране.",
-        "contentGuidanceWorldClock": "Добавьте каждое место с его часовым поясом IANA, например America/New_York или Europe/London.",
-        "contentGuidanceClock": "Выберите часовой пояс и формат для экрана.",
         "contentGuidanceText": "Введите текст для экрана и настройте его поведение.",
         "presetNotice": "Готовый пресет: <strong>{{preset}}</strong>. Сохраняется как многоразовый виджет {{provider}}; воспроизведение от пресета не зависит.",
         "contentTitle": "Контент и поведение",
         "nameHint": "Используется для поиска виджета в контенте и плейлистах.",
         "completeFields": "Заполните обязательные поля, чтобы увидеть предпросмотр."
-      },
-      "clock": {
-        "timezoneHint": "Оставьте поле пустым, чтобы использовать часовой пояс организации, или введите любой действительный идентификатор IANA.",
-        "showSeconds": "Показывать секунды"
-      },
-      "date": {
-        "dateFormat": "Формат даты"
-      },
-      "countdown": {
-        "target": "Целевая дата и время",
-        "targetTime": "Целевое время",
-        "mode": "Режим",
-        "modeDown": "Обратный отсчёт",
-        "modeUp": "Прямой отсчёт",
-        "repeat": "Повтор",
-        "repeatNone": "Не повторяется",
-        "repeatDaily": "Ежедневно",
-        "repeatWeekly": "Еженедельно",
-        "repeatMonthly": "Ежемесячно",
-        "repeatYearly": "Ежегодно",
-        "layout": "Макет",
-        "layoutStacked": "Заголовок над отсчётом",
-        "layoutHorizontal": "Заголовок рядом с отсчётом",
-        "layoutOnly": "Только обратный отсчёт",
-        "completion": "Действие по завершении",
-        "completionText": "Показать текст завершения",
-        "hide": "Скрыть",
-        "completionCountUp": "Продолжить прямой отсчёт",
-        "title": "Заголовок",
-        "completionLabel": "Текст завершения",
-        "units": "Единицы времени",
-        "unitsDays": "Дни",
-        "unitsHours": "Часы",
-        "unitsMinutes": "Минуты",
-        "unitsSeconds": "Секунды"
-      },
-      "qrcode": {
-        "valueLabel": "Текст или URL",
-        "errorCorrection": "Коррекция ошибок",
-        "levelLow": "Низкая",
-        "levelMedium": "Средняя",
-        "levelQuartile": "Квартиль",
-        "levelHigh": "Высокая",
-        "levelHint": "Более высокая коррекция облегчает сканирование повреждённого кода, но делает рисунок плотнее.",
-        "speed": "Скорость",
-        "direction": "Направление",
-        "denseAlert": "Плотный QR-код. Проверьте сканирование с предполагаемого расстояния просмотра."
-      },
-      "ticker": {
-        "fields": "Поля (до трёх)",
-        "separator": "Разделитель",
-        "fieldSeparator": "Разделитель полей"
-      },
-      "display": {
-        "displayedFields": "Отображаемые поля",
-        "noSource": "Выберите источник данных, чтобы указать его поля.",
-        "maximumHint": "Ограничивает количество одновременно отображаемых строк или событий.",
-        "emptyLabel": "Сообщение при отсутствии данных",
-        "emptyHint": "Показывается на экране, когда источник не возвращает подходящих записей."
-      },
-      "list": {
-        "primaryField": "Основное поле",
-        "leadingField": "Ведущее поле",
-        "trailingField": "Конечное поле",
-        "showDividers": "Показывать разделители строк"
-      },
-      "menu": {
-        "presentation": "Представление",
-        "modeSingle": "Поля одной записи",
-        "modeRows": "Строки «подпись — значение»"
-      },
-      "table": {
-        "showHeader": "Показывать заголовки столбцов",
-        "alternating": "Чередовать фон строк",
-        "columnPresentation": "Отображение столбцов",
-        "columnWidth": "Ширина, %",
-        "formatFor": "Формат поля {{field}}",
-        "alignmentFor": "Выравнивание поля {{field}}"
-      },
-      "agenda": {
-        "timeField": "Поле времени",
-        "locationField": "Поле местоположения",
-        "descriptionField": "Поле описания"
       },
       "metric": {
         "staticLabel": "Статическая подпись",
@@ -714,22 +608,6 @@
         "prefix": "Префикс",
         "suffix": "Суффикс",
         "emptyState": "Пустое состояние"
-      },
-      "cards": {
-        "subtitleLabel": "подзаголовок",
-        "bodyLabel": "текст",
-        "badgeLabel": "значок",
-        "density": "Плотность",
-        "densityComfortable": "Обычная",
-        "densityCompact": "Компактная"
-      },
-      "weather": {
-        "showLocation": "Местоположение",
-        "showCurrent": "Текущие условия",
-        "showHumidity": "Влажность",
-        "showWind": "Ветер",
-        "showPrecipitation": "Осадки",
-        "forecastDays": "Дни прогноза"
       },
       "spotlight": {
         "image": "Загруженное изображение",
@@ -760,11 +638,6 @@
         "orientationVertical": "Вертикальная",
         "orientationHorizontal": "Горизонтальная",
         "statusField": "Поле статуса"
-      },
-      "worldClock": {
-        "locations": "Места",
-        "ianaLabel": "Часовой пояс IANA",
-        "addLocation": "Добавить местоположение"
       },
       "appearance": {
         "title": "Оформление",
@@ -816,6 +689,40 @@
           "lastUpdateNever": "Последнее успешное обновление: пока нет"
         }
       },
+      "v2": {
+        "unavailable": "Компонент предпросмотра этого виджета не входит в данную сборку Studio, поэтому его пока нельзя здесь редактировать.",
+        "unsaved": "Несохранённые изменения",
+        "savedUpdated": "Виджет обновлён.",
+        "savedCreated": "Виджет создан.",
+        "noControls": "В этом разделе нет элементов управления для текущей конфигурации.",
+        "zonePreview": "Предпросмотр виджета",
+        "sizeLabel": "Размер предпросмотра",
+        "customWidth": "Ширина (px)",
+        "customHeight": "Высота (px)",
+        "statusReady": "Предпросмотр готов.",
+        "statusEmpty": "Предпросмотр пуст: {{reason}}",
+        "statusError": "Не удаётся отобразить предпросмотр: {{code}}",
+        "sections": {
+          "data": "Данные",
+          "content": "Содержимое",
+          "appearance": "Оформление",
+          "behavior": "Поведение"
+        },
+        "hints": {
+          "data": "Выберите информацию, которую должен показывать виджет.",
+          "content": "Выберите, что отображается на экране.",
+          "appearance": "Выберите, как это выглядит на экране.",
+          "behavior": "Выберите, как это ведёт себя на экране."
+        },
+        "sizes": {
+          "landscape": "Горизонтальный 16:9",
+          "portrait": "Вертикальный 9:16",
+          "strip": "Широкая полоса",
+          "sidebar": "Боковая панель",
+          "small": "Малая зона",
+          "custom": "Свой размер"
+        }
+      },
       "youtube": {
         "editTitle": "Изменить YouTube-виджет",
         "createTitle": "Создать YouTube-виджет",
@@ -849,9 +756,7 @@
       "fieldDescription": "Выберите поле подключённых данных, которое предоставляет это значение."
     },
     "defaults": {
-      "eventStarted": "Событие началось",
       "noValue": "Нет доступного значения",
-      "noItems": "Нет доступных элементов",
       "noInformation": "Нет доступной информации",
       "noChartData": "Нет данных для диаграммы",
       "noMilestones": "Нет доступных этапов",
@@ -859,9 +764,7 @@
       "metricLabel": "Значение",
       "seriesFirst": "Ряд 1",
       "seriesAdded": "Ряд",
-      "progressLabel": "Прогресс",
-      "zoneLocal": "Местное",
-      "zoneAdded": "Место"
+      "progressLabel": "Прогресс"
     },
     "errors": {
       "previewWait": "Дождитесь предпросмотра виджета перед сохранением.",
@@ -924,7 +827,9 @@
       "galleryTitle": "Создать источник данных",
       "goodToKnow": "Полезно знать",
       "noProviders": "В этой установке нет доступных провайдеров источников данных.",
-      "setupGuidance": "Руководство по настройке источника данных"
+      "setupGuidance": "Руководство по настройке источника данных",
+      "sourcePlugin": "Плагин · {{name}}",
+      "requiresPlugin": "Требуется {{name}}"
     },
     "detail": {
       "backButton": "Вернуться к источникам данных",
@@ -979,6 +884,7 @@
       "calendar": "Публичные календари ICS Google, Microsoft, Apple и других.",
       "capAlerts": "Активные публичные экстренные оповещения и инструкции.",
       "csv": "Загрузите выгрузку таблицы или подключите размещённый URL CSV.",
+      "feed": "Заголовки RSS или Atom, нормализованные в единый контракт записей.",
       "form": "Собирайте заявки, утверждайте их и публикуйте записи в виджеты.",
       "json": "Данные публичного API, сопоставленные простыми путями JSON Pointer.",
       "manual": "Ведите небольшой типизированный набор данных прямо в Studio.",
@@ -1206,6 +1112,7 @@
       "capAlerts": "CAP-оповещения",
       "csv": "CSV",
       "dataSource": "Источник данных",
+      "feed": "RSS / Atom-лента",
       "form": "Форма",
       "json": "JSON",
       "manual": "Ручная таблица",
@@ -1263,6 +1170,16 @@
           "step3": "Просмотрите сопоставленные строки и сохраните."
         },
         "tip": "Имена столбцов должны совпадать с первой строкой CSV. Начните со столбца заголовка; остальные необязательны."
+      },
+      "feed": {
+        "eyebrow": "Новости и заголовки",
+        "description": "Превращайте RSS- или Atom-ленту в чистые кэшированные записи для Новостей, тикеров, списков и раскладок.",
+        "tip": "Вставьте прямой URL ленты. Обычно он заканчивается на /feed, .xml или .rss. Пресеты издателей подставят проверенный адрес.",
+        "steps": {
+          "step1": "Выберите пресет издателя или вставьте свой URL.",
+          "step2": "Выберите поля, лимит элементов и порядок.",
+          "step3": "Проверьте назначенные истории и сохраните."
+        }
       },
       "json": {
         "description": "Подключите публичный endpoint JSON, сопоставьте пути записей и проверьте нормализованный результат перед сохранением.",
@@ -1366,6 +1283,12 @@
       "feedItemsRead_many": "{{count}} элементов прочитано из этой ленты. Поля, которые она не публикует, не указаны.",
       "feedItemsRead_other": "{{count}} элемента прочитано из этой ленты. Поля, которые она не публикует, не указаны.",
       "feedUrl": "URL ленты",
+      "feedPreset": "Пресет издателя",
+      "feedPresetAttribution": "Содержимое ленты принадлежит её издателю. Убедитесь, что показ разрешён, и укажите издателя на экране.",
+      "feedPresetNames": {
+        "nyt-top-stories": "New York Times — Top Stories",
+        "custom": "Свой URL"
+      },
       "fieldAuthor": "Автор",
       "fieldDate": "Дата",
       "fieldDescription": "Описание",
@@ -1424,25 +1347,19 @@
     }
   },
   "graph": {
-    "canvasLabel": "Визуальный граф зависимостей",
+    "canvasLabel": "Граф зависимостей",
     "emptyDescription": "Добавьте содержимое, презентацию или экран, чтобы начать строить граф.",
     "emptyTitle": "Пока нечего отображать",
-    "inspector": {
-      "close": "Закрыть инспектор",
-      "downstreamCount_one": "{{count}} нижестоящий",
-      "downstreamCount_few": "{{count}} нижестоящих",
-      "downstreamCount_many": "{{count}} нижестоящих",
-      "downstreamCount_other": "{{count}} нижестоящего",
-      "downstreamTitle": "Прямые потребители",
-      "emptyDownstream": "Нет прямых потребителей.",
-      "emptyUpstream": "Нет прямых зависимостей.",
-      "open": "Открыть",
-      "title": "Зависимости: {{name}}",
-      "upstreamCount_one": "{{count}} вышестоящий",
-      "upstreamCount_few": "{{count}} вышестоящих",
-      "upstreamCount_many": "{{count}} вышестоящих",
-      "upstreamCount_other": "{{count}} вышестоящего",
-      "upstreamTitle": "Прямые зависимости"
+    "loadError": "Не удалось загрузить граф зависимостей.",
+    "loading": "Построение зависимостей…",
+    "panHint": "Перетаскивайте для сдвига · Прокручивайте для масштаба · Стрелки указывают на потребителей",
+    "overview": "Обзор",
+    "stages": {
+      "sources": "Источники",
+      "presentations": "Презентации",
+      "delivery": "Доставка",
+      "dependencies": "Зависимости",
+      "consumers": "Потребители"
     },
     "kinds": {
       "campaign": "Кампания",
@@ -1464,23 +1381,117 @@
       "widget": "Виджет",
       "widgets": "Виджеты"
     },
-    "legend": {
-      "delivery": "Доставка",
-      "presentations": "Презентации",
-      "sources": "Источники"
+    "counts": {
+      "dataSource_one": "{{count}} источник данных",
+      "dataSource_few": "{{count}} источника данных",
+      "dataSource_many": "{{count}} источников данных",
+      "dataSource_other": "{{count}} источника данных",
+      "media_one": "{{count}} медиафайл",
+      "media_few": "{{count}} медиафайла",
+      "media_many": "{{count}} медиафайлов",
+      "media_other": "{{count}} медиафайла",
+      "widget_one": "{{count}} виджет",
+      "widget_few": "{{count}} виджета",
+      "widget_many": "{{count}} виджетов",
+      "widget_other": "{{count}} виджета",
+      "layout_one": "{{count}} макет",
+      "layout_few": "{{count}} макета",
+      "layout_many": "{{count}} макетов",
+      "layout_other": "{{count}} макета",
+      "playlist_one": "{{count}} плейлист",
+      "playlist_few": "{{count}} плейлиста",
+      "playlist_many": "{{count}} плейлистов",
+      "playlist_other": "{{count}} плейлиста",
+      "campaign_one": "{{count}} кампания",
+      "campaign_few": "{{count}} кампании",
+      "campaign_many": "{{count}} кампаний",
+      "campaign_other": "{{count}} кампании",
+      "schedule_one": "{{count}} расписание",
+      "schedule_few": "{{count}} расписания",
+      "schedule_many": "{{count}} расписаний",
+      "schedule_other": "{{count}} расписания",
+      "screenGroup_one": "{{count}} группа экранов",
+      "screenGroup_few": "{{count}} группы экранов",
+      "screenGroup_many": "{{count}} групп экранов",
+      "screenGroup_other": "{{count}} группы экранов",
+      "screen_one": "{{count}} экран",
+      "screen_few": "{{count}} экрана",
+      "screen_many": "{{count}} экранов",
+      "screen_other": "{{count}} экрана"
     },
-    "loadError": "Не удалось загрузить граф зависимостей.",
-    "loading": "Построение зависимостей…",
-    "panHint": "Перетаскивайте для сдвига · Прокручивайте для масштаба · Стрелки указывают на потребителей",
+    "fanout": {
+      "view": {
+        "dataSource": "Показать источники данных",
+        "media": "Показать медиа",
+        "widget": "Показать виджеты",
+        "layout": "Показать макеты",
+        "playlist": "Показать плейлисты",
+        "campaign": "Показать кампании",
+        "schedule": "Показать расписания",
+        "screenGroup": "Показать группы экранов",
+        "screen": "Показать экраны"
+      },
+      "feeds": "Каждый питает только «{{name}}».",
+      "fedBy": "Каждый используется только в «{{name}}».",
+      "expand": "Показать на графе"
+    },
     "toolbar": {
-      "allTypes": "Все типы",
-      "clearSearch": "Очистить поиск",
-      "fitGraph": "Вписать граф",
-      "searchLabel": "Поиск по графу",
-      "searchPlaceholder": "Поиск узлов",
-      "typeFilter": "Фильтр по типу",
+      "searchLabel": "Поиск ресурсов",
+      "searchPlaceholder": "Поиск ресурсов",
+      "noResults": "Подходящих ресурсов нет.",
+      "moreResults_one": "Показано первое {{count}} совпадение. Уточните запрос, чтобы сузить список.",
+      "moreResults_few": "Показаны первые {{count}} совпадения. Уточните запрос, чтобы сузить список.",
+      "moreResults_many": "Показаны первые {{count}} совпадений. Уточните запрос, чтобы сузить список.",
+      "moreResults_other": "Показаны первые {{count}} совпадения. Уточните запрос, чтобы сузить список.",
+      "direction": "Направление",
+      "dependencies": "Зависимости",
+      "both": "Оба",
+      "consumers": "Потребители",
+      "depth": "Глубина",
+      "hops_one": "{{count}} шаг",
+      "hops_few": "{{count}} шага",
+      "hops_many": "{{count}} шагов",
+      "hops_other": "{{count}} шага",
+      "allDepths": "Все",
+      "zoom": "Масштаб",
       "zoomIn": "Увеличить",
-      "zoomOut": "Уменьшить"
+      "zoomOut": "Уменьшить",
+      "fitGraph": "Вписать граф",
+      "details": "Подробности"
+    },
+    "inspector": {
+      "label": "Сведения о ресурсе",
+      "resize": "Изменить размер панели сведений",
+      "open": "Открыть ресурс",
+      "directDependencies": "Прямые зависимости",
+      "directConsumers": "Прямые потребители",
+      "allDependencies": "Все зависимости",
+      "allConsumers": "Все потребители",
+      "emptyDependencies": "Этот ресурс ни от чего не зависит.",
+      "emptyConsumers": "Этот ресурс нигде не используется.",
+      "overviewDescription": "Каждый блок считает ресурсы одного типа. Выберите тип, чтобы просмотреть его, или найдите ресурс, чтобы увидеть, от чего он зависит и что его использует.",
+      "resourceTypes": "Типы ресурсов",
+      "resources": "Ресурсы",
+      "emptyType": "Ресурсов этого типа нет.",
+      "rowCounts": "Зависимости: {{dependencies}} · Потребители: {{consumers}}",
+      "fedBy": "Получает от",
+      "feeds": "Передаёт в",
+      "noTypeDependencies": "Этот тип ни от чего не зависит.",
+      "noTypeConsumers": "Этот тип нигде не используется.",
+      "relationships_one": "{{count}} связь",
+      "relationships_few": "{{count}} связи",
+      "relationships_many": "{{count}} связей",
+      "relationships_other": "{{count}} связи"
+    },
+    "relationships": {
+      "providesDataTo": "передаёт данные в",
+      "includedIn": "входит в",
+      "usedBy": "используется в",
+      "materializedAs": "материализуется как",
+      "scheduledBy": "запланировано в",
+      "assignedTo": "назначено на",
+      "targets": "нацелено на",
+      "contains": "содержит"
     }
   },
   "preview": {

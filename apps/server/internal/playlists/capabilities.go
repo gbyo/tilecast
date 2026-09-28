@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/tilecast/tilecast/apps/server/internal/plugins"
 )
 
 type presentationWidgetRequirement struct {
@@ -19,6 +19,8 @@ type presentationWidgetRequirement struct {
 	PresetID      *string
 	Configuration json.RawMessage
 	Presentation  *WidgetPresentation
+	// Component is the first-class presentation, when the Widget has one.
+	Component *WidgetPresentation
 }
 
 type playerPresentationCapabilities struct {
@@ -87,10 +89,15 @@ func (s *Service) validatePresentationForScreens(ctx context.Context, q presenta
 				screenName := screenDisplayName(ctx, q, screenID)
 				return fmt.Errorf("%w: %s", ErrConflict, sourceCapabilityError(screenName, v13Blocker))
 			}
+			for _, requirement := range requirements {
+				if requirement.Presentation == nil {
+					return fmt.Errorf("%w: %v", ErrConflict, checkPresentationCompatibility(ctx, q, screenID, requirement.Name, requirement.Component, player))
+				}
+			}
 			continue
 		}
 		for _, requirement := range requirements {
-			if err := checkPresentationCompatibility(ctx, q, screenID, requirement.Name, requirement.Presentation, player); err != nil {
+			if err := checkWidgetCompatibility(ctx, q, screenID, requirement, player); err != nil {
 				return fmt.Errorf("%w: %v", ErrConflict, err)
 			}
 		}
@@ -104,7 +111,50 @@ func (s *Service) validatePresentationForScreens(ctx context.Context, q presenta
 // mirrors manifest generation: playlist items, nested playlists, Layout widget,
 // data_source, and playlist dependencies, and every Data Source referenced by a
 // reachable Widget's configuration.
+// orgPrivateHTTP reports website.private_http_enabled for the singleton
+// organization, false when unreadable. It mirrors
+// settings.Service.Organization without depending on the settings package:
+// the merged default is false, so an absent key fails closed the same way.
+// orgTimezone is the organization's regional timezone, or UTC.
+func (s *Service) orgTimezone(ctx context.Context) string {
+	var values []byte
+	if err := s.db.QueryRow(ctx, `SELECT settings FROM organization_runtime_settings`).Scan(&values); err != nil {
+		return "UTC"
+	}
+	var v map[string]any
+	if err := json.Unmarshal(values, &v); err != nil {
+		return "UTC"
+	}
+	if timezone, _ := v["organization.timezone"].(string); timezone != "" {
+		return timezone
+	}
+	return "UTC"
+}
+
+func (s *Service) orgPrivateHTTP(ctx context.Context) bool {
+	var values []byte
+	if err := s.db.QueryRow(ctx, `SELECT settings FROM organization_runtime_settings`).Scan(&values); err != nil {
+		return false
+	}
+	var v map[string]any
+	if err := json.Unmarshal(values, &v); err != nil {
+		return false
+	}
+	enabled, _ := v["website.private_http_enabled"].(bool)
+	return enabled
+}
+
 func (s *Service) presentationRequirements(ctx context.Context, q presentationQuery, playlistID, layoutID *uuid.UUID) ([]presentationWidgetRequirement, string, error) {
+	allowPrivateHTTP := s.orgPrivateHTTP(ctx)
+	// Effective availability is evaluated once per requirements pass: a
+	// plugin-owned provider whose plugin is not installed cannot be
+	// assigned or projected, while preserved rows stay in the database.
+	// This reads before the widget rows open below because q may be a
+	// transaction pinned to one connection.
+	installed, err := plugins.InstalledSet(ctx, q)
+	if err != nil {
+		return nil, "", err
+	}
 	rows, err := q.Query(ctx, `
 		WITH RECURSIVE refs(kind,id) AS (
 			SELECT 'playlist', $1::uuid WHERE $1::uuid IS NOT NULL
@@ -157,12 +207,21 @@ func (s *Service) presentationRequirements(ctx context.Context, q presentationQu
 		if err = rows.Scan(&requirement.Name, &requirement.Provider, &requirement.PresetID, &requirement.Configuration); err != nil {
 			return nil, "", err
 		}
+		if err = s.requireWidgetSourceUsable(installed, requirement.Name, requirement.Provider); err != nil {
+			// A conflict the author can resolve by installing the plugin,
+			// reported exactly as manifest generation reports it.
+			return nil, "", fmt.Errorf("%w: %v", ErrConflict, err)
+		}
 		sourceIDs = append(sourceIDs, s.widgetDataSourceIDs(requirement.Provider, requirement.Configuration)...)
-		requirement.Presentation, err = s.compileWidgetPresentationForPreset(requirement.Provider, requirement.PresetID, requirement.Configuration)
+		requirement.Presentation, err = s.compileWidgetPresentationForPreset(requirement.Provider, requirement.PresetID, requirement.Configuration, allowPrivateHTTP)
 		if err != nil {
 			return nil, "", fmt.Errorf("compile Widget %q: %w", requirement.Name, err)
 		}
-		if requirement.Presentation == nil {
+		requirement.Component, err = s.compileWidgetComponent(requirement.Provider, requirement.Configuration)
+		if err != nil {
+			return nil, "", fmt.Errorf("compile Widget %q: %w", requirement.Name, err)
+		}
+		if requirement.Presentation == nil && requirement.Component == nil {
 			continue
 		}
 		if v13Blocker == "" && s.widgetRequiresV13(requirement.Provider) {
@@ -220,6 +279,12 @@ func (s *Service) presentationRequirements(ctx context.Context, q presentationQu
 		}
 		bindingRows.Close()
 	}
+	// A preserved plugin-owned Data Source is never a usable assignment
+	// target while its plugin is missing, just like a plugin-owned
+	// Widget above.
+	if err = s.requireReachableSourcesUsable(ctx, q, installed, sourceIDs); err != nil {
+		return nil, "", err
+	}
 	if v13Blocker == "" {
 		blocker, blockerErr := s.reachableSourceRequiringV13(ctx, q, uniqueUUIDs(sourceIDs))
 		if blockerErr != nil {
@@ -228,6 +293,27 @@ func (s *Service) presentationRequirements(ctx context.Context, q presentationQu
 		v13Blocker = blocker
 	}
 	return requirements, v13Blocker, nil
+}
+
+// requireReachableSourcesUsable refuses an assignment that reaches a
+// Data Source whose provider comes from a plugin that is not installed.
+// Unknown rows pass through: missing rows fail later with the existing
+// unavailable-source error.
+func (s *Service) requireReachableSourcesUsable(ctx context.Context, q presentationQuery, installed map[string]bool, sourceIDs []uuid.UUID) error {
+	for _, id := range uniqueUUIDs(sourceIDs) {
+		var provider, name string
+		err := q.QueryRow(ctx, `SELECT provider,name FROM data_sources WHERE id=$1 AND deleted_at IS NULL`, id).Scan(&provider, &name)
+		if errors.Is(err, pgx.ErrNoRows) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if err := s.requireDataSourceSourceUsable(installed, name, provider); err != nil {
+			return fmt.Errorf("%w: %v", ErrConflict, err)
+		}
+	}
+	return nil
 }
 
 // reachableSourceRequiringV13 returns the name of the first Data Source among the
@@ -288,33 +374,26 @@ func checkPresentationCompatibility(ctx context.Context, q presentationQuery, sc
 	if presentation == nil {
 		return nil
 	}
-	hasSchema := false
-	for _, version := range player.SchemaVersions {
-		if int(version) == presentation.SchemaVersion {
-			hasSchema = true
-			break
-		}
-	}
-	capabilities := make([]string, 0, len(presentation.RequiredCapabilities))
-	for capability := range presentation.RequiredCapabilities {
-		capabilities = append(capabilities, capability)
-	}
-	sort.Strings(capabilities)
-	missing := false
-	for _, capability := range capabilities {
-		reported := player.Native[capability]
-		if capability == "web.remote" {
-			reported = player.WebRuntime
-		}
-		if reported < presentation.RequiredCapabilities[capability] {
-			missing = true
-			break
-		}
-	}
-	if hasSchema && !missing {
+	supported, capabilities := presentationSupported(presentation, player)
+	if supported {
 		return nil
 	}
 	return errors.New(widgetCapabilityError(screenDisplayName(ctx, q, screenID), name, presentation, player, capabilities))
+}
+
+// checkWidgetCompatibility accepts a Widget when the Player renders its
+// component or, failing that, its compatibility presentation. A Widget without
+// a compatibility presentation is reported against its component.
+func checkWidgetCompatibility(ctx context.Context, q presentationQuery, screenID uuid.UUID, requirement presentationWidgetRequirement, player playerPresentationCapabilities) error {
+	if requirement.Component != nil {
+		if supported, _ := presentationSupported(requirement.Component, player); supported {
+			return nil
+		}
+		if requirement.Presentation == nil {
+			return checkPresentationCompatibility(ctx, q, screenID, requirement.Name, requirement.Component, player)
+		}
+	}
+	return checkPresentationCompatibility(ctx, q, screenID, requirement.Name, requirement.Presentation, player)
 }
 
 // widgetCapabilityError describes exactly why a screen cannot display a Widget:

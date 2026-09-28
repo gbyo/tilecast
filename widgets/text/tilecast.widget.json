@@ -1,0 +1,157 @@
+{
+  "$schema": "../../packages/widget-sdk/schema/tilecast-widget.schema.json",
+  "apiVersion": 1,
+  "id": "text",
+  "version": 1,
+  "name": "Text",
+  "description": "Show a message, with an optional heading, sized to fill its space.",
+  "category": "Essentials",
+  "icon": "text",
+  "thumbnail": "text-notice",
+  "keywords": ["notice", "announcement", "message", "headline"],
+  "runtime": "native",
+  "configurationSchema": {
+    "fields": [
+      {
+        "key": "heading",
+        "label": "Heading",
+        "description": "Optional. A short line above the message.",
+        "control": "text",
+        "default": "",
+        "maxLength": 120,
+        "ui": { "section": "content", "order": 1 }
+      },
+      {
+        "key": "body",
+        "label": "Message",
+        "description": "Line breaks are kept. The text size follows the space it has.",
+        "control": "multiline_text",
+        "required": true,
+        "minLength": 1,
+        "maxLength": 1000,
+        "default": "Write your announcement here.",
+        "ui": { "section": "content", "order": 2 }
+      },
+      {
+        "key": "style",
+        "label": "Style",
+        "description": "Standard sets a heading over the message. Headline makes a short message the focal point. Callout marks the message with an accent rule.",
+        "control": "select",
+        "default": "standard",
+        "options": [
+          { "value": "standard", "label": "Standard" },
+          { "value": "headline", "label": "Headline" },
+          { "value": "callout", "label": "Callout" }
+        ],
+        "ui": { "section": "appearance", "order": 1, "styleCard": true }
+      },
+      {
+        "key": "align",
+        "label": "Alignment",
+        "control": "select",
+        "default": "center",
+        "options": [
+          { "value": "left", "label": "Left" },
+          { "value": "center", "label": "Center" }
+        ],
+        "ui": { "section": "appearance", "order": 2 }
+      },
+      {
+        "key": "backgroundColor",
+        "label": "Background color",
+        "control": "color",
+        "default": "#0e141b",
+        "ui": { "section": "appearance", "order": 3 }
+      },
+      {
+        "key": "foregroundColor",
+        "label": "Text color",
+        "control": "color",
+        "default": "#f5f7fa",
+        "ui": { "section": "appearance", "order": 4 }
+      }
+    ]
+  },
+  "defaultConfiguration": {
+    "heading": "",
+    "body": "Write your announcement here.",
+    "style": "standard",
+    "align": "center",
+    "backgroundColor": "#0e141b",
+    "foregroundColor": "#f5f7fa"
+  },
+  "presentationSchemaVersion": 1,
+  "presentationTemplate": {
+    "type": "surface",
+    "props": {
+      "backgroundColor": { "$config": "backgroundColor" },
+      "padding": 16
+    },
+    "children": [
+      {
+        "type": "column",
+        "props": { "align": { "$config": "align" }, "gap": 12 },
+        "children": [
+          {
+            "type": "text",
+            "props": {
+              "role": "title",
+              "color": { "$config": "foregroundColor" },
+              "align": { "$config": "align" }
+            },
+            "binding": {
+              "source": "literal",
+              "value": { "$config": "heading" }
+            }
+          },
+          {
+            "type": "text",
+            "props": {
+              "role": "body",
+              "color": { "$config": "foregroundColor" },
+              "align": { "$config": "align" },
+              "maxLines": 8
+            },
+            "binding": { "source": "literal", "value": { "$config": "body" } }
+          }
+        ]
+      }
+    ]
+  },
+  "requiredCapabilities": {
+    "layout.surface": 1,
+    "layout.column": 1,
+    "content.text": 1,
+    "binding.core": 2
+  },
+  "emptyStateBehavior": "text",
+  "requiresManifestV13": true,
+  "setup": {
+    "eyebrow": "No Data Source needed",
+    "tip": "Use a Layout to place the message beside a clock or an image.",
+    "steps": [
+      "Write the message you want on screen.",
+      "Optionally add a heading and choose a style.",
+      "Save and add it to a playlist, a Layout, or a screen."
+    ]
+  },
+  "deprecation": {},
+  "component": {
+    "type": "tilecast.text",
+    "version": 1,
+    "tagName": "tc-widget-text",
+    "entrypoint": "./runtime/index.ts",
+    "configTemplate": {
+      "heading": { "$config": "heading", "default": "" },
+      "body": { "$config": "body", "default": "" },
+      "style": { "$config": "style", "default": "standard" },
+      "align": { "$config": "align", "default": "center" },
+      "background": { "$config": "backgroundColor", "default": "" },
+      "foreground": { "$config": "foregroundColor", "default": "" }
+    },
+    "empty": "render"
+  },
+  "compatibility": {
+    "fallback": "template"
+  }
+}

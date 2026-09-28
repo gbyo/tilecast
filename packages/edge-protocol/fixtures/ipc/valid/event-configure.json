@@ -1,0 +1,17 @@
+{
+  "frame": {
+    "type": "event",
+    "seq": 1,
+    "event": "renderer.configure",
+    "data": {
+      "mediaChannel": {
+        "protocol": "daemon-cap-v1",
+        "socket": "/run/tilecast-edge/media.sock"
+      },
+      "kiosk": {
+        "preventDisplaySleep": true,
+        "hideCursor": true
+      }
+    }
+  }
+}

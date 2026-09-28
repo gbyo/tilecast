@@ -32,10 +32,7 @@ export function playlistPublicationState(
   playlist: Playlist,
 ): PlaylistPublicationState {
   if (playlist.publishedRevision == null) return "draft";
-  return playlist.hasUnpublishedChanges ||
-    playlist.draftRevision !== playlist.publishedRevision
-    ? "unpublished-changes"
-    : "published";
+  return playlist.hasUnpublishedChanges ? "unpublished-changes" : "published";
 }
 
 const publicationBadge = {

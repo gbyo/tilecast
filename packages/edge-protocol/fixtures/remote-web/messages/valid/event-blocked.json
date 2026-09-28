@@ -1,0 +1,6 @@
+{
+  "type": "event",
+  "surfaceId": "s-1",
+  "kind": "navigation-blocked",
+  "code": "blocked_navigation"
+}

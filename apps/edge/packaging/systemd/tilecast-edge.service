@@ -1,0 +1,66 @@
+# Tilecast Edge daemon (tilecastd). See apps/edge/packaging/README.md.
+[Unit]
+Description=Tilecast Edge daemon
+Documentation=https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge.md
+After=network-online.target time-sync.target
+Wants=network-online.target
+# One owner of the device credential: tilecast-edge-migrate disables the
+# legacy Electron player unit before it enables this unit, and disables this
+# unit before it enables the legacy unit again on a rollback.
+
+[Service]
+Type=notify
+NotifyAccess=main
+User=tilecast
+Group=tilecast
+# HDMI-CEC and DDC/CI device nodes (udev/70-tilecast-display.rules). Only
+# this unit gets the group; the renderer and session bridge do not.
+SupplementaryGroups=tilecast-display
+ExecStartPre=/opt/tilecast-edge/current/bin/tilecastd check-config
+ExecStart=/opt/tilecast-edge/current/bin/tilecastd run
+Restart=always
+RestartSec=2
+WatchdogSec=30s
+TimeoutStartSec=60s
+TimeoutStopSec=20s
+
+StateDirectory=tilecast-edge
+StateDirectoryMode=0700
+RuntimeDirectory=tilecast-edge
+RuntimeDirectoryMode=0750
+# The socket directory survives daemon restarts so a waiting renderer can
+# reconnect to the same path.
+RuntimeDirectoryPreserve=restart
+UMask=0077
+
+# Hardening. The only devices the daemon may open are HDMI-CEC adapters and
+# I2C buses for DDC/CI (docs/tilecast-edge.md §4.3); udev gives the display
+# adapters' nodes to tilecast-display, and the device cgroup refuses every
+# other node. The legacy home directory is never visible here:
+# tilecast-edge-migrate copies the legacy state for
+# tilecast-edge-import.service.
+DevicePolicy=closed
+DeviceAllow=char-cec rw
+DeviceAllow=char-i2c rw
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+LockPersonality=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+SystemCallArchitectures=native
+MemoryDenyWriteExecute=yes
+
+[Install]
+WantedBy=multi-user.target

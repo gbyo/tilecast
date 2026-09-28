@@ -1,0 +1,52 @@
+[package]
+name = "tilecastd"
+description = "Tilecast Edge daemon: the Linux player's unprivileged control, state and content process."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+base64.workspace = true
+async-trait.workspace = true
+clap.workspace = true
+edge-cas.workspace = true
+edge-ipc.workspace = true
+edge-platform.workspace = true
+edge-protocol.workspace = true
+edge-release.workspace = true
+edge-server.workspace = true
+edge-state.workspace = true
+futures-util.workspace = true
+jiff.workspace = true
+ring.workspace = true
+rustix = { workspace = true, features = ["process"] }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+time.workspace = true
+tokio = { workspace = true, features = ["full"] }
+tokio-util.workspace = true
+toml.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+uuid.workspace = true
+zbus.workspace = true
+
+[dev-dependencies]
+bytes.workspace = true
+edge-release = { workspace = true, features = ["test-util"] }
+edge-protocol = { workspace = true, features = ["test-util"] }
+http-body-util.workspace = true
+hyper.workspace = true
+hyper-util.workspace = true
+rusqlite.workspace = true
+tempfile.workspace = true
+tokio = { workspace = true, features = ["full", "test-util"] }
+tokio-tungstenite.workspace = true
+tilecast-edge-update = { path = "../tilecast-edge-update" }
+
+[lints]
+workspace = true

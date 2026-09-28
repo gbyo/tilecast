@@ -90,6 +90,10 @@ swapping in a synonym.
 - Put commands the reader runs in fenced code blocks with a language, such as
   `sh` or `dotenv`. Show one command per block when the reader runs them one at
   a time.
+- Use Expressive Code metadata when it adds context: give a terminal block a
+  short `title="..."` when the reader needs to know where or why to run it,
+  and use text markers only to call attention to the line or value that changes.
+  Do not title or highlight every snippet for decoration.
 - Use example addresses from the documentation ranges, such as `192.0.2.10` and
   `signage.example.org`. Never show a real token, password, or internal
   hostname.
@@ -185,7 +189,10 @@ import { Steps } from "@astrojs/starlight/components";
   is short.
 - A page banner (`banner:` frontmatter) is for a meaningful temporary notice
   such as a breaking upgrade requirement or deprecated functionality. Don't
-  add a banner to announce the docs themselves.
+  add a banner to announce the docs themselves. The Tilecast Edge preview
+  banner is applied to the whole Edge section by `src/route-middleware.mjs`;
+  add a page-level caution there only when that page has an additional,
+  specific risk or limitation.
 
 ## Tutorials and quickstarts
 

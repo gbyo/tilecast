@@ -1,0 +1,20 @@
+apiVersion: 1
+operations:
+  - operationId: listWidgets
+    risk: read
+    description: List the widgets.
+    cli:
+      path: [example, widget, list]
+    mcp:
+      action: list_widgets
+  - operationId: createWidget
+    risk: routine
+    description: Create a widget from a JSON document.
+    cli:
+      path: [example, widget, create]
+    mcp:
+      action: create_widget
+    input: document
+exclusions:
+  - operationId: resetWidgets
+    reason: Destructive internal reset with no safe remote form.

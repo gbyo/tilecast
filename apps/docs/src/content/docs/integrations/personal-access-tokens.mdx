@@ -1,0 +1,88 @@
+---
+title: Create a personal access token
+description: Create an expiring token that lets a script, CI job, or the tilecast CLI act as your Studio account.
+---
+
+import { Aside, Steps } from "@astrojs/starlight/components";
+
+A **personal access token** lets a script, a CI job, or the [`tilecast` CLI](../cli/) act as your own Studio account without your password. Each token belongs to the account that created it, and every Studio user can create tokens for their own account.
+
+## Personal access tokens and integration tokens
+
+Tilecast has two kinds of API token. They are not interchangeable.
+
+|             | Personal access token                                         | [Integration token](../tokens/)                                   |
+| ----------- | ------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Acts as     | Your account, with your current role and screen access        | A fixed capability, recorded under the Owner who created it       |
+| Can do      | What your account can do in the API, up to the token's scopes | Only replace Manual Table rows or read fleet health               |
+| Created by  | Any user, for their own account, in **My Account**            | The Owner, in **Settings** > **Integration tokens**               |
+| Expiry      | Always: 7, 30, 90, or 365 days                                | Optional                                                          |
+| Starts with | `tcp_`                                                        | `tci_`                                                            |
+| Use it for  | The CLI, MCP, scripts, and CI jobs that manage Tilecast       | An outside system that feeds a Manual Table or monitors the fleet |
+
+If another system only needs to update a Manual Table or read fleet health, use an integration token. It can't do anything else, even if it leaks.
+
+## Create a token
+
+<Steps>
+
+1. Open **My Account** from the account menu, then open **Sign-in security**.
+2. Under **Personal access tokens**, enter a **Token name** that says where the token is used, such as `ci-deploy`.
+3. Choose the **Scopes** the token needs:
+   - **Read** views screens, settings, schedules, content, and status.
+   - **Write** changes screens, content, schedules, playlists, and settings.
+   - **Admin** manages users, tokens, grants, and security settings.
+4. Under **Expires after**, choose 7, 30, 90, or 365 days.
+5. Select **Create token**.
+6. Select **Copy** and save the token in your password manager or the job's secret store, then select **Done**.
+
+</Steps>
+
+<Aside type="caution" title="The token is shown once">
+
+Studio shows the complete token only on the **Token created** screen. It can't be shown again. If you lose it, revoke it and create a new one.
+
+</Aside>
+
+You can also create a token from the CLI with `tilecast token create`. The CLI prints the secret once. That command needs a CLI sign-in with the `admin` scope.
+
+## What a token can do
+
+A token acts as your account, and Tilecast Server checks your account again on every request:
+
+- Your role and screen access limit what the token can do. A scope never adds a permission your role doesn't have.
+- The token's scopes limit it further. A token with only **Read** can't change anything, even if you're an Owner.
+- If your account is disabled, or your role or screen access changes, the token follows the change on its next request.
+- If the organization requires multi-factor authentication and you haven't enrolled, requests with the token are refused until you enroll in Studio.
+
+Some actions stay in the browser. A token can't enroll or remove sign-in factors, manage passkeys or recovery codes, or approve a CLI sign-in.
+
+## Use a token
+
+With the CLI, send the token on standard input or set it as `TILECAST_TOKEN`. See [Use a personal access token](../cli/#use-a-personal-access-token) in the CLI guide.
+
+For a direct API request, send it in the `Authorization` header:
+
+```sh title="List screens with a personal access token" "Authorization: Bearer $TILECAST_TOKEN"
+curl --fail-with-body "$TILECAST_URL/api/v1/screens" \
+  -H "Authorization: Bearer $TILECAST_TOKEN"
+```
+
+Requests with a token don't need Studio's CSRF token. A request that sends an `Authorization` header is checked only against that header, never against a browser cookie. See the [HTTP API overview](../../reference/api/) for response formats and the endpoint reference.
+
+Tilecast records changes made with a token under your account and includes the token's name.
+
+## Expiry and revocation
+
+Every personal access token expires. There is no permanent token and no renewal. Before a token expires, create a new one, update the script or job, and revoke the old token.
+
+Select **Revoke** next to a token to stop it immediately. Revocation can't be undone. Expired and revoked tokens stay in the list, marked **Expired** or **Revoked**.
+
+If you saved the token in a CLI context, `tilecast auth logout` also revokes it.
+
+## Keep tokens safe
+
+- Create one token for each script or job, so you can revoke one without affecting the others.
+- Choose the fewest scopes and the shortest lifetime that the job needs.
+- Keep tokens in a secret store. Don't put them in a command line, a repository, a URL, or a ticket.
+- Revoke a token as soon as you think it was exposed.

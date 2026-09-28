@@ -51,7 +51,7 @@ const csvInspection: StructuredInspection = {
   },
 };
 
-function editor(provider: "csv" | "rss") {
+function editor(provider: "csv" | "rss" | "feed") {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -149,6 +149,43 @@ describe("StructuredDataSourceEditor", () => {
     // so they are dropped rather than offered as dead controls.
     expect(screen.queryByRole("checkbox", { name: "Author" })).toBeNull();
     expect(screen.queryByRole("checkbox", { name: "Description" })).toBeNull();
+  });
+
+  it("fills a trusted feed address from the publisher preset", async () => {
+    vi.spyOn(api, "inspectDataSource").mockResolvedValue({
+      ...csvInspection,
+      provider: "feed",
+      delimiter: undefined,
+      fields: [
+        { key: "title", label: "Title", samples: ["Board news"], type: "text" },
+      ],
+      available: {
+        title: true,
+        subtitle: false,
+        date: false,
+        author: false,
+        description: false,
+        image: false,
+        link: false,
+      },
+    });
+    editor("feed");
+
+    // The preset picker offers the verified publisher address and a custom
+    // URL, with the publisher's licensing expectation beside it.
+    await screen.findByRole("combobox", { name: "Publisher preset" });
+    expect(screen.getByText(/belongs to its publisher/)).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole("combobox", { name: "Publisher preset" }),
+    );
+    await userEvent.click(
+      await screen.findByRole("option", {
+        name: "New York Times — Top Stories",
+      }),
+    );
+    expect(screen.getByLabelText("Feed URL")).toHaveValue(
+      "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml",
+    );
   });
 
   it("offers explicit day-first dates and explains safe automatic parsing", async () => {

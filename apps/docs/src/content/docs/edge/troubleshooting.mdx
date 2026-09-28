@@ -1,0 +1,41 @@
+---
+title: Troubleshoot Tilecast Edge
+description: Check local status and logs, and fix common pairing, playback, renderer, hardware, migration, and update problems on a Tilecast Edge Player.
+---
+
+Start in Studio. Edge reports through the normal Screens, Activity, and Player updates pages, so check those before you open a shell on the computer.
+
+## Local status and logs
+
+```sh title="On the Edge computer"
+/opt/tilecast-edge/current/bin/tilecastctl status
+journalctl -u tilecast-edge.service
+journalctl -u tilecast-renderer.service
+```
+
+`tilecastctl status` shows pairing, the server connection, the renderer, safe mode, and recovery mode. The Player service and the renderer have separate logs, so you can tell a renderer crash from a Player problem. `tilecastctl capabilities` shows why a hardware feature is unavailable.
+
+## Common problems
+
+- **No server found:** enter the server address manually. LAN discovery is optional.
+- **Presentation unavailable:** the content needs something Edge can't show, such as AirPlay Present, or it includes a Website or YouTube item while Edge's web helper is unavailable. Check [content compatibility](../compatibility/) and the [capability matrix](../capabilities/).
+- **Renderer keeps restarting:** check Activity and safe mode before you delete any Player data.
+- **Display Control unavailable:** check the reason in `tilecastctl capabilities`, such as missing hardware, a missing permission, a disconnected display, no DDC/CI response, or an unsupported control. See [Display Control troubleshooting](../../troubleshooting/display-control/).
+- **Migration refused or rolled back:** run `sudo /opt/tilecast-edge/current/bin/tilecast-edge-migrate status` for the reason, fix it, and migrate again. See [Migrate](../migrate/#automatic-rollback).
+
+## Updates
+
+```sh title="On the Edge computer"
+sudo /opt/tilecast-edge/current/bin/tilecast-edge-update status
+journalctl -u tilecast-edge-update.service -u tilecast-edge-update-guard.service
+```
+
+`status` shows the installed releases, the current one, and the last update with its result and reason. [Update Tilecast Edge](../updates/#when-edge-rolls-back) explains each rollback reason. For deployment problems in Studio, see [Player update troubleshooting](../../troubleshooting/player-updates/).
+
+If the screen shows its recovery screen after an update and `tilecastctl status` reports `state_db_newer_schema`, follow [Recover after a rollback](../updates/#recover-after-a-rollback-to-an-older-state-database).
+
+## What not to do
+
+- Don't run `tilecastd` as root to work around a device permission.
+- Don't delete `/var/lib/tilecast-edge/` as a routine troubleshooting step. It holds the screen's pairing and cached content.
+- Don't post Player credentials, pairing secrets, or private state files in a public issue.

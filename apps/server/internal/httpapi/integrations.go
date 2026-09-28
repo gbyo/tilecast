@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/integrations"
 	"github.com/tilecast/tilecast/apps/server/internal/media"
 )
@@ -156,7 +155,12 @@ func (s *server) createIntegrationToken(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	token, secret, err := s.integrations.Create(r.Context(), user.ID, body.Name, body.Scopes, body.DataSourceIDs, body.ExpiresAt)
 	if errors.Is(err, integrations.ErrValidation) {
 		writeError(w, http.StatusUnprocessableEntity, "token_invalid",
@@ -195,7 +199,12 @@ func (s *server) revokeIntegrationToken(w http.ResponseWriter, r *http.Request) 
 		s.internalError(w, r, err)
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	_, _ = s.db.Exec(r.Context(), `
 		INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,result,summary)
 		VALUES($1,$2,'integration_token.revoked','integration_token',$3,'success','Integration token revoked')`,

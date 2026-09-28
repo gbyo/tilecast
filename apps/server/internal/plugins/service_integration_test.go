@@ -2,17 +2,16 @@ package plugins
 
 import (
 	"context"
-	"errors"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/database"
+	emergency "github.com/tilecast/tilecast/plugins/emergency-alerts/server"
 )
 
-func TestCountdownBarLifecycleAndManifestTargeting(t *testing.T) {
+func TestCatalogAndAlertTickerProjection(t *testing.T) {
 	databaseURL := os.Getenv("TEST_DATABASE_URL")
 	if databaseURL == "" {
 		t.Skip("TEST_DATABASE_URL is not set")
@@ -77,93 +76,7 @@ func TestCountdownBarLifecycleAndManifestTargeting(t *testing.T) {
 	}
 
 	service := NewService(pool, nil)
-	installPluginsForTest(t, pool, CountdownBarID, EmergencyAlertsID)
-	input := validInput()
-	input.ContentPadding = intPointer(0)
-	input.TextScale = 175
-	input.ShowConfetti = true
-	input.UrgencyEnabled = true
-	input.StartingSoonSeconds = 480
-	input.UrgentSeconds = 90
-	input.PulseSeconds = 15
-	input.TargetScope = "locations"
-	input.TargetIDs = []uuid.UUID{locationID}
-	created, err := service.CreateCountdownBar(ctx, userID, input)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, target := range []struct {
-		name  string
-		scope string
-		ids   []uuid.UUID
-	}{
-		{"All screens", "all", nil},
-		{"One screen", "screens", []uuid.UUID{targetedScreen}},
-		{"One group", "sync_groups", []uuid.UUID{groupID}},
-	} {
-		additional := validInput()
-		additional.Name = target.name
-		additional.TargetScope = target.scope
-		additional.TargetIDs = target.ids
-		if _, err = service.CreateCountdownBar(ctx, userID, additional); err != nil {
-			t.Fatal(err)
-		}
-	}
-	targeted, err := service.ManifestForScreen(ctx, targetedScreen)
-	if err != nil || len(targeted) != 4 {
-		t.Fatalf("targeted manifest: %#v %v", targeted, err)
-	}
-	var customMetricsFound bool
-	for _, plugin := range targeted {
-		// Config is the discriminated payload now that more than one plugin type
-		// projects into the manifest, so the countdown entry is picked out by type.
-		if config, ok := plugin.Config.(ManifestCountdownConfig); ok && plugin.ID == created.ID {
-			customMetricsFound = config.ContentPadding == 0 && config.TextScale == 175 && config.ShowConfetti &&
-				config.UrgencyEnabled && config.StartingSoonSeconds == 480 && config.UrgentSeconds == 90 && config.PulseSeconds == 15
-		}
-	}
-	if created.ContentPadding == nil || *created.ContentPadding != 0 || created.TextScale != 175 || !created.ShowConfetti ||
-		!created.UrgencyEnabled || created.StartingSoonSeconds != 480 || created.UrgentSeconds != 90 || created.PulseSeconds != 15 || !customMetricsFound {
-		t.Fatalf("custom display options were not persisted and projected: created=%#v manifest=%#v", created, targeted)
-	}
-	other, err := service.ManifestForScreen(ctx, otherScreen)
-	if err != nil || len(other) != 1 {
-		t.Fatalf("untargeted manifest: %#v %v", other, err)
-	}
-	if config, ok := other[0].Config.(ManifestCountdownConfig); !ok || config.Name != "All screens" {
-		t.Fatalf("untargeted manifest config: %#v", other[0].Config)
-	}
-
-	created.Enabled = false
-	created.ScheduleType = "one_time"
-	created.TargetTime = nil
-	created.DaysOfWeek = nil
-	oneTimeAt := time.Now().UTC().Add(time.Hour)
-	created.OneTimeAt = &oneTimeAt
-	if _, err = service.UpdateCountdownBar(ctx, created.ID, userID, created.CountdownBarInput); err != nil {
-		t.Fatal(err)
-	}
-	targeted, err = service.ManifestForScreen(ctx, targetedScreen)
-	disabledLeaked := false
-	for _, plugin := range targeted {
-		disabledLeaked = disabledLeaked || plugin.ID == created.ID
-	}
-	if err != nil || disabledLeaked || len(targeted) != 3 {
-		t.Fatalf("disabled instance leaked into manifest: %#v %v", targeted, err)
-	}
-	if err = service.DeleteCountdownBar(ctx, created.ID, userID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = service.GetCountdownBar(ctx, created.ID); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("expected deleted instance to be gone, got %v", err)
-	}
-	var revisions int
-	if err = pool.QueryRow(ctx, `SELECT count(*) FROM screen_manifest_state WHERE manifest_version >= 4`).Scan(&revisions); err != nil {
-		t.Fatal(err)
-	}
-	if revisions != 2 {
-		t.Fatalf("expected every screen manifest to be revised for create/update/delete, got %d", revisions)
-	}
+	installPluginsForTest(t, pool, "emergency_alerts")
 
 	// The catalog is the list of what Tilecast can do. Emergency Alerts belongs
 	// in it whether or not this installation has configured any of it, which is
@@ -176,9 +89,9 @@ func TestCountdownBarLifecycleAndManifestTargeting(t *testing.T) {
 	for _, item := range catalog.Items {
 		byID[item.ID] = item
 	}
-	if len(catalog.Items) != 5 || byID["countdown_bar"].Name == "" || byID["emergency_alerts"].Name == "" ||
-		byID["forms"].Name == "" || byID["brand_bug"].Name == "" || byID["noise_meter"].Name == "" {
-		t.Fatalf("catalog = %+v, want Countdown Bar, Emergency Alerts, Forms, Brand Bug, and Noise Meter", catalog.Items)
+	if len(catalog.Items) != 3 || byID["countdown_bar"].Name == "" || byID["emergency_alerts"].Name == "" ||
+		byID["forms"].Name == "" {
+		t.Fatalf("catalog = %+v, want Countdown Bar, Emergency Alerts, and Forms", catalog.Items)
 	}
 	if _, listed := byID["dependency_graph"]; listed {
 		t.Fatal("Dependency Graph is a system tool, not an installable plugin")
@@ -245,9 +158,9 @@ func TestCountdownBarLifecycleAndManifestTargeting(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var ticker *ManifestAlertTickerConfig
+	var ticker *emergency.ManifestAlertTickerConfig
 	for _, plugin := range withTicker {
-		if config, ok := plugin.Config.(ManifestAlertTickerConfig); ok && plugin.Type == "alert_ticker" {
+		if config, ok := plugin.Config.(emergency.ManifestAlertTickerConfig); ok && plugin.Type == "alert_ticker" {
 			if plugin.ID != alertRuleID {
 				t.Fatalf("ticker plugin id = %s, want the rule that raised it", plugin.ID)
 			}
@@ -259,7 +172,7 @@ func TestCountdownBarLifecycleAndManifestTargeting(t *testing.T) {
 	}
 	if ticker.Message != "Tornado Warning — Tornado observed — Franklin County — Move to an interior room." ||
 		ticker.Severity != "Extreme" || ticker.DisplayMode != "push" ||
-		ticker.HeightPX != 120 || ticker.Speed != "fast" || ticker.Priority != alertTickerPriority {
+		ticker.HeightPX != 120 || ticker.Speed != "fast" || ticker.Priority != 1000 {
 		t.Fatalf("alert ticker config = %#v", *ticker)
 	}
 	// An untargeted screen is not carrying someone else's emergency.

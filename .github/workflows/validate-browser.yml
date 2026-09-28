@@ -1,0 +1,62 @@
+name: validate-browser
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  validate:
+    name: Studio browser and visual (Demo Mode)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      TILECAST_DEMO_PORT: "18080"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - uses: docker/setup-buildx-action@v4
+      - name: Build the production demo image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          tags: tilecast/server:demo
+          load: true
+          cache-from: type=gha,scope=server
+          cache-to: type=gha,scope=server,mode=max
+      - name: Validate production Compose
+        run: docker compose --env-file deploy/docker/.env.example -f deploy/docker/compose.yml config --quiet
+      - name: Start the demo stack
+        run: docker compose -f deploy/docker/compose.demo.yml up -d --no-build --wait
+      - name: Run the smoke suite
+        run: npm run test:e2e
+      - name: Studio visual regression
+        if: ${{ !cancelled() }}
+        run: npm run test:visual
+      - name: Server and database logs
+        if: ${{ failure() }}
+        run: docker compose -f deploy/docker/compose.demo.yml logs --no-color --timestamps > demo-stack.log || true
+      - name: Keep failure artifacts
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: studio-browser-visual-failure
+          path: |
+            e2e/test-results
+            e2e/playwright-report
+            e2e/visual/test-results
+            e2e/visual/playwright-report
+            demo-stack.log
+          retention-days: 14
+      - name: Remove the demo stack
+        if: ${{ always() }}
+        run: make demo-down

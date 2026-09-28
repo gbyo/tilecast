@@ -1,27 +1,19 @@
-name: Dashboard CI
+name: ci-dashboard
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "apps/dashboard/**"
-      - "packages/**"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/workflows/ci-dashboard.yml"
-  workflow_dispatch:
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  workflow_call:
 
 permissions:
   contents: read
   checks: write
 
 jobs:
-  dashboard:
+  validate:
+    name: Dashboard CI
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -35,7 +27,7 @@ jobs:
         working-directory: apps/dashboard
         run: |
           mkdir -p test-results
-          npm test -- --reporter=default --reporter=junit --outputFile=test-results/vitest.xml
+          npm run coverage -- --reporter=default --reporter=junit --outputFile=test-results/vitest.xml
       - name: Test Reporter
         if: ${{ !cancelled() }}
         uses: dorny/test-reporter@v3.0.0
@@ -45,3 +37,16 @@ jobs:
           reporter: java-junit
           fail-on-empty: false
       - run: npm run build
+
+      # The Official Tilecast Plugin Conformance checks that need no build:
+      # manifests, generated files, boundaries, migrations, OpenAPI fragments,
+      # and the SDK's own tests. The Go, Studio, and runtime suites run in their
+      # own jobs above.
+      - name: Coverage summary
+        if: ${{ !cancelled() }}
+        run: node scripts/ci/coverage-summary.mjs apps/dashboard/coverage/coverage-summary.json >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: dashboard-coverage
+          path: apps/dashboard/coverage

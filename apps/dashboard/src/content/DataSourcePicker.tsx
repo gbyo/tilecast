@@ -60,14 +60,18 @@ import {
 } from "../components/ui/item";
 import { ConnectDataFlow } from "./DataSourceCreateFlow";
 import { previewRecordMaps } from "./previewRecords";
-import { providerLabel, sourceIcon } from "./dataSourceProviderMeta";
+import {
+  galleryHiddenProviders,
+  providerLabel,
+  sourceIcon,
+} from "./dataSourceProviderMeta";
 
 // Studio shows at most this many sample values so a wide source cannot overflow the control.
 const sampleFieldLimit = 4;
 
-// Form Data Sources are authored through the Forms portal, so the Connect flow never
-// offers them here.
-const formExcluded: DataSourceProvider[] = ["form"];
+/* Providers authored through a canonical plugin surface never appear in the
+ * Connect flow's creation choices; the gallery hides them for the same
+ * reason, without this flow naming any provider. */
 
 export type DataFormatGuide = {
   shape: string;
@@ -308,13 +312,17 @@ function useConnectDataFlow(
   onCreated: (id: string) => void,
 ) {
   const [creating, setCreating] = useState<DataSourceProvider | "choose">();
+  const catalog = useQuery({
+    queryKey: ["provider-catalog"],
+    queryFn: api.providerCatalog,
+  });
   return {
     open: () => setCreating("choose"),
     flow: creating ? (
       <ConnectDataFlow
         provider={creating === "choose" ? undefined : creating}
         providers={createProviders}
-        exclude={formExcluded}
+        exclude={galleryHiddenProviders(catalog.data)}
         csrf={csrf ?? ""}
         onChooseProvider={setCreating}
         onBack={() => setCreating("choose")}

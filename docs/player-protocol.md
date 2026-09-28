@@ -29,7 +29,7 @@ Only the latest pending or approved pairing session for a player installation is
 
 ## Authenticated connection
 
-Player endpoints accept `Authorization: Bearer <device-credential>`. Dashboard cookies are never accepted. `/api/v1/player/socket` uses protocol version 1 and supports `player.hello`, `player.status`, `server.ping`, and `player.pong`. `/api/v1/player/heartbeat` is the lower-frequency fallback.
+Player endpoints accept `Authorization: Bearer <device-credential>`. Dashboard cookies are never accepted. `/api/v1/player/socket` uses protocol version 1 and supports `player.hello`, `player.status`, `server.ping`, and `player.pong`. The `server.ping` `timestamp` is RFC 3339 with sub-second precision (servers before this change sent whole seconds), so a player can sample its clock offset from it. `/api/v1/player/heartbeat` is the lower-frequency fallback.
 
 The same authenticated socket carries bounded binary `TCLS` version 1 frames
 only while Studio holds an ephemeral live-stream lease. The fixed header is
@@ -46,6 +46,14 @@ Authenticated `player.status` messages and HTTP heartbeats share the same contac
 Every identifier field in a heartbeat (`currentItemId`, `currentAssetId`, `currentPlaylistId`, `currentScheduleId`, `currentWebsiteAssetId`, `currentWidgetId`, `activeTakeoverId`, `assignedPlaylistId`, `lastCommandId`, `currentUpdateDeploymentId`) is a UUID. A player that has no valid UUID for one of them omits the field; it must never send a synthetic renderer key such as `layout-<uuid>`, and the server never accepts a non-UUID string in a UUID field. Renderer-local keys belong in bounded string telemetry (`POST /api/v1/player/telemetry` carries `currentItemId` as free text), not in the heartbeat contract. Tilecast Player for Linux validates each identifier before assigning it, logs the omission at debug level, and translates the synthetic key of a directly assigned Layout back to that Layout's UUID.
 
 Server-side handling is deliberately asymmetric. A malformed **optional playback identifier** — the eight fields listed first above — is dropped, named in the warning log, and returned in `data.ignoredFields`; the rest of the heartbeat is then processed normally. This exists because the same message carries the lifecycle facts that settle a self-update (`playerVersion`, `playerVersionCode`, `lastHealthyPlaybackAt`, `playbackState`, `safeMode`), and one unusable telemetry field must not strand a deployment on a healthy screen. A malformed **required, deployment, command, or credential-bearing** field still rejects the whole heartbeat: `currentUpdateDeploymentId` or `lastCommandId` with an unreadable value would misattribute an update or a command result. Dropped values are recorded as absent, never coerced or substituted.
+
+### Release family
+
+A heartbeat may carry `playerFamily` (`android`, `electron-linux` or `edge`) and, for Tilecast Edge, `playerArchitecture` (`x86_64` or `aarch64`). The server records only these values; another value is recorded as absent and never rejects the heartbeat. Player Updates target a release only at screens of its family and architecture. A player that does not report a family keeps the family its platform always meant: `linux` is `electron-linux` and every other platform is `android`.
+
+`install_player_update` payloads carry `playerFamily` and `expectedArtifactSha256` beside `expectedVersionCode` and the Android field `expectedApkSha256`. A player refuses a payload of another family and never downloads it: Tilecast Edge answers the command with `update_wrong_family`, and the Electron Linux Player reports the deployment `failed`.
+
+For a Tilecast Edge release, a new version code in the heartbeat does not settle the update. Tilecast Edge keeps the new release provisional until it has held a live server link, a ready renderer and meaningful playback evidence for 120 seconds, and then reports `succeeded` to `POST /api/v1/player/update-deployments/{deploymentId}/status`. A release that does not confirm is rolled back on the screen, which reports `failed` with `installerStatus: "rolled_back"` and a reason code.
 
 Status thresholds are centralized on the server: connected socket is `online`, contact within two minutes is `recent`, contact within fifteen minutes is `stale`, and older contact is `offline`. Administrative disable and credential revocation override those states.
 

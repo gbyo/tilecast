@@ -6,9 +6,17 @@ import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
-import type { WidgetDefinition, WidgetPresentation } from "../api/types";
+import type {
+  ContentDefinitionField,
+  WidgetDefinition,
+  WidgetPresentation,
+} from "../api/types";
 import { GenericWidgetEditor } from "./GenericDefinitionEditors";
-import { NativeAppEditor, WidgetProviderGallery } from "./SourceEditors";
+import { WidgetProviderGallery } from "./SourceEditors";
+import { V2WidgetEditor } from "./V2WidgetEditor";
+import clockManifest from "../../../../widgets/clock/tilecast.widget.json";
+import qrManifest from "../../../../widgets/qr-code/tilecast.widget.json";
+import menuManifest from "../../../../widgets/menu-board/tilecast.widget.json";
 
 afterEach(() => {
   cleanup();
@@ -48,8 +56,8 @@ function renderEditor(editor: ReactNode) {
       {
         id: "google-sheets-display",
         version: 1,
-        name: "Google Sheets",
-        description: "Display a published Google spreadsheet.",
+        name: "Google Sheets — Display",
+        description: "Show the published spreadsheet itself as a web embed.",
         category: "Google",
         icon: "google-sheets",
         kind: "app",
@@ -79,6 +87,85 @@ function renderEditor(editor: ReactNode) {
         requiredCapabilities: {},
         emptyStateBehavior: "placeholder",
       },
+      {
+        id: "qr-code",
+        version: 1,
+        apiVersion: 1,
+        name: "QR Code",
+        description:
+          "Show a scannable code with an optional heading and instruction.",
+        category: "Essentials",
+        icon: "qr_code",
+        runtime: "native",
+        configurationSchema: qrManifest.configurationSchema as {
+          fields: ContentDefinitionField[];
+        },
+        defaultConfiguration: qrManifest.defaultConfiguration,
+        component: {
+          type: "tilecast.qr-code",
+          version: 1,
+          tagName: "tc-widget-qr-code",
+          entrypoint: "./runtime/index.ts",
+          configTemplate: qrManifest.component.configTemplate,
+          dataSourceFields: [],
+          empty: "render",
+        },
+        compatibility: { fallback: "none" },
+        presentationSchemaVersion: 1,
+        requiredCapabilities: {},
+        emptyStateBehavior: "text",
+      },
+      {
+        id: "qrcode",
+        version: 1,
+        apiVersion: 1,
+        name: "QR Code",
+        description: "Display text or a URL as a scannable code.",
+        category: "Essentials",
+        icon: "qr_code",
+        runtime: "native",
+        configurationSchema: qrManifest.configurationSchema as {
+          fields: ContentDefinitionField[];
+        },
+        defaultConfiguration: qrManifest.defaultConfiguration,
+        component: {
+          type: "tilecast.qr-code",
+          version: 1,
+          tagName: "tc-widget-qr-code",
+          entrypoint: "./runtime/index.ts",
+          configTemplate: {
+            payload: {
+              $config: "payload",
+              default: { $config: "value", default: "" },
+            },
+            style: { $config: "style", default: "standard" },
+          },
+          dataSourceFields: [],
+          empty: "render",
+        },
+        compatibility: { fallback: "legacy" },
+        deprecation: { deprecated: true, replacement: "qr-code" },
+        presentationSchemaVersion: 1,
+        requiredCapabilities: {},
+        emptyStateBehavior: "text",
+      },
+      {
+        id: "qr-call-to-action",
+        version: 1,
+        apiVersion: 1,
+        name: "QR Call to Action",
+        description:
+          "Pair a scannable code with a heading and short instruction.",
+        category: "Essentials",
+        icon: "qr",
+        runtime: "native",
+        configurationSchema: { fields: [] },
+        defaultConfiguration: {},
+        presentationSchemaVersion: 1,
+        requiredCapabilities: {},
+        emptyStateBehavior: "text",
+        deprecation: { deprecated: true, replacement: "qr-code" },
+      },
     ],
     dataSources: [],
   });
@@ -91,7 +178,7 @@ function renderEditor(editor: ReactNode) {
 }
 
 describe("Widget editor experience", () => {
-  it("organizes and searches the integration catalog", async () => {
+  it("groups visual Widgets by purpose and keeps Web Integrations apart", async () => {
     renderEditor(
       <WidgetProviderGallery onChoose={vi.fn()} onClose={vi.fn()} page />,
     );
@@ -99,67 +186,278 @@ describe("Widget editor experience", () => {
     expect(
       await screen.findByRole("heading", { name: "Featured" }),
     ).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "News" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Google" })).toBeTruthy();
+    // Web Integrations sit apart from the visual catalog; a provider's own
+    // category (News, Google) no longer names a gallery group.
+    expect(screen.getByRole("heading", { name: "Integrations" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Data display" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Google" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "News" })).toBeNull();
     expect(screen.getByRole("button", { name: /Notion/ })).toBeDisabled();
 
     await userEvent.type(screen.getByRole("searchbox"), "spreadsheet");
-    expect(screen.getByRole("button", { name: /Google Sheets/ })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: /Google Sheets — Display/ }),
+    ).toBeTruthy();
     expect(screen.queryByRole("button", { name: /ESPN/ })).toBeNull();
   });
 
-  it("groups built-in Widget settings and keeps a named live preview", () => {
+  it("shows one QR Code for new creation once the legacy provider is superseded", async () => {
     renderEditor(
-      <NativeAppEditor
-        provider="clock"
+      <WidgetProviderGallery onChoose={vi.fn()} onClose={vi.fn()} page />,
+    );
+
+    await screen.findByRole("heading", { name: "Featured" });
+    // The canonical Widget is the only QR choice; the deprecated legacy
+    // provider stays resolvable for saved content but leaves the gallery.
+    expect(screen.getAllByRole("button", { name: /QR Code/ })).toHaveLength(1);
+    expect(
+      screen.queryByRole("button", { name: /QR Call to Action/ }),
+    ).toBeNull();
+  });
+
+  it("edits Clock through the generic V2 editor and its real preview", async () => {
+    vi.spyOn(api, "settings").mockResolvedValue({ values: {} } as never);
+    const definition: WidgetDefinition = {
+      id: "clock",
+      version: 1,
+      name: "Clock",
+      description: "Show live local time in a configured timezone.",
+      category: "Essentials",
+      icon: "clock",
+      runtime: "native",
+      configurationSchema: clockManifest.configurationSchema as {
+        fields: ContentDefinitionField[];
+      },
+      defaultConfiguration: clockManifest.defaultConfiguration,
+      component: {
+        type: "tilecast.clock",
+        version: 2,
+        tagName: "tc-widget-clock",
+        entrypoint: "./runtime/index.ts",
+        configTemplate: clockManifest.component.configTemplate,
+        dataSourceFields: [],
+        empty: "render",
+      },
+      compatibility: { fallback: "legacy" },
+      presentationSchemaVersion: 1,
+      requiredCapabilities: {},
+      emptyStateBehavior: "text",
+    };
+    renderEditor(
+      <V2WidgetEditor
+        definition={definition}
+        catalog={{
+          revision: "test",
+          compilerVersion: "99",
+          fingerprint: "test",
+          widgets: [definition],
+          dataSources: [],
+        }}
         csrf="csrf"
         onClose={vi.fn()}
         onSaved={vi.fn()}
-        page
       />,
     );
 
+    // The generic inspector replaces the old per-Widget sections.
     expect(
       screen.getByRole("heading", { name: "Widget details" }),
     ).toBeTruthy();
-    expect(
-      screen.getByRole("heading", { name: "Content and behavior" }),
-    ).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Content" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Appearance" })).toBeTruthy();
-    expect(
-      screen.getByRole("complementary", { name: "Live preview" }),
-    ).toBeTruthy();
-    expect(
-      screen.getByText("Used to find this Widget in Content and playlists."),
-    ).toBeTruthy();
     expect(
       screen.getByText(/Leave blank to use the organization timezone/),
     ).toBeTruthy();
-
-    const contentSection = screen
-      .getByRole("heading", { name: "Content and behavior" })
-      .closest("section");
-    expect(contentSection).toHaveClass("widget-editor__section");
-    expect(contentSection).toContainElement(screen.getByText("Timezone"));
+    // The style select renders as visual cards with the manifest copy.
+    expect(
+      screen.getByRole("radiogroup", { name: "Style" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Analog shows a dial/)).toBeTruthy();
+    // The preview is the real Web Component, not a Studio drawing.
+    const frame = await screen.findByRole("img", { name: "Live preview" });
+    await screen.findByText("Preview ready.");
+    expect(frame.querySelector("tc-widget-clock")).toBeTruthy();
+    // Minimal hides the date toggle through manifest visibility metadata.
+    await userEvent.click(screen.getByRole("radio", { name: "Minimal" }));
+    expect(
+      screen.queryByRole("switch", { name: "Show date" }),
+    ).not.toBeInTheDocument();
   });
 
-  it("presents appearance controls as consistent subsections instead of a one-off fieldset", () => {
+  it("edits saved legacy QR content through the generic V2 editor", async () => {
+    vi.spyOn(api, "settings").mockResolvedValue({ values: {} } as never);
+    const definition: WidgetDefinition = {
+      id: "qrcode",
+      version: 1,
+      apiVersion: 1,
+      name: "QR Code",
+      description: "Display text or a URL as a scannable code.",
+      category: "Essentials",
+      icon: "qr_code",
+      runtime: "native",
+      configurationSchema: qrManifest.configurationSchema as {
+        fields: ContentDefinitionField[];
+      },
+      defaultConfiguration: qrManifest.defaultConfiguration,
+      component: {
+        type: "tilecast.qr-code",
+        version: 1,
+        tagName: "tc-widget-qr-code",
+        entrypoint: "./runtime/index.ts",
+        configTemplate: {
+          payload: {
+            $config: "payload",
+            default: { $config: "value", default: "" },
+          },
+          style: { $config: "style", default: "standard" },
+        },
+        dataSourceFields: [],
+        empty: "render",
+      },
+      compatibility: { fallback: "legacy" },
+      deprecation: { deprecated: true, replacement: "qr-code" },
+      presentationSchemaVersion: 1,
+      requiredCapabilities: {},
+      emptyStateBehavior: "text",
+    };
+    // Saved content keeps its persisted legacy keys; the chained template
+    // maps them into the shared component for preview and compilation.
+    const asset = {
+      id: "asset-qr",
+      name: "Lobby QR",
+      widget: {
+        provider: "qrcode",
+        configuration: {
+          value: "https://example.org/visit",
+          label: "example.org",
+          errorCorrection: "medium",
+          foregroundColor: "#000000",
+          backgroundColor: "#FFFFFF",
+        },
+      },
+    } as unknown as Parameters<typeof V2WidgetEditor>[0]["asset"];
     renderEditor(
-      <NativeAppEditor
-        provider="clock"
+      <V2WidgetEditor
+        definition={definition}
+        catalog={{
+          revision: "test",
+          compilerVersion: "99",
+          fingerprint: "test",
+          widgets: [definition],
+          dataSources: [],
+        }}
+        asset={asset}
         csrf="csrf"
         onClose={vi.fn()}
         onSaved={vi.fn()}
-        page
       />,
     );
 
-    expect(screen.getByText("Size and spacing")).toBeTruthy();
-    expect(screen.getByText("Colors")).toBeTruthy();
-    expect(screen.queryByRole("group", { name: "Content sizing" })).toBeNull();
-    expect(
-      document.querySelectorAll(".widget-editor__subsection"),
-    ).toHaveLength(2);
+    // The persisted legacy keys drive the real component preview even
+    // though the inspector edits the current field names.
+    const frame = await screen.findByRole("img", { name: "Live preview" });
+    await screen.findByText("Preview ready.");
+    expect(frame.querySelector("tc-widget-qr-code")).toBeTruthy();
+  });
+
+  it("edits saved legacy Menu content through the generic V2 editor", async () => {
+    vi.spyOn(api, "settings").mockResolvedValue({ values: {} } as never);
+    vi.spyOn(api, "previewSavedDataSource").mockResolvedValue({
+      fields: [
+        { key: "dish", label: "Dish", type: "text" },
+        { key: "cost", label: "Cost", type: "currency", currency: "USD" },
+      ],
+      records: [{ id: "r1", values: { dish: "Tomato soup", cost: "6.5" } }],
+      cachedAt: "2026-09-28T15:00:00Z",
+      usingCachedData: false,
+      attribution: "Lunch sheet",
+      unavailable: false,
+    });
+    vi.spyOn(api, "getDataSource").mockResolvedValue({
+      id: "source-1",
+      provider: "csv",
+      name: "Lunch rows",
+      description: "",
+      configVersion: 2,
+      configuration: {},
+      status: "ready",
+      cachedRecordCount: 1,
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+      diagnostics: {},
+      fields: [
+        { key: "dish", label: "Dish", type: "text" },
+        { key: "cost", label: "Cost", type: "currency", currency: "USD" },
+      ],
+      widgetUsage: [],
+      bindingUsage: [],
+    } as never);
+    const definition: WidgetDefinition = {
+      id: "menu",
+      version: 1,
+      apiVersion: 1,
+      name: "Menu Board",
+      description: "Show items with descriptions and aligned prices.",
+      category: "Data display",
+      icon: "utensils",
+      runtime: "native",
+      configurationSchema: menuManifest.configurationSchema as {
+        fields: ContentDefinitionField[];
+      },
+      defaultConfiguration: menuManifest.defaultConfiguration,
+      component: {
+        type: "tilecast.menu-board",
+        version: 1,
+        tagName: "tc-widget-menu-board",
+        entrypoint: "./runtime/index.ts",
+        configTemplate: menuManifest.component.configTemplate,
+        dataSourceFields: ["dataSourceId"],
+        empty: "skip-eligible",
+      },
+      compatibility: { fallback: "legacy" },
+      presentationSchemaVersion: 1,
+      requiredCapabilities: {},
+      emptyStateBehavior: "text",
+    };
+    // Saved content keeps its persisted legacy label/value keys; the
+    // chained template maps them into the shared component for preview
+    // and compilation.
+    const asset = {
+      id: "asset-menu",
+      name: "Lunch board",
+      widget: {
+        provider: "menu",
+        configuration: {
+          dataSourceId: "source-1",
+          labelField: "dish",
+          valueField: "cost",
+          maximumItems: 6,
+        },
+      },
+    } as unknown as Parameters<typeof V2WidgetEditor>[0]["asset"];
+    renderEditor(
+      <V2WidgetEditor
+        definition={definition}
+        catalog={{
+          revision: "test",
+          compilerVersion: "99",
+          fingerprint: "test",
+          widgets: [definition],
+          dataSources: [],
+        }}
+        asset={asset}
+        csrf="csrf"
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+
+    // The generic inspector groups the semantic pickers under Data; the
+    // preview mounts the real Menu Board element.
+    expect(screen.getByRole("heading", { name: "Data" })).toBeTruthy();
+    const frame = await screen.findByRole("img", { name: "Live preview" });
+    await screen.findByText("Preview ready.");
+    expect(frame.querySelector("tc-widget-menu-board")).toBeTruthy();
   });
 
   it("uses the same guided structure for catalog-defined Widgets", () => {
@@ -197,4 +495,81 @@ describe("Widget editor experience", () => {
       screen.getByRole("complementary", { name: "Live preview" }),
     ).toBeTruthy();
   });
+
+  it("names a plugin-owned Widget's provenance while its plugin is installed", async () => {
+    renderGalleryWithPluginSource(true);
+    // The badge shows the plugin's name only after the plugin catalog
+    // query resolves, so waiting for it waits for installation state too.
+    await screen.findByText("Plugin · Emergency Alerts");
+    const card = screen.getByRole("button", { name: /Siren/ });
+    expect(card).not.toBeDisabled();
+    expect(screen.queryByText(/Requires/)).toBeNull();
+  });
+
+  it("disables a plugin-owned Widget with its plugin named while uninstalled", async () => {
+    const onChoose = vi.fn();
+    renderGalleryWithPluginSource(false, onChoose);
+    await screen.findByText("Plugin · Emergency Alerts");
+    const card = screen.getByRole("button", { name: /Siren/ });
+    expect(card).toBeDisabled();
+    expect(screen.getByText("Requires Emergency Alerts")).toBeTruthy();
+    expect(onChoose).not.toHaveBeenCalled();
+  });
 });
+
+function renderGalleryWithPluginSource(
+  installed: boolean,
+  onChoose: (provider: string) => void = vi.fn(),
+) {
+  const siren = {
+    id: "emergency_alerts_siren",
+    version: 1,
+    apiVersion: 1,
+    name: "Siren",
+    description: "Sound the siren.",
+    category: "Essentials",
+    icon: "siren",
+    runtime: "native",
+    source: { kind: "plugin", pluginId: "emergency_alerts" },
+    configurationSchema: { fields: [] },
+    defaultConfiguration: {},
+    presentationSchemaVersion: 1,
+    requiredCapabilities: {},
+    emptyStateBehavior: "text",
+    component: {
+      type: "emergencyalerts.siren",
+      version: 1,
+      tagName: "tc-widget-emergencyalerts-siren",
+      entrypoint: "./runtime/index.ts",
+      configTemplate: {},
+      dataSourceFields: [],
+      empty: "render",
+    },
+    compatibility: { fallback: "none" },
+  } satisfies WidgetDefinition;
+  vi.spyOn(api, "contentDefinitions").mockResolvedValue({
+    revision: "1",
+    compilerVersion: "1",
+    fingerprint: "test",
+    widgets: [siren],
+    dataSources: [],
+  });
+  vi.spyOn(api, "plugins").mockResolvedValue({
+    items: [
+      {
+        id: "emergency_alerts",
+        name: "Emergency Alerts",
+        installed,
+      },
+    ],
+    unsupportedInstallations: [],
+  } as never);
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={client}>
+      <WidgetProviderGallery onChoose={onChoose} onClose={vi.fn()} page />
+    </QueryClientProvider>,
+  );
+}
