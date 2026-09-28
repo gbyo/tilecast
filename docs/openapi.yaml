@@ -5716,29 +5716,12 @@ paths:
   /api/v1/data-sources/{provider}/preview:
     post:
       operationId: previewDataSource
-      description: Requires an authenticated dashboard session. Fetches and parses a candidate Data Source configuration under the safe fetch policy without saving raw data. A previewDate exercises date-aware selection.
+      description: Requires an authenticated dashboard session. Fetches and parses a candidate Data Source configuration under the safe fetch policy without saving raw data. A previewDate exercises date-aware selection. The provider is a built-in provider or a definition-backed one, and the response shape depends on it.
       parameters:
         - in: path
           name: provider
           required: true
-          schema:
-            {
-              type: string,
-              enum:
-                [
-                  calendar,
-                  rss,
-                  atom,
-                  feed,
-                  json,
-                  csv,
-                  manual,
-                  weather,
-                  transit,
-                  cap_alerts,
-                  air_quality,
-                ],
-            }
+          schema: { type: string }
       requestBody:
         required: true
         content:

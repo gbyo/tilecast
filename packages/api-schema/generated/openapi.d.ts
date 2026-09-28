@@ -3393,7 +3393,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Requires an authenticated dashboard session. Fetches and parses a candidate Data Source configuration under the safe fetch policy without saving raw data. A previewDate exercises date-aware selection. */
+    /** @description Requires an authenticated dashboard session. Fetches and parses a candidate Data Source configuration under the safe fetch policy without saving raw data. A previewDate exercises date-aware selection. The provider is a built-in provider or a definition-backed one, and the response shape depends on it. */
     post: operations["previewDataSource"];
     delete?: never;
     options?: never;
@@ -19790,18 +19790,7 @@ export interface operations {
       query?: never;
       header?: never;
       path: {
-        provider:
-          | "calendar"
-          | "rss"
-          | "atom"
-          | "feed"
-          | "json"
-          | "csv"
-          | "manual"
-          | "weather"
-          | "transit"
-          | "cap_alerts"
-          | "air_quality";
+        provider: string;
       };
       cookie?: never;
     };
