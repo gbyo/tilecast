@@ -1,8 +1,9 @@
 /**
  * Schedule, campaign, and editorial-review domain helpers over the typed
- * transport. Success bodies in this area are not contract-typed yet, so
- * each call states its local Studio response type explicitly until the
- * contract gains schemas.
+ * transport. Schedule CRUD success bodies are contract-typed and
+ * inferred from the generated OpenAPI schemas; campaigns, reviews,
+ * and the schedule preview still state their local Studio response
+ * type explicitly until the contract gains schemas.
  */
 import { apiDelete, apiGet, apiPatch, apiPost } from "../transport";
 import type {
@@ -16,30 +17,25 @@ import type {
   ContentSubmissionList,
   EditorialContentType,
   PublicationHistoryItem,
-  Schedule,
   ScheduleInput,
-  ScheduleList,
   SchedulePreview,
   SubmissionFilter,
 } from "../types";
 
-export function listSchedules(search = ""): Promise<ScheduleList> {
-  return apiGet<"/api/v1/schedules", ScheduleList>("/api/v1/schedules", {
+export function listSchedules(search = "") {
+  return apiGet("/api/v1/schedules", {
     params: { query: { page: 1, pageSize: 100, search } },
   });
 }
 
-export function getSchedule(id: string): Promise<Schedule> {
-  return apiGet<"/api/v1/schedules/{id}", Schedule>("/api/v1/schedules/{id}", {
+export function getSchedule(id: string) {
+  return apiGet("/api/v1/schedules/{id}", {
     params: { path: { id } },
   });
 }
 
-export function createSchedule(
-  input: ScheduleInput,
-  csrfToken: string,
-): Promise<Schedule> {
-  return apiPost<"/api/v1/schedules", Schedule>("/api/v1/schedules", {
+export function createSchedule(input: ScheduleInput, csrfToken: string) {
+  return apiPost("/api/v1/schedules", {
     body: input,
     csrfToken,
   });
@@ -49,15 +45,12 @@ export function updateSchedule(
   id: string,
   input: ScheduleInput,
   csrfToken: string,
-): Promise<Schedule> {
-  return apiPatch<"/api/v1/schedules/{id}", Schedule>(
-    "/api/v1/schedules/{id}",
-    {
-      params: { path: { id } },
-      body: input,
-      csrfToken,
-    },
-  );
+) {
+  return apiPatch("/api/v1/schedules/{id}", {
+    params: { path: { id } },
+    body: input,
+    csrfToken,
+  });
 }
 
 export function deleteSchedule(id: string, csrfToken: string): Promise<void> {
@@ -71,17 +64,11 @@ export function setScheduleEnabled(
   id: string,
   enabled: boolean,
   csrfToken: string,
-): Promise<Schedule> {
+) {
   const options = { params: { path: { id } }, csrfToken };
   return enabled
-    ? apiPost<"/api/v1/schedules/{id}/enable", Schedule>(
-        "/api/v1/schedules/{id}/enable",
-        options,
-      )
-    : apiPost<"/api/v1/schedules/{id}/disable", Schedule>(
-        "/api/v1/schedules/{id}/disable",
-        options,
-      );
+    ? apiPost("/api/v1/schedules/{id}/enable", options)
+    : apiPost("/api/v1/schedules/{id}/disable", options);
 }
 
 export function previewSchedule(
