@@ -7393,8 +7393,8 @@ export interface components {
       status: components["schemas"]["UpdateDeploymentStatus"];
       /** Format: date-time */
       createdAt: string;
-      platform: string;
-      playerFamily: string;
+      platform: components["schemas"]["PlayerPlatform"];
+      playerFamily: components["schemas"]["PlayerFamily"];
       architecture: string;
       /** Format: int64 */
       versionCode: number;
@@ -7452,8 +7452,8 @@ export interface components {
       rolloutPhase: components["schemas"]["UpdateRolloutPhase"];
       canarySize: number;
       pauseReason?: string | null;
-      platform: string;
-      playerFamily: string;
+      platform: components["schemas"]["PlayerPlatform"];
+      playerFamily: components["schemas"]["PlayerFamily"];
       architecture: string;
       /** Format: int64 */
       versionCode: number;
