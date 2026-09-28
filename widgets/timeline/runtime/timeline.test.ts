@@ -194,6 +194,25 @@ describe("Timeline rendering", () => {
     expect(text(".milestone-status")).toContain("Done");
   });
 
+  it("fits dense timelines into the frame instead of creating a scroll surface", async () => {
+    const records = Array.from({ length: 12 }, (_, index) => ({
+      id: `r${index + 1}`,
+      values: {
+        ...values,
+        title: { kind: "text" as const, text: `Milestone ${index + 1}` },
+      },
+    }));
+    const { root } = await render(
+      { maximumItems: 20 },
+      recordsDocument(records),
+    );
+    const timeline = root.querySelector(".timeline");
+    const flow = root.querySelector(".timeline-flow") as HTMLElement | null;
+    expect(root.querySelectorAll(".milestone")).toHaveLength(12);
+    expect(timeline?.hasAttribute("data-dense")).toBe(true);
+    expect(flow?.style.getPropertyValue("--timeline-count")).toBe("12");
+  });
+
   it("flows horizontally when configured", async () => {
     const { root } = await render(
       { orientation: "horizontal" },
