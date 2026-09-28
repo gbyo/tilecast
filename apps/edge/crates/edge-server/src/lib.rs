@@ -17,6 +17,7 @@
 pub mod client;
 pub mod credential;
 pub mod legacy;
+pub mod live_stream;
 pub mod origin;
 pub mod pairing;
 pub mod player_api;

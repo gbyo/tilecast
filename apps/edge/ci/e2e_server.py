@@ -133,6 +133,51 @@ def upload(client, path, mime):
     return wait_for(ready, f"processing of {os.path.basename(path)}", timeout=120)
 
 
+def read_mjpeg_frames(url, opener, want, timeout):
+    """Reads complete JPEG frames from a Tilecast MJPEG live-stream response.
+
+    Returns the JPEG bodies. Asserts each is a bounded complete JPEG; the
+    frame rate is deliberately not asserted (shared CI hardware).
+    """
+    frames = []
+    rest = b""
+    deadline = time.time() + timeout
+    request = urllib.request.Request(url)
+    with opener.open(request, timeout=10) as response:
+        assert response.status == 200, response.status
+        content_type = response.headers.get("Content-Type", "")
+        assert "multipart/x-mixed-replace" in content_type, content_type
+        while len(frames) < want and time.time() < deadline:
+            chunk = response.read(65536)
+            if not chunk:
+                break
+            rest += chunk
+            while len(frames) < want:
+                start = rest.find(b"--tilecastframe\r\n")
+                if start < 0:
+                    rest = rest[-64:] if len(rest) > 64 else rest
+                    break
+                head = rest[start:]
+                end = head.find(b"\r\n\r\n")
+                if end < 0:
+                    rest = head
+                    break
+                match = re.search(rb"Content-Length: (\d+)", head[:end])
+                if match is None:
+                    raise AssertionError(f"live frame without Content-Length: {head[:end][:200]!r}")
+                length = int(match.group(1))
+                total = start + end + 4 + length + 2
+                if len(rest) < total:
+                    rest = head
+                    break
+                jpeg = rest[start + end + 4:start + end + 4 + length]
+                rest = rest[total:]
+                assert jpeg[:2] == b"\xff\xd8" and jpeg[-2:] == b"\xff\xd9", jpeg[:8]
+                assert 4 <= len(jpeg) <= 100 * 1024, len(jpeg)
+                frames.append(jpeg)
+    return frames
+
+
 def item(asset_id, duration_ms=None):
     body = {"assetId": asset_id, "fitMode": "contain", "transition": "none", "audioEnabled": False, "volume": 0,
             "deliveryPolicy": "download"}
@@ -680,6 +725,34 @@ def main():
             assert jpeg[:3] == b"\xff\xd8\xff" and jpeg[-2:] == b"\xff\xd9", jpeg[:8]
             assert len(jpeg) == preview["fileSize"] <= 500 * 1024, (len(jpeg), preview)
             print("preview:", f"{preview['width']}x{preview['height']} JPEG of {len(jpeg)} bytes from the renderer")
+
+            # Studio Watch Live: a lease makes Edge reconcile the
+            # live-stream session and send bounded TCLS frames on its
+            # existing player socket; the server relays them as MJPEG.
+            # Only useful repeated delivery is asserted, never an exact
+            # frame rate.
+            _, live = client.call("POST", f"/api/v1/screens/{screen_id}/live-stream", expect=201)
+            live_id = live["data"]["id"]
+            stop_renew = threading.Event()
+
+            def renew_live():
+                while not stop_renew.wait(5):
+                    client.call("POST", f"/api/v1/screens/{screen_id}/live-stream/{live_id}/renew", expect=200)
+
+            renewer = threading.Thread(target=renew_live, daemon=True)
+            renewer.start()
+            try:
+                live_frames = read_mjpeg_frames(
+                    f"{BASE}/api/v1/screens/{screen_id}/live-stream/{live_id}/mjpeg",
+                    client.opener, want=3, timeout=60)
+            finally:
+                stop_renew.set()
+                renewer.join(timeout=10)
+            assert len(live_frames) >= 3, f"only {len(live_frames)} live frames arrived"
+            print("live:", f"{len(live_frames)} bounded JPEG frames from the renderer")
+            client.call("DELETE", f"/api/v1/screens/{screen_id}/live-stream/{live_id}", expect=204)
+            status, _ = client.call("GET", f"/api/v1/screens/{screen_id}/live-stream/{live_id}/mjpeg")
+            assert status == 404, f"the ended session still streams: {status}"
 
             # Offline: the committed Layout plays from the cache with the
             # server stopped and the player restarted.

@@ -202,6 +202,7 @@ impl Link {
 
 pub async fn run(context: Arc<DaemonContext>) {
     let mut link = Link { activity: Some(context.activity.clone()), ..Link::default() };
+    let mut live_frames = context.live_frames.subscribe();
     loop {
         if link.preparation.as_ref().is_some_and(|(_, task)| task.is_finished())
             && let Some((_, task)) = link.preparation.take()
@@ -262,6 +263,23 @@ pub async fn run(context: Arc<DaemonContext>) {
                     link.config_dirty = true;
                     break;
                 }
+                changed = live_frames.changed() => {
+                    // The latest Watch Live frame, if any. A newer frame
+                    // supersedes an unsent older one: a slow network drops
+                    // frames instead of queueing video. The socket stays
+                    // owned here; the producer never touches it.
+                    if changed.is_err() {
+                        continue;
+                    }
+                    let frame: Option<crate::live_stream::LiveFrame> =
+                        live_frames.borrow_and_update().as_ref().cloned();
+                    if let Some(frame) = frame
+                        && socket.send_live_stream_frame(frame.frame).await.is_err()
+                    {
+                        link.socket_lost();
+                        break;
+                    }
+                }
                 received = tokio::time::timeout(remaining, socket.next_event()) => {
                     match received {
                         Ok(Ok(PlayerSocketEvent::Closed)) | Ok(Err(_)) | Err(_) => {
@@ -288,6 +306,12 @@ pub async fn run(context: Arc<DaemonContext>) {
                                 }
                                 // Commands have their own task and cadence.
                                 PlayerSocketEvent::CommandsAvailable => context.command_wake.notify_one(),
+                                // A lease change only wakes the Watch Live
+                                // reconciler; the HTTP session endpoint stays
+                                // authoritative.
+                                PlayerSocketEvent::LiveStreamSessionChanged => {
+                                    context.live_stream_wake.notify_one();
+                                }
                                 PlayerSocketEvent::Hello | PlayerSocketEvent::Other => {}
                                 PlayerSocketEvent::Closed => unreachable!("closed events are handled above"),
                             }
@@ -552,6 +576,7 @@ async fn pass(context: &Arc<DaemonContext>, link: &mut Link) -> LinkState {
                 link.manifest_dirty = true;
                 link.config_dirty = true;
                 context.command_wake.notify_one();
+                context.live_stream_wake.notify_one();
             }
             Err(error) => {
                 tracing::warn!(component = "server", event = "player_socket_failed", reason = error.reason_code());
