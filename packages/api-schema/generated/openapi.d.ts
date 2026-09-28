@@ -5571,6 +5571,8 @@ export interface components {
       uptimePercent: number | null;
       screensDown: number;
     };
+    /** @enum {string} */
+    UptimeState: "up" | "impaired" | "down" | "unknown";
     UptimeScreenStrip: {
       /** Format: uuid */
       screenId: string;
@@ -5584,7 +5586,7 @@ export interface components {
       impairedSeconds: number;
       /** Format: int64 */
       downSeconds: number;
-      buckets: string[];
+      buckets: components["schemas"]["UptimeState"][];
     };
     UptimeReport: {
       range: components["schemas"]["ActivityTimeRange"];

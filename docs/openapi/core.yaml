@@ -7841,6 +7841,9 @@ components:
         unknownPercent: { type: number, minimum: 0, maximum: 100 }
         uptimePercent: { type: [number, "null"], minimum: 0, maximum: 100 }
         screensDown: { type: integer, minimum: 0 }
+    UptimeState:
+      type: string
+      enum: [up, impaired, down, unknown]
     UptimeScreenStrip:
       type: object
       additionalProperties: false
@@ -7863,7 +7866,9 @@ components:
         upSeconds: { type: integer, format: int64, minimum: 0 }
         impairedSeconds: { type: integer, format: int64, minimum: 0 }
         downSeconds: { type: integer, format: int64, minimum: 0 }
-        buckets: { type: array, items: { type: string } }
+        buckets:
+          type: array
+          items: { $ref: "#/components/schemas/UptimeState" }
     UptimeReport:
       type: object
       additionalProperties: false
