@@ -4,6 +4,7 @@ import android.os.SystemClock
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.CoroutineScope
@@ -119,10 +120,14 @@ internal fun rememberActivityChild(
 
 internal class RuntimeActivityTracker(
     private val reporter: PlaybackActivityReporter,
-    private val session: PlaybackSession,
+    private var session: PlaybackSession,
 ) {
     private var currentItemId: String? = null
     private var current: ActivityChildTracker? = null
+
+    fun updateSession(session: PlaybackSession) {
+        this.session = session
+    }
 
     fun boundary(itemId: String) {
         current?.complete()
@@ -160,6 +165,13 @@ internal class RuntimeActivityTracker(
         currentItemId = null
     }
 
+    fun fail(itemId: String?, message: String) {
+        if (itemId == null || currentItemId != itemId) return
+        current?.fail(message)
+        current = null
+        currentItemId = null
+    }
+
     fun stop() {
         current?.finishIfNeeded("partial")
         current = null
@@ -177,6 +189,7 @@ internal fun rememberRuntimeActivityTracker(
     val tracker = remember(reporter, manifest.manifestVersion, manifest.playlist?.id) {
         RuntimeActivityTracker(reporter, session)
     }
+    SideEffect { tracker.updateSession(session) }
     DisposableEffect(tracker) {
         onDispose { tracker.stop() }
     }
