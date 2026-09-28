@@ -1,3 +1,5 @@
+import type { components } from "@tilecast/api-schema/generated/openapi";
+
 export type User = {
   id: string;
   name: string;
@@ -851,13 +853,19 @@ export type UptimeReport = {
   screens: UptimeScreen[];
 };
 
+/** Command types the Server queues; the contract owns the vocabulary. */
+export type PlayerCommandType = components["schemas"]["PlayerCommandType"];
+
+/** The contract owns the confirmation vocabulary. */
+export type PowerAssistState = components["schemas"]["PowerAssistResult"];
+
 export type PowerAssistResults = {
-  deviceSleep: string;
-  tvStandby: string;
-  deviceWake: string;
-  tvWake: string;
-  inputSelection: string;
-  tilecastStartup: string;
+  deviceSleep: PowerAssistState;
+  tvStandby: PowerAssistState;
+  deviceWake: PowerAssistState;
+  tvWake: PowerAssistState;
+  inputSelection: PowerAssistState;
+  tilecastStartup: PowerAssistState;
   lastTestedAt?: string;
 };
 
@@ -920,7 +928,8 @@ export type SettingsDocument = {
 };
 /** Versioned settings export file: organization document plus group and screen policies. */
 export type SettingsExportDocument = {
-  schemaVersion: number;
+  /** Only version 1 is accepted; isSettingsExportDocument checks it. */
+  schemaVersion: 1;
   exportedAt: string;
   tilecastVersion: string;
   organization: SettingsDocument;

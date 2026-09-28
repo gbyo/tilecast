@@ -89,18 +89,57 @@ export function deletePlayerRelease(id: string, csrfToken: string) {
   });
 }
 
-export function listUpdateDeployments(): Promise<{
-  items: UpdateDeployment[];
-}> {
-  return apiGet("/api/v1/update-deployments");
+/** Wire shapes of update deployments; unset values arrive as explicit null. */
+export type WireUpdateDeploymentSummary =
+  components["schemas"]["UpdateDeploymentSummary"];
+export type WireUpdateDeploymentDetail =
+  components["schemas"]["UpdateDeploymentDetail"];
+
+export function normalizeUpdateDeployment(
+  wire: WireUpdateDeploymentSummary,
+): UpdateDeployment {
+  return {
+    ...wire,
+    pauseReason: wire.pauseReason ?? undefined,
+    lastFailure: wire.lastFailure ?? undefined,
+  };
 }
 
-export function getUpdateDeployment(
+export function normalizeUpdateDeploymentDetail(
+  wire: WireUpdateDeploymentDetail,
+): UpdateDeploymentDetail {
+  return {
+    ...wire,
+    completedAt: wire.completedAt ?? undefined,
+    pauseReason: wire.pauseReason ?? undefined,
+    screens: wire.screens.map((screen) => ({
+      ...screen,
+      permissionStatus: screen.permissionStatus ?? undefined,
+      installerStatus: screen.installerStatus ?? undefined,
+      safeError: screen.safeError ?? undefined,
+      downloadStartedAt: screen.downloadStartedAt ?? undefined,
+      downloadedAt: screen.downloadedAt ?? undefined,
+      installStartedAt: screen.installStartedAt ?? undefined,
+      completedAt: screen.completedAt ?? undefined,
+    })),
+  };
+}
+
+export async function listUpdateDeployments(): Promise<{
+  items: UpdateDeployment[];
+}> {
+  const result = await apiGet("/api/v1/update-deployments");
+  return { ...result, items: result.items.map(normalizeUpdateDeployment) };
+}
+
+export async function getUpdateDeployment(
   id: string,
 ): Promise<UpdateDeploymentDetail> {
-  return apiGet("/api/v1/update-deployments/{id}", {
-    params: { path: { id } },
-  });
+  return normalizeUpdateDeploymentDetail(
+    await apiGet("/api/v1/update-deployments/{id}", {
+      params: { path: { id } },
+    }),
+  );
 }
 
 export function createUpdateDeployment(

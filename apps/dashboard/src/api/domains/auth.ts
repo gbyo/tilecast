@@ -152,8 +152,10 @@ export function describeOAuthApproval(
         scope: get("scope"),
         state: params.get("state") ?? undefined,
         code_challenge: get("code_challenge"),
-        code_challenge_method:
-          params.get("code_challenge_method") === "S256" ? "S256" : undefined,
+        // Passed through unchanged. The Server owns PKCE validation, so an
+        // unsupported method fails here instead of showing an approval page
+        // for a request that could never be approved.
+        code_challenge_method: params.get("code_challenge_method") ?? undefined,
       },
     },
   });

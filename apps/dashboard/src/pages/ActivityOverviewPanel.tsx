@@ -134,7 +134,7 @@ const secondaryMetrics: MetricSpec[] = [
 ];
 
 type FleetSpec = {
-  key: keyof Overview["fleet"];
+  key: keyof NonNullable<Overview["fleet"]>;
   labelKey:
     | "overview.fleetStates.online.label"
     | "overview.fleetStates.healthy.label"

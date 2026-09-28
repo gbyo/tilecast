@@ -48,6 +48,7 @@ import { useFormatLocale } from "../i18n";
 import type {
   Location,
   PairingRequest,
+  PlayerCommandType,
   ReliabilityStatus,
   Screen,
   ScreenStatus,
@@ -209,7 +210,7 @@ type ScreenCommandAction =
       description: string;
       confirmLabel: string;
       destructive?: boolean;
-      commandType: string;
+      commandType: PlayerCommandType;
       payload: Record<string, unknown>;
     }
   | {
@@ -224,7 +225,7 @@ type ScreenCommandAction =
         max?: number;
         placeholder?: string;
       };
-      commandType: string;
+      commandType: PlayerCommandType;
       createPayload: (value: string | number) => Record<string, unknown>;
     };
 
@@ -3312,7 +3313,7 @@ export function ScreenDetailPage() {
       type,
       payload,
     }: {
-      type: string;
+      type: PlayerCommandType;
       payload: Record<string, unknown>;
     }) =>
       api.createScreenCommand(id, type, payload, auth.status?.csrfToken ?? ""),

@@ -13,7 +13,7 @@ import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
 import { i18n } from "../i18n";
-import type { Screen, User } from "../api/types";
+import type { PowerAssistResults, Screen, User } from "../api/types";
 import type { PairingRequest } from "../api/types";
 import {
   autostartSummary,
@@ -358,7 +358,7 @@ describe("screen management", () => {
   });
 
   it("reports zero-touch readiness only after every safeguard is verified", () => {
-    const powerAssist = {
+    const powerAssist: PowerAssistResults = {
       deviceSleep: "untested",
       tvStandby: "untested",
       deviceWake: "untested",
@@ -427,7 +427,7 @@ describe("screen management", () => {
   });
 
   it("separates an installed autostart unit from one verified at boot", () => {
-    const powerAssist = {
+    const powerAssist: PowerAssistResults = {
       deviceSleep: "untested",
       tvStandby: "untested",
       deviceWake: "untested",
@@ -486,7 +486,7 @@ describe("screen management", () => {
   });
 
   it("hides Linux autostart controls for players that do not report it", () => {
-    const powerAssist = {
+    const powerAssist: PowerAssistResults = {
       deviceSleep: "untested",
       tvStandby: "untested",
       deviceWake: "untested",
@@ -504,7 +504,7 @@ describe("screen management", () => {
   });
 
   it("warns about the gaps the player cannot close by itself", () => {
-    const powerAssist = {
+    const powerAssist: PowerAssistResults = {
       deviceSleep: "untested",
       tvStandby: "untested",
       deviceWake: "untested",

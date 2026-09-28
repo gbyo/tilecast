@@ -10,6 +10,7 @@ import type {
   BulkOperation,
   PairingRequest,
   PlayerCommand,
+  PlayerCommandType,
   PlayerHistory,
   PowerAssistResults,
   ReliabilityStatus,
@@ -83,9 +84,24 @@ export async function getScreenReliability(
  * rather than a transport error.
  */
 function normalizeReliability(wire: unknown): ReliabilityStatus {
-  if (typeof wire !== "object" || wire === null) return {};
-  return wire as ReliabilityStatus;
+  const source =
+    typeof wire === "object" && wire !== null
+      ? (wire as Partial<ReliabilityStatus>)
+      : {};
+  return {
+    ...source,
+    powerAssist: { ...untestedPowerAssist, ...source.powerAssist },
+  };
 }
+
+const untestedPowerAssist: PowerAssistResults = {
+  deviceSleep: "untested",
+  tvStandby: "untested",
+  deviceWake: "untested",
+  tvWake: "untested",
+  inputSelection: "untested",
+  tilecastStartup: "untested",
+};
 
 export async function listScreenPlayerHistory(id: string): Promise<{
   items: PlayerHistory[];
@@ -310,7 +326,7 @@ export function listScreenCommands(id: string): Promise<{
 
 export function createScreenCommand(
   id: string,
-  type: string,
+  type: PlayerCommandType,
   payload: Record<string, unknown>,
   csrfToken: string,
 ): Promise<{ id: string; state: string; expiresAt: string }> {

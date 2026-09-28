@@ -10,7 +10,7 @@
  * genuinely exceptional transports.
  */
 import { apiDelete, apiGet, apiPatch, apiPost } from "../transport";
-import type { components } from "@tilecast/api-schema/generated/openapi";
+import type { components, paths } from "@tilecast/api-schema/generated/openapi";
 import type {
   AirQualitySourceConfig,
   Asset,
@@ -38,18 +38,30 @@ import type {
   WidgetInput,
 } from "../types";
 
-function fromSearchParams(
+type ListQuery = NonNullable<
+  paths["/api/v1/assets"]["get"]["parameters"]["query"]
+>;
+
+/**
+ * The list parameters the contract declares as integers. Every other value
+ * is a string, and stays one: a search for `0042` must reach the Server as
+ * `0042`, not `42`. The `satisfies` check keeps these names in the
+ * contract.
+ */
+const integerQueryParameters: ReadonlySet<string> = new Set([
+  "page",
+  "pageSize",
+] as const satisfies readonly (keyof ListQuery)[]);
+
+export function queryFromSearchParams(
   params: URLSearchParams,
-): Record<string, string | number | boolean> {
-  const query: Record<string, string | number | boolean> = {};
+): Record<string, string | number> {
+  const query: Record<string, string | number> = {};
   for (const [key, value] of params) {
-    const numeric = Number(value);
     query[key] =
-      value === ""
-        ? value
-        : Number.isNaN(numeric) || !/^-?\d+(\.\d+)?$/.test(value)
-          ? value
-          : numeric;
+      integerQueryParameters.has(key) && /^\d+$/.test(value)
+        ? Number(value)
+        : value;
   }
   return query;
 }
@@ -107,7 +119,7 @@ export async function getContentDefinitions(): Promise<ContentDefinitionCatalog>
 
 export function listAssets(params: URLSearchParams) {
   return apiGet("/api/v1/assets", {
-    params: { query: fromSearchParams(params) },
+    params: { query: queryFromSearchParams(params) },
   });
 }
 
@@ -344,7 +356,7 @@ export function listDataSources(
 ): Promise<DataSourceListResult> {
   return apiGet("/api/v1/data-sources", {
     params: {
-      query: fromSearchParams(
+      query: queryFromSearchParams(
         params ?? new URLSearchParams({ page: "1", pageSize: "100" }),
       ),
     },

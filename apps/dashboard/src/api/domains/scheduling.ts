@@ -13,7 +13,6 @@ import type {
   CampaignPreflight,
   CampaignRelease,
   CampaignSnapshot,
-  ContentReview,
   ContentReviewQueue,
   ContentSubmission,
   ContentSubmissionList,
@@ -210,7 +209,7 @@ export function decideContentReview(
   id: string,
   body: { approve: boolean; note?: string; revision?: number },
   csrfToken: string,
-): Promise<ContentReview> {
+) {
   return apiPost("/api/v1/content-reviews/{type}/{id}", {
     params: { path: { type: contentType, id } },
     body,

@@ -1,5 +1,9 @@
-import { describe, expect, it } from "vitest";
-import { normalizeOAuthGrant, normalizePersonalAccessToken } from "./auth";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  describeOAuthApproval,
+  normalizeOAuthGrant,
+  normalizePersonalAccessToken,
+} from "./auth";
 
 describe("normalizeOAuthGrant", () => {
   it("maps wire nulls to absent optionals", () => {
@@ -44,5 +48,48 @@ describe("normalizePersonalAccessToken", () => {
     expect(normalized.lastUsedAt).toBeUndefined();
     expect(normalized.revokedAt).toBeUndefined();
     expect(normalized.name).toBe("Lobby kiosk");
+  });
+});
+
+describe("describeOAuthApproval", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  const authorize = (method: string) =>
+    new URLSearchParams({
+      client_id: "tilecast-cli",
+      redirect_uri: "http://127.0.0.1:7788/callback",
+      scope: "read",
+      state: "s1",
+      code_challenge: "abc",
+      code_challenge_method: method,
+    });
+
+  it("forwards an unsupported PKCE method so the Server rejects it", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error: { code: "invalid_challenge", message: "Bad challenge." },
+        }),
+        { status: 400, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    await expect(describeOAuthApproval(authorize("plain"))).rejects.toThrow(
+      "Bad challenge.",
+    );
+    const url = new URL(String(fetchMock.mock.calls[0]?.[0]));
+    expect(url.searchParams.get("code_challenge_method")).toBe("plain");
+  });
+
+  it("omits the method when the request has none", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(
+        new Response(JSON.stringify({ data: {} }), { status: 200 }),
+      );
+    const params = authorize("S256");
+    params.delete("code_challenge_method");
+    await describeOAuthApproval(params);
+    const url = new URL(String(fetchMock.mock.calls[0]?.[0]));
+    expect(url.searchParams.has("code_challenge_method")).toBe(false);
   });
 });
