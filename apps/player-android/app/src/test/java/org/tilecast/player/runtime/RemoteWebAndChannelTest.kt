@@ -60,6 +60,7 @@ class RemoteWebCallHandlerTest {
             call("remoteWeb.create", pagePayload("javascript:alert(1)")), tracker, 7,
         )
         assertTrue(outcome is RemoteWebCallHandler.CallOutcome.Refused)
+        assertEquals("bad_content", (outcome as RemoteWebCallHandler.CallOutcome.Refused).code)
         assertTrue(tracker.snapshot().isEmpty())
     }
 
@@ -176,6 +177,7 @@ class RuntimeEvidenceRouterTest {
     private inner class Sink {
         val boundaries = mutableListOf<Pair<String, String>>()
         val errors = mutableListOf<String>()
+        val itemErrors = mutableListOf<Pair<String?, String>>()
         var progress = 0
         val firstFrames = mutableListOf<String>()
         fun router(activation: String) = RuntimeEvidenceRouter(
@@ -184,6 +186,7 @@ class RuntimeEvidenceRouterTest {
             onError = { errors.add(it) },
             onProgress = { progress++ },
             onFirstFrame = { firstFrames.add(it) },
+            onPlaybackError = { itemId, message -> itemErrors.add(itemId to message) },
         )
     }
 
@@ -208,6 +211,7 @@ class RuntimeEvidenceRouterTest {
         router.handle(RuntimeBridgeProtocol.RuntimeReport.PresentationResult("act1", "rejected"), "act1")
         router.handle(RuntimeBridgeProtocol.RuntimeReport.PlaybackError("act1", "i1", "boom"), "act1")
         assertEquals(listOf("shared presentation rejected", "boom"), sink.errors)
+        assertEquals(listOf("i1" to "boom"), sink.itemErrors)
     }
 
     @Test fun cutoverStaysOffUntilValidated() {
