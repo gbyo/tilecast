@@ -24,6 +24,7 @@ import org.tilecast.player.network.PlayerPlaybackDefaults
 import org.tilecast.player.network.PlayerWebsitePolicy
 import org.tilecast.player.network.WebsiteSourceConfig
 import org.tilecast.player.network.YouTubeSourceConfig
+import java.time.Instant
 
 /** Screen states the shared runtime can present, mapped from native player state. */
 sealed interface RuntimeScreenState {
@@ -45,6 +46,7 @@ sealed interface RuntimeScreenState {
         val takeover: Boolean,
         val nowMillis: Long,
         val clockOffsetMillis: Long,
+        val playbackAnchorMillis: Long? = null,
     ) : RuntimeScreenState
 }
 
@@ -128,9 +130,11 @@ object RuntimePresentationBuilder {
     private fun timingOf(state: RuntimeScreenState.Playing): JsonObject? {
         val group = state.content.manifest.syncGroup ?: return null
         val assets = state.content.manifest.assets
+        val groupEpoch = runCatching { Instant.parse(group.playbackEpoch).toEpochMilli() }.getOrNull()
+        val anchor = state.playbackAnchorMillis ?: groupEpoch ?: return null
         return buildJsonObject {
             put("groupId", group.id.take(64))
-            put("anchorMs", state.nowMillis)
+            put("anchorMs", anchor)
             putJsonArray("durationsMs") {
                 state.items.forEach { add(effectiveDurationMs(it, assets)) }
             }
@@ -326,7 +330,9 @@ object RuntimePresentationBuilder {
         }
         return buildJsonObject {
             baseItem(withDuration, "youtube", config.url.take(512)).toMap().forEach { (k, v) -> put(k, v) }
-            put("audioEnabled", false)
+            // The runtime owns activation mute through remoteWeb.setMuted;
+            // preserve the playlist's audio decision instead of forcing silence.
+            put("audioEnabled", withDuration.audioEnabled)
             putJsonObject("remoteWeb") {
                 put("content", content)
                 put("presentation", presentation)
