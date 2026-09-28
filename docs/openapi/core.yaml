@@ -859,7 +859,15 @@ paths:
                 revision: { type: integer }
                 category: { type: string }
       responses:
-        "200": { description: Settings reset }
+        "200":
+          description: Settings reset
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/SettingsDocument" }
         "400": { description: Invalid request body }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
@@ -1983,7 +1991,15 @@ paths:
         Read the login background selection. Requires an enrolled dashboard
         session.
       responses:
-        "200": { description: Login background selection }
+        "200":
+          description: Login background selection
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/LoginBackground" }
         "401": { description: Dashboard authentication required }
     put:
       operationId: putLoginBackground
@@ -2006,7 +2022,15 @@ paths:
               properties:
                 assetId: { type: string, format: uuid }
       responses:
-        "200": { description: Login background selected }
+        "200":
+          description: Login background selected
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/LoginBackground" }
         "400": { description: Invalid request body }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
@@ -5422,7 +5446,15 @@ paths:
         typed organization settings document with its registry and
         revision.
       responses:
-        "200": { description: Settings document and registry }
+        "200":
+          description: Settings document and registry
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/SettingsDocument" }
         "401": { description: Dashboard authentication required }
     patch:
       operationId: updateSettings
@@ -5441,7 +5473,15 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/SettingsUpdate" }
       responses:
-        "200": { description: Updated settings }
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/SettingsDocument" }
         "401": { description: Dashboard authentication required }
         "403": { description: Owner or Administrator and CSRF token required }
         "409": { description: Settings revision conflict }
@@ -5454,7 +5494,15 @@ paths:
         Requires an authenticated user with the read scope. Reads the calling
         user's own preferences.
       responses:
-        "200": { description: Preference document }
+        "200":
+          description: Preference document
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/SettingsDocument" }
         "401": { description: Dashboard authentication required }
     patch:
       operationId: updatePreferences
@@ -5472,35 +5520,50 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/SettingsUpdate" }
       responses:
-        "200": { description: Updated preferences }
+        "200":
+          description: Updated preferences
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/SettingsDocument" }
         "401": { description: Dashboard authentication required }
         "403": { description: CSRF token required }
         "409": { description: Revision conflict }
   /api/v1/screen-groups/{id}/policy:
     get:
-      {
-        description: "Requires an authenticated dashboard user.",
-
-        operationId: getGroupPolicy,
-
-        summary: Read group player policy,
-        parameters: [{ $ref: "#/components/parameters/ResourceID" }],
-        responses: { "200": { description: Group policy } },
-      }
+      operationId: getGroupPolicy
+      description: "Requires an authenticated dashboard user."
+      summary: Read group player policy
+      parameters: [{ $ref: "#/components/parameters/ResourceID" }]
+      responses:
+        "200":
+          description: Group policy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PolicyDocument" }
     put:
-      {
-        description: "Requires an authenticated dashboard user.",
-
-        operationId: putGroupPolicy,
-
-        summary: Replace typed group policy,
-        parameters: [{ $ref: "#/components/parameters/ResourceID" }],
-        responses:
-          {
-            "200": { description: Updated policy },
-            "409": { description: Revision conflict },
-          },
-      }
+      operationId: putGroupPolicy
+      description: "Requires an authenticated dashboard user."
+      summary: Replace typed group policy
+      parameters: [{ $ref: "#/components/parameters/ResourceID" }]
+      responses:
+        "200":
+          description: Updated policy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PolicyDocument" }
+        "409": { description: Revision conflict }
     delete:
       {
         description: "Requires an authenticated dashboard user.",
@@ -5515,23 +5578,33 @@ paths:
     parameters:
       - { $ref: "#/components/parameters/ResourceID" }
     get:
-      {
-        description: "Requires an authenticated dashboard user.",
-
-        operationId: getScreenPolicy,
-
-        summary: Read screen player policy,
-        responses: { "200": { description: Screen policy } },
-      }
+      operationId: getScreenPolicy
+      description: "Requires an authenticated dashboard user."
+      summary: Read screen player policy
+      responses:
+        "200":
+          description: Screen policy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PolicyDocument" }
     put:
-      {
-        description: "Requires an authenticated dashboard user.",
-
-        operationId: putScreenPolicy,
-
-        summary: Replace typed screen policy,
-        responses: { "200": { description: Updated policy } },
-      }
+      operationId: putScreenPolicy
+      description: "Requires an authenticated dashboard user."
+      summary: Replace typed screen policy
+      responses:
+        "200":
+          description: Updated policy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PolicyDocument" }
     delete:
       {
         description: "Requires an authenticated dashboard user.",
@@ -5552,7 +5625,15 @@ paths:
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses:
-        "200": { description: Effective policy }
+        "200":
+          description: Effective policy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/EffectivePolicy" }
         "401": { description: Dashboard authentication required }
         "404": { description: Screen unknown or outside caller scope }
   /api/v1/screens/{id}/reliability:
@@ -8467,3 +8548,108 @@ components:
       properties:
         revision: { type: integer, format: int64, minimum: 0 }
         values: { type: object }
+    SettingDefinition:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          key,
+          category,
+          type,
+          title,
+          default,
+          scope,
+          sensitive,
+          restartRequired,
+          immediate,
+          futureOnly,
+        ]
+      properties:
+        key: { type: string }
+        category: { type: string }
+        type: { type: string }
+        title: { type: string }
+        description: { type: string }
+        documentation: { type: string }
+        default: {}
+        min: { type: number }
+        max: { type: number }
+        allowed:
+          type: array
+          items: { type: string }
+        scope: { type: string, enum: [organization, policy, preference] }
+        sensitive: { type: boolean }
+        restartRequired: { type: boolean }
+        immediate: { type: boolean }
+        futureOnly: { type: boolean }
+    SettingsDocument:
+      type: object
+      additionalProperties: false
+      description: >-
+        Versioned organization or preference document. Definitions always
+        ride along; callers never merge a second read to render titles.
+      required: [schemaVersion, revision, values, definitions, updatedAt]
+      properties:
+        schemaVersion: { type: integer, minimum: 1 }
+        revision: { type: integer, format: int64, minimum: 0 }
+        values: { type: object }
+        definitions:
+          type: array
+          items: { $ref: "#/components/schemas/SettingDefinition" }
+        updatedAt: { type: string, format: date-time }
+    PolicyDocument:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, revision, values, updatedAt]
+      properties:
+        schemaVersion: { type: integer, minimum: 1 }
+        revision: { type: integer, format: int64, minimum: 0 }
+        priority: { type: integer, minimum: 0 }
+        values: { type: object }
+        updatedAt: { type: string, format: date-time }
+    EffectivePolicyValue:
+      type: object
+      additionalProperties: false
+      required: [value, source]
+      properties:
+        value: {}
+        source: { type: string }
+        sourceId: { type: string, format: uuid }
+    EffectivePolicy:
+      type: object
+      additionalProperties: false
+      description: >-
+        Effective player policy for one screen with inheritance sources.
+      required:
+        [
+          values,
+          organizationRevision,
+          groupRevisions,
+          screenRevision,
+          configRevision,
+          hash,
+        ]
+      properties:
+        values:
+          type: object
+          additionalProperties:
+            { $ref: "#/components/schemas/EffectivePolicyValue" }
+        organizationRevision: { type: integer, format: int64, minimum: 0 }
+        groupRevisions:
+          type: object
+          additionalProperties: { type: integer, format: int64 }
+        screenRevision: { type: integer, format: int64, minimum: 0 }
+        configRevision: { type: integer, format: int64, minimum: 0 }
+        hash: { type: string }
+    LoginBackground:
+      type: object
+      additionalProperties: false
+      required: [imageUrl]
+      properties:
+        assetId:
+          type: [string, "null"]
+          format: uuid
+          description: >-
+            Chosen image asset, or null when no background is set and the
+            login page falls back to its default artwork.
+        imageUrl: { type: string }
