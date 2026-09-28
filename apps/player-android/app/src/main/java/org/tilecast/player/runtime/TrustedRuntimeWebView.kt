@@ -38,7 +38,7 @@ class TrustedRuntimeWebView(
     private val appContext = context.applicationContext
     private val assetLoader = WebViewAssetLoader.Builder()
         .addPathHandler(
-            TrustedRuntimeOrigin.RUNTIME_PATH_PREFIX.trim { it == '/' },
+            TrustedRuntimeOrigin.ASSET_LOADER_PATH_PREFIX,
             WebViewAssetLoader.AssetsPathHandler(appContext),
         )
         .build()
