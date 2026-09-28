@@ -23,10 +23,7 @@ Use the regular Widget and Data Source guides when you need setup instructions.
 | Countdown               | `countdown`               | widget | Essentials                 | native  | `catalog.json`        |
 | World Clock             | `world_clock`             | widget | Essentials                 | native  | `catalog.json`        |
 | Ticker                  | `ticker`                  | widget | Data-driven                | native  | `catalog.json`        |
-| Menu / Price Board      | `menu`                    | widget | Data-driven                | native  | `catalog.json`        |
-| Agenda                  | `agenda`                  | widget | Data-driven                | native  | `catalog.json`        |
 | Metric                  | `metric`                  | widget | Data-driven                | native  | `catalog.json`        |
-| Weather                 | `weather`                 | widget | Data-driven                | native  | `catalog.json`        |
 | Spotlight               | `spotlight`               | widget | Data Display               | native  | `catalog.json`        |
 | Stat Grid               | `stat_grid`               | widget | Data Display               | native  | `catalog.json`        |
 | Chart                   | `chart`                   | widget | Data Display               | native  | `catalog.json`        |
@@ -57,11 +54,14 @@ Use the regular Widget and Data Source guides when you need setup instructions.
 | Sky News                | `sky-news`                | app    | News                       | native  | `news.json`           |
 | The Guardian            | `the-guardian`            | app    | News                       | native  | `news.json`           |
 | School Schedule         | `schedule-board`          | widget | Schedules                  | native  | `schedule-board.json` |
+| Agenda                  | `agenda`                  | widget | Data display               | native  | `widgets/agenda`      |
 | Cards                   | `cards`                   | widget | Data display               | native  | `widgets/cards`       |
 | Clock                   | `clock`                   | widget | Essentials                 | native  | `widgets/clock`       |
 | List                    | `list`                    | widget | Data display               | native  | `widgets/list`        |
+| Menu Board              | `menu`                    | widget | Data display               | native  | `widgets/menu-board`  |
 | QR Code                 | `qr-code`                 | widget | Essentials                 | native  | `widgets/qr-code`     |
 | Table                   | `table`                   | widget | Data display               | native  | `widgets/table`       |
+| Weather                 | `weather`                 | widget | Data display               | native  | `widgets/weather`     |
 
 ## Data Source definitions
 
