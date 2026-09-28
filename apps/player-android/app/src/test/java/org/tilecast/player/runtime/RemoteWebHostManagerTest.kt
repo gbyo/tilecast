@@ -48,6 +48,10 @@ class RemoteWebHostManagerTest {
         assertFalse(RemoteWebHostManager.validPage(page("javascript:alert(1)")))
         assertFalse(RemoteWebHostManager.validPage(page("https://user:pass@example.com/")))
         assertFalse(RemoteWebHostManager.validPage(page("https://example.com:8443/")))
+        assertTrue(RemoteWebHostManager.validPage(page("https://example.com:443/")))
+        assertTrue(RemoteWebHostManager.validPage(page("http://example.com:80/")))
+        assertFalse(RemoteWebHostManager.validPage(page("https://example.com:80/")))
+        assertFalse(RemoteWebHostManager.validPage(page("http://example.com:443/")))
         assertFalse(
             RemoteWebHostManager.validPage(
                 page("https://outside.example/").copy(allowedHosts = listOf("approved.example")),
