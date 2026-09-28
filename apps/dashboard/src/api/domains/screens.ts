@@ -65,11 +65,26 @@ export async function getScreen(id: string): Promise<Screen> {
   );
 }
 
-export function getScreenReliability(id: string): Promise<ReliabilityStatus> {
-  return apiGet<"/api/v1/screens/{id}/reliability", ReliabilityStatus>(
-    "/api/v1/screens/{id}/reliability",
-    { params: { path: { id } } },
-  );
+export async function getScreenReliability(
+  id: string,
+): Promise<ReliabilityStatus> {
+  const wire = await apiGet("/api/v1/screens/{id}/reliability", {
+    params: { path: { id } },
+  });
+  return normalizeReliability(wire);
+}
+
+/**
+ * The reliability endpoint returns a role-conditional diagnostics bag
+ * (see internal/httpapi/reliability.go): fields vary by player state
+ * and managers see package details viewers do not, so the contract
+ * types it as an open map and Studio reads the partial
+ * ReliabilityStatus view. Non-object payloads yield an empty view
+ * rather than a transport error.
+ */
+function normalizeReliability(wire: unknown): ReliabilityStatus {
+  if (typeof wire !== "object" || wire === null) return {};
+  return wire as ReliabilityStatus;
 }
 
 export async function listScreenPlayerHistory(id: string): Promise<{
