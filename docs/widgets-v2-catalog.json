@@ -114,7 +114,7 @@
       "component": "tilecast.metrics",
       "creation": true,
       "pr": "B",
-      "status": "planned"
+      "status": "done"
     },
     {
       "provider": "stat_grid",
@@ -124,7 +124,7 @@
       "canonical": "metric",
       "creation": false,
       "pr": "B",
-      "status": "planned"
+      "status": "done"
     },
     {
       "provider": "progress",
@@ -133,7 +133,7 @@
       "component": "tilecast.progress",
       "creation": true,
       "pr": "B",
-      "status": "planned"
+      "status": "done"
     },
     {
       "provider": "fundraising-thermometer",
@@ -144,7 +144,7 @@
       "style": "thermometer",
       "creation": false,
       "pr": "B",
-      "status": "planned"
+      "status": "done"
     },
     {
       "provider": "spotlight",
@@ -153,7 +153,7 @@
       "component": "tilecast.spotlight",
       "creation": true,
       "pr": "B",
-      "status": "planned"
+      "status": "done"
     },
     {
       "provider": "chart",
@@ -162,7 +162,7 @@
       "component": "tilecast.chart",
       "creation": true,
       "pr": "B",
-      "status": "planned"
+      "status": "done"
     },
     {
       "provider": "timeline",
@@ -171,7 +171,7 @@
       "component": "tilecast.timeline",
       "creation": true,
       "pr": "B",
-      "status": "planned"
+      "status": "done"
     },
 
     {

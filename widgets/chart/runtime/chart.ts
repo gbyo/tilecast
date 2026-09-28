@@ -474,15 +474,15 @@ export class TilecastChartWidget extends TilecastWidgetElement<
         data.showLegend && data.series.length > 1
           ? html`<div class="chart-legend">
               ${data.series.map(
-              (entry) =>
-                html`<span
-                  ><span
-                    class="chart-swatch"
-                    style="background:${entry.color}"
-                  ></span
-                  >${entry.label}</span
-                >`,
-            )}
+                (entry) =>
+                  html`<span
+                    ><span
+                      class="chart-swatch"
+                      style="background:${entry.color}"
+                    ></span
+                    >${entry.label}</span
+                  >`,
+              )}
             </div>`
           : nothing
       }
@@ -532,18 +532,27 @@ export class TilecastChartWidget extends TilecastWidgetElement<
             ${tick}
           </text>`,
       )}
-      ${labels.map((label, index) =>
-        index % stride === 0
-          ? svg`<text
+      ${(() => {
+        // Edge labels anchor inward so centered text never clips past the
+        // plot frame; interior labels stay centered under their marks.
+        const shown = labels
+          .map((_, index) => index)
+          .filter((index) => index % stride === 0);
+        const first = shown[0] ?? -1;
+        const last = shown[shown.length - 1] ?? -1;
+        return labels.map((label, index) =>
+          index % stride === 0
+            ? svg`<text
                 class="chart-tick chart-tick-label"
                 x=${scaleX(index, labels.length)}
                 y=${PLOT_BOTTOM + 14}
-                text-anchor="middle"
+                text-anchor=${shown.length > 1 && index === first ? "start" : shown.length > 1 && index === last ? "end" : "middle"}
               >
                 ${label.length > 10 ? `${label.slice(0, 9)}…` : label}
               </text>`
-          : svg``,
-      )}`;
+            : svg``,
+        );
+      })()}`;
   }
 
   private renderMarks(data: ChartData): TemplateResult {
