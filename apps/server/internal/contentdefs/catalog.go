@@ -1101,3 +1101,37 @@ func (c *Catalog) DataSource(id string) (DataSourceDefinition, bool) {
 	definition, ok := c.dataSourcesByID[id]
 	return definition, ok
 }
+
+// PluginWidgetProviders returns the sorted provider IDs this catalog
+// attributes to a plugin's static Widget contributions. Removal blockers
+// and lifecycle invalidation derive from this instead of naming plugin IDs.
+func (c *Catalog) PluginWidgetProviders(pluginID string) []string {
+	providers := []string{}
+	for _, definition := range c.Widgets {
+		source := definition.Source.Normalized()
+		if source.Kind == SourceKindPlugin && source.PluginID == pluginID {
+			providers = append(providers, definition.ID)
+		}
+	}
+	sort.Strings(providers)
+	return providers
+}
+
+// StaticWidgetContributors returns the sorted plugin IDs contributing
+// Widget definitions to this catalog. A plugin listed here is
+// player-facing for lifecycle purposes even without Plugin API runtime
+// manifest entries: installing it can reactivate preserved content.
+func (c *Catalog) StaticWidgetContributors() []string {
+	seen := map[string]bool{}
+	contributors := []string{}
+	for _, definition := range c.Widgets {
+		source := definition.Source.Normalized()
+		if source.Kind != SourceKindPlugin || seen[source.PluginID] {
+			continue
+		}
+		seen[source.PluginID] = true
+		contributors = append(contributors, source.PluginID)
+	}
+	sort.Strings(contributors)
+	return contributors
+}

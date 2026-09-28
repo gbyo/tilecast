@@ -506,7 +506,9 @@
       "featured": "Featured",
       "featuredHint": "Recommended integrations for common signage needs.",
       "noResults": "No Widgets match this search.",
-      "noMatch": "No Apps or Widgets match “{{search}}”."
+      "noMatch": "No Apps or Widgets match “{{search}}”.",
+      "sourcePlugin": "Plugin · {{name}}",
+      "requiresPlugin": "Requires {{name}}"
     },
     "preview": {
       "webUnavailable": "Web presentation URL is unavailable.",

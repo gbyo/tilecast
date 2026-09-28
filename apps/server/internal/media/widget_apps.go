@@ -112,6 +112,9 @@ func (s *Service) createAppRecipeWidget(ctx context.Context, user uuid.UUID, inp
 	if err = tx.QueryRow(ctx, `SELECT id FROM organization_settings WHERE singleton`).Scan(&organizationID); err != nil {
 		return Asset{}, err
 	}
+	if err = s.lockWidgetSource(ctx, tx, input.Provider); err != nil {
+		return Asset{}, err
+	}
 	sourceName := strings.TrimSpace(input.Name + " · " + definition.Recipe.DataSource.Name)
 	if err = s.insertManagedAppSource(ctx, tx, sourceID, organizationID, user, sourceName, definition.Recipe.DataSource.Description, definition.Recipe.DataSource.Provider, prepared); err != nil {
 		return Asset{}, err

@@ -1,5 +1,19 @@
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { authoringUiProblem } from "../tools/widgetctl/main.ts";
+import { widgetManifestSchema } from "../src/manifest.ts";
+import {
+  authoringUiProblem,
+  pluginWidgetIdentities,
+  scaffold,
+} from "../tools/widgetctl/main.ts";
+import { goQuoted, pluginWidgetLedger } from "../tools/widgetctl/generate.ts";
+import {
+  discover,
+  pluginIdForDir,
+  resolvePlugin,
+} from "../tools/widgetctl/repo.ts";
 
 const keys = new Set(["style", "title"]);
 
@@ -43,5 +57,205 @@ describe("authoringUiProblem visibleWhen", () => {
         visibleWhen: { key: "style" },
       }),
     ).toBe("field showDate has a visibility rule with nothing to compare");
+  });
+});
+
+function tempRoot(): string {
+  return mkdtempSync(join(tmpdir(), "widgetctl-"));
+}
+
+function writePluginManifest(root: string, dir: string, id: string): void {
+  const path = join(root, "plugins", dir);
+  mkdirSync(path, { recursive: true });
+  writeFileSync(
+    join(path, "tilecast.plugin.json"),
+    JSON.stringify({ id, name: dir }),
+  );
+}
+
+describe("plugin directory identity", () => {
+  it("resolves the stable manifest id, never the directory basename", () => {
+    const root = tempRoot();
+    writePluginManifest(root, "emergency-alerts", "emergency_alerts");
+    expect(pluginIdForDir(root, "emergency-alerts")).toEqual({
+      id: "emergency_alerts",
+    });
+  });
+
+  it("reports a missing parent manifest instead of guessing", () => {
+    const root = tempRoot();
+    mkdirSync(join(root, "plugins", "mystery", "widgets"), {
+      recursive: true,
+    });
+    expect(pluginIdForDir(root, "mystery")).toBeNull();
+  });
+
+  it("rejects an invalid manifest id", () => {
+    const root = tempRoot();
+    writePluginManifest(root, "odd", "Odd Name");
+    expect(pluginIdForDir(root, "odd")).toEqual({
+      problem: "plugins/odd/tilecast.plugin.json names no valid plugin id",
+    });
+  });
+
+  it("resolves --plugin by manifest id or directory", () => {
+    const root = tempRoot();
+    writePluginManifest(root, "emergency-alerts", "emergency_alerts");
+    expect(resolvePlugin(root, "emergency_alerts")).toEqual({
+      dir: "emergency-alerts",
+      id: "emergency_alerts",
+    });
+    expect(resolvePlugin(root, "emergency-alerts")).toEqual({
+      dir: "emergency-alerts",
+      id: "emergency_alerts",
+    });
+    expect(resolvePlugin(root, "unknown")).toBeNull();
+  });
+
+  it("attributes discovered Widgets to the stable plugin id", () => {
+    const root = tempRoot();
+    writePluginManifest(root, "emergency-alerts", "emergency_alerts");
+    const created = scaffold(root, {
+      name: "siren",
+      displayName: "Siren",
+      plugin: { dir: "emergency-alerts", id: "emergency_alerts" },
+    });
+    expect(created[0]).toBe(
+      "plugins/emergency-alerts/widgets/siren/tilecast.widget.json",
+    );
+    const repo = discover(root);
+    expect(repo.problems).toEqual([]);
+    expect(repo.widgets.map((widget) => [widget.dir, widget.source])).toEqual([
+      [
+        "plugins/emergency-alerts/widgets/siren",
+        { kind: "plugin", pluginId: "emergency_alerts" },
+      ],
+    ]);
+  });
+
+  it("flags Widgets whose parent plugin manifest is missing", () => {
+    const root = tempRoot();
+    const path = join(root, "plugins", "mystery", "widgets", "siren");
+    mkdirSync(join(path, "fixtures"), { recursive: true });
+    writeFileSync(
+      join(path, "tilecast.widget.json"),
+      JSON.stringify({
+        apiVersion: 1,
+        id: "mystery_siren",
+        version: 1,
+        name: "Siren",
+        description: "Siren.",
+        category: "Essentials",
+        icon: "layout",
+        runtime: "native",
+        configurationSchema: { fields: [] },
+        defaultConfiguration: {},
+        presentationSchemaVersion: 1,
+        requiredCapabilities: {},
+        emptyStateBehavior: "text",
+        deprecation: {},
+        component: {
+          type: "mystery.siren",
+          version: 1,
+          tagName: "tc-widget-mystery-siren",
+          entrypoint: "./runtime/index.ts",
+          configTemplate: {},
+          empty: "render",
+        },
+        compatibility: { fallback: "none" },
+      }),
+    );
+    const repo = discover(root);
+    expect(
+      repo.problems.some((problem) =>
+        problem.message.includes("has no tilecast.plugin.json"),
+      ),
+    ).toBe(true);
+    expect(repo.widgets).toEqual([]);
+  });
+});
+
+describe("plugin Widget scaffold", () => {
+  it("derives qualified identities in the plugin's own lane", () => {
+    expect(
+      pluginWidgetIdentities(
+        { dir: "emergency-alerts", id: "emergency_alerts" },
+        "siren",
+      ),
+    ).toEqual({
+      id: "emergency_alerts_siren",
+      type: "emergencyalerts.siren",
+      tagName: "tc-widget-emergencyalerts-siren",
+    });
+  });
+
+  it("writes an ordinary Widget below the plugin's actual directory", () => {
+    const root = tempRoot();
+    writePluginManifest(root, "countdown-bar", "countdown_bar");
+    const created = scaffold(root, {
+      name: "race",
+      displayName: "Race",
+      plugin: { dir: "countdown-bar", id: "countdown_bar" },
+    });
+    expect(created).toContain(
+      "plugins/countdown-bar/widgets/race/tilecast.widget.json",
+    );
+    expect(created).toContain(
+      "plugins/countdown-bar/widgets/race/runtime/index.ts",
+    );
+    const manifest = widgetManifestSchema.parse(
+      JSON.parse(
+        readFileSync(
+          join(root, "plugins/countdown-bar/widgets/race/tilecast.widget.json"),
+          "utf8",
+        ),
+      ),
+    );
+    expect(manifest.id).toBe("countdown_bar_race");
+    expect(manifest.component.type).toBe("countdownbar.race");
+    expect(manifest.component.tagName).toBe("tc-widget-countdownbar-race");
+  });
+
+  it("refuses an overlong derived provider id", () => {
+    const root = tempRoot();
+    const longId = "very_long_plugin_identifier_for_overflow_testing_123456";
+    expect(longId.length).toBeGreaterThan(50);
+    expect(() =>
+      scaffold(root, {
+        name: "twenty-five-char-widget00",
+        displayName: "Long",
+        plugin: { dir: "long-plugin", id: longId },
+      }),
+    ).toThrow(/too long or invalid/);
+  });
+});
+
+describe("plugin Widget ledger", () => {
+  it("quotes manifest bytes as a Go string literal", () => {
+    expect(goQuoted('a"b\\c\nd')).toBe('"a\\"b\\\\c\\nd"');
+  });
+
+  it("emits an empty table when no plugin owns a Widget", () => {
+    const ledger = pluginWidgetLedger([]);
+    expect(ledger).toContain(
+      "var pluginWidgetManifests = []PluginWidgetManifest{}",
+    );
+    expect(ledger).toContain("func PluginWidgetManifests()");
+  });
+
+  it("orders entries by directory with stable identities", () => {
+    const ledger = pluginWidgetLedger([
+      { dir: "plugins/b/widgets/y", pluginId: "b", json: '{"id":"y"}' },
+      {
+        dir: "plugins/emergency-alerts/widgets/siren",
+        pluginId: "emergency_alerts",
+        json: '{"id":"emergency_alerts_siren"}',
+      },
+    ]);
+    const first = ledger.indexOf("plugins/b/widgets/y");
+    const second = ledger.indexOf("plugins/emergency-alerts/widgets/siren");
+    expect(first).toBeGreaterThan(-1);
+    expect(second).toBeGreaterThan(first);
+    expect(ledger).toContain('{PluginID: "emergency_alerts"');
   });
 });

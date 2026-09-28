@@ -49,6 +49,20 @@ const STUDIO_HOST = ["@tilecast/studio", "@tilecast/plugin-sdk"];
 const RUNTIME_PACKAGES = ["lit", "vitest"];
 const RUNTIME_HOST = ["@tilecast/plugin-sdk"];
 
+/**
+ * Nested Widgets are ordinary Widgets in a plugin's directory: the Widget
+ * SDK (including its testing and stories surfaces), Lit, the shared
+ * widget-kit, and the tools' own test/story runners. Relative imports must
+ * stay inside the plugin directory, like every other area.
+ */
+const WIDGET_TS_PACKAGES = [
+  "lit",
+  "vitest",
+  "@storybook/web-components-vite",
+  "@tilecast/widget-kit",
+];
+const WIDGET_TS_HOST = ["@tilecast/widget-sdk"];
+
 function packageName(specifier: string): string {
   const parts = specifier.split("/");
   return specifier.startsWith("@") ? parts.slice(0, 2).join("/") : parts[0]!;
@@ -70,6 +84,10 @@ export function checkBoundaries(repo: Repo): Problem[] {
         } else if (area === "runtime") {
           problems.push(
             ...checkTs(repo, plugin, full, RUNTIME_HOST, RUNTIME_PACKAGES),
+          );
+        } else if (area === "widgets") {
+          problems.push(
+            ...checkTs(repo, plugin, full, WIDGET_TS_HOST, WIDGET_TS_PACKAGES),
           );
         } else {
           problems.push({

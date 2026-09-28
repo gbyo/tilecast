@@ -5,6 +5,8 @@
  *   npm run widgets:check            validate every Widget module and generated file
  *   npm run widgets:generate         rewrite the generated files
  *   npm run widgets:new -- <name>    scaffold widgets/<name>/
+ *   npm run widgets:new -- <name> --plugin <plugin>
+ *                                    scaffold plugins/<plugin>/widgets/<name>/
  *
  * `widgets:check` runs these static checks, then the Widget catalog suite
  * (packages/widget-sdk/test/widgets), which loads every module in jsdom to
@@ -21,12 +23,26 @@ import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import {
+  COMPONENT_TYPE_PATTERN,
+  MAX_COMPONENT_TYPE_LENGTH,
+  TAG_NAME_PATTERN,
+} from "../../src/identity.ts";
+import {
+  catalogIdPattern,
   compileComponentConfig,
   configLimitProblem,
   widgetDirPattern,
 } from "../../src/manifest.ts";
 import { generate, stale } from "./generate.ts";
-import { discover, repoRoot, type Problem, type Repo } from "./repo.ts";
+import {
+  discover,
+  pluginIdForDir,
+  repoRoot,
+  resolvePlugin,
+  type Problem,
+  type Repo,
+  type ResolvedPlugin,
+} from "./repo.ts";
 
 const CATALOG_DEFINITIONS = "apps/server/internal/contentdefs/definitions";
 
@@ -153,6 +169,24 @@ export async function check(repo: Repo): Promise<Problem[]> {
         `type ${component.type} uses the reserved tilecast namespace but comes from a non-core source`,
       );
     }
+    if (widget.source.kind === "plugin") {
+      // The manifest beside the Widget cannot declare its own source (the
+      // schema rejects a source key), so re-resolve the parent plugin
+      // manifest and confirm the discovered identity still matches. This
+      // keeps a moved or renamed plugin directory from silently keeping
+      // another plugin's identity.
+      const segment = dir.split("/")[1] ?? "";
+      const resolved = pluginIdForDir(repo.root, segment);
+      if (resolved === null || "problem" in resolved) {
+        add(
+          `parent plugin manifest is missing or invalid below plugins/${segment}`,
+        );
+      } else if (resolved.id !== widget.source.pluginId) {
+        add(
+          `source plugin ${widget.source.pluginId} does not match parent plugin manifest ${resolved.id}`,
+        );
+      }
+    }
     if (
       widget.source.kind === "core" &&
       component.type.startsWith("tilecast.") &&
@@ -238,11 +272,71 @@ export async function check(repo: Repo): Promise<Problem[]> {
   return problems;
 }
 
-function scaffold(root: string, name: string, displayName: string): string[] {
+export interface ScaffoldTarget {
+  /** Widget directory name, for example "scoreboard". */
+  name: string;
+  displayName: string;
+  /** When set, the Widget is owned by this plugin instead of the release. */
+  plugin?: ResolvedPlugin;
+}
+
+/**
+ * Derive a plugin-owned Widget's identities from its plugin and name. The
+ * provider id stays in the plugin's own lane (`emergency_alerts_siren`),
+ * and the component type uses the plugin id without separators
+ * (`emergencyalerts.siren`), because qualified type segments allow neither
+ * underscores nor leading hyphens. A plugin Widget is otherwise an
+ * ordinary Widget: same manifest, same SDK, same WidgetMount.
+ */
+export function pluginWidgetIdentities(
+  plugin: ResolvedPlugin,
+  name: string,
+): { id: string; type: string; tagName: string } {
+  const namespace = plugin.id.replace(/[-_]/g, "");
+  return {
+    id: `${plugin.id}_${name}`,
+    type: `${namespace}.${name}`,
+    tagName: `tc-widget-${namespace}-${name}`,
+  };
+}
+
+export function scaffold(root: string, target: ScaffoldTarget): string[] {
+  const { name, displayName, plugin } = target;
   if (!widgetDirPattern.test(name))
     throw new Error("name must match [a-z][a-z0-9-]*");
-  const dir = join(root, "widgets", name);
-  if (existsSync(dir)) throw new Error(`widgets/${name} already exists`);
+  const location = plugin
+    ? `plugins/${plugin.dir}/widgets/${name}`
+    : `widgets/${name}`;
+  const dir = join(root, location);
+  if (existsSync(dir)) throw new Error(`${location} already exists`);
+  const identities = plugin
+    ? pluginWidgetIdentities(plugin, name)
+    : {
+        id: name,
+        type: `tilecast.${name}`,
+        tagName: `tc-widget-${name}`,
+      };
+  if (!catalogIdPattern.test(identities.id)) {
+    throw new Error(
+      `provider id ${identities.id} is too long or invalid; pick a shorter Widget name`,
+    );
+  }
+  if (
+    identities.type.length > MAX_COMPONENT_TYPE_LENGTH ||
+    !COMPONENT_TYPE_PATTERN.test(identities.type)
+  ) {
+    throw new Error(
+      `component type ${identities.type} is too long or invalid; pick a shorter Widget name`,
+    );
+  }
+  if (!TAG_NAME_PATTERN.test(identities.tagName)) {
+    throw new Error(
+      `tag ${identities.tagName} is invalid; pick a shorter Widget name`,
+    );
+  }
+  const schemaPath = plugin
+    ? "../../../../packages/widget-sdk/schema/tilecast-widget.schema.json"
+    : "../../packages/widget-sdk/schema/tilecast-widget.schema.json";
   const className = `Tilecast${name
     .split("-")
     .map((part) => part[0]!.toUpperCase() + part.slice(1))
@@ -250,9 +344,9 @@ function scaffold(root: string, name: string, displayName: string): string[] {
   const files: Record<string, string> = {
     "tilecast.widget.json": `${JSON.stringify(
       {
-        $schema: "../../packages/widget-sdk/schema/tilecast-widget.schema.json",
+        $schema: schemaPath,
         apiVersion: 1,
-        id: name,
+        id: identities.id,
         version: 1,
         name: displayName,
         description: `${displayName}.`,
@@ -276,9 +370,9 @@ function scaffold(root: string, name: string, displayName: string): string[] {
         emptyStateBehavior: "text",
         deprecation: {},
         component: {
-          type: `tilecast.${name}`,
+          type: identities.type,
           version: 1,
-          tagName: `tc-widget-${name}`,
+          tagName: identities.tagName,
           entrypoint: "./runtime/index.ts",
           configTemplate: { title: { $config: "title", default: "" } },
           empty: "render",
@@ -292,9 +386,9 @@ function scaffold(root: string, name: string, displayName: string): string[] {
 import { ${className}, type Config } from "./${name}.ts";
 
 export default defineWidget<Config, null>({
-  type: "tilecast.${name}",
+  type: ${JSON.stringify(identities.type)},
   version: 1,
-  tagName: "tc-widget-${name}",
+  tagName: ${JSON.stringify(identities.tagName)},
   parseConfig(value) {
     const title = (value as { title?: unknown } | null)?.title;
     return typeof title === "string" && title.length <= 80
@@ -350,7 +444,7 @@ import manifest from "../tilecast.widget.json";
 import fixture from "../fixtures/default.json";
 import widget from "./index.ts";
 
-const meta: Meta = { title: "Widgets/${displayName}" };
+const meta: Meta = { title: ${JSON.stringify(plugin ? `Plugins/${plugin.id}/${displayName}` : `Widgets/${displayName}`)} };
 export default meta;
 
 const story = (frame: Parameters<typeof widgetStory>[3]): StoryObj =>
@@ -376,7 +470,7 @@ export const Zone = story("zone");
     const full = join(dir, path);
     mkdirSync(dirname(full), { recursive: true });
     writeFileSync(full, content);
-    created.push(`widgets/${name}/${path}`);
+    created.push(`${location}/${path}`);
   }
   return created;
 }
@@ -409,17 +503,37 @@ async function main(argv: string[]): Promise<number> {
       const { values, positionals } = parseArgs({
         args: rest,
         allowPositionals: true,
-        options: { name: { type: "string" } },
+        options: { name: { type: "string" }, plugin: { type: "string" } },
       });
       const name = positionals[0];
       if (!name) {
         console.error(
-          "usage: npm run widgets:new -- <name> [--name 'Display Name']",
+          "usage: npm run widgets:new -- <name> [--name 'Display Name'] [--plugin <plugin>]",
         );
         return 2;
       }
-      for (const path of scaffold(root, name, values.name ?? name)) {
-        console.log(`created ${path}`);
+      let plugin: ResolvedPlugin | undefined;
+      if (values.plugin) {
+        const resolved = resolvePlugin(root, values.plugin);
+        if (!resolved) {
+          console.error(
+            `unknown plugin ${JSON.stringify(values.plugin)}: expected a plugin id or directory with a tilecast.plugin.json`,
+          );
+          return 2;
+        }
+        plugin = resolved;
+      }
+      try {
+        for (const path of scaffold(root, {
+          name,
+          displayName: values.name ?? name,
+          plugin,
+        })) {
+          console.log(`created ${path}`);
+        }
+      } catch (error) {
+        console.error((error as Error).message);
+        return 1;
       }
       return main(["generate"]);
     }

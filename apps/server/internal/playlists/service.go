@@ -2126,8 +2126,15 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 	components := make([]*WidgetPresentation, len(manifest.Widgets))
 	canCompileV13 := true
 	allowPrivateHTTP := s.orgPrivateHTTP(ctx)
+	installed, err := plugins.InstalledSet(ctx, s.db)
+	if err != nil {
+		return Manifest{}, "", err
+	}
 	for index := range manifest.Widgets {
 		widget := manifest.Widgets[index]
+		if err = s.requireWidgetSourceUsable(installed, widget.Name, widget.Provider); err != nil {
+			return Manifest{}, "", fmt.Errorf("%w: %v", ErrConflict, err)
+		}
 		compiled[index], _ = s.compileWidgetPresentationForPreset(widget.Provider, widget.PresetID, widget.Configuration, allowPrivateHTTP)
 		components[index], err = s.compileWidgetComponent(widget.Provider, widget.Configuration)
 		if err != nil {

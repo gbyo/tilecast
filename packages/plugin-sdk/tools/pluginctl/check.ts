@@ -4,8 +4,9 @@
  * code itself (implemented contributions against declared capabilities,
  * status, removal, rendering).
  */
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
+import { Ajv2020 } from "ajv/dist/2020.js";
 import YAML from "yaml";
 import { conventionalEntrypoints } from "../../src/manifest.ts";
 import { checkAutomationFiles } from "./automation.ts";
@@ -26,9 +27,11 @@ import {
 } from "./repo.ts";
 
 const DOCS_CONTENT = "apps/docs/src/content/docs";
+const WIDGET_SCHEMA = "packages/widget-sdk/schema/tilecast-widget.schema.json";
 
 export async function check(repo: Repo): Promise<Problem[]> {
   const problems: Problem[] = [...repo.problems];
+  const validateWidget = loadWidgetValidator(repo.root, problems);
   const ids = new Map<string, string>();
   const manifestTypes = new Map<string, string>();
   const slugs = new Map<string, string>();
@@ -150,6 +153,7 @@ export async function check(repo: Repo): Promise<Problem[]> {
     }
 
     checkTests(plugin, add);
+    checkWidgetContributions(repo.root, plugin, validateWidget, add);
   }
 
   problems.push(...checkBoundaries(repo));
@@ -179,6 +183,96 @@ export async function check(repo: Repo): Promise<Problem[]> {
 }
 
 type Add = (message: string, file?: string) => void;
+
+/**
+ * Compile the portable Widget manifest schema once for nested
+ * contribution checks. A missing schema is a repo-level problem; every
+ * nested manifest then reports that it cannot be validated.
+ */
+function loadWidgetValidator(
+  root: string,
+  problems: Problem[],
+): ((manifest: unknown) => string[]) | null {
+  const path = join(root, WIDGET_SCHEMA);
+  try {
+    const schema = JSON.parse(readFileSync(path, "utf8"));
+    const validate = new Ajv2020({ strict: false }).compile(schema);
+    return (manifest: unknown) => {
+      if (validate(manifest)) return [];
+      return (validate.errors ?? []).slice(0, 3).map((error) => {
+        const extra =
+          typeof (error.params as { additionalProperty?: unknown })
+            ?.additionalProperty === "string"
+            ? `(${(error.params as { additionalProperty: string }).additionalProperty}) `
+            : "";
+        return `manifest${error.instancePath || ""} ${extra}${error.message ?? "is invalid"}`;
+      });
+    };
+  } catch {
+    problems.push({
+      file: WIDGET_SCHEMA,
+      message: "widget schema is missing; run npm run widgets:generate",
+    });
+    return null;
+  }
+}
+
+/**
+ * Ownership checks for a plugin's nested Widgets. The Widget lives beneath
+ * the plugin's own directory, so its source identity is the parent
+ * manifest id by construction; this check confirms the manifest itself is
+ * a conforming Widget that claims nothing else. Deep conformance (stories,
+ * tests, fixtures, runtime entrypoint, cross-source collisions) stays in
+ * widgets:check, which discovers the same directories; extensions:check
+ * runs both suites.
+ */
+function checkWidgetContributions(
+  root: string,
+  plugin: DiscoveredPlugin,
+  validateWidget: ((manifest: unknown) => string[]) | null,
+  add: Add,
+): void {
+  const widgetsDir = join(plugin.path, "widgets");
+  let names: string[];
+  try {
+    names = readdirSync(widgetsDir).filter(
+      (name) =>
+        !name.startsWith(".") &&
+        name !== "node_modules" &&
+        statSync(join(widgetsDir, name)).isDirectory(),
+    );
+  } catch {
+    return;
+  }
+  for (const name of names.sort()) {
+    const manifestPath = join(widgetsDir, name, "tilecast.widget.json");
+    const relativePath = relative(root, manifestPath);
+    let manifest: unknown;
+    try {
+      manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+    } catch {
+      add(`widgets/${name}/tilecast.widget.json is not valid JSON`);
+      continue;
+    }
+    if (validateWidget === null) {
+      add(`widgets/${name} cannot be validated without ${WIDGET_SCHEMA}`);
+      continue;
+    }
+    for (const problem of validateWidget(manifest)) {
+      add(`widgets/${name}: ${problem}`, relativePath);
+    }
+    const entrypoint = (manifest as { component?: { entrypoint?: unknown } })
+      ?.component?.entrypoint;
+    if (typeof entrypoint === "string" && entrypoint.startsWith("./")) {
+      if (!existsSync(join(widgetsDir, name, entrypoint.slice(2)))) {
+        add(
+          `widgets/${name} entrypoint ${entrypoint} does not exist`,
+          relativePath,
+        );
+      }
+    }
+  }
+}
 
 /** Raw plugin API fragments for the operation-ID contract. */
 function readApiFragments(

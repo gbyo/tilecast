@@ -59,6 +59,7 @@ plugins/
     studio/index.tsx          defineStudioPlugin(...)
     runtime/index.ts          defineRuntimePlugin(...) for the shared Player runtime
     runtime/*.css             runtime stylesheets, scoped to .tc-<name>
+    widgets/<widget>/         optional bundled Widgets (see below)
     docs/*.mdx                public documentation pages
 packages/plugin-sdk/
   src/manifest.ts             Zod manifest schema
@@ -79,6 +80,18 @@ The `plugins` Go module requires only the SDK module. The Go compiler refuses
 an import of `apps/server/internal` from another module. `pluginctl check`
 also refuses every other `apps/` import, an import of another plugin, and a
 TypeScript import that leaves the plugin directory.
+
+A bundled plugin may own Widgets beneath `widgets/<widget>/`. A nested
+Widget is an ordinary Widget module (same manifest, SDK, mount, and
+conformance; see [Widgets V2](widgets-v2.md)), attributed to the parent
+manifest id. Scaffold one with
+`npm run widgets:new -- <name> --plugin <plugin>`. TypeScript below
+`widgets/` may import the Widget SDK, widget-kit, Lit, Storybook, and
+Vitest besides relative files inside the plugin; every other plugin
+directory keeps the usual Studio/runtime import rules. `plugins:check`
+validates each nested manifest against the portable Widget schema, and
+`widgets:check` runs the full Widget conformance over the same
+directories.
 
 ## Manifest
 
@@ -278,7 +291,10 @@ transport. The plugin answers the plugin-specific questions:
 - `RemovalBlockers` gives each remaining resource kind with a count, nouns,
   and a resolution: `delete`, `disable`, or `wait`. The catalog API adds the
   resolution to each resource in `409 plugin_in_use`, and Studio uses it to
-  explain the next step.
+  explain the next step. Generic static-contribution blockers come first:
+  the core counts persisted content using the plugin's contributed Widget
+  (and, later, Data Source) providers, so no plugin author counts those
+  rows by hand.
 
 An installation row for a plugin that this release does not know stays inert
 and removable, as before. Rows for the retired `brand_bug` and `noise_meter`

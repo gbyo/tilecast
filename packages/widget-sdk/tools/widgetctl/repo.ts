@@ -5,7 +5,7 @@
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
-import type { ExtensionSource } from "../../src/source.ts";
+import { PLUGIN_ID_PATTERN, type ExtensionSource } from "../../src/source.ts";
 import {
   widgetDirPattern,
   widgetFixtureSchema,
@@ -61,6 +61,59 @@ function listDirs(path: string): string[] {
     .sort();
 }
 
+/**
+ * Resolve a plugin directory to the stable id in its tilecast.plugin.json.
+ * The directory is a filesystem location, never identity: a null result
+ * means the directory has no readable manifest and its Widgets cannot be
+ * attributed to any plugin.
+ */
+export function pluginIdForDir(
+  root: string,
+  dir: string,
+): { id: string } | { problem: string } | null {
+  const manifestPath = join(root, "plugins", dir, "tilecast.plugin.json");
+  let raw: unknown;
+  try {
+    raw = JSON.parse(readFileSync(manifestPath, "utf8"));
+  } catch {
+    return null;
+  }
+  const id = (raw as { id?: unknown } | null)?.id;
+  if (typeof id !== "string" || !PLUGIN_ID_PATTERN.test(id)) {
+    return {
+      problem: `plugins/${dir}/tilecast.plugin.json names no valid plugin id`,
+    };
+  }
+  return { id };
+}
+
+export interface ResolvedPlugin {
+  /** Directory basename below plugins/, for example "emergency-alerts". */
+  dir: string;
+  /** Stable id from the plugin's tilecast.plugin.json, for example "emergency_alerts". */
+  id: string;
+}
+
+/**
+ * Resolve a --plugin selector to its directory and stable id. The selector
+ * may be either the manifest id or the directory basename; the manifest id
+ * is identity either way. Returns null when no plugin matches.
+ */
+export function resolvePlugin(
+  root: string,
+  selector: string,
+): ResolvedPlugin | null {
+  for (const dir of listDirs(join(root, "plugins"))) {
+    if (dir === "node_modules" || dir.startsWith(".")) continue;
+    const resolved = pluginIdForDir(root, dir);
+    if (resolved === null || "problem" in resolved) continue;
+    if (dir === selector || resolved.id === selector) {
+      return { dir, id: resolved.id };
+    }
+  }
+  return null;
+}
+
 export function discover(root: string): Repo {
   const widgetsDir = join(root, "widgets");
   const problems: Problem[] = [];
@@ -83,12 +136,26 @@ export function discover(root: string): Repo {
   for (const plugin of listDirs(join(root, "plugins"))) {
     if (plugin === "node_modules" || plugin.startsWith(".")) continue;
     const pluginWidgets = join(root, "plugins", plugin, "widgets");
-    for (const name of listDirs(pluginWidgets)) {
+    const names = listDirs(pluginWidgets);
+    if (names.length === 0) continue;
+    const resolved = pluginIdForDir(root, plugin);
+    if (resolved === null) {
+      problems.push({
+        widget: `plugins/${plugin}`,
+        message: `directory owns Widgets but has no tilecast.plugin.json`,
+      });
+      continue;
+    }
+    if ("problem" in resolved) {
+      problems.push({ widget: `plugins/${plugin}`, message: resolved.problem });
+      continue;
+    }
+    for (const name of names) {
       if (name === "node_modules" || name.startsWith(".")) continue;
       roots.push({
         dir: `plugins/${plugin}/widgets/${name}`,
         path: join(pluginWidgets, name),
-        source: { kind: "plugin", pluginId: plugin },
+        source: { kind: "plugin", pluginId: resolved.id },
       });
     }
   }

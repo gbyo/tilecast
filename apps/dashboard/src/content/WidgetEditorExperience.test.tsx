@@ -491,4 +491,79 @@ describe("Widget editor experience", () => {
       screen.getByRole("complementary", { name: "Live preview" }),
     ).toBeTruthy();
   });
+
+  it("names a plugin-owned Widget's provenance while its plugin is installed", async () => {
+    renderGalleryWithPluginSource(true);
+    const card = await screen.findByRole("button", { name: /Siren/ });
+    expect(card).not.toBeDisabled();
+    expect(screen.getByText("Plugin · Emergency Alerts")).toBeTruthy();
+    expect(screen.queryByText(/Requires/)).toBeNull();
+  });
+
+  it("disables a plugin-owned Widget with its plugin named while uninstalled", async () => {
+    const onChoose = vi.fn();
+    renderGalleryWithPluginSource(false, onChoose);
+    const card = await screen.findByRole("button", { name: /Siren/ });
+    expect(card).toBeDisabled();
+    expect(screen.getByText("Plugin · Emergency Alerts")).toBeTruthy();
+    expect(screen.getByText("Requires Emergency Alerts")).toBeTruthy();
+    expect(onChoose).not.toHaveBeenCalled();
+  });
 });
+
+function renderGalleryWithPluginSource(
+  installed: boolean,
+  onChoose: (provider: string) => void = vi.fn(),
+) {
+  const siren = {
+    id: "emergency_alerts_siren",
+    version: 1,
+    apiVersion: 1,
+    name: "Siren",
+    description: "Sound the siren.",
+    category: "Essentials",
+    icon: "siren",
+    runtime: "native",
+    source: { kind: "plugin", pluginId: "emergency_alerts" },
+    configurationSchema: { fields: [] },
+    defaultConfiguration: {},
+    presentationSchemaVersion: 1,
+    requiredCapabilities: {},
+    emptyStateBehavior: "text",
+    component: {
+      type: "emergencyalerts.siren",
+      version: 1,
+      tagName: "tc-widget-emergencyalerts-siren",
+      entrypoint: "./runtime/index.ts",
+      configTemplate: {},
+      dataSourceFields: [],
+      empty: "render",
+    },
+    compatibility: { fallback: "none" },
+  } satisfies WidgetDefinition;
+  vi.spyOn(api, "contentDefinitions").mockResolvedValue({
+    revision: "1",
+    compilerVersion: "1",
+    fingerprint: "test",
+    widgets: [siren],
+    dataSources: [],
+  });
+  vi.spyOn(api, "plugins").mockResolvedValue({
+    items: [
+      {
+        id: "emergency_alerts",
+        name: "Emergency Alerts",
+        installed,
+      },
+    ],
+    unsupportedInstallations: [],
+  } as never);
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={client}>
+      <WidgetProviderGallery onChoose={onChoose} onClose={vi.fn()} page />
+    </QueryClientProvider>,
+  );
+}

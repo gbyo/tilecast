@@ -69,25 +69,52 @@ func (definition WidgetDefinition) HasFallback() bool {
 	return definition.Compatibility == nil || definition.Compatibility.Fallback != "none"
 }
 
-// loadWidgetModules decodes every embedded Widget manifest into a definition.
+// decodeWidgetManifest decodes one Widget manifest into a definition with
+// its discovery source. The manifest beside the Widget cannot declare its
+// own source: a manifest carrying a source is rejected, so a file can never
+// lie about whether it is core- or plugin-owned.
+func decodeWidgetManifest(dir string, raw []byte, source ExtensionSource) (WidgetDefinition, error) {
+	var definition WidgetDefinition
+	if err := json.Unmarshal(raw, &definition); err != nil {
+		return WidgetDefinition{}, fmt.Errorf("%s/%s: %w", dir, widgets.ManifestFile, err)
+	}
+	if definition.Source != (ExtensionSource{}) {
+		return WidgetDefinition{}, fmt.Errorf("%s: a Widget manifest must not declare its own source", dir)
+	}
+	if definition.Component == nil || definition.Compatibility == nil {
+		return WidgetDefinition{}, fmt.Errorf("%s: a Widget module must declare component and compatibility", dir)
+	}
+	definition.Source = source
+	return definition, nil
+}
+
+// loadWidgetModules decodes every embedded Widget manifest into a
+// definition: root widgets/ modules as core, then the generated
+// plugin-owned ledger (widgets/plugin_widgets.gen.go) with each owning
+// plugin's stable tilecast.plugin.json id.
 func loadWidgetModules() ([]WidgetDefinition, [][]byte, error) {
 	manifests, err := widgets.Manifests()
 	if err != nil {
 		return nil, nil, err
 	}
-	definitions := make([]WidgetDefinition, 0, len(manifests))
-	raws := make([][]byte, 0, len(manifests))
+	pluginManifests := widgets.PluginWidgetManifests()
+	definitions := make([]WidgetDefinition, 0, len(manifests)+len(pluginManifests))
+	raws := make([][]byte, 0, len(manifests)+len(pluginManifests))
 	for _, manifest := range manifests {
-		var definition WidgetDefinition
-		if err := json.Unmarshal(manifest.JSON, &definition); err != nil {
-			return nil, nil, fmt.Errorf("widgets/%s/%s: %w", manifest.Dir, widgets.ManifestFile, err)
+		definition, err := decodeWidgetManifest("widgets/"+manifest.Dir, manifest.JSON, CoreSource())
+		if err != nil {
+			return nil, nil, err
 		}
-		if definition.Component == nil || definition.Compatibility == nil {
-			return nil, nil, fmt.Errorf("widgets/%s: a Widget module must declare component and compatibility", manifest.Dir)
-		}
-		definition.Source = CoreSource()
 		definitions = append(definitions, definition)
 		raws = append(raws, manifest.JSON)
+	}
+	for _, manifest := range pluginManifests {
+		definition, err := decodeWidgetManifest(manifest.Dir, []byte(manifest.JSON), PluginSource(manifest.PluginID))
+		if err != nil {
+			return nil, nil, err
+		}
+		definitions = append(definitions, definition)
+		raws = append(raws, []byte(manifest.JSON))
 	}
 	return definitions, raws, nil
 }

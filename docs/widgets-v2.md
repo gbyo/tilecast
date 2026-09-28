@@ -266,10 +266,52 @@ Sources, source provenance, and future independently distributed packages is
 [Tilecast content extension model](content-extension-model.md). Later Widgets
 V2 work must keep the source of a Widget orthogonal to its rendering contract.
 
+## 13.5 Plugin-bundled Widgets
+
+A bundled plugin may own Widgets beneath `plugins/<plugin>/widgets/<name>/`.
+A nested Widget is an ordinary Widget: the same manifest, SDK, WidgetMount,
+Player bundle, Studio editor, and conformance. Only its source differs.
+
+- Identity comes from the parent `tilecast.plugin.json` id, never the
+  plugin directory basename. `plugins/emergency-alerts/` is owned by plugin
+  `emergency_alerts`. Hosts resolve the directory through the trusted
+  plugin manifests; tooling and the Server do the same. A directory without
+  a readable parent manifest leaves its Widgets out with a diagnostic.
+- A Widget manifest must not declare its own source. The schema rejects a
+  source key, the Server rejects one at startup, and `widgets:check`
+  re-resolves the parent manifest behind every discovered identity.
+- Scaffold with `npm run widgets:new -- <name> --plugin <plugin>`, where
+  `<plugin>` is the manifest id or the directory. The provider id stays in
+  the plugin's lane (`emergency_alerts_siren`); the component type uses the
+  plugin id without separators (`emergencyalerts.siren`), because qualified
+  type segments allow neither underscores nor leading hyphens.
+- The Server composes nested manifests from the generated
+  `widgets/plugin_widgets.gen.go` ledger (Go embedding cannot reach
+  `plugins/`), with the same startup validation as core modules: duplicate
+  ids, reserved `tilecast.*` types from non-core sources, and repeated
+  component types or tags fail the boot.
+- Effective availability is static definition AND plugin installation. A
+  plugin-owned provider cannot be created, assigned, or projected while its
+  plugin is not installed; creation locks the installation row in the same
+  transaction so removal cannot race it. The API refuses creation with
+  `409 plugin_not_installed`, and assignment and manifest generation refuse
+  with `409 playlist_conflict`. Persisted rows survive removal and become
+  usable again on reinstall.
+- Removing a plugin with remaining contributed Widgets is blocked with one
+  `widget` blocker naming the row count and the `delete` resolution.
+  Installing or removing a plugin with static contributions invalidates
+  screen manifests, even without Plugin API runtime entries.
+- Studio shows `Plugin · <name>` on a plugin-owned card and disables it
+  with `Requires <name>` while the plugin is not installed.
+- `plugins:check` validates each nested manifest against the portable
+  Widget schema and allows nested runtime code the Widget imports only
+  (Widget SDK, widget-kit, Lit, Storybook, Vitest, relative files inside
+  the plugin). Deep conformance stays in `widgets:check`.
+
 ## 14. Tools and tests
 
 - `npm run widgets:check` runs `widgetctl check` (manifests, identity, unique IDs, types and tags, entry points, stories, tests, fixtures, configuration bounds and generated files) and then the catalog suite, which mounts every Widget in jsdom and settles each fixture in its declared state.
-- `npm run widgets:generate` writes `schema/tilecast-widget.schema.json` and the host capability lists. `npm run widgets:new -- <name>` creates a complete Widget module.
+- `npm run widgets:generate` writes `schema/tilecast-widget.schema.json`, the host capability lists, and the Server-side plugin Widget ledger. `npm run widgets:new -- <name>` creates a complete Widget module; add `--plugin <plugin>` to scaffold a plugin-owned one.
 - `npm run widgets:storybook` starts the local Storybook. Stories render fixtures at fixed frames (1920×1080, 1080×1920, 960×540, a wide strip, a tall sidebar and a small zone) through the production mount. No hosted Storybook service is used.
 - `npm run widgets:visual` builds the stories and compares each one with a committed Linux Chromium baseline (`widgets/visual/__screenshots__/linux`). Regenerate the baselines in the `mcr.microsoft.com/playwright` image for the installed Playwright version.
 
