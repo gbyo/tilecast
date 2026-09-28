@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createWidgetResources,
@@ -19,6 +19,7 @@ import { PreviewClock } from "./previewClock";
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 const definition = studioWidgetDiscovery.registry.lookup("tilecast.clock", 1)!;
@@ -75,6 +76,54 @@ describe("WidgetPreviewHost", () => {
     expect(customElements.get("tc-widget-clock")).toBe(
       definition.element as CustomElementConstructor,
     );
+  });
+
+  it("fits the selected frame inside a narrower editor column without cropping", async () => {
+    let resize: ResizeObserverCallback | undefined;
+    const observe = vi.fn();
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(callback: ResizeObserverCallback) {
+          resize = callback;
+        }
+
+        observe = observe;
+        unobserve = vi.fn();
+        disconnect = vi.fn();
+      },
+    );
+
+    render(
+      <WidgetPreviewHost
+        component={component(FULL_CONFIG)}
+        resources={createWidgetResources({ documents: new Map() }, {})}
+        context={context(new PreviewClock())}
+        frame={{ width: 960, height: 540 }}
+        label="Clock preview"
+      />,
+    );
+
+    const region = screen.getByRole("img", { name: "Clock preview" });
+    await waitFor(() => region.querySelector("tc-widget-clock"));
+    expect(observe).toHaveBeenCalledWith(region);
+
+    act(() => {
+      resize?.(
+        [{ contentRect: { width: 600 } } as ResizeObserverEntry],
+        {} as ResizeObserver,
+      );
+    });
+
+    const stage = region.firstElementChild as HTMLElement;
+    const intrinsicFrame = stage.firstElementChild as HTMLElement;
+    expect(region.style.aspectRatio).toBe("960 / 540");
+    expect(region.style.overflow).toBe("hidden");
+    expect(stage.style.width).toBe("960px");
+    expect(stage.style.height).toBe("540px");
+    expect(stage.style.transform).toBe("scale(0.625)");
+    expect(intrinsicFrame.style.width).toBe("960px");
+    expect(intrinsicFrame.style.height).toBe("540px");
   });
 
   it("updates the element in place when the compiled config changes", async () => {
