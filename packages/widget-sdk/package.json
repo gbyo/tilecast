@@ -28,11 +28,11 @@
     "@storybook/web-components-vite": "^10.6.0",
     "@tilecast/widget-kit": "*",
     "@types/node": "^26.1.1",
-    "jsdom": "^30.0.0",
+    "jsdom": "^30.1.1",
     "lit": "^3.3.3",
-    "prettier": "^3.9.6",
+    "prettier": "^3.9.9",
     "storybook": "^10.6.0",
-    "typescript": "~5.8.3",
-    "vitest": "^4.1.10"
+    "typescript": "~7.0.2",
+    "vitest": "^5.0.2"
   }
 }
