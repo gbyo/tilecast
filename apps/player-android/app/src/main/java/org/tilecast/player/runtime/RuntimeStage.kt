@@ -32,6 +32,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -105,12 +106,21 @@ fun SharedRuntimePlayback(
     var instance by remember { mutableIntStateOf(0) }
     key(instance) {
         val crashPolicy = remember { RuntimeCrashPolicy() }
+        val latestBoundary = rememberUpdatedState(onBoundary)
+        val latestError = rememberUpdatedState(onError)
+        val latestProgress = rememberUpdatedState(onProgress)
+        val latestFirstFrame = rememberUpdatedState(onFirstFrame)
+        val latestTransition = rememberUpdatedState(onItemTransition)
         val runtimeSession = remember {
             RuntimeHostSession(
                 hostVersion, engineVersion,
                 crashPolicy.currentGeneration(),
                 items, activationId,
-                onBoundary, onError, onProgress, onFirstFrame, onItemTransition,
+                { itemId, assetId -> latestBoundary.value(itemId, assetId) },
+                { message -> latestError.value(message) },
+                { latestProgress.value() },
+                { itemId -> latestFirstFrame.value(itemId) },
+                { itemId -> latestTransition.value(itemId) },
             )
         }
         var surfaces by remember { mutableStateOf(emptyList<Surface>()) }
