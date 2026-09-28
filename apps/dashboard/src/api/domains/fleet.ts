@@ -17,7 +17,6 @@ import type {
   EffectivePolicy,
   LocationInput,
   PluginCatalog,
-  PluginSummary,
   PolicyDocument,
   PresentationNetworkInput,
   PresentationOverride,
@@ -151,14 +150,21 @@ export function listPlugins(): Promise<PluginCatalog> {
   return apiGet<"/api/v1/plugins", PluginCatalog>("/api/v1/plugins");
 }
 
+/**
+ * Wire shape of an installed plugin from the generated contract. The
+ * install route answers 200 when the plugin was already installed and
+ * 201 when this request installs it; both carry the same representation.
+ */
+export type WireInstalledPlugin = components["schemas"]["CatalogPlugin"];
+
 export function installPlugin(
   id: string,
   csrfToken: string,
-): Promise<PluginSummary> {
-  return apiPost<"/api/v1/plugins/{pluginId}/install", PluginSummary>(
-    "/api/v1/plugins/{pluginId}/install",
-    { params: { path: { pluginId: id } }, csrfToken },
-  );
+): Promise<WireInstalledPlugin> {
+  return apiPost("/api/v1/plugins/{pluginId}/install", {
+    params: { path: { pluginId: id } },
+    csrfToken,
+  });
 }
 
 export function removePlugin(id: string, csrfToken: string): Promise<void> {

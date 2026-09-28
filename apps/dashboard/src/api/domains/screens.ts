@@ -104,10 +104,9 @@ export function listScreenSnapshots(
   screenId: string,
   limit = 50,
 ): Promise<ScreenSnapshotList> {
-  return apiGet<"/api/v1/screens/{id}/snapshots", ScreenSnapshotList>(
-    "/api/v1/screens/{id}/snapshots",
-    { params: { path: { id: screenId }, query: { limit } } },
-  );
+  return apiGet("/api/v1/screens/{id}/snapshots", {
+    params: { path: { id: screenId }, query: { limit } },
+  });
 }
 
 export function listPendingPairings(): Promise<{
