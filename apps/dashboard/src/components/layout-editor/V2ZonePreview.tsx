@@ -74,6 +74,9 @@ export function V2ZonePreview({
     [],
   );
   const clock = useMemo(() => new PreviewClock(), []);
+  const reducedMotion =
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const context: WidgetContext = useMemo(
     () => ({
       clock,
@@ -89,11 +92,12 @@ export function V2ZonePreview({
         background: configuration["backgroundColor"],
         foreground: configuration["foregroundColor"],
       }),
-      motion: { reduced: false },
+      motion: { reduced: reducedMotion },
       mode: "preview" as const,
     }),
     [
       clock,
+      reducedMotion,
       regional.locale,
       regional.timezone,
       regional.timeFormat,
