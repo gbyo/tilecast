@@ -1,8 +1,6 @@
 package httpapi
 
 import (
-	"net/http"
-
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/tilecast/tilecast/apps/server/internal/integrations"
@@ -20,7 +18,7 @@ var (
 	contentManagers = []string{"owner", "administrator", "editor"}
 )
 
-func (s *server) routes() http.Handler {
+func (s *server) routes() chi.Router {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Recoverer)

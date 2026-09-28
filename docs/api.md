@@ -246,6 +246,8 @@ Screens reference an optional `locationId` and carry independent optional `roomN
 
 The machine-readable subset is in [`openapi.yaml`](openapi.yaml). `pluginctl` generates that file from [`openapi/core.yaml`](openapi/core.yaml) and the `api/openapi.yaml` fragment of each plugin. Edit the source files, then run `npm run plugins:generate`. Refer to [`plugin-api.md`](plugin-api.md#openapi).
 
+Three gates protect the contract. `npm run plugins:check` enforces per-operation conformance (stable operation identifiers, useful descriptions, typed parameters and responses, and authentication evidence). `npm run openapi:lint` requires zero Redocly structural errors on the composed file; warnings remain visible and the policy for each warning class is recorded in `redocly.yaml`. `npm run openapi:compat` fails on breaking changes against the pull request base revision, so a pull request cannot silently remove or narrow a shipped field. The Go route-contract test (`TestRouteContractParity` in `apps/server/internal/httpapi`) walks the real Chi router and fails when a served route lacks a contract entry. The generated TypeScript contract (`@tilecast/api-schema`) and the generated Go client (`packages/api-client`) are both rebuilt by `make generate` and pinned by `make generated-check`.
+
 ## Media uploads and library
 
 All routes below require a dashboard session. Owner, Administrator, and Editor may mutate media; Viewer is read-only. Every mutation requires `X-CSRF-Token`.
