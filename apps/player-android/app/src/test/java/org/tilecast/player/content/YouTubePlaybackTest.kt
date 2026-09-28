@@ -24,6 +24,7 @@ class YouTubePlaybackTest {
         assertTrue(html.contains("videoId:'dQw4w9WgXcQ'"))
         assertTrue(html.contains("controls:1"))
         assertTrue(html.contains("setVolume(70)"))
+        assertTrue(html.contains("tilecastSetMuted"))
         assertTrue(html.contains("start:15.5"))
         assertFalse(html.contains("end:0"))
     }
