@@ -84,11 +84,11 @@ test("create a Layout, edit its canvas and persist the draft", async ({
     .click();
   await expect(page).toHaveURL(/\/layouts\/[0-9a-f-]+$/);
   const width = page.getByRole("spinbutton", { name: "Width", exact: true });
-  await width.fill("1600");
+  await width.fill("2000");
   await width.blur();
   await expect(page.getByText("Saved", { exact: true })).toBeVisible();
   await page.reload();
-  await expect(width).toHaveValue("1600");
+  await expect(width).toHaveValue("2000");
   await page.getByRole("button", { name: "Preview", exact: true }).click();
   await expect(page.locator(".layout-preview-frame")).toBeVisible();
 });
@@ -101,7 +101,14 @@ test("save a Widget through the real authoring form and renderer", async ({
   await expect(page.getByText("Preview ready.", { exact: true })).toBeVisible();
   await expect(page.locator("[data-tilecast-widget]")).toHaveCount(1);
   await page.getByLabel("Widget name", { exact: true }).fill("Browser Clock");
+  const savedResponse = page.waitForResponse(
+    (response) =>
+      response.url().endsWith(`/api/v1/widgets/${clockId}`) &&
+      response.request().method() === "PATCH",
+  );
   await page.getByRole("button", { name: "Save Widget", exact: true }).click();
+  const response = await savedResponse;
+  expect(response.ok(), await response.text()).toBe(true);
   await page.goto(`/widgets/${clockId}`);
   await expect(page.getByLabel("Widget name", { exact: true })).toHaveValue(
     "Browser Clock",
@@ -159,9 +166,13 @@ test("installed plugin content opens through Studio discovery", async ({
   page,
 }) => {
   await page.goto("/plugins");
-  await page.getByRole("link", { name: "Open", exact: true }).click();
+  await page
+    .getByRole("link", { name: "Open Countdown Bar", exact: true })
+    .click();
   await expect(page).toHaveURL(/\/plugins\/countdown-bar$/);
   await expect(page.getByText("Lunch ends", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Manage", exact: true }).click();
-  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.getByRole("link", { name: "Manage", exact: true }).click();
+  await expect(
+    page.getByRole("textbox", { name: "Name", exact: true }),
+  ).toHaveValue("Lunch ends");
 });

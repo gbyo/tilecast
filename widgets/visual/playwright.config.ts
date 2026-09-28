@@ -12,10 +12,7 @@ export default defineConfig({
   forbidOnly: Boolean(process.env.CI),
   reporter: [
     ["list"],
-    [
-      "html",
-      { outputFolder: "widgets/visual/playwright-report", open: "never" },
-    ],
+    ["html", { outputFolder: "playwright-report", open: "never" }],
   ],
   expect: {
     toHaveScreenshot: {

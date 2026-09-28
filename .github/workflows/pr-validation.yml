@@ -33,6 +33,7 @@ jobs:
       widgets: ${{ steps.paths.outputs.widgets }}
       cli: ${{ steps.paths.outputs.cli }}
       sources: ${{ steps.paths.outputs.sources }}
+      ci: ${{ steps.paths.outputs.ci }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -40,7 +41,6 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - run: npm ci --ignore-scripts --workspaces=false
       - run: node --test scripts/ci/*.test.mjs
       - name: Classify changed paths
         id: paths
@@ -53,6 +53,11 @@ jobs:
           else
             node scripts/ci/affected.mjs --base "$BASE_SHA" --head "$HEAD_SHA" --github-output
           fi
+
+  ci_contract:
+    needs: changes
+    if: needs.changes.outputs.ci == 'true'
+    uses: ./.github/workflows/validate-ci-contract.yml
 
   android_ci:
     needs: changes
@@ -122,6 +127,7 @@ jobs:
     if: always()
     needs:
       - changes
+      - ci_contract
       - android_ci
       - linux_player_ci
       - server_ci
@@ -143,7 +149,8 @@ jobs:
         env:
           NEEDS: ${{ toJSON(needs) }}
           SELECTIONS: >-
-            {"android_ci": ${{ needs.changes.outputs.android == 'true' }},
+            {"ci_contract": ${{ needs.changes.outputs.ci == 'true' }},
+             "android_ci": ${{ needs.changes.outputs.android == 'true' }},
              "linux_player_ci": ${{ needs.changes.outputs.linux == 'true' }},
              "server_ci": ${{ needs.changes.outputs.server == 'true' }},
              "dashboard_ci": ${{ needs.changes.outputs.dashboard == 'true' }},

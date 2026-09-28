@@ -1,5 +1,6 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { ids, resetDemo } from "../support/demo";
+import { snapshot } from "./support";
 
 const hallwaySplit = "de300006-0000-4000-8000-000000000001";
 const lobbyPortrait = "de300006-0000-4000-8000-000000000002";
@@ -11,50 +12,6 @@ test.beforeEach(async ({ page }) => {
   // running; this exercises the production renderer rather than a fake app.
   await page.clock.setFixedTime(new Date("2026-09-28T14:00:00Z"));
 });
-
-async function settle(page: Page) {
-  await expect(page.locator('[data-slot="skeleton"]')).toHaveCount(0);
-  await expect(page.getByText("Loading…", { exact: true })).toHaveCount(0);
-  await page.evaluate(async () => {
-    await document.fonts.ready;
-    await Promise.all(
-      Array.from(document.images).map((image) =>
-        image.decode().catch(() => undefined),
-      ),
-    );
-    await Promise.all(
-      Array.from(document.querySelectorAll("[data-tilecast-widget]")).map(
-        (widget) =>
-          (widget as HTMLElement & { updateComplete?: Promise<unknown> })
-            .updateComplete,
-      ),
-    );
-  });
-}
-
-async function snapshot(
-  page: Page,
-  name: string,
-  extraMasks: ReturnType<Page["locator"]>[] = [],
-) {
-  await settle(page);
-  // Server wall time and pairing expiry remain real. Mask only their labels,
-  // never status badges, content, controls or the shared Widget renderer.
-  const masks = [
-    page.locator("time"),
-    page.getByRole("button", { name: /^Notifications,/ }),
-    page.locator("p").filter({ hasText: /last contact|Paired \d|^Updated / }),
-    page
-      .locator("dt")
-      .filter({ hasText: /^Last contact$/ })
-      .locator(".."),
-    ...extraMasks,
-  ];
-  await expect(page).toHaveScreenshot(`${name}.png`, {
-    mask: masks,
-    maskColor: "#808080",
-  });
-}
 
 const states = [
   ["fleet", "/screens", "Cafeteria East"],
@@ -91,8 +48,12 @@ for (const [name, path, ready] of states) {
   test(name, async ({ page }) => {
     await page.goto(path);
     await expect(page.getByText(ready, { exact: true }).first()).toBeVisible();
-    const masks = name === "fleet" ? [page.getByRole("alert")] : [];
-    await snapshot(page, name, masks);
+    if (name === "widget-editor") {
+      await page
+        .getByRole("button", { name: "Small zone", exact: true })
+        .click();
+    }
+    await snapshot(page, name);
   });
 }
 
@@ -103,11 +64,7 @@ test("overview", async ({ page }) => {
   ).toBeVisible();
   await snapshot(page, "overview", [
     page.locator(".recharts-wrapper"),
-    page.getByLabel("Fleet status").locator("> div").last(),
-    page
-      .getByRole("heading", { name: "Coming up" })
-      .locator("..")
-      .locator(".."),
+    page.getByRole("region", { name: "Fleet health" }).locator(".tabular-nums"),
   ]);
 });
 
@@ -141,6 +98,11 @@ for (const [name, path, ready] of [states[5], states[10]]) {
     await page.goto(path);
     await expect(page.getByText(ready, { exact: true }).first()).toBeVisible();
     await expect(page.locator("html")).toHaveClass(/dark/);
+    if (name === "widget-editor") {
+      await page
+        .getByRole("button", { name: "Small zone", exact: true })
+        .click();
+    }
     await snapshot(page, `${name}-dark`);
   });
 }

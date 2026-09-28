@@ -44,3 +44,28 @@ test("reusable jobs resolve to a workflow_call contract", () => {
     }
   }
 });
+
+test("change detectors need no npm install or workflow-YAML dependencies", () => {
+  for (const file of ["pr-validation.yml", "ci-edge.yml"]) {
+    const workflow = parse(readFileSync(`.github/workflows/${file}`, "utf8"));
+    const steps = workflow.jobs.changes.steps;
+    assert.ok(
+      steps.some((step) => step.run === "node --test scripts/ci/*.test.mjs"),
+      file,
+    );
+    assert.ok(
+      !steps.some((step) => /npm\s+(ci|install)/.test(step.run ?? "")),
+      file,
+    );
+  }
+  const pr = parse(readFileSync(".github/workflows/pr-validation.yml", "utf8"));
+  assert.ok(pr.jobs.ci_contract.if.includes("outputs.ci"));
+  assert.ok(pr.jobs.required.needs.includes("ci_contract"));
+  const contract = parse(readFileSync(pr.jobs.ci_contract.uses, "utf8"));
+  const steps = contract.jobs.validate.steps;
+  const install = steps.findIndex((step) => /npm ci/.test(step.run ?? ""));
+  const tests = steps.findIndex((step) =>
+    /scripts\/ci\/contracts\//.test(step.run ?? ""),
+  );
+  assert.ok(install >= 0 && tests > install);
+});

@@ -10,7 +10,7 @@ export default defineConfig({
   snapshotPathTemplate: "{testDir}/__screenshots__/linux/{arg}{ext}",
   reporter: [
     ["list"],
-    ["html", { outputFolder: "e2e/visual/playwright-report", open: "never" }],
+    ["html", { outputFolder: "playwright-report", open: "never" }],
   ],
   expect: {
     timeout: 15_000,

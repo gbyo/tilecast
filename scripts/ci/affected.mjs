@@ -9,6 +9,7 @@ export const graph = {
   server: ["container", "e2e"],
   cli: [],
   plugins: [],
+  ci: [],
   widgets: ["dashboard", "runtime", "server", "docs"],
   sources: ["dashboard", "server", "plugins", "docs"],
   runtime: ["linux", "edge_runtime", "edge_wpe", "edge_conformance"],
@@ -44,15 +45,48 @@ const rules = [
   [/^(widgets|packages\/widget-sdk|packages\/widget-kit)\//, ["widgets"]],
   [/^(data-sources|packages\/data-source-sdk)\//, ["sources"]],
   [/^packages\/design-tokens\//, ["dashboard", "docs"]],
+  // These packages contain transport JSON, not shared application code.
+  // README/metadata edits do not change the player wire contract.
   [
-    /^packages\/(layout-schema|manifest-schema|settings-schema)\//,
+    /^packages\/(layout-schema|manifest-schema|settings-schema)\/(schema-v\d+|schedule-fixtures|player-config-v\d+)\.json$/,
     ["protocol", "dashboard"],
   ],
-  [/^packages\/api-schema\//, ["protocol", "dashboard", "cli"]],
+  [
+    /^packages\/(api-schema|layout-schema|manifest-schema|settings-schema)\/package\.json$/,
+    ["server", "dashboard", "cli", "docs"],
+  ],
+  [
+    /^packages\/api-schema\/(?!activity\/|README\.md$|package\.json$)/,
+    ["server", "dashboard", "cli"],
+  ],
   [/^packages\/api-schema\/activity\//, ["activity"]],
   [
-    /^apps\/server\/internal\/(devices|manifests|playerconfig|previews|commands|layouts|playlists|scheduling|httpapi)\//,
+    /^apps\/server\/internal\/(devices|manifestchanges|previews|settings|presentnet)\//,
     ["protocol"],
+  ],
+  // The manifest builder and playback validation are shared with Players.
+  // Editorial CRUD/list previews remain ordinary server/Studio contracts.
+  [
+    /^apps\/server\/internal\/playlists\/(service|types|presentation|capabilities|component|invalidation|source_availability)(_[^/]+)?\.go$/,
+    ["protocol"],
+  ],
+  [
+    /^apps\/server\/internal\/layouts\/(types|validate)(_[^/]+)?\.go$/,
+    ["protocol"],
+  ],
+  [
+    /^apps\/server\/internal\/scheduling\/(engine|display_mode)(_[^/]+)?\.go$/,
+    ["protocol"],
+  ],
+  // Files with authenticated Player endpoints, their decoders, or shared
+  // routing/authentication. A contract test audits every Player handler.
+  [
+    /^apps\/server\/internal\/httpapi\/(devices|player_socket|player_manifest|player_config|heartbeat_decode|heartbeat_json|pairing_json|manifest_integration|retired_heartbeat_integration|operations|display_control|airplay|airplay_reconcile|live_stream|media|span|previews|updates|presentation_networks|presentation_overrides|routes|server|middleware|principal)(_[^/]+)?\.go$/,
+    ["protocol"],
+  ],
+  [
+    /^apps\/server\/internal\/httpapi\/(activity|telemetry|incident|expected_playback)(_[^/]+)?\.go$/,
+    ["activity"],
   ],
   [/^apps\/server\/internal\/(activity|telemetry)\//, ["activity"]],
   [/^plugins\/[^/]+\/studio\//, ["plugins", "dashboard"]],
@@ -138,14 +172,14 @@ export function affected(paths, { full = false, fullEdge = false } = {}) {
   return Object.fromEntries(areas.map((area) => [area, selected.has(area)]));
 }
 
-export function changedPaths(base, head) {
+export function changedPaths(base, head, { cwd } = {}) {
   if (!base || !head) throw new Error("Both --base and --head are required.");
   // NUL delimiters preserve spaces/newlines. Three dots excludes base-branch
   // changes from stacked PRs and includes renamed/deleted source paths.
   return execFileSync(
     "git",
     ["diff", "--name-only", "--no-renames", "-z", `${base}...${head}`],
-    { encoding: "utf8" },
+    { encoding: "utf8", cwd },
   )
     .split("\0")
     .filter(Boolean);
@@ -153,7 +187,8 @@ export function changedPaths(base, head) {
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   const args = process.argv.slice(2);
-  const value = (flag) => args[args.indexOf(flag) + 1];
+  const value = (flag) =>
+    args.includes(flag) ? args[args.indexOf(flag) + 1] : undefined;
   const paths = args.includes("--full")
     ? []
     : args.includes("--base")

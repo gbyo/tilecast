@@ -31,6 +31,12 @@ The graph selects these contracts:
 
 Unknown shared packages select all areas. Workflow, dependency, and classifier changes also select all areas. Add a consumer rule and tests when you add a shared package.
 
+Detection runs the dependency-free affected-area and aggregate tests with Node before any package installation. Workflow YAML tests run in `CI workflow contracts`, after installation of the root tool dependencies. CI infrastructure changes select this job. `Required PR validation` includes its result.
+
+HTTP rules identify files with Player endpoints and shared routing or authentication. The Player configuration and manifest handlers have separate files. Settings, users, dashboard authentication, backups, notifications, and content administration select server and production browser validation. They do not select Players. A source contract test requires each Player handler to retain its consumer mapping.
+
+Manifest, layout, and Player configuration JSON schemas select Player consumers. The activity fixtures select activity parity. Other API schemas select server, Studio, and CLI contracts. Schema package README files select documentation only. Unknown shared packages still select all areas.
+
 The Demo Mode browser job builds and starts the production server image. It also validates the production Compose file. This job satisfies container validation when browser tests are selected. A separate container job runs only when the browser job does not run.
 
 ## Required checks
@@ -87,6 +93,8 @@ bash scripts/ci/visual-linux.sh widgets --update-snapshots
 ```
 
 Inspect every changed image. Run the comparison again without `--update-snapshots`. Commit only the reviewed PNG files under each suite's `__screenshots__/linux/` directory. CI never accepts or commits changed screenshots. There is no second macOS golden set.
+
+Run `npm run test:visual:probe` on Linux, or `bash scripts/ci/visual-linux.sh probe` on macOS, to verify regression detection. The probe first compares the unchanged Widget editor. It then changes input styles and requires the comparison to fail. The probe cannot update baselines.
 
 On failure, CI uploads the expected, actual, and difference screenshots, the HTML report, and traces. Studio failures also include the Demo Mode stack logs. Open the reports with these commands:
 

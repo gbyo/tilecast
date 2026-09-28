@@ -3,6 +3,10 @@
 # Cargo build output of the Edge workspace.
 apps/edge/target/
 **/coverage/
+e2e/**/test-results/
+e2e/**/playwright-report/
+widgets/visual/test-results/
+widgets/visual/playwright-report/
 # Exact media-channel wire frames; the Rust and C contract tests compare bytes.
 packages/edge-protocol/fixtures/media/
 # Signed bytes: the signature covers the exact file.

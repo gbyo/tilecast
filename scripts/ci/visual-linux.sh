@@ -6,8 +6,8 @@ repo_dir="$(cd "$(dirname "$0")/../.." && pwd)"
 suite="${1:-studio}"
 shift || true
 case "$suite" in
-  studio|widgets) ;;
-  *) echo "Usage: scripts/ci/visual-linux.sh studio|widgets [Playwright arguments]" >&2; exit 2 ;;
+  studio|widgets|probe) ;;
+  *) echo "Usage: scripts/ci/visual-linux.sh studio|widgets|probe [Playwright arguments]" >&2; exit 2 ;;
 esac
 playwright_version="$(cd "$repo_dir" && node -p 'require("@playwright/test/package.json").version')"
 mkdir -p "$repo_dir/e2e/visual/__screenshots__/linux" "$repo_dir/widgets/visual/__screenshots__/linux" "$repo_dir/e2e/visual/test-results/linux-run"
@@ -31,10 +31,16 @@ docker run --rm --ipc=host \
       baseline=/widget-baselines
     else
       config=e2e/visual/playwright.config.ts
+      if [ "$suite" = probe ]; then config=e2e/visual/probe.config.ts; fi
       output=e2e/visual
       baseline=/studio-baselines
     fi
-    trap '\''cp -a "$output/test-results" /artifacts/ 2>/dev/null || true; cp -a "$output/playwright-report" /artifacts/ 2>/dev/null || true'\'' EXIT
+    mkdir -p "/artifacts/$suite"
+    save_artifacts() {
+      cp -a "$output/test-results" "/artifacts/$suite/" 2>/dev/null || true
+      cp -a "$output/playwright-report" "/artifacts/$suite/" 2>/dev/null || true
+    }
+    trap save_artifacts EXIT
     npx playwright test -c "$config" "$@"
     for argument in "$@"; do
       if [[ "$argument" == --update-snapshots* ]]; then

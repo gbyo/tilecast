@@ -43,6 +43,8 @@ node scripts/ci/affected.mjs --base origin/main --head HEAD
 
 The classifier follows package consumers. Studio changes select Studio and Demo Mode; an Edge installer change selects Rust and migration tests. Shared renderer changes select WPE and Electron conformance. Stacked PRs compare their actual base and head.
 
+Ordinary settings, user, authentication, backup, and content administration HTTP changes select the server and production browser tests. Player endpoints and transport schemas select Player consumers; activity contracts also select parity tests. Change detection runs with Node alone. Workflow YAML assertions run in a separate CI contract job when CI infrastructure changes.
+
 The stable aggregate checks are **Required PR validation** and **Required Edge validation**. Each requires every selected job to pass. Full Edge runs continue on relevant main-branch changes, manual dispatch, and a twice-weekly schedule. A separate scheduled workflow runs Go's race detector against the server integration suite.
 
 ## Inspect coverage

@@ -1,6 +1,17 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { affected, areas } from "./affected.mjs";
+import { execFileSync } from "node:child_process";
+import {
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+  renameSync,
+  readFileSync,
+  readdirSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { affected, areas, changedPaths } from "./affected.mjs";
 
 const selected = (paths) =>
   Object.entries(affected(paths))
@@ -76,6 +87,103 @@ test("protocol and activity include integration boundaries", () => {
     true,
   );
 });
+test("ordinary server business logic and dashboard HTTP do not select players", () => {
+  for (const path of [
+    "apps/server/internal/httpapi/settings.go",
+    "apps/server/internal/httpapi/users.go",
+    "apps/server/internal/httpapi/userauth.go",
+    "apps/server/internal/httpapi/oauth.go",
+    "apps/server/internal/httpapi/mfa.go",
+    "apps/server/internal/httpapi/backups.go",
+    "apps/server/internal/httpapi/notifications.go",
+    "apps/server/internal/httpapi/github_configuration.go",
+    "apps/server/internal/httpapi/content_organization.go",
+    "apps/server/internal/httpapi/playlists.go",
+    "apps/server/internal/playlists/editorial_workflow_integration_test.go",
+    "apps/server/internal/layouts/editorial.go",
+    "apps/server/internal/auth/passwords.go",
+    "apps/server/internal/scheduling/service.go",
+  ])
+    assert.deepEqual(selected([path]), ["container", "e2e", "server"], path);
+});
+test("device APIs and manifest/config producers select player consumers", () => {
+  for (const path of [
+    "apps/server/internal/httpapi/player_socket.go",
+    "apps/server/internal/httpapi/heartbeat_decode.go",
+    "apps/server/internal/httpapi/heartbeat_json_test.go",
+    "apps/server/internal/httpapi/pairing_json_test.go",
+    "apps/server/internal/httpapi/devices.go",
+    "apps/server/internal/httpapi/player_manifest.go",
+    "apps/server/internal/httpapi/operations.go",
+    "apps/server/internal/httpapi/player_config.go",
+    "apps/server/internal/playlists/service.go",
+    "apps/server/internal/settings/service.go",
+    "apps/server/internal/scheduling/engine.go",
+  ]) {
+    const result = affected([path]);
+    for (const area of [
+      "server",
+      "android",
+      "runtime",
+      "linux",
+      "edge_rust",
+      "edge_server",
+      "edge_conformance",
+    ])
+      assert.equal(result[area], true, `${path}: ${area}`);
+    assert.equal(result.edge_migration, false, path);
+  }
+});
+test("every HTTP Player handler has a player consumer mapping", () => {
+  const directory = "apps/server/internal/httpapi";
+  for (const file of readdirSync(directory).filter(
+    (file) => file.endsWith(".go") && !file.endsWith("_test.go"),
+  )) {
+    // install.go serves OS installer files, not the authenticated device API.
+    if (file === "install.go") continue;
+    const source = readFileSync(`${directory}/${file}`, "utf8");
+    if (
+      !/func \(s \*server\) (player[A-Z]|createPairingSession|pollPairingSession|enrollPlayer|requireDevice)/.test(
+        source,
+      )
+    )
+      continue;
+    assert.equal(affected([`${directory}/${file}`]).edge_server, true, file);
+  }
+});
+test("activity ingestion, derivation and shared evidence select parity", () => {
+  for (const path of [
+    "apps/server/internal/httpapi/activity_ingest.go",
+    "apps/server/internal/httpapi/activity_proof.go",
+    "apps/server/internal/httpapi/telemetry_ingest.go",
+    "apps/server/internal/httpapi/incident_derivation.go",
+    "apps/server/internal/httpapi/expected_playback.go",
+    "packages/api-schema/activity/player-parity.json",
+  ])
+    assert.equal(affected([path]).edge_activity, true, path);
+});
+test("shared schema contracts distinguish players from ordinary API consumers", () => {
+  for (const path of [
+    "packages/manifest-schema/schema-v16.json",
+    "packages/manifest-schema/schedule-fixtures.json",
+    "packages/layout-schema/schema-v2.json",
+    "packages/settings-schema/player-config-v1.json",
+  ])
+    assert.equal(affected([path]).edge_server, true, path);
+  assert.deepEqual(selected(["packages/api-schema/studio/users.json"]), [
+    "cli",
+    "container",
+    "dashboard",
+    "e2e",
+    "server",
+  ]);
+  for (const path of [
+    "packages/api-schema/README.md",
+    "packages/manifest-schema/README.md",
+    "packages/settings-schema/README.md",
+  ])
+    assert.deepEqual(selected([path]), ["docs"], path);
+});
 test("documentation stays inexpensive", () => {
   assert.deepEqual(selected(["docs/deployment.md"]), ["docs"]);
 });
@@ -105,4 +213,39 @@ test("main expands relevant Edge changes, while docs stay inexpensive", () => {
     affected(["docs/deployment.md"], { fullEdge: true }).edge_migration,
     false,
   );
+});
+test("actual stacked base excludes base-only commits and retains rename/delete paths", () => {
+  const cwd = mkdtempSync(join(tmpdir(), "tilecast-ci-graph-"));
+  const git = (...args) =>
+    execFileSync("git", args, {
+      cwd,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    }).trim();
+  try {
+    git("init");
+    git("config", "user.name", "CI contract test");
+    git("config", "user.email", "ci@example.invalid");
+    writeFileSync(join(cwd, "old name.ts"), "base");
+    git("add", ".");
+    git("commit", "-m", "base");
+    git("branch", "stack-base");
+    git("switch", "-c", "topic");
+    renameSync(join(cwd, "old name.ts"), join(cwd, "new name.ts"));
+    writeFileSync(join(cwd, "new name.ts"), "head");
+    git("add", ".");
+    git("commit", "-m", "rename on topic");
+    const head = git("rev-parse", "HEAD");
+    git("switch", "stack-base");
+    writeFileSync(join(cwd, "base-only.ts"), "unrelated");
+    git("add", ".");
+    git("commit", "-m", "base advances");
+    assert.deepEqual(changedPaths("stack-base", head, { cwd }).sort(), [
+      "new name.ts",
+      "old name.ts",
+    ]);
+    assert.throws(() => changedPaths(undefined, head), /Both/);
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
 });

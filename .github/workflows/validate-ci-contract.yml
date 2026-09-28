@@ -1,0 +1,21 @@
+name: validate-ci-contract
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: CI workflow contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      # Only the root tool dependencies are needed to parse workflow YAML.
+      - run: npm ci --ignore-scripts --workspaces=false
+      - run: node --test scripts/ci/contracts/*.test.mjs
