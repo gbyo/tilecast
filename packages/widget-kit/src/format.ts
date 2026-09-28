@@ -93,7 +93,15 @@ export function timeParts(
   };
 }
 
-export type DateStyle = "full" | "long" | "medium" | "weekday" | "day-month";
+export type DateStyle =
+  | "full"
+  | "long"
+  | "medium"
+  | "weekday"
+  | "day-month"
+  | "year"
+  | "medium-year"
+  | "numeric";
 
 const DATE_OPTIONS: Record<DateStyle, Intl.DateTimeFormatOptions> = {
   full: { weekday: "long", month: "long", day: "numeric", year: "numeric" },
@@ -101,6 +109,9 @@ const DATE_OPTIONS: Record<DateStyle, Intl.DateTimeFormatOptions> = {
   medium: { weekday: "short", month: "short", day: "numeric" },
   weekday: { weekday: "long" },
   "day-month": { month: "long", day: "numeric" },
+  year: { year: "numeric" },
+  "medium-year": { month: "short", day: "numeric", year: "numeric" },
+  numeric: { month: "numeric", day: "numeric", year: "2-digit" },
 };
 
 export function formatDate(
@@ -138,6 +149,39 @@ export function localDayKey(epochMs: number, timeZone: string): string {
     month: "2-digit",
     day: "2-digit",
   }).format(epochMs);
+}
+
+/**
+ * Whole local calendar days from `referenceZone`'s date to `timeZone`'s
+ * date at one instant: 1 when the other zone is already on the next day.
+ */
+export function localDayDifference(
+  epochMs: number,
+  timeZone: string,
+  referenceZone: string,
+): number {
+  const day = (zone: string) =>
+    Date.parse(`${localDayKey(epochMs, zone)}T00:00:00Z`);
+  return Math.round((day(timeZone) - day(referenceZone)) / 86_400_000);
+}
+
+/**
+ * A relative day in the screen locale ("tomorrow", "yesterday",
+ * "mañana"), or "" for the same day. Never a hard-coded English word.
+ */
+export function relativeDayLabel(days: number, locale: string): string {
+  if (days === 0 || !Number.isFinite(days)) return "";
+  try {
+    return new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(
+      days,
+      "day",
+    );
+  } catch {
+    return new Intl.RelativeTimeFormat("en-US", { numeric: "auto" }).format(
+      days,
+      "day",
+    );
+  }
 }
 
 /** "America/New_York" → "New York"; "Etc/UTC" → "UTC". */

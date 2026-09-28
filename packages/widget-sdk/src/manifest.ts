@@ -233,8 +233,20 @@ export const widgetFixtureSchema = z
     $schema: z.string().optional(),
     name: z.string().min(1).max(80),
     description: z.string().max(280).optional(),
+    /**
+     * The persisted provider when it is a compatibility identity that maps
+     * into this Widget (for example `date` into Clock). The fixture then
+     * compiles with that provider's configTemplate from the release
+     * catalog. Absent means the module's own provider.
+     */
+    provider: z.string().regex(catalogIdPattern).optional(),
     /** The persisted Widget configuration, before configTemplate. */
     configuration: z.record(z.string(), jsonValue),
+    /**
+     * The exact component configuration the persisted configuration must
+     * compile to. The TypeScript and Go compilers both assert it.
+     */
+    expectConfig: z.record(z.string(), jsonValue).optional(),
     context: z
       .object({
         now: z.iso.datetime({ offset: true }).optional(),

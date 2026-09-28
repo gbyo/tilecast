@@ -1,0 +1,21 @@
+{
+  "name": "No target",
+  "description": "A countdown without a date and time is expectedly empty.",
+  "configuration": {
+    "label": "Launch",
+    "target": "",
+    "timezone": "",
+    "mode": "countdown",
+    "recurrence": "none",
+    "completionAction": "completed_text",
+    "completionText": "",
+    "showDays": true,
+    "showHours": true,
+    "showMinutes": true,
+    "showSeconds": false,
+    "layout": "stacked",
+    "backgroundColor": "#0E141B",
+    "foregroundColor": "#F5F7FA"
+  },
+  "expect": "empty"
+}

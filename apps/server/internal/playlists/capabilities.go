@@ -115,6 +115,22 @@ func (s *Service) validatePresentationForScreens(ctx context.Context, q presenta
 // organization, false when unreadable. It mirrors
 // settings.Service.Organization without depending on the settings package:
 // the merged default is false, so an absent key fails closed the same way.
+// orgTimezone is the organization's regional timezone, or UTC.
+func (s *Service) orgTimezone(ctx context.Context) string {
+	var values []byte
+	if err := s.db.QueryRow(ctx, `SELECT settings FROM organization_runtime_settings`).Scan(&values); err != nil {
+		return "UTC"
+	}
+	var v map[string]any
+	if err := json.Unmarshal(values, &v); err != nil {
+		return "UTC"
+	}
+	if timezone, _ := v["organization.timezone"].(string); timezone != "" {
+		return timezone
+	}
+	return "UTC"
+}
+
 func (s *Service) orgPrivateHTTP(ctx context.Context) bool {
 	var values []byte
 	if err := s.db.QueryRow(ctx, `SELECT settings FROM organization_runtime_settings`).Scan(&values); err != nil {

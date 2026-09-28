@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -74,29 +75,35 @@ func TestWidgetAndDataSourceSeparation(t *testing.T) {
 		t.Fatalf("create csv data source: %v", err)
 	}
 
-	// Compatible connection: a Menu Widget accepts a CSV Data Source with existing fields.
-	menuRaw, _ := json.Marshal(DisplayWidgetConfig{DataSourceID: dataSource.ID, Fields: []string{"title", "subtitle"}, MaximumItems: 10, ForegroundColor: "#F5F7FA", BackgroundColor: "#0E141B"})
+	// Compatible connection: a Menu Widget accepts a CSV Data Source with existing
+	// fields. Menu Board validates through its Widgets V2 schema.
+	menuRaw := json.RawMessage(`{"dataSourceId":"` + dataSource.ID.String() + `","titleField":"title","descriptionField":"subtitle","maximumItems":10,"foregroundColor":"#F5F7FA","backgroundColor":"#0E141B"}`)
 	menu, err := service.CreateWidget(ctx, user, WidgetInput{Provider: "menu", Name: "Today's Lunch", Configuration: menuRaw})
 	if err != nil {
 		t.Fatalf("create menu widget: %v", err)
 	}
 
 	// Incompatible field: a selected field that the Data Source does not expose is rejected.
-	badFieldsRaw, _ := json.Marshal(DisplayWidgetConfig{DataSourceID: dataSource.ID, Fields: []string{"nonexistent"}, MaximumItems: 10})
+	badFieldsRaw := json.RawMessage(`{"dataSourceId":"` + dataSource.ID.String() + `","titleField":"nonexistent"}`)
 	if _, err := service.CreateWidget(ctx, user, WidgetInput{Provider: "menu", Name: "Bad fields", Configuration: badFieldsRaw}); err == nil {
 		t.Fatal("expected a nonexistent field to be rejected")
 	}
+	// A legacy key the Menu Board component no longer reads is refused rather
+	// than silently kept.
+	legacyRaw, _ := json.Marshal(DisplayWidgetConfig{DataSourceID: dataSource.ID, Fields: []string{"title"}, MaximumItems: 10})
+	if _, err := service.CreateWidget(ctx, user, WidgetInput{Provider: "menu", Name: "Legacy fields", Configuration: legacyRaw}); err == nil || !strings.Contains(err.Error(), `unknown field "fields"`) {
+		t.Fatalf("expected the legacy fields key to be refused, got %v", err)
+	}
 
-	// Incompatible provider: an Agenda Widget does not accept a plain RSS Data Source, and a
-	// Menu Widget does not accept a Calendar Data Source.
+	// Agenda maps any records source by field; an unmapped start field is refused.
 	rssRaw, _ := json.Marshal(StructuredSourceConfig{URL: "https://example.com/feed.xml", Presentation: "list", MaxItems: 10, Fields: StructuredFields{Title: true}, Sort: "source", RefreshIntervalSeconds: 3600, StalenessLimitHours: 168, EmptyState: "None"})
 	rss, err := service.CreateDataSource(ctx, user, DataSourceInput{Provider: "rss", Name: "News", Configuration: rssRaw})
 	if err != nil {
 		t.Fatalf("create rss data source: %v", err)
 	}
-	agendaRaw, _ := json.Marshal(DisplayWidgetConfig{DataSourceID: rss.ID, Fields: []string{"title"}, MaximumItems: 10})
+	agendaRaw := json.RawMessage(`{"dataSourceId":"` + rss.ID.String() + `","titleField":"title","startField":"nonexistent"}`)
 	if _, err := service.CreateWidget(ctx, user, WidgetInput{Provider: "agenda", Name: "Bad agenda", Configuration: agendaRaw}); err == nil {
-		t.Fatal("expected agenda to reject an rss data source")
+		t.Fatal("expected agenda to reject a start field the source does not expose")
 	}
 
 	// Data Source deletion protection: the CSV source is used by the Menu widget.

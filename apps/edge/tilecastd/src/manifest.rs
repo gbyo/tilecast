@@ -1734,13 +1734,16 @@ mod tests {
         };
         let mut value = manifest();
         value["schemaVersion"] = serde_json::json!(16);
-        value["widgets"] = component("tilecast.clock", 1);
-        let candidate = parse(value.clone()).unwrap();
-        assert!(incompatibilities(&candidate.document, &candidate.assets).is_empty());
+        // A bundled component version and every earlier one are accepted.
+        for version in [1, 2] {
+            value["widgets"] = component("tilecast.clock", version);
+            let candidate = parse(value.clone()).unwrap();
+            assert!(incompatibilities(&candidate.document, &candidate.assets).is_empty());
+        }
         // The daemon advertises exactly what the bundled runtime renders.
-        assert_eq!(profile::native_capability("widget.tilecast.clock"), 1);
+        assert_eq!(profile::native_capability("widget.tilecast.clock"), 2);
         assert!(profile::PRESENTATION_SCHEMAS.contains(&2));
-        for (kind, version) in [("tilecast.clock", 2), ("tilecast.hologram", 1)] {
+        for (kind, version) in [("tilecast.clock", 3), ("tilecast.hologram", 1)] {
             value["widgets"] = component(kind, version);
             let candidate = parse(value.clone()).unwrap();
             let reasons = incompatibilities(&candidate.document, &candidate.assets);
