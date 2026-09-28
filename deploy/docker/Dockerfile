@@ -22,6 +22,7 @@ COPY packages/plugin-sdk packages/plugin-sdk
 COPY packages/widget-kit packages/widget-kit
 COPY packages/widget-sdk packages/widget-sdk
 COPY widgets widgets
+COPY data-sources data-sources
 COPY plugins plugins
 RUN npm run build --workspace @tilecast/dashboard
 
@@ -36,10 +37,12 @@ COPY apps/server/go.mod apps/server/go.sum apps/server/
 COPY plugins/go.mod plugins/go.sum plugins/
 COPY packages/plugin-sdk/go/go.mod packages/plugin-sdk/go/go.sum packages/plugin-sdk/go/
 COPY widgets/go.mod widgets/
+COPY data-sources/go.mod data-sources/
 RUN cd apps/server && go mod download
 COPY packages/plugin-sdk/go packages/plugin-sdk/go
 COPY plugins plugins
 COPY widgets widgets
+COPY data-sources data-sources
 COPY apps/server apps/server
 COPY --from=dashboard /src/apps/dashboard/dist/ apps/server/internal/web/static/
 WORKDIR /src/apps/server

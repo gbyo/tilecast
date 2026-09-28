@@ -28,10 +28,13 @@ import {
 
 const DOCS_CONTENT = "apps/docs/src/content/docs";
 const WIDGET_SCHEMA = "packages/widget-sdk/schema/tilecast-widget.schema.json";
+const DATA_SOURCE_SCHEMA =
+  "packages/data-source-sdk/schema/tilecast-datasource.schema.json";
 
 export async function check(repo: Repo): Promise<Problem[]> {
   const problems: Problem[] = [...repo.problems];
   const validateWidget = loadWidgetValidator(repo.root, problems);
+  const validateDataSource = loadDataSourceValidator(repo.root, problems);
   const ids = new Map<string, string>();
   const manifestTypes = new Map<string, string>();
   const slugs = new Map<string, string>();
@@ -154,6 +157,7 @@ export async function check(repo: Repo): Promise<Problem[]> {
 
     checkTests(plugin, add);
     checkWidgetContributions(repo.root, plugin, validateWidget, add);
+    checkDataSourceContributions(repo.root, plugin, validateDataSource, add);
   }
 
   problems.push(...checkBoundaries(repo));
@@ -224,7 +228,7 @@ function loadWidgetValidator(
  * a conforming Widget that claims nothing else. Deep conformance (stories,
  * tests, fixtures, runtime entrypoint, cross-source collisions) stays in
  * widgets:check, which discovers the same directories; extensions:check
- * runs both suites.
+ * runs every suite.
  */
 function checkWidgetContributions(
   root: string,
@@ -270,6 +274,96 @@ function checkWidgetContributions(
           relativePath,
         );
       }
+    }
+  }
+}
+
+/**
+ * Compile the portable Data Source manifest schema once for nested
+ * contribution checks. A missing schema is a repo-level problem; every
+ * nested manifest then reports that it cannot be validated.
+ */
+function loadDataSourceValidator(
+  root: string,
+  problems: Problem[],
+): ((manifest: unknown) => string[]) | null {
+  const path = join(root, DATA_SOURCE_SCHEMA);
+  try {
+    const schema = JSON.parse(readFileSync(path, "utf8"));
+    const validate = new Ajv2020({ strict: false }).compile(schema);
+    return (manifest: unknown) => {
+      if (validate(manifest)) return [];
+      return (validate.errors ?? []).slice(0, 3).map((error) => {
+        const extra =
+          typeof (error.params as { additionalProperty?: unknown })
+            ?.additionalProperty === "string"
+            ? `(${(error.params as { additionalProperty: string }).additionalProperty}) `
+            : "";
+        return `manifest${error.instancePath || ""} ${extra}${error.message ?? "is invalid"}`;
+      });
+    };
+  } catch {
+    problems.push({
+      file: DATA_SOURCE_SCHEMA,
+      message:
+        "data source schema is missing; run npm run data-sources:generate",
+    });
+    return null;
+  }
+}
+
+/**
+ * Ownership checks for a plugin's nested Data Sources. The module lives
+ * beneath the plugin's own directory, so its source identity is the
+ * parent manifest id by construction; this check confirms the manifest
+ * itself is a conforming Data Source that claims nothing else and ships
+ * its sample-configuration fixture. Deep conformance (adapter bindings,
+ * fetch safety, fixtures, cross-source collisions) stays in
+ * data-sources:check, which discovers the same directories;
+ * extensions:check runs all three suites.
+ */
+function checkDataSourceContributions(
+  root: string,
+  plugin: DiscoveredPlugin,
+  validateDataSource: ((manifest: unknown) => string[]) | null,
+  add: Add,
+): void {
+  const sourcesDir = join(plugin.path, "data-sources");
+  let names: string[];
+  try {
+    names = readdirSync(sourcesDir).filter(
+      (name) =>
+        !name.startsWith(".") &&
+        name !== "node_modules" &&
+        statSync(join(sourcesDir, name)).isDirectory(),
+    );
+  } catch {
+    return;
+  }
+  for (const name of names.sort()) {
+    const manifestPath = join(sourcesDir, name, "tilecast.datasource.json");
+    const relativePath = relative(root, manifestPath);
+    let manifest: unknown;
+    try {
+      manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+    } catch {
+      add(`data-sources/${name}/tilecast.datasource.json is not valid JSON`);
+      continue;
+    }
+    if (validateDataSource === null) {
+      add(
+        `data-sources/${name} cannot be validated without ${DATA_SOURCE_SCHEMA}`,
+      );
+      continue;
+    }
+    for (const problem of validateDataSource(manifest)) {
+      add(`data-sources/${name}: ${problem}`, relativePath);
+    }
+    if (!existsSync(join(sourcesDir, name, "fixtures", "default.json"))) {
+      add(
+        `data-sources/${name} is missing fixtures/default.json: every module ships a sample configuration`,
+        relativePath,
+      );
     }
   }
 }

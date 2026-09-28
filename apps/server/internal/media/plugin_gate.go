@@ -57,6 +57,55 @@ func lockedSource(err error, kind, provider, pluginID string) error {
 	}
 }
 
+// inertRecheckSeconds is how long the refresh worker waits before it looks
+// again at a Data Source whose plugin is not installed.
+const inertRecheckSeconds = 300
+
+// pluginSourceInert reports whether a Data Source row must stay inert
+// because its provider belongs to a plugin that is not installed. Core
+// providers and unknown provider IDs are never inert here. Without a gate
+// the answer fails closed: plugin-owned rows stay inert.
+func (s *Service) pluginSourceInert(ctx context.Context, tx pgx.Tx, provider string) (bool, error) {
+	definition, ok := s.definitions.DataSource(provider)
+	if !ok {
+		return false, nil
+	}
+	source := definition.Source.Normalized()
+	if source.Kind != contentdefs.SourceKindPlugin {
+		return false, nil
+	}
+	if s.pluginGate == nil {
+		return true, nil
+	}
+	err := s.pluginGate.LockPluginSource(ctx, tx, source.PluginID)
+	switch {
+	case err == nil:
+		return false, nil
+	case errors.Is(err, plugin.ErrNotInstalled):
+		return true, nil
+	default:
+		return false, fmt.Errorf("check plugin %q for Data Source provider %q: %w", source.PluginID, provider, err)
+	}
+}
+
+// lockDataSourceProvider locks the owning plugin's installation row when
+// the provider is a plugin-owned Data Source definition. It must run
+// inside the creation transaction before the insert.
+func (s *Service) lockDataSourceProvider(ctx context.Context, tx pgx.Tx, provider string) error {
+	definition, ok := s.definitions.DataSource(provider)
+	if !ok {
+		return nil
+	}
+	source := definition.Source.Normalized()
+	if source.Kind != contentdefs.SourceKindPlugin {
+		return nil
+	}
+	if s.pluginGate == nil {
+		return &PluginUnavailableError{Kind: "data source provider", Provider: provider, PluginID: source.PluginID}
+	}
+	return lockedSource(s.pluginGate.LockPluginSource(ctx, tx, source.PluginID), "data source provider", provider, source.PluginID)
+}
+
 // lockWidgetSource locks the owning plugin's installation row when the
 // provider is a plugin-owned Widget definition. It must run inside the
 // creation transaction before the insert.

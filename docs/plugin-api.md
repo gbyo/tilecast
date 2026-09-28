@@ -60,6 +60,7 @@ plugins/
     runtime/index.ts          defineRuntimePlugin(...) for the shared Player runtime
     runtime/*.css             runtime stylesheets, scoped to .tc-<name>
     widgets/<widget>/         optional bundled Widgets (see below)
+    data-sources/<source>/  optional bundled declarative Data Sources (see below)
     docs/*.mdx                public documentation pages
 packages/plugin-sdk/
   src/manifest.ts             Zod manifest schema
@@ -92,6 +93,21 @@ directory keeps the usual Studio/runtime import rules. `plugins:check`
 validates each nested manifest against the portable Widget schema, and
 `widgets:check` runs the full Widget conformance over the same
 directories.
+
+A bundled plugin may own declarative Data Sources beneath
+`data-sources/<source>/`. A nested Data Source is an ordinary declarative
+module (same `tilecast.datasource.json` manifest, adapter vocabulary, and
+conformance; see [Data Source modules](data-source-modules.md)),
+attributed to the parent manifest id. Only the trusted declarative
+adapters (`manual_object`, `manual_records`, `http_records`) have a
+binding; executable providers stay on `plugin.DataSourceProvider`, which
+Plugin API v1 does not widen. Scaffold one with
+`npm run data-sources:new -- <name> --adapter <adapter> --plugin <plugin>`.
+A module ships its manifest and `fixtures/` only; there is no code to
+fence in. `plugins:check` validates each nested manifest against the
+portable Data Source schema and requires its sample-configuration
+fixture, and `data-sources:check` runs the full Data Source conformance
+over the same directories.
 
 ## Manifest
 
@@ -293,7 +309,7 @@ transport. The plugin answers the plugin-specific questions:
   resolution to each resource in `409 plugin_in_use`, and Studio uses it to
   explain the next step. Generic static-contribution blockers come first:
   the core counts persisted content using the plugin's contributed Widget
-  (and, later, Data Source) providers, so no plugin author counts those
+  and Data Source providers, so no plugin author counts those
   rows by hand.
 
 An installation row for a plugin that this release does not know stays inert

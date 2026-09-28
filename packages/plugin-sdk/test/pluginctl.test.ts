@@ -49,6 +49,19 @@ function makeRepo(): string {
     join(repoRoot(), "packages/widget-sdk/schema/tilecast-widget.schema.json"),
     join(dir, "packages/widget-sdk/schema/tilecast-widget.schema.json"),
   );
+  mkdirSync(join(dir, "packages/data-source-sdk/schema"), {
+    recursive: true,
+  });
+  cpSync(
+    join(
+      repoRoot(),
+      "packages/data-source-sdk/schema/tilecast-datasource.schema.json",
+    ),
+    join(
+      dir,
+      "packages/data-source-sdk/schema/tilecast-datasource.schema.json",
+    ),
+  );
   return dir;
 }
 
@@ -205,6 +218,77 @@ describe("pluginctl", () => {
     );
     await generateInto(root);
     const found = await problems(root);
+    expect(found.some((message) => message.includes("source"))).toBe(true);
+  });
+
+  it("validates a plugin's nested Data Sources against the Data Source schema", async () => {
+    scaffold(root, {
+      id: "transit_alerts",
+      category: "Display",
+      maintainer: "@gbyo",
+      api: false,
+    });
+    const source = join(root, "plugins/transit-alerts/data-sources/arrivals");
+    mkdirSync(join(source, "fixtures"), { recursive: true });
+    writeFileSync(
+      join(source, "tilecast.datasource.json"),
+      JSON.stringify({
+        apiVersion: 1,
+        id: "transit_alerts_arrivals",
+        version: 1,
+        name: "Arrivals",
+        description: "Arrival times.",
+        category: "Essentials",
+        icon: "layout",
+        configurationSchema: { fields: [] },
+        defaultConfiguration: {},
+        outputSchema: {
+          kind: "records",
+          fields: [{ key: "title", label: "Title", type: "text" }],
+        },
+        adapterId: "manual_records",
+        refreshBehavior: "manual",
+      }),
+    );
+    writeFileSync(join(source, "fixtures/default.json"), "{}\n");
+    await generateInto(root);
+    expect(await problems(root)).toEqual([]);
+  });
+
+  it("rejects a nested Data Source without its fixture or with its own source", async () => {
+    scaffold(root, {
+      id: "transit_alerts",
+      category: "Display",
+      maintainer: "@gbyo",
+      api: false,
+    });
+    const bare = join(root, "plugins/transit-alerts/data-sources/bare");
+    mkdirSync(bare, { recursive: true });
+    writeFileSync(
+      join(bare, "tilecast.datasource.json"),
+      JSON.stringify({
+        apiVersion: 1,
+        id: "transit_alerts_bare",
+        version: 1,
+        name: "Bare",
+        description: "Bare.",
+        category: "Essentials",
+        icon: "layout",
+        source: { kind: "core" },
+        configurationSchema: { fields: [] },
+        defaultConfiguration: {},
+        outputSchema: {
+          kind: "records",
+          fields: [{ key: "title", label: "Title", type: "text" }],
+        },
+        adapterId: "manual_records",
+      }),
+    );
+    await generateInto(root);
+    const found = await problems(root);
+    expect(
+      found.some((message) => message.includes("fixtures/default.json")),
+    ).toBe(true);
     expect(found.some((message) => message.includes("source"))).toBe(true);
   });
 

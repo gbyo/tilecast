@@ -209,6 +209,13 @@ func (s *Service) CreateDataSource(ctx context.Context, user uuid.UUID, input Da
 	if err = tx.QueryRow(ctx, `SELECT id FROM organization_settings WHERE singleton`).Scan(&organizationID); err != nil {
 		return DataSource{}, err
 	}
+	// A plugin-owned provider may only be created while its plugin is
+	// installed. The installation row is share-locked in this transaction
+	// so a concurrent plugin removal cannot commit between the check and
+	// the insert below. Duplication routes through this creation path.
+	if err = s.lockDataSourceProvider(ctx, tx, input.Provider); err != nil {
+		return DataSource{}, err
+	}
 	id := uuid.New()
 	if _, err = tx.Exec(ctx, `INSERT INTO data_sources(id,organization_id,name,description,provider,config_version,configuration,created_by) VALUES($1,$2,$3,$4,$5,1,$6::jsonb,$7)`, id, organizationID, input.Name, input.Description, input.Provider, string(encoded), user); err != nil {
 		return DataSource{}, err

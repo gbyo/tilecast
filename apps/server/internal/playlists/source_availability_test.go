@@ -74,3 +74,62 @@ func TestRequireWidgetSourceUsable(t *testing.T) {
 		t.Fatalf("unhelpful refusal: %v", err)
 	}
 }
+
+// pluginDataSourceCatalog builds a synthetic catalog with one core Data
+// Source and one owned by the stable emergency_alerts identity.
+func pluginDataSourceCatalog(t *testing.T) *contentdefs.Catalog {
+	t.Helper()
+	source := func(id, sourcePlugin string) contentdefs.DataSourceDefinition {
+		definition := contentdefs.DataSourceDefinition{
+			ID: id, Version: 1,
+			Name: "Probe", Description: "Probe.", Category: "Essentials", Icon: "layout",
+			ConfigurationSchema:  contentdefs.ConfigurationSchema{Fields: []contentdefs.FieldDefinition{}},
+			DefaultConfiguration: map[string]any{},
+			OutputSchema: contentdefs.OutputSchema{Kind: "records", Fields: []contentdefs.OutputField{
+				{Key: "title", Label: "Title", Type: "text"},
+			}},
+			AdapterID:       "manual_records",
+			RefreshBehavior: "manual",
+		}
+		if sourcePlugin != "" {
+			definition.Source = contentdefs.PluginSource(sourcePlugin)
+		}
+		return definition
+	}
+	catalog, err := contentdefs.New(nil, []contentdefs.DataSourceDefinition{
+		source("probe-core", ""),
+		source("emergency_alerts_intake", "emergency_alerts"),
+	})
+	if err != nil {
+		t.Fatalf("build plugin Data Source catalog: %v", err)
+	}
+	return catalog
+}
+
+func TestRequireDataSourceSourceUsable(t *testing.T) {
+	service := NewService(nil, nil)
+	service.SetContentDefinitions(pluginDataSourceCatalog(t))
+
+	// Core providers and unknown IDs pass through: unknown IDs fail
+	// later with the existing unavailable-source error.
+	if err := service.requireDataSourceSourceUsable(map[string]bool{}, "Core", "probe-core"); err != nil {
+		t.Fatalf("core provider refused: %v", err)
+	}
+	if err := service.requireDataSourceSourceUsable(map[string]bool{}, "Mystery", "no-such-provider"); err != nil {
+		t.Fatalf("unknown provider refused: %v", err)
+	}
+	// A plugin-owned provider is usable while its plugin is installed.
+	installed := map[string]bool{"emergency_alerts": true}
+	if err := service.requireDataSourceSourceUsable(installed, "Intake", "emergency_alerts_intake"); err != nil {
+		t.Fatalf("installed plugin provider refused: %v", err)
+	}
+	// Without the installation the Data Source is refused, naming the
+	// plugin the way Studio shows it rather than an internal ID.
+	err := service.requireDataSourceSourceUsable(map[string]bool{}, "Intake", "emergency_alerts_intake")
+	if err == nil {
+		t.Fatal("missing-plugin provider usable")
+	}
+	if !strings.Contains(err.Error(), "Emergency Alerts") || !strings.Contains(err.Error(), "not installed") {
+		t.Fatalf("unhelpful refusal: %v", err)
+	}
+}

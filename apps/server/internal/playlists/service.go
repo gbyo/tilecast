@@ -2005,6 +2005,14 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 			}
 		}
 	}
+	// Effective availability is evaluated once per manifest build: a
+	// plugin-owned Data Source whose plugin is not installed is never
+	// projected as a valid live source, while preserved rows stay in the
+	// database.
+	installed, err := plugins.InstalledSet(ctx, s.db)
+	if err != nil {
+		return Manifest{}, "", err
+	}
 	for _, dependency := range layoutDependencies {
 		switch dependency.Type {
 		case "asset":
@@ -2057,7 +2065,7 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 			}
 			manifest.Widgets = append(manifest.Widgets, widget)
 		case "data_source":
-			if err = s.projectDataSource(ctx, &manifest, dependency.ID); err != nil {
+			if err = s.projectDataSource(ctx, &manifest, installed, dependency.ID); err != nil {
 				return Manifest{}, "", err
 			}
 		}
@@ -2071,7 +2079,7 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 	// the manifest references. Release-defined widgets may reference more than one.
 	for _, widget := range append([]ManifestWidget(nil), manifest.Widgets...) {
 		for _, id := range s.widgetDataSourceIDs(widget.Provider, widget.Configuration) {
-			if err = s.projectDataSource(ctx, &manifest, id); err != nil {
+			if err = s.projectDataSource(ctx, &manifest, installed, id); err != nil {
 				return Manifest{}, "", err
 			}
 		}
@@ -2099,7 +2107,7 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 		manifest.SchemaVersion = 12
 		manifest.DataSources = []ManifestDataSource{}
 		for _, id := range ids {
-			if err = s.projectDataSource(ctx, &manifest, id); err != nil {
+			if err = s.projectDataSource(ctx, &manifest, installed, id); err != nil {
 				return Manifest{}, "", err
 			}
 		}
@@ -2126,10 +2134,6 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 	components := make([]*WidgetPresentation, len(manifest.Widgets))
 	canCompileV13 := true
 	allowPrivateHTTP := s.orgPrivateHTTP(ctx)
-	installed, err := plugins.InstalledSet(ctx, s.db)
-	if err != nil {
-		return Manifest{}, "", err
-	}
 	for index := range manifest.Widgets {
 		widget := manifest.Widgets[index]
 		if err = s.requireWidgetSourceUsable(installed, widget.Name, widget.Provider); err != nil {
@@ -2189,7 +2193,7 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 		manifest.SchemaVersion = 13
 		manifest.DataSources = []ManifestDataSource{}
 		for _, id := range ids {
-			if err = s.projectDataSource(ctx, &manifest, id); err != nil {
+			if err = s.projectDataSource(ctx, &manifest, installed, id); err != nil {
 				return Manifest{}, "", err
 			}
 		}
@@ -2538,7 +2542,7 @@ func (s *Service) resolveAssetVariant(ctx context.Context, assetID uuid.UUID, re
 // projectDataSource adds a Data Source to the manifest exactly once, projecting its bounded
 // cached dataset and date-selection policy. The dataset is shared by every widget or binding
 // that references the Data Source; it is never copied into a widget configuration.
-func (s *Service) projectDataSource(ctx context.Context, manifest *Manifest, dataSourceID uuid.UUID) error {
+func (s *Service) projectDataSource(ctx context.Context, manifest *Manifest, installed map[string]bool, dataSourceID uuid.UUID) error {
 	if dataSourceID == uuid.Nil {
 		return nil
 	}
@@ -2552,6 +2556,11 @@ func (s *Service) projectDataSource(ctx context.Context, manifest *Manifest, dat
 	var raw json.RawMessage
 	if err := s.db.QueryRow(ctx, `SELECT name,provider,config_version,configuration FROM data_sources WHERE id=$1 AND deleted_at IS NULL`, dataSourceID).Scan(&dataSource.Name, &dataSource.Provider, &dataSource.ConfigVersion, &raw); err != nil {
 		return fmt.Errorf("%w: required data Source unavailable", ErrConflict)
+	}
+	// A preserved plugin-owned row is never projected as a valid live
+	// source while its plugin is missing.
+	if err := s.requireDataSourceSourceUsable(installed, dataSource.Name, dataSource.Provider); err != nil {
+		return fmt.Errorf("%w: %v", ErrConflict, err)
 	}
 	dataSource.Configuration = raw
 	if s.sources != nil {

@@ -878,9 +878,11 @@ Do not merge them into one giant "extension SDK."
 
 ## 11. Data Source definition schema
 
-Introduce `tilecast.datasource.json` when the first source-module work lands.
+`tilecast.datasource.json` is the versioned declarative Data Source
+manifest (implemented in `packages/data-source-sdk`, detailed in
+[Data Source modules](data-source-modules.md)).
 
-It should reuse the existing proven concepts:
+It reuses the existing proven concepts:
 
 - ID;
 - version;
@@ -894,11 +896,18 @@ It should reuse the existing proven concepts:
 - generic adapter ID;
 - bounded fetch specification where the adapter permits it.
 
-It should add:
+It adds:
 
-- `apiVersion`;
-- explicit compatibility metadata if needed;
+- `apiVersion`, separate from the definition/config version;
+- explicit compatibility metadata where the release already carries it
+  (`requiresManifestV13`);
 - no executable fields.
+
+The manifest names one of the exact Server adapter IDs, but only
+`manual_object`, `manual_records`, and `http_records` have a declarative
+binding; every other adapter is rejected at composition. Source and
+provenance are injected by discovery: the file must not declare its own
+source.
 
 Do not create an arbitrary expression language.
 
