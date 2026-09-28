@@ -1,11 +1,11 @@
 /**
  * Media, widgets, and data-source domain helpers over the typed
  * transport. Path, query, and body shapes come from the generated
- * OpenAPI contract. Asset library, content organization, and data
- * source CRUD/diagnostics/inspection success bodies are contract-typed
- * and inferred from the generated schemas; widgets, uploads, preview
- * payloads, and definition catalogs still state their local Studio
- * response type explicitly until the contract gains schemas.
+ * OpenAPI contract. Asset library, content organization, data source
+ * CRUD/diagnostics/inspection, and definition catalog success bodies are
+ * contract-typed and inferred from the generated schemas; widgets,
+ * uploads, and preview payloads still state their local Studio response
+ * type explicitly until the contract gains schemas.
  * Blob/streaming upload paths stay on raw fetch in ../client.ts:
  * genuinely exceptional transports.
  */
@@ -59,41 +59,54 @@ function fromSearchParams(
   return query;
 }
 
+/** Wire shapes of the definition catalogs from the generated contract. */
+export type WireProviderCatalog = components["schemas"]["ProviderCatalog"];
+export type WireContentDefinitionCatalog =
+  components["schemas"]["ContentDefinitionCatalog"];
+
 export function normalizeProviderCatalog(
-  catalog: ProviderCatalog | null | undefined,
+  catalog: ProviderCatalog | WireProviderCatalog | null | undefined,
 ): ProviderCatalog {
   const source = catalog ?? ({} as ProviderCatalog);
   return {
     ...source,
+    revision: source.revision ?? 1,
     providers: Array.isArray(source.providers) ? source.providers : [],
   };
 }
 
 export function normalizeContentDefinitionCatalog(
-  catalog: ContentDefinitionCatalog | null | undefined,
+  catalog:
+    ContentDefinitionCatalog | WireContentDefinitionCatalog | null | undefined,
 ): ContentDefinitionCatalog {
   const source = catalog ?? ({} as ContentDefinitionCatalog);
   return {
     ...source,
-    widgets: Array.isArray(source.widgets) ? source.widgets : [],
-    dataSources: Array.isArray(source.dataSources) ? source.dataSources : [],
+    // A definition without overrides serializes defaultConfiguration as
+    // null; the Studio view models it as an absent-or-object map.
+    widgets: (Array.isArray(source.widgets) ? source.widgets : []).map(
+      (widget) => ({
+        ...widget,
+        defaultConfiguration: widget.defaultConfiguration ?? {},
+      }),
+    ),
+    dataSources: (Array.isArray(source.dataSources)
+      ? source.dataSources
+      : []
+    ).map((definition) => ({
+      ...definition,
+      defaultConfiguration: definition.defaultConfiguration ?? {},
+    })),
   };
 }
 
 export async function getProviderCatalog(): Promise<ProviderCatalog> {
-  return normalizeProviderCatalog(
-    await apiGet<"/api/v1/provider-catalog", ProviderCatalog | null>(
-      "/api/v1/provider-catalog",
-    ),
-  );
+  return normalizeProviderCatalog(await apiGet("/api/v1/provider-catalog"));
 }
 
 export async function getContentDefinitions(): Promise<ContentDefinitionCatalog> {
   return normalizeContentDefinitionCatalog(
-    await apiGet<
-      "/api/v1/content-definitions",
-      ContentDefinitionCatalog | null
-    >("/api/v1/content-definitions"),
+    await apiGet("/api/v1/content-definitions"),
   );
 }
 
