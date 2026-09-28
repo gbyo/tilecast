@@ -73,16 +73,24 @@ object RemoteWebHostManager {
     fun validSurfaceId(surfaceId: String): Boolean =
         surfaceId.matches(Regex(SURFACE_ID_PATTERN))
 
+    private fun normalizeHost(host: String): String? {
+        if (host.isBlank()) return null
+        val ascii = runCatching {
+            java.net.IDN.toASCII(host.trimEnd('.'), java.net.IDN.USE_STD3_ASCII_RULES)
+        }.getOrNull() ?: return null
+        return ascii.lowercase().takeIf { it.isNotBlank() && it.length <= 253 }
+    }
+
     /** Page policy check mirroring the trusted remote-web contract. */
     fun validPage(page: PageContent): Boolean {
         if (page.allowedHosts.isEmpty() || page.allowedHosts.size > 25) return false
-        if (page.allowedHosts.any { it.isBlank() || it.length > 253 }) return false
         val uri = runCatching { java.net.URI(page.url) }.getOrNull() ?: return false
-        if (uri.userInfo != null || uri.host.isNullOrBlank()) return false
-        val host = uri.host.trimEnd('.')
-        if (page.allowedHosts.none { it.trimEnd('.').equals(host, ignoreCase = true) }) return false
+        if (uri.isOpaque || uri.userInfo != null) return false
         val scheme = uri.scheme?.lowercase() ?: return false
         if (scheme != "https" && scheme != "http") return false
+        val host = uri.host?.let(::normalizeHost) ?: return false
+        val allowedHosts = page.allowedHosts.map { normalizeHost(it) ?: return false }
+        if (host !in allowedHosts) return false
         val port = uri.port
         val defaultPort = if (scheme == "https") 443 else 80
         if (port != -1 && port != defaultPort) return false
