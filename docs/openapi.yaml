@@ -228,6 +228,11 @@ paths:
       operationId: login
       description: >-
         Rate-limited. Exchange an enrolled account's credentials for a dashboard session.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
       responses:
         "200":
           description: >-
@@ -1069,7 +1074,7 @@ paths:
                 layoutId: { type: string, format: uuid }
                 enabled: { type: boolean }
                 commandType: { type: string }
-                commandPayload: { type: object }
+                commandPayload: { type: object, additionalProperties: true }
       responses:
         "200":
           description: Bulk operation preview
@@ -1107,7 +1112,7 @@ paths:
                 layoutId: { type: string, format: uuid }
                 enabled: { type: boolean }
                 commandType: { type: string }
-                commandPayload: { type: object }
+                commandPayload: { type: object, additionalProperties: true }
                 expectedChangeCount: { type: integer }
       responses:
         "200":
@@ -3172,6 +3177,11 @@ paths:
       operationId: createContentFolder
       description: >-
         Create content folder. Requires an authenticated dashboard user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ContentFolderInput" }
       responses:
         "201":
           description: Folder created
@@ -3204,6 +3214,11 @@ paths:
       operationId: createContentCollection
       description: >-
         Create content collection. Requires an authenticated dashboard user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ContentCollectionInput" }
       responses:
         "201":
           description: Collection created
@@ -3235,6 +3250,11 @@ paths:
       operationId: createContentTag
       description: >-
         Create content tag. Requires an authenticated dashboard user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ContentTagInput" }
       responses:
         "201":
           description: Tag created
@@ -3293,6 +3313,11 @@ paths:
       operationId: createPairingSession
       description: >-
         Public. Start a pairing session and return the visible code with its private poll secret.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PairingSessionCreateRequest" }
       responses:
         "201":
           description: Pairing session created
@@ -3339,6 +3364,11 @@ paths:
       operationId: enrollPlayer
       description: >-
         Redeem a one-time enrollment token for the permanent device credential, returned exactly once. The enrollment token authenticates this call.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PlayerEnrollmentRequest" }
       responses:
         "201":
           description: Device credential returned exactly once
@@ -3873,6 +3903,11 @@ paths:
       operationId: createLocation
       description: >-
         Create location. Requires an authenticated dashboard user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LocationInput" }
       responses:
         "201":
           description: Location created
@@ -3898,6 +3933,11 @@ paths:
             required: true,
             schema: { type: string, format: uuid },
           }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LocationInput" }
       responses:
         "200":
           description: Location updated
@@ -4226,6 +4266,19 @@ paths:
             schema: { type: boolean, default: false },
             description: Return manually archived and automatically expired library content instead of active content,
           }
+        - {
+            in: query,
+            name: provider,
+            schema: { type: string },
+            description: Widget provider filter,
+          }
+        - { in: query, name: folderId, schema: { type: string, format: uuid } }
+        - {
+            in: query,
+            name: collectionId,
+            schema: { type: string, format: uuid },
+          }
+        - { in: query, name: tagId, schema: { type: string, format: uuid } }
       responses:
         "200":
           description: Stable paginated media library
@@ -4536,6 +4589,11 @@ paths:
       description: >-
         Update playlist. Requires an authenticated dashboard user.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PlaylistDetailsInput" }
       responses:
         "200":
           description: Playlist updated and revision incremented
@@ -4632,6 +4690,11 @@ paths:
       parameters:
         - $ref: "#/components/parameters/ResourceID"
         - $ref: "#/components/parameters/CSRFToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PlaylistItemOrderRequest" }
       responses:
         "200":
           description: Complete item order replaced transactionally
@@ -4708,6 +4771,11 @@ paths:
       description: >-
         Update playlist item. Requires an authenticated dashboard user.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PlaylistItemInput" }
       responses:
         "200":
           description: Playback settings updated
@@ -4843,6 +4911,14 @@ paths:
       operationId: listScreenGroups
       description: >-
         List screen groups. Requires an authenticated dashboard user.
+      parameters:
+        - { in: query, name: page, schema: { type: integer, minimum: 1 } }
+        - {
+            in: query,
+            name: pageSize,
+            schema: { type: integer, minimum: 1, maximum: 100 },
+          }
+        - { in: query, name: search, schema: { type: string } }
       responses:
         "200":
           description: "Paginated Display Groups, assignments, and members"
@@ -4866,6 +4942,11 @@ paths:
             schema: { type: string },
           },
         ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ScreenGroupInput" }
       responses:
         "201":
           description: Display Group created in Mirror mode
@@ -4901,6 +4982,11 @@ paths:
         Update screen group. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ScreenGroupInput" }
       responses:
         "200":
           description: Display Group updated
@@ -5044,6 +5130,11 @@ paths:
         Add screen group member. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ScreenGroupMemberInput" }
       responses:
         "200":
           description: Screen added and member manifests revised
@@ -5185,6 +5276,11 @@ paths:
         Update schedule. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ScheduleInput" }
       responses:
         "200":
           description: Schedule updated and affected manifests revised
@@ -5276,6 +5372,11 @@ paths:
           required: false
           schema: { type: string }
           description: Required when authenticating with sessionCookie; omit for userBearer.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WebsiteInput" }
       responses:
         "201":
           description: Website asset created
@@ -5295,6 +5396,11 @@ paths:
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
         - { $ref: "#/components/parameters/CSRFToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WebsiteInput" }
       responses:
         "200":
           description: Website configuration updated and affected manifests revised
@@ -5392,7 +5498,7 @@ paths:
               required: [provider, configuration]
               properties:
                 provider: { $ref: "#/components/schemas/WidgetProvider" }
-                configuration: { type: object }
+                configuration: { type: object, additionalProperties: true }
       responses:
         "200":
           description: Declarative presentation schema v1 document
@@ -5474,6 +5580,21 @@ paths:
       operationId: listDataSources
       description: >-
         List data sources. Requires an authenticated dashboard user.
+      parameters:
+        - { in: query, name: page, schema: { type: integer, minimum: 1 } }
+        - {
+            in: query,
+            name: pageSize,
+            schema: { type: integer, minimum: 1, maximum: 100 },
+          }
+        - { in: query, name: search, schema: { type: string } }
+        - { in: query, name: provider, schema: { type: string } }
+        - {
+            in: query,
+            name: sort,
+            schema: { type: string },
+            description: "updated (default), oldest, or name; other values use the default",
+          }
       responses:
         "200":
           description: Paginated Data Source summaries
@@ -5624,7 +5745,7 @@ paths:
               type: object
               required: [configuration]
               properties:
-                configuration: { type: object }
+                configuration: { type: object, additionalProperties: true }
                 previewDate: { type: string, format: date }
       responses:
         "200":
@@ -5676,7 +5797,7 @@ paths:
               type: object
               required: [configuration]
               properties:
-                configuration: { type: object }
+                configuration: { type: object, additionalProperties: true }
       responses:
         "200":
           description: "Detected fields, sample values, suggested mapping, and available record fields"
@@ -6993,6 +7114,11 @@ paths:
       summary: Queue a typed operational, Display Control, or bounded player-recovery command
       description: >-
         Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PlayerCommandRequest" }
       responses:
         "202":
           description: Command queued
@@ -7047,6 +7173,11 @@ paths:
         Requires an authenticated player credential.
       operationId: reportPlayerCommandResult
       summary: Report a safe command result
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PlayerCommandResultRequest" }
       responses:
         "200":
           description: Result accepted idempotently
@@ -7165,6 +7296,11 @@ paths:
       description: "Requires an authenticated dashboard user."
       summary: Replace typed group policy
       parameters: [{ $ref: "#/components/parameters/ResourceID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PolicyUpdate" }
       responses:
         "200":
           description: Updated policy
@@ -7207,6 +7343,11 @@ paths:
       operationId: putScreenPolicy
       description: "Requires an authenticated dashboard user."
       summary: Replace typed screen policy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PolicyUpdate" }
       responses:
         "200":
           description: Updated policy
@@ -7262,6 +7403,7 @@ paths:
                 required: [data]
                 properties:
                   data:
+                    additionalProperties: true
                     type: object
                     description: >-
                       Player-reported diagnostics bag. Fields vary by player state and caller role (managers see package details viewers do not); every field is optional.
@@ -7455,6 +7597,11 @@ paths:
         Requires an authenticated dashboard user.
       operationId: pollGitHubDeviceFlow
       summary: Poll an active GitHub OAuth device flow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GitHubDevicePollRequest" }
       responses:
         "200":
           description: "Pending, connected, denied, or expired state"
@@ -7567,6 +7714,11 @@ paths:
         Requires an authenticated dashboard user.
       operationId: createUpdateDeployment
       summary: Create a deduplicated screen and group deployment with an optional canary cohort
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateDeploymentRequest" }
       responses:
         "201":
           description: Deployment created
@@ -7957,7 +8109,7 @@ paths:
               properties:
                 name: { type: string }
                 description: { type: string }
-                draftSchema: { type: object }
+                draftSchema: { type: object, additionalProperties: true }
       responses:
         "201":
           {
@@ -8022,7 +8174,7 @@ paths:
               type: object
               required: [schema]
               properties:
-                schema: { type: object }
+                schema: { type: object, additionalProperties: true }
       responses:
         "200": { description: Refreshed Form detail with the saved draft }
         "403": { description: Manage capability required }
@@ -9624,6 +9776,7 @@ components:
         sessionType: { $ref: "#/components/schemas/ProofSessionType" }
         terminalReason: { $ref: "#/components/schemas/ProofTerminalReason" }
         details:
+          additionalProperties: true
           type: object
           description: >-
             Allowlisted event metadata, filtered for the caller's role. Sensitive values stay server-side.
@@ -9733,6 +9886,7 @@ components:
         failureCode: { type: string }
         failureMessage: { type: string }
         details:
+          additionalProperties: true
           type: object
           description: >-
             Allowlisted event metadata, filtered for the caller's role. Sensitive values stay server-side.
@@ -9774,6 +9928,7 @@ components:
         requestId: { type: string }
         summary: { type: string }
         metadata:
+          additionalProperties: true
           type: object
           description: >-
             Allowlisted audit metadata, filtered for the caller's role. Sensitive values stay server-side.
@@ -9861,6 +10016,7 @@ components:
           { type: [integer, "null"], format: int64, minimum: 1 }
         publishedRevisionId: { type: [string, "null"], format: uuid }
         document:
+          additionalProperties: true
           type: object
           description: Native draft document for the content type.
         digest: { type: string }
@@ -9923,6 +10079,7 @@ components:
       properties:
         submission: { $ref: "#/components/schemas/ContentSubmission" }
         published:
+          additionalProperties: true
           type: object
           description: Native published record with untagged Go-cased keys.
     BulkAction:
@@ -10022,7 +10179,7 @@ components:
       properties:
         schemaVersion: { type: integer, minimum: 1 }
         revision: { type: integer, format: int64, minimum: 0 }
-        values: { type: object }
+        values: { type: object, additionalProperties: true }
         updatedAt: { type: string, format: date-time }
     SettingsExport:
       type: object
@@ -10044,10 +10201,10 @@ components:
           { $ref: "#/components/schemas/SettingsExportOrganization" }
         groupPolicies:
           type: array
-          items: { type: object }
+          items: { type: object, additionalProperties: true }
         screenPolicies:
           type: array
-          items: { type: object }
+          items: { type: object, additionalProperties: true }
     SettingsImportPreview:
       type: object
       additionalProperties: false
@@ -10345,6 +10502,7 @@ components:
             migrationVersion: { type: string }
             postgresVersion: { type: string }
         media:
+          additionalProperties: true
           type: object
           description: >-
             Media diagnostics bag when storage is healthy, a degraded marker otherwise.
@@ -10353,6 +10511,7 @@ components:
         connectedScreens: { type: integer, minimum: 0 }
         serverTimezone: { type: string }
         deployment:
+          additionalProperties: true
           type: object
           description: Deployment capability markers.
     Takeover:
@@ -11216,6 +11375,7 @@ components:
           type: array
           items: { $ref: "#/components/schemas/ContentDefinitionField" }
         ui:
+          additionalProperties: true
           type: object
           description: Release-owned authoring hints of any JSON shape.
     ContentDefinitionConfigurationSchema:
@@ -11271,6 +11431,7 @@ components:
         tagName: { type: string }
         entrypoint: { type: string }
         configTemplate:
+          additionalProperties: true
           type: object
           description: Release-owned component configuration template.
         dataSourceFields: { type: array, items: { type: string } }
@@ -11295,6 +11456,7 @@ components:
             name: { type: string }
             description: { type: string }
             configurationTemplate:
+              additionalProperties: true
               type: object
               description: Release-owned Data Source configuration template.
     ContentDefinitionWebIntegration:
@@ -11350,6 +11512,7 @@ components:
         configurationSchema:
           { $ref: "#/components/schemas/ContentDefinitionConfigurationSchema" }
         defaultConfiguration:
+          additionalProperties: true
           type: [object, "null"]
           description: Release-owned default Widget configuration.
         acceptedDataSourceKinds: { type: array, items: { type: string } }
@@ -11358,6 +11521,7 @@ components:
           additionalProperties: { type: string }
         presentationSchemaVersion: { type: integer, minimum: 1 }
         presentationTemplate:
+          additionalProperties: true
           type: object
           description: Release-owned presentation template.
         presentationBase: { type: string }
@@ -11405,6 +11569,7 @@ components:
         configurationSchema:
           { $ref: "#/components/schemas/ContentDefinitionConfigurationSchema" }
         defaultConfiguration:
+          additionalProperties: true
           type: [object, "null"]
           description: Release-owned default Data Source configuration.
         outputSchema:
@@ -12135,6 +12300,7 @@ components:
       properties:
         challengeToken: { type: string }
         options:
+          additionalProperties: true
           type: object
           description: >-
             WebAuthn public-key assertion options for navigator.credentials.get(), serialized with base64url binary fields. Consumed by the platform authenticator rather than field by field.
@@ -12235,7 +12401,7 @@ components:
         type: { type: string, enum: [public-key] }
         authenticatorAttachment:
           { type: string, enum: [platform, cross-platform] }
-        clientExtensionResults: { type: object }
+        clientExtensionResults: { type: object, additionalProperties: true }
         response:
           type: object
           required: [clientDataJSON, attestationObject]
@@ -12254,7 +12420,7 @@ components:
         type: { type: string, enum: [public-key] }
         authenticatorAttachment:
           { type: string, enum: [platform, cross-platform] }
-        clientExtensionResults: { type: object }
+        clientExtensionResults: { type: object, additionalProperties: true }
         response:
           type: object
           required: [clientDataJSON, authenticatorData, signature]
@@ -12955,6 +13121,188 @@ components:
           items: { $ref: "#/components/schemas/Schedule" }
         nextTransition: { type: string, format: date-time }
         conflicts: { type: array, items: { type: string } }
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [username, password]
+      properties:
+        username: { type: string }
+        password: { type: string }
+    LocationInput:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        addressLine1: { type: string, maxLength: 240 }
+        addressLine2: { type: string, maxLength: 240 }
+        city: { type: string, maxLength: 120 }
+        state: { type: string, maxLength: 120 }
+        postalCode: { type: string, maxLength: 40 }
+        country: { type: string, maxLength: 120 }
+        latitude: { type: [number, "null"], minimum: -90, maximum: 90 }
+        longitude: { type: [number, "null"], minimum: -180, maximum: 180 }
+    PlaylistDetailsInput:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 180 }
+        description: { type: string, maxLength: 2000 }
+    PlaylistItemOrderRequest:
+      type: object
+      additionalProperties: false
+      required: [itemIds]
+      properties:
+        itemIds:
+          type: array
+          items: { type: string, format: uuid }
+          description: Every item of the playlist, in the new order.
+    ScreenGroupInput:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1 }
+        description: { type: string }
+        presentationGatewayScreenId: { type: [string, "null"], format: uuid }
+        clearPresentationGateway: { type: boolean }
+    ScreenGroupMemberInput:
+      type: object
+      additionalProperties: false
+      required: [screenId]
+      properties:
+        screenId: { type: string, format: uuid }
+    PolicyUpdate:
+      type: object
+      additionalProperties: false
+      required: [revision, values]
+      properties:
+        revision:
+          type: integer
+          format: int64
+          description: Revision the caller last read; a stale value fails with 409.
+        priority:
+          type: integer
+          description: Group policies only. Higher priority wins between groups.
+        values:
+          type: object
+          additionalProperties: true
+          description: Registry setting keys to values. Validated against the closed typed settings registry.
+    ContentFolderInput:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        parentId: { type: [string, "null"], format: uuid }
+        name: { type: string, minLength: 1 }
+        description: { type: string }
+    ContentCollectionInput:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1 }
+        description: { type: string }
+    ContentTagInput:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1 }
+        color: { type: string }
+    WebsiteInput:
+      type: object
+      additionalProperties: false
+      required: [name, url]
+      description: >-
+        Omitted optional settings take the organization website defaults; javascriptEnabled and domStorageEnabled are distinguished from false by presence.
+      properties:
+        name: { type: string, minLength: 1, maxLength: 180 }
+        description: { type: string, maxLength: 2000 }
+        url: { type: string, minLength: 1, maxLength: 2048 }
+        allowedHosts:
+          type: array
+          items: { type: string }
+        javascriptEnabled: { type: boolean }
+        domStorageEnabled: { type: boolean }
+        cookiePolicy:
+          { type: string, enum: [disabled, first_party, first_and_third_party] }
+        reloadPolicy:
+          { type: string, enum: [load_once, on_each_activation, interval] }
+        refreshIntervalSeconds: { type: integer, minimum: 1 }
+        loadTimeoutSeconds: { type: integer }
+        zoomPercent: { type: integer }
+        scrollX: { type: integer }
+        scrollY: { type: integer }
+        customUserAgent: { type: string }
+        backgroundColor: { type: string }
+        failureBehavior:
+          {
+            type: string,
+            enum: [last_success, placeholder, fallback_image, skip],
+          }
+        fallbackImageAssetId: { type: [string, "null"], format: uuid }
+    GitHubDevicePollRequest:
+      type: object
+      additionalProperties: false
+      required: [flowId]
+      properties:
+        flowId: { type: string }
+    PlayerCommandResultRequest:
+      type: object
+      additionalProperties: false
+      required: [success]
+      properties:
+        success: { type: boolean }
+        code: { type: string, maxLength: 80 }
+        message: { type: string, maxLength: 240 }
+    PlayerEnrollmentRequest:
+      type: object
+      additionalProperties: false
+      required: [pairingSessionId, enrollmentToken]
+      properties:
+        pairingSessionId: { type: string, format: uuid }
+        enrollmentToken: { type: string }
+    PairingSessionCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [installationId, metadata]
+      properties:
+        installationId:
+          type: string
+          description: Installation identity the Player read from the server.
+        metadata: { $ref: "#/components/schemas/DeviceMetadata" }
+    PlayerCommandRequest:
+      type: object
+      additionalProperties: false
+      required: [type]
+      properties:
+        type: { $ref: "#/components/schemas/PlayerCommandType" }
+        payload:
+          type: object
+          additionalProperties: true
+          description: Per-type command arguments validated at queue time.
+        idempotencyKey: { type: [string, "null"], format: uuid }
+    UpdateDeploymentRequest:
+      type: object
+      additionalProperties: false
+      required: [releaseId, name, mode]
+      properties:
+        releaseId: { type: string, format: uuid }
+        name: { type: string, minLength: 1, maxLength: 180 }
+        mode: { $ref: "#/components/schemas/UpdateDeploymentMode" }
+        maintenanceWindowStart:
+          type: [string, "null"]
+          format: date-time
+          description: Required and in the future when mode is maintenance_window.
+        screenIds:
+          type: array
+          items: { type: string, format: uuid }
+        groupIds:
+          type: array
+          items: { type: string, format: uuid }
+        canarySize: { type: integer, minimum: 0, maximum: 50 }
     ScheduleInput:
       type: object
       additionalProperties: false
@@ -13118,6 +13466,7 @@ components:
         id: { type: string, format: uuid }
         type: { $ref: "#/components/schemas/PlayerCommandType" }
         payload:
+          additionalProperties: true
           type: object
           description: Per-type command arguments validated at queue time.
         state: { $ref: "#/components/schemas/PlayerCommandState" }
@@ -13160,6 +13509,7 @@ components:
         id: { type: string, format: uuid }
         type: { $ref: "#/components/schemas/PlayerCommandType" }
         payload:
+          additionalProperties: true
           type: object
           description: Per-type command arguments validated at queue time.
         idempotencyKey: { type: string, format: uuid }
@@ -13454,10 +13804,20 @@ components:
         screenId: { type: string, format: uuid }
         generatedAt: { type: string, format: date-time }
         mode: { type: string, const: presentation }
-        playlist: { oneOf: [{ type: "null" }, { type: object }] }
-        layout: { oneOf: [{ type: "null" }, { type: object }] }
-        layouts: { type: array, items: { type: object } }
-        assets: { type: array, items: { type: object } }
+        playlist:
+          {
+            oneOf:
+              [{ type: "null" }, { type: object, additionalProperties: true }],
+          }
+        layout:
+          {
+            oneOf:
+              [{ type: "null" }, { type: object, additionalProperties: true }],
+          }
+        layouts:
+          { type: array, items: { type: object, additionalProperties: true } }
+        assets:
+          { type: array, items: { type: object, additionalProperties: true } }
         canvas:
           oneOf:
             - { type: "null" }
@@ -13486,8 +13846,10 @@ components:
         schedules:
           type: array
           items: { $ref: "#/components/schemas/ManifestSchedule" }
-        widgets: { type: array, items: { type: object } }
-        dataSources: { type: array, items: { type: object } }
+        widgets:
+          { type: array, items: { type: object, additionalProperties: true } }
+        dataSources:
+          { type: array, items: { type: object, additionalProperties: true } }
         presentationOverride:
           {
             oneOf:
@@ -13599,6 +13961,7 @@ components:
           }
         configVersion: { type: integer, minimum: 1 }
         authorConfiguration:
+          additionalProperties: true
           type: object
           description: Author-facing App settings before managed-resource IDs are injected.
         managedDataSourceId:
@@ -13609,6 +13972,7 @@ components:
           {
             type: object,
             description: "Provider-specific configuration. Native text Widgets omit textScale for automatic bounds-first sizing or use 25–500 percent; contentPadding defaults to 10 percent per edge and accepts 0–40.",
+            additionalProperties: true,
           }
     CompiledPresentationBinding:
       type: object
@@ -13656,6 +14020,7 @@ components:
         id: { type: string }
         type: { type: string }
         props:
+          additionalProperties: true
           type: object
           description: Renderer-specific node properties.
         binding: { $ref: "#/components/schemas/CompiledPresentationBinding" }
@@ -13744,6 +14109,7 @@ components:
           {
             type: object,
             description: "Provider-specific configuration. Native text Widgets omit textScale for automatic bounds-first sizing or use 25–500 percent; contentPadding defaults to 10 percent per edge and accepts 0–40.",
+            additionalProperties: true,
           }
     DataSource:
       type: object
@@ -13767,7 +14133,7 @@ components:
         name: { type: string }
         description: { type: string }
         configVersion: { type: integer, minimum: 1 }
-        configuration: { type: object }
+        configuration: { type: object, additionalProperties: true }
         creator:
           type: object
           additionalProperties: false
@@ -13801,7 +14167,7 @@ components:
         name: { type: string }
         description: { type: string }
         configVersion: { type: integer, minimum: 1 }
-        configuration: { type: object }
+        configuration: { type: object, additionalProperties: true }
         creator:
           type: object
           additionalProperties: false
@@ -14124,7 +14490,7 @@ components:
         name: { type: string }
         description: { type: string }
         configVersion: { type: integer, minimum: 1 }
-        configuration: { type: object }
+        configuration: { type: object, additionalProperties: true }
         creator:
           type: object
           additionalProperties: false
@@ -14208,7 +14574,7 @@ components:
         provider: { $ref: "#/components/schemas/DataSourceProvider" }
         name: { type: string, minLength: 1, maxLength: 180 }
         description: { type: string, maxLength: 2000 }
-        configuration: { type: object }
+        configuration: { type: object, additionalProperties: true }
     AssetStatus:
       type: string
       enum:
@@ -14640,6 +15006,7 @@ components:
       properties:
         challengeToken: { type: string }
         options:
+          additionalProperties: true
           type: object
           description: >-
             WebAuthn public-key credential creation options for navigator.credentials.create(), serialized with base64url binary fields. Consumed by the platform authenticator rather than field by field.
@@ -15061,7 +15428,7 @@ components:
       required: [revision, values]
       properties:
         revision: { type: integer, format: int64, minimum: 0 }
-        values: { type: object }
+        values: { type: object, additionalProperties: true }
     SettingDefinition:
       type: object
       additionalProperties: false
@@ -15105,7 +15472,7 @@ components:
       properties:
         schemaVersion: { type: integer, minimum: 1 }
         revision: { type: integer, format: int64, minimum: 0 }
-        values: { type: object }
+        values: { type: object, additionalProperties: true }
         definitions:
           type: array
           items: { $ref: "#/components/schemas/SettingDefinition" }
@@ -15118,7 +15485,7 @@ components:
         schemaVersion: { type: integer, minimum: 1 }
         revision: { type: integer, format: int64, minimum: 0 }
         priority: { type: integer, minimum: 0 }
-        values: { type: object }
+        values: { type: object, additionalProperties: true }
         updatedAt: { type: string, format: date-time }
     EffectivePolicyValue:
       type: object

@@ -6193,7 +6193,9 @@ export interface components {
       sessionType: components["schemas"]["ProofSessionType"];
       terminalReason?: components["schemas"]["ProofTerminalReason"];
       /** @description Allowlisted event metadata, filtered for the caller's role. Sensitive values stay server-side. */
-      details: Record<string, never>;
+      details: {
+        [key: string]: unknown;
+      };
     };
     ProofOfPlayPage: {
       items: components["schemas"]["ProofOfPlayRecord"][];
@@ -6267,7 +6269,9 @@ export interface components {
       failureCode?: string;
       failureMessage?: string;
       /** @description Allowlisted event metadata, filtered for the caller's role. Sensitive values stay server-side. */
-      details: Record<string, never>;
+      details: {
+        [key: string]: unknown;
+      };
     };
     ScreenEventPage: {
       items: components["schemas"]["ScreenEventRecord"][];
@@ -6291,7 +6295,9 @@ export interface components {
       requestId?: string;
       summary: string;
       /** @description Allowlisted audit metadata, filtered for the caller's role. Sensitive values stay server-side. */
-      metadata: Record<string, never>;
+      metadata: {
+        [key: string]: unknown;
+      };
     };
     AuditActivityPage: {
       items: components["schemas"]["AuditActivityRecord"][];
@@ -6339,7 +6345,9 @@ export interface components {
       /** Format: uuid */
       publishedRevisionId: string | null;
       /** @description Native draft document for the content type. */
-      document: Record<string, never>;
+      document: {
+        [key: string]: unknown;
+      };
       digest: string;
     };
     /** @description One piece of content and where it stands. State is pending, approved, or rejected, derived from whether a decision exists for this exact revision. */
@@ -6387,7 +6395,9 @@ export interface components {
     ContentSubmissionPublication: {
       submission: components["schemas"]["ContentSubmission"];
       /** @description Native published record with untagged Go-cased keys. */
-      published: Record<string, never>;
+      published: {
+        [key: string]: unknown;
+      };
     };
     /** @enum {string} */
     BulkAction:
@@ -6445,7 +6455,9 @@ export interface components {
       schemaVersion: number;
       /** Format: int64 */
       revision: number;
-      values: Record<string, never>;
+      values: {
+        [key: string]: unknown;
+      };
       /** Format: date-time */
       updatedAt: string;
     };
@@ -6459,8 +6471,12 @@ export interface components {
       exportedAt: string;
       tilecastVersion: string;
       organization: components["schemas"]["SettingsExportOrganization"];
-      groupPolicies: Record<string, never>[];
-      screenPolicies?: Record<string, never>[];
+      groupPolicies: {
+        [key: string]: unknown;
+      }[];
+      screenPolicies?: {
+        [key: string]: unknown;
+      }[];
     };
     SettingsImportPreview: {
       /** @enum {boolean} */
@@ -6644,13 +6660,17 @@ export interface components {
         postgresVersion: string;
       };
       /** @description Media diagnostics bag when storage is healthy, a degraded marker otherwise. */
-      media: Record<string, never>;
+      media: {
+        [key: string]: unknown;
+      };
       activeProcessingJobs: number;
       pendingCommands: number;
       connectedScreens: number;
       serverTimezone: string;
       /** @description Deployment capability markers. */
-      deployment: Record<string, never>;
+      deployment: {
+        [key: string]: unknown;
+      };
     };
     /** @description Compact takeover row returned by the takeover list, with live per-state screen counts. The per-screen breakdown requires the detail read. */
     Takeover: {
@@ -7246,7 +7266,9 @@ export interface components {
       maximumItems?: number;
       itemFields?: components["schemas"]["ContentDefinitionField"][];
       /** @description Release-owned authoring hints of any JSON shape. */
-      ui?: Record<string, never>;
+      ui?: {
+        [key: string]: unknown;
+      };
     };
     ContentDefinitionConfigurationSchema: {
       fields: components["schemas"]["ContentDefinitionField"][];
@@ -7282,7 +7304,9 @@ export interface components {
       tagName: string;
       entrypoint: string;
       /** @description Release-owned component configuration template. */
-      configTemplate: Record<string, never>;
+      configTemplate: {
+        [key: string]: unknown;
+      };
       dataSourceFields?: string[];
       /** @enum {string} */
       empty: "render" | "skip-eligible";
@@ -7297,7 +7321,9 @@ export interface components {
         name: string;
         description?: string;
         /** @description Release-owned Data Source configuration template. */
-        configurationTemplate: Record<string, never>;
+        configurationTemplate: {
+          [key: string]: unknown;
+        };
       };
     };
     ContentDefinitionWebIntegration: {
@@ -7331,14 +7357,18 @@ export interface components {
       runtime: "native" | "web";
       configurationSchema: components["schemas"]["ContentDefinitionConfigurationSchema"];
       /** @description Release-owned default Widget configuration. */
-      defaultConfiguration: Record<string, never> | null;
+      defaultConfiguration: {
+        [key: string]: unknown;
+      } | null;
       acceptedDataSourceKinds?: string[];
       requiredFieldTypes?: {
         [key: string]: string;
       };
       presentationSchemaVersion: number;
       /** @description Release-owned presentation template. */
-      presentationTemplate?: Record<string, never>;
+      presentationTemplate?: {
+        [key: string]: unknown;
+      };
       presentationBase?: string;
       requiredCapabilities: {
         [key: string]: number;
@@ -7363,7 +7393,9 @@ export interface components {
       icon: string;
       configurationSchema: components["schemas"]["ContentDefinitionConfigurationSchema"];
       /** @description Release-owned default Data Source configuration. */
-      defaultConfiguration: Record<string, never> | null;
+      defaultConfiguration: {
+        [key: string]: unknown;
+      } | null;
       outputSchema: components["schemas"]["ContentDefinitionOutputSchema"];
       fetch?: components["schemas"]["ContentDefinitionFetchSpec"];
       adapterId: string;
@@ -7894,7 +7926,9 @@ export interface components {
     PasskeyAssertionChallenge: {
       challengeToken: string;
       /** @description WebAuthn public-key assertion options for navigator.credentials.get(), serialized with base64url binary fields. Consumed by the platform authenticator rather than field by field. */
-      options: Record<string, never>;
+      options: {
+        [key: string]: unknown;
+      };
     };
     AuthenticatorCodeRequest: {
       /** @description The six-digit authenticator code. */
@@ -7952,7 +7986,9 @@ export interface components {
       type: "public-key";
       /** @enum {string} */
       authenticatorAttachment?: "platform" | "cross-platform";
-      clientExtensionResults?: Record<string, never>;
+      clientExtensionResults?: {
+        [key: string]: unknown;
+      };
       response: {
         /** @description base64url */
         clientDataJSON: string;
@@ -7970,7 +8006,9 @@ export interface components {
       type: "public-key";
       /** @enum {string} */
       authenticatorAttachment?: "platform" | "cross-platform";
-      clientExtensionResults?: Record<string, never>;
+      clientExtensionResults?: {
+        [key: string]: unknown;
+      };
       response: {
         /** @description base64url */
         clientDataJSON: string;
@@ -8530,6 +8568,133 @@ export interface components {
       nextTransition?: string;
       conflicts: string[];
     };
+    LoginRequest: {
+      username: string;
+      password: string;
+    };
+    LocationInput: {
+      name: string;
+      addressLine1?: string;
+      addressLine2?: string;
+      city?: string;
+      state?: string;
+      postalCode?: string;
+      country?: string;
+      latitude?: number | null;
+      longitude?: number | null;
+    };
+    PlaylistDetailsInput: {
+      name: string;
+      description?: string;
+    };
+    PlaylistItemOrderRequest: {
+      /** @description Every item of the playlist, in the new order. */
+      itemIds: string[];
+    };
+    ScreenGroupInput: {
+      name: string;
+      description?: string;
+      /** Format: uuid */
+      presentationGatewayScreenId?: string | null;
+      clearPresentationGateway?: boolean;
+    };
+    ScreenGroupMemberInput: {
+      /** Format: uuid */
+      screenId: string;
+    };
+    PolicyUpdate: {
+      /**
+       * Format: int64
+       * @description Revision the caller last read; a stale value fails with 409.
+       */
+      revision: number;
+      /** @description Group policies only. Higher priority wins between groups. */
+      priority?: number;
+      /** @description Registry setting keys to values. Validated against the closed typed settings registry. */
+      values: {
+        [key: string]: unknown;
+      };
+    };
+    ContentFolderInput: {
+      /** Format: uuid */
+      parentId?: string | null;
+      name: string;
+      description?: string;
+    };
+    ContentCollectionInput: {
+      name: string;
+      description?: string;
+    };
+    ContentTagInput: {
+      name: string;
+      color?: string;
+    };
+    /** @description Omitted optional settings take the organization website defaults; javascriptEnabled and domStorageEnabled are distinguished from false by presence. */
+    WebsiteInput: {
+      name: string;
+      description?: string;
+      url: string;
+      allowedHosts?: string[];
+      javascriptEnabled?: boolean;
+      domStorageEnabled?: boolean;
+      /** @enum {string} */
+      cookiePolicy?: "disabled" | "first_party" | "first_and_third_party";
+      /** @enum {string} */
+      reloadPolicy?: "load_once" | "on_each_activation" | "interval";
+      refreshIntervalSeconds?: number;
+      loadTimeoutSeconds?: number;
+      zoomPercent?: number;
+      scrollX?: number;
+      scrollY?: number;
+      customUserAgent?: string;
+      backgroundColor?: string;
+      /** @enum {string} */
+      failureBehavior?:
+        "last_success" | "placeholder" | "fallback_image" | "skip";
+      /** Format: uuid */
+      fallbackImageAssetId?: string | null;
+    };
+    GitHubDevicePollRequest: {
+      flowId: string;
+    };
+    PlayerCommandResultRequest: {
+      success: boolean;
+      code?: string;
+      message?: string;
+    };
+    PlayerEnrollmentRequest: {
+      /** Format: uuid */
+      pairingSessionId: string;
+      enrollmentToken: string;
+    };
+    PairingSessionCreateRequest: {
+      /** @description Installation identity the Player read from the server. */
+      installationId: string;
+      metadata: components["schemas"]["DeviceMetadata"];
+    };
+    PlayerCommandRequest: {
+      type: components["schemas"]["PlayerCommandType"];
+      /** @description Per-type command arguments validated at queue time. */
+      payload?: {
+        [key: string]: unknown;
+      };
+      /** Format: uuid */
+      idempotencyKey?: string | null;
+    };
+    UpdateDeploymentRequest: {
+      /** Format: uuid */
+      releaseId: string;
+      name: string;
+      mode: components["schemas"]["UpdateDeploymentMode"];
+      /**
+       * Format: date-time
+       * @description Required and in the future when mode is maintenance_window.
+       */
+      maintenanceWindowStart?: string | null;
+      screenIds?: string[];
+      groupIds?: string[];
+      canarySize?: number;
+    };
     ScheduleInput: {
       name: string;
       description?: string;
@@ -8665,7 +8830,9 @@ export interface components {
       id: string;
       type: components["schemas"]["PlayerCommandType"];
       /** @description Per-type command arguments validated at queue time. */
-      payload: Record<string, never>;
+      payload: {
+        [key: string]: unknown;
+      };
       state: components["schemas"]["PlayerCommandState"];
       /** Format: date-time */
       createdAt: string;
@@ -8702,7 +8869,9 @@ export interface components {
       id: string;
       type: components["schemas"]["PlayerCommandType"];
       /** @description Per-type command arguments validated at queue time. */
-      payload: Record<string, never>;
+      payload: {
+        [key: string]: unknown;
+      };
       /** Format: uuid */
       idempotencyKey: string;
       state: components["schemas"]["PlayerCommandState"];
@@ -8919,10 +9088,18 @@ export interface components {
       generatedAt: string;
       /** @constant */
       mode: "presentation";
-      playlist: null | Record<string, never>;
-      layout?: null | Record<string, never>;
-      layouts?: Record<string, never>[];
-      assets: Record<string, never>[];
+      playlist: null | {
+        [key: string]: unknown;
+      };
+      layout?: null | {
+        [key: string]: unknown;
+      };
+      layouts?: {
+        [key: string]: unknown;
+      }[];
+      assets: {
+        [key: string]: unknown;
+      }[];
       canvas?: null | {
         width: number;
         height: number;
@@ -8936,8 +9113,12 @@ export interface components {
         order: number;
       };
       schedules?: components["schemas"]["ManifestSchedule"][];
-      widgets?: Record<string, never>[];
-      dataSources?: Record<string, never>[];
+      widgets?: {
+        [key: string]: unknown;
+      }[];
+      dataSources?: {
+        [key: string]: unknown;
+      }[];
       presentationOverride?:
         null | components["schemas"]["PresentationOverride"];
     };
@@ -9017,14 +9198,18 @@ export interface components {
         | null;
       configVersion: number;
       /** @description Author-facing App settings before managed-resource IDs are injected. */
-      authorConfiguration?: Record<string, never>;
+      authorConfiguration?: {
+        [key: string]: unknown;
+      };
       /**
        * Format: uuid
        * @description Explicit ownership link for a catalog App's hidden managed Data Source.
        */
       managedDataSourceId?: string;
       /** @description Provider-specific configuration. Native text Widgets omit textScale for automatic bounds-first sizing or use 25–500 percent; contentPadding defaults to 10 percent per edge and accepts 0–40. */
-      configuration: Record<string, never>;
+      configuration: {
+        [key: string]: unknown;
+      };
     };
     CompiledPresentationBinding: {
       source: string;
@@ -9059,7 +9244,9 @@ export interface components {
       id?: string;
       type: string;
       /** @description Renderer-specific node properties. */
-      props?: Record<string, never>;
+      props?: {
+        [key: string]: unknown;
+      };
       binding?: components["schemas"]["CompiledPresentationBinding"];
       repeat?: components["schemas"]["CompiledPresentationRepeat"];
       condition?: components["schemas"]["CompiledPresentationCondition"];
@@ -9113,7 +9300,9 @@ export interface components {
       name: string;
       description?: string;
       /** @description Provider-specific configuration. Native text Widgets omit textScale for automatic bounds-first sizing or use 25–500 percent; contentPadding defaults to 10 percent per edge and accepts 0–40. */
-      configuration: Record<string, never>;
+      configuration: {
+        [key: string]: unknown;
+      };
     };
     /** @description Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider stays an open string because definition and plugin providers extend the registry beyond the request-side enum. */
     DataSource: {
@@ -9123,7 +9312,9 @@ export interface components {
       name: string;
       description: string;
       configVersion: number;
-      configuration: Record<string, never>;
+      configuration: {
+        [key: string]: unknown;
+      };
       creator?: {
         /** Format: uuid */
         id: string;
@@ -9142,7 +9333,9 @@ export interface components {
       name: string;
       description: string;
       configVersion: number;
-      configuration: Record<string, never>;
+      configuration: {
+        [key: string]: unknown;
+      };
       creator?: {
         /** Format: uuid */
         id: string;
@@ -9377,7 +9570,9 @@ export interface components {
       name: string;
       description: string;
       configVersion: number;
-      configuration: Record<string, never>;
+      configuration: {
+        [key: string]: unknown;
+      };
       creator?: {
         /** Format: uuid */
         id: string;
@@ -9436,7 +9631,9 @@ export interface components {
       provider: components["schemas"]["DataSourceProvider"];
       name: string;
       description?: string;
-      configuration: Record<string, never>;
+      configuration: {
+        [key: string]: unknown;
+      };
     };
     /** @enum {string} */
     AssetStatus:
@@ -9755,7 +9952,9 @@ export interface components {
     PasskeyRegistrationOptions: {
       challengeToken: string;
       /** @description WebAuthn public-key credential creation options for navigator.credentials.create(), serialized with base64url binary fields. Consumed by the platform authenticator rather than field by field. */
-      options: Record<string, never>;
+      options: {
+        [key: string]: unknown;
+      };
     };
     OAuthGrant: {
       /** Format: uuid */
@@ -10044,7 +10243,9 @@ export interface components {
     SettingsUpdate: {
       /** Format: int64 */
       revision: number;
-      values: Record<string, never>;
+      values: {
+        [key: string]: unknown;
+      };
     };
     SettingDefinition: {
       key: string;
@@ -10069,7 +10270,9 @@ export interface components {
       schemaVersion: number;
       /** Format: int64 */
       revision: number;
-      values: Record<string, never>;
+      values: {
+        [key: string]: unknown;
+      };
       definitions: components["schemas"]["SettingDefinition"][];
       /** Format: date-time */
       updatedAt: string;
@@ -10079,7 +10282,9 @@ export interface components {
       /** Format: int64 */
       revision: number;
       priority?: number;
-      values: Record<string, never>;
+      values: {
+        [key: string]: unknown;
+      };
       /** Format: date-time */
       updatedAt: string;
     };
@@ -10591,7 +10796,11 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LoginRequest"];
+      };
+    };
     responses: {
       /** @description Signed in, or a multi-factor challenge when the account has a confirmed second factor. A challenge sets no session cookie. */
       200: {
@@ -12047,7 +12256,9 @@ export interface operations {
           layoutId?: string;
           enabled?: boolean;
           commandType?: string;
-          commandPayload?: Record<string, never>;
+          commandPayload?: {
+            [key: string]: unknown;
+          };
         };
       };
     };
@@ -12114,7 +12325,9 @@ export interface operations {
           layoutId?: string;
           enabled?: boolean;
           commandType?: string;
-          commandPayload?: Record<string, never>;
+          commandPayload?: {
+            [key: string]: unknown;
+          };
           expectedChangeCount?: number;
         };
       };
@@ -15759,7 +15972,11 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ContentFolderInput"];
+      };
+    };
     responses: {
       /** @description Folder created */
       201: {
@@ -15810,7 +16027,11 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ContentCollectionInput"];
+      };
+    };
     responses: {
       /** @description Collection created */
       201: {
@@ -15854,7 +16075,11 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ContentTagInput"];
+      };
+    };
     responses: {
       /** @description Tag created */
       201: {
@@ -15925,7 +16150,11 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PairingSessionCreateRequest"];
+      };
+    };
     responses: {
       /** @description Pairing session created */
       201: {
@@ -15994,7 +16223,11 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PlayerEnrollmentRequest"];
+      };
+    };
     responses: {
       /** @description Device credential returned exactly once */
       201: {
@@ -16721,7 +16954,11 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LocationInput"];
+      };
+    };
     responses: {
       /** @description Location created */
       201: {
@@ -16786,7 +17023,11 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LocationInput"];
+      };
+    };
     responses: {
       /** @description Location updated */
       200: {
@@ -17295,6 +17536,11 @@ export interface operations {
         sort?: "newest" | "oldest" | "updated" | "name";
         /** @description Return manually archived and automatically expired library content instead of active content */
         archived?: boolean;
+        /** @description Widget provider filter */
+        provider?: string;
+        folderId?: string;
+        collectionId?: string;
+        tagId?: string;
       };
       header?: never;
       path?: never;
@@ -17798,7 +18044,11 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PlaylistDetailsInput"];
+      };
+    };
     responses: {
       /** @description Playlist updated and revision incremented */
       200: {
@@ -17925,7 +18175,11 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PlaylistItemOrderRequest"];
+      };
+    };
     responses: {
       /** @description Complete item order replaced transactionally */
       200: {
@@ -18064,7 +18318,11 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PlaylistItemInput"];
+      };
+    };
     responses: {
       /** @description Playback settings updated */
       200: {
@@ -18299,7 +18557,11 @@ export interface operations {
   };
   listScreenGroups: {
     parameters: {
-      query?: never;
+      query?: {
+        page?: number;
+        pageSize?: number;
+        search?: string;
+      };
       header?: never;
       path?: never;
       cookie?: never;
@@ -18328,7 +18590,11 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ScreenGroupInput"];
+      };
+    };
     responses: {
       /** @description Display Group created in Mirror mode */
       201: {
@@ -18410,7 +18676,11 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ScreenGroupInput"];
+      };
+    };
     responses: {
       /** @description Display Group updated */
       200: {
@@ -18599,7 +18869,11 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ScreenGroupMemberInput"];
+      };
+    };
     responses: {
       /** @description Screen added and member manifests revised */
       200: {
@@ -18827,7 +19101,11 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ScheduleInput"];
+      };
+    };
     responses: {
       /** @description Schedule updated and affected manifests revised */
       200: {
@@ -18939,7 +19217,11 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebsiteInput"];
+      };
+    };
     responses: {
       /** @description Website asset created */
       201: {
@@ -18973,7 +19255,11 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebsiteInput"];
+      };
+    };
     responses: {
       /** @description Website configuration updated and affected manifests revised */
       200: {
@@ -19107,7 +19393,9 @@ export interface operations {
       content: {
         "application/json": {
           provider: components["schemas"]["WidgetProvider"];
-          configuration: Record<string, never>;
+          configuration: {
+            [key: string]: unknown;
+          };
         };
       };
     };
@@ -19245,7 +19533,14 @@ export interface operations {
   };
   listDataSources: {
     parameters: {
-      query?: never;
+      query?: {
+        page?: number;
+        pageSize?: number;
+        search?: string;
+        provider?: string;
+        /** @description updated (default), oldest, or name; other values use the default */
+        sort?: string;
+      };
       header?: never;
       path?: never;
       cookie?: never;
@@ -19469,7 +19764,9 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
-          configuration: Record<string, never>;
+          configuration: {
+            [key: string]: unknown;
+          };
           /** Format: date */
           previewDate?: string;
         };
@@ -19553,7 +19850,9 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
-          configuration: Record<string, never>;
+          configuration: {
+            [key: string]: unknown;
+          };
         };
       };
     };
@@ -21603,7 +21902,11 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PlayerCommandRequest"];
+      };
+    };
     responses: {
       /** @description Command queued */
       202: {
@@ -21680,7 +21983,11 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PlayerCommandResultRequest"];
+      };
+    };
     responses: {
       /** @description Result accepted idempotently */
       200: {
@@ -21900,7 +22207,11 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PolicyUpdate"];
+      };
+    };
     responses: {
       /** @description Updated policy */
       200: {
@@ -21975,7 +22286,11 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PolicyUpdate"];
+      };
+    };
     responses: {
       /** @description Updated policy */
       200: {
@@ -22067,7 +22382,9 @@ export interface operations {
         content: {
           "application/json": {
             /** @description Player-reported diagnostics bag. Fields vary by player state and caller role (managers see package details viewers do not); every field is optional. */
-            data: Record<string, never>;
+            data: {
+              [key: string]: unknown;
+            };
           };
         };
       };
@@ -22404,7 +22721,11 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["GitHubDevicePollRequest"];
+      };
+    };
     responses: {
       /** @description Pending, connected, denied, or expired state */
       200: {
@@ -22584,7 +22905,11 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UpdateDeploymentRequest"];
+      };
+    };
     responses: {
       /** @description Deployment created */
       201: {
@@ -23355,7 +23680,9 @@ export interface operations {
         "application/json": {
           name: string;
           description?: string;
-          draftSchema: Record<string, never>;
+          draftSchema: {
+            [key: string]: unknown;
+          };
         };
       };
     };
@@ -23463,7 +23790,9 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
-          schema: Record<string, never>;
+          schema: {
+            [key: string]: unknown;
+          };
         };
       };
     };
