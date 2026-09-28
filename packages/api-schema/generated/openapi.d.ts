@@ -7345,6 +7345,129 @@ export interface components {
       id: string;
       cacheStatus: components["schemas"]["PlayerReleaseCacheStatus"];
     };
+    /** @enum {string} */
+    UpdateDeploymentMode:
+      "download_only" | "install_now" | "maintenance_window";
+    /** @enum {string} */
+    UpdateDeploymentStatus:
+      "pending" | "active" | "paused" | "completed" | "cancelled";
+    /** @enum {string} */
+    UpdateRolloutMode: "full" | "canary";
+    /** @enum {string} */
+    UpdateRolloutPhase: "full" | "canary" | "paused";
+    /** @enum {string} */
+    UpdateScreenState:
+      | "pending"
+      | "offline"
+      | "incompatible"
+      | "already_current"
+      | "held"
+      | "cancelled"
+      | "downloading"
+      | "downloaded"
+      | "verifying"
+      | "ready"
+      | "waiting_for_permission"
+      | "waiting_for_user"
+      | "installing"
+      | "reconnecting"
+      | "failed"
+      | "succeeded";
+    UpdateDeploymentCreated: {
+      /** Format: uuid */
+      id: string;
+      /** @enum {string} */
+      status: "active";
+      targetCount: number;
+      /** Format: int64 */
+      apkSizeBytes: number;
+      rolloutMode: components["schemas"]["UpdateRolloutMode"];
+      rolloutPhase: components["schemas"]["UpdateRolloutPhase"];
+      canarySize: number;
+    };
+    UpdateDeploymentSummary: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      mode: components["schemas"]["UpdateDeploymentMode"];
+      status: components["schemas"]["UpdateDeploymentStatus"];
+      /** Format: date-time */
+      createdAt: string;
+      platform: string;
+      playerFamily: string;
+      architecture: string;
+      /** Format: int64 */
+      versionCode: number;
+      versionName: string;
+      targetCount: number;
+      succeededCount: number;
+      failedCount: number;
+      waitingForUserCount: number;
+      rolloutMode: components["schemas"]["UpdateRolloutMode"];
+      rolloutPhase: components["schemas"]["UpdateRolloutPhase"];
+      canarySize: number;
+      pauseReason?: string | null;
+      lastFailure?: string | null;
+    };
+    UpdateDeploymentList: {
+      items: components["schemas"]["UpdateDeploymentSummary"][];
+    };
+    UpdateDeploymentScreen: {
+      /** Format: uuid */
+      screenId: string;
+      screenName: string;
+      /** Format: int64 */
+      previousVersionCode?: number | null;
+      /** Format: int64 */
+      expectedVersionCode: number;
+      /** Format: int64 */
+      downloadedBytes: number;
+      permissionStatus?: string | null;
+      installerStatus?: string | null;
+      state: components["schemas"]["UpdateScreenState"];
+      safeError?: string | null;
+      /** Format: date-time */
+      updatedAt: string;
+      isCanary: boolean;
+      /** Format: date-time */
+      downloadStartedAt?: string | null;
+      /** Format: date-time */
+      downloadedAt?: string | null;
+      /** Format: date-time */
+      installStartedAt?: string | null;
+      /** Format: date-time */
+      completedAt?: string | null;
+    };
+    UpdateDeploymentDetail: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      mode: components["schemas"]["UpdateDeploymentMode"];
+      status: components["schemas"]["UpdateDeploymentStatus"];
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      completedAt?: string | null;
+      rolloutMode: components["schemas"]["UpdateRolloutMode"];
+      rolloutPhase: components["schemas"]["UpdateRolloutPhase"];
+      canarySize: number;
+      pauseReason?: string | null;
+      platform: string;
+      playerFamily: string;
+      architecture: string;
+      /** Format: int64 */
+      versionCode: number;
+      versionName: string;
+      /** Format: int64 */
+      artifactSizeBytes: number;
+      screens: components["schemas"]["UpdateDeploymentScreen"][];
+    };
+    UpdateDeploymentCancelled: {
+      /** Format: uuid */
+      id: string;
+      /** @enum {string} */
+      status: "cancelled";
+    };
     PlayerReleaseDeleteResult: {
       /** Format: uuid */
       id: string;
@@ -21507,7 +21630,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["UpdateDeploymentList"];
+          };
+        };
       };
     };
   };
@@ -21525,7 +21652,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["UpdateDeploymentCreated"];
+          };
+        };
       };
       /** @description Targets outside the caller's screen scope */
       403: {
@@ -21559,7 +21690,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["UpdateDeploymentDetail"];
+          };
+        };
       };
       /** @description Scoped callers only - unknown or reaching no screen in scope */
       404: {
@@ -21586,7 +21721,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["UpdateDeploymentCancelled"];
+          };
+        };
       };
       /** @description Reaches screens outside the caller's scope */
       403: {

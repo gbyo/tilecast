@@ -3456,6 +3456,183 @@ func (e TakeoverDetailStatus) Valid() bool {
 	}
 }
 
+// Defines values for UpdateDeploymentCancelledStatus.
+const (
+	UpdateDeploymentCancelledStatusCancelled UpdateDeploymentCancelledStatus = "cancelled"
+)
+
+// Valid indicates whether the value is a known member of the UpdateDeploymentCancelledStatus enum.
+func (e UpdateDeploymentCancelledStatus) Valid() bool {
+	switch e {
+	case UpdateDeploymentCancelledStatusCancelled:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UpdateDeploymentCreatedStatus.
+const (
+	UpdateDeploymentCreatedStatusActive UpdateDeploymentCreatedStatus = "active"
+)
+
+// Valid indicates whether the value is a known member of the UpdateDeploymentCreatedStatus enum.
+func (e UpdateDeploymentCreatedStatus) Valid() bool {
+	switch e {
+	case UpdateDeploymentCreatedStatusActive:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UpdateDeploymentMode.
+const (
+	DownloadOnly      UpdateDeploymentMode = "download_only"
+	InstallNow        UpdateDeploymentMode = "install_now"
+	MaintenanceWindow UpdateDeploymentMode = "maintenance_window"
+)
+
+// Valid indicates whether the value is a known member of the UpdateDeploymentMode enum.
+func (e UpdateDeploymentMode) Valid() bool {
+	switch e {
+	case DownloadOnly:
+		return true
+	case InstallNow:
+		return true
+	case MaintenanceWindow:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UpdateDeploymentStatus.
+const (
+	UpdateDeploymentStatusActive    UpdateDeploymentStatus = "active"
+	UpdateDeploymentStatusCancelled UpdateDeploymentStatus = "cancelled"
+	UpdateDeploymentStatusCompleted UpdateDeploymentStatus = "completed"
+	UpdateDeploymentStatusPaused    UpdateDeploymentStatus = "paused"
+	UpdateDeploymentStatusPending   UpdateDeploymentStatus = "pending"
+)
+
+// Valid indicates whether the value is a known member of the UpdateDeploymentStatus enum.
+func (e UpdateDeploymentStatus) Valid() bool {
+	switch e {
+	case UpdateDeploymentStatusActive:
+		return true
+	case UpdateDeploymentStatusCancelled:
+		return true
+	case UpdateDeploymentStatusCompleted:
+		return true
+	case UpdateDeploymentStatusPaused:
+		return true
+	case UpdateDeploymentStatusPending:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UpdateRolloutMode.
+const (
+	UpdateRolloutModeCanary UpdateRolloutMode = "canary"
+	UpdateRolloutModeFull   UpdateRolloutMode = "full"
+)
+
+// Valid indicates whether the value is a known member of the UpdateRolloutMode enum.
+func (e UpdateRolloutMode) Valid() bool {
+	switch e {
+	case UpdateRolloutModeCanary:
+		return true
+	case UpdateRolloutModeFull:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UpdateRolloutPhase.
+const (
+	UpdateRolloutPhaseCanary UpdateRolloutPhase = "canary"
+	UpdateRolloutPhaseFull   UpdateRolloutPhase = "full"
+	UpdateRolloutPhasePaused UpdateRolloutPhase = "paused"
+)
+
+// Valid indicates whether the value is a known member of the UpdateRolloutPhase enum.
+func (e UpdateRolloutPhase) Valid() bool {
+	switch e {
+	case UpdateRolloutPhaseCanary:
+		return true
+	case UpdateRolloutPhaseFull:
+		return true
+	case UpdateRolloutPhasePaused:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UpdateScreenState.
+const (
+	UpdateScreenStateAlreadyCurrent       UpdateScreenState = "already_current"
+	UpdateScreenStateCancelled            UpdateScreenState = "cancelled"
+	UpdateScreenStateDownloaded           UpdateScreenState = "downloaded"
+	UpdateScreenStateDownloading          UpdateScreenState = "downloading"
+	UpdateScreenStateFailed               UpdateScreenState = "failed"
+	UpdateScreenStateHeld                 UpdateScreenState = "held"
+	UpdateScreenStateIncompatible         UpdateScreenState = "incompatible"
+	UpdateScreenStateInstalling           UpdateScreenState = "installing"
+	UpdateScreenStateOffline              UpdateScreenState = "offline"
+	UpdateScreenStatePending              UpdateScreenState = "pending"
+	UpdateScreenStateReady                UpdateScreenState = "ready"
+	UpdateScreenStateReconnecting         UpdateScreenState = "reconnecting"
+	UpdateScreenStateSucceeded            UpdateScreenState = "succeeded"
+	UpdateScreenStateVerifying            UpdateScreenState = "verifying"
+	UpdateScreenStateWaitingForPermission UpdateScreenState = "waiting_for_permission"
+	UpdateScreenStateWaitingForUser       UpdateScreenState = "waiting_for_user"
+)
+
+// Valid indicates whether the value is a known member of the UpdateScreenState enum.
+func (e UpdateScreenState) Valid() bool {
+	switch e {
+	case UpdateScreenStateAlreadyCurrent:
+		return true
+	case UpdateScreenStateCancelled:
+		return true
+	case UpdateScreenStateDownloaded:
+		return true
+	case UpdateScreenStateDownloading:
+		return true
+	case UpdateScreenStateFailed:
+		return true
+	case UpdateScreenStateHeld:
+		return true
+	case UpdateScreenStateIncompatible:
+		return true
+	case UpdateScreenStateInstalling:
+		return true
+	case UpdateScreenStateOffline:
+		return true
+	case UpdateScreenStatePending:
+		return true
+	case UpdateScreenStateReady:
+		return true
+	case UpdateScreenStateReconnecting:
+		return true
+	case UpdateScreenStateSucceeded:
+		return true
+	case UpdateScreenStateVerifying:
+		return true
+	case UpdateScreenStateWaitingForPermission:
+		return true
+	case UpdateScreenStateWaitingForUser:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for UpdateState.
 const (
 	UpdateStateDownloaded           UpdateState = "downloaded"
@@ -8248,6 +8425,112 @@ type TelemetrySnapshot struct {
 	WifiLinkSpeedMbps        *int       `json:"wifiLinkSpeedMbps,omitempty"`
 	WifiSignalDbm            *int       `json:"wifiSignalDbm,omitempty"`
 }
+
+// UpdateDeploymentCancelled defines model for UpdateDeploymentCancelled.
+type UpdateDeploymentCancelled struct {
+	Id     openapi_types.UUID              `json:"id"`
+	Status UpdateDeploymentCancelledStatus `json:"status"`
+}
+
+// UpdateDeploymentCancelledStatus defines model for UpdateDeploymentCancelled.Status.
+type UpdateDeploymentCancelledStatus string
+
+// UpdateDeploymentCreated defines model for UpdateDeploymentCreated.
+type UpdateDeploymentCreated struct {
+	ApkSizeBytes int64                         `json:"apkSizeBytes"`
+	CanarySize   int                           `json:"canarySize"`
+	Id           openapi_types.UUID            `json:"id"`
+	RolloutMode  UpdateRolloutMode             `json:"rolloutMode"`
+	RolloutPhase UpdateRolloutPhase            `json:"rolloutPhase"`
+	Status       UpdateDeploymentCreatedStatus `json:"status"`
+	TargetCount  int                           `json:"targetCount"`
+}
+
+// UpdateDeploymentCreatedStatus defines model for UpdateDeploymentCreated.Status.
+type UpdateDeploymentCreatedStatus string
+
+// UpdateDeploymentDetail defines model for UpdateDeploymentDetail.
+type UpdateDeploymentDetail struct {
+	Architecture      string                   `json:"architecture"`
+	ArtifactSizeBytes int64                    `json:"artifactSizeBytes"`
+	CanarySize        int                      `json:"canarySize"`
+	CompletedAt       *time.Time               `json:"completedAt,omitempty"`
+	CreatedAt         time.Time                `json:"createdAt"`
+	Id                openapi_types.UUID       `json:"id"`
+	Mode              UpdateDeploymentMode     `json:"mode"`
+	Name              string                   `json:"name"`
+	PauseReason       *string                  `json:"pauseReason,omitempty"`
+	Platform          string                   `json:"platform"`
+	PlayerFamily      string                   `json:"playerFamily"`
+	RolloutMode       UpdateRolloutMode        `json:"rolloutMode"`
+	RolloutPhase      UpdateRolloutPhase       `json:"rolloutPhase"`
+	Screens           []UpdateDeploymentScreen `json:"screens"`
+	Status            UpdateDeploymentStatus   `json:"status"`
+	VersionCode       int64                    `json:"versionCode"`
+	VersionName       string                   `json:"versionName"`
+}
+
+// UpdateDeploymentList defines model for UpdateDeploymentList.
+type UpdateDeploymentList struct {
+	Items []UpdateDeploymentSummary `json:"items"`
+}
+
+// UpdateDeploymentMode defines model for UpdateDeploymentMode.
+type UpdateDeploymentMode string
+
+// UpdateDeploymentScreen defines model for UpdateDeploymentScreen.
+type UpdateDeploymentScreen struct {
+	CompletedAt         *time.Time         `json:"completedAt,omitempty"`
+	DownloadStartedAt   *time.Time         `json:"downloadStartedAt,omitempty"`
+	DownloadedAt        *time.Time         `json:"downloadedAt,omitempty"`
+	DownloadedBytes     int64              `json:"downloadedBytes"`
+	ExpectedVersionCode int64              `json:"expectedVersionCode"`
+	InstallStartedAt    *time.Time         `json:"installStartedAt,omitempty"`
+	InstallerStatus     *string            `json:"installerStatus,omitempty"`
+	IsCanary            bool               `json:"isCanary"`
+	PermissionStatus    *string            `json:"permissionStatus,omitempty"`
+	PreviousVersionCode *int64             `json:"previousVersionCode,omitempty"`
+	SafeError           *string            `json:"safeError,omitempty"`
+	ScreenId            openapi_types.UUID `json:"screenId"`
+	ScreenName          string             `json:"screenName"`
+	State               UpdateScreenState  `json:"state"`
+	UpdatedAt           time.Time          `json:"updatedAt"`
+}
+
+// UpdateDeploymentStatus defines model for UpdateDeploymentStatus.
+type UpdateDeploymentStatus string
+
+// UpdateDeploymentSummary defines model for UpdateDeploymentSummary.
+type UpdateDeploymentSummary struct {
+	Architecture        string                 `json:"architecture"`
+	CanarySize          int                    `json:"canarySize"`
+	CreatedAt           time.Time              `json:"createdAt"`
+	FailedCount         int                    `json:"failedCount"`
+	Id                  openapi_types.UUID     `json:"id"`
+	LastFailure         *string                `json:"lastFailure,omitempty"`
+	Mode                UpdateDeploymentMode   `json:"mode"`
+	Name                string                 `json:"name"`
+	PauseReason         *string                `json:"pauseReason,omitempty"`
+	Platform            string                 `json:"platform"`
+	PlayerFamily        string                 `json:"playerFamily"`
+	RolloutMode         UpdateRolloutMode      `json:"rolloutMode"`
+	RolloutPhase        UpdateRolloutPhase     `json:"rolloutPhase"`
+	Status              UpdateDeploymentStatus `json:"status"`
+	SucceededCount      int                    `json:"succeededCount"`
+	TargetCount         int                    `json:"targetCount"`
+	VersionCode         int64                  `json:"versionCode"`
+	VersionName         string                 `json:"versionName"`
+	WaitingForUserCount int                    `json:"waitingForUserCount"`
+}
+
+// UpdateRolloutMode defines model for UpdateRolloutMode.
+type UpdateRolloutMode string
+
+// UpdateRolloutPhase defines model for UpdateRolloutPhase.
+type UpdateRolloutPhase string
+
+// UpdateScreenState defines model for UpdateScreenState.
+type UpdateScreenState string
 
 // UpdateState defines model for UpdateState.
 type UpdateState string
@@ -56855,6 +57138,17 @@ func (r CancelTakeoverResponse) ContentType() string {
 type ListUpdateDeploymentsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data UpdateDeploymentList `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListUpdateDeploymentsResponse) GetJSON200() *struct {
+	Data UpdateDeploymentList `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -56889,6 +57183,17 @@ func (r ListUpdateDeploymentsResponse) ContentType() string {
 type CreateUpdateDeploymentResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data UpdateDeploymentCreated `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateUpdateDeploymentResponse) GetJSON201() *struct {
+	Data UpdateDeploymentCreated `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -56923,6 +57228,17 @@ func (r CreateUpdateDeploymentResponse) ContentType() string {
 type GetUpdateDeploymentResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data UpdateDeploymentDetail `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetUpdateDeploymentResponse) GetJSON200() *struct {
+	Data UpdateDeploymentDetail `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -56957,6 +57273,17 @@ func (r GetUpdateDeploymentResponse) ContentType() string {
 type CancelUpdateDeploymentResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data UpdateDeploymentCancelled `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CancelUpdateDeploymentResponse) GetJSON200() *struct {
+	Data UpdateDeploymentCancelled `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -73920,6 +74247,18 @@ func ParseListUpdateDeploymentsResponse(rsp *http.Response) (*ListUpdateDeployme
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data UpdateDeploymentList `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
 	return response, nil
 }
 
@@ -73934,6 +74273,24 @@ func ParseCreateUpdateDeploymentResponse(rsp *http.Response) (*CreateUpdateDeplo
 	response := &CreateUpdateDeploymentResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data UpdateDeploymentCreated `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -73952,6 +74309,21 @@ func ParseGetUpdateDeploymentResponse(rsp *http.Response) (*GetUpdateDeploymentR
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data UpdateDeploymentDetail `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -73966,6 +74338,27 @@ func ParseCancelUpdateDeploymentResponse(rsp *http.Response) (*CancelUpdateDeplo
 	response := &CancelUpdateDeploymentResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data UpdateDeploymentCancelled `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
 	}
 
 	return response, nil
