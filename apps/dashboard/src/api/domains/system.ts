@@ -10,6 +10,7 @@
  * exceptional transport.
  */
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from "../transport";
+import type { components } from "@tilecast/api-schema/generated/openapi";
 import type {
   BackupJob,
   BackupList,
@@ -574,10 +575,41 @@ export function getSystemStatus(): Promise<SystemStatus> {
   return apiGet<"/api/v1/system/status", SystemStatus>("/api/v1/system/status");
 }
 
-export function getContentHealth(): Promise<ContentHealthReport> {
-  return apiGet<"/api/v1/content-health", ContentHealthReport>(
-    "/api/v1/content-health",
-  );
+/** Wire shape of the content health report from the generated contract. */
+export type WireContentHealthReport =
+  components["schemas"]["ContentHealthReport"];
+
+export async function getContentHealth(): Promise<ContentHealthReport> {
+  return normalizeContentHealthReport(await apiGet("/api/v1/content-health"));
+}
+
+/**
+ * The health thresholds ride the wire with untagged Go-cased keys
+ * (see contenthealth Thresholds); the Studio view reads camelCase.
+ * Before this bridge the tab rendered undefined threshold counts.
+ */
+export function normalizeContentHealthReport(
+  report: WireContentHealthReport | null | undefined,
+): ContentHealthReport {
+  const source = report ?? ({} as WireContentHealthReport);
+  const thresholds = source.thresholds ?? {};
+  return {
+    ...source,
+    staleSources: Array.isArray(source.staleSources) ? source.staleSources : [],
+    expiringAssets: Array.isArray(source.expiringAssets)
+      ? source.expiringAssets
+      : [],
+    emptyPlaylists: Array.isArray(source.emptyPlaylists)
+      ? source.emptyPlaylists
+      : [],
+    unassignedScreens: Array.isArray(source.unassignedScreens)
+      ? source.unassignedScreens
+      : [],
+    thresholds: {
+      staleSourceHours: thresholds.StaleSourceHours ?? 0,
+      expiringMediaDays: thresholds.ExpiringMediaDays ?? 0,
+    },
+  };
 }
 
 export function getFleetUptime(window: UptimeWindow): Promise<UptimeReport> {

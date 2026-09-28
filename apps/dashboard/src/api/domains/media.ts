@@ -1,12 +1,12 @@
 /**
  * Media, widgets, and data-source domain helpers over the typed
  * transport. Path, query, and body shapes come from the generated
- * OpenAPI contract. Asset library success bodies are contract-typed
- * and inferred from the generated schemas; widgets, uploads,
- * data sources, and organization helpers still state their local
- * Studio response type explicitly until the contract gains schemas.
- * Blob/streaming upload paths stay on raw fetch in ../client.ts:
- * genuinely exceptional transports.
+ * OpenAPI contract. Asset library and content organization success
+ * bodies are contract-typed and inferred from the generated schemas;
+ * widgets, uploads, data sources, and definition catalogs still state
+ * their local Studio response type explicitly until the contract gains
+ * schemas. Blob/streaming upload paths stay on raw fetch in
+ * ../client.ts: genuinely exceptional transports.
  */
 import { apiDelete, apiGet, apiPatch, apiPost } from "../transport";
 import type {
@@ -102,19 +102,14 @@ export function listAssets(params: URLSearchParams) {
 }
 
 export function listContentFolders(): Promise<ContentFolder[]> {
-  return apiGet<"/api/v1/content-folders", ContentFolder[]>(
-    "/api/v1/content-folders",
-  );
+  return apiGet("/api/v1/content-folders");
 }
 
 export function createContentFolder(
   input: { name: string; description: string; parentId?: string },
   csrfToken: string,
 ): Promise<ContentFolder> {
-  return apiPost<"/api/v1/content-folders", ContentFolder>(
-    "/api/v1/content-folders",
-    { body: input, csrfToken },
-  );
+  return apiPost("/api/v1/content-folders", { body: input, csrfToken });
 }
 
 export function updateContentFolder(
@@ -122,10 +117,11 @@ export function updateContentFolder(
   input: { name: string; description: string; parentId?: string },
   csrfToken: string,
 ): Promise<ContentFolder> {
-  return apiPatch<"/api/v1/content-folders/{id}", ContentFolder>(
-    "/api/v1/content-folders/{id}",
-    { params: { path: { id } }, body: input, csrfToken },
-  );
+  return apiPatch("/api/v1/content-folders/{id}", {
+    params: { path: { id } },
+    body: input,
+    csrfToken,
+  });
 }
 
 export function deleteContentFolder(
@@ -139,19 +135,14 @@ export function deleteContentFolder(
 }
 
 export function listContentCollections(): Promise<ContentCollection[]> {
-  return apiGet<"/api/v1/content-collections", ContentCollection[]>(
-    "/api/v1/content-collections",
-  );
+  return apiGet("/api/v1/content-collections");
 }
 
 export function createContentCollection(
   input: { name: string; description: string },
   csrfToken: string,
 ): Promise<ContentCollection> {
-  return apiPost<"/api/v1/content-collections", ContentCollection>(
-    "/api/v1/content-collections",
-    { body: input, csrfToken },
-  );
+  return apiPost("/api/v1/content-collections", { body: input, csrfToken });
 }
 
 export function updateContentCollection(
@@ -159,10 +150,11 @@ export function updateContentCollection(
   input: { name: string; description: string },
   csrfToken: string,
 ): Promise<ContentCollection> {
-  return apiPatch<"/api/v1/content-collections/{id}", ContentCollection>(
-    "/api/v1/content-collections/{id}",
-    { params: { path: { id } }, body: input, csrfToken },
-  );
+  return apiPatch("/api/v1/content-collections/{id}", {
+    params: { path: { id } },
+    body: input,
+    csrfToken,
+  });
 }
 
 export function deleteContentCollection(
@@ -176,17 +168,14 @@ export function deleteContentCollection(
 }
 
 export function listContentTags(): Promise<ContentTag[]> {
-  return apiGet<"/api/v1/content-tags", ContentTag[]>("/api/v1/content-tags");
+  return apiGet("/api/v1/content-tags");
 }
 
 export function createContentTag(
   input: { name: string; color: string },
   csrfToken: string,
 ): Promise<ContentTag> {
-  return apiPost<"/api/v1/content-tags", ContentTag>("/api/v1/content-tags", {
-    body: input,
-    csrfToken,
-  });
+  return apiPost("/api/v1/content-tags", { body: input, csrfToken });
 }
 
 export function updateContentTag(
@@ -194,10 +183,11 @@ export function updateContentTag(
   input: { name: string; color: string },
   csrfToken: string,
 ): Promise<ContentTag> {
-  return apiPatch<"/api/v1/content-tags/{id}", ContentTag>(
-    "/api/v1/content-tags/{id}",
-    { params: { path: { id } }, body: input, csrfToken },
-  );
+  return apiPatch("/api/v1/content-tags/{id}", {
+    params: { path: { id } },
+    body: input,
+    csrfToken,
+  });
 }
 
 export function deleteContentTag(id: string, csrfToken: string): Promise<void> {
