@@ -5509,6 +5509,207 @@ export interface components {
       /** Format: date-time */
       updatedAt: string;
     };
+    ActivityTimeRange: {
+      /** Format: date-time */
+      from: string;
+      /** Format: date-time */
+      to: string;
+    };
+    ActivityOverview: {
+      range: components["schemas"]["ActivityTimeRange"];
+      cards: {
+        /** Format: int64 */
+        screensWithReportingGaps: number;
+        /** Format: int64 */
+        confirmedScreenPlaybackMs: number;
+        /** Format: int64 */
+        contentExposureMs: number;
+        /** Format: int64 */
+        playbackFailures: number;
+        /** Format: int64 */
+        interruptedPlays: number;
+        /** Format: int64 */
+        takeoverActivations: number;
+        /** Format: int64 */
+        failedPlayerUpdates: number;
+        /** Format: int64 */
+        recentAdministrativeChanges: number;
+      };
+      fleet?: {
+        /** Format: int64 */
+        measured: number;
+        /** Format: int64 */
+        online: number;
+        /** Format: int64 */
+        healthy: number;
+        /** Format: int64 */
+        impaired: number;
+        /** Format: int64 */
+        offline: number;
+        /** Format: int64 */
+        unmeasured: number;
+      };
+      timeline: {
+        id: string;
+        /** Format: date-time */
+        timestamp: string;
+        domain: string;
+        severity: string;
+        description: string;
+        /** Format: uuid */
+        screenId?: string;
+        resourceId?: string;
+      }[];
+    };
+    UptimeBucket: {
+      /** Format: date-time */
+      start: string;
+      upPercent: number;
+      impairedPercent: number;
+      downPercent: number;
+      unknownPercent: number;
+      uptimePercent: number | null;
+      screensDown: number;
+    };
+    UptimeScreenStrip: {
+      /** Format: uuid */
+      screenId: string;
+      screenName: string;
+      uptimePercent: number | null;
+      /** Format: int64 */
+      trackedSeconds: number;
+      /** Format: int64 */
+      upSeconds: number;
+      /** Format: int64 */
+      impairedSeconds: number;
+      /** Format: int64 */
+      downSeconds: number;
+      buckets: string[];
+    };
+    UptimeReport: {
+      range: components["schemas"]["ActivityTimeRange"];
+      /** @enum {string} */
+      window: "24h" | "7d" | "30d";
+      windowLabel: string;
+      /** Format: int64 */
+      bucketSeconds: number;
+      screensTracked: number;
+      screensWithDowntime: number;
+      screensUnmeasured: number;
+      /** Format: int64 */
+      trackedSeconds: number;
+      /** Format: int64 */
+      upSeconds: number;
+      /** Format: int64 */
+      impairedSeconds: number;
+      /** Format: int64 */
+      downSeconds: number;
+      uptimePercent: number | null;
+      previousUptimePercent: number | null;
+      buckets: components["schemas"]["UptimeBucket"][];
+      screens: components["schemas"]["UptimeScreenStrip"][];
+    };
+    ComplianceBreakdown: {
+      key: string;
+      label: string;
+      /** Format: int64 */
+      measurableExpectedMs: number;
+      /** Format: int64 */
+      confirmedMs: number;
+      /** Format: int64 */
+      missedMs: number;
+      compliancePercent: number | null;
+      /** Format: int64 */
+      windows: number;
+      /** Format: int64 */
+      lateStarts: number;
+      /** Format: int64 */
+      earlyEndings: number;
+      /** Format: int64 */
+      neverStarted: number;
+      /** Format: int64 */
+      offlineMisses: number;
+      topFailureReason?: string;
+    };
+    ComplianceReport: {
+      range: components["schemas"]["ActivityTimeRange"];
+      /** Format: int64 */
+      measurableExpectedMs: number;
+      /** Format: int64 */
+      confirmedMs: number;
+      /** Format: int64 */
+      missedMs: number;
+      compliancePercent: number | null;
+      /** Format: int64 */
+      takeoverOverriddenMs: number;
+      /** Format: int64 */
+      cancelledMs: number;
+      /** Format: int64 */
+      notMeasurableMs: number;
+      /** Format: int64 */
+      windows: number;
+      /** Format: int64 */
+      lateStarts: number;
+      /** Format: int64 */
+      earlyEndings: number;
+      /** Format: int64 */
+      neverStarted: number;
+      /** Format: int64 */
+      offlineMisses: number;
+      /** Format: int64 */
+      failedWindows: number;
+      /** Format: int64 */
+      partialWindows: number;
+      breakdown: components["schemas"]["ComplianceBreakdown"][];
+      /** @enum {string} */
+      dimension:
+        | "screen"
+        | "location"
+        | "group"
+        | "presentation"
+        | "schedule"
+        | "date"
+        | "reason";
+    };
+    IncidentBreakdown: {
+      key: string;
+      label: string;
+      /** Format: int64 */
+      count: number;
+    };
+    IncidentRecurrence: {
+      screenId?: string;
+      screenName: string;
+      incidentType: string;
+      /** Format: int64 */
+      incidents: number;
+      /** Format: int64 */
+      occurrences: number;
+    };
+    IncidentAnalytics: {
+      range: components["schemas"]["ActivityTimeRange"];
+      /** Format: int64 */
+      activeIncidents: number;
+      /** Format: int64 */
+      incidentsOpened: number;
+      /** Format: int64 */
+      incidentsResolved: number;
+      meanTimeToRecoverSeconds: number | null;
+      medianTimeToRecoverSeconds: number | null;
+      longestIncidentSeconds: number | null;
+      longestIncidentTitle?: string;
+      /** Format: int64 */
+      automaticRecoveries: number;
+      /** Format: int64 */
+      manualRecoveries: number;
+      recurring: components["schemas"]["IncidentRecurrence"][];
+      byScreen: components["schemas"]["IncidentBreakdown"][];
+      byLocation: components["schemas"]["IncidentBreakdown"][];
+      byDeviceModel: components["schemas"]["IncidentBreakdown"][];
+      byPlayerVersion: components["schemas"]["IncidentBreakdown"][];
+      byFailureCode: components["schemas"]["IncidentBreakdown"][];
+      byType: components["schemas"]["IncidentBreakdown"][];
+    };
     /** @enum {string} */
     IncidentStatus:
       "open" | "acknowledged" | "recovered" | "resolved" | "ignored";
@@ -12799,7 +13000,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["IncidentAnalytics"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -14638,7 +14843,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ActivityOverview"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -14672,7 +14881,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["UptimeReport"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -14715,7 +14928,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ComplianceReport"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {

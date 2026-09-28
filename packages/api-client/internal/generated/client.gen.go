@@ -456,6 +456,39 @@ func (e CatalogPluginCategory) Valid() bool {
 	}
 }
 
+// Defines values for ComplianceReportDimension.
+const (
+	ComplianceReportDimensionDate         ComplianceReportDimension = "date"
+	ComplianceReportDimensionGroup        ComplianceReportDimension = "group"
+	ComplianceReportDimensionLocation     ComplianceReportDimension = "location"
+	ComplianceReportDimensionPresentation ComplianceReportDimension = "presentation"
+	ComplianceReportDimensionReason       ComplianceReportDimension = "reason"
+	ComplianceReportDimensionSchedule     ComplianceReportDimension = "schedule"
+	ComplianceReportDimensionScreen       ComplianceReportDimension = "screen"
+)
+
+// Valid indicates whether the value is a known member of the ComplianceReportDimension enum.
+func (e ComplianceReportDimension) Valid() bool {
+	switch e {
+	case ComplianceReportDimensionDate:
+		return true
+	case ComplianceReportDimensionGroup:
+		return true
+	case ComplianceReportDimensionLocation:
+		return true
+	case ComplianceReportDimensionPresentation:
+		return true
+	case ComplianceReportDimensionReason:
+		return true
+	case ComplianceReportDimensionSchedule:
+		return true
+	case ComplianceReportDimensionScreen:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ContentReviewContentType.
 const (
 	ContentReviewContentTypeLayout   ContentReviewContentType = "layout"
@@ -3309,6 +3342,27 @@ func (e UploadStatus) Valid() bool {
 	}
 }
 
+// Defines values for UptimeReportWindow.
+const (
+	UptimeReportWindowN24h UptimeReportWindow = "24h"
+	UptimeReportWindowN30d UptimeReportWindow = "30d"
+	UptimeReportWindowN7d  UptimeReportWindow = "7d"
+)
+
+// Valid indicates whether the value is a known member of the UptimeReportWindow enum.
+func (e UptimeReportWindow) Valid() bool {
+	switch e {
+	case UptimeReportWindowN24h:
+		return true
+	case UptimeReportWindowN30d:
+		return true
+	case UptimeReportWindowN7d:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for UserRole.
 const (
 	UserRoleAdministrator UserRole = "administrator"
@@ -3665,19 +3719,19 @@ func (e GetProofOfPlaySummaryParamsTerminalReason1) Valid() bool {
 
 // Defines values for GetActivityUptimeParamsWindow.
 const (
-	N24h GetActivityUptimeParamsWindow = "24h"
-	N30d GetActivityUptimeParamsWindow = "30d"
-	N7d  GetActivityUptimeParamsWindow = "7d"
+	GetActivityUptimeParamsWindowN24h GetActivityUptimeParamsWindow = "24h"
+	GetActivityUptimeParamsWindowN30d GetActivityUptimeParamsWindow = "30d"
+	GetActivityUptimeParamsWindowN7d  GetActivityUptimeParamsWindow = "7d"
 )
 
 // Valid indicates whether the value is a known member of the GetActivityUptimeParamsWindow enum.
 func (e GetActivityUptimeParamsWindow) Valid() bool {
 	switch e {
-	case N24h:
+	case GetActivityUptimeParamsWindowN24h:
 		return true
-	case N30d:
+	case GetActivityUptimeParamsWindowN30d:
 		return true
-	case N7d:
+	case GetActivityUptimeParamsWindowN7d:
 		return true
 	default:
 		return false
@@ -4209,6 +4263,38 @@ func (e UpdateUserJSONBodyRole) Valid() bool {
 // ActivityCategory defines model for ActivityCategory.
 type ActivityCategory string
 
+// ActivityOverview defines model for ActivityOverview.
+type ActivityOverview struct {
+	Cards struct {
+		ConfirmedScreenPlaybackMs   int64 `json:"confirmedScreenPlaybackMs"`
+		ContentExposureMs           int64 `json:"contentExposureMs"`
+		FailedPlayerUpdates         int64 `json:"failedPlayerUpdates"`
+		InterruptedPlays            int64 `json:"interruptedPlays"`
+		PlaybackFailures            int64 `json:"playbackFailures"`
+		RecentAdministrativeChanges int64 `json:"recentAdministrativeChanges"`
+		ScreensWithReportingGaps    int64 `json:"screensWithReportingGaps"`
+		TakeoverActivations         int64 `json:"takeoverActivations"`
+	} `json:"cards"`
+	Fleet *struct {
+		Healthy    int64 `json:"healthy"`
+		Impaired   int64 `json:"impaired"`
+		Measured   int64 `json:"measured"`
+		Offline    int64 `json:"offline"`
+		Online     int64 `json:"online"`
+		Unmeasured int64 `json:"unmeasured"`
+	} `json:"fleet,omitempty"`
+	Range    ActivityTimeRange `json:"range"`
+	Timeline []struct {
+		Description string              `json:"description"`
+		Domain      string              `json:"domain"`
+		Id          string              `json:"id"`
+		ResourceId  *string             `json:"resourceId,omitempty"`
+		ScreenId    *openapi_types.UUID `json:"screenId,omitempty"`
+		Severity    string              `json:"severity"`
+		Timestamp   time.Time           `json:"timestamp"`
+	} `json:"timeline"`
+}
+
 // ActivityRetention defines model for ActivityRetention.
 type ActivityRetention struct {
 	AuditLogDays           int       `json:"auditLogDays"`
@@ -4222,6 +4308,12 @@ type ActivityRetention struct {
 
 // ActivitySeverity defines model for ActivitySeverity.
 type ActivitySeverity string
+
+// ActivityTimeRange defines model for ActivityTimeRange.
+type ActivityTimeRange struct {
+	From time.Time `json:"from"`
+	To   time.Time `json:"to"`
+}
 
 // AirplaySession Temporary AirPlay Present session. The PIN appears only while the session is preparing, waiting, or active, and only when the server issued one. Null audio and network ids mean no audio screen and no Presentation Network, respectively.
 type AirplaySession struct {
@@ -4711,6 +4803,46 @@ type ChallengeTokenRequest struct {
 type ChangesRequest struct {
 	Note string `json:"note"`
 }
+
+// ComplianceBreakdown defines model for ComplianceBreakdown.
+type ComplianceBreakdown struct {
+	CompliancePercent    *float32 `json:"compliancePercent"`
+	ConfirmedMs          int64    `json:"confirmedMs"`
+	EarlyEndings         int64    `json:"earlyEndings"`
+	Key                  string   `json:"key"`
+	Label                string   `json:"label"`
+	LateStarts           int64    `json:"lateStarts"`
+	MeasurableExpectedMs int64    `json:"measurableExpectedMs"`
+	MissedMs             int64    `json:"missedMs"`
+	NeverStarted         int64    `json:"neverStarted"`
+	OfflineMisses        int64    `json:"offlineMisses"`
+	TopFailureReason     *string  `json:"topFailureReason,omitempty"`
+	Windows              int64    `json:"windows"`
+}
+
+// ComplianceReport defines model for ComplianceReport.
+type ComplianceReport struct {
+	Breakdown            []ComplianceBreakdown     `json:"breakdown"`
+	CancelledMs          int64                     `json:"cancelledMs"`
+	CompliancePercent    *float32                  `json:"compliancePercent"`
+	ConfirmedMs          int64                     `json:"confirmedMs"`
+	Dimension            ComplianceReportDimension `json:"dimension"`
+	EarlyEndings         int64                     `json:"earlyEndings"`
+	FailedWindows        int64                     `json:"failedWindows"`
+	LateStarts           int64                     `json:"lateStarts"`
+	MeasurableExpectedMs int64                     `json:"measurableExpectedMs"`
+	MissedMs             int64                     `json:"missedMs"`
+	NeverStarted         int64                     `json:"neverStarted"`
+	NotMeasurableMs      int64                     `json:"notMeasurableMs"`
+	OfflineMisses        int64                     `json:"offlineMisses"`
+	PartialWindows       int64                     `json:"partialWindows"`
+	Range                ActivityTimeRange         `json:"range"`
+	TakeoverOverriddenMs int64                     `json:"takeoverOverriddenMs"`
+	Windows              int64                     `json:"windows"`
+}
+
+// ComplianceReportDimension defines model for ComplianceReport.Dimension.
+type ComplianceReportDimension string
 
 // ContentCollection defines model for ContentCollection.
 type ContentCollection struct {
@@ -5335,6 +5467,34 @@ type Incident struct {
 // IncidentAction defines model for IncidentAction.
 type IncidentAction string
 
+// IncidentAnalytics defines model for IncidentAnalytics.
+type IncidentAnalytics struct {
+	ActiveIncidents            int64                `json:"activeIncidents"`
+	AutomaticRecoveries        int64                `json:"automaticRecoveries"`
+	ByDeviceModel              []IncidentBreakdown  `json:"byDeviceModel"`
+	ByFailureCode              []IncidentBreakdown  `json:"byFailureCode"`
+	ByLocation                 []IncidentBreakdown  `json:"byLocation"`
+	ByPlayerVersion            []IncidentBreakdown  `json:"byPlayerVersion"`
+	ByScreen                   []IncidentBreakdown  `json:"byScreen"`
+	ByType                     []IncidentBreakdown  `json:"byType"`
+	IncidentsOpened            int64                `json:"incidentsOpened"`
+	IncidentsResolved          int64                `json:"incidentsResolved"`
+	LongestIncidentSeconds     *float32             `json:"longestIncidentSeconds"`
+	LongestIncidentTitle       *string              `json:"longestIncidentTitle,omitempty"`
+	ManualRecoveries           int64                `json:"manualRecoveries"`
+	MeanTimeToRecoverSeconds   *float32             `json:"meanTimeToRecoverSeconds"`
+	MedianTimeToRecoverSeconds *float32             `json:"medianTimeToRecoverSeconds"`
+	Range                      ActivityTimeRange    `json:"range"`
+	Recurring                  []IncidentRecurrence `json:"recurring"`
+}
+
+// IncidentBreakdown defines model for IncidentBreakdown.
+type IncidentBreakdown struct {
+	Count int64  `json:"count"`
+	Key   string `json:"key"`
+	Label string `json:"label"`
+}
+
 // IncidentDetail defines model for IncidentDetail.
 type IncidentDetail struct {
 	AcknowledgedAt    *time.Time              `json:"acknowledgedAt,omitempty"`
@@ -5377,6 +5537,15 @@ type IncidentDetail struct {
 // IncidentList defines model for IncidentList.
 type IncidentList struct {
 	Items []Incident `json:"items"`
+}
+
+// IncidentRecurrence defines model for IncidentRecurrence.
+type IncidentRecurrence struct {
+	IncidentType string  `json:"incidentType"`
+	Incidents    int64   `json:"incidents"`
+	Occurrences  int64   `json:"occurrences"`
+	ScreenId     *string `json:"screenId,omitempty"`
+	ScreenName   string  `json:"screenName"`
 }
 
 // IncidentScreenRef defines model for IncidentScreenRef.
@@ -7573,6 +7742,51 @@ type UploadSession struct {
 
 // UploadStatus defines model for UploadStatus.
 type UploadStatus string
+
+// UptimeBucket defines model for UptimeBucket.
+type UptimeBucket struct {
+	DownPercent     float32   `json:"downPercent"`
+	ImpairedPercent float32   `json:"impairedPercent"`
+	ScreensDown     int       `json:"screensDown"`
+	Start           time.Time `json:"start"`
+	UnknownPercent  float32   `json:"unknownPercent"`
+	UpPercent       float32   `json:"upPercent"`
+	UptimePercent   *float32  `json:"uptimePercent"`
+}
+
+// UptimeReport defines model for UptimeReport.
+type UptimeReport struct {
+	BucketSeconds         int64               `json:"bucketSeconds"`
+	Buckets               []UptimeBucket      `json:"buckets"`
+	DownSeconds           int64               `json:"downSeconds"`
+	ImpairedSeconds       int64               `json:"impairedSeconds"`
+	PreviousUptimePercent *float32            `json:"previousUptimePercent"`
+	Range                 ActivityTimeRange   `json:"range"`
+	Screens               []UptimeScreenStrip `json:"screens"`
+	ScreensTracked        int                 `json:"screensTracked"`
+	ScreensUnmeasured     int                 `json:"screensUnmeasured"`
+	ScreensWithDowntime   int                 `json:"screensWithDowntime"`
+	TrackedSeconds        int64               `json:"trackedSeconds"`
+	UpSeconds             int64               `json:"upSeconds"`
+	UptimePercent         *float32            `json:"uptimePercent"`
+	Window                UptimeReportWindow  `json:"window"`
+	WindowLabel           string              `json:"windowLabel"`
+}
+
+// UptimeReportWindow defines model for UptimeReport.Window.
+type UptimeReportWindow string
+
+// UptimeScreenStrip defines model for UptimeScreenStrip.
+type UptimeScreenStrip struct {
+	Buckets         []string           `json:"buckets"`
+	DownSeconds     int64              `json:"downSeconds"`
+	ImpairedSeconds int64              `json:"impairedSeconds"`
+	ScreenId        openapi_types.UUID `json:"screenId"`
+	ScreenName      string             `json:"screenName"`
+	TrackedSeconds  int64              `json:"trackedSeconds"`
+	UpSeconds       int64              `json:"upSeconds"`
+	UptimePercent   *float32           `json:"uptimePercent"`
+}
 
 // User defines model for User.
 type User struct {
@@ -41409,6 +41623,17 @@ func (r ExportAuditActivityResponse) ContentType() string {
 type GetPlaybackComplianceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ComplianceReport `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetPlaybackComplianceResponse) GetJSON200() *struct {
+	Data ComplianceReport `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -41488,6 +41713,17 @@ func (r ListIncidentsResponse) ContentType() string {
 type GetIncidentAnalyticsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data IncidentAnalytics `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetIncidentAnalyticsResponse) GetJSON200() *struct {
+	Data IncidentAnalytics `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -41612,6 +41848,17 @@ func (r UpdateIncidentResponse) ContentType() string {
 type GetActivityOverviewResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ActivityOverview `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetActivityOverviewResponse) GetJSON200() *struct {
+	Data ActivityOverview `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -42007,6 +42254,17 @@ func (r GetScreenTimelineResponse) ContentType() string {
 type GetActivityUptimeResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data UptimeReport `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetActivityUptimeResponse) GetJSON200() *struct {
+	Data UptimeReport `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -63295,6 +63553,24 @@ func ParseGetPlaybackComplianceResponse(rsp *http.Response) (*GetPlaybackComplia
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ComplianceReport `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -63343,6 +63619,24 @@ func ParseGetIncidentAnalyticsResponse(rsp *http.Response) (*GetIncidentAnalytic
 	response := &GetIncidentAnalyticsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data IncidentAnalytics `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -63436,6 +63730,24 @@ func ParseGetActivityOverviewResponse(rsp *http.Response) (*GetActivityOverviewR
 	response := &GetActivityOverviewResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ActivityOverview `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -63692,6 +64004,24 @@ func ParseGetActivityUptimeResponse(rsp *http.Response) (*GetActivityUptimeRespo
 	response := &GetActivityUptimeResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data UptimeReport `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
