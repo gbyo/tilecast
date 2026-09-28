@@ -1347,6 +1347,21 @@ func (e IncidentType) Valid() bool {
 	}
 }
 
+// Defines values for InstallableLinuxPlayerReleasePlatform.
+const (
+	InstallableLinuxPlayerReleasePlatformLinux InstallableLinuxPlayerReleasePlatform = "linux"
+)
+
+// Valid indicates whether the value is a known member of the InstallableLinuxPlayerReleasePlatform enum.
+func (e InstallableLinuxPlayerReleasePlatform) Valid() bool {
+	switch e {
+	case InstallableLinuxPlayerReleasePlatformLinux:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for IntegrationScope.
 const (
 	ActivityRead    IntegrationScope = "activity:read"
@@ -2315,16 +2330,16 @@ func (e PlayerManifestSchemaVersion) Valid() bool {
 
 // Defines values for PlayerPlatform.
 const (
-	Android PlayerPlatform = "android"
-	Linux   PlayerPlatform = "linux"
+	PlayerPlatformAndroid PlayerPlatform = "android"
+	PlayerPlatformLinux   PlayerPlatform = "linux"
 )
 
 // Valid indicates whether the value is a known member of the PlayerPlatform enum.
 func (e PlayerPlatform) Valid() bool {
 	switch e {
-	case Android:
+	case PlayerPlatformAndroid:
 		return true
-	case Linux:
+	case PlayerPlatformLinux:
 		return true
 	default:
 		return false
@@ -6887,6 +6902,19 @@ type IncidentTimelineEntry struct {
 
 // IncidentType defines model for IncidentType.
 type IncidentType string
+
+// InstallableLinuxPlayerRelease defines model for InstallableLinuxPlayerRelease.
+type InstallableLinuxPlayerRelease struct {
+	ArtifactUrl string                                `json:"artifactUrl"`
+	Platform    InstallableLinuxPlayerReleasePlatform `json:"platform"`
+	Sha256      string                                `json:"sha256"`
+	SizeBytes   int64                                 `json:"sizeBytes"`
+	VersionCode int64                                 `json:"versionCode"`
+	VersionName string                                `json:"versionName"`
+}
+
+// InstallableLinuxPlayerReleasePlatform defines model for InstallableLinuxPlayerRelease.Platform.
+type InstallableLinuxPlayerReleasePlatform string
 
 // InstallationIdentity defines model for InstallationIdentity.
 type InstallationIdentity struct {
@@ -49652,6 +49680,17 @@ func (r InstallableUxPlayChecksumResponse) ContentType() string {
 type InstallableLinuxPlayerReleaseResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data InstallableLinuxPlayerRelease `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r InstallableLinuxPlayerReleaseResponse) GetJSON200() *struct {
+	Data InstallableLinuxPlayerRelease `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -70126,6 +70165,21 @@ func ParseInstallableLinuxPlayerReleaseResponse(rsp *http.Response) (*Installabl
 	response := &InstallableLinuxPlayerReleaseResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data InstallableLinuxPlayerRelease `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
 	}
 
 	return response, nil

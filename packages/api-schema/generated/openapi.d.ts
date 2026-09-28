@@ -7611,6 +7611,17 @@ export interface components {
       login?: string;
       retryAfterSeconds?: number;
     };
+    InstallableLinuxPlayerRelease: {
+      /** @enum {string} */
+      platform: "linux";
+      versionName: string;
+      /** Format: int64 */
+      versionCode: number;
+      /** Format: int64 */
+      sizeBytes: number;
+      sha256: string;
+      artifactUrl: string;
+    };
     PlayerRelease: {
       /** Format: uuid */
       id: string;
@@ -10221,7 +10232,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "text/x-shellscript": string;
+        };
       };
     };
   };
@@ -10239,7 +10252,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "text/x-shellscript": string;
+        };
       };
     };
   };
@@ -10257,7 +10272,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "text/plain": string;
+        };
       };
     };
   };
@@ -10307,7 +10324,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["InstallableLinuxPlayerRelease"];
+          };
+        };
       };
       /** @description No installable Linux Player release is cached */
       404: {
@@ -10332,7 +10353,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/octet-stream": string;
+        };
       };
       /** @description No installable Linux Player release is cached */
       404: {
@@ -10382,7 +10405,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/gzip": string;
+        };
       };
     };
   };
@@ -10418,7 +10443,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "text/plain": string;
+        };
       };
     };
   };
@@ -12399,7 +12426,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/octet-stream": string;
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -12767,7 +12796,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/x-tar": string;
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -13939,7 +13970,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "text/csv": string;
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -14083,7 +14116,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "text/csv": string;
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -14499,7 +14534,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "text/x-python": string;
+        };
       };
     };
   };
@@ -14535,7 +14572,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "text/plain": string;
+        };
       };
     };
   };
@@ -14718,7 +14757,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/octet-stream": string;
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -14757,7 +14798,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/octet-stream": string;
+        };
       };
       /** @description Redirect to default artwork */
       307: {
@@ -15071,7 +15114,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "multipart/x-mixed-replace": string;
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -17477,7 +17522,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/octet-stream": string;
+        };
       };
     };
   };
@@ -17553,14 +17600,18 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/octet-stream": string;
+        };
       };
       /** @description Requested byte range */
       206: {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/octet-stream": string;
+        };
       };
       /** @description ETag matched */
       304: {
@@ -18206,14 +18257,18 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/octet-stream": string;
+        };
       };
       /** @description Partial content range */
       206: {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/octet-stream": string;
+        };
       };
       /** @description Panel is unavailable or not ready */
       404: {
@@ -19774,7 +19829,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/octet-stream": string;
+        };
       };
       /** @description Layout or preview image not found */
       404: {
@@ -22720,14 +22777,22 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/vnd.android.package-archive": string;
+          "application/octet-stream": string;
+          "application/zstd": string;
+        };
       };
       /** @description Artifact byte range */
       206: {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/vnd.android.package-archive": string;
+          "application/octet-stream": string;
+          "application/zstd": string;
+        };
       };
       /** @description Screen is not targeted */
       403: {
@@ -22802,14 +22867,22 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/vnd.android.package-archive": string;
+          "application/octet-stream": string;
+          "application/zstd": string;
+        };
       };
       /** @description APK byte range */
       206: {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/vnd.android.package-archive": string;
+          "application/octet-stream": string;
+          "application/zstd": string;
+        };
       };
       /** @description Invalid range */
       416: {

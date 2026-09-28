@@ -34,18 +34,30 @@ paths:
       operationId: installLinuxPlayerScript
       description: Public. Rate-limited Linux Player provisioning script with this server's URL embedded.
       responses:
-        "200": { description: Shell installer }
+        "200":
+          description: Shell installer
+          content:
+            text/x-shellscript:
+              schema: { type: string }
   /install-airplay.sh:
     get:
       operationId: installAirPlayScript
       description: Public. Rate-limited AirPlay provisioning script with this server's URL embedded.
       responses:
-        "200": { description: Shell installer }
+        "200":
+          description: Shell installer
+          content:
+            text/x-shellscript:
+              schema: { type: string }
   /install/tilecast-player.service:
     get:
       operationId: installLinuxPlayerService
       responses:
-        "200": { description: Managed systemd user-service template }
+        "200":
+          description: Managed systemd user-service template
+          content:
+            text/plain:
+              schema: { type: string }
   /readyz:
     get:
       operationId: ready
@@ -72,9 +84,17 @@ paths:
         Public. Read the cached Linux player release metadata.
       responses:
         "200":
-          {
-            description: "Latest stable, verified, cached Linux Player release metadata",
-          }
+          description: Latest stable, verified, cached Linux Player release metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    {
+                      $ref: "#/components/schemas/InstallableLinuxPlayerRelease",
+                    }
         "404": { description: No installable Linux Player release is cached }
   /api/v1/install/linux/artifact:
     get:
@@ -82,7 +102,11 @@ paths:
       description: >-
         Public. Download the verified Linux player AppImage.
       responses:
-        "200": { description: Verified Linux Player AppImage }
+        "200":
+          description: Verified Linux Player AppImage
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
         "404": { description: No installable Linux Player release is cached }
     head:
       operationId: headInstallableLinuxPlayerArtifact
@@ -96,7 +120,11 @@ paths:
       operationId: installableUxPlayArtifact
       description: Public. Rate-limited, pinned UxPlay 1.73.6 source archive embedded in Tilecast Server.
       responses:
-        "200": { description: Verified UxPlay 1.73.6 source archive }
+        "200":
+          description: Verified UxPlay 1.73.6 source archive
+          content:
+            application/gzip:
+              schema: { type: string, format: binary }
     head:
       operationId: headInstallableUxPlayArtifact
       description: >-
@@ -110,7 +138,10 @@ paths:
         Public. Read the pinned UxPlay artifact checksum.
       responses:
         "200":
-          { description: Pinned lowercase SHA-256 of the UxPlay source archive }
+          description: Pinned lowercase SHA-256 of the UxPlay source archive
+          content:
+            text/plain:
+              schema: { type: string }
   /api/v1/auth/status:
     get:
       operationId: authStatus
@@ -1222,7 +1253,11 @@ paths:
           required: true
           schema: { type: string, format: uuid }
       responses:
-        "200": { description: Snapshot image }
+        "200":
+          description: Snapshot image
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
         "401": { description: Dashboard authentication required }
         "403": { description: Screen scope forbids this screen }
         "404": { description: Snapshot not found }
@@ -1385,7 +1420,11 @@ paths:
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses:
-        "200": { description: Backup archive download }
+        "200":
+          description: Backup archive download
+          content:
+            application/x-tar:
+              schema: { type: string, format: binary }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
         "404": { description: Backup not found }
@@ -2126,7 +2165,11 @@ paths:
           required: false
           schema: { type: string, format: date-time }
       responses:
-        "200": { description: Proof-of-play CSV export }
+        "200":
+          description: Proof-of-play CSV export
+          content:
+            text/csv:
+              schema: { type: string }
         "401": { description: Dashboard authentication required }
         "403": { description: Exports require Owner or Administrator access }
         "422": { description: Range or proof filter invalid }
@@ -2273,7 +2316,11 @@ paths:
           required: false
           schema: { type: string, format: date-time }
       responses:
-        "200": { description: Audit activity CSV export }
+        "200":
+          description: Audit activity CSV export
+          content:
+            text/csv:
+              schema: { type: string }
         "401": { description: Dashboard authentication required }
         "403": { description: Exports require Owner or Administrator access }
         "422": { description: Range or actor filter invalid }
@@ -2505,7 +2552,11 @@ paths:
       description: >-
         Public. Download the root-owned Presentation Network helper script with its SHA-256 ETag.
       responses:
-        "200": { description: Helper script download }
+        "200":
+          description: Helper script download
+          content:
+            text/x-python:
+              schema: { type: string }
     head:
       operationId: headPresentationNetworkHelper
       description: >-
@@ -2518,7 +2569,11 @@ paths:
       description: >-
         Public. Read the hex digest of the Presentation Network helper script bytes.
       responses:
-        "200": { description: Helper script checksum }
+        "200":
+          description: Helper script checksum
+          content:
+            text/plain:
+              schema: { type: string }
   /api/v1/player/preview-session:
     get:
       operationId: getPlayerPreviewSession
@@ -2616,7 +2671,11 @@ paths:
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses:
-        "200": { description: Preview JPEG image }
+        "200":
+          description: Preview JPEG image
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
         "401": { description: Dashboard authentication required }
         "404": { description: Screen or preview not found }
         "409": { description: Preview session expired }
@@ -2626,7 +2685,11 @@ paths:
       description: >-
         Public. Serve the configured login background image, redirecting to the default artwork when none is configured.
       responses:
-        "200": { description: Login background image }
+        "200":
+          description: Login background image
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
         "307": { description: Redirect to default artwork }
     head:
       operationId: headLoginBackgroundImage
@@ -2780,7 +2843,11 @@ paths:
           required: true
           schema: { type: string, format: uuid }
       responses:
-        "200": { description: MJPEG stream }
+        "200":
+          description: MJPEG stream
+          content:
+            multipart/x-mixed-replace:
+              schema: { type: string, format: binary }
         "401": { description: Dashboard authentication required }
         "403": { description: Screen scope forbids this screen }
         "404": { description: Live stream session not found }
@@ -4316,7 +4383,12 @@ paths:
       description: >-
         Get asset thumbnail. Requires an authenticated dashboard user.
       parameters: [{ $ref: "#/components/parameters/ResourceID" }]
-      responses: { "200": { description: Authenticated thumbnail or poster } }
+      responses:
+        "200":
+          description: Authenticated thumbnail or poster
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
   /api/v1/assets/{id}/preview:
     parameters: [{ $ref: "#/components/parameters/ResourceID" }]
     get:
@@ -4367,8 +4439,16 @@ paths:
         - { in: header, name: If-Range, schema: { type: string } }
         - { in: header, name: If-None-Match, schema: { type: string } }
       responses:
-        "200": { description: Complete compatible variant }
-        "206": { description: Requested byte range }
+        "200":
+          description: Complete compatible variant
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "206":
+          description: Requested byte range
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
         "304": { description: ETag matched }
         "401": { description: Device credential invalid or revoked }
         "403": { description: Screen disabled }
@@ -4745,8 +4825,16 @@ paths:
         - { $ref: "#/components/parameters/ResourceID" }
       security: [{ deviceBearer: [] }]
       responses:
-        "200": { description: Authenticated prepared H.264 panel variant }
-        "206": { description: Partial content range }
+        "200":
+          description: Authenticated prepared H.264 panel variant
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "206":
+          description: Partial content range
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
         "404": { description: Panel is unavailable or not ready }
     head:
       operationId: headPlayerSpanPanel
@@ -5758,7 +5846,11 @@ paths:
         - { $ref: "#/components/parameters/ResourceID" }
       description: Serves the authenticated, frozen JPEG captured from the real Layout editor canvas.
       responses:
-        "200": { description: Current Layout preview JPEG }
+        "200":
+          description: Current Layout preview JPEG
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
         "404": { description: Layout or preview image not found }
     put:
       operationId: updateLayoutPreviewImage
@@ -7595,13 +7687,27 @@ paths:
       description: >-
         The artifact of every family (the AppImage, the APK or the Tilecast Edge archive), with `Accept-Ranges: bytes`, a strong `ETag` of its SHA-256, and range requests. Only a screen targeted by an active deployment of the release may read it.
       responses:
-        {
-          "200": { description: Complete artifact },
-          "206": { description: Artifact byte range },
-          "403": { description: Screen is not targeted },
-          "404": { description: Verified artifact unavailable },
-          "416": { description: Invalid range },
-        }
+        "200":
+          description: Complete artifact
+          content:
+            application/vnd.android.package-archive:
+              schema: { type: string, format: binary }
+            application/octet-stream:
+              schema: { type: string, format: binary }
+            application/zstd:
+              schema: { type: string, format: binary }
+        "206":
+          description: Artifact byte range
+          content:
+            application/vnd.android.package-archive:
+              schema: { type: string, format: binary }
+            application/octet-stream:
+              schema: { type: string, format: binary }
+            application/zstd:
+              schema: { type: string, format: binary }
+        "403": { description: Screen is not targeted }
+        "404": { description: Verified artifact unavailable }
+        "416": { description: Invalid range }
     head:
       operationId: headPlayerUpdateArtifact
       description: >-
@@ -7638,11 +7744,25 @@ paths:
       operationId: downloadPlayerUpdateApk
       summary: Download or resume authenticated cached APK
       responses:
-        {
-          "200": { description: Complete APK },
-          "206": { description: APK byte range },
-          "416": { description: Invalid range },
-        }
+        "200":
+          description: Complete APK
+          content:
+            application/vnd.android.package-archive:
+              schema: { type: string, format: binary }
+            application/octet-stream:
+              schema: { type: string, format: binary }
+            application/zstd:
+              schema: { type: string, format: binary }
+        "206":
+          description: APK byte range
+          content:
+            application/vnd.android.package-archive:
+              schema: { type: string, format: binary }
+            application/octet-stream:
+              schema: { type: string, format: binary }
+            application/zstd:
+              schema: { type: string, format: binary }
+        "416": { description: Invalid range }
   /api/v1/player/update-deployments/{deploymentId}/status:
     parameters:
       - in: path
@@ -11610,6 +11730,18 @@ components:
         status: { type: string, enum: [pending, connected, denied, expired] }
         login: { type: string }
         retryAfterSeconds: { type: integer, minimum: 0 }
+    InstallableLinuxPlayerRelease:
+      type: object
+      additionalProperties: false
+      required:
+        [platform, versionName, versionCode, sizeBytes, sha256, artifactUrl]
+      properties:
+        platform: { type: string, enum: [linux] }
+        versionName: { type: string }
+        versionCode: { type: integer, format: int64, minimum: 0 }
+        sizeBytes: { type: integer, format: int64, minimum: 0 }
+        sha256: { type: string }
+        artifactUrl: { type: string }
     PlayerRelease:
       type: object
       additionalProperties: false
