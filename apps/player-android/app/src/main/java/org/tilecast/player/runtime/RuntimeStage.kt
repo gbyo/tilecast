@@ -125,12 +125,10 @@ fun SharedRuntimePlayback(
         }
         var surfaces by remember { mutableStateOf(emptyList<Surface>()) }
         val refs = remember { StageRefs() }
-        val authorized = remember(message) {
-            manifest.assets.map { AuthorizedMedia(it.assetId, it.variantId) }.toSet()
-        }
-        val mimeByVariant = remember(message) {
-            manifest.assets.associate { it.variantId to it.mimeType }
-        }
+        val authorized = manifest.assets
+            .map { AuthorizedMedia(it.assetId, it.variantId) }
+            .toSet()
+        val mimeByVariant = manifest.assets.associate { it.variantId to it.mimeType }
         // The trusted WebView survives presentation replacement, so its
         // interceptor reads current grants/maps through these mutable refs.
         refs.authorized = authorized
