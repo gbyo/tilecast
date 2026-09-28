@@ -1,6 +1,6 @@
 module github.com/tilecast/tilecast/packages/api-client
 
-go 1.25.7
+go 1.26.0
 
 tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen
 
