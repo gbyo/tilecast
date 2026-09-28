@@ -1628,7 +1628,13 @@ paths:
       description: >-
         Read integration metrics. An integration token authenticates this call with the activity read scope.
       responses:
-        "200": { description: Integration metrics }
+        "200":
+          description: Integration metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: Prometheus exposition format.
         "401": { description: Integration authentication required }
         "403": { description: Insufficient scope }
   /api/v1/content-reviews:
@@ -6875,18 +6881,20 @@ paths:
       }
   /api/v1/player/config:
     get:
-      {
-        description: "Requires an authenticated player credential.",
-
-        operationId: getPlayerConfig,
-
-        summary: Retrieve effective player configuration,
-        responses:
-          {
-            "200": { description: Versioned player config },
-            "304": { description: Not modified },
-          },
-      }
+      description: Requires an authenticated player credential.
+      operationId: getPlayerConfig
+      summary: Retrieve effective player configuration
+      responses:
+        "200":
+          description: Versioned player config
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PlayerConfig" }
+        "304": { description: Not modified }
   /api/v1/system/status:
     get:
       operationId: systemStatus
@@ -7193,11 +7201,17 @@ paths:
       operationId: retryUpdateDeploymentScreen
       summary: Retry a failed screen update idempotently
       responses:
-        {
-          "202": { description: Retry queued },
-          "404": { description: Screen outside the caller's scope },
-          "409": { description: Retry not allowed },
-        }
+        "202":
+          description: Retry queued
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/RetryUpdateQueued" }
+        "404": { description: Screen outside the caller's scope }
+        "409": { description: Retry not allowed }
   /api/v1/player/updates/{releaseId}:
     parameters:
       - in: path
@@ -7328,14 +7342,18 @@ paths:
                   maxLength: 240
                   description: A bounded reason code, never free text from a server response.
       responses:
-        {
-          "200": { description: Status accepted },
-          "409": { description: Deployment cancelled or complete },
-          "422":
-            {
-              description: "Invalid status, or `succeeded` for a release that is not Tilecast Edge",
-            },
-        }
+        "200":
+          description: Status accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/UpdateStateReport" }
+        "409": { description: Deployment cancelled or complete }
+        "422":
+          description: "Invalid status, or `succeeded` for a release that is not Tilecast Edge"
   /api/v1/plugins/countdown-bar/instances:
     get:
       operationId: listCountdownBarInstances
@@ -8839,6 +8857,75 @@ components:
           type: array
           items: { $ref: "#/components/schemas/PlayerHistory" }
         total: { type: integer, minimum: 0 }
+    PlayerConfigSection:
+      type: object
+      description: >-
+        One effective-configuration category. Keys and value shapes follow the organization policy definitions; players ignore unknown keys.
+      additionalProperties: true
+    PlayerConfig:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          schemaVersion,
+          configRevision,
+          generatedAt,
+          branding,
+          playback,
+          cache,
+          sync,
+          reliability,
+          website,
+          power,
+          managedKiosk,
+          linuxKiosk,
+          accessibility,
+          updates,
+        ]
+      properties:
+        schemaVersion: { type: integer, minimum: 1 }
+        configRevision: { type: integer, format: int64, minimum: 0 }
+        generatedAt: { type: string, format: date-time }
+        branding: { $ref: "#/components/schemas/PlayerConfigSection" }
+        playback: { $ref: "#/components/schemas/PlayerConfigSection" }
+        cache: { $ref: "#/components/schemas/PlayerConfigSection" }
+        sync: { $ref: "#/components/schemas/PlayerConfigSection" }
+        reliability: { $ref: "#/components/schemas/PlayerConfigSection" }
+        website: { $ref: "#/components/schemas/PlayerConfigSection" }
+        power: { $ref: "#/components/schemas/PlayerConfigSection" }
+        managedKiosk: { $ref: "#/components/schemas/PlayerConfigSection" }
+        linuxKiosk: { $ref: "#/components/schemas/PlayerConfigSection" }
+        accessibility: { $ref: "#/components/schemas/PlayerConfigSection" }
+        updates: { $ref: "#/components/schemas/PlayerConfigSection" }
+        presentationNetwork:
+          { $ref: "#/components/schemas/PlayerConfigSection" }
+    UpdateState:
+      type: string
+      enum:
+        [
+          downloading,
+          downloaded,
+          verifying,
+          ready,
+          waiting_for_permission,
+          waiting_for_user,
+          installing,
+          reconnecting,
+          failed,
+          succeeded,
+        ]
+    UpdateStateReport:
+      type: object
+      additionalProperties: false
+      required: [state]
+      properties:
+        state: { $ref: "#/components/schemas/UpdateState" }
+    RetryUpdateQueued:
+      type: object
+      additionalProperties: false
+      required: [state]
+      properties:
+        state: { type: string, enum: [pending] }
     IncidentStatus:
       type: string
       enum: [open, acknowledged, recovered, resolved, ignored]

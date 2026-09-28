@@ -5972,6 +5972,48 @@ export interface components {
       items: components["schemas"]["PlayerHistory"][];
       total: number;
     };
+    /** @description One effective-configuration category. Keys and value shapes follow the organization policy definitions; players ignore unknown keys. */
+    PlayerConfigSection: {
+      [key: string]: unknown;
+    };
+    PlayerConfig: {
+      schemaVersion: number;
+      /** Format: int64 */
+      configRevision: number;
+      /** Format: date-time */
+      generatedAt: string;
+      branding: components["schemas"]["PlayerConfigSection"];
+      playback: components["schemas"]["PlayerConfigSection"];
+      cache: components["schemas"]["PlayerConfigSection"];
+      sync: components["schemas"]["PlayerConfigSection"];
+      reliability: components["schemas"]["PlayerConfigSection"];
+      website: components["schemas"]["PlayerConfigSection"];
+      power: components["schemas"]["PlayerConfigSection"];
+      managedKiosk: components["schemas"]["PlayerConfigSection"];
+      linuxKiosk: components["schemas"]["PlayerConfigSection"];
+      accessibility: components["schemas"]["PlayerConfigSection"];
+      updates: components["schemas"]["PlayerConfigSection"];
+      presentationNetwork?: components["schemas"]["PlayerConfigSection"];
+    };
+    /** @enum {string} */
+    UpdateState:
+      | "downloading"
+      | "downloaded"
+      | "verifying"
+      | "ready"
+      | "waiting_for_permission"
+      | "waiting_for_user"
+      | "installing"
+      | "reconnecting"
+      | "failed"
+      | "succeeded";
+    UpdateStateReport: {
+      state: components["schemas"]["UpdateState"];
+    };
+    RetryUpdateQueued: {
+      /** @enum {string} */
+      state: "pending";
+    };
     /** @enum {string} */
     IncidentStatus:
       "open" | "acknowledged" | "recovered" | "resolved" | "ignored";
@@ -12570,7 +12612,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "text/plain": string;
+        };
       };
       /** @description Integration authentication required */
       401: {
@@ -20978,7 +21022,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["PlayerConfig"];
+          };
+        };
       };
       /** @description Not modified */
       304: {
@@ -21518,7 +21566,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["RetryUpdateQueued"];
+          };
+        };
       };
       /** @description Screen outside the caller's scope */
       404: {
@@ -21752,7 +21804,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["UpdateStateReport"];
+          };
+        };
       };
       /** @description Deployment cancelled or complete */
       409: {
