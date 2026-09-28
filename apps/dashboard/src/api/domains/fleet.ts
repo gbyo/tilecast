@@ -174,14 +174,32 @@ export function getDependencyGraph(): Promise<DependencyGraph> {
   );
 }
 
-export function getAirplaySession(id: string): Promise<AirplaySession> {
-  return apiGet<"/api/v1/airplay/sessions/{id}", AirplaySession>(
-    "/api/v1/airplay/sessions/{id}",
-    { params: { path: { id } } },
+export type WireAirplaySession = components["schemas"]["AirplaySession"];
+
+/**
+ * The wire carries null for no audio screen, no Presentation Network,
+ * and no end timestamp; the Studio view models those as absent.
+ */
+export function normalizeAirplaySession(
+  wire: WireAirplaySession,
+): AirplaySession {
+  return {
+    ...wire,
+    audioScreenId: wire.audioScreenId ?? undefined,
+    endedAt: wire.endedAt ?? undefined,
+    presentationNetworkId: wire.presentationNetworkId ?? undefined,
+  };
+}
+
+export async function getAirplaySession(id: string): Promise<AirplaySession> {
+  return normalizeAirplaySession(
+    await apiGet("/api/v1/airplay/sessions/{id}", {
+      params: { path: { id } },
+    }),
   );
 }
 
-export function createAirplaySession(
+export async function createAirplaySession(
   input: {
     targetType: "screen" | "group";
     targetId: string;
@@ -191,20 +209,22 @@ export function createAirplaySession(
   },
   csrfToken: string,
 ): Promise<AirplaySession> {
-  return apiPost<"/api/v1/airplay/sessions", AirplaySession>(
-    "/api/v1/airplay/sessions",
-    { body: input, csrfToken },
+  return normalizeAirplaySession(
+    await apiPost("/api/v1/airplay/sessions", { body: input, csrfToken }),
   );
 }
 
-export function stopAirplaySession(
+export async function stopAirplaySession(
   id: string,
   csrfToken: string,
   reason = "manual_stop",
 ): Promise<AirplaySession> {
-  return apiPost<"/api/v1/airplay/sessions/{id}/stop", AirplaySession>(
-    "/api/v1/airplay/sessions/{id}/stop",
-    { params: { path: { id } }, body: { reason }, csrfToken },
+  return normalizeAirplaySession(
+    await apiPost("/api/v1/airplay/sessions/{id}/stop", {
+      params: { path: { id } },
+      body: { reason },
+      csrfToken,
+    }),
   );
 }
 
