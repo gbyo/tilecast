@@ -51,3 +51,84 @@ export function updateIncident(
     csrfToken,
   });
 }
+
+export type ProofFilters = {
+  from?: string;
+  to?: string;
+  page?: number;
+  pageSize?: number;
+  cursor?: string;
+  screen?: string;
+  group?: string;
+  result?: string;
+  sessionType?: components["schemas"]["ProofSessionType"];
+  terminalReason?: components["schemas"]["ProofTerminalReason"] | "unexpected";
+  media?: string;
+  widget?: string;
+  content?: string;
+  playlist?: string;
+  layout?: string;
+  schedule?: string;
+  takeover?: string;
+  search?: string;
+};
+
+export function listProofOfPlay(
+  filters: ProofFilters,
+): Promise<components["schemas"]["ProofOfPlayPage"]> {
+  // openapi-fetch drops undefined values; the server treats "" as absent,
+  // so filters pass through unchanged.
+  return apiGet("/api/v1/activity/proof-of-play", {
+    params: { query: filters },
+  });
+}
+
+export function getProofOfPlaySummary(
+  filters: ProofFilters & { dimension?: string },
+): Promise<components["schemas"]["ProofSummary"]> {
+  return apiGet("/api/v1/activity/proof-of-play/summary", {
+    params: { query: filters },
+  });
+}
+
+export type EventFilters = {
+  from?: string;
+  to?: string;
+  page?: number;
+  pageSize?: number;
+  cursor?: string;
+  screen?: string;
+  group?: string;
+  category?: string;
+  severity?: string;
+  result?: string;
+  search?: string;
+};
+
+/** Wire shape of a screen event from the generated contract. */
+export type WireScreenEvent = components["schemas"]["ScreenEventRecord"];
+
+/**
+ * Server-derived transitions carry no device queue position; the Studio
+ * view models a missing sequence as absent.
+ */
+export type NormalizedScreenEvent = Omit<WireScreenEvent, "sequence"> & {
+  sequence?: number;
+};
+
+export function normalizeScreenEvent(
+  wire: WireScreenEvent,
+): NormalizedScreenEvent {
+  return {
+    ...wire,
+    sequence: wire.sequence ?? undefined,
+  };
+}
+
+export function listScreenEvents(
+  filters: EventFilters,
+): Promise<components["schemas"]["ScreenEventPage"]> {
+  return apiGet("/api/v1/activity/screen-events", {
+    params: { query: filters },
+  });
+}

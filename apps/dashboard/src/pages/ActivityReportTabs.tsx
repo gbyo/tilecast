@@ -24,6 +24,14 @@ import {
   TechnicalDetails,
   useActivityCursor,
 } from "./ActivityShared";
+import {
+  getProofOfPlaySummary,
+  listProofOfPlay,
+  listScreenEvents,
+  normalizeScreenEvent,
+  type EventFilters,
+  type ProofFilters,
+} from "../api/domains/activity";
 import { MetricTile } from "../components/MetricTile";
 import { Button } from "../components/ui/button";
 import {
@@ -69,13 +77,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "../components/ui/collapsible";
-import type {
-  AuditPage,
-  EventPage,
-  ProofPage,
-  ProofRecord,
-  ProofSummary,
-} from "./ActivityShared";
+import type { AuditPage, ProofRecord } from "./ActivityShared";
 
 export function ProofTab({
   range,
@@ -110,22 +112,29 @@ export function ProofTab({
   if (pagination.cursor) pageParams.set("cursor", pagination.cursor);
   const query = useQuery({
     queryKey: ["activity", "proof", pageParams.toString()],
-    queryFn: () => activityRequest<ProofPage>(`/proof-of-play?${pageParams}`),
+    queryFn: () =>
+      listProofOfPlay(Object.fromEntries(pageParams.entries()) as ProofFilters),
   });
   const summaryParams = new URLSearchParams(params);
   summaryParams.set("dimension", dimension);
   const summary = useQuery({
     queryKey: ["activity", "proof-summary", summaryParams.toString()],
     queryFn: () =>
-      activityRequest<ProofSummary>(`/proof-of-play/summary?${summaryParams}`),
+      getProofOfPlaySummary(
+        Object.fromEntries(summaryParams.entries()) as ProofFilters & {
+          dimension?: string;
+        },
+      ),
   });
   const screenSummaryParams = new URLSearchParams(params);
   screenSummaryParams.set("dimension", "screen");
   const screenSummary = useQuery({
     queryKey: ["activity", "proof-summary", screenSummaryParams.toString()],
     queryFn: () =>
-      activityRequest<ProofSummary>(
-        `/proof-of-play/summary?${screenSummaryParams}`,
+      getProofOfPlaySummary(
+        Object.fromEntries(screenSummaryParams.entries()) as ProofFilters & {
+          dimension?: string;
+        },
       ),
   });
   const metrics = useMemo(() => {
@@ -776,7 +785,13 @@ export function EventsTab({
   if (pagination.cursor) pageParams.set("cursor", pagination.cursor);
   const query = useQuery({
     queryKey: ["activity", "events", pageParams.toString()],
-    queryFn: () => activityRequest<EventPage>(`/screen-events?${pageParams}`),
+    queryFn: () =>
+      listScreenEvents(
+        Object.fromEntries(pageParams.entries()) as EventFilters,
+      ).then((page) => ({
+        ...page,
+        items: page.items.map(normalizeScreenEvent),
+      })),
     refetchInterval: 20_000,
   });
   if (query.isLoading) return <Loading />;
