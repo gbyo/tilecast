@@ -114,7 +114,7 @@ func AuthorizeURL(serverURL, redirectURI, scopes, state, challenge string) strin
 		"code_challenge":        {challenge},
 		"code_challenge_method": {"S256"},
 	}
-	return strings.TrimSuffix(serverURL, "/") + "/api/v1/oauth/authorize?" + query.Encode()
+	return strings.TrimSuffix(serverURL, "/") + "/oauth/approve?" + query.Encode()
 }
 
 // Listen opens the loopback listener the server redirects to. The port is
