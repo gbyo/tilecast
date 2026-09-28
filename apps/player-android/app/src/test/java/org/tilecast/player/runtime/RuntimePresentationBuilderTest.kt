@@ -32,7 +32,7 @@ class RuntimePresentationBuilderTest {
     )
 
     private fun asset(assetId: String = "a1", variantId: String = "v1", mime: String = "image/png") =
-        ManifestAsset(assetId, variantId, mime, "sha", 100, "/dl")
+        ManifestAsset(assetId, variantId, mime, "sha", 100, downloadPath = "/dl")
 
     private fun manifest(
         items: List<ManifestItem> = listOf(item()),

@@ -1,8 +1,10 @@
 package org.tilecast.player.runtime
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -168,7 +170,7 @@ class RuntimeEvidenceRouterTest {
         ManifestItem("i1", "a1", "v1", "image", 10_000, "contain", "none", false, 0.5f, deliveryPolicy = "cache"),
     )
 
-    private class Sink {
+    private inner class Sink {
         val boundaries = mutableListOf<Pair<String, String>>()
         val errors = mutableListOf<String>()
         var progress = 0
