@@ -30,17 +30,25 @@ object RuntimeCutover {
  */
 class RuntimeEvidenceRouter(
     items: List<ManifestItem>,
-    private val activationId: String,
+    activationId: String,
     private val onBoundary: (itemId: String, assetId: String) -> Unit,
     private val onError: (String) -> Unit,
     private val onProgress: () -> Unit,
     private val onFirstFrame: (itemId: String) -> Unit = {},
+    private val onItemTransition: (itemId: String) -> Unit = {},
 ) {
-    private val assetByItem: Map<String, String> = items.associate { it.id to it.assetId }
+    private var activationId: String = activationId
+    private var assetByItem: Map<String, String> = items.associate { it.id to it.assetId }
     private val framed = HashSet<String>()
 
+    fun replace(items: List<ManifestItem>, activationId: String) {
+        this.activationId = activationId
+        assetByItem = items.associate { it.id to it.assetId }
+        framed.clear()
+    }
+
     fun handle(report: RuntimeReport, reportActivationId: String?): Boolean {
-        if (reportActivationId != null && reportActivationId != activationId) return false
+        if (report !is RuntimeReport.Ready && reportActivationId != activationId) return false
         when (report) {
             is RuntimeReport.Ready -> Unit
             is RuntimeReport.PresentationResult -> {
@@ -63,7 +71,11 @@ class RuntimeEvidenceRouter(
                 onProgress()
                 if (itemId != null && framed.add(itemId)) onFirstFrame(itemId)
             }
-            "widget-alive", "layout-alive", "website-alive", "widget-empty", "item-transition" -> onProgress()
+            "item-transition" -> {
+                onProgress()
+                if (itemId != null) onItemTransition(itemId)
+            }
+            "widget-alive", "layout-alive", "website-alive", "widget-empty" -> onProgress()
         }
     }
 }
