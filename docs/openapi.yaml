@@ -3457,7 +3457,15 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/CreateUploadRequest" }
       responses:
-        "201": { description: Resumable upload session created }
+        "201":
+          description: Resumable upload session created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/UploadSession" }
         "413": { description: Upload exceeds the configured maximum }
         "507": { description: Reserved free storage would be violated }
   /api/v1/uploads/{id}:
@@ -3511,7 +3519,15 @@ paths:
         - $ref: "#/components/parameters/ResourceID"
         - $ref: "#/components/parameters/CSRFToken"
       responses:
-        "200": { description: Upload finalized or idempotent result returned }
+        "200":
+          description: Upload finalized or idempotent result returned
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Asset" }
         "409": { description: Upload is incomplete }
         "415": { description: Detected media type is unsupported }
   /api/v1/assets:
