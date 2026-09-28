@@ -131,6 +131,10 @@ object RuntimeBridgeProtocol {
     fun bootstrapScript(): String =
         "(function(){if(window.__tilecastHostReady)return;window.__tilecastHostReady=true;})();"
 
+    /** Numeric-only nudge evaluated in the page to pull host state. */
+    fun nudgeJs(stateGeneration: Long): String =
+        "__tilecastHostNudge(${stateGeneration.coerceAtLeast(0)});"
+
     fun hostInfo(hostVersion: String, engineVersion: String): Map<String, String> = mapOf(
         "host" to "android",
         "hostVersion" to hostVersion.take(32),

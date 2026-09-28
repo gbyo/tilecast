@@ -8,6 +8,7 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.webkit.JavaScriptReplyProxy
 import androidx.webkit.WebViewAssetLoader
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
@@ -28,7 +29,8 @@ sealed interface TrustedRuntimeEndpoint {
 class TrustedRuntimeWebView(
     context: Context,
     private val crashPolicy: RuntimeCrashPolicy = RuntimeCrashPolicy(),
-    private val onRuntimeMessage: (String, Long) -> Unit = { _, _ -> },
+    private val onRuntimeMessage: (String, Long, JavaScriptReplyProxy?) -> Unit = { _, _, _ -> },
+    private val documentStartScript: String = RuntimeBridgeProtocol.bootstrapScript(),
 ) {
     private val appContext = context.applicationContext
     private val assetLoader = WebViewAssetLoader.Builder()
@@ -97,19 +99,32 @@ class TrustedRuntimeWebView(
             webView,
             RuntimeBridgeProtocol.BRIDGE_NAME,
             setOf(TrustedRuntimeOrigin.origin),
-            { _, message, sourceOrigin, _, _ ->
+            { _, message, sourceOrigin, _, replyProxy ->
                 if (sourceOrigin.toString() != TrustedRuntimeOrigin.origin) return@addWebMessageListener
                 val payload = message?.data ?: return@addWebMessageListener
-                onRuntimeMessage(payload, generation)
+                onRuntimeMessage(payload, generation, replyProxy)
             },
         )
         WebViewCompat.addDocumentStartJavaScript(
             webView,
-            RuntimeBridgeProtocol.bootstrapScript(),
+            documentStartScript,
             setOf(TrustedRuntimeOrigin.origin),
         )
         webView.loadUrl(TrustedRuntimeOrigin.entryUrl)
         return TrustedRuntimeEndpoint.Ready(webView, generation)
+    }
+
+    /** Nudges the page to pull new host state. Numeric payload only; all
+     * presentation data travels the typed message channel. */
+    fun nudge(webView: WebView, stateGeneration: Long) {
+        webView.post {
+            runCatching {
+                webView.evaluateJavascript(
+                    RuntimeBridgeProtocol.nudgeJs(stateGeneration),
+                    null,
+                )
+            }
+        }
     }
 
     fun destroy(webView: WebView) {
