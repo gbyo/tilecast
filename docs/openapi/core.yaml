@@ -455,7 +455,15 @@ paths:
             schema: { type: string, enum: [S256] },
           }
       responses:
-        "200": { description: Approval description }
+        "200":
+          description: Approval description
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/OAuthApproval" }
         "400":
           description: >-
             Unknown client, redirect, scope, or challenge
@@ -476,7 +484,15 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/OAuthDecision" }
       responses:
-        "200": { description: Loopback redirect carrying the code }
+        "200":
+          description: Loopback redirect carrying the code
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/OAuthRedirect" }
         "400":
           description: >-
             Unknown client, redirect, scope, or challenge
@@ -497,7 +513,15 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/OAuthDecision" }
       responses:
-        "200": { description: Loopback redirect carrying access_denied }
+        "200":
+          description: Loopback redirect carrying access_denied
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/OAuthRedirect" }
         "400": { description: The authorization request is not valid }
         "401": { description: Dashboard authentication required }
         "403": { description: CSRF token required }
@@ -515,7 +539,15 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/OAuthTokenRequest" }
       responses:
-        "200": { description: Opaque access and refresh tokens }
+        "200":
+          description: Opaque access and refresh tokens
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/OAuthTokens" }
         "400":
           description: >-
             Expired, used, mismatched, or revoked grant
@@ -10904,6 +10936,46 @@ components:
         redirect_uri: { type: string, format: uri }
         code_verifier: { type: string }
         refresh_token: { type: string }
+    OAuthApprovalClient:
+      type: object
+      additionalProperties: false
+      required: [name, clientId]
+      properties:
+        name: { type: string }
+        clientId: { type: string }
+    OAuthApprovalScope:
+      type: object
+      additionalProperties: false
+      required: [scope, description]
+      properties:
+        scope: { type: string, enum: [read, write, admin] }
+        description: { type: string }
+    OAuthApproval:
+      type: object
+      additionalProperties: false
+      required: [client, scopes, redirectUri, state]
+      properties:
+        client: { $ref: "#/components/schemas/OAuthApprovalClient" }
+        scopes:
+          type: array
+          items: { $ref: "#/components/schemas/OAuthApprovalScope" }
+        redirectUri: { type: string, format: uri }
+        state: { type: string }
+    OAuthRedirect:
+      type: object
+      additionalProperties: false
+      required: [redirectUri]
+      properties:
+        redirectUri: { type: string, format: uri }
+    OAuthTokens:
+      type: object
+      additionalProperties: false
+      required: [access_token, refresh_token, token_type, expires_at]
+      properties:
+        access_token: { type: string }
+        refresh_token: { type: string }
+        token_type: { type: string, enum: [Bearer] }
+        expires_at: { type: string, format: date-time }
     InstallationIdentity:
       type: object
       additionalProperties: false
