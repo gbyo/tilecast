@@ -18,6 +18,33 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for AccountRole.
+const (
+	AccountRoleAdministrator AccountRole = "administrator"
+	AccountRoleContributor   AccountRole = "contributor"
+	AccountRoleEditor        AccountRole = "editor"
+	AccountRoleOwner         AccountRole = "owner"
+	AccountRoleViewer        AccountRole = "viewer"
+)
+
+// Valid indicates whether the value is a known member of the AccountRole enum.
+func (e AccountRole) Valid() bool {
+	switch e {
+	case AccountRoleAdministrator:
+		return true
+	case AccountRoleContributor:
+		return true
+	case AccountRoleEditor:
+		return true
+	case AccountRoleOwner:
+		return true
+	case AccountRoleViewer:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ActivityCategory.
 const (
 	ActivityCategoryCommands     ActivityCategory = "commands"
@@ -4446,6 +4473,9 @@ func (e UpdateUserJSONBodyRole) Valid() bool {
 	}
 }
 
+// AccountRole defines model for AccountRole.
+type AccountRole string
+
 // ActivityCategory defines model for ActivityCategory.
 type ActivityCategory string
 
@@ -4695,7 +4725,7 @@ type AuthUser struct {
 	Id          openapi_types.UUID `json:"id"`
 	LastLoginAt *time.Time         `json:"lastLoginAt,omitempty"`
 	Name        string             `json:"name"`
-	Role        string             `json:"role"`
+	Role        AccountRole        `json:"role"`
 	Username    string             `json:"username"`
 }
 
