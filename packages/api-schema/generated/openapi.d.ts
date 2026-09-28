@@ -7838,6 +7838,127 @@ export interface components {
       restorable: boolean;
       missingReferences: number;
     };
+    ScreenAssignmentGroup: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+    };
+    ScreenAssignmentSchedule: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      playlistName: string;
+      /** @enum {string} */
+      presentationType: "playlist" | "layout";
+      priority: number;
+      enabled: boolean;
+    };
+    ScreenPlaylistAssignment: {
+      /** Format: uuid */
+      screenId: string;
+      /** Format: uuid */
+      playlistId?: string;
+      playlistName?: string;
+      /** Format: int64 */
+      playlistRevision?: number;
+      /** Format: uuid */
+      layoutId?: string;
+      layoutName?: string;
+      /** Format: int64 */
+      layoutRevision?: number;
+      /** @enum {string} */
+      presentationType?: "playlist" | "layout";
+      /** Format: int64 */
+      manifestVersion: number;
+      /** Format: int64 */
+      playerActiveManifestVersion?: number;
+      /** Format: int64 */
+      playerPendingManifestVersion?: number;
+      /** @enum {string} */
+      synchronizationStatus:
+        "not_reported" | "current" | "preparing" | "out_of_date";
+      downloadQueueCount?: number;
+      /** Format: int64 */
+      downloadedBytes?: number;
+      /** Format: int64 */
+      requiredBytes?: number;
+      /** Format: int64 */
+      cacheUsedBytes?: number;
+      /** Format: int64 */
+      cacheLimitBytes?: number;
+      /** Format: uuid */
+      currentItemId?: string;
+      /** Format: uuid */
+      currentAssetId?: string;
+      playbackState?: string;
+      lastSynchronizationError?: string;
+      lastPlaybackError?: string;
+      /** Format: uuid */
+      currentScheduleId?: string;
+      /** Format: uuid */
+      currentPlaylistId?: string;
+      /** @enum {string} */
+      selectionSource?:
+        "takeover" | "quick_present" | "schedule" | "direct_fallback" | "none";
+      /** Format: date-time */
+      nextTransitionAt?: string;
+      /** Format: int64 */
+      deviceClockOffsetSeconds?: number;
+      scheduleEvaluationError?: string;
+      /** Format: int64 */
+      scheduleManifestVersion?: number;
+      groups: components["schemas"]["ScreenAssignmentGroup"][];
+      relevantSchedules: components["schemas"]["ScreenAssignmentSchedule"][];
+      clockSkewWarningSeconds: number;
+      /** Format: uuid */
+      currentWebsiteAssetId?: string;
+      websiteState?: string;
+      /** Format: date-time */
+      websiteLoadStartedAt?: string;
+      /** Format: date-time */
+      websiteLoadCompletedAt?: string;
+      websiteFailureCategory?: string;
+      websiteBlockedNavigationCount?: number;
+      websiteCurrentHost?: string;
+      websiteFallbackShown?: boolean;
+      websiteRendererRecoveryCount?: number;
+      /** Format: uuid */
+      activeTakeoverId?: string;
+      takeoverState?: string;
+      takeoverPreparationProgress?: number;
+      playbackDisabled: boolean;
+      /** Format: uuid */
+      lastCommandId?: string;
+      lastCommandState?: string;
+      lastCommandResult?: string;
+      /** Format: date-time */
+      lastCommandCompletedAt?: string;
+      /** Format: int64 */
+      activeConfigRevision?: number;
+      configurationError?: string;
+    };
+    /** @enum {string} */
+    PowerAssistResult:
+      | "untested"
+      | "confirmed_working"
+      | "partially_working"
+      | "failed"
+      | "unsupported";
+    /** @description Omitted results default to untested; every provided result must use a supported state. */
+    PowerAssistInput: {
+      deviceSleep?: components["schemas"]["PowerAssistResult"];
+      tvStandby?: components["schemas"]["PowerAssistResult"];
+      deviceWake?: components["schemas"]["PowerAssistResult"];
+      tvWake?: components["schemas"]["PowerAssistResult"];
+      inputSelection?: components["schemas"]["PowerAssistResult"];
+      tilecastStartup?: components["schemas"]["PowerAssistResult"];
+    };
+    PowerAssistConfirmation: {
+      /** Format: uuid */
+      screenId: string;
+      /** Format: date-time */
+      lastTestedAt: string;
+    };
     PlaylistRevisionList: {
       items: components["schemas"]["PlaylistRevision"][];
       kept: number;
@@ -17019,12 +17140,14 @@ export interface operations {
     };
     responses: {
       /** @description Playlist published */
-      200: {
+      201: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          "application/json": Record<string, never>;
+          "application/json": {
+            data: components["schemas"]["ContentSubmissionPublication"];
+          };
         };
       };
       /** @description Submitted for editorial review instead of publishing */
@@ -17032,7 +17155,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ContentSubmission"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -17277,6 +17404,17 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
+        content: {
+          "application/json": {
+            data: components["schemas"]["ScreenPlaylistAssignment"];
+          };
+        };
+      };
+      /** @description Screen or assignment not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
         content?: never;
       };
     };
@@ -17304,10 +17442,21 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ScreenPlaylistAssignment"];
+          };
+        };
       };
       /** @description Owner or Administrator required */
       403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Screen or assignment not found */
+      404: {
         headers: {
           [name: string]: unknown;
         };
@@ -17331,6 +17480,24 @@ export interface operations {
     responses: {
       /** @description Direct assignment removed */
       200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["ScreenPlaylistAssignment"];
+          };
+        };
+      };
+      /** @description Owner or Administrator required */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Screen or assignment not found */
+      404: {
         headers: {
           [name: string]: unknown;
         };
@@ -19003,7 +19170,11 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": Record<string, never>;
+          "application/json": {
+            data:
+              | components["schemas"]["ContentSubmissionPublication"]
+              | components["schemas"]["LayoutRevision"];
+          };
         };
       };
       /** @description Submitted for editorial review instead of publishing */
@@ -19011,7 +19182,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ContentSubmission"];
+          };
+        };
       };
       /** @description Draft revision conflict */
       409: {
@@ -21169,16 +21344,41 @@ export interface operations {
   setScreenPowerAssist: {
     parameters: {
       query?: never;
-      header?: never;
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
+      };
       path: {
         id: components["parameters"]["ResourceID"];
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PowerAssistInput"];
+      };
+    };
     responses: {
       /** @description Confirmation stored */
       200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["PowerAssistConfirmation"];
+          };
+        };
+      };
+      /** @description Owner or Administrator required */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Screen not found */
+      404: {
         headers: {
           [name: string]: unknown;
         };

@@ -2538,6 +2538,33 @@ func (e PluginRequirementKind) Valid() bool {
 	}
 }
 
+// Defines values for PowerAssistResult.
+const (
+	PowerAssistResultConfirmedWorking PowerAssistResult = "confirmed_working"
+	PowerAssistResultFailed           PowerAssistResult = "failed"
+	PowerAssistResultPartiallyWorking PowerAssistResult = "partially_working"
+	PowerAssistResultUnsupported      PowerAssistResult = "unsupported"
+	PowerAssistResultUntested         PowerAssistResult = "untested"
+)
+
+// Valid indicates whether the value is a known member of the PowerAssistResult enum.
+func (e PowerAssistResult) Valid() bool {
+	switch e {
+	case PowerAssistResultConfirmedWorking:
+		return true
+	case PowerAssistResultFailed:
+		return true
+	case PowerAssistResultPartiallyWorking:
+		return true
+	case PowerAssistResultUnsupported:
+		return true
+	case PowerAssistResultUntested:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PresentationNetworkReadinessHelperState.
 const (
 	PresentationNetworkReadinessHelperStateMissing     PresentationNetworkReadinessHelperState = "missing"
@@ -3069,6 +3096,24 @@ func (e ScheduleTargetType) Valid() bool {
 	}
 }
 
+// Defines values for ScreenAssignmentSchedulePresentationType.
+const (
+	ScreenAssignmentSchedulePresentationTypeLayout   ScreenAssignmentSchedulePresentationType = "layout"
+	ScreenAssignmentSchedulePresentationTypePlaylist ScreenAssignmentSchedulePresentationType = "playlist"
+)
+
+// Valid indicates whether the value is a known member of the ScreenAssignmentSchedulePresentationType enum.
+func (e ScreenAssignmentSchedulePresentationType) Valid() bool {
+	switch e {
+	case ScreenAssignmentSchedulePresentationTypeLayout:
+		return true
+	case ScreenAssignmentSchedulePresentationTypePlaylist:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ScreenGroupDisplayMode.
 const (
 	ScreenGroupDisplayModeMirror ScreenGroupDisplayMode = "mirror"
@@ -3123,6 +3168,75 @@ func (e ScreenHealth) Valid() bool {
 	case ScreenHealthOffline:
 		return true
 	case ScreenHealthUnmeasured:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ScreenPlaylistAssignmentPresentationType.
+const (
+	ScreenPlaylistAssignmentPresentationTypeLayout   ScreenPlaylistAssignmentPresentationType = "layout"
+	ScreenPlaylistAssignmentPresentationTypePlaylist ScreenPlaylistAssignmentPresentationType = "playlist"
+)
+
+// Valid indicates whether the value is a known member of the ScreenPlaylistAssignmentPresentationType enum.
+func (e ScreenPlaylistAssignmentPresentationType) Valid() bool {
+	switch e {
+	case ScreenPlaylistAssignmentPresentationTypeLayout:
+		return true
+	case ScreenPlaylistAssignmentPresentationTypePlaylist:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ScreenPlaylistAssignmentSelectionSource.
+const (
+	ScreenPlaylistAssignmentSelectionSourceDirectFallback ScreenPlaylistAssignmentSelectionSource = "direct_fallback"
+	ScreenPlaylistAssignmentSelectionSourceNone           ScreenPlaylistAssignmentSelectionSource = "none"
+	ScreenPlaylistAssignmentSelectionSourceQuickPresent   ScreenPlaylistAssignmentSelectionSource = "quick_present"
+	ScreenPlaylistAssignmentSelectionSourceSchedule       ScreenPlaylistAssignmentSelectionSource = "schedule"
+	ScreenPlaylistAssignmentSelectionSourceTakeover       ScreenPlaylistAssignmentSelectionSource = "takeover"
+)
+
+// Valid indicates whether the value is a known member of the ScreenPlaylistAssignmentSelectionSource enum.
+func (e ScreenPlaylistAssignmentSelectionSource) Valid() bool {
+	switch e {
+	case ScreenPlaylistAssignmentSelectionSourceDirectFallback:
+		return true
+	case ScreenPlaylistAssignmentSelectionSourceNone:
+		return true
+	case ScreenPlaylistAssignmentSelectionSourceQuickPresent:
+		return true
+	case ScreenPlaylistAssignmentSelectionSourceSchedule:
+		return true
+	case ScreenPlaylistAssignmentSelectionSourceTakeover:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ScreenPlaylistAssignmentSynchronizationStatus.
+const (
+	ScreenPlaylistAssignmentSynchronizationStatusCurrent     ScreenPlaylistAssignmentSynchronizationStatus = "current"
+	ScreenPlaylistAssignmentSynchronizationStatusNotReported ScreenPlaylistAssignmentSynchronizationStatus = "not_reported"
+	ScreenPlaylistAssignmentSynchronizationStatusOutOfDate   ScreenPlaylistAssignmentSynchronizationStatus = "out_of_date"
+	ScreenPlaylistAssignmentSynchronizationStatusPreparing   ScreenPlaylistAssignmentSynchronizationStatus = "preparing"
+)
+
+// Valid indicates whether the value is a known member of the ScreenPlaylistAssignmentSynchronizationStatus enum.
+func (e ScreenPlaylistAssignmentSynchronizationStatus) Valid() bool {
+	switch e {
+	case ScreenPlaylistAssignmentSynchronizationStatusCurrent:
+		return true
+	case ScreenPlaylistAssignmentSynchronizationStatusNotReported:
+		return true
+	case ScreenPlaylistAssignmentSynchronizationStatusOutOfDate:
+		return true
+	case ScreenPlaylistAssignmentSynchronizationStatusPreparing:
 		return true
 	default:
 		return false
@@ -7236,6 +7350,25 @@ type PolicyDocument struct {
 	Values        map[string]interface{} `json:"values"`
 }
 
+// PowerAssistConfirmation defines model for PowerAssistConfirmation.
+type PowerAssistConfirmation struct {
+	LastTestedAt time.Time          `json:"lastTestedAt"`
+	ScreenId     openapi_types.UUID `json:"screenId"`
+}
+
+// PowerAssistInput Omitted results default to untested; every provided result must use a supported state.
+type PowerAssistInput struct {
+	DeviceSleep     *PowerAssistResult `json:"deviceSleep,omitempty"`
+	DeviceWake      *PowerAssistResult `json:"deviceWake,omitempty"`
+	InputSelection  *PowerAssistResult `json:"inputSelection,omitempty"`
+	TilecastStartup *PowerAssistResult `json:"tilecastStartup,omitempty"`
+	TvStandby       *PowerAssistResult `json:"tvStandby,omitempty"`
+	TvWake          *PowerAssistResult `json:"tvWake,omitempty"`
+}
+
+// PowerAssistResult defines model for PowerAssistResult.
+type PowerAssistResult string
+
 // PresentationNetwork defines model for PresentationNetwork.
 type PresentationNetwork struct {
 	AssignedScreens int                     `json:"assignedScreens"`
@@ -7789,6 +7922,25 @@ type ScreenActivity struct {
 	ScreenId               openapi_types.UUID   `json:"screenId"`
 }
 
+// ScreenAssignmentGroup defines model for ScreenAssignmentGroup.
+type ScreenAssignmentGroup struct {
+	Id   openapi_types.UUID `json:"id"`
+	Name string             `json:"name"`
+}
+
+// ScreenAssignmentSchedule defines model for ScreenAssignmentSchedule.
+type ScreenAssignmentSchedule struct {
+	Enabled          bool                                     `json:"enabled"`
+	Id               openapi_types.UUID                       `json:"id"`
+	Name             string                                   `json:"name"`
+	PlaylistName     string                                   `json:"playlistName"`
+	PresentationType ScreenAssignmentSchedulePresentationType `json:"presentationType"`
+	Priority         int                                      `json:"priority"`
+}
+
+// ScreenAssignmentSchedulePresentationType defines model for ScreenAssignmentSchedule.PresentationType.
+type ScreenAssignmentSchedulePresentationType string
+
 // ScreenAttentionItem defines model for ScreenAttentionItem.
 type ScreenAttentionItem struct {
 	Description string             `json:"description"`
@@ -7897,6 +8049,70 @@ type ScreenLocation struct {
 	State        string             `json:"state"`
 	UpdatedAt    time.Time          `json:"updatedAt"`
 }
+
+// ScreenPlaylistAssignment defines model for ScreenPlaylistAssignment.
+type ScreenPlaylistAssignment struct {
+	ActiveConfigRevision          *int64                                        `json:"activeConfigRevision,omitempty"`
+	ActiveTakeoverId              *openapi_types.UUID                           `json:"activeTakeoverId,omitempty"`
+	CacheLimitBytes               *int64                                        `json:"cacheLimitBytes,omitempty"`
+	CacheUsedBytes                *int64                                        `json:"cacheUsedBytes,omitempty"`
+	ClockSkewWarningSeconds       int                                           `json:"clockSkewWarningSeconds"`
+	ConfigurationError            *string                                       `json:"configurationError,omitempty"`
+	CurrentAssetId                *openapi_types.UUID                           `json:"currentAssetId,omitempty"`
+	CurrentItemId                 *openapi_types.UUID                           `json:"currentItemId,omitempty"`
+	CurrentPlaylistId             *openapi_types.UUID                           `json:"currentPlaylistId,omitempty"`
+	CurrentScheduleId             *openapi_types.UUID                           `json:"currentScheduleId,omitempty"`
+	CurrentWebsiteAssetId         *openapi_types.UUID                           `json:"currentWebsiteAssetId,omitempty"`
+	DeviceClockOffsetSeconds      *int64                                        `json:"deviceClockOffsetSeconds,omitempty"`
+	DownloadQueueCount            *int                                          `json:"downloadQueueCount,omitempty"`
+	DownloadedBytes               *int64                                        `json:"downloadedBytes,omitempty"`
+	Groups                        []ScreenAssignmentGroup                       `json:"groups"`
+	LastCommandCompletedAt        *time.Time                                    `json:"lastCommandCompletedAt,omitempty"`
+	LastCommandId                 *openapi_types.UUID                           `json:"lastCommandId,omitempty"`
+	LastCommandResult             *string                                       `json:"lastCommandResult,omitempty"`
+	LastCommandState              *string                                       `json:"lastCommandState,omitempty"`
+	LastPlaybackError             *string                                       `json:"lastPlaybackError,omitempty"`
+	LastSynchronizationError      *string                                       `json:"lastSynchronizationError,omitempty"`
+	LayoutId                      *openapi_types.UUID                           `json:"layoutId,omitempty"`
+	LayoutName                    *string                                       `json:"layoutName,omitempty"`
+	LayoutRevision                *int64                                        `json:"layoutRevision,omitempty"`
+	ManifestVersion               int64                                         `json:"manifestVersion"`
+	NextTransitionAt              *time.Time                                    `json:"nextTransitionAt,omitempty"`
+	PlaybackDisabled              bool                                          `json:"playbackDisabled"`
+	PlaybackState                 *string                                       `json:"playbackState,omitempty"`
+	PlayerActiveManifestVersion   *int64                                        `json:"playerActiveManifestVersion,omitempty"`
+	PlayerPendingManifestVersion  *int64                                        `json:"playerPendingManifestVersion,omitempty"`
+	PlaylistId                    *openapi_types.UUID                           `json:"playlistId,omitempty"`
+	PlaylistName                  *string                                       `json:"playlistName,omitempty"`
+	PlaylistRevision              *int64                                        `json:"playlistRevision,omitempty"`
+	PresentationType              *ScreenPlaylistAssignmentPresentationType     `json:"presentationType,omitempty"`
+	RelevantSchedules             []ScreenAssignmentSchedule                    `json:"relevantSchedules"`
+	RequiredBytes                 *int64                                        `json:"requiredBytes,omitempty"`
+	ScheduleEvaluationError       *string                                       `json:"scheduleEvaluationError,omitempty"`
+	ScheduleManifestVersion       *int64                                        `json:"scheduleManifestVersion,omitempty"`
+	ScreenId                      openapi_types.UUID                            `json:"screenId"`
+	SelectionSource               *ScreenPlaylistAssignmentSelectionSource      `json:"selectionSource,omitempty"`
+	SynchronizationStatus         ScreenPlaylistAssignmentSynchronizationStatus `json:"synchronizationStatus"`
+	TakeoverPreparationProgress   *int                                          `json:"takeoverPreparationProgress,omitempty"`
+	TakeoverState                 *string                                       `json:"takeoverState,omitempty"`
+	WebsiteBlockedNavigationCount *int                                          `json:"websiteBlockedNavigationCount,omitempty"`
+	WebsiteCurrentHost            *string                                       `json:"websiteCurrentHost,omitempty"`
+	WebsiteFailureCategory        *string                                       `json:"websiteFailureCategory,omitempty"`
+	WebsiteFallbackShown          *bool                                         `json:"websiteFallbackShown,omitempty"`
+	WebsiteLoadCompletedAt        *time.Time                                    `json:"websiteLoadCompletedAt,omitempty"`
+	WebsiteLoadStartedAt          *time.Time                                    `json:"websiteLoadStartedAt,omitempty"`
+	WebsiteRendererRecoveryCount  *int                                          `json:"websiteRendererRecoveryCount,omitempty"`
+	WebsiteState                  *string                                       `json:"websiteState,omitempty"`
+}
+
+// ScreenPlaylistAssignmentPresentationType defines model for ScreenPlaylistAssignment.PresentationType.
+type ScreenPlaylistAssignmentPresentationType string
+
+// ScreenPlaylistAssignmentSelectionSource defines model for ScreenPlaylistAssignment.SelectionSource.
+type ScreenPlaylistAssignmentSelectionSource string
+
+// ScreenPlaylistAssignmentSynchronizationStatus defines model for ScreenPlaylistAssignment.SynchronizationStatus.
+type ScreenPlaylistAssignmentSynchronizationStatus string
 
 // ScreenPresentationNetworkInput defines model for ScreenPresentationNetworkInput.
 type ScreenPresentationNetworkInput struct {
@@ -9496,6 +9712,11 @@ type PublishLayoutParams struct {
 	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
+// PublishLayout201JSONResponseBody_Data defines parameters for PublishLayout.
+type PublishLayout201JSONResponseBody_Data struct {
+	union json.RawMessage
+}
+
 // ListLayoutRevisionsParams defines parameters for ListLayoutRevisions.
 type ListLayoutRevisionsParams struct {
 	Page     *int `form:"page,omitempty" json:"page,omitempty"`
@@ -10097,6 +10318,12 @@ type AssignPresentationParams struct {
 	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
+// SetScreenPowerAssistParams defines parameters for SetScreenPowerAssist.
+type SetScreenPowerAssistParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
 // UnassignScreenPresentationNetworkParams defines parameters for UnassignScreenPresentationNetwork.
 type UnassignScreenPresentationNetworkParams struct {
 	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
@@ -10567,6 +10794,9 @@ type UpdateScreenJSONRequestBody UpdateScreenJSONBody
 
 // AssignPresentationJSONRequestBody defines body for AssignPresentation for application/json ContentType.
 type AssignPresentationJSONRequestBody = PresentationReference
+
+// SetScreenPowerAssistJSONRequestBody defines body for SetScreenPowerAssist for application/json ContentType.
+type SetScreenPowerAssistJSONRequestBody = PowerAssistInput
 
 // AssignScreenPresentationNetworkJSONRequestBody defines body for AssignScreenPresentationNetwork for application/json ContentType.
 type AssignScreenPresentationNetworkJSONRequestBody = ScreenPresentationNetworkInput
@@ -11096,6 +11326,68 @@ func (t PresentationReference) MarshalJSON() ([]byte, error) {
 }
 
 func (t *PresentationReference) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsContentSubmissionPublication returns the union data inside the PublishLayout201JSONResponseBody_Data as a ContentSubmissionPublication
+func (t PublishLayout201JSONResponseBody_Data) AsContentSubmissionPublication() (ContentSubmissionPublication, error) {
+	var body ContentSubmissionPublication
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromContentSubmissionPublication overwrites any union data inside the PublishLayout201JSONResponseBody_Data as the provided ContentSubmissionPublication
+func (t *PublishLayout201JSONResponseBody_Data) FromContentSubmissionPublication(v ContentSubmissionPublication) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeContentSubmissionPublication performs a merge with any union data inside the PublishLayout201JSONResponseBody_Data, using the provided ContentSubmissionPublication
+func (t *PublishLayout201JSONResponseBody_Data) MergeContentSubmissionPublication(v ContentSubmissionPublication) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsLayoutRevision returns the union data inside the PublishLayout201JSONResponseBody_Data as a LayoutRevision
+func (t PublishLayout201JSONResponseBody_Data) AsLayoutRevision() (LayoutRevision, error) {
+	var body LayoutRevision
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromLayoutRevision overwrites any union data inside the PublishLayout201JSONResponseBody_Data as the provided LayoutRevision
+func (t *PublishLayout201JSONResponseBody_Data) FromLayoutRevision(v LayoutRevision) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeLayoutRevision performs a merge with any union data inside the PublishLayout201JSONResponseBody_Data, using the provided LayoutRevision
+func (t *PublishLayout201JSONResponseBody_Data) MergeLayoutRevision(v LayoutRevision) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t PublishLayout201JSONResponseBody_Data) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *PublishLayout201JSONResponseBody_Data) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }
@@ -13515,12 +13807,23 @@ type ClientInterface interface {
 	// Corresponds with PUT /api/v1/screens/{id}/policy (the `PutScreenPolicy` operationId).
 	PutScreenPolicy(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// SetScreenPowerAssistWithBody Store administrator-confirmed sleep, wake, CEC, input, and startup test results
+	//
+	// Requires an authenticated dashboard user.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /api/v1/screens/{id}/power-assist (the `SetScreenPowerAssist` operationId).
+	SetScreenPowerAssistWithBody(ctx context.Context, id ResourceID, params *SetScreenPowerAssistParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// SetScreenPowerAssist Store administrator-confirmed sleep, wake, CEC, input, and startup test results
 	//
 	// Requires an authenticated dashboard user.
 	//
+	// Takes a body of the `application/json` content type.
+	//
 	// Corresponds with PUT /api/v1/screens/{id}/power-assist (the `SetScreenPowerAssist` operationId).
-	SetScreenPowerAssist(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	SetScreenPowerAssist(ctx context.Context, id ResourceID, params *SetScreenPowerAssistParams, body SetScreenPowerAssistJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UnassignScreenPresentationNetwork Remove a screen's Presentation Network assignment
 	//
@@ -20298,13 +20601,34 @@ func (c *Client) PutScreenPolicy(ctx context.Context, id ResourceID, reqEditors 
 	return c.Client.Do(req)
 }
 
+// SetScreenPowerAssistWithBody Store administrator-confirmed sleep, wake, CEC, input, and startup test results
+//
+// Requires an authenticated dashboard user.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /api/v1/screens/{id}/power-assist (the `SetScreenPowerAssist` operationId).
+func (c *Client) SetScreenPowerAssistWithBody(ctx context.Context, id ResourceID, params *SetScreenPowerAssistParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetScreenPowerAssistRequestWithBody(c.Server, id, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // SetScreenPowerAssist Store administrator-confirmed sleep, wake, CEC, input, and startup test results
 //
 // Requires an authenticated dashboard user.
 //
+// Takes a body of the `application/json` content type.
+//
 // Corresponds with PUT /api/v1/screens/{id}/power-assist (the `SetScreenPowerAssist` operationId).
-func (c *Client) SetScreenPowerAssist(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSetScreenPowerAssistRequest(c.Server, id)
+func (c *Client) SetScreenPowerAssist(ctx context.Context, id ResourceID, params *SetScreenPowerAssistParams, body SetScreenPowerAssistJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetScreenPowerAssistRequest(c.Server, id, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -36325,8 +36649,19 @@ func NewPutScreenPolicyRequest(server string, id ResourceID) (*http.Request, err
 	return req, nil
 }
 
-// NewSetScreenPowerAssistRequest constructs an http.Request for the SetScreenPowerAssist method
-func NewSetScreenPowerAssistRequest(server string, id ResourceID) (*http.Request, error) {
+// NewSetScreenPowerAssistRequest calls the generic SetScreenPowerAssist builder with application/json body
+func NewSetScreenPowerAssistRequest(server string, id ResourceID, params *SetScreenPowerAssistParams, body SetScreenPowerAssistJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetScreenPowerAssistRequestWithBody(server, id, params, "application/json", bodyReader)
+}
+
+// NewSetScreenPowerAssistRequestWithBody constructs an http.Request for the SetScreenPowerAssist method, with any body, and a specified content type
+func NewSetScreenPowerAssistRequestWithBody(server string, id ResourceID, params *SetScreenPowerAssistParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -36351,9 +36686,26 @@ func NewSetScreenPowerAssistRequest(server string, id ResourceID) (*http.Request
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPut, queryURL.String(), nil)
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
 	if err != nil {
 		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
 	}
 
 	return req, nil
@@ -41833,14 +42185,23 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with PUT /api/v1/screens/{id}/policy (the `PutScreenPolicy` operationId).
 	PutScreenPolicyWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*PutScreenPolicyResponse, error)
 
+	// SetScreenPowerAssistWithBodyWithResponse Store administrator-confirmed sleep, wake, CEC, input, and startup test results
+	//
+	// Requires an authenticated dashboard user.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /api/v1/screens/{id}/power-assist (the `SetScreenPowerAssist` operationId).
+	SetScreenPowerAssistWithBodyWithResponse(ctx context.Context, id ResourceID, params *SetScreenPowerAssistParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetScreenPowerAssistResponse, error)
+
 	// SetScreenPowerAssistWithResponse Store administrator-confirmed sleep, wake, CEC, input, and startup test results
 	//
 	// Requires an authenticated dashboard user.
 	//
-	// Returns a wrapper object for the known response body format(s).
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with PUT /api/v1/screens/{id}/power-assist (the `SetScreenPowerAssist` operationId).
-	SetScreenPowerAssistWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*SetScreenPowerAssistResponse, error)
+	SetScreenPowerAssistWithResponse(ctx context.Context, id ResourceID, params *SetScreenPowerAssistParams, body SetScreenPowerAssistJSONRequestBody, reqEditors ...RequestEditorFn) (*SetScreenPowerAssistResponse, error)
 
 	// UnassignScreenPresentationNetworkWithResponse Remove a screen's Presentation Network assignment
 	//
@@ -48756,12 +49117,27 @@ type PublishLayoutResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	// JSON201 the response for an HTTP 201 `application/json` response
-	JSON201 *map[string]interface{}
+	JSON201 *struct {
+		Data PublishLayout201JSONResponseBody_Data `json:"data"`
+	}
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *struct {
+		Data ContentSubmission `json:"data"`
+	}
 }
 
 // GetJSON201 returns the response for an HTTP 201 `application/json` response
-func (r PublishLayoutResponse) GetJSON201() *map[string]interface{} {
+func (r PublishLayoutResponse) GetJSON201() *struct {
+	Data PublishLayout201JSONResponseBody_Data `json:"data"`
+} {
 	return r.JSON201
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r PublishLayoutResponse) GetJSON202() *struct {
+	Data ContentSubmission `json:"data"`
+} {
+	return r.JSON202
 }
 
 // GetBody returns the raw response body bytes
@@ -52234,13 +52610,30 @@ func (r UpdatePlaylistItemResponse) ContentType() string {
 type PublishPlaylistResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	// JSON200 the response for an HTTP 200 `application/json` response
-	JSON200 *map[string]interface{}
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		// Data Exact submitted snapshot published and recorded in history. The published record carries untagged Go-cased keys from the editorial package.
+		Data ContentSubmissionPublication `json:"data"`
+	}
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *struct {
+		Data ContentSubmission `json:"data"`
+	}
 }
 
-// GetJSON200 returns the response for an HTTP 200 `application/json` response
-func (r PublishPlaylistResponse) GetJSON200() *map[string]interface{} {
-	return r.JSON200
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r PublishPlaylistResponse) GetJSON201() *struct {
+	// Data Exact submitted snapshot published and recorded in history. The published record carries untagged Go-cased keys from the editorial package.
+	Data ContentSubmissionPublication `json:"data"`
+} {
+	return r.JSON201
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r PublishPlaylistResponse) GetJSON202() *struct {
+	Data ContentSubmission `json:"data"`
+} {
+	return r.JSON202
 }
 
 // GetBody returns the raw response body bytes
@@ -55256,6 +55649,17 @@ func (r ListScreenPlayerHistoryResponse) ContentType() string {
 type RemovePlaylistAssignmentResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ScreenPlaylistAssignment `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RemovePlaylistAssignmentResponse) GetJSON200() *struct {
+	Data ScreenPlaylistAssignment `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -55290,6 +55694,17 @@ func (r RemovePlaylistAssignmentResponse) ContentType() string {
 type GetPlaylistAssignmentResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ScreenPlaylistAssignment `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetPlaylistAssignmentResponse) GetJSON200() *struct {
+	Data ScreenPlaylistAssignment `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -55324,6 +55739,17 @@ func (r GetPlaylistAssignmentResponse) ContentType() string {
 type AssignPresentationResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ScreenPlaylistAssignment `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AssignPresentationResponse) GetJSON200() *struct {
+	Data ScreenPlaylistAssignment `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -55482,6 +55908,17 @@ func (r PutScreenPolicyResponse) ContentType() string {
 type SetScreenPowerAssistResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PowerAssistConfirmation `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SetScreenPowerAssistResponse) GetJSON200() *struct {
+	Data PowerAssistConfirmation `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -63483,15 +63920,30 @@ func (c *ClientWithResponses) PutScreenPolicyWithResponse(ctx context.Context, i
 	return ParsePutScreenPolicyResponse(rsp)
 }
 
+// SetScreenPowerAssistWithBodyWithResponse Store administrator-confirmed sleep, wake, CEC, input, and startup test results
+//
+// Requires an authenticated dashboard user.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /api/v1/screens/{id}/power-assist (the `SetScreenPowerAssist` operationId).
+func (c *ClientWithResponses) SetScreenPowerAssistWithBodyWithResponse(ctx context.Context, id ResourceID, params *SetScreenPowerAssistParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetScreenPowerAssistResponse, error) {
+	rsp, err := c.SetScreenPowerAssistWithBody(ctx, id, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetScreenPowerAssistResponse(rsp)
+}
+
 // SetScreenPowerAssistWithResponse Store administrator-confirmed sleep, wake, CEC, input, and startup test results
 //
 // Requires an authenticated dashboard user.
 //
-// Returns a wrapper object for the known response body format(s).
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
 // Corresponds with PUT /api/v1/screens/{id}/power-assist (the `SetScreenPowerAssist` operationId).
-func (c *ClientWithResponses) SetScreenPowerAssistWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*SetScreenPowerAssistResponse, error) {
-	rsp, err := c.SetScreenPowerAssist(ctx, id, reqEditors...)
+func (c *ClientWithResponses) SetScreenPowerAssistWithResponse(ctx context.Context, id ResourceID, params *SetScreenPowerAssistParams, body SetScreenPowerAssistJSONRequestBody, reqEditors ...RequestEditorFn) (*SetScreenPowerAssistResponse, error) {
+	rsp, err := c.SetScreenPowerAssist(ctx, id, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -68529,14 +68981,22 @@ func ParsePublishLayoutResponse(rsp *http.Response) (*PublishLayoutResponse, err
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest map[string]interface{}
+		var dest struct {
+			Data PublishLayout201JSONResponseBody_Data `json:"data"`
+		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON201 = &dest
 
-	case rsp.StatusCode == 202:
-		break // No content-type
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest struct {
+			Data ContentSubmission `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
 
 	case rsp.StatusCode == 409:
 		break // No content-type
@@ -70882,15 +71342,24 @@ func ParsePublishPlaylistResponse(rsp *http.Response) (*PublishPlaylistResponse,
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest map[string]interface{}
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			// Data Exact submitted snapshot published and recorded in history. The published record carries untagged Go-cased keys from the editorial package.
+			Data ContentSubmissionPublication `json:"data"`
+		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.JSON200 = &dest
+		response.JSON201 = &dest
 
-	case rsp.StatusCode == 202:
-		break // No content-type
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest struct {
+			Data ContentSubmission `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
 
 	case rsp.StatusCode == 401:
 		break // No content-type
@@ -72947,6 +73416,24 @@ func ParseRemovePlaylistAssignmentResponse(rsp *http.Response) (*RemovePlaylistA
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ScreenPlaylistAssignment `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -72963,6 +73450,21 @@ func ParseGetPlaylistAssignmentResponse(rsp *http.Response) (*GetPlaylistAssignm
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ScreenPlaylistAssignment `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -72977,6 +73479,24 @@ func ParseAssignPresentationResponse(rsp *http.Response) (*AssignPresentationRes
 	response := &AssignPresentationResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ScreenPlaylistAssignment `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -73065,6 +73585,27 @@ func ParseSetScreenPowerAssistResponse(rsp *http.Response) (*SetScreenPowerAssis
 	response := &SetScreenPowerAssistResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PowerAssistConfirmation `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil

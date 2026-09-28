@@ -4349,15 +4349,27 @@ paths:
               properties:
                 expectedDraftRevision: { type: integer, minimum: 1 }
       responses:
-        "200":
+        "201":
           description: Playlist published
           content:
             application/json:
               schema:
                 type: object
                 required: [data]
+                properties:
+                  data:
+                    {
+                      $ref: "#/components/schemas/ContentSubmissionPublication",
+                    }
         "202":
-          { description: Submitted for editorial review instead of publishing }
+          description: Submitted for editorial review instead of publishing
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ContentSubmission" }
         "401": { description: Dashboard authentication required }
         "403": { description: A content manager is required }
         "409": { description: The draft moved since it was read; read it again }
@@ -4499,18 +4511,20 @@ paths:
   /api/v1/screens/{id}/playlist-assignment:
     parameters: [{ $ref: "#/components/parameters/ResourceID" }]
     get:
-      {
-        description: "Get playlist assignment. Requires an authenticated dashboard user.",
-
-        operationId: getPlaylistAssignment,
-        responses:
-          {
-            "200":
-              {
-                description: "Assignment, manifest, download, playback, and cache status",
-              },
-          },
-      }
+      description: "Get playlist assignment. Requires an authenticated dashboard user."
+      operationId: getPlaylistAssignment
+      responses:
+        "200":
+          description: "Assignment, manifest, download, playback, and cache status"
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    { $ref: "#/components/schemas/ScreenPlaylistAssignment" }
+        "404": { description: Screen or assignment not found }
     put:
       operationId: assignPresentation
       description: >-
@@ -4522,16 +4536,36 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/PresentationReference" }
       responses:
-        {
-          "200": { description: Direct playlist or Layout assignment replaced },
-          "403": { description: Owner or Administrator required },
-        }
+        "200":
+          description: Direct playlist or Layout assignment replaced
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    { $ref: "#/components/schemas/ScreenPlaylistAssignment" }
+        "403": { description: Owner or Administrator required }
+        "404": { description: Screen or assignment not found }
     delete:
       operationId: removePlaylistAssignment
       description: >-
         Remove playlist assignment. Requires an authenticated dashboard user.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
-      responses: { "200": { description: Direct assignment removed } }
+      responses:
+        "200":
+          description: Direct assignment removed
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    { $ref: "#/components/schemas/ScreenPlaylistAssignment" }
+        "403": { description: Owner or Administrator required }
+        "404": { description: Screen or assignment not found }
   /api/v1/player/manifest:
     get:
       operationId: getPlayerManifest
@@ -5547,8 +5581,22 @@ paths:
               schema:
                 type: object
                 required: [data]
+                properties:
+                  data:
+                    oneOf:
+                      - {
+                          $ref: "#/components/schemas/ContentSubmissionPublication",
+                        }
+                      - { $ref: "#/components/schemas/LayoutRevision" }
         "202":
-          { description: Submitted for editorial review instead of publishing }
+          description: Submitted for editorial review instead of publishing
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ContentSubmission" }
         "409": { description: Draft revision conflict }
   /api/v1/layouts/{id}/duplicate:
     post:
@@ -6915,18 +6963,30 @@ paths:
         "404": { description: Screen not found }
   /api/v1/screens/{id}/power-assist:
     put:
-      {
-        description: "Requires an authenticated dashboard user.",
-
-        operationId: setScreenPowerAssist,
-        summary: "Store administrator-confirmed sleep, wake, CEC, input, and startup test results",
-        parameters: [{ $ref: "#/components/parameters/ResourceID" }],
-        responses:
-          {
-            "200": { description: Confirmation stored },
-            "422": { description: Invalid result state },
-          },
-      }
+      description: "Requires an authenticated dashboard user."
+      operationId: setScreenPowerAssist
+      summary: "Store administrator-confirmed sleep, wake, CEC, input, and startup test results"
+      parameters:
+        - { $ref: "#/components/parameters/ResourceID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PowerAssistInput" }
+      responses:
+        "200":
+          description: Confirmation stored
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PowerAssistConfirmation" }
+        "403": { description: Owner or Administrator required }
+        "404": { description: Screen not found }
+        "422": { description: Invalid result state }
   /api/v1/player/config:
     get:
       description: Requires an authenticated player credential.
@@ -11670,6 +11730,126 @@ components:
         isCurrent: { type: boolean }
         restorable: { type: boolean }
         missingReferences: { type: integer, minimum: 0 }
+    ScreenAssignmentGroup:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+    ScreenAssignmentSchedule:
+      type: object
+      additionalProperties: false
+      required: [id, name, playlistName, presentationType, priority, enabled]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        playlistName: { type: string }
+        presentationType: { type: string, enum: [playlist, layout] }
+        priority: { type: integer }
+        enabled: { type: boolean }
+    ScreenPlaylistAssignment:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          screenId,
+          manifestVersion,
+          synchronizationStatus,
+          groups,
+          relevantSchedules,
+          clockSkewWarningSeconds,
+          playbackDisabled,
+        ]
+      properties:
+        screenId: { type: string, format: uuid }
+        playlistId: { type: string, format: uuid }
+        playlistName: { type: string }
+        playlistRevision: { type: integer, format: int64, minimum: 1 }
+        layoutId: { type: string, format: uuid }
+        layoutName: { type: string }
+        layoutRevision: { type: integer, format: int64, minimum: 1 }
+        presentationType: { type: string, enum: [playlist, layout] }
+        manifestVersion: { type: integer, format: int64, minimum: 0 }
+        playerActiveManifestVersion:
+          { type: integer, format: int64, minimum: 0 }
+        playerPendingManifestVersion:
+          { type: integer, format: int64, minimum: 0 }
+        synchronizationStatus:
+          {
+            type: string,
+            enum: [not_reported, current, preparing, out_of_date],
+          }
+        downloadQueueCount: { type: integer, minimum: 0 }
+        downloadedBytes: { type: integer, format: int64, minimum: 0 }
+        requiredBytes: { type: integer, format: int64, minimum: 0 }
+        cacheUsedBytes: { type: integer, format: int64, minimum: 0 }
+        cacheLimitBytes: { type: integer, format: int64, minimum: 0 }
+        currentItemId: { type: string, format: uuid }
+        currentAssetId: { type: string, format: uuid }
+        playbackState: { type: string }
+        lastSynchronizationError: { type: string }
+        lastPlaybackError: { type: string }
+        currentScheduleId: { type: string, format: uuid }
+        currentPlaylistId: { type: string, format: uuid }
+        selectionSource:
+          {
+            type: string,
+            enum: [takeover, quick_present, schedule, direct_fallback, none],
+          }
+        nextTransitionAt: { type: string, format: date-time }
+        deviceClockOffsetSeconds: { type: integer, format: int64 }
+        scheduleEvaluationError: { type: string }
+        scheduleManifestVersion: { type: integer, format: int64, minimum: 0 }
+        groups:
+          type: array
+          items: { $ref: "#/components/schemas/ScreenAssignmentGroup" }
+        relevantSchedules:
+          type: array
+          items: { $ref: "#/components/schemas/ScreenAssignmentSchedule" }
+        clockSkewWarningSeconds: { type: integer, minimum: 0 }
+        currentWebsiteAssetId: { type: string, format: uuid }
+        websiteState: { type: string }
+        websiteLoadStartedAt: { type: string, format: date-time }
+        websiteLoadCompletedAt: { type: string, format: date-time }
+        websiteFailureCategory: { type: string }
+        websiteBlockedNavigationCount: { type: integer, minimum: 0 }
+        websiteCurrentHost: { type: string }
+        websiteFallbackShown: { type: boolean }
+        websiteRendererRecoveryCount: { type: integer, minimum: 0 }
+        activeTakeoverId: { type: string, format: uuid }
+        takeoverState: { type: string }
+        takeoverPreparationProgress: { type: integer, minimum: 0 }
+        playbackDisabled: { type: boolean }
+        lastCommandId: { type: string, format: uuid }
+        lastCommandState: { type: string }
+        lastCommandResult: { type: string }
+        lastCommandCompletedAt: { type: string, format: date-time }
+        activeConfigRevision: { type: integer, format: int64, minimum: 0 }
+        configurationError: { type: string }
+    PowerAssistResult:
+      type: string
+      enum:
+        [untested, confirmed_working, partially_working, failed, unsupported]
+    PowerAssistInput:
+      type: object
+      additionalProperties: false
+      description: >-
+        Omitted results default to untested; every provided result must use a supported state.
+      properties:
+        deviceSleep: { $ref: "#/components/schemas/PowerAssistResult" }
+        tvStandby: { $ref: "#/components/schemas/PowerAssistResult" }
+        deviceWake: { $ref: "#/components/schemas/PowerAssistResult" }
+        tvWake: { $ref: "#/components/schemas/PowerAssistResult" }
+        inputSelection: { $ref: "#/components/schemas/PowerAssistResult" }
+        tilecastStartup: { $ref: "#/components/schemas/PowerAssistResult" }
+    PowerAssistConfirmation:
+      type: object
+      additionalProperties: false
+      required: [screenId, lastTestedAt]
+      properties:
+        screenId: { type: string, format: uuid }
+        lastTestedAt: { type: string, format: date-time }
     PlaylistRevisionList:
       type: object
       additionalProperties: false
