@@ -75,7 +75,11 @@ Simulated Players report unsupported captures through the player API. Screen det
 
 The Media snapshot selects name sorting through the real UI. Media processing can finish in a different order, so update time is not a deterministic sort key.
 
+Relative update labels include both numeric ages and `just now`. Masked table contact labels have a fixed screenshot width, so their changing text cannot resize adjacent columns.
+
 The initial 22 Studio PNG files were captured on Ubuntu 24.04 x64 with Playwright 1.63.0 and Chromium revision 1243 (153.0.8010.12). The capture runs were [36393103744](https://github.com/gbyo/tilecast/actions/runs/36393103744), [36394627433](https://github.com/gbyo/tilecast/actions/runs/36394627433), and [36395391085](https://github.com/gbyo/tilecast/actions/runs/36395391085). Each 1440 × 1000 image was reviewed for seeded data, complete loading, fonts, theme, masks, overlays, shared Widget rendering, and the intended editor or dialog state. Layout library thumbnails and the website Widget have no saved preview in the seed. Their unavailable states are expected.
+
+The online screen baseline was refreshed from [36462713769](https://github.com/gbyo/tilecast/actions/runs/36462713769) after the simulator acknowledged unsupported captures. The test waits for the capture error, not the initial preview metadata.
 
 On macOS, run the Linux container helper against the running demo:
 

@@ -34,7 +34,7 @@ function volatileRegions(scope: Page | Locator) {
   return [
     scope.getByRole("button", { name: /^Notifications,/ }),
     scope.locator("p").filter({ hasText: /last contact|Paired \d/ }),
-    scope.getByText(/^Updated \d/),
+    scope.getByText(/^Updated (?:just now|\d)/),
     scope.locator("p").filter({ hasText: /Last signed in/ }),
     scope
       .locator("dt")
@@ -81,9 +81,9 @@ export async function snapshot(
     await expect(page).toHaveScreenshot(`${name}.png`, {
       mask: [...volatileRegions(modal ? dialog : page), ...extraMasks],
       maskColor: "#808080",
-      style: modal
-        ? "[data-visual-volatile] { visibility: hidden !important; }"
-        : undefined,
+      // Masked relative times must not resize the surrounding table when
+      // server time crosses the fixed browser clock used by these fixtures.
+      style: `table time { display: inline-block; width: 6rem; } ${modal ? "[data-visual-volatile] { visibility: hidden !important; }" : ""}`,
     });
   } finally {
     if (modal) {
