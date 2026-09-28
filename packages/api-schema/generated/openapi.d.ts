@@ -18036,7 +18036,12 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            /** @description Player-reported diagnostics bag. Fields vary by player state and caller role (managers see package details viewers do not); every field is optional. */
+            data: Record<string, never>;
+          };
+        };
       };
       /** @description Screen not found */
       404: {

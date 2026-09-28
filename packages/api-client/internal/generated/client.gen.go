@@ -49379,6 +49379,19 @@ func (r GetScreenPreviewImageResponse) ContentType() string {
 type GetScreenReliabilityResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Data Player-reported diagnostics bag. Fields vary by player state and caller role (managers see package details viewers do not); every field is optional.
+		Data map[string]interface{} `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetScreenReliabilityResponse) GetJSON200() *struct {
+	// Data Player-reported diagnostics bag. Fields vary by player state and caller role (managers see package details viewers do not); every field is optional.
+	Data map[string]interface{} `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -64340,6 +64353,22 @@ func ParseGetScreenReliabilityResponse(rsp *http.Response) (*GetScreenReliabilit
 	response := &GetScreenReliabilityResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Data Player-reported diagnostics bag. Fields vary by player state and caller role (managers see package details viewers do not); every field is optional.
+			Data map[string]interface{} `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
 	}
 
 	return response, nil
