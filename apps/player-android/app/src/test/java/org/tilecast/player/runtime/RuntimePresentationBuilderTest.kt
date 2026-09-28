@@ -106,7 +106,7 @@ class RuntimePresentationBuilderTest {
             put("playlistPlaybackMode", "until_end")
         }
         val widget = ManifestWidget("y1", "YT", "youtube", 1, config)
-        val items = listOf(item("iy", "y1", null, "widget", null))
+        val items = listOf(item("iy", "y1", null, "widget", null).copy(audioEnabled = true))
         val manifest = manifest(items).copy(widgets = listOf(widget))
         val presentation = RuntimePresentationBuilder.build(playing(manifest, items))
         val built = presentation["items"]!!.jsonArray[0].jsonObject
@@ -115,6 +115,7 @@ class RuntimePresentationBuilderTest {
             "x",
             built["remoteWeb"]!!.jsonObject["content"]!!.jsonObject["videoId"]!!.jsonPrimitive.content,
         )
+        assertTrue(built["audioEnabled"]!!.jsonPrimitive.content.toBoolean())
         assertTrue(RuntimePresentationBuilder.isRuntimeRenderable(manifest, items[0]))
     }
 
@@ -143,17 +144,29 @@ class RuntimePresentationBuilderTest {
 
     @Test fun emitsSyncTimingForGroupedManifests() {
         val items = listOf(item(durationMs = 10_000), item("i2", "a1", "v1", "image", 20_000))
-        val manifest = manifest(items, syncGroup = ManifestSyncGroup("g1", "epoch"))
+        val epoch = "2026-09-01T12:00:00Z"
+        val manifest = manifest(items, syncGroup = ManifestSyncGroup("g1", epoch))
         val message = RuntimePresentationBuilder.hostMessage(playing(manifest, items))
         assertEquals("presentation", message["type"]!!.jsonPrimitive.content)
         assertEquals(true, message["presentation"]!!.jsonObject["synchronized"]!!.jsonPrimitive.content.toBoolean())
         val timing = message["timing"]!!.jsonObject
         assertEquals("g1", timing["groupId"]!!.jsonPrimitive.content)
-        assertEquals(1_000_000, timing["anchorMs"]!!.jsonPrimitive.content.toLong())
+        assertEquals(java.time.Instant.parse(epoch).toEpochMilli(), timing["anchorMs"]!!.jsonPrimitive.content.toLong())
         assertEquals(500, timing["clockOffsetMs"]!!.jsonPrimitive.content.toInt())
         assertEquals(listOf(10_000L, 20_000L), timing["durationsMs"]!!.jsonArray.map { it.jsonPrimitive.content.toLong() })
         val activation = message["activation"]!!.jsonObject
         assertEquals("manifest-42", activation["activationId"]!!.jsonPrimitive.content)
+    }
+
+    @Test fun selectedScheduleOrTakeoverAnchorOverridesGroupEpoch() {
+        val items = listOf(item(durationMs = 10_000))
+        val manifest = manifest(
+            items,
+            syncGroup = ManifestSyncGroup("g1", "2026-09-01T12:00:00Z"),
+        )
+        val state = playing(manifest, items).copy(playbackAnchorMillis = 123_456L)
+        val timing = RuntimePresentationBuilder.hostMessage(state)["timing"]!!.jsonObject
+        assertEquals(123_456L, timing["anchorMs"]!!.jsonPrimitive.content.toLong())
     }
 
     @Test fun buildsBrandedStatusStates() {
