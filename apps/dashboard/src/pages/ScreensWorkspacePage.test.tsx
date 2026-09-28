@@ -147,9 +147,7 @@ describe("Screens workspace tabs", () => {
     expect(
       await screen.findAllByRole("heading", { name: "Screens", level: 1 }),
     ).toHaveLength(1);
-    expect(
-      screen.getAllByRole("button", { name: "Takeover" }),
-    ).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Takeover" })).toHaveLength(1);
 
     const header = screen
       .getByRole("heading", { name: "Screens", level: 1 })
