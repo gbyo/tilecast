@@ -150,8 +150,6 @@ struct FakeServer {
     live_push_generation: AtomicUsize,
     /// Binary TCLS frames the player sent on its socket.
     live_frames: Mutex<Vec<LiveFrameRecord>>,
-    /// The scripted renderer answers captures as unavailable.
-    renderer_unavailable: AtomicBool,
 }
 
 /// One binary TCLS frame the fake socket received.
@@ -200,7 +198,6 @@ impl FakeServer {
             live_session_requests: AtomicUsize::new(0),
             live_push_generation: AtomicUsize::new(0),
             live_frames: Mutex::new(Vec::new()),
-            renderer_unavailable: AtomicBool::new(false),
         })
     }
 
@@ -589,28 +586,28 @@ async fn player_socket(fake: Arc<FakeServer>, stream: tokio::net::TcpStream) {
 fn record_live_frame(fake: &FakeServer, frame: &[u8]) {
     let mut record =
         LiveFrameRecord { session_id: "malformed".to_owned(), width: 0, height: 0, jpeg_len: 0, complete: false };
-    if frame.len() >= 37 && &frame[0..4] == b"TCLS" && frame[4] == 1 {
-        if let Ok(id) = uuid::Uuid::from_slice(&frame[5..21]) {
-            let width = u16::from_be_bytes([frame[29], frame[30]]) as u32;
-            let height = u16::from_be_bytes([frame[31], frame[32]]) as u32;
-            let jpeg = &frame[33..];
-            record = LiveFrameRecord {
-                session_id: id.to_string(),
-                width,
-                height,
-                jpeg_len: jpeg.len(),
-                complete: width > 0
-                    && width <= 640
-                    && height > 0
-                    && height <= 360
-                    && jpeg.len() <= 100 * 1024
-                    && jpeg.len() >= 4
-                    && jpeg[0] == 0xFF
-                    && jpeg[1] == 0xD8
-                    && jpeg[jpeg.len() - 2] == 0xFF
-                    && jpeg[jpeg.len() - 1] == 0xD9,
-            };
-        }
+    if frame.len() >= 37 && &frame[0..4] == b"TCLS" && frame[4] == 1
+        && let Ok(id) = uuid::Uuid::from_slice(&frame[5..21])
+    {
+        let width = u16::from_be_bytes([frame[29], frame[30]]) as u32;
+        let height = u16::from_be_bytes([frame[31], frame[32]]) as u32;
+        let jpeg = &frame[33..];
+        record = LiveFrameRecord {
+            session_id: id.to_string(),
+            width,
+            height,
+            jpeg_len: jpeg.len(),
+            complete: width > 0
+                && width <= 640
+                && height > 0
+                && height <= 360
+                && jpeg.len() <= 100 * 1024
+                && jpeg.len() >= 4
+                && jpeg[0] == 0xFF
+                && jpeg[1] == 0xD8
+                && jpeg[jpeg.len() - 2] == 0xFF
+                && jpeg[jpeg.len() - 1] == 0xD9,
+        };
     }
     fake.live_frames.lock().unwrap().push(record);
 }
