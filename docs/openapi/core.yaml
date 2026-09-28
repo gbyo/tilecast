@@ -146,7 +146,15 @@ paths:
             schema:
               $ref: "#/components/schemas/SetupRequest"
       responses:
-        "201": { description: Organization and owner created }
+        "201":
+          description: Organization and owner created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/SessionCreated" }
         "409": { description: Setup was already completed }
         "422": { description: Validation failed }
   /api/v1/auth/login:
@@ -159,6 +167,13 @@ paths:
           description: >-
             Signed in, or a multi-factor challenge when the account has a
             confirmed second factor. A challenge sets no session cookie.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/LoginResult" }
         "401": { description: Invalid credentials }
   /api/v1/auth/mfa/verify:
     post:
@@ -171,7 +186,15 @@ paths:
             schema:
               $ref: "#/components/schemas/MultiFactorVerifyRequest"
       responses:
-        "200": { description: Signed in }
+        "200":
+          description: Signed in
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/SessionCreated" }
         "401": { description: Incorrect code or expired challenge }
         "429": { description: Too many incorrect codes }
   /api/v1/auth/mfa/passkey/options:
@@ -186,7 +209,15 @@ paths:
               $ref: "#/components/schemas/ChallengeTokenRequest"
       responses:
         "200":
-          { description: Assertion options and a replacement challenge token }
+          description: Assertion options and a replacement challenge token
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    { $ref: "#/components/schemas/PasskeyAssertionChallenge" }
         "401": { description: Expired challenge }
         "404": { description: No passkey is enrolled }
         "409": { description: Passkeys are unavailable on this installation }
@@ -195,7 +226,16 @@ paths:
       operationId: passkeyLoginOptions
       description: Public. Starts a discoverable, username-free WebAuthn ceremony.
       responses:
-        "200": { description: Assertion options and a challenge token }
+        "200":
+          description: Assertion options and a challenge token
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    { $ref: "#/components/schemas/PasskeyAssertionChallenge" }
         "409": { description: Passkeys are unavailable on this installation }
   /api/v1/auth/passkey/login:
     post:
@@ -215,7 +255,15 @@ paths:
             schema:
               $ref: "#/components/schemas/WebAuthnAssertion"
       responses:
-        "200": { description: Signed in }
+        "200":
+          description: Signed in
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/SessionCreated" }
         "401": { description: The passkey could not be verified }
   /api/v1/me/security:
     get:
@@ -10565,6 +10613,60 @@ components:
       required: [challengeToken]
       properties:
         challengeToken: { type: string }
+    AuthUser:
+      type: object
+      additionalProperties: false
+      required: [id, name, username, role, active, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        username: { type: string }
+        role: { type: string }
+        active: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        lastLoginAt: { type: string, format: date-time }
+    MultiFactorMethod:
+      type: string
+      enum: [totp, passkey, recovery_code]
+    SessionCreated:
+      type: object
+      additionalProperties: false
+      required: [user, csrfToken, authMethod, mfaEnrollmentRequired]
+      properties:
+        user: { $ref: "#/components/schemas/AuthUser" }
+        csrfToken: { type: string }
+        authMethod: { $ref: "#/components/schemas/AuthMethod" }
+        mfaEnrollmentRequired: { type: boolean }
+    LoginChallenge:
+      type: object
+      additionalProperties: false
+      required: [mfaRequired, challengeToken, methods]
+      properties:
+        mfaRequired: { type: boolean, enum: [true] }
+        challengeToken: { type: string }
+        methods:
+          type: array
+          items: { $ref: "#/components/schemas/MultiFactorMethod" }
+    LoginResult:
+      oneOf:
+        - { $ref: "#/components/schemas/SessionCreated" }
+        - { $ref: "#/components/schemas/LoginChallenge" }
+      description: >-
+        Either a signed-in session or a multi-factor challenge. A challenge
+        sets no session cookie; no cookie exists until the factor verifies.
+    PasskeyAssertionChallenge:
+      type: object
+      additionalProperties: false
+      required: [challengeToken, options]
+      properties:
+        challengeToken: { type: string }
+        options:
+          type: object
+          description: >-
+            WebAuthn public-key assertion options for
+            navigator.credentials.get(), serialized with base64url binary
+            fields. Consumed by the platform authenticator rather than field
+            by field.
     AuthenticatorCodeRequest:
       type: object
       additionalProperties: false

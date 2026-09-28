@@ -7411,6 +7411,41 @@ export interface components {
     ChallengeTokenRequest: {
       challengeToken: string;
     };
+    AuthUser: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      username: string;
+      role: string;
+      active: boolean;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      lastLoginAt?: string;
+    };
+    /** @enum {string} */
+    MultiFactorMethod: "totp" | "passkey" | "recovery_code";
+    SessionCreated: {
+      user: components["schemas"]["AuthUser"];
+      csrfToken: string;
+      authMethod: components["schemas"]["AuthMethod"];
+      mfaEnrollmentRequired: boolean;
+    };
+    LoginChallenge: {
+      /** @enum {boolean} */
+      mfaRequired: true;
+      challengeToken: string;
+      methods: components["schemas"]["MultiFactorMethod"][];
+    };
+    /** @description Either a signed-in session or a multi-factor challenge. A challenge sets no session cookie; no cookie exists until the factor verifies. */
+    LoginResult:
+      | components["schemas"]["SessionCreated"]
+      | components["schemas"]["LoginChallenge"];
+    PasskeyAssertionChallenge: {
+      challengeToken: string;
+      /** @description WebAuthn public-key assertion options for navigator.credentials.get(), serialized with base64url binary fields. Consumed by the platform authenticator rather than field by field. */
+      options: Record<string, never>;
+    };
     AuthenticatorCodeRequest: {
       /** @description The six-digit authenticator code. */
       code: string;
@@ -9664,7 +9699,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["SessionCreated"];
+          };
+        };
       };
       /** @description Setup was already completed */
       409: {
@@ -9696,7 +9735,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["LoginResult"];
+          };
+        };
       };
       /** @description Invalid credentials */
       401: {
@@ -9725,7 +9768,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["SessionCreated"];
+          };
+        };
       };
       /** @description Incorrect code or expired challenge */
       401: {
@@ -9761,7 +9808,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["PasskeyAssertionChallenge"];
+          };
+        };
       };
       /** @description Expired challenge */
       401: {
@@ -9800,7 +9851,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["PasskeyAssertionChallenge"];
+          };
+        };
       };
       /** @description Passkeys are unavailable on this installation */
       409: {
@@ -9831,7 +9886,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["SessionCreated"];
+          };
+        };
       };
       /** @description The passkey could not be verified */
       401: {
