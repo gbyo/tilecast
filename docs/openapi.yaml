@@ -4485,7 +4485,15 @@ paths:
           required: false
           schema: { type: integer, minimum: 1, maximum: 100 }
       responses:
-        "200": { description: Paginated Data Source summaries }
+        "200":
+          description: Paginated Data Source summaries
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/DataSourceListResult" }
     post:
       operationId: createDataSource
       description: Requires an authenticated dashboard session. Creates a reusable provider-neutral Data Source. Supported providers include calendar, structured feeds, Manual Table, Weather, Transit, CAP Alerts, and Air Quality. Data Sources are not assets and cannot be placed in playlists or Layouts.
@@ -4495,7 +4503,15 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/DataSourceInput" }
       responses:
-        "201": { description: Data Source created }
+        "201":
+          description: Data Source created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/DataSource" }
         "422": { description: Provider configuration rejected }
   /api/v1/data-sources/{id}:
     get:
@@ -4506,9 +4522,14 @@ paths:
         - { $ref: "#/components/parameters/ResourceID" }
       responses:
         "200":
-          {
-            description: "Data Source detail including status, diagnostics, cached record count, typed fields, date-selection policy, and Widget and Layout-binding usage",
-          }
+          description: "Data Source detail including status, diagnostics, cached record count, typed fields, date-selection policy, and Widget and Layout-binding usage"
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/DataSourceDetail" }
         "404": { description: Data Source not found }
     patch:
       operationId: updateDataSource
@@ -4523,7 +4544,14 @@ paths:
             schema: { $ref: "#/components/schemas/DataSourceInput" }
       responses:
         "200":
-          { description: Data Source updated and dependent manifests revised }
+          description: Data Source updated and dependent manifests revised
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/DataSource" }
         "422": { description: Provider configuration rejected }
     delete:
       operationId: deleteDataSource
@@ -4545,7 +4573,15 @@ paths:
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses:
-        "201": { description: Data Source duplicated }
+        "201":
+          description: Data Source duplicated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/DataSource" }
   /api/v1/data-sources/{id}/diagnostics:
     get:
       operationId: dataSourceRefreshDiagnostics
@@ -4554,7 +4590,15 @@ paths:
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses:
-        "200": { description: Current bounded Data Source refresh diagnostics }
+        "200":
+          description: Current bounded Data Source refresh diagnostics
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/DataSourceDiagnostics" }
         "404": { description: Data Source refresh diagnostics unavailable }
   /api/v1/data-sources/{provider}/preview:
     post:
@@ -4587,7 +4631,15 @@ paths:
         - { $ref: "#/components/parameters/ResourceID" }
       description: Requires an authenticated dashboard session. Detects fields for a saved RSS, Atom, JSON, or CSV Source using its stored configuration, including uploaded CSV bytes that detail responses strip. Same response shape as the provider inspect route.
       responses:
-        "200": { description: Detected fields for the saved Data Source }
+        "200":
+          description: Detected fields for the saved Data Source
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/StructuredInspection" }
         "404": { description: Data Source not found }
         "422":
           {
@@ -4613,9 +4665,14 @@ paths:
                 configuration: { type: object, additionalProperties: true }
       responses:
         "200":
-          {
-            description: "Detected fields, sample values, suggested mapping, and available record fields",
-          }
+          description: "Detected fields, sample values, suggested mapping, and available record fields"
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/StructuredInspection" }
         "404": { description: Provider does not support field detection }
         "422": { description: Validation or safe fetch failed }
   /api/v1/layouts:
@@ -9259,19 +9316,264 @@ components:
     DataSource:
       type: object
       additionalProperties: false
-      required: [id, provider, name, configVersion, configuration]
+      description: >-
+        Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider stays an open string because definition and plugin providers extend the registry beyond the request-side enum.
+      required:
+        [
+          id,
+          provider,
+          name,
+          description,
+          configVersion,
+          configuration,
+          createdAt,
+          updatedAt,
+        ]
       properties:
         id: { type: string, format: uuid }
-        provider: { $ref: "#/components/schemas/DataSourceProvider" }
-        name: { type: string, minLength: 1, maxLength: 180 }
-        description: { type: string, maxLength: 2000 }
+        provider: { type: string }
+        name: { type: string }
+        description: { type: string }
         configVersion: { type: integer, minimum: 1 }
-        configuration:
-          {
-            type: object,
-            additionalProperties: true,
-            description: "Provider-specific configuration, validated per provider server-side.",
-          }
+        configuration: { type: object }
+        creator:
+          type: object
+          additionalProperties: false
+          required: [id, name]
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    DataSourceListItem:
+      type: object
+      additionalProperties: false
+      description: >-
+        List row with the refresh summary Studio needs to present and select a source without fetching every detail separately.
+      required:
+        [
+          id,
+          provider,
+          name,
+          description,
+          configVersion,
+          configuration,
+          createdAt,
+          updatedAt,
+          status,
+          cachedRecordCount,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        provider: { type: string }
+        name: { type: string }
+        description: { type: string }
+        configVersion: { type: integer, minimum: 1 }
+        configuration: { type: object }
+        creator:
+          type: object
+          additionalProperties: false
+          required: [id, name]
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        status: { type: string }
+        cachedRecordCount: { type: integer, minimum: 0 }
+    DataSourceListResult:
+      type: object
+      additionalProperties: false
+      required: [items, total, page, pageSize]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/DataSourceListItem" }
+        total: { type: integer, minimum: 0 }
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1 }
+    DataSourceDiagnostics:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          dataSourceId,
+          parseStatus,
+          availableEventCount,
+          availableItemCount,
+          usingCachedData,
+        ]
+      properties:
+        dataSourceId: { type: string, format: uuid }
+        lastSuccessfulRefresh: { type: string, format: date-time }
+        lastAttemptedRefresh: { type: string, format: date-time }
+        httpResultCategory: { type: string }
+        parseStatus: { type: string }
+        availableEventCount: { type: integer, minimum: 0 }
+        availableItemCount: { type: integer, minimum: 0 }
+        usingCachedData: { type: boolean }
+        cacheUpdatedAt: { type: string, format: date-time }
+        cacheExpiresAt: { type: string, format: date-time }
+        errorCode: { type: string }
+    DataSourceField:
+      type: object
+      additionalProperties: false
+      required: [key, label, type]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        type: { type: string }
+        currency: { type: string }
+        role: { type: string }
+    DataSourceDateSelection:
+      type: object
+      additionalProperties: false
+      required:
+        [enabled, dateFormat, timezone, mode, excludePast, noMatchBehavior]
+      properties:
+        enabled: { type: boolean }
+        dateFormat:
+          type: string
+          enum:
+            [
+              auto,
+              iso_date,
+              us_date,
+              us_short,
+              day_first_date,
+              day_first_short,
+              day_month_name,
+              rfc3339,
+            ]
+        timezone: { type: string }
+        mode:
+          type: string
+          enum: [today, tomorrow, next_available, current_week, custom_range]
+        customStartDate: { type: string }
+        customEndDate: { type: string }
+        excludePast: { type: boolean }
+        noMatchBehavior:
+          type: string
+          enum: [fallback_text, next_available, empty, hide, last_known_good]
+        fallbackText: { type: string }
+    DataSourceWidgetUsage:
+      type: object
+      additionalProperties: false
+      required: [id, name, provider]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        provider: { type: string }
+    DataSourceBindingUsage:
+      type: object
+      additionalProperties: false
+      required: [layoutId, layoutName, field]
+      properties:
+        layoutId: { type: string, format: uuid }
+        layoutName: { type: string }
+        field: { type: string }
+    DataSourceDetail:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          provider,
+          name,
+          description,
+          configVersion,
+          configuration,
+          createdAt,
+          updatedAt,
+          status,
+          diagnostics,
+          fields,
+          cachedRecordCount,
+          widgetUsage,
+          bindingUsage,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        provider: { type: string }
+        name: { type: string }
+        description: { type: string }
+        configVersion: { type: integer, minimum: 1 }
+        configuration: { type: object }
+        creator:
+          type: object
+          additionalProperties: false
+          required: [id, name]
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        status: { type: string }
+        diagnostics: { $ref: "#/components/schemas/DataSourceDiagnostics" }
+        fields:
+          type: array
+          items: { $ref: "#/components/schemas/DataSourceField" }
+        dateSelection: { $ref: "#/components/schemas/DataSourceDateSelection" }
+        cachedRecordCount: { type: integer, minimum: 0 }
+        widgetUsage:
+          type: array
+          items: { $ref: "#/components/schemas/DataSourceWidgetUsage" }
+        bindingUsage:
+          type: array
+          items: { $ref: "#/components/schemas/DataSourceBindingUsage" }
+    StructuredSourceField:
+      type: object
+      additionalProperties: false
+      required: [key, label, samples, type]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        samples:
+          type: array
+          items: { type: string }
+        type: { type: string }
+    StructuredSourceMapping:
+      type: object
+      additionalProperties: false
+      required: [rootList, title, subtitle, date, imageUrl, link]
+      properties:
+        rootList: { type: string }
+        title: { type: string }
+        subtitle: { type: string }
+        date: { type: string }
+        imageUrl: { type: string }
+        link: { type: string }
+        valueFields:
+          type: object
+          additionalProperties: { type: string }
+        valueFieldTypes:
+          type: object
+          additionalProperties: { type: string }
+    StructuredSourceFields:
+      type: object
+      additionalProperties: false
+      required: [title, subtitle, date, author, description, image, link]
+      properties:
+        title: { type: boolean }
+        subtitle: { type: boolean }
+        date: { type: boolean }
+        author: { type: boolean }
+        description: { type: boolean }
+        image: { type: boolean }
+        link: { type: boolean }
+    StructuredInspection:
+      type: object
+      additionalProperties: false
+      required: [provider, fields, rowCount, suggested, available]
+      properties:
+        provider: { type: string }
+        fields:
+          type: array
+          items: { $ref: "#/components/schemas/StructuredSourceField" }
+        rowCount: { type: integer, minimum: 0 }
+        delimiter: { type: string }
+        suggested: { $ref: "#/components/schemas/StructuredSourceMapping" }
+        available: { $ref: "#/components/schemas/StructuredSourceFields" }
     DataSourceInput:
       type: object
       additionalProperties: false
