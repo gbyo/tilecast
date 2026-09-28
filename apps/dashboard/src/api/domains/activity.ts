@@ -199,6 +199,35 @@ export function getIncident(
   });
 }
 
+export function getScreenActivity(
+  id: string,
+  range: ActivityRange = {},
+): Promise<components["schemas"]["ScreenActivity"]> {
+  return apiGet("/api/v1/activity/screens/{id}", {
+    params: { path: { id }, query: range },
+  });
+}
+
+export type TimelineDomain = components["schemas"]["ScreenTimelineDomain"];
+
+export function getScreenTimeline(
+  id: string,
+  range: ActivityRange & { domain?: TimelineDomain },
+): Promise<components["schemas"]["ScreenTimeline"]> {
+  return apiGet("/api/v1/activity/screens/{id}/timeline", {
+    params: { path: { id }, query: range },
+  });
+}
+
+export function getScreenTelemetry(
+  id: string,
+  range: ActivityRange = {},
+): Promise<components["schemas"]["ScreenTelemetry"]> {
+  return apiGet("/api/v1/activity/screens/{id}/telemetry", {
+    params: { path: { id }, query: range },
+  });
+}
+
 export function updateActivityRetention(
   input: {
     rawEventDays?: number;

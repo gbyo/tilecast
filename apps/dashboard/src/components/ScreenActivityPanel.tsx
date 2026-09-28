@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import { translateKnown } from "../i18n";
+import { ApiError } from "../api/errors";
+import { getScreenActivity } from "../api/domains/activity";
 import { AlertTriangle } from "lucide-react";
 import { buildActivityLink } from "../pages/activityLinks";
 import { ScreenTimeline } from "./ScreenTimeline";
@@ -21,12 +23,12 @@ import { Skeleton } from "./ui/skeleton";
 
 type ScreenActivity = {
   screenId: string;
-  currentPresentation?: Proof;
-  recentProofOfPlay: Proof[];
+  currentPresentation?: string;
+  recentProof: Proof[];
   recentEvents: Event[];
   playbackGaps: number;
   lastHealthyPlayback?: string;
-  lastSuccessfulManifestActivation?: string;
+  lastSuccessfulPlayback?: string;
   currentIssue?: {
     kind: string;
     severity: string;
@@ -55,22 +57,28 @@ type Event = {
 };
 
 async function loadScreenActivity(id: string): Promise<ScreenActivity> {
-  const response = await fetch(`/api/v1/activity/screens/${id}`, {
-    credentials: "same-origin",
-  });
-  const body = (await response.json().catch(() => ({}))) as {
-    data?: ScreenActivity;
-    error?: { message?: string };
-  };
-  if (!response.ok || !body.data)
+  try {
+    const data = await getScreenActivity(id);
+    return {
+      screenId: data.screenId,
+      currentPresentation: data.currentPresentation,
+      recentProof: data.recentProof,
+      recentEvents: data.recentEvents,
+      playbackGaps: data.playbackGaps,
+      lastHealthyPlayback: data.lastHealthyPlayback,
+      lastSuccessfulPlayback: data.lastSuccessfulPlayback,
+      currentIssue: data.currentIssue,
+    };
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
     throw new Error(
-      body.error?.message ??
-        translateKnown(
-          "activity:screenActivity.loadFailed",
-          "Screen Activity could not be loaded.",
-        ),
+      translateKnown(
+        "activity:screenActivity.loadFailed",
+        "Screen Activity could not be loaded.",
+      ),
+      { cause: error },
     );
-  return body.data;
+  }
 }
 
 /** The screen-detail page owns the Activity tab; this renders its contents. */
@@ -127,11 +135,7 @@ export function ScreenActivityPanel({ screenId }: { screenId: string }) {
           <dl className="grid gap-x-6 gap-y-4 border-y border-border py-4 sm:grid-cols-2 xl:grid-cols-4">
             <ActivityFact
               label={t("screenActivity.facts.presentation")}
-              value={
-                data.currentPresentation?.presentationName ||
-                data.currentPresentation?.presentationId ||
-                notReported
-              }
+              value={data.currentPresentation || notReported}
             />
             <ActivityFact
               label={t("screenActivity.facts.lastPlayback")}
@@ -139,10 +143,7 @@ export function ScreenActivityPanel({ screenId }: { screenId: string }) {
             />
             <ActivityFact
               label={t("screenActivity.facts.lastActivation")}
-              value={formatDate(
-                data.lastSuccessfulManifestActivation,
-                notReported,
-              )}
+              value={formatDate(data.lastSuccessfulPlayback, notReported)}
             />
             <ActivityFact
               label={t("screenActivity.facts.gaps")}
@@ -177,7 +178,7 @@ export function ScreenActivityPanel({ screenId }: { screenId: string }) {
             <ActivityList
               title={t("screenActivity.lists.proofTitle")}
               empty={t("screenActivity.lists.proofEmpty")}
-              items={data.recentProofOfPlay.map((item) => ({
+              items={data.recentProof.map((item) => ({
                 id: item.id,
                 label:
                   item.contentName ||

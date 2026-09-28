@@ -14,12 +14,11 @@ import {
 import { Skeleton } from "./ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group";
 import { AlertTriangle, Activity } from "lucide-react";
+import { formatDuration, formatWhen, humanize } from "../pages/ActivityShared";
 import {
-  activityRequest,
-  formatDuration,
-  formatWhen,
-  humanize,
-} from "../pages/ActivityShared";
+  getScreenTimeline,
+  type TimelineDomain,
+} from "../api/domains/activity";
 import { buildActivityLink } from "../pages/activityLinks";
 
 type TimelineEntry = {
@@ -83,6 +82,14 @@ const ranges = [
   { value: "30d", labelKey: "uptime.windows.30d" },
 ] as const;
 
+/** Reported periods in milliseconds; the server windows on from/to. */
+const rangeWindowsMs = {
+  "24h": 86_400_000,
+  "7d": 604_800_000,
+  "30d": 2_592_000_000,
+} as const;
+type RangeKey = keyof typeof rangeWindowsMs;
+
 function formatOptional(value: string | undefined, notReported: string) {
   return value ? formatWhen(value) : notReported;
 }
@@ -94,14 +101,19 @@ function formatOptional(value: string | undefined, notReported: string) {
 export function ScreenTimeline({ screenId }: { screenId: string }) {
   const { t } = useTranslation("activity");
   const notReported = t("screenActivity.notReported");
-  const [domain, setDomain] = useState("");
-  const [range, setRange] = useState("24h");
+  const [domain, setDomain] = useState<TimelineDomain | "">("");
+  const [range, setRange] = useState<RangeKey>("24h");
   const query = useQuery({
     queryKey: ["activity", "screen-timeline", screenId, domain, range],
-    queryFn: () =>
-      activityRequest<ScreenTimeline>(
-        `/screens/${screenId}/timeline?range=${range}${domain ? `&domain=${domain}` : ""}`,
-      ),
+    queryFn: () => {
+      const to = new Date();
+      const from = new Date(to.getTime() - rangeWindowsMs[range]);
+      return getScreenTimeline(screenId, {
+        from: from.toISOString(),
+        to: to.toISOString(),
+        ...(domain ? { domain } : {}),
+      });
+    },
     refetchInterval: 30_000,
   });
 

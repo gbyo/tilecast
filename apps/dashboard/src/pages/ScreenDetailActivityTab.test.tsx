@@ -113,7 +113,7 @@ beforeEach(() => {
           }
         : {
             screenId: "screen-1",
-            recentProofOfPlay: [],
+            recentProof: [],
             recentEvents: [],
             playbackGaps: 0,
           };

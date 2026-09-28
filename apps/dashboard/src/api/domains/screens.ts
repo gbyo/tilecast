@@ -91,10 +91,9 @@ export async function listScreenPlayerHistory(id: string): Promise<{
   items: PlayerHistory[];
   total: number;
 }> {
-  const result = await apiGet<
-    "/api/v1/screens/{id}/player-history",
-    { items: PlayerHistory[]; total: number }
-  >("/api/v1/screens/{id}/player-history", { params: { path: { id } } });
+  const result = await apiGet("/api/v1/screens/{id}/player-history", {
+    params: { path: { id } },
+  });
   return {
     ...result,
     items: Array.isArray(result.items) ? result.items : [],
