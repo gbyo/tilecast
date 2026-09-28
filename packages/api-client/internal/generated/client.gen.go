@@ -78,6 +78,33 @@ func (e AssetType) Valid() bool {
 	}
 }
 
+// Defines values for AuthMethod.
+const (
+	Demo         AuthMethod = "demo"
+	Passkey      AuthMethod = "passkey"
+	Password     AuthMethod = "password"
+	RecoveryCode AuthMethod = "recovery_code"
+	Totp         AuthMethod = "totp"
+)
+
+// Valid indicates whether the value is a known member of the AuthMethod enum.
+func (e AuthMethod) Valid() bool {
+	switch e {
+	case Demo:
+		return true
+	case Passkey:
+		return true
+	case Password:
+		return true
+	case RecoveryCode:
+		return true
+	case Totp:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CampaignBlockContentType.
 const (
 	CampaignBlockContentTypeLayout   CampaignBlockContentType = "layout"
@@ -402,6 +429,27 @@ func (e GitHubDevicePollStatus) Valid() bool {
 	}
 }
 
+// Defines values for MFAPolicy.
+const (
+	MFAPolicyAdministrators MFAPolicy = "administrators"
+	MFAPolicyAll            MFAPolicy = "all"
+	MFAPolicyNone           MFAPolicy = "none"
+)
+
+// Valid indicates whether the value is a known member of the MFAPolicy enum.
+func (e MFAPolicy) Valid() bool {
+	switch e {
+	case MFAPolicyAdministrators:
+		return true
+	case MFAPolicyAll:
+		return true
+	case MFAPolicyNone:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ManifestScheduleType.
 const (
 	ManifestScheduleTypeOneTime ManifestScheduleType = "one_time"
@@ -665,16 +713,16 @@ func (e PlaylistItemInputTransition) Valid() bool {
 
 // Defines values for PlaylistTagRuleInputMatch.
 const (
-	All PlaylistTagRuleInputMatch = "all"
-	Any PlaylistTagRuleInputMatch = "any"
+	PlaylistTagRuleInputMatchAll PlaylistTagRuleInputMatch = "all"
+	PlaylistTagRuleInputMatchAny PlaylistTagRuleInputMatch = "any"
 )
 
 // Valid indicates whether the value is a known member of the PlaylistTagRuleInputMatch enum.
 func (e PlaylistTagRuleInputMatch) Valid() bool {
 	switch e {
-	case All:
+	case PlaylistTagRuleInputMatchAll:
 		return true
-	case Any:
+	case PlaylistTagRuleInputMatchAny:
 		return true
 	default:
 		return false
@@ -2107,6 +2155,9 @@ type AssetVariant struct {
 	Width            *int               `json:"width,omitempty"`
 }
 
+// AuthMethod defines model for AuthMethod.
+type AuthMethod string
+
 // AuthStatus defines model for AuthStatus.
 type AuthStatus struct {
 	AuthMethod                *string `json:"authMethod,omitempty"`
@@ -2523,6 +2574,9 @@ type LocationList struct {
 	Total int        `json:"total"`
 }
 
+// MFAPolicy defines model for MFAPolicy.
+type MFAPolicy string
+
 // ManifestResponse defines model for ManifestResponse.
 type ManifestResponse struct {
 	Data PlayerManifest `json:"data"`
@@ -2584,6 +2638,15 @@ type OAuthTokenRequestGrantType string
 // PasskeyRenameRequest defines model for PasskeyRenameRequest.
 type PasskeyRenameRequest struct {
 	Name string `json:"name"`
+}
+
+// PasskeySummary defines model for PasskeySummary.
+type PasskeySummary struct {
+	CreatedAt    time.Time          `json:"createdAt"`
+	CredentialId string             `json:"credentialId"`
+	Id           openapi_types.UUID `json:"id"`
+	LastUsedAt   *time.Time         `json:"lastUsedAt,omitempty"`
+	Name         string             `json:"name"`
 }
 
 // PasswordConfirmation defines model for PasswordConfirmation.
@@ -3213,6 +3276,11 @@ type PublicationHistoryItem struct {
 // PublicationHistoryItemMethod defines model for PublicationHistoryItem.Method.
 type PublicationHistoryItemMethod string
 
+// RecoveryCodes defines model for RecoveryCodes.
+type RecoveryCodes struct {
+	Codes []string `json:"codes"`
+}
+
 // ReviewDecisionRequest defines model for ReviewDecisionRequest.
 type ReviewDecisionRequest struct {
 	Note *string `json:"note,omitempty"`
@@ -3394,6 +3462,22 @@ type ScreenPresentationNetworkInput struct {
 // ScreenStatus defines model for ScreenStatus.
 type ScreenStatus string
 
+// SecurityStatus defines model for SecurityStatus.
+type SecurityStatus struct {
+	AuthMethod                AuthMethod       `json:"authMethod"`
+	Enrolled                  bool             `json:"enrolled"`
+	Passkeys                  []PasskeySummary `json:"passkeys"`
+	PasskeysAvailable         bool             `json:"passkeysAvailable"`
+	PasskeysUnavailableReason string           `json:"passkeysUnavailableReason"`
+	Policy                    MFAPolicy        `json:"policy"`
+	RecoveryCodesRemaining    int              `json:"recoveryCodesRemaining"`
+	RelyingPartyId            string           `json:"relyingPartyId"`
+	Required                  bool             `json:"required"`
+	TotpConfirmedAt           *time.Time       `json:"totpConfirmedAt,omitempty"`
+	TotpEnrolled              bool             `json:"totpEnrolled"`
+	UserHandle                string           `json:"userHandle"`
+}
+
 // SemanticChange defines model for SemanticChange.
 type SemanticChange struct {
 	Description string `json:"description"`
@@ -3463,6 +3547,12 @@ type SpanPanelRotation int
 type SubmitContentRequest struct {
 	ExpectedRevision       *int64     `json:"expectedRevision,omitempty"`
 	RequestedPublicationAt *time.Time `json:"requestedPublicationAt,omitempty"`
+}
+
+// TOTPEnrollment defines model for TOTPEnrollment.
+type TOTPEnrollment struct {
+	ProvisioningUri string `json:"provisioningUri"`
+	Secret          string `json:"secret"`
 }
 
 // UploadStatus defines model for UploadStatus.
@@ -43482,6 +43572,17 @@ func (r UpdatePreferencesResponse) ContentType() string {
 type SecurityStatusResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data SecurityStatus `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SecurityStatusResponse) GetJSON200() *struct {
+	Data SecurityStatus `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -43584,6 +43685,17 @@ func (r RevokeOAuthGrantResponse) ContentType() string {
 type RegisterPasskeyResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data PasskeySummary `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r RegisterPasskeyResponse) GetJSON201() *struct {
+	Data PasskeySummary `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -43788,6 +43900,17 @@ func (r CreatePersonalAccessTokenResponse) ContentType() string {
 type GenerateRecoveryCodesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data RecoveryCodes `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r GenerateRecoveryCodesResponse) GetJSON201() *struct {
+	Data RecoveryCodes `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -43822,6 +43945,17 @@ func (r GenerateRecoveryCodesResponse) ContentType() string {
 type BeginAuthenticatorEnrollmentResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data TOTPEnrollment `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r BeginAuthenticatorEnrollmentResponse) GetJSON200() *struct {
+	Data TOTPEnrollment `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -43856,6 +43990,17 @@ func (r BeginAuthenticatorEnrollmentResponse) ContentType() string {
 type ConfirmAuthenticatorEnrollmentResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data SecurityStatus `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ConfirmAuthenticatorEnrollmentResponse) GetJSON200() *struct {
+	Data SecurityStatus `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -60923,6 +61068,21 @@ func ParseSecurityStatusResponse(rsp *http.Response) (*SecurityStatusResponse, e
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data SecurityStatus `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -60969,6 +61129,21 @@ func ParseRegisterPasskeyResponse(rsp *http.Response) (*RegisterPasskeyResponse,
 	response := &RegisterPasskeyResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data PasskeySummary `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -61067,6 +61242,21 @@ func ParseGenerateRecoveryCodesResponse(rsp *http.Response) (*GenerateRecoveryCo
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data RecoveryCodes `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -61083,6 +61273,21 @@ func ParseBeginAuthenticatorEnrollmentResponse(rsp *http.Response) (*BeginAuthen
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data TOTPEnrollment `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -61097,6 +61302,24 @@ func ParseConfirmAuthenticatorEnrollmentResponse(rsp *http.Response) (*ConfirmAu
 	response := &ConfirmAuthenticatorEnrollmentResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data SecurityStatus `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
 	}
 
 	return response, nil

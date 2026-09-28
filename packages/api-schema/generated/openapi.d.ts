@@ -6200,6 +6200,42 @@ export interface components {
     PasskeyRenameRequest: {
       name: string;
     };
+    /** @enum {string} */
+    AuthMethod: "password" | "totp" | "passkey" | "recovery_code" | "demo";
+    /** @enum {string} */
+    MFAPolicy: "none" | "administrators" | "all";
+    PasskeySummary: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      credentialId: string;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      lastUsedAt?: string;
+    };
+    SecurityStatus: {
+      relyingPartyId: string;
+      userHandle: string;
+      totpEnrolled: boolean;
+      /** Format: date-time */
+      totpConfirmedAt?: string;
+      passkeys: components["schemas"]["PasskeySummary"][];
+      recoveryCodesRemaining: number;
+      enrolled: boolean;
+      passkeysAvailable: boolean;
+      passkeysUnavailableReason: string;
+      required: boolean;
+      policy: components["schemas"]["MFAPolicy"];
+      authMethod: components["schemas"]["AuthMethod"];
+    };
+    TOTPEnrollment: {
+      provisioningUri: string;
+      secret: string;
+    };
+    RecoveryCodes: {
+      codes: string[];
+    };
     /** @description A PublicKeyCredential from navigator.credentials.create(), serialized with base64url binary fields. Parsed by the WebAuthn library rather than field by field. */
     WebAuthnCredential: {
       id: string;
@@ -7586,7 +7622,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["SecurityStatus"];
+          };
+        };
       };
       /** @description Authentication required */
       401: {
@@ -7613,7 +7653,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["TOTPEnrollment"];
+          };
+        };
       };
       /** @description An authenticator is already enrolled */
       409: {
@@ -7644,7 +7688,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["SecurityStatus"];
+          };
+        };
       };
       /** @description Incorrect code */
       401: {
@@ -7720,7 +7768,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["RecoveryCodes"];
+          };
+        };
       };
       /** @description The password was not correct */
       403: {
@@ -7779,7 +7831,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["PasskeySummary"];
+          };
+        };
       };
       /** @description The passkey could not be verified */
       401: {
