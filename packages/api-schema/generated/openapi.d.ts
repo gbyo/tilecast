@@ -5417,6 +5417,57 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** @enum {string} */
+    BulkAction:
+      | "assign_playlist"
+      | "assign_layout"
+      | "clear_assignment"
+      | "set_enabled"
+      | "send_command";
+    /** @description One screen inside a bulk preview or result. Current and Next are written for a person to read, not parsed. */
+    BulkScreenChange: {
+      /** Format: uuid */
+      screenId: string;
+      name: string;
+      location?: string;
+      current: string;
+      next: string;
+      changes: boolean;
+      blocked?: string;
+      fromGroup?: string;
+      selected: boolean;
+      applied?: boolean;
+      error?: string;
+    };
+    /** @description What an operator confirms. The counts add up to the screen list and are never computed twice. */
+    BulkPreview: {
+      action: components["schemas"]["BulkAction"];
+      screens: components["schemas"]["BulkScreenChange"][];
+      changeCount: number;
+      unchangedCount: number;
+      blockedCount: number;
+      groupAddedCount: number;
+      warnings: string[];
+      reversible: boolean;
+      undoWindowMinutes: number;
+    };
+    BulkOperation: {
+      /** Format: uuid */
+      id: string;
+      action: components["schemas"]["BulkAction"];
+      screenCount: number;
+      appliedCount: number;
+      skippedCount: number;
+      failedCount: number;
+      results: components["schemas"]["BulkScreenChange"][];
+      reversible: boolean;
+      /** Format: date-time */
+      undoExpiresAt?: string;
+      /** Format: date-time */
+      undoneAt?: string;
+      /** Format: date-time */
+      createdAt: string;
+    };
     /** @description Organization document as carried by settings exports. Definitions are stripped on export; the settings read carries them instead. */
     SettingsExportOrganization: {
       schemaVersion: number;
@@ -9747,7 +9798,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ScreenList"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -9839,7 +9894,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["BulkPreview"];
+          };
+        };
       };
       /** @description Invalid request body */
       400: {
@@ -9903,7 +9962,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["BulkOperation"];
+          };
+        };
       };
       /** @description Invalid request body */
       400: {
@@ -9944,7 +10007,9 @@ export interface operations {
   };
   listBulkOperations: {
     parameters: {
-      query?: never;
+      query?: {
+        limit?: number;
+      };
       header?: never;
       path?: never;
       cookie?: never;
@@ -9956,7 +10021,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["BulkOperation"][];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -9993,7 +10062,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["BulkOperation"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
