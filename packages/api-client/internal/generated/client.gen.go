@@ -3363,6 +3363,30 @@ func (e UptimeReportWindow) Valid() bool {
 	}
 }
 
+// Defines values for UptimeState.
+const (
+	UptimeStateDown     UptimeState = "down"
+	UptimeStateImpaired UptimeState = "impaired"
+	UptimeStateUnknown  UptimeState = "unknown"
+	UptimeStateUp       UptimeState = "up"
+)
+
+// Valid indicates whether the value is a known member of the UptimeState enum.
+func (e UptimeState) Valid() bool {
+	switch e {
+	case UptimeStateDown:
+		return true
+	case UptimeStateImpaired:
+		return true
+	case UptimeStateUnknown:
+		return true
+	case UptimeStateUp:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for UserRole.
 const (
 	UserRoleAdministrator UserRole = "administrator"
@@ -7778,7 +7802,7 @@ type UptimeReportWindow string
 
 // UptimeScreenStrip defines model for UptimeScreenStrip.
 type UptimeScreenStrip struct {
-	Buckets         []string           `json:"buckets"`
+	Buckets         []UptimeState      `json:"buckets"`
 	DownSeconds     int64              `json:"downSeconds"`
 	ImpairedSeconds int64              `json:"impairedSeconds"`
 	ScreenId        openapi_types.UUID `json:"screenId"`
@@ -7787,6 +7811,9 @@ type UptimeScreenStrip struct {
 	UpSeconds       int64              `json:"upSeconds"`
 	UptimePercent   *float32           `json:"uptimePercent"`
 }
+
+// UptimeState defines model for UptimeState.
+type UptimeState string
 
 // User defines model for User.
 type User struct {
