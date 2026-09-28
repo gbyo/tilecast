@@ -69,10 +69,7 @@ private class RemoteBridge(private val onEvent: (kind: String, code: String?) ->
         when (state) {
             "ended" -> onEvent("media-ended", null)
             "ready" -> onEvent("loaded", null)
-            "playing" -> {
-                onEvent("loaded", null)
-                onEvent("stream-ready", null)
-            }
+            "playing" -> onEvent("stream-ready", null)
             "player_error", "autoplay_blocked" -> onEvent("failed", detail ?: state)
             else -> Unit
         }
