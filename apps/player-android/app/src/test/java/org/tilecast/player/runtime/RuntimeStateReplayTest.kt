@@ -37,6 +37,20 @@ class RuntimeStateReplayTest {
         assertEquals(2L, current.generation)
     }
 
+    @Test fun commandIsConsumedAfterOneReplay() {
+        val replay = RuntimeStateReplay()
+        replay.offer(msg("""{"type":"presentation","activation":{"activationId":"a1","generation":1},"presentation":{}}"""))
+        replay.offer(msg("""{"type":"command","command":"skip-item"}"""))
+
+        assertTrue(replay.collectReplay().any { it is HostMessage.Command })
+        val second = replay.collectReplay()
+        assertFalse(second.any { it is HostMessage.Command })
+        assertTrue(second.any { it is HostMessage.Presentation })
+
+        replay.offer(msg("""{"type":"command","command":"retry-item"}"""))
+        assertTrue(replay.collectReplay().any { it is HostMessage.Command })
+    }
+
     @Test fun clearVolatileKeepsPresentationAndPlugins() {
         val replay = RuntimeStateReplay()
         replay.offer(msg("""{"type":"presentation","activation":{"activationId":"a1","generation":1},"presentation":{}}"""))
