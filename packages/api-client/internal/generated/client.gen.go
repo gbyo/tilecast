@@ -3498,6 +3498,48 @@ func (e ScreenPlaylistAssignmentSynchronizationStatus) Valid() bool {
 	}
 }
 
+// Defines values for ScreenPreviewMetadataStatus.
+const (
+	Available    ScreenPreviewMetadataStatus = "available"
+	CaptureError ScreenPreviewMetadataStatus = "capture_error"
+	Loading      ScreenPreviewMetadataStatus = "loading"
+	Unavailable  ScreenPreviewMetadataStatus = "unavailable"
+)
+
+// Valid indicates whether the value is a known member of the ScreenPreviewMetadataStatus enum.
+func (e ScreenPreviewMetadataStatus) Valid() bool {
+	switch e {
+	case Available:
+		return true
+	case CaptureError:
+		return true
+	case Loading:
+		return true
+	case Unavailable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ScreenSnapshotTrigger.
+const (
+	ScreenSnapshotTriggerManual    ScreenSnapshotTrigger = "manual"
+	ScreenSnapshotTriggerScheduled ScreenSnapshotTrigger = "scheduled"
+)
+
+// Valid indicates whether the value is a known member of the ScreenSnapshotTrigger enum.
+func (e ScreenSnapshotTrigger) Valid() bool {
+	switch e {
+	case ScreenSnapshotTriggerManual:
+		return true
+	case ScreenSnapshotTriggerScheduled:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ScreenStatus.
 const (
 	ScreenStatusDisabled ScreenStatus = "disabled"
@@ -7007,6 +7049,18 @@ type LayoutUsageItem struct {
 	Name string             `json:"name"`
 }
 
+// LiveStreamSession defines model for LiveStreamSession.
+type LiveStreamSession struct {
+	Active              bool               `json:"active"`
+	ExpiresAt           time.Time          `json:"expiresAt"`
+	FrameIntervalMillis int                `json:"frameIntervalMillis"`
+	Id                  openapi_types.UUID `json:"id"`
+	MaxFrameBytes       int                `json:"maxFrameBytes"`
+	MaxHeight           int                `json:"maxHeight"`
+	MaxWidth            int                `json:"maxWidth"`
+	ScreenId            openapi_types.UUID `json:"screenId"`
+}
+
 // LivenessAccepted defines model for LivenessAccepted.
 type LivenessAccepted struct {
 	Accepted bool `json:"accepted"`
@@ -8276,6 +8330,14 @@ type PresentationReference1 struct {
 	LayoutId openapi_types.UUID `json:"layoutId"`
 }
 
+// PreviewSession defines model for PreviewSession.
+type PreviewSession struct {
+	Active                 bool       `json:"active"`
+	CaptureIntervalSeconds int        `json:"captureIntervalSeconds"`
+	CaptureNow             bool       `json:"captureNow"`
+	ExpiresAt              *time.Time `json:"expiresAt,omitempty"`
+}
+
 // ProofOfPlayPage defines model for ProofOfPlayPage.
 type ProofOfPlayPage struct {
 	Items      []ProofOfPlayRecord `json:"items"`
@@ -8787,6 +8849,48 @@ type ScreenPlaylistAssignmentSynchronizationStatus string
 // ScreenPresentationNetworkInput defines model for ScreenPresentationNetworkInput.
 type ScreenPresentationNetworkInput struct {
 	PresentationNetworkId openapi_types.UUID `json:"presentationNetworkId"`
+}
+
+// ScreenPreviewMetadata defines model for ScreenPreviewMetadata.
+type ScreenPreviewMetadata struct {
+	CaptureFailureStatus *string                     `json:"captureFailureStatus,omitempty"`
+	CapturedAt           *time.Time                  `json:"capturedAt,omitempty"`
+	FileSize             *int                        `json:"fileSize,omitempty"`
+	Height               *int                        `json:"height,omitempty"`
+	ImageAvailable       bool                        `json:"imageAvailable"`
+	LeaseExpiresAt       *time.Time                  `json:"leaseExpiresAt,omitempty"`
+	PlayerVersion        *string                     `json:"playerVersion,omitempty"`
+	ScreenId             openapi_types.UUID          `json:"screenId"`
+	Status               ScreenPreviewMetadataStatus `json:"status"`
+	UpdatedAt            time.Time                   `json:"updatedAt"`
+	Width                *int                        `json:"width,omitempty"`
+}
+
+// ScreenPreviewMetadataStatus defines model for ScreenPreviewMetadata.Status.
+type ScreenPreviewMetadataStatus string
+
+// ScreenSnapshot defines model for ScreenSnapshot.
+type ScreenSnapshot struct {
+	CapturedAt    time.Time             `json:"capturedAt"`
+	FileSize      int                   `json:"fileSize"`
+	Height        int                   `json:"height"`
+	Id            openapi_types.UUID    `json:"id"`
+	PlayerVersion *string               `json:"playerVersion,omitempty"`
+	ScreenId      openapi_types.UUID    `json:"screenId"`
+	Trigger       ScreenSnapshotTrigger `json:"trigger"`
+	Width         int                   `json:"width"`
+}
+
+// ScreenSnapshotTrigger defines model for ScreenSnapshot.Trigger.
+type ScreenSnapshotTrigger string
+
+// ScreenSnapshotList defines model for ScreenSnapshotList.
+type ScreenSnapshotList struct {
+	Enabled       bool             `json:"enabled"`
+	Items         []ScreenSnapshot `json:"items"`
+	MaxPerScreen  int              `json:"maxPerScreen"`
+	ProofNote     string           `json:"proofNote"`
+	RetentionDays int              `json:"retentionDays"`
 }
 
 // ScreenStatus defines model for ScreenStatus.
@@ -11142,6 +11246,11 @@ type RenewScreenPreviewParams struct {
 // RevokeScreenCredentialJSONBody defines parameters for RevokeScreenCredential.
 type RevokeScreenCredentialJSONBody struct {
 	Reason *string `json:"reason,omitempty"`
+}
+
+// ListScreenSnapshotsParams defines parameters for ListScreenSnapshots.
+type ListScreenSnapshotsParams struct {
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // UpdateSettingsParams defines parameters for UpdateSettings.
@@ -14823,7 +14932,7 @@ type ClientInterface interface {
 	// ListScreenSnapshots performs a GET /api/v1/screens/{id}/snapshots (the `ListScreenSnapshots` operationId) request.
 	//
 	// List a screen's snapshots. Requires an authenticated dashboard user with the read scope.
-	ListScreenSnapshots(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListScreenSnapshots(ctx context.Context, id ResourceID, params *ListScreenSnapshotsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetScreenSnapshotImage performs a GET /api/v1/screens/{id}/snapshots/{snapshotId}/image (the `GetScreenSnapshotImage` operationId) request.
 	//
@@ -21771,8 +21880,8 @@ func (c *Client) RevokeScreenCredential(ctx context.Context, id openapi_types.UU
 // ListScreenSnapshots performs a GET /api/v1/screens/{id}/snapshots (the `ListScreenSnapshots` operationId) request.
 //
 // List a screen's snapshots. Requires an authenticated dashboard user with the read scope.
-func (c *Client) ListScreenSnapshots(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListScreenSnapshotsRequest(c.Server, id)
+func (c *Client) ListScreenSnapshots(ctx context.Context, id ResourceID, params *ListScreenSnapshotsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListScreenSnapshotsRequest(c.Server, id, params)
 	if err != nil {
 		return nil, err
 	}
@@ -38048,7 +38157,7 @@ func NewRevokeScreenCredentialRequestWithBody(server string, id openapi_types.UU
 }
 
 // NewListScreenSnapshotsRequest constructs an http.Request for the ListScreenSnapshots method
-func NewListScreenSnapshotsRequest(server string, id ResourceID) (*http.Request, error) {
+func NewListScreenSnapshotsRequest(server string, id ResourceID, params *ListScreenSnapshotsParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -38071,6 +38180,33 @@ func NewListScreenSnapshotsRequest(server string, id ResourceID) (*http.Request,
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -43291,7 +43427,7 @@ type ClientWithResponsesInterface interface {
 	// List a screen's snapshots. Requires an authenticated dashboard user with the read scope.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	ListScreenSnapshotsWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*ListScreenSnapshotsResponse, error)
+	ListScreenSnapshotsWithResponse(ctx context.Context, id ResourceID, params *ListScreenSnapshotsParams, reqEditors ...RequestEditorFn) (*ListScreenSnapshotsResponse, error)
 
 	// GetScreenSnapshotImageWithResponse performs a GET /api/v1/screens/{id}/snapshots/{snapshotId}/image (the `GetScreenSnapshotImage` operationId) request.
 	//
@@ -52494,6 +52630,17 @@ func (r PlayerHeartbeatResponse) ContentType() string {
 type GetPlayerLiveStreamSessionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data LiveStreamSession `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetPlayerLiveStreamSessionResponse) GetJSON200() *struct {
+	Data LiveStreamSession `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -52787,6 +52934,17 @@ func (r UploadPlayerPreviewResponse) ContentType() string {
 type GetPlayerPreviewSessionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PreviewSession `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetPlayerPreviewSessionResponse) GetJSON200() *struct {
+	Data PreviewSession `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -54167,10 +54325,21 @@ func (r GetPluginAutomationResponse) ContentType() string {
 type InstallPluginResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data CatalogPlugin `json:"data"`
+	}
 	// JSON201 the response for an HTTP 201 `application/json` response
 	JSON201 *struct {
 		Data CatalogPlugin `json:"data"`
 	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r InstallPluginResponse) GetJSON200() *struct {
+	Data CatalogPlugin `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetJSON201 returns the response for an HTTP 201 `application/json` response
@@ -56547,6 +56716,17 @@ func (r EnableScreenResponse) ContentType() string {
 type StartLiveStreamResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data LiveStreamSession `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r StartLiveStreamResponse) GetJSON201() *struct {
+	Data LiveStreamSession `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -56649,6 +56829,17 @@ func (r WatchLiveStreamResponse) ContentType() string {
 type RenewLiveStreamResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data LiveStreamSession `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RenewLiveStreamResponse) GetJSON200() *struct {
+	Data LiveStreamSession `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -57155,6 +57346,17 @@ func (r AssignScreenPresentationNetworkResponse) ContentType() string {
 type GetScreenPreviewResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ScreenPreviewMetadata `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetScreenPreviewResponse) GetJSON200() *struct {
+	Data ScreenPreviewMetadata `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -57189,6 +57391,17 @@ func (r GetScreenPreviewResponse) ContentType() string {
 type RenewScreenPreviewResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PreviewSession `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RenewScreenPreviewResponse) GetJSON200() *struct {
+	Data PreviewSession `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -57338,6 +57551,17 @@ func (r RevokeScreenCredentialResponse) ContentType() string {
 type ListScreenSnapshotsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ScreenSnapshotList `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListScreenSnapshotsResponse) GetJSON200() *struct {
+	Data ScreenSnapshotList `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -65205,8 +65429,8 @@ func (c *ClientWithResponses) RevokeScreenCredentialWithResponse(ctx context.Con
 // List a screen's snapshots. Requires an authenticated dashboard user with the read scope.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) ListScreenSnapshotsWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*ListScreenSnapshotsResponse, error) {
-	rsp, err := c.ListScreenSnapshots(ctx, id, reqEditors...)
+func (c *ClientWithResponses) ListScreenSnapshotsWithResponse(ctx context.Context, id ResourceID, params *ListScreenSnapshotsParams, reqEditors ...RequestEditorFn) (*ListScreenSnapshotsResponse, error) {
+	rsp, err := c.ListScreenSnapshots(ctx, id, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -71772,6 +71996,21 @@ func ParseGetPlayerLiveStreamSessionResponse(rsp *http.Response) (*GetPlayerLive
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data LiveStreamSession `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -71994,6 +72233,21 @@ func ParseGetPlayerPreviewSessionResponse(rsp *http.Response) (*GetPlayerPreview
 	response := &GetPlayerPreviewSessionResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PreviewSession `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -72843,8 +73097,14 @@ func ParseInstallPluginResponse(rsp *http.Response) (*InstallPluginResponse, err
 	}
 
 	switch {
-	case rsp.StatusCode == 200:
-		break // No content-type
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data CatalogPlugin `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
 		var dest struct {
@@ -74526,6 +74786,24 @@ func ParseStartLiveStreamResponse(rsp *http.Response) (*StartLiveStreamResponse,
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data LiveStreamSession `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -74572,6 +74850,27 @@ func ParseRenewLiveStreamResponse(rsp *http.Response) (*RenewLiveStreamResponse,
 	response := &RenewLiveStreamResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data LiveStreamSession `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -74928,6 +75227,21 @@ func ParseGetScreenPreviewResponse(rsp *http.Response) (*GetScreenPreviewRespons
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ScreenPreviewMetadata `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -74942,6 +75256,24 @@ func ParseRenewScreenPreviewResponse(rsp *http.Response) (*RenewScreenPreviewRes
 	response := &RenewScreenPreviewResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PreviewSession `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -75022,6 +75354,24 @@ func ParseListScreenSnapshotsResponse(rsp *http.Response) (*ListScreenSnapshotsR
 	response := &ListScreenSnapshotsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ScreenSnapshotList `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
 	}
 
 	return response, nil
