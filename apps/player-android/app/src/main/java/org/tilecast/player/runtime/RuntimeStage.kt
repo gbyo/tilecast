@@ -5,6 +5,7 @@ import android.net.Uri
 import android.net.http.SslError
 import android.view.View
 import android.view.ViewGroup
+import android.webkit.CookieManager
 import android.webkit.GeolocationPermissions
 import android.webkit.JavascriptInterface
 import android.webkit.PermissionRequest
@@ -55,6 +56,9 @@ import org.tilecast.player.runtime.RemoteWebHostManager.Surface
 private class StageRefs {
     var owner: TrustedRuntimeWebView? = null
     var webView: WebView? = null
+    var authorized: Set<AuthorizedMedia> = emptySet()
+    var localFiles: Map<String, String> = emptyMap()
+    var mimeByVariant: Map<String, String> = emptyMap()
 }
 
 private class RemoteBridge(private val onEvent: (kind: String, code: String?) -> Unit) {
@@ -62,7 +66,11 @@ private class RemoteBridge(private val onEvent: (kind: String, code: String?) ->
     fun report(state: String, detail: String?) {
         when (state) {
             "ended" -> onEvent("media-ended", null)
-            "ready", "playing" -> onEvent("loaded", null)
+            "ready" -> onEvent("loaded", null)
+            "playing" -> {
+                onEvent("loaded", null)
+                onEvent("stream-ready", null)
+            }
             "player_error", "autoplay_blocked" -> onEvent("failed", detail ?: state)
             else -> Unit
         }
@@ -87,6 +95,7 @@ fun SharedRuntimePlayback(
     onError: (String) -> Unit,
     onProgress: () -> Unit = {},
     onFirstFrame: (itemId: String) -> Unit = {},
+    onItemTransition: (itemId: String) -> Unit = {},
 ) {
     val manifest = session.content.manifest
     val items = manifest.playlist?.items ?: emptyList()
@@ -100,7 +109,7 @@ fun SharedRuntimePlayback(
                 hostVersion, engineVersion,
                 crashPolicy.currentGeneration(),
                 items, activationId,
-                onBoundary, onError, onProgress, onFirstFrame,
+                onBoundary, onError, onProgress, onFirstFrame, onItemTransition,
             )
         }
         var surfaces by remember { mutableStateOf(emptyList<Surface>()) }
@@ -111,6 +120,11 @@ fun SharedRuntimePlayback(
         val mimeByVariant = remember(message) {
             manifest.assets.associate { it.variantId to it.mimeType }
         }
+        // The trusted WebView survives presentation replacement, so its
+        // interceptor reads current grants/maps through these mutable refs.
+        refs.authorized = authorized
+        refs.localFiles = session.content.localFiles
+        refs.mimeByVariant = mimeByVariant
 
         fun handlePageMessage(payload: String, generation: Long, reply: JavaScriptReplyProxy?) {
             val response = runtimeSession.handlePageMessage(payload, generation, reply)
@@ -172,12 +186,13 @@ private fun RuntimeStageBody(
             onHandlePageMessage(payload, generation, reply)
         }
 
-        LaunchedEffect(message, instance) {
+        LaunchedEffect(message, activationId, items, instance) {
             val parsed = RuntimeBridgeProtocol.parseHostMessage(message.toString()).getOrNull()
             if (parsed == null) {
                 onError("shared presentation refused")
                 return@LaunchedEffect
             }
+            runtimeSession.updatePresentation(items, activationId)
             runtimeSession.offer(parsed)
             refs.webView?.let { refs.owner?.nudge(it, runtimeSession.currentStateGeneration()) }
         }
@@ -195,7 +210,7 @@ private fun RuntimeStageBody(
                         documentStartScript = HostChannel.installScript(hostVersion, engineVersion),
                         mediaInterceptor = { url, range ->
                             val resolved = TcMediaBridge.resolve(
-                                url, authorized, session.content.localFiles, mimeByVariant, range,
+                                url, refs.authorized, refs.localFiles, refs.mimeByVariant, range,
                             )
                             resolved?.let(TcMediaBridge::toResponse)
                         },
@@ -290,6 +305,11 @@ private fun PageRemoteView(
                 settings.setGeolocationEnabled(false)
                 settings.mediaPlaybackRequiresUserGesture = false
                 settings.cacheMode = WebSettings.LOAD_DEFAULT
+                CookieManager.getInstance().setAcceptCookie(page.cookiePolicy != "disabled")
+                CookieManager.getInstance().setAcceptThirdPartyCookies(
+                    this,
+                    page.cookiePolicy == "first_and_third_party",
+                )
                 if (page.userAgent.isNotBlank()) settings.userAgentString = page.userAgent
                 webChromeClient = object : WebChromeClient() {
                     override fun onPermissionRequest(request: PermissionRequest) = request.deny()
@@ -318,6 +338,9 @@ private fun PageRemoteView(
                         if (WebsiteNavigationPolicy.allows(target, site)) return false
                         onRemoteEvent("navigation-blocked", Uri.parse(target).host)
                         return true
+                    }
+                    override fun onPageCommitVisible(view: WebView, url: String) {
+                        onRemoteEvent("stream-ready", null)
                     }
                     override fun onPageFinished(view: WebView, url: String) {
                         view.setInitialScale(page.zoomPercent)
@@ -398,8 +421,6 @@ private fun YouTubeRemoteView(
     onRemoteEvent: (kind: String, code: String?) -> Unit,
 ) {
     val content = surface.youTube ?: return
-    // Mute applies at surface creation; mid-item mute toggles take effect at
-    // the next reload boundary (follow-up: JS mute bridge).
     val config = remember(surface.surfaceId) {
         runCatching {
             remoteJson.decodeFromJsonElement<YouTubeSourceConfig>(
@@ -452,10 +473,18 @@ private fun YouTubeRemoteView(
             }
         },
         update = { container ->
+            val webView = container.getChildAt(0) as? WebView
             if (surface.reloadCount != lastReload) {
                 lastReload = surface.reloadCount
-                (container.getChildAt(0) as? WebView)?.reload()
+                webView?.reload()
             }
+            // create() begins muted; activation can immediately unmute the
+            // host layer. Apply that state to the already-created IFrame.
+            val shouldMute = content.muted || surface.muted
+            webView?.evaluateJavascript(
+                if (shouldMute) "if(window.player){window.player.mute();}" else "if(window.player){window.player.unMute();window.player.setVolume(${content.volume.coerceIn(0, 100)});}",
+                null,
+            )
         },
         onRelease = { container ->
             val webView = container.getChildAt(0) as? WebView
