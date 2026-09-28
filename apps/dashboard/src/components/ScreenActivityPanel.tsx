@@ -21,54 +21,42 @@ import {
 } from "./ui/item";
 import { Skeleton } from "./ui/skeleton";
 
+type WireScreenActivity = Awaited<ReturnType<typeof getScreenActivity>>;
+type WireProof = WireScreenActivity["recentProofOfPlay"][number];
+
+// The view the panel renders. The Server reports the current presentation as
+// its Player-confirmed proof record; the panel shows that record's name.
 type ScreenActivity = {
   screenId: string;
   currentPresentation?: string;
-  recentProof: Proof[];
-  recentEvents: Event[];
+  recentProof: WireProof[];
+  recentEvents: WireScreenActivity["recentEvents"];
   playbackGaps: number;
   lastHealthyPlayback?: string;
-  lastSuccessfulPlayback?: string;
-  currentIssue?: {
-    kind: string;
-    severity: string;
-    description: string;
-    occurredAt: string;
+  lastSuccessfulActivation?: string;
+  currentIssue?: WireScreenActivity["currentIssue"];
+};
+
+export function presentationLabel(record?: WireProof): string | undefined {
+  return record?.presentationName || record?.contentName || undefined;
+}
+
+export function toScreenActivity(wire: WireScreenActivity): ScreenActivity {
+  return {
+    screenId: wire.screenId,
+    currentPresentation: presentationLabel(wire.currentPresentation),
+    recentProof: wire.recentProofOfPlay,
+    recentEvents: wire.recentEvents,
+    playbackGaps: wire.playbackGaps,
+    lastHealthyPlayback: wire.lastHealthyPlayback,
+    lastSuccessfulActivation: wire.lastSuccessfulManifestActivation,
+    currentIssue: wire.currentIssue,
   };
-};
-type Proof = {
-  id: string;
-  startedAt: string;
-  endedAt?: string;
-  presentationName?: string;
-  presentationId?: string;
-  contentName?: string;
-  contentId?: string;
-  result: string;
-  actualDurationMs?: number;
-};
-type Event = {
-  id: string;
-  timestamp: string;
-  eventType: string;
-  severity: string;
-  description: string;
-  result: string;
-};
+}
 
 async function loadScreenActivity(id: string): Promise<ScreenActivity> {
   try {
-    const data = await getScreenActivity(id);
-    return {
-      screenId: data.screenId,
-      currentPresentation: data.currentPresentation,
-      recentProof: data.recentProof,
-      recentEvents: data.recentEvents,
-      playbackGaps: data.playbackGaps,
-      lastHealthyPlayback: data.lastHealthyPlayback,
-      lastSuccessfulPlayback: data.lastSuccessfulPlayback,
-      currentIssue: data.currentIssue,
-    };
+    return toScreenActivity(await getScreenActivity(id));
   } catch (error) {
     if (error instanceof ApiError) throw error;
     throw new Error(
@@ -143,7 +131,7 @@ export function ScreenActivityPanel({ screenId }: { screenId: string }) {
             />
             <ActivityFact
               label={t("screenActivity.facts.lastActivation")}
-              value={formatDate(data.lastSuccessfulPlayback, notReported)}
+              value={formatDate(data.lastSuccessfulActivation, notReported)}
             />
             <ActivityFact
               label={t("screenActivity.facts.gaps")}
