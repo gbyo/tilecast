@@ -32,12 +32,12 @@ check:
 	cd apps/player-android && ./gradlew testDebugUnitTest lintDebug
 
 # Regenerate every generated file in dependency order: the extension
-# ledgers and composed OpenAPI contract first, then the consumers (the
-# TypeScript contract and the Go client) generated from that contract.
+# ledgers and composed OpenAPI contract first, then the consumers (the Go
+# client and the TypeScript contract) generated from that contract.
 generate:
 	npm run extensions:generate
-	npm run generate --workspace @tilecast/api-schema
 	cd packages/api-client && go generate ./...
+	npm run generate --workspace @tilecast/api-schema
 
 # Fail on any working-tree diff in a generated file. Run in a clean
 # checkout; dirty-tree runs blame unrelated edits.
