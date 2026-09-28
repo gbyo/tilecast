@@ -5,7 +5,7 @@ description: Ship an ordinary Widget or declarative Data Source inside a plugin 
 
 import { FileTree } from "@astrojs/starlight/components";
 
-A plugin can bundle ordinary Widgets and declarative Data Sources. A bundled module is the same module it would be at the repository root: the same manifest, the same conformance, the same runtime. Only its ownership differs. Installing the plugin makes its modules available for creation and playback. Removing the plugin keeps saved content but marks it unavailable until the plugin returns.
+A plugin can bundle ordinary Widgets and declarative Data Sources. A bundled module is the same module it would be at the repository root: the same manifest, the same conformance, the same runtime. Only its ownership differs. Installing the plugin makes its modules available for creation and playback. You can't remove the plugin while saved content still uses its modules; see [How removal treats bundled content](#how-removal-treats-bundled-content).
 
 ## Know the plugin ID
 
@@ -52,5 +52,7 @@ Both commands fail when a generated file is stale. Regenerate with `npm run exte
 ## How removal treats bundled content
 
 Removing a plugin never deletes the content authors made from its modules. Removal is blocked while rows still use a contributed provider, with an entry such as `2 Data Sources` and a `delete` resolution. Delete the rows through the library first, then remove the plugin.
+
+A restored database can hold content from a plugin that isn't installed. That content stays saved but unused: Tilecast doesn't assign it, send it to screens, or refresh its data until you install the plugin again.
 
 For the exact contracts, use the [Widgets V2 engineering reference](https://github.com/gbyo/tilecast/blob/main/docs/widgets-v2.md), the [Data Source modules engineering reference](https://github.com/gbyo/tilecast/blob/main/docs/data-source-modules.md), and the [Plugin API v1 engineering reference](https://github.com/gbyo/tilecast/blob/main/docs/plugin-api.md).

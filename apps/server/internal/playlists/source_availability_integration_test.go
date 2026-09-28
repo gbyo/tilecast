@@ -132,7 +132,7 @@ func TestPluginDataSourceProjectionFollowsInstallation(t *testing.T) {
 	if _, err := fixture.pool.Exec(fixture.ctx, `DELETE FROM plugin_installations WHERE plugin_id='emergency_alerts'`); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := fixture.service.presentationRequirements(fixture.ctx, fixture.pool, &playlist.ID, nil); err == nil ||
+	if _, _, err := fixture.service.presentationRequirements(fixture.ctx, fixture.pool, &playlist.ID, nil); !errors.Is(err, ErrConflict) ||
 		!strings.Contains(err.Error(), "Emergency Alerts") {
 		t.Fatalf("requirements without installation err = %v", err)
 	}

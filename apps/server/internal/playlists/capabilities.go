@@ -294,7 +294,7 @@ func (s *Service) requireReachableSourcesUsable(ctx context.Context, q presentat
 			return err
 		}
 		if err := s.requireDataSourceSourceUsable(installed, name, provider); err != nil {
-			return err
+			return fmt.Errorf("%w: %v", ErrConflict, err)
 		}
 	}
 	return nil

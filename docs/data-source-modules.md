@@ -198,10 +198,15 @@ plugin-owned definition additionally requires its owning plugin.
 
 When the plugin is not installed:
 
-- new creation with that provider is refused;
-- duplication with that provider is refused;
-- assignment validation refuses the preserved row as a live source;
+- new creation with that provider is refused with
+  `409 plugin_not_installed`;
+- duplication with that provider is refused in the same way;
+- assignment validation refuses the preserved row as a live source with
+  `409 playlist_conflict`;
 - manifest projection refuses the preserved row as a live source;
+- the refresh worker does not fetch or project the preserved row. It
+  records no attempt and no diagnostics, and it looks at the row again
+  after five minutes;
 - Tilecast Studio shows the provider as unavailable with the owning
   plugin named;
 - persisted rows are preserved and stay inert.

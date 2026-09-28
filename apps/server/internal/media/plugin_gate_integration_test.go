@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
+	"log/slog"
 	"os"
 	"testing"
 	"time"
@@ -236,6 +238,56 @@ func TestCreatePluginDataSourceAllowedWhenPluginInstalled(t *testing.T) {
 		}
 		if source.Provider != "emergency_alerts_intake" {
 			t.Fatalf("unexpected created Data Source: %+v", source)
+		}
+	})
+}
+
+func TestRefreshWorkerLeavesMissingPluginSourcesInert(t *testing.T) {
+	withPluginGateDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, service *Service, userID uuid.UUID) {
+		service.SetContentDefinitions(pluginDataSourceCatalog(t))
+		service.SetPluginSourceGate(fakePluginGate{installed: map[string]bool{"emergency_alerts": true}})
+		source, err := service.CreateDataSource(ctx, userID, pluginDataSourceInput())
+		if err != nil {
+			t.Fatal(err)
+		}
+		makeDue := func() time.Time {
+			t.Helper()
+			var attempted time.Time
+			if err := pool.QueryRow(ctx, `UPDATE data_source_refresh_states SET next_refresh_at=now()-interval '1 second',last_attempt_at=now()-interval '1 hour'
+				WHERE data_source_id=$1 RETURNING last_attempt_at`, source.ID).Scan(&attempted); err != nil {
+				t.Fatal(err)
+			}
+			return attempted
+		}
+		worker := NewDataSourceRefreshWorker(service, slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+		// The plugin goes away while its row is preserved.
+		service.SetPluginSourceGate(fakePluginGate{installed: map[string]bool{}})
+		before := makeDue()
+		if worked, err := worker.runOne(ctx); err != nil || !worked {
+			t.Fatalf("inert pass = %v, %v", worked, err)
+		}
+		var attempted time.Time
+		var deferred bool
+		var locked *time.Time
+		if err := pool.QueryRow(ctx, `SELECT last_attempt_at,next_refresh_at>now()+interval '4 minutes',locked_at FROM data_source_refresh_states WHERE data_source_id=$1`, source.ID).Scan(&attempted, &deferred, &locked); err != nil {
+			t.Fatal(err)
+		}
+		if !attempted.Equal(before) || !deferred || locked != nil {
+			t.Fatalf("inert row was touched: attempted %v (was %v), deferred %v, locked %v", attempted, before, deferred, locked)
+		}
+
+		// Reinstalling makes the same row refresh again.
+		service.SetPluginSourceGate(fakePluginGate{installed: map[string]bool{"emergency_alerts": true}})
+		before = makeDue()
+		if worked, err := worker.runOne(ctx); err != nil || !worked {
+			t.Fatalf("live pass = %v, %v", worked, err)
+		}
+		if err := pool.QueryRow(ctx, `SELECT last_attempt_at FROM data_source_refresh_states WHERE data_source_id=$1`, source.ID).Scan(&attempted); err != nil {
+			t.Fatal(err)
+		}
+		if !attempted.After(before) {
+			t.Fatalf("reinstalled row was not refreshed: attempted %v", attempted)
 		}
 	})
 }
