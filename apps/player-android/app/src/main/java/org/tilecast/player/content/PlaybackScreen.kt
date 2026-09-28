@@ -70,9 +70,9 @@ data class PlaybackSession(
     val initialOffsetMs: Long = 0,
     val startedAtElapsedRealtimeMs: Long = SystemClock.elapsedRealtime(),
     val startedAtWallClock: Instant = Instant.now(),
-    val playbackAnchor: Instant? = null,
     val playbackDefaults: PlayerPlaybackDefaults? = null,
     val websitePolicy: PlayerWebsitePolicy? = null,
+    val playbackAnchor: Instant? = null,
 )
 
 /**
