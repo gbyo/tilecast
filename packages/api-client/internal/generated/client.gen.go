@@ -4284,6 +4284,17 @@ type DisplayControlGroupScreen struct {
 	Supported    bool               `json:"supported"`
 }
 
+// EditorialSnapshot Working draft after copying a historical snapshot into it. The document is the native playlist, Layout, or campaign draft, so its keys differ by content type.
+type EditorialSnapshot struct {
+	Digest string `json:"digest"`
+
+	// Document Native draft document for the content type.
+	Document            map[string]interface{} `json:"document"`
+	PublishedRevision   *int64                 `json:"publishedRevision"`
+	PublishedRevisionId *openapi_types.UUID    `json:"publishedRevisionId"`
+	WorkingRevision     int64                  `json:"workingRevision"`
+}
+
 // EffectivePolicy Effective player policy for one screen with inheritance sources.
 type EffectivePolicy struct {
 	ConfigRevision       int64                           `json:"configRevision"`
@@ -42067,6 +42078,19 @@ func (r ListPublicationHistoryResponse) ContentType() string {
 type RestorePublicationAsDraftResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Data Working draft after copying a historical snapshot into it. The document is the native playlist, Layout, or campaign draft, so its keys differ by content type.
+		Data EditorialSnapshot `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RestorePublicationAsDraftResponse) GetJSON200() *struct {
+	// Data Working draft after copying a historical snapshot into it. The document is the native playlist, Layout, or campaign draft, so its keys differ by content type.
+	Data EditorialSnapshot `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -42101,6 +42125,32 @@ func (r RestorePublicationAsDraftResponse) ContentType() string {
 type RollbackPublicationResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		// Data Exact submitted snapshot published and recorded in history. The published record carries untagged Go-cased keys from the editorial package.
+		Data ContentSubmissionPublication `json:"data"`
+	}
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *struct {
+		// Data Exact submitted snapshot published and recorded in history. The published record carries untagged Go-cased keys from the editorial package.
+		Data ContentSubmissionPublication `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r RollbackPublicationResponse) GetJSON201() *struct {
+	// Data Exact submitted snapshot published and recorded in history. The published record carries untagged Go-cased keys from the editorial package.
+	Data ContentSubmissionPublication `json:"data"`
+} {
+	return r.JSON201
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r RollbackPublicationResponse) GetJSON202() *struct {
+	// Data Exact submitted snapshot published and recorded in history. The published record carries untagged Go-cased keys from the editorial package.
+	Data ContentSubmissionPublication `json:"data"`
+} {
+	return r.JSON202
 }
 
 // GetBody returns the raw response body bytes
@@ -62199,6 +62249,22 @@ func ParseRestorePublicationAsDraftResponse(rsp *http.Response) (*RestorePublica
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Data Working draft after copying a historical snapshot into it. The document is the native playlist, Layout, or campaign draft, so its keys differ by content type.
+			Data EditorialSnapshot `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -62213,6 +62279,32 @@ func ParseRollbackPublicationResponse(rsp *http.Response) (*RollbackPublicationR
 	response := &RollbackPublicationResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			// Data Exact submitted snapshot published and recorded in history. The published record carries untagged Go-cased keys from the editorial package.
+			Data ContentSubmissionPublication `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest struct {
+			// Data Exact submitted snapshot published and recorded in history. The published record carries untagged Go-cased keys from the editorial package.
+			Data ContentSubmissionPublication `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
 	}
 
 	return response, nil
