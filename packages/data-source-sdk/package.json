@@ -1,0 +1,31 @@
+{
+  "name": "@tilecast/data-source-sdk",
+  "version": "1.0.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "description": "The Tilecast declarative Data Source contract: tilecast.datasource.json manifests, the Data Types registry, fetch declarations, setup guidance, and source-aware discovery.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./manifest": "./src/manifest.ts",
+    "./datatypes": "./src/datatypes.ts",
+    "./fetch": "./src/fetch.ts",
+    "./setup": "./src/setup.ts",
+    "./discovery": "./src/discovery.ts",
+    "./schema/tilecast-datasource.schema.json": "./schema/tilecast-datasource.schema.json"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@tilecast/widget-sdk": "*",
+    "zod": "^4.0.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "prettier": "^3.9.6",
+    "typescript": "~5.8.3",
+    "vitest": "^4.1.10"
+  }
+}

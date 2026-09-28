@@ -1,4 +1,9 @@
 import {
+  rotateForSynchronizedPosition,
+  type SynchronizedPlaybackMetadata,
+  type SynchronizedPlaybackPosition,
+} from "@tilecast/player-runtime/synchronized";
+import {
   presentationOverrideActive,
   takeoverActive,
   findPlaylist,
@@ -14,18 +19,16 @@ import type {
   ManifestSchedule,
 } from "./types";
 
-export interface SynchronizedPlaybackMetadata {
-  groupId: string;
-  anchorMs: number;
-  durationsMs: number[];
-}
-
-export interface SynchronizedPlaybackPosition {
-  index: number;
-  offsetMs: number;
-  remainingMs: number;
-  occurrence: number;
-}
+// The timeline math is shared with every host through the Player Runtime.
+export {
+  activateSynchronizedClock,
+  monotonicNowMs,
+  synchronizedNowMs,
+  synchronizedPlaybackPosition,
+  type SynchronizedClockActivation,
+  type SynchronizedPlaybackMetadata,
+  type SynchronizedPlaybackPosition,
+} from "@tilecast/player-runtime/synchronized";
 
 export type PlayingPresentation = Extract<Presentation, { state: "playing" }>;
 export type SynchronizedPlayingPresentation = PlayingPresentation & {
@@ -41,44 +44,6 @@ export type ProjectedSynchronizedPresentation =
   SynchronizedPlayingPresentation & {
     synchronized: true;
   };
-
-/**
- * Where a synchronized presentation was in wall-clock and monotonic time when
- * it was activated.
- *
- * The shared anchor arrives from the server as wall-clock, so the wall clock is
- * needed once, to work out the initial position within the shared cycle. After
- * that, progression must come from a monotonic source: NTP steps, a manual
- * clock correction, or a suspend/resume would otherwise jump the timeline and
- * rewind or fast-forward whatever is on screen.
- */
-export interface SynchronizedClockActivation {
-  wallMs: number;
-  monotonicMs: number;
-}
-
-/** Monotonic milliseconds; unaffected by wall-clock corrections. */
-export function monotonicNowMs(): number {
-  return performance.now();
-}
-
-export function activateSynchronizedClock(
-  wallMs = Date.now(),
-  monotonicMs = monotonicNowMs(),
-): SynchronizedClockActivation {
-  return { wallMs, monotonicMs };
-}
-
-/**
- * The wall-clock instant the shared timeline should be evaluated at, advanced
- * monotonically from activation rather than re-read from the wall clock.
- */
-export function synchronizedNowMs(
-  activation: SynchronizedClockActivation,
-  monotonicMs = monotonicNowMs(),
-): number {
-  return activation.wallMs + Math.max(0, monotonicMs - activation.monotonicMs);
-}
 
 function positiveDuration(value: number | null | undefined): number | null {
   return typeof value === "number" && Number.isFinite(value) && value > 0
@@ -131,35 +96,6 @@ export function effectiveDurationMs(
   return 10_000;
 }
 
-export function synchronizedPlaybackPosition(
-  metadata: SynchronizedPlaybackMetadata,
-  nowMs: number,
-): SynchronizedPlaybackPosition {
-  const durations = metadata.durationsMs.map((value) => Math.max(1, value));
-  if (durations.length === 0) {
-    return { index: 0, offsetMs: 0, remainingMs: 1, occurrence: 0 };
-  }
-
-  const cycleDuration = durations.reduce((sum, value) => sum + value, 0);
-  const elapsed = Math.max(0, nowMs - metadata.anchorMs);
-  const completedCycles = Math.floor(elapsed / cycleDuration);
-  let withinCycle = elapsed % cycleDuration;
-  let index = 0;
-  while (index < durations.length - 1 && withinCycle >= durations[index]!) {
-    withinCycle -= durations[index]!;
-    index += 1;
-  }
-
-  const duration = durations[index]!;
-  const offsetMs = Math.min(Math.floor(withinCycle), duration - 1);
-  return {
-    index,
-    offsetMs,
-    remainingMs: Math.max(1, duration - offsetMs),
-    occurrence: completedCycles * durations.length + index,
-  };
-}
-
 /**
  * Rotate a normal presentation so the renderer mounts the expected shared item
  * first and only waits for the remaining portion of that occurrence.
@@ -169,27 +105,9 @@ export function projectSynchronizedPresentation(
   position: SynchronizedPlaybackPosition,
   generation: number,
 ): ProjectedSynchronizedPresentation {
-  const items = presentation.items;
-  if (items.length === 0) {
-    return { ...presentation, generation, synchronized: true };
-  }
-
-  const index = Math.min(Math.max(position.index, 0), items.length - 1);
-  const rotated = [...items.slice(index), ...items.slice(0, index)].map(
-    (item) => ({
-      ...item,
-    }),
-  );
-  const first = rotated[0]!;
-  first.durationMs = position.remainingMs;
-  if (first.kind === "video") {
-    first.videoStartOffsetMs =
-      (items[index]!.videoStartOffsetMs ?? 0) + position.offsetMs;
-  }
-
   return {
     ...presentation,
-    items: rotated,
+    items: rotateForSynchronizedPosition(presentation.items, position),
     generation,
     // The renderer suppresses its own advancement on this flag alone.
     synchronized: true,

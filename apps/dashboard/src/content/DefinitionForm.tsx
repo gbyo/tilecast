@@ -1,4 +1,6 @@
+import { useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { suggestFieldMapping } from "@tilecast/widget-kit";
 import { Plus, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -86,13 +88,21 @@ export function DefinitionForm({
   onChange,
   readOnly = false,
   csrf,
+  rootValues,
 }: {
   fields: ContentDefinitionField[];
   value: Values;
   onChange: (value: Values) => void;
   readOnly?: boolean;
   csrf?: string;
+  /**
+   * The outermost configuration. Repeating-group items render a nested
+   * form whose own values cannot name the Data Source, so field pickers
+   * inside a group resolve against these root values instead.
+   */
+  rootValues?: Values;
 }) {
+  const root = rootValues ?? value;
   const needsDataSources = fields.some(
     (field) =>
       field.control === "data_source" || field.control === "data_source_field",
@@ -133,6 +143,7 @@ export function DefinitionForm({
           field={field}
           fields={fields}
           values={value}
+          rootValues={root}
           value={value[field.key]}
           setValue={(next) => set(field.key, next)}
           readOnly={readOnly}
@@ -313,6 +324,7 @@ function DefinitionControl({
   field,
   fields,
   values,
+  rootValues,
   value,
   setValue,
   readOnly,
@@ -324,6 +336,8 @@ function DefinitionControl({
   field: ContentDefinitionField;
   fields: ContentDefinitionField[];
   values: Values;
+  /** The outermost configuration; nested items resolve pickers against it. */
+  rootValues: Values;
   value: unknown;
   setValue: (value: unknown) => void;
   readOnly: boolean;
@@ -339,12 +353,61 @@ function DefinitionControl({
     field.control === "data_source_field"
       ? resolveDataSourceKey(field, fields)
       : undefined;
-  const fieldSourceID = fieldSourceKey ? fieldText(values[fieldSourceKey]) : "";
+  const fieldSourceID = fieldSourceKey
+    ? fieldText(values[fieldSourceKey]) || fieldText(rootValues[fieldSourceKey])
+    : "";
   const fieldSource = useQuery({
     queryKey: ["definition-form-data-source", fieldSourceID],
     queryFn: () => api.getDataSource(fieldSourceID),
     enabled: Boolean(fieldSourceID),
   });
+  // Automatic semantic mapping (§4.1): when a source is connected, an empty
+  // field picker fills from declared roles, then legacy keys, then
+  // compatible types. The author may override every mapping in the picker.
+  const suggestedField = useMemo(() => {
+    if (field.control !== "data_source_field") return "";
+    const roles = field.ui?.semanticRole ? [field.ui.semanticRole] : [];
+    const legacyKeys = field.ui?.legacyKeys ?? [];
+    if (roles.length === 0 && legacyKeys.length === 0) return "";
+    const sourceFields = fieldSource.data?.fields;
+    if (!sourceFields) return "";
+    return (
+      suggestFieldMapping(sourceFields, {
+        [field.key]: {
+          roles,
+          legacyKeys,
+          types: field.dataSourceFieldTypes ?? [],
+        },
+      })[field.key] ?? ""
+    );
+  }, [field, fieldSource.data]);
+  const lastSuggestedSource = useRef("");
+  useEffect(() => {
+    if (field.control !== "data_source_field" || readOnly) return;
+    if (!fieldSourceID || !fieldSource.data) {
+      lastSuggestedSource.current = "";
+      return;
+    }
+    const current = fieldText(value);
+    const freshSource = lastSuggestedSource.current !== fieldSourceID;
+    lastSuggestedSource.current = fieldSourceID;
+    const known = new Set(
+      (fieldSource.data.fields ?? []).map((entry) => entry.key),
+    );
+    // An author choice for this source stands. A key the new source does
+    // not have is stale from a previous source, so it remaps.
+    if (current !== "" && (!freshSource || known.has(current))) return;
+    if (suggestedField !== "" && suggestedField !== current)
+      setValue(suggestedField);
+  }, [
+    field,
+    fieldSourceID,
+    fieldSource.data,
+    suggestedField,
+    value,
+    readOnly,
+    setValue,
+  ]);
   const common = {
     disabled: readOnly,
     required: field.required,
@@ -489,6 +552,7 @@ function DefinitionControl({
               value={item}
               readOnly={readOnly}
               csrf={csrf}
+              rootValues={rootValues}
               onChange={(next) =>
                 setValue(
                   items.map((current, currentIndex) =>
@@ -553,6 +617,26 @@ function DefinitionControl({
           aria-label={labelText}
           value={rfc3339ToLocalDateTime(fieldText(value))}
           onChange={(next) => setValue(localDateTimeToRfc3339(next))}
+        />
+        {field.description && (
+          <FieldDescription>{field.description}</FieldDescription>
+        )}
+      </Field>
+    );
+  if (field.control === "local_datetime")
+    // A wall-clock time that a sibling timezone field interprets: it is
+    // shown and saved exactly as entered, never converted to an instant.
+    // A saved RFC 3339 instant from an older release shows as its own
+    // wall time until it is edited.
+    return (
+      <Field>
+        <FieldLabel htmlFor={`definition-${field.key}`}>{labelText}</FieldLabel>
+        <DateTimeInput
+          id={`definition-${field.key}`}
+          {...common}
+          aria-label={labelText}
+          value={fieldText(value).slice(0, 16)}
+          onChange={setValue}
         />
         {field.description && (
           <FieldDescription>{field.description}</FieldDescription>

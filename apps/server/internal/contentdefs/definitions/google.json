@@ -3,8 +3,8 @@
     {
       "id": "google-sheets-display",
       "version": 1,
-      "name": "Google Sheets",
-      "description": "Display a published Google spreadsheet.",
+      "name": "Google Sheets — Display",
+      "description": "Show the published spreadsheet itself as a web embed.",
       "category": "Google",
       "icon": "google-sheets",
       "thumbnail": "google-sheets",
@@ -171,30 +171,6 @@
           "Paste the normal Google Slides URL."
         ],
         "tip": "Tilecast converts supported links to Google's presentation embed URL."
-      },
-      "deprecation": {}
-    },
-    {
-      "id": "google-sheets-data",
-      "version": 1,
-      "name": "Google Sheets Data",
-      "description": "Read published spreadsheet rows as structured Tilecast records.",
-      "category": "Google",
-      "icon": "google-sheets",
-      "kind": "app",
-      "availability": {
-        "enabled": false,
-        "reason": "Private and published-sheet field mapping needs the planned server-side Connections and typed import workflow."
-      },
-      "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
-      "presentationSchemaVersion": 1,
-      "requiredCapabilities": { "content.text": 1 },
-      "emptyStateBehavior": "placeholder",
-      "legacyEditor": true,
-      "setup": {
-        "tip": "Use the existing Google Sheet Data Source for published CSV imports today."
       },
       "deprecation": {}
     }

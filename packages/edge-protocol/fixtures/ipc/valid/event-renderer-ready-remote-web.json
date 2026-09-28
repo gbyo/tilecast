@@ -1,0 +1,34 @@
+{
+  "frame": {
+    "type": "event",
+    "seq": 1,
+    "event": "renderer.ready",
+    "data": {
+      "renderer": {
+        "kind": "wpe",
+        "version": "0.1.0",
+        "engineVersion": "2.54.0",
+        "gstreamerVersion": "1.26.2",
+        "platform": "headless"
+      },
+      "features": [
+        "status-surfaces-v1",
+        "image",
+        "video",
+        "remote-web-v1",
+        "website",
+        "youtube"
+      ],
+      "display": {
+        "connected": true,
+        "width": 1920,
+        "height": 1080,
+        "refreshMillihertz": 60000
+      },
+      "remoteWeb": {
+        "available": true,
+        "accelerated": false
+      }
+    }
+  }
+}

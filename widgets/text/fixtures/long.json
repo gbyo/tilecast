@@ -1,0 +1,13 @@
+{
+  "name": "Long message",
+  "description": "A long message that the fit shrinks to the box.",
+  "configuration": {
+    "heading": "Visitor guidance",
+    "body": "All visitors must sign in at the main office and wear a visitor badge at all times. Please use the front entrance between 8 AM and 3 PM; the side doors stay locked during the school day. If you are picking up a student early, bring photo identification and allow ten minutes for the office to call the classroom. Thank you for helping us keep everyone safe.",
+    "style": "standard",
+    "align": "left",
+    "backgroundColor": "#0e141b",
+    "foregroundColor": "#f5f7fa"
+  },
+  "expect": "ready"
+}

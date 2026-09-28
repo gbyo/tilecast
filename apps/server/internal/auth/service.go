@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tilecast/tilecast/apps/server/internal/ids"
 )
 
 var (
@@ -111,7 +112,7 @@ func (s *Service) Setup(ctx context.Context, input SetupInput) (Session, error) 
 		return Session{}, ErrSetupComplete
 	}
 
-	user := User{ID: uuid.New(), Name: input.OwnerName, Username: input.Username, Role: "owner", Active: true, CreatedAt: time.Now().UTC()}
+	user := User{ID: ids.New(ctx), Name: input.OwnerName, Username: input.Username, Role: "owner", Active: true, CreatedAt: time.Now().UTC()}
 	if _, err := tx.Exec(ctx, `INSERT INTO organization_settings (organization_name) VALUES ($1)`, input.OrganizationName); err != nil {
 		return Session{}, fmt.Errorf("create organization: %w", err)
 	}
@@ -248,6 +249,28 @@ func (s *Service) createSession(ctx context.Context, db querier, user User, meth
 		return Session{}, fmt.Errorf("create session: %w", err)
 	}
 	return Session{User: user, Token: token, CSRFToken: csrf, ExpiresAt: expires, AuthMethod: method, EnrollmentPending: enrollmentPending}, nil
+}
+
+// IssueSession starts an ordinary dashboard session for an active account
+// without a password. Only the Demo Mode boundary calls it, and only for the
+// seeded demo Owner; no request handler reaches it on a normal installation.
+// The session is stored, expires, carries its own CSRF token, and is revoked by
+// logout exactly like one produced by Login.
+func (s *Service) IssueSession(ctx context.Context, userID uuid.UUID, method string) (Session, error) {
+	var user User
+	err := s.db.QueryRow(ctx, `SELECT id,name,username,role,active,created_at,last_login_at FROM users WHERE id=$1`, userID).Scan(
+		&user.ID, &user.Name, &user.Username, &user.Role, &user.Active, &user.CreatedAt, &user.LastLoginAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Session{}, ErrUnauthenticated
+	}
+	if err != nil {
+		return Session{}, fmt.Errorf("find session user: %w", err)
+	}
+	if !user.Active {
+		return Session{}, ErrInactive
+	}
+	return s.createSession(ctx, s.db, user, method, false)
 }
 
 func (s *Service) Authenticate(ctx context.Context, token string) (Session, error) {

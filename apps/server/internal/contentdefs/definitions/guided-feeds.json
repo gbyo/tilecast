@@ -5,7 +5,7 @@
       "id": "google-sheet",
       "version": 1,
       "name": "Google Sheet",
-      "description": "Read a published Google Sheet without pasting a URL or mapping columns.",
+      "description": "Read a published Google Sheet without pasting a URL or mapping columns. Powers lists, tables, cards, tickers, and News.",
       "category": "Structured",
       "icon": "spreadsheet",
       "configurationSchema": {

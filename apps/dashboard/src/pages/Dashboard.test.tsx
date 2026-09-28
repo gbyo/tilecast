@@ -6,13 +6,29 @@ import { MemoryRouter } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SidebarNavigation } from "./Dashboard";
-import { api } from "../api/client";
-import type { FormSummary } from "../api/types";
 
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
+
+type GrantedCapability =
+  "manage" | "submit" | "view_own" | "view_all" | "review" | "approve";
+
+/** Stub the Forms plugin's visibility query at the HTTP boundary. */
+function stubFormsFetch(items: { grantedCapabilities: GrantedCapability[] }[]) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ data: { items } }),
+      }),
+    ),
+  );
+}
 
 function renderNav(pathname = "/") {
   const client = new QueryClient({
@@ -27,9 +43,7 @@ function renderNav(pathname = "/") {
   );
 }
 
-const summary = (
-  capabilities: FormSummary["grantedCapabilities"],
-): FormSummary => ({
+const summary = (capabilities: GrantedCapability[]) => ({
   id: "form-1",
   name: "Announcements",
   description: "",
@@ -39,7 +53,7 @@ const summary = (
 
 describe("SidebarNavigation", () => {
   it("shows every primary destination as a direct route", () => {
-    vi.spyOn(api, "listForms").mockResolvedValue([summary(["submit"])]);
+    stubFormsFetch([summary(["submit"])]);
     renderNav();
 
     expect(
@@ -76,7 +90,7 @@ describe("SidebarNavigation", () => {
   });
 
   it("marks the matching nested destination active", () => {
-    vi.spyOn(api, "listForms").mockResolvedValue([]);
+    stubFormsFetch([]);
     renderNav("/widgets/widget-1");
 
     expect(screen.getByRole("link", { name: "Widgets" })).toHaveAttribute(
@@ -90,7 +104,7 @@ describe("SidebarNavigation", () => {
   });
 
   it("shows Approvals only when the user can review at least one form", async () => {
-    vi.spyOn(api, "listForms").mockResolvedValue([summary(["review"])]);
+    stubFormsFetch([summary(["review"])]);
     renderNav();
 
     expect(await screen.findByRole("link", { name: "Approvals" })).toBeTruthy();

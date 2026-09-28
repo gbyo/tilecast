@@ -83,3 +83,9 @@
   border-color: var(--tc-accent);
   background-color: var(--tc-bg-surface);
 }
+
+/* The Tilecast wordmark is wide; keep it visually balanced in the docs nav. */
+.site-title img {
+  height: 1.75rem;
+  width: auto;
+}

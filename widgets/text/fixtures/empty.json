@@ -1,0 +1,13 @@
+{
+  "name": "Empty",
+  "description": "No heading and no message: the expected empty state.",
+  "configuration": {
+    "heading": "",
+    "body": "",
+    "style": "standard",
+    "align": "center",
+    "backgroundColor": "#0e141b",
+    "foregroundColor": "#f5f7fa"
+  },
+  "expect": "empty"
+}

@@ -1,0 +1,85 @@
+{
+  "title": "Countdown Bar",
+  "subtitle": "Timed bars run independently of the playlist and keep evaluating from the Player's cached manifest.",
+  "loadError": "Countdown bars could not be loaded.",
+  "emptyTitle": "No countdown bars configured",
+  "emptyDescription": "Create an instance to show a locally-timed bar on selected screens.",
+  "itemDescription": "{{message}} · {{displayMode}} · {{height}}px · priority {{priority}}",
+  "deleteBody": "The bar will be removed from targeted Players.",
+  "removedToast": "Countdown Bar removed.",
+  "createdToast": "Countdown Bar created.",
+  "updatedToast": "Countdown Bar updated.",
+  "editor": {
+    "createTitle": "New countdown bar",
+    "manageTitle": "Manage countdown bar",
+    "subtitle": "The Player evaluates this schedule locally. Priority decides which bar wins when instances overlap.",
+    "sections": {
+      "content": "Content",
+      "timing": "Timing",
+      "display": "Display",
+      "urgency": "Urgency stages"
+    },
+    "messageLabel": "Message",
+    "defaults": {
+      "message": "Lunch ends in"
+    },
+    "completionLabel": "Optional completion text",
+    "completionPlaceholder": "Lunch is over",
+    "completionHint": "Shown for one minute after the target; leave blank to hide at zero.",
+    "confettiLabel": "Show confetti when the countdown reaches zero",
+    "scheduleLabel": "Schedule",
+    "scheduleType": {
+      "weekly": "Days of the week",
+      "oneTime": "One-time date"
+    },
+    "targetTimeLabel": "Target time",
+    "daysLabel": "Days of the week",
+    "oneTimeLabel": "Target date and time",
+    "oneTimeHint": "Entered in this browser's local time; the Player counts down to the same instant.",
+    "timezoneLabel": "Timezone",
+    "leadLabel": "Appear this many minutes before",
+    "modeLabel": "Mode",
+    "displayMode": {
+      "overlay": "Overlay current content",
+      "push": "Push and shrink current content"
+    },
+    "progressLabel": "Background countdown",
+    "progressFill": {
+      "none": "Plain background",
+      "drain": "Drain right to left"
+    },
+    "progressHint": "Drain empties the bar from right to left as the target approaches.",
+    "heightLabel": "Bottom-bar height (px)",
+    "paddingLabel": "Horizontal padding (%)",
+    "paddingHint": "Lower padding gives the message and countdown more room.",
+    "textScaleLabel": "Text size (%)",
+    "textScaleHint": "Increase the type size without changing the bar height.",
+    "urgencyDescription": "Change the bar automatically as the target approaches. Untouched stage times follow the total lead time; custom values stay fixed. Completed messages return to the normal size.",
+    "urgencyEnabledLabel": "Enable countdown urgency stages",
+    "startingSoonLabel": "Starting soon (orange), minutes before",
+    "urgentLabel": "Urgent (red), seconds before",
+    "pulseLabel": "Pulse and enlarge, final seconds",
+    "pulseHint": "The bar and text grow by 25% during this final stage."
+  },
+  "validation": {
+    "timezone": "Enter an IANA timezone such as America/Chicago.",
+    "wholeMinutes": "Enter a whole number of minutes.",
+    "leadRange": "Lead time must be between 1 and 43200 minutes.",
+    "heightRange": "Enter a height between 40 and 320 pixels.",
+    "paddingRange": "Enter padding between 0 and 40 percent.",
+    "textScaleRange": "Enter a text size between 25 and 500 percent.",
+    "soonRange": "Starting soon must begin between 1 and 1440 minutes before zero.",
+    "wholeSeconds": "Enter a whole number of seconds.",
+    "urgentRange": "Urgent must begin between 2 and 3600 seconds before zero.",
+    "pulseRange": "Pulse must begin between 1 and 60 seconds before zero.",
+    "priorityRange": "Enter a priority between -1000 and 1000.",
+    "weeklyRequired": "Choose a target time and at least one day.",
+    "oneTimeRequired": "Choose the one-time target date and time.",
+    "targetRequired": "Choose at least one target.",
+    "stageOrder": "Stages must begin in order: starting soon, urgent, then pulse."
+  },
+  "breadcrumbs": {
+    "newInstance": "New instance",
+    "instance": "Instance"
+  }
+}

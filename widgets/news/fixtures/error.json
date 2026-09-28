@@ -1,0 +1,29 @@
+{
+  "name": "Incompatible source",
+  "description": "A connected source with no records dataset is a configuration error.",
+  "configuration": {
+    "dataSourceId": "22222222-2222-4222-8222-222222222222",
+    "heading": "Latest news",
+    "maxStories": 8,
+    "showSummary": true,
+    "showPublicationTime": true,
+    "showSource": true,
+    "emptyText": "",
+    "displayStyle": "headlines",
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "documents": {
+    "22222222-2222-4222-8222-222222222222": {
+      "schemaVersion": 1,
+      "datasets": [
+        {
+          "id": "total",
+          "kind": "scalar",
+          "scalar": { "kind": "number", "number": 3 }
+        }
+      ]
+    }
+  },
+  "expect": "error"
+}

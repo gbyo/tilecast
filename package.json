@@ -24,9 +24,31 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "npm run lint --workspace @tilecast/dashboard",
-    "test": "npm run test --workspace @tilecast/dashboard"
+    "test": "npm run test --workspace @tilecast/dashboard",
+    "test:e2e": "playwright test -c e2e/playwright.config.ts",
+    "test:visual": "playwright test -c e2e/visual/playwright.config.ts",
+    "test:visual:probe": "playwright test -c e2e/visual/probe.config.ts",
+    "test:ci": "node --test scripts/ci/*.test.mjs scripts/ci/contracts/*.test.mjs",
+    "coverage": "npm run coverage --workspace @tilecast/dashboard",
+    "plugins:check": "node packages/plugin-sdk/tools/pluginctl/main.ts check",
+    "plugins:generate": "node packages/plugin-sdk/tools/pluginctl/main.ts generate",
+    "plugins:new": "node packages/plugin-sdk/tools/pluginctl/main.ts new",
+    "plugins:migration": "node packages/plugin-sdk/tools/pluginctl/main.ts migration",
+    "data-sources:check": "node packages/data-source-sdk/tools/datactl/main.ts check && npm run test --workspace @tilecast/data-source-sdk",
+    "data-sources:generate": "node packages/data-source-sdk/tools/datactl/main.ts generate",
+    "data-sources:new": "node packages/data-source-sdk/tools/datactl/main.ts new",
+    "extensions:check": "npm run plugins:check && npm run widgets:check && npm run data-sources:check",
+    "extensions:generate": "npm run plugins:generate && npm run widgets:generate && npm run data-sources:generate",
+    "widgets:check": "node packages/widget-sdk/tools/widgetctl/main.ts check && npm run test:widgets --workspace @tilecast/widget-sdk",
+    "widgets:generate": "node packages/widget-sdk/tools/widgetctl/main.ts generate",
+    "widgets:new": "node packages/widget-sdk/tools/widgetctl/main.ts new",
+    "widgets:storybook": "storybook dev -c widgets/.storybook -p 6006 --no-open",
+    "widgets:storybook:build": "storybook build -c widgets/.storybook -o widgets/storybook-static --quiet",
+    "widgets:visual": "npm run widgets:storybook:build && playwright test -c widgets/visual/playwright.config.ts"
   },
   "devDependencies": {
-    "prettier": "^3.9.6"
+    "@playwright/test": "^1.63.0",
+    "prettier": "^3.9.6",
+    "yaml": "^2.9.1"
   }
 }

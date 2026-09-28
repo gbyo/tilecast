@@ -1,0 +1,19 @@
+{
+  "name": "No source",
+  "description": "A List with no connected source reports the empty state instead of failing.",
+  "configuration": {
+    "dataSourceId": "",
+    "primaryField": "",
+    "secondaryField": "",
+    "leadingField": "",
+    "trailingField": "",
+    "heading": "Projects",
+    "maximumItems": 8,
+    "emptyText": "",
+    "density": "comfortable",
+    "showDividers": true,
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "expect": "empty"
+}

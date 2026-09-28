@@ -1,0 +1,20 @@
+# The Tilecast Edge update helper's socket (M10). tilecastd asks the root
+# helper for one of five fixed operations here; see
+# docs/tilecast-edge-update-threat-review.md. The group lets the tilecast
+# account connect; the helper then refuses every process that is not in
+# tilecast-edge.service, so the renderer and the session bridge, which run as
+# the same account, cannot use it.
+[Unit]
+Description=Tilecast Edge update helper socket
+Documentation=https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-update-threat-review.md
+
+[Socket]
+ListenStream=/run/tilecast-edge-update/update.sock
+SocketUser=root
+SocketGroup=tilecast
+SocketMode=0660
+DirectoryMode=0755
+Accept=no
+
+[Install]
+WantedBy=sockets.target

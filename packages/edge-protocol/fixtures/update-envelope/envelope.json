@@ -1,0 +1,17 @@
+{
+  "arch": "x86_64",
+  "artifactAssetName": "tilecast-edge-0.2.0-x86_64.tar.zst",
+  "artifactSha256": "45071f4d8567630d6cda7bb4538407f257193d76bb71a537771fec1cf8080d24",
+  "artifactSizeBytes": 5000,
+  "channel": "stable",
+  "platform": "linux",
+  "playerFamily": "edge",
+  "product": "tilecast-edge",
+  "releaseManifestSha256": "9d4f31d862f1474c1ff189fc3377ebf85cdbb26d94f2874d55d659815632a214",
+  "releaseNotes": "Contract fixture.",
+  "sbomSha256": "e3a851f1fa2cdc51abe1e2b9403fe108efeb7547bd9c1878fcbf4750ace837ed",
+  "schemaVersion": 1,
+  "stateSchemaVersion": 6,
+  "versionCode": 2000,
+  "versionName": "0.2.0"
+}

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { MoreHorizontal, PackageMinus } from "lucide-react";
 import { useNavigate } from "react-router";
-import { useAuth } from "../auth/AuthProvider";
+import { useStudioSession } from "../plugin-host/session";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import {
   AlertDialog,
@@ -31,7 +31,6 @@ import {
   usePluginLifecycle,
   type PluginsT,
 } from "./pluginCatalog";
-import { canManage } from "./shared";
 
 /**
  * The overflow menu on an installed plugin's page. Remove is deliberately a
@@ -40,13 +39,13 @@ import { canManage } from "./shared";
  */
 export function PluginActionsMenu({ pluginId }: { pluginId: string }) {
   const { t } = useTranslation(["plugins", "common"]);
-  const auth = useAuth();
+  const session = useStudioSession();
   const navigate = useNavigate();
   const catalog = usePluginCatalog();
-  const { remove } = usePluginLifecycle(auth.status?.csrfToken ?? "");
+  const { remove } = usePluginLifecycle(session.csrfToken);
   const [open, setOpen] = useState(false);
   const plugin = catalog.data?.items.find((item) => item.id === pluginId);
-  if (!plugin?.installed || !canManage(auth.status?.user?.role)) return null;
+  if (!plugin?.installed || !session.canManage) return null;
 
   const blockers = inUseResources(remove.error);
   const failure =
@@ -156,25 +155,24 @@ export function blockerSentence(t: PluginsT, resources: PluginInUseResource[]) {
 }
 
 /**
- * What to do about each blocker. Monitoring is switched off rather than
- * deleted, and live alerts clear themselves once their rules are gone.
+ * What to do about each blocker. The server says how each one resolves:
+ * deleted through the plugin's page, switched off, or cleared by itself once
+ * the others are gone.
  */
 export function blockerInstruction(
   t: PluginsT,
   resources: PluginInUseResource[],
 ) {
-  const needsMonitor = resources.some(
-    (resource) => resource.kind === "alert_monitor",
-  );
-  const deletable = resources.filter(
-    (resource) =>
-      resource.kind !== "alert_monitor" && resource.kind !== "alert_activation",
-  );
-  if (!needsMonitor && deletable.length === 0)
-    return t("actionsMenu.blockedWait");
-  if (needsMonitor && deletable.length === 0)
-    return t("actionsMenu.blockedMonitor");
-  const labels = deletable.map((resource) => resource.label).join(" and ");
-  if (!needsMonitor) return t("actionsMenu.blockedDelete", { labels });
-  return t("actionsMenu.blockedMonitorDelete", { labels });
+  const labelsFor = (resolution: PluginInUseResource["resolution"]) =>
+    resources
+      .filter((resource) => resource.resolution === resolution)
+      .map((resource) => resource.label)
+      .join(" and ");
+  const disable = labelsFor("disable");
+  const labels = labelsFor("delete");
+  if (!disable && !labels)
+    return t("actionsMenu.blockedWait", { labels: labelsFor("wait") });
+  if (disable && !labels) return t("actionsMenu.blockedDisable", { disable });
+  if (!disable) return t("actionsMenu.blockedDelete", { labels });
+  return t("actionsMenu.blockedDisableDelete", { disable, labels });
 }

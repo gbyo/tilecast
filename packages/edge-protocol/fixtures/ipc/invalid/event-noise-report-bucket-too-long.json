@@ -1,0 +1,19 @@
+{
+  "frame": {
+    "type": "event",
+    "seq": 1,
+    "event": "noise.report",
+    "data": {
+      "status": "normal",
+      "bucket": {
+        "startedAt": "2026-09-25T12:00:00Z",
+        "averageLevel": 10.5,
+        "peakLevel": 20.5,
+        "monitoredMs": 60000,
+        "warningMs": 0,
+        "loudMs": 0,
+        "triggerCount": 0
+      }
+    }
+  }
+}

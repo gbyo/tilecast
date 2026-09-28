@@ -1,0 +1,19 @@
+<!doctype html>
+<html>
+  <body style="margin: 0; background: #0a0; height: 100vh">
+    <canvas id="c" width="400" height="300"></canvas>
+    <script>
+      const c = document.getElementById("c").getContext("2d");
+      let t = 0;
+      function f() {
+        c.fillStyle = "#0a0";
+        c.fillRect(0, 0, 400, 300);
+        c.fillStyle = "#fff";
+        c.fillRect((t * 4) % 400, 100, 50, 50);
+        t++;
+        requestAnimationFrame(f);
+      }
+      f();
+    </script>
+  </body>
+</html>

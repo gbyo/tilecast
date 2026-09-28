@@ -6,7 +6,9 @@ import (
 )
 
 func (s *server) activityRoutes(next http.Handler) http.Handler {
-	go s.runActivityRetentionWorker()
+	if s.db != nil {
+		go s.runActivityRetentionWorker()
+	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/v1/auth/login" || r.URL.Path == "/api/v1/auth/logout" {
 			s.auditAuthentication(next, w, r)
@@ -76,6 +78,12 @@ func (s *server) activityRoutes(next http.Handler) http.Handler {
 			writeError(w, http.StatusNotFound, "activity_route_not_found", "Activity endpoint was not found.")
 			return
 		}
-		s.requireSession(handler).ServeHTTP(w, r)
+		// Activity reads take the read scope; incident updates change
+		// operational state and take the write scope on top of the role.
+		scope := "read"
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			scope = "write"
+		}
+		s.requireUser(s.requireScope(scope)(handler)).ServeHTTP(w, r)
 	})
 }

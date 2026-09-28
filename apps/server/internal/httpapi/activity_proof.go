@@ -11,6 +11,11 @@ import (
 )
 
 func (s *server) listProofOfPlay(w http.ResponseWriter, r *http.Request) {
+	role, ok := activityRole(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
 	window, err := parseActivityWindow(r)
 	if err != nil {
 		writeError(w, http.StatusUnprocessableEntity, "activity_range_invalid", err.Error())
@@ -39,7 +44,7 @@ func (s *server) listProofOfPlay(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 	items := make([]proofOfPlayRecord, 0, page.Limit+1)
 	for rows.Next() {
-		item, err := scanProof(rows.Scan, activitySession(r).User.Role)
+		item, err := scanProof(rows.Scan, role)
 		if err != nil {
 			s.internalError(w, r, err)
 			return
@@ -256,7 +261,12 @@ func (s *server) proofOfPlaySummary(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) exportProofOfPlay(w http.ResponseWriter, r *http.Request) {
-	if !activityCanExport(activitySession(r).User.Role) {
+	role, ok := activityRole(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	if !activityCanExport(role) {
 		writeError(w, http.StatusForbidden, "activity_export_restricted", "Activity exports require Owner or Administrator access.")
 		return
 	}

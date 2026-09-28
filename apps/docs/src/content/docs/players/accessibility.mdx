@@ -1,0 +1,16 @@
+---
+title: Accessibility control
+description: Configure Android Accessibility Control Assist and see exactly what it is allowed to do.
+---
+
+**Accessibility Control Assist** is an Android Player feature. It stays off until someone enables the Tilecast service in Android Accessibility Settings.
+
+When enabled, Tilecast can notice when another app comes to the foreground, wait, return to Tilecast, and use Android's global lock action when Power Assist needs it.
+
+It does not read window text or passwords, click arbitrary controls, perform gestures, approve app installers, or change network settings.
+
+Tilecast's own screens and sensitive Android system screens are excluded from automatic return behavior. You can also allow maintenance apps so approved work is not interrupted.
+
+If the Player keeps leaving Tilecast, automatic return eventually stops for that window instead of continuously fighting the person using the device.
+
+Linux Players do not use Android Accessibility Control Assist. See [Reliability and kiosk](../reliability-kiosk/) for Linux kiosk behavior.

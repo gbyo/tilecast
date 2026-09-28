@@ -322,6 +322,21 @@ describe("SelfUpdater", () => {
     expect(restart).not.toHaveBeenCalled();
   });
 
+  it("refuses a Tilecast Edge release from the command or the metadata", async () => {
+    const first = deps();
+    await new SelfUpdater(first.d).run(command({ playerFamily: "edge" }));
+    expect(first.states).toEqual(["failed"]);
+    expect(first.promote).not.toHaveBeenCalled();
+
+    const second = deps({
+      fetchMetadata: async () => metadata({ playerFamily: "edge" }),
+    });
+    await new SelfUpdater(second.d).run(command());
+    expect(second.states).toEqual(["downloading", "failed"]);
+    expect(second.promote).not.toHaveBeenCalled();
+    expect(second.restart).not.toHaveBeenCalled();
+  });
+
   it("propagates a download failure as a failed status", async () => {
     const { d, states, restart, promote } = deps({
       download: vi.fn(async () => {

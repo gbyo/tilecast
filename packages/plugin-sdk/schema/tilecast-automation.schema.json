@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/gbyo/tilecast/packages/plugin-sdk/schema/tilecast-automation.schema.json",
+  "type": "object",
+  "properties": {
+    "apiVersion": {
+      "type": "number",
+      "const": 1
+    },
+    "operations": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "risk": {
+            "type": "string",
+            "enum": [
+              "read",
+              "routine",
+              "sensitive",
+              "high-impact",
+              "security-critical"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 280
+          },
+          "cli": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "minItems": 1,
+                "maxItems": 4,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9-]{0,31}$"
+                }
+              }
+            },
+            "required": ["path"]
+          },
+          "mcp": {
+            "type": "object",
+            "properties": {
+              "action": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{0,47}$"
+              }
+            },
+            "required": ["action"]
+          },
+          "input": {
+            "type": "string",
+            "enum": ["fields", "document"]
+          }
+        },
+        "required": ["operationId", "risk", "cli", "mcp"],
+        "additionalProperties": false
+      }
+    },
+    "exclusions": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 280
+          }
+        },
+        "required": ["operationId", "reason"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["apiVersion", "operations"],
+  "additionalProperties": false
+}

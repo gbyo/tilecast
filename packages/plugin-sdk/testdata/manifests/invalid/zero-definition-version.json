@@ -1,0 +1,14 @@
+{
+  "apiVersion": 1,
+  "id": "minimal_plugin",
+  "definitionVersion": 0,
+  "name": "Minimal",
+  "description": "The smallest manifest the API accepts.",
+  "category": "Workflow",
+  "icon": "puzzle",
+  "maintainers": ["@gbyo"],
+  "instanceNoun": {
+    "singular": "item",
+    "plural": "items"
+  }
+}

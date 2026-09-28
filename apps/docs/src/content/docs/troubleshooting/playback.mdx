@@ -1,0 +1,44 @@
+---
+title: Playback and schedules
+description: Troubleshoot connected Players that show the wrong content, no content, stale content, or a schedule at the wrong time.
+---
+
+## The Player is online but content is wrong
+
+Start with the screen detail page and **Activity**. Compare what Tilecast selected with what the Player says it is playing.
+
+Temporary content can take priority over the normal screen assignment. The order is:
+
+1. active Takeover;
+2. on stable Linux, active AirPlay;
+3. Quick Present;
+4. the highest-priority active Schedule;
+5. the normal screen or Display Group assignment.
+
+When the temporary content ends, Tilecast checks the current schedule and normal assignment again.
+
+## The screen shows no content
+
+Check that the screen has an assignment and that the items inside it are available to play.
+
+A connected Player may keep showing the last working presentation if a newer one cannot be prepared. Media that is not Ready, expired content, an unavailable Website, a missing Player feature, or an incompatible Layout can stop some or all of the new presentation from becoming active.
+
+Use the [Dependency Graph](../../administration/dependency-graph/) when you need to trace the assets and Data Sources used by a presentation.
+
+## A schedule changes at the wrong time
+
+Check the Schedule's timezone and any Player clock warning.
+
+Tilecast corrects for Player clock drift when evaluating schedules, content availability windows, and temporary presentations.
+
+Around daylight-saving changes, Tilecast follows the selected timezone's calendar rules instead of assuming every day is exactly 24 hours.
+
+If a Player went offline before receiving a new one-time Schedule, it cannot know about that Schedule until it reconnects. Recurring rules the Player already has can continue offline when their required content is cached.
+
+## Cached content disappeared
+
+Cached content belongs to a specific Tilecast installation and screen.
+
+If the Player was moved to another installation, replaced, or re-paired in a way that changes its screen identity, old cached state may no longer apply.
+
+Do not copy another screen's cache or Player state directory as a recovery method.

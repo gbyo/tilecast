@@ -1,0 +1,19 @@
+{
+  "name": "World clocks",
+  "description": "Four zones; zones already on another day say so.",
+  "configuration": {
+    "mode": "world",
+    "zones": [
+      { "label": "", "timezone": "America/Los_Angeles" },
+      { "label": "HQ", "timezone": "America/Chicago" },
+      { "label": "", "timezone": "Europe/London" },
+      { "label": "", "timezone": "Asia/Tokyo" }
+    ],
+    "format": "locale",
+    "showSeconds": false,
+    "showDate": false,
+    "foregroundColor": "#F5F7FA",
+    "backgroundColor": "#0E141B"
+  },
+  "expect": "ready"
+}

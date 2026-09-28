@@ -1,0 +1,59 @@
+---
+title: Add Studio pages
+description: Add plugin-owned management pages, standalone routes, translations, and conditional Studio navigation.
+---
+
+Studio discovers `plugins/*/studio/index.tsx` at build time. Plugin code imports Studio APIs through `@tilecast/studio`, not arbitrary dashboard internals.
+
+## Add management routes
+
+The normal plugin route is the manifest's `studio.route`, usually `/plugins/<directory>`.
+
+```tsx
+import { Puzzle } from "lucide-react";
+import { defineStudioPlugin, PluginPage } from "@tilecast/studio";
+
+export default defineStudioPlugin({
+  id: "transit_alerts",
+  icon: Puzzle,
+  routes: [
+    { index: true, element: <PluginPage pluginId="transit_alerts" /> },
+    { path: "new", element: <NewFeedPage /> },
+    { path: ":id", element: <FeedPage /> },
+  ],
+});
+```
+
+The host wraps management routes in the normal plugin installation gate.
+
+Use route handles for breadcrumbs and resource loaders when a detail page needs a name in the Studio header.
+
+## Use plugin translations
+
+Keep plugin strings in `studio/locales/en.json`, `es.json`, and `ru.json`. Use `usePluginTranslation` from `@tilecast/studio`.
+
+The locale tests require matching keys in each supported language. Shared Studio wording stays in shared namespaces; plugin-specific wording stays with the plugin.
+
+## Add a standalone route
+
+A plugin can own an absolute route outside its management subtree when the product needs it. Declare the path in `studio.additionalRoutes`, then contribute it with `standaloneRoutes`.
+
+Each route chooses an installation gate and whether it mounts inside the authenticated Studio chrome or as a top-level route with its own shell.
+
+Forms uses `/forms` for its submitter portal and `/approvals` for its reviewer inbox. The host refuses collisions with core routes and other plugins.
+
+## Add secondary navigation
+
+Use `secondaryNavigation` when a plugin needs an item below **Activity** and above **Settings**.
+
+The contribution owns its icon, translated label, route, and optional visibility query. The generic sidebar does not interpret plugin permissions.
+
+Forms uses this for **Approvals**. Its visibility query asks the Forms API whether the signed-in user can review at least one Form.
+
+A failed visibility query hides the item instead of breaking the sidebar.
+
+## Use the shared Studio kit
+
+`@tilecast/studio` is the supported plugin boundary. It exposes plugin chrome, API requests, session information, translations, confirmation and toast helpers, targeting controls, date inputs, pagination, and regional formatting.
+
+If a reusable primitive is missing, expose it through that boundary instead of importing a private dashboard module.

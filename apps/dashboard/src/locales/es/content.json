@@ -509,19 +509,17 @@
       "categoriesLabel": "Categorías de widgets",
       "categories": {
         "all": "Todos",
-        "news": "Noticias",
-        "google": "Google",
-        "designDocuments": "Diseño y documentos",
-        "dashboards": "Tableros",
-        "feeds": "Fuentes",
-        "video": "Video",
-        "social": "Redes sociales",
-        "buildingBlocks": "Bloques de construcción / Avanzado"
+        "essentials": "Esenciales",
+        "information": "Información",
+        "dataDisplay": "Visualización de datos",
+        "integrations": "Integraciones"
       },
       "featured": "Destacados",
       "featuredHint": "Integraciones recomendadas para necesidades comunes.",
       "noResults": "Ningún widget coincide con esta búsqueda.",
-      "noMatch": "Ninguna app o widget coincide con “{{search}}”."
+      "noMatch": "Ninguna app o widget coincide con “{{search}}”.",
+      "sourcePlugin": "Plugin · {{name}}",
+      "requiresPlugin": "Requiere {{name}}"
     },
     "preview": {
       "webUnavailable": "URL de presentación web no disponible.",
@@ -548,13 +546,10 @@
         "widgetName": "Nombre del widget",
         "description": "Descripción",
         "descriptionHint": "Notas opcionales para otras personas que gestionan esta instalación.",
-        "timezone": "Zona horaria",
-        "timeFormat": "Formato de hora",
         "label": "Etiqueta",
         "format": "Formato",
         "alignment": "Alineación",
         "columns": "Columnas",
-        "maximumItems": "Elementos máximos",
         "none": "Ninguno",
         "remove": "Eliminar",
         "valueField": "Campo de valor",
@@ -572,126 +567,25 @@
         "saveWidget": "Guardar widget"
       },
       "options": {
-        "organizationFormat": "Usar la configuración de la organización",
-        "hour12": "12 horas",
-        "hour24": "24 horas",
-        "dateFull": "Completa",
-        "dateLong": "Larga",
-        "dateMedium": "Media",
-        "dateShort": "Corta",
         "alignLeft": "Izquierda",
         "alignCenter": "Centro",
         "alignRight": "Derecha",
-        "formatText": "Texto",
         "formatNumber": "Número",
         "formatInteger": "Entero",
         "formatPercent": "Porcentaje",
-        "formatCurrency": "Moneda",
-        "formatDateShort": "Fecha corta",
-        "formatDateLong": "Fecha larga",
-        "speedSlow": "Lenta",
-        "speedNormal": "Normal",
-        "speedFast": "Rápida"
+        "formatCurrency": "Moneda"
       },
       "native": {
         "editTitle": "Editar widget {{provider}}",
         "createTitle": "Crear widget {{provider}}",
-        "qrCodeName": "Código QR",
         "guidanceData": "Conecta la información que mostrarás, elige cómo se presenta y revisa la vista previa en vivo.",
         "guidanceSimple": "Configura lo que aparece en pantalla y revisa la vista previa mientras trabajas.",
         "contentGuidanceData": "Empieza eligiendo los datos que usará este widget, luego asigna y formatea los campos.",
-        "contentGuidanceCountdown": "Define la fecha objetivo, decide qué pasa al alcanzarla y elige las unidades visibles.",
-        "contentGuidanceQr": "Escribe el destino que se abrirá al escanear y añade una etiqueta opcional en pantalla.",
-        "contentGuidanceWorldClock": "Añade cada ubicación con su huso horario de IANA, como America/New_York o Europe/London.",
-        "contentGuidanceClock": "Elige el huso horario y el formato que aparecerán en pantalla.",
         "contentGuidanceText": "Escribe el contenido visible y elige su comportamiento en pantalla.",
         "presetNotice": "Preajuste guiado: <strong>{{preset}}</strong>. Se guarda como widget {{provider}} reutilizable; la reproducción no depende del preajuste.",
         "contentTitle": "Contenido y comportamiento",
         "nameHint": "Se usa para encontrar este widget en Contenido y en las listas de reproducción.",
         "completeFields": "Completa los campos obligatorios para ver una vista previa."
-      },
-      "clock": {
-        "timezoneHint": "Déjalo en blanco para usar la zona horaria de la organización o escribe cualquier identificador IANA válido.",
-        "showSeconds": "Mostrar segundos"
-      },
-      "date": {
-        "dateFormat": "Formato de fecha"
-      },
-      "countdown": {
-        "target": "Fecha y hora objetivo",
-        "targetTime": "Hora objetivo",
-        "mode": "Modo",
-        "modeDown": "Cuenta atrás",
-        "modeUp": "Cuenta adelante",
-        "repeat": "Repetición",
-        "repeatNone": "No se repite",
-        "repeatDaily": "Diaria",
-        "repeatWeekly": "Semanal",
-        "repeatMonthly": "Mensual",
-        "repeatYearly": "Anual",
-        "layout": "Diseño",
-        "layoutStacked": "Título sobre la cuenta atrás",
-        "layoutHorizontal": "Título junto a la cuenta atrás",
-        "layoutOnly": "Solo cuenta atrás",
-        "completion": "Al completarse",
-        "completionText": "Mostrar texto de finalización",
-        "hide": "Ocultar",
-        "completionCountUp": "Seguir contando hacia arriba",
-        "title": "Título",
-        "completionLabel": "Texto de finalización",
-        "units": "Unidades visibles",
-        "unitsDays": "Días",
-        "unitsHours": "Horas",
-        "unitsMinutes": "Minutos",
-        "unitsSeconds": "Segundos"
-      },
-      "qrcode": {
-        "valueLabel": "Texto o URL",
-        "errorCorrection": "Corrección de errores",
-        "levelLow": "Baja",
-        "levelMedium": "Media",
-        "levelQuartile": "Cuartil",
-        "levelHigh": "Alta",
-        "levelHint": "Mayor corrección facilita el escaneo si el código está dañado, pero densifica el patrón.",
-        "speed": "Velocidad",
-        "direction": "Dirección",
-        "denseAlert": "Código QR denso. Prueba el escaneo a la distancia de visualización."
-      },
-      "ticker": {
-        "fields": "Campos (hasta tres)",
-        "separator": "Separador",
-        "fieldSeparator": "Separador de campos"
-      },
-      "display": {
-        "displayedFields": "Campos visibles",
-        "noSource": "Selecciona una fuente de datos para elegir sus campos.",
-        "maximumHint": "Limita cuántas filas o eventos aparecen a la vez.",
-        "emptyLabel": "Mensaje sin datos",
-        "emptyHint": "Se muestra cuando la fuente no devuelve registros útiles."
-      },
-      "list": {
-        "primaryField": "Campo principal",
-        "leadingField": "Campo inicial",
-        "trailingField": "Campo final",
-        "showDividers": "Mostrar divisores de fila"
-      },
-      "menu": {
-        "presentation": "Presentación",
-        "modeSingle": "Campos de un registro",
-        "modeRows": "Filas de etiqueta y valor"
-      },
-      "table": {
-        "showHeader": "Mostrar encabezados de columna",
-        "alternating": "Alternar fondos de fila",
-        "columnPresentation": "Presentación de columnas",
-        "columnWidth": "Ancho %",
-        "formatFor": "Formato de {{field}}",
-        "alignmentFor": "Alineación de {{field}}"
-      },
-      "agenda": {
-        "timeField": "Campo de hora",
-        "locationField": "Campo de ubicación",
-        "descriptionField": "Campo de descripción"
       },
       "metric": {
         "staticLabel": "Etiqueta fija",
@@ -699,22 +593,6 @@
         "prefix": "Prefijo",
         "suffix": "Sufijo",
         "emptyState": "Estado vacío"
-      },
-      "cards": {
-        "subtitleLabel": "subtítulo",
-        "bodyLabel": "cuerpo",
-        "badgeLabel": "insignia",
-        "density": "Densidad",
-        "densityComfortable": "Amplia",
-        "densityCompact": "Compacta"
-      },
-      "weather": {
-        "showLocation": "Ubicación",
-        "showCurrent": "Condiciones actuales",
-        "showHumidity": "Humedad",
-        "showWind": "Viento",
-        "showPrecipitation": "Precipitación",
-        "forecastDays": "Días de pronóstico"
       },
       "spotlight": {
         "image": "Imagen subida",
@@ -745,11 +623,6 @@
         "orientationVertical": "Vertical",
         "orientationHorizontal": "Horizontal",
         "statusField": "Campo de estado"
-      },
-      "worldClock": {
-        "locations": "Ubicaciones",
-        "ianaLabel": "Huso horario de IANA",
-        "addLocation": "Añadir ubicación"
       },
       "appearance": {
         "title": "Apariencia",
@@ -799,6 +672,40 @@
           "lastUpdateNever": "Última actualización correcta: aún no."
         }
       },
+      "v2": {
+        "unavailable": "El componente de vista previa de este Widget no forma parte de esta compilación de Studio, por lo que aún no se puede editar aquí.",
+        "unsaved": "Cambios sin guardar",
+        "savedUpdated": "Widget actualizado.",
+        "savedCreated": "Widget creado.",
+        "noControls": "Esta sección no tiene controles para la configuración actual.",
+        "zonePreview": "Vista previa del Widget",
+        "sizeLabel": "Tamaño de vista previa",
+        "customWidth": "Ancho personalizado (px)",
+        "customHeight": "Alto personalizado (px)",
+        "statusReady": "Vista previa lista.",
+        "statusEmpty": "La vista previa está vacía: {{reason}}",
+        "statusError": "La vista previa no se puede mostrar: {{code}}",
+        "sections": {
+          "data": "Datos",
+          "content": "Contenido",
+          "appearance": "Apariencia",
+          "behavior": "Comportamiento"
+        },
+        "hints": {
+          "data": "Elige la información que debe mostrar el Widget.",
+          "content": "Elige lo que aparece en pantalla.",
+          "appearance": "Elige cómo aparece en pantalla.",
+          "behavior": "Elige cómo se comporta en pantalla."
+        },
+        "sizes": {
+          "landscape": "Horizontal 16:9",
+          "portrait": "Vertical 9:16",
+          "strip": "Franja ancha",
+          "sidebar": "Barra lateral",
+          "small": "Zona pequeña",
+          "custom": "Personalizado"
+        }
+      },
       "youtube": {
         "editTitle": "Editar widget de YouTube",
         "createTitle": "Crear widget de YouTube",
@@ -832,9 +739,7 @@
       "fieldDescription": "Elige el campo de los datos conectados que aporta este valor."
     },
     "defaults": {
-      "eventStarted": "Evento iniciado",
       "noValue": "Sin valor disponible",
-      "noItems": "Sin elementos disponibles",
       "noInformation": "Sin información disponible",
       "noChartData": "Sin datos de gráfico disponibles",
       "noMilestones": "Sin hitos disponibles",
@@ -842,9 +747,7 @@
       "metricLabel": "Valor",
       "seriesFirst": "Serie 1",
       "seriesAdded": "Serie",
-      "progressLabel": "Progreso",
-      "zoneLocal": "Local",
-      "zoneAdded": "Ubicación"
+      "progressLabel": "Progreso"
     },
     "errors": {
       "previewWait": "Espera a la vista previa del widget antes de guardar.",
@@ -907,7 +810,9 @@
       "galleryTitle": "Crear fuente de datos",
       "goodToKnow": "Conviene saber",
       "noProviders": "No hay proveedores de fuentes de datos disponibles en esta instalación.",
-      "setupGuidance": "Guía de configuración de la fuente de datos"
+      "setupGuidance": "Guía de configuración de la fuente de datos",
+      "sourcePlugin": "Plugin · {{name}}",
+      "requiresPlugin": "Requiere {{name}}"
     },
     "detail": {
       "backButton": "Volver a las fuentes de datos",
@@ -960,6 +865,7 @@
       "calendar": "Calendarios ICS públicos de Google, Microsoft, Apple u otros.",
       "capAlerts": "Alertas públicas activas de emergencia e instrucciones.",
       "csv": "Sube una exportación de hoja de cálculo o conecta una URL de CSV alojado.",
+      "feed": "Titulares RSS o Atom normalizados en un contrato de registros.",
       "form": "Recopila envíos, apruébalos y publica registros a los widgets.",
       "json": "Datos de API públicas asignados con rutas JSON Pointer simples.",
       "manual": "Mantén un pequeño conjunto de datos tipado directamente en Studio.",
@@ -1184,6 +1090,7 @@
       "capAlerts": "Alertas CAP",
       "csv": "CSV",
       "dataSource": "Fuente de datos",
+      "feed": "Fuente RSS / Atom",
       "form": "Formulario",
       "json": "JSON",
       "manual": "Tabla manual",
@@ -1241,6 +1148,16 @@
           "step3": "Revisa las filas asignadas y guarda."
         },
         "tip": "Los nombres de columna deben coincidir con la primera fila del CSV. Empieza con la columna de título; las demás son opcionales."
+      },
+      "feed": {
+        "eyebrow": "Noticias y titulares",
+        "description": "Convierte una fuente RSS o Atom en registros limpios y almacenados en caché para Noticias, tickers, listas y diseños.",
+        "tip": "Pega la URL directa de la fuente. Suele terminar en /feed, .xml o .rss. Los preajustes de editor rellenan una dirección de confianza.",
+        "steps": {
+          "step1": "Elige un preajuste de editor o pega una URL personalizada.",
+          "step2": "Elige los campos, el límite de elementos y el orden.",
+          "step3": "Vista previa de las historias asignadas y guarda."
+        }
       },
       "json": {
         "description": "Conecta un endpoint JSON público, asigna sus rutas de registros y verifica el resultado normalizado antes de guardar.",
@@ -1339,6 +1256,12 @@
       "feedItemsRead_many": "{{count}} de elementos leídos de esta fuente. Los campos que no publica no aparecen.",
       "feedItemsRead_other": "{{count}} elementos leídos de esta fuente. Los campos que no publica no aparecen.",
       "feedUrl": "URL de la fuente",
+      "feedPreset": "Preajuste de editor",
+      "feedPresetAttribution": "El contenido de la fuente pertenece a su editor. Confirma que puedes mostrarlo y acredita al editor en pantalla.",
+      "feedPresetNames": {
+        "nyt-top-stories": "New York Times — Top Stories",
+        "custom": "URL personalizada"
+      },
       "fieldAuthor": "Autor",
       "fieldDate": "Fecha",
       "fieldDescription": "Descripción",
@@ -1396,23 +1319,19 @@
     }
   },
   "graph": {
-    "canvasLabel": "Grafo visual de dependencias",
+    "canvasLabel": "Grafo de dependencias",
     "emptyDescription": "Agrega contenido, una presentación o una pantalla para empezar a construir el grafo.",
     "emptyTitle": "Aún no hay nada que mapear",
-    "inspector": {
-      "close": "Cerrar inspector",
-      "downstreamCount_one": "{{count}} consumidor",
-      "downstreamCount_many": "{{count}} de consumidores",
-      "downstreamCount_other": "{{count}} consumidores",
-      "downstreamTitle": "Consumidores directos",
-      "emptyDownstream": "Sin consumidores directos.",
-      "emptyUpstream": "Sin dependencias directas.",
-      "open": "Abrir",
-      "title": "{{name}} detalles de dependencias",
-      "upstreamCount_one": "{{count}} dependencia",
-      "upstreamCount_many": "{{count}} de dependencias",
-      "upstreamCount_other": "{{count}} dependencias",
-      "upstreamTitle": "Dependencias directas"
+    "loadError": "No se pudo cargar el grafo de dependencias.",
+    "loading": "Mapeando dependencias…",
+    "panHint": "Arrastra para mover · Desplázate para acercar · Las flechas apuntan a los consumidores",
+    "overview": "Resumen",
+    "stages": {
+      "sources": "Fuentes",
+      "presentations": "Presentaciones",
+      "delivery": "Entrega",
+      "dependencies": "Dependencias",
+      "consumers": "Consumidores"
     },
     "kinds": {
       "campaign": "Campaña",
@@ -1434,23 +1353,105 @@
       "widget": "Widget",
       "widgets": "Widgets"
     },
-    "legend": {
-      "delivery": "Entrega",
-      "presentations": "Presentaciones",
-      "sources": "Fuentes"
+    "counts": {
+      "dataSource_one": "{{count}} fuente de datos",
+      "dataSource_many": "{{count}} de fuentes de datos",
+      "dataSource_other": "{{count}} fuentes de datos",
+      "media_one": "{{count}} elemento multimedia",
+      "media_many": "{{count}} de elementos multimedia",
+      "media_other": "{{count}} elementos multimedia",
+      "widget_one": "{{count}} widget",
+      "widget_many": "{{count}} de widgets",
+      "widget_other": "{{count}} widgets",
+      "layout_one": "{{count}} diseño",
+      "layout_many": "{{count}} de diseños",
+      "layout_other": "{{count}} diseños",
+      "playlist_one": "{{count}} lista de reproducción",
+      "playlist_many": "{{count}} de listas de reproducción",
+      "playlist_other": "{{count}} listas de reproducción",
+      "campaign_one": "{{count}} campaña",
+      "campaign_many": "{{count}} de campañas",
+      "campaign_other": "{{count}} campañas",
+      "schedule_one": "{{count}} programación",
+      "schedule_many": "{{count}} de programaciones",
+      "schedule_other": "{{count}} programaciones",
+      "screenGroup_one": "{{count}} grupo de pantallas",
+      "screenGroup_many": "{{count}} de grupos de pantallas",
+      "screenGroup_other": "{{count}} grupos de pantallas",
+      "screen_one": "{{count}} pantalla",
+      "screen_many": "{{count}} de pantallas",
+      "screen_other": "{{count}} pantallas"
     },
-    "loadError": "No se pudo cargar el grafo de dependencias.",
-    "loading": "Mapeando dependencias…",
-    "panHint": "Arrastra para mover · Desplázate para acercar · Las flechas apuntan a los consumidores",
+    "fanout": {
+      "view": {
+        "dataSource": "Ver fuentes de datos",
+        "media": "Ver multimedia",
+        "widget": "Ver widgets",
+        "layout": "Ver diseños",
+        "playlist": "Ver listas de reproducción",
+        "campaign": "Ver campañas",
+        "schedule": "Ver programaciones",
+        "screenGroup": "Ver grupos de pantallas",
+        "screen": "Ver pantallas"
+      },
+      "feeds": "Cada uno alimenta solo a {{name}}.",
+      "fedBy": "Cada uno lo usa solo {{name}}.",
+      "expand": "Mostrar en el grafo"
+    },
     "toolbar": {
-      "allTypes": "Todos los tipos",
-      "clearSearch": "Borrar búsqueda",
-      "fitGraph": "Ajustar grafo",
-      "searchLabel": "Buscar en el grafo",
-      "searchPlaceholder": "Buscar nodos",
-      "typeFilter": "Filtrar por tipo",
+      "searchLabel": "Buscar recursos",
+      "searchPlaceholder": "Buscar recursos",
+      "noResults": "No hay recursos que coincidan.",
+      "moreResults_one": "Se muestra la primera {{count}} coincidencia. Sigue escribiendo para acotar la lista.",
+      "moreResults_many": "Se muestran las primeras {{count}} de coincidencias. Sigue escribiendo para acotar la lista.",
+      "moreResults_other": "Se muestran las primeras {{count}} coincidencias. Sigue escribiendo para acotar la lista.",
+      "direction": "Dirección",
+      "dependencies": "Dependencias",
+      "both": "Ambos",
+      "consumers": "Consumidores",
+      "depth": "Profundidad",
+      "hops_one": "{{count}} salto",
+      "hops_many": "{{count}} de saltos",
+      "hops_other": "{{count}} saltos",
+      "allDepths": "Todos",
+      "zoom": "Zoom",
       "zoomIn": "Acercar",
-      "zoomOut": "Alejar"
+      "zoomOut": "Alejar",
+      "fitGraph": "Ajustar grafo",
+      "details": "Detalles"
+    },
+    "inspector": {
+      "label": "Detalles del recurso",
+      "resize": "Cambiar el tamaño del panel de detalles",
+      "open": "Abrir recurso",
+      "directDependencies": "Dependencias directas",
+      "directConsumers": "Consumidores directos",
+      "allDependencies": "Todas las dependencias",
+      "allConsumers": "Todos los consumidores",
+      "emptyDependencies": "Nada alimenta este recurso.",
+      "emptyConsumers": "Nada usa este recurso.",
+      "overviewDescription": "Cada recuadro cuenta un tipo de recurso. Selecciona un tipo para explorarlo o busca un recurso para ver de qué depende y qué lo usa.",
+      "resourceTypes": "Tipos de recurso",
+      "resources": "Recursos",
+      "emptyType": "No hay recursos de este tipo.",
+      "rowCounts": "Dependencias: {{dependencies}} · Consumidores: {{consumers}}",
+      "fedBy": "Alimentado por",
+      "feeds": "Alimenta a",
+      "noTypeDependencies": "Nada alimenta este tipo.",
+      "noTypeConsumers": "Nada usa este tipo.",
+      "relationships_one": "{{count}} relación",
+      "relationships_many": "{{count}} de relaciones",
+      "relationships_other": "{{count}} relaciones"
+    },
+    "relationships": {
+      "providesDataTo": "proporciona datos a",
+      "includedIn": "incluido en",
+      "usedBy": "usado por",
+      "materializedAs": "materializado como",
+      "scheduledBy": "programado por",
+      "assignedTo": "asignado a",
+      "targets": "se dirige a",
+      "contains": "contiene"
     }
   },
   "preview": {

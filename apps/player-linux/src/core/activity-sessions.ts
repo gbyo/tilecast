@@ -232,3 +232,111 @@ export class PlaybackSessionTracker {
     return "content" as const;
   }
 }
+
+/**
+ * The player's mapping from what it presents to session boundaries. It is
+ * exported so the cross-player parity test
+ * (`packages/api-schema/activity/player-parity.json`) runs this exact code,
+ * and Tilecast Edge's tracker must produce the same events for the same
+ * scenario.
+ */
+export interface SessionSelection {
+  source?: string | null;
+  playlistId?: string | null;
+  layoutId?: string | null;
+  scheduleId?: string | null;
+  takeoverId?: string | null;
+}
+
+export interface SessionItem {
+  id: string;
+  kind?: string;
+  durationMs?: number | null;
+}
+
+/** The root session identity: a change starts a new root session. */
+export function presentationContextFor(
+  selection: SessionSelection | null,
+  manifestVersion: number | undefined,
+  firstItemId: string | undefined,
+): PresentationContext {
+  const presentationId =
+    selection?.layoutId ?? selection?.playlistId ?? firstItemId ?? "";
+  return {
+    key: `${selection?.source ?? ""}:${presentationId}:${manifestVersion ?? ""}`,
+    presentationType: selection?.layoutId ? "layout" : "playlist",
+    presentationId,
+    trigger: selection?.source ?? undefined,
+    scheduleId: selection?.scheduleId ?? undefined,
+    takeoverId: selection?.takeoverId ?? undefined,
+    manifestVersion,
+  };
+}
+
+/** Why the outgoing presentation is replaced, from what selected the new one. */
+export function replacementReasonFor(
+  selection: SessionSelection | null,
+): TerminalReason {
+  if (selection?.takeoverId) return "takeover";
+  if (selection?.scheduleId) return "schedule_transition";
+  if (selection?.source === "direct") return "direct_assignment_change";
+  return "manifest_replacement";
+}
+
+/** How a non-playing state ends the root session. */
+export function stopForState(state: string): {
+  reason: TerminalReason;
+  result: "partial" | "failed";
+} {
+  return state === "safe-mode"
+    ? { reason: "recovery_action", result: "failed" }
+    : { reason: "schedule_transition", result: "partial" };
+}
+
+/** Describes the item now rendering, so its session carries its identity. */
+export function contentContextFor(
+  items: readonly SessionItem[],
+  itemId: string,
+): ContentContext {
+  const item = items.find((candidate) => candidate.id === itemId);
+  return {
+    contentId: itemId,
+    contentType: item?.kind ?? "media",
+    playlistItemId: itemId,
+    expectedDurationMs: item?.durationMs ?? undefined,
+  };
+}
+
+/** The session boundary a renderer progress signal marks, if any. */
+export function applyRendererEvent(
+  sessions: PlaybackSessionTracker,
+  kind: string,
+  itemId: string | null,
+  items: readonly SessionItem[],
+): void {
+  if (kind === "item-started") {
+    if (itemId) sessions.startContent(contentContextFor(items, itemId));
+  } else if (kind === "widget-empty") {
+    sessions.finishContent("skipped", "empty_content");
+  } else if (kind === "item-transition") {
+    sessions.finishContent("completed", "expected_item_boundary");
+  }
+}
+
+/** A playback error ends the item and is also reported on its own. */
+export function playbackFailureEvent(
+  itemId: string | null,
+  message: string,
+  manifestVersion: number | undefined,
+): ActivityEventInput {
+  return {
+    eventType: "renderer.failure",
+    category: "playback",
+    severity: "error",
+    result: "failed",
+    contentId: itemId ?? undefined,
+    failureCode: "renderer_failure",
+    failureMessage: message,
+    manifestVersion,
+  };
+}

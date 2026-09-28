@@ -104,14 +104,28 @@ outside its availability window or fails readiness, the Player shows an
 explicit “Content unavailable” branded surface; “No content assigned” is
 reserved for a confirmed empty assignment.
 
+## Display: the shared Player Runtime
+
+The window shows the shared Tilecast Player Runtime
+(`packages/player-runtime`, [`docs/player-runtime.md`](../../docs/player-runtime.md)),
+the same display document Tilecast Edge's WPE renderer hosts. The main process
+serves it at `tilecast://runtime/index.html` (`src/main/runtime-protocol.ts`:
+only files listed in the runtime's manifest, no traversal, no CSP bypass) and
+keeps `tcmedia://` separate. The renderer runs with `sandbox: true`,
+`contextIsolation: true` and `nodeIntegration: false`; `src/preload.ts` is a
+thin `TilecastRuntimeHostV1` adapter that requires only `electron`. The
+shared-timeline anchor for synchronized groups is built in the main process
+(`src/main/runtime-messages.ts`).
+
 ## Content rendering
 
 All widget, Layout, and declarative-presentation logic — data binding, typed
 formatting (number/currency/percent/date/duration), and offline timezone-aware
-date selection — runs in the runtime and is handed to the renderer as a small,
-fully-resolved render tree. The renderer is a dependency-free DOM interpreter,
-which keeps its memory footprint tiny on 4 GiB hardware. Clocks and countdowns
-update in the renderer locally instead of re-sending the tree every second. QR
+date selection — runs in the main process (the Player Runtime's projection
+compatibility code, `@tilecast/player-runtime/projection`) and is handed to the
+display as a small, fully-resolved render tree. The display interprets it with
+plain DOM, which keeps its memory footprint small on 4 GiB hardware. Clocks and countdowns
+update in the display locally instead of re-sending the tree every second. QR
 codes are encoded to inline SVG. Charts use lightweight inline SVG with no
 animation.
 

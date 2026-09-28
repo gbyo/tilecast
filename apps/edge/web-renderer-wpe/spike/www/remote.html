@@ -1,0 +1,54 @@
+<!doctype html>
+<html>
+  <head>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #123;
+        color: #fff;
+        font: bold 64px sans-serif;
+        overflow: hidden;
+      }
+      #bar {
+        position: absolute;
+        left: 0;
+        top: 40%;
+        width: 20%;
+        height: 20%;
+        background: #f80;
+        animation: m 2s linear infinite;
+      }
+      @keyframes m {
+        from {
+          transform: translateX(0);
+        }
+        to {
+          transform: translateX(400%);
+        }
+      }
+      #n {
+        position: absolute;
+        left: 20px;
+        top: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="bar"></div>
+    <div id="n">0</div>
+    <script>
+      let n = 0;
+      setInterval(() => {
+        document.getElementById("n").textContent = ++n;
+      }, 100);
+      console.log(
+        "remote page: bridge=" +
+          typeof globalThis.tilecastRuntimeHost +
+          " webkit=" +
+          typeof globalThis.webkit,
+      );
+    </script>
+  </body>
+</html>
