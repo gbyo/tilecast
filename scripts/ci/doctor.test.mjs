@@ -32,7 +32,7 @@ test("doctor does not demand unrelated Android toolchain for server/edge/docs", 
 test("doctor reports the Java version written to stderr", () => {
   const dir = mkdtempSync(join(tmpdir(), "tilecast-doctor-"));
   const java = join(dir, "java");
-  writeFileSync(java, '#!/bin/sh\necho \'openjdk version "21.0.8"\' >&2\n');
+  writeFileSync(java, "#!/bin/sh\necho 'openjdk version \"21.0.8\"' >&2\n");
   chmodSync(java, 0o755);
   try {
     const out = run("android", {
