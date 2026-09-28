@@ -384,6 +384,75 @@ func (e DisplayControlActionType) Valid() bool {
 	}
 }
 
+// Defines values for DisplayControlGroupApplyResultCommandType.
+const (
+	DisplayControlGroupApplyResultCommandTypeDisplayMute     DisplayControlGroupApplyResultCommandType = "display_mute"
+	DisplayControlGroupApplyResultCommandTypeDisplayPowerOff DisplayControlGroupApplyResultCommandType = "display_power_off"
+	DisplayControlGroupApplyResultCommandTypeDisplayPowerOn  DisplayControlGroupApplyResultCommandType = "display_power_on"
+	DisplayControlGroupApplyResultCommandTypeDisplayUnmute   DisplayControlGroupApplyResultCommandType = "display_unmute"
+)
+
+// Valid indicates whether the value is a known member of the DisplayControlGroupApplyResultCommandType enum.
+func (e DisplayControlGroupApplyResultCommandType) Valid() bool {
+	switch e {
+	case DisplayControlGroupApplyResultCommandTypeDisplayMute:
+		return true
+	case DisplayControlGroupApplyResultCommandTypeDisplayPowerOff:
+		return true
+	case DisplayControlGroupApplyResultCommandTypeDisplayPowerOn:
+		return true
+	case DisplayControlGroupApplyResultCommandTypeDisplayUnmute:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DisplayControlGroupPreviewCommandType.
+const (
+	DisplayControlGroupPreviewCommandTypeDisplayMute     DisplayControlGroupPreviewCommandType = "display_mute"
+	DisplayControlGroupPreviewCommandTypeDisplayPowerOff DisplayControlGroupPreviewCommandType = "display_power_off"
+	DisplayControlGroupPreviewCommandTypeDisplayPowerOn  DisplayControlGroupPreviewCommandType = "display_power_on"
+	DisplayControlGroupPreviewCommandTypeDisplayUnmute   DisplayControlGroupPreviewCommandType = "display_unmute"
+)
+
+// Valid indicates whether the value is a known member of the DisplayControlGroupPreviewCommandType enum.
+func (e DisplayControlGroupPreviewCommandType) Valid() bool {
+	switch e {
+	case DisplayControlGroupPreviewCommandTypeDisplayMute:
+		return true
+	case DisplayControlGroupPreviewCommandTypeDisplayPowerOff:
+		return true
+	case DisplayControlGroupPreviewCommandTypeDisplayPowerOn:
+		return true
+	case DisplayControlGroupPreviewCommandTypeDisplayUnmute:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DisplayControlGroupResultState.
+const (
+	DisplayControlGroupResultStateFailed  DisplayControlGroupResultState = "failed"
+	DisplayControlGroupResultStateQueued  DisplayControlGroupResultState = "queued"
+	DisplayControlGroupResultStateSkipped DisplayControlGroupResultState = "skipped"
+)
+
+// Valid indicates whether the value is a known member of the DisplayControlGroupResultState enum.
+func (e DisplayControlGroupResultState) Valid() bool {
+	switch e {
+	case DisplayControlGroupResultStateFailed:
+		return true
+	case DisplayControlGroupResultStateQueued:
+		return true
+	case DisplayControlGroupResultStateSkipped:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GitHubAuthSource.
 const (
 	Anonymous   GitHubAuthSource = "anonymous"
@@ -1356,6 +1425,42 @@ func (e ScheduleTargetType) Valid() bool {
 	}
 }
 
+// Defines values for ScreenGroupDisplayMode.
+const (
+	ScreenGroupDisplayModeMirror ScreenGroupDisplayMode = "mirror"
+	ScreenGroupDisplayModeSpan   ScreenGroupDisplayMode = "span"
+)
+
+// Valid indicates whether the value is a known member of the ScreenGroupDisplayMode enum.
+func (e ScreenGroupDisplayMode) Valid() bool {
+	switch e {
+	case ScreenGroupDisplayModeMirror:
+		return true
+	case ScreenGroupDisplayModeSpan:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ScreenGroupPresentationType.
+const (
+	ScreenGroupPresentationTypeLayout   ScreenGroupPresentationType = "layout"
+	ScreenGroupPresentationTypePlaylist ScreenGroupPresentationType = "playlist"
+)
+
+// Valid indicates whether the value is a known member of the ScreenGroupPresentationType enum.
+func (e ScreenGroupPresentationType) Valid() bool {
+	switch e {
+	case ScreenGroupPresentationTypeLayout:
+		return true
+	case ScreenGroupPresentationTypePlaylist:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ScreenStatus.
 const (
 	ScreenStatusDisabled ScreenStatus = "disabled"
@@ -1409,16 +1514,16 @@ func (e SettingDefinitionScope) Valid() bool {
 
 // Defines values for SpanGeometryInputDisplayMode.
 const (
-	Mirror SpanGeometryInputDisplayMode = "mirror"
-	Span   SpanGeometryInputDisplayMode = "span"
+	SpanGeometryInputDisplayModeMirror SpanGeometryInputDisplayMode = "mirror"
+	SpanGeometryInputDisplayModeSpan   SpanGeometryInputDisplayMode = "span"
 )
 
 // Valid indicates whether the value is a known member of the SpanGeometryInputDisplayMode enum.
 func (e SpanGeometryInputDisplayMode) Valid() bool {
 	switch e {
-	case Mirror:
+	case SpanGeometryInputDisplayModeMirror:
 		return true
-	case Span:
+	case SpanGeometryInputDisplayModeSpan:
 		return true
 	default:
 		return false
@@ -1443,6 +1548,48 @@ func (e SpanPanelRotation) Valid() bool {
 	case SpanPanelRotationN270:
 		return true
 	case SpanPanelRotationN90:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SpanPreparationStatus.
+const (
+	SpanPreparationStatusFailed     SpanPreparationStatus = "failed"
+	SpanPreparationStatusProcessing SpanPreparationStatus = "processing"
+	SpanPreparationStatusQueued     SpanPreparationStatus = "queued"
+	SpanPreparationStatusReady      SpanPreparationStatus = "ready"
+)
+
+// Valid indicates whether the value is a known member of the SpanPreparationStatus enum.
+func (e SpanPreparationStatus) Valid() bool {
+	switch e {
+	case SpanPreparationStatusFailed:
+		return true
+	case SpanPreparationStatusProcessing:
+		return true
+	case SpanPreparationStatusQueued:
+		return true
+	case SpanPreparationStatusReady:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SpanStatusDisplayMode.
+const (
+	SpanStatusDisplayModeMirror SpanStatusDisplayMode = "mirror"
+	SpanStatusDisplayModeSpan   SpanStatusDisplayMode = "span"
+)
+
+// Valid indicates whether the value is a known member of the SpanStatusDisplayMode enum.
+func (e SpanStatusDisplayMode) Valid() bool {
+	switch e {
+	case SpanStatusDisplayModeMirror:
+		return true
+	case SpanStatusDisplayModeSpan:
 		return true
 	default:
 		return false
@@ -2731,6 +2878,62 @@ type DisplayControlAction struct {
 // DisplayControlActionType defines model for DisplayControlAction.Type.
 type DisplayControlActionType string
 
+// DisplayControlGroupApplyResult defines model for DisplayControlGroupApplyResult.
+type DisplayControlGroupApplyResult struct {
+	CommandType      DisplayControlGroupApplyResultCommandType `json:"commandType"`
+	FailedCount      int                                       `json:"failedCount"`
+	GroupId          openapi_types.UUID                        `json:"groupId"`
+	QueuedCount      int                                       `json:"queuedCount"`
+	Results          []DisplayControlGroupResult               `json:"results"`
+	SelectedCount    int                                       `json:"selectedCount"`
+	SupportedCount   int                                       `json:"supportedCount"`
+	UnsupportedCount int                                       `json:"unsupportedCount"`
+}
+
+// DisplayControlGroupApplyResultCommandType defines model for DisplayControlGroupApplyResult.CommandType.
+type DisplayControlGroupApplyResultCommandType string
+
+// DisplayControlGroupPreview defines model for DisplayControlGroupPreview.
+type DisplayControlGroupPreview struct {
+	CommandType   DisplayControlGroupPreviewCommandType `json:"commandType"`
+	EligibleCount int                                   `json:"eligibleCount"`
+	Fingerprint   string                                `json:"fingerprint"`
+	GroupId       openapi_types.UUID                    `json:"groupId"`
+	GroupName     string                                `json:"groupName"`
+
+	// Screens Null for groups with no members; Studio reads an empty selection.
+	Screens          *[]DisplayControlGroupScreen `json:"screens"`
+	SelectedCount    int                          `json:"selectedCount"`
+	SupportedCount   int                          `json:"supportedCount"`
+	UnsupportedCount int                          `json:"unsupportedCount"`
+}
+
+// DisplayControlGroupPreviewCommandType defines model for DisplayControlGroupPreview.CommandType.
+type DisplayControlGroupPreviewCommandType string
+
+// DisplayControlGroupResult defines model for DisplayControlGroupResult.
+type DisplayControlGroupResult struct {
+	Id       *openapi_types.UUID            `json:"id,omitempty"`
+	Name     string                         `json:"name"`
+	Reason   *string                        `json:"reason,omitempty"`
+	ScreenId openapi_types.UUID             `json:"screenId"`
+	State    DisplayControlGroupResultState `json:"state"`
+}
+
+// DisplayControlGroupResultState defines model for DisplayControlGroupResult.State.
+type DisplayControlGroupResultState string
+
+// DisplayControlGroupScreen defines model for DisplayControlGroupScreen.
+type DisplayControlGroupScreen struct {
+	Capabilities map[string]string  `json:"capabilities"`
+	Eligible     bool               `json:"eligible"`
+	Name         string             `json:"name"`
+	Provider     string             `json:"provider"`
+	Reason       *string            `json:"reason,omitempty"`
+	ScreenId     openapi_types.UUID `json:"screenId"`
+	Supported    bool               `json:"supported"`
+}
+
 // EffectivePolicy Effective player policy for one screen with inheritance sources.
 type EffectivePolicy struct {
 	ConfigRevision       int64                           `json:"configRevision"`
@@ -3874,6 +4077,46 @@ type Screen struct {
 	UptimeSeconds             *int64              `json:"uptimeSeconds,omitempty"`
 }
 
+// ScreenGroup defines model for ScreenGroup.
+type ScreenGroup struct {
+	CreatedAt                   time.Time                    `json:"createdAt"`
+	Description                 string                       `json:"description"`
+	DisplayMode                 ScreenGroupDisplayMode       `json:"displayMode"`
+	Id                          openapi_types.UUID           `json:"id"`
+	LayoutId                    *openapi_types.UUID          `json:"layoutId,omitempty"`
+	LayoutName                  *string                      `json:"layoutName,omitempty"`
+	MembershipCount             int                          `json:"membershipCount"`
+	Name                        string                       `json:"name"`
+	PlaybackEpoch               time.Time                    `json:"playbackEpoch"`
+	PlaylistId                  *openapi_types.UUID          `json:"playlistId,omitempty"`
+	PlaylistName                *string                      `json:"playlistName,omitempty"`
+	PresentationGatewayScreenId *openapi_types.UUID          `json:"presentationGatewayScreenId,omitempty"`
+	PresentationType            *ScreenGroupPresentationType `json:"presentationType,omitempty"`
+	Screens                     []ScreenGroupScreen          `json:"screens"`
+	UpdatedAt                   time.Time                    `json:"updatedAt"`
+}
+
+// ScreenGroupDisplayMode defines model for ScreenGroup.DisplayMode.
+type ScreenGroupDisplayMode string
+
+// ScreenGroupPresentationType defines model for ScreenGroup.PresentationType.
+type ScreenGroupPresentationType string
+
+// ScreenGroupList defines model for ScreenGroupList.
+type ScreenGroupList struct {
+	Items    []ScreenGroup `json:"items"`
+	Page     int           `json:"page"`
+	PageSize int           `json:"pageSize"`
+	Total    int           `json:"total"`
+}
+
+// ScreenGroupScreen defines model for ScreenGroupScreen.
+type ScreenGroupScreen struct {
+	Id       openapi_types.UUID `json:"id"`
+	Location string             `json:"location"`
+	Name     string             `json:"name"`
+}
+
 // ScreenList defines model for ScreenList.
 type ScreenList struct {
 	Items []Screen `json:"items"`
@@ -3985,6 +4228,15 @@ type SetupRequest struct {
 	Username         string `json:"username"`
 }
 
+// SpanGeometry defines model for SpanGeometry.
+type SpanGeometry struct {
+	Canvas struct {
+		Height int `json:"height"`
+		Width  int `json:"width"`
+	} `json:"canvas"`
+	Panels []SpanPanel `json:"panels"`
+}
+
 // SpanGeometryInput defines model for SpanGeometryInput.
 type SpanGeometryInput struct {
 	Canvas *struct {
@@ -4016,6 +4268,37 @@ type SpanPanel struct {
 
 // SpanPanelRotation defines model for SpanPanel.Rotation.
 type SpanPanelRotation int
+
+// SpanPreparation defines model for SpanPreparation.
+type SpanPreparation struct {
+	DurationSeconds *float32              `json:"durationSeconds,omitempty"`
+	ErrorCode       *string               `json:"errorCode,omitempty"`
+	ErrorMessage    *string               `json:"errorMessage,omitempty"`
+	FrameRate       *float32              `json:"frameRate,omitempty"`
+	Height          *int                  `json:"height,omitempty"`
+	Id              openapi_types.UUID    `json:"id"`
+	Progress        *float32              `json:"progress,omitempty"`
+	ScreenId        openapi_types.UUID    `json:"screenId"`
+	SourceAssetId   openapi_types.UUID    `json:"sourceAssetId"`
+	SourceVariantId openapi_types.UUID    `json:"sourceVariantId"`
+	Status          SpanPreparationStatus `json:"status"`
+	UpdatedAt       string                `json:"updatedAt"`
+	Width           *int                  `json:"width,omitempty"`
+}
+
+// SpanPreparationStatus defines model for SpanPreparation.Status.
+type SpanPreparationStatus string
+
+// SpanStatus defines model for SpanStatus.
+type SpanStatus struct {
+	DisplayMode  SpanStatusDisplayMode `json:"displayMode"`
+	Geometry     SpanGeometry          `json:"geometry"`
+	GroupId      openapi_types.UUID    `json:"groupId"`
+	Preparations []SpanPreparation     `json:"preparations"`
+}
+
+// SpanStatusDisplayMode defines model for SpanStatus.DisplayMode.
+type SpanStatusDisplayMode string
 
 // SubmitContentRequest defines model for SubmitContentRequest.
 type SubmitContentRequest struct {
@@ -48312,6 +48595,17 @@ func (r EnableScheduleResponse) ContentType() string {
 type ListScreenGroupsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ScreenGroupList `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListScreenGroupsResponse) GetJSON200() *struct {
+	Data ScreenGroupList `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -48346,6 +48640,17 @@ func (r ListScreenGroupsResponse) ContentType() string {
 type CreateScreenGroupResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data ScreenGroup `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateScreenGroupResponse) GetJSON201() *struct {
+	Data ScreenGroup `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -48414,6 +48719,17 @@ func (r DeleteScreenGroupResponse) ContentType() string {
 type GetScreenGroupResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ScreenGroup `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetScreenGroupResponse) GetJSON200() *struct {
+	Data ScreenGroup `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -48448,6 +48764,17 @@ func (r GetScreenGroupResponse) ContentType() string {
 type UpdateScreenGroupResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ScreenGroup `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateScreenGroupResponse) GetJSON200() *struct {
+	Data ScreenGroup `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -48482,6 +48809,17 @@ func (r UpdateScreenGroupResponse) ContentType() string {
 type ApplyDisplayGroupControlResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *struct {
+		Data DisplayControlGroupApplyResult `json:"data"`
+	}
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r ApplyDisplayGroupControlResponse) GetJSON202() *struct {
+	Data DisplayControlGroupApplyResult `json:"data"`
+} {
+	return r.JSON202
 }
 
 // GetBody returns the raw response body bytes
@@ -48516,6 +48854,17 @@ func (r ApplyDisplayGroupControlResponse) ContentType() string {
 type PreviewDisplayGroupControlResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data DisplayControlGroupPreview `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PreviewDisplayGroupControlResponse) GetJSON200() *struct {
+	Data DisplayControlGroupPreview `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -48550,6 +48899,17 @@ func (r PreviewDisplayGroupControlResponse) ContentType() string {
 type UnassignSyncGroupPlaylistResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ScreenGroup `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UnassignSyncGroupPlaylistResponse) GetJSON200() *struct {
+	Data ScreenGroup `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -48584,6 +48944,17 @@ func (r UnassignSyncGroupPlaylistResponse) ContentType() string {
 type AssignSyncGroupPresentationResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ScreenGroup `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AssignSyncGroupPresentationResponse) GetJSON200() *struct {
+	Data ScreenGroup `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -48742,6 +49113,17 @@ func (r PutGroupPolicyResponse) ContentType() string {
 type AddScreenGroupMemberResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ScreenGroup `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AddScreenGroupMemberResponse) GetJSON200() *struct {
+	Data ScreenGroup `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -48810,6 +49192,17 @@ func (r RemoveScreenGroupMemberResponse) ContentType() string {
 type GetSpanGeometryAndPreparationResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data SpanStatus `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetSpanGeometryAndPreparationResponse) GetJSON200() *struct {
+	Data SpanStatus `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -48844,6 +49237,17 @@ func (r GetSpanGeometryAndPreparationResponse) ContentType() string {
 type UpdateSpanGeometryResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ScreenGroup `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateSpanGeometryResponse) GetJSON200() *struct {
+	Data ScreenGroup `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -64708,6 +65112,18 @@ func ParseListScreenGroupsResponse(rsp *http.Response) (*ListScreenGroupsRespons
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ScreenGroupList `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
 	return response, nil
 }
 
@@ -64722,6 +65138,21 @@ func ParseCreateScreenGroupResponse(rsp *http.Response) (*CreateScreenGroupRespo
 	response := &CreateScreenGroupResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data ScreenGroup `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -64756,6 +65187,21 @@ func ParseGetScreenGroupResponse(rsp *http.Response) (*GetScreenGroupResponse, e
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ScreenGroup `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -64770,6 +65216,18 @@ func ParseUpdateScreenGroupResponse(rsp *http.Response) (*UpdateScreenGroupRespo
 	response := &UpdateScreenGroupResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ScreenGroup `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	}
 
 	return response, nil
@@ -64788,6 +65246,24 @@ func ParseApplyDisplayGroupControlResponse(rsp *http.Response) (*ApplyDisplayGro
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest struct {
+			Data DisplayControlGroupApplyResult `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -64802,6 +65278,24 @@ func ParsePreviewDisplayGroupControlResponse(rsp *http.Response) (*PreviewDispla
 	response := &PreviewDisplayGroupControlResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data DisplayControlGroupPreview `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -64820,6 +65314,18 @@ func ParseUnassignSyncGroupPlaylistResponse(rsp *http.Response) (*UnassignSyncGr
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ScreenGroup `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
 	return response, nil
 }
 
@@ -64834,6 +65340,18 @@ func ParseAssignSyncGroupPresentationResponse(rsp *http.Response) (*AssignSyncGr
 	response := &AssignSyncGroupPresentationResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ScreenGroup `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	}
 
 	return response, nil
@@ -64927,6 +65445,21 @@ func ParseAddScreenGroupMemberResponse(rsp *http.Response) (*AddScreenGroupMembe
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ScreenGroup `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -64959,6 +65492,18 @@ func ParseGetSpanGeometryAndPreparationResponse(rsp *http.Response) (*GetSpanGeo
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data SpanStatus `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
 	return response, nil
 }
 
@@ -64973,6 +65518,24 @@ func ParseUpdateSpanGeometryResponse(rsp *http.Response) (*UpdateSpanGeometryRes
 	response := &UpdateSpanGeometryResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ScreenGroup `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil

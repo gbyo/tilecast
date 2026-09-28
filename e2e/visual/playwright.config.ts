@@ -15,6 +15,7 @@ export default defineConfig({
   expect: {
     timeout: 15_000,
     toHaveScreenshot: {
+      stylePath: "./screenshot.css",
       maxDiffPixelRatio: 0.005,
       animations: "disabled",
       caret: "hide",

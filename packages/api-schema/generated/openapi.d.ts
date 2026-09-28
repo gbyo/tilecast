@@ -6633,26 +6633,132 @@ export interface components {
     };
     SpanPreparation: {
       /** Format: uuid */
-      id?: string;
+      id: string;
       /** Format: uuid */
-      screenId?: string;
+      screenId: string;
       /** Format: uuid */
-      sourceAssetId?: string;
+      sourceAssetId: string;
       /** Format: uuid */
-      sourceVariantId?: string;
+      sourceVariantId: string;
       /** @enum {string} */
-      status?: "queued" | "processing" | "ready" | "failed";
+      status: "queued" | "processing" | "ready" | "failed";
       progress?: number;
+      width?: number;
+      height?: number;
+      durationSeconds?: number;
+      frameRate?: number;
       errorCode?: string;
       errorMessage?: string;
+      updatedAt: string;
+    };
+    SpanGeometry: {
+      canvas: {
+        width: number;
+        height: number;
+      };
+      panels: components["schemas"]["SpanPanel"][];
     };
     SpanStatus: {
       /** Format: uuid */
-      groupId?: string;
+      groupId: string;
       /** @enum {string} */
-      displayMode?: "mirror" | "span";
-      geometry?: Record<string, never>;
-      preparations?: components["schemas"]["SpanPreparation"][];
+      displayMode: "mirror" | "span";
+      geometry: components["schemas"]["SpanGeometry"];
+      preparations: components["schemas"]["SpanPreparation"][];
+    };
+    ScreenGroupScreen: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      location: string;
+    };
+    ScreenGroup: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      description: string;
+      /** @enum {string} */
+      displayMode: "mirror" | "span";
+      /** Format: uuid */
+      presentationGatewayScreenId?: string;
+      /** Format: uuid */
+      playlistId?: string;
+      playlistName?: string;
+      /** Format: uuid */
+      layoutId?: string;
+      layoutName?: string;
+      /** @enum {string} */
+      presentationType?: "playlist" | "layout";
+      /** Format: date-time */
+      playbackEpoch: string;
+      membershipCount: number;
+      screens: components["schemas"]["ScreenGroupScreen"][];
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      updatedAt: string;
+    };
+    ScreenGroupList: {
+      items: components["schemas"]["ScreenGroup"][];
+      total: number;
+      page: number;
+      pageSize: number;
+    };
+    DisplayControlGroupScreen: {
+      /** Format: uuid */
+      screenId: string;
+      name: string;
+      provider: string;
+      capabilities: {
+        [key: string]: string;
+      };
+      supported: boolean;
+      eligible: boolean;
+      reason?: string;
+    };
+    DisplayControlGroupPreview: {
+      /** Format: uuid */
+      groupId: string;
+      groupName: string;
+      /** @enum {string} */
+      commandType:
+        | "display_power_on"
+        | "display_power_off"
+        | "display_mute"
+        | "display_unmute";
+      selectedCount: number;
+      supportedCount: number;
+      unsupportedCount: number;
+      eligibleCount: number;
+      fingerprint: string;
+      /** @description Null for groups with no members; Studio reads an empty selection. */
+      screens: components["schemas"]["DisplayControlGroupScreen"][] | null;
+    };
+    DisplayControlGroupResult: {
+      /** Format: uuid */
+      screenId: string;
+      name: string;
+      /** @enum {string} */
+      state: "queued" | "skipped" | "failed";
+      reason?: string;
+      /** Format: uuid */
+      id?: string;
+    };
+    DisplayControlGroupApplyResult: {
+      /** Format: uuid */
+      groupId: string;
+      /** @enum {string} */
+      commandType:
+        | "display_power_on"
+        | "display_power_off"
+        | "display_mute"
+        | "display_unmute";
+      selectedCount: number;
+      supportedCount: number;
+      queuedCount: number;
+      failedCount: number;
+      unsupportedCount: number;
+      results: components["schemas"]["DisplayControlGroupResult"][];
     };
     PlayerManifest: {
       /** @enum {integer} */
@@ -15051,7 +15157,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ScreenGroupList"];
+          };
+        };
       };
     };
   };
@@ -15078,7 +15188,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ScreenGroup"];
+          };
+        };
       };
       /** @description Validation or configured limit failed */
       422: {
@@ -15105,7 +15219,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ScreenGroup"];
+          };
+        };
       };
       /** @description Display Group not found */
       404: {
@@ -15162,7 +15280,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ScreenGroup"];
+          };
+        };
       };
     };
   };
@@ -15182,7 +15304,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["SpanStatus"];
+          };
+        };
       };
     };
   };
@@ -15209,7 +15335,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ScreenGroup"];
+          };
+        };
       };
       /** @description Geometry conflicts with current membership */
       409: {
@@ -15249,7 +15379,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["DisplayControlGroupPreview"];
+          };
+        };
       };
       /** @description Display Group not found */
       404: {
@@ -15297,7 +15431,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["DisplayControlGroupApplyResult"];
+          };
+        };
       };
       /** @description Capability preview is stale */
       409: {
@@ -15338,7 +15476,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ScreenGroup"];
+          };
+        };
       };
       /** @description Screen already belongs to a Display Group */
       409: {
@@ -15390,7 +15532,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ScreenGroup"];
+          };
+        };
       };
     };
   };
@@ -15410,7 +15556,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ScreenGroup"];
+          };
+        };
       };
     };
   };

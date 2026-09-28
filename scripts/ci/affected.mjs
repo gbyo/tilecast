@@ -38,6 +38,10 @@ const rules = [
   [/^(apps\/cli|packages\/api-client)\//, ["cli"]],
   [/^apps\/player-android\//, ["android"]],
   [
+    /^scripts\/(build-player-release|extract-apksigner-sha256)\.sh$/,
+    ["android"],
+  ],
+  [
     /^(apps\/player-linux\/|scripts\/(build-linux-player-release\.sh|verify-linux-player-release\.mjs)$)/,
     ["linux"],
   ],
@@ -54,10 +58,6 @@ const rules = [
   [
     /^packages\/(api-schema|layout-schema|manifest-schema|settings-schema)\/package\.json$/,
     ["server", "dashboard", "cli", "docs"],
-  ],
-  [
-    /^packages\/api-schema\/(?!activity\/|README\.md$|package\.json$)/,
-    ["server", "dashboard", "cli"],
   ],
   [/^packages\/api-schema\/activity\//, ["activity"]],
   [
@@ -81,7 +81,7 @@ const rules = [
   // Files with authenticated Player endpoints, their decoders, or shared
   // routing/authentication. A contract test audits every Player handler.
   [
-    /^apps\/server\/internal\/httpapi\/(devices|player_socket|player_manifest|player_config|heartbeat_decode|heartbeat_json|pairing_json|manifest_integration|retired_heartbeat_integration|operations|display_control|airplay|airplay_reconcile|live_stream|media|span|previews|updates|presentation_networks|presentation_overrides|routes|server|middleware|principal)(_[^/]+)?\.go$/,
+    /^apps\/server\/internal\/httpapi\/(devices|player_socket|player_manifest|player_config|player_media|heartbeat_decode|heartbeat_json|pairing_json|manifest_integration|retired_heartbeat_integration|operations|display_control|airplay|airplay_reconcile|live_stream|span|previews|updates|presentation_networks|presentation_overrides|routes|server|middleware|principal)(_[^/]+)?\.go$/,
     ["protocol"],
   ],
   [
@@ -136,6 +136,8 @@ const rules = [
   [/^apps\/edge\/ci\//, edgeAreas],
   [/^apps\/edge\/[^/]+$/, edgeAreas],
   [/^deploy\/docker\//, ["container", "e2e"]],
+  [/^\.dockerignore$/, ["container", "e2e"]],
+  [/^\.(prettierignore|prettierrc(?:\.[^/]+)?)$/, ["dashboard", "docs"]],
   [/^(e2e\/|scripts\/demo-reset\.sh$)/, ["e2e"]],
   [
     /^(apps\/docs\/|docs\/|wiki\/|\.github\/logos\/)|(^|\/)README\.md$|^CONTRIBUTING\.md$|^scripts\/check-docs-ste\.sh$/,
@@ -151,6 +153,11 @@ const rules = [
 export function affected(paths, { full = false, fullEdge = false } = {}) {
   const selected = new Set(full ? areas : []);
   for (const path of paths) {
+    // Package READMEs explain a contract; they do not compile into it.
+    if (/(^|\/)README\.md$/.test(path)) {
+      selected.add("docs");
+      continue;
+    }
     let matched = false;
     for (const [pattern, targets] of rules) {
       if (!pattern.test(path)) continue;

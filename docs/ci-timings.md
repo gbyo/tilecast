@@ -31,4 +31,24 @@ For a Studio component change, the old PR workflow selected plugin conformance a
 
 Shared Widget renderer changes now explicitly select WPE and Electron conformance. This selection increases integration confidence where the previous Edge path filter could miss a direct Widget change.
 
-After-change run measurements are recorded after the PR validation jobs complete. Do not treat a synthetic selection comparison as a measured speed improvement.
+## Measured Edge comparison
+
+[Edge run 36390934624](https://github.com/gbyo/tilecast/actions/runs/36390934624) passed all seven deep jobs at commit `af6ebe41e23e72265deefadef18f963429fea49f`. It used the new dependency graph, required aggregate, and image cache targets.
+
+| Measurement                   |  Before |   After |
+| ----------------------------- | ------: | ------: |
+| Full Edge elapsed time        | 16m 41s | 17m 17s |
+| Full Edge job execution total | 55m 31s | 52m 52s |
+| Migration                     | 15m 55s | 15m 53s |
+| Real server                   | 13m 18s |  13m 9s |
+| Activity parity               | 11m 23s | 10m 33s |
+| WPE                           |  5m 20s |  4m 49s |
+| Renderer conformance          |  4m 10s |  2m 32s |
+
+The full Edge run used 159 fewer job execution seconds. Its elapsed time increased by 36 seconds. These two runs do not establish a cache speed trend. They confirm that all deep validation still runs successfully.
+
+A second full [Edge run 36393103397](https://github.com/gbyo/tilecast/actions/runs/36393103397) passed at commit `e9d6ac6b2d4114c1578ee6b2e319ecd21d3e25af`. It completed in 15m 19s and used 51m 37s of job execution time. The two after-change runs show why one elapsed duration is not a reliable cache speed estimate.
+
+The main reduction comes from selection. Ordinary server administration changes select zero deep Edge jobs. The old workflow selected the full matrix for these changes. The after-run matrix used 52m 52s of job execution time. This is an example of the work that selection avoids, not a measured duration for a targeted PR. Studio component changes also select zero deep Edge jobs. The old Edge path filter already excluded these changes.
+
+The production browser job now includes 14 functional tests and 22 Studio visual comparisons. Studio also collects V8 coverage. The workload differs from the old smoke job, so a full PR comparison must include these extra checks. [PR 739](https://github.com/gbyo/tilecast/pull/739) records the final baseline-inclusive PR run and its elapsed and job execution times. Do not treat a synthetic selection comparison as a measured speed improvement.

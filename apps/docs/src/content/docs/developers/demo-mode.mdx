@@ -51,6 +51,8 @@ A smaller `basic` dataset has four screens and two playlists.
 
 Seven screens have simulated players that stay connected. They react like real players: assign new content and the screen picks it up, or send **Identify** and the command completes. Stale and offline screens age from the moment the demo starts, so reset the demo to bring them back.
 
+Simulated players do not render content. They acknowledge preview requests as unsupported, so Studio shows **Capture error** instead of waiting for an image. Stale screens without a previous capture show **Offline** in the preview panel; a cached capture remains visible as stale.
+
 ## Reset or stop the demo
 
 Anything you change in Studio is kept until you reset:

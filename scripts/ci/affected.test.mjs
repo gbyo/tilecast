@@ -98,6 +98,7 @@ test("ordinary server business logic and dashboard HTTP do not select players", 
     "apps/server/internal/httpapi/notifications.go",
     "apps/server/internal/httpapi/github_configuration.go",
     "apps/server/internal/httpapi/content_organization.go",
+    "apps/server/internal/httpapi/media.go",
     "apps/server/internal/httpapi/playlists.go",
     "apps/server/internal/playlists/editorial_workflow_integration_test.go",
     "apps/server/internal/layouts/editorial.go",
@@ -116,6 +117,7 @@ test("device APIs and manifest/config producers select player consumers", () => 
     "apps/server/internal/httpapi/player_manifest.go",
     "apps/server/internal/httpapi/operations.go",
     "apps/server/internal/httpapi/player_config.go",
+    "apps/server/internal/httpapi/player_media.go",
     "apps/server/internal/playlists/service.go",
     "apps/server/internal/settings/service.go",
     "apps/server/internal/scheduling/engine.go",
@@ -170,10 +172,11 @@ test("shared schema contracts distinguish players from ordinary API consumers", 
     "packages/settings-schema/player-config-v1.json",
   ])
     assert.equal(affected([path]).edge_server, true, path);
-  assert.deepEqual(selected(["packages/api-schema/studio/users.json"]), [
+  assert.deepEqual(selected(["packages/api-schema/package.json"]), [
     "cli",
     "container",
     "dashboard",
+    "docs",
     "e2e",
     "server",
   ]);
@@ -186,6 +189,13 @@ test("shared schema contracts distinguish players from ordinary API consumers", 
 });
 test("documentation stays inexpensive", () => {
   assert.deepEqual(selected(["docs/deployment.md"]), ["docs"]);
+  for (const path of [
+    "apps/server/README.md",
+    "apps/edge/README.md",
+    "widgets/clock/README.md",
+    "packages/plugin-sdk/README.md",
+  ])
+    assert.deepEqual(selected([path]), ["docs"], path);
 });
 test("graph, workflows, lockfiles and unknown shared packages fail conservative", () => {
   for (const path of [
@@ -193,6 +203,7 @@ test("graph, workflows, lockfiles and unknown shared packages fail conservative"
     ".github/workflows/pr-validation.yml",
     "package-lock.json",
     "packages/new-contract/index.ts",
+    "packages/api-schema/new-contract.json",
   ])
     assert.deepEqual(selected([path]), [...areas].sort());
 });

@@ -35,6 +35,15 @@ docker run --rm --ipc=host \
       output=e2e/visual
       baseline=/studio-baselines
     fi
+    # A proposal must contain fresh Linux captures even if the old image
+    # platform difference fits within the comparison tolerance.
+    for argument in "$@"; do
+      if [[ "$argument" == --update-snapshots* ]]; then
+        mv "$output/__screenshots__/linux" /previous-baselines
+        mkdir -p "$output/__screenshots__/linux"
+        break
+      fi
+    done
     mkdir -p "/artifacts/$suite"
     save_artifacts() {
       cp -a "$output/test-results" "/artifacts/$suite/" 2>/dev/null || true

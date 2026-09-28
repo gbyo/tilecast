@@ -48,10 +48,36 @@ for (const [name, path, ready] of states) {
   test(name, async ({ page }) => {
     await page.goto(path);
     await expect(page.getByText(ready, { exact: true }).first()).toBeVisible();
+    if (name === "content") {
+      // Processing completion order is real and concurrent. Choose a stable
+      // sort through the production UI rather than masking whole cards.
+      await page.getByRole("combobox", { name: "Sort media" }).click();
+      await page.getByRole("option", { name: "Name", exact: true }).click();
+      await expect(page.getByRole("article")).toHaveCount(8);
+      await expect(page.getByRole("article").first()).toContainText(
+        "Booster Club",
+      );
+    }
     if (name === "widget-editor") {
       await page
         .getByRole("button", { name: "Small zone", exact: true })
         .click();
+    }
+    if (name.startsWith("screen-")) {
+      // Demo players explicitly acknowledge unsupported captures. Screens
+      // without a connected player show Offline rather than awaiting an image.
+      await expect(
+        page
+          .getByRole("complementary", { name: "Live preview" })
+          .getByText(name === "screen-online" ? "Capture error" : "Offline", {
+            exact: true,
+          }),
+      ).toBeVisible();
+      await expect(
+        page
+          .getByRole("complementary", { name: "Live preview" })
+          .getByText("Not captured", { exact: true }),
+      ).toBeVisible();
     }
     await snapshot(page, name);
   });
@@ -65,15 +91,27 @@ test("overview", async ({ page }) => {
   await snapshot(page, "overview", [
     page.locator(".recharts-wrapper"),
     page.getByRole("region", { name: "Fleet health" }).locator(".tabular-nums"),
+    page.getByRole("button", { name: /^Per screen ·/ }).locator("span"),
   ]);
 });
 
 test("layout-widget-preview", async ({ page }) => {
   await page.goto(`/layouts/${lobbyPortrait}`);
   await page.getByRole("button", { name: "Preview", exact: true }).click();
+  await expect(page.locator("#layout-preview-date")).toHaveText("9/28/2026");
   await expect(
     page.locator(".layout-preview-frame [data-tilecast-widget]"),
   ).toHaveCount(1);
+  await expect(page.locator(".layout-preview-frame")).toBeInViewport({
+    ratio: 1,
+  });
+  await expect
+    .poll(() =>
+      page
+        .locator(".layout-preview-frame")
+        .evaluate((frame) => frame.clientWidth / frame.clientHeight),
+    )
+    .toBeCloseTo(1080 / 1920, 2);
   await snapshot(page, "layout-widget-preview");
 });
 

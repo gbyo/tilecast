@@ -1,0 +1,11 @@
+/* Only volatile contact metadata gets a fixed width. Keep the rest of the
+   production table, including status, content and controls, unchanged. */
+table time {
+  display: inline-block;
+  width: 96px;
+}
+
+/* Background timestamps must not be painted above the active dialog. */
+[data-visual-volatile] {
+  visibility: hidden !important;
+}

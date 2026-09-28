@@ -33,9 +33,9 @@ Unknown shared packages select all areas. Workflow, dependency, and classifier c
 
 Detection runs the dependency-free affected-area and aggregate tests with Node before any package installation. Workflow YAML tests run in `CI workflow contracts`, after installation of the root tool dependencies. CI infrastructure changes select this job. `Required PR validation` includes its result.
 
-HTTP rules identify files with Player endpoints and shared routing or authentication. The Player configuration and manifest handlers have separate files. Settings, users, dashboard authentication, backups, notifications, and content administration select server and production browser validation. They do not select Players. A source contract test requires each Player handler to retain its consumer mapping.
+HTTP rules identify files with Player endpoints and shared routing or authentication. The Player configuration, manifest, and media delivery handlers have separate files. Settings, users, dashboard authentication, backups, notifications, and content administration select server and production browser validation. They do not select Players. A source contract test requires each Player handler to retain its consumer mapping.
 
-Manifest, layout, and Player configuration JSON schemas select Player consumers. The activity fixtures select activity parity. Other API schemas select server, Studio, and CLI contracts. Schema package README files select documentation only. Unknown shared packages still select all areas.
+Manifest, layout, and Player configuration JSON schemas select Player consumers. The activity fixtures select activity parity. Reserved schema package metadata selects server, Studio, and CLI contracts. Schema package README files select documentation only. New API schema files and unknown shared packages select all areas until their consumers have a rule.
 
 The Demo Mode browser job builds and starts the production server image. It also validates the production Compose file. This job satisfies container validation when browser tests are selected. A separate container job runs only when the browser job does not run.
 
@@ -69,7 +69,19 @@ The functional journeys cover authoring, publication, previews, settings, plugin
 
 Linux Chromium is the committed screenshot authority for Studio and Widgets. The lockfile pins Playwright and its browser revision. Visual jobs use Ubuntu 24.04. The suite fixes the viewport, scale, locale, timezone, theme, and reduced motion. It disables animations and hides the caret during comparison. It waits for fonts, decoded images, and Widget render completion.
 
-Studio fixes browser `Date` while timers and real server time continue. The tests mask server contact times, hardware enrollment dates, notification counts, and pairing expiry. The overview masks its live chart and next schedule change. The Widget suite uses each fixture's manual clock and production mount. Both suites permit at most a 0.5% pixel difference. Do not increase this tolerance to make a failure pass.
+Studio fixes browser `Date` while timers and real server time continue. The tests mask server contact times, enrollment and sign-in dates, update ages, notification counts, and pairing expiry metadata. Screen details mask the effective assignment and next transition values because the server evaluates schedules with real time. Status labels and controls remain visible. The overview masks its live chart, health values, and measured-screen counts. The next schedule panel uses the fixed browser time and remains visible. Widget renderers have no masks. Widget editor snapshots select the 320 × 180 Small zone preset so the full frame is visible.
+
+Simulated Players report unsupported captures through the player API. Screen detail tests wait for the real Live preview panel: a capture error for the online screen and offline states for screens without a connected Player or a cached image. The Activity snapshot covers the seeded empty Proof of Play state. Dialog captures hide volatile background labels in their own layer, so masks cannot cover the dialog. Fixed date controls remain visible. The Widget suite uses each fixture's manual clock and production mount. Both suites permit at most a 0.5% pixel difference. Do not increase this tolerance to make a failure pass.
+
+The Media snapshot selects name sorting through the real UI. Media processing can finish in a different order, so update time is not a deterministic sort key.
+
+Relative update labels include both numeric ages and `just now`. Masked table contact labels have a fixed screenshot width, so their changing text cannot resize adjacent columns.
+
+The initial 22 Studio PNG files were captured on Ubuntu 24.04 x64 with Playwright 1.63.0 and Chromium revision 1243 (153.0.8010.12). The capture runs were [36393103744](https://github.com/gbyo/tilecast/actions/runs/36393103744), [36394627433](https://github.com/gbyo/tilecast/actions/runs/36394627433), and [36395391085](https://github.com/gbyo/tilecast/actions/runs/36395391085). Each 1440 × 1000 image was reviewed for seeded data, complete loading, fonts, theme, masks, overlays, shared Widget rendering, and the intended editor or dialog state. Layout library thumbnails and the website Widget have no saved preview in the seed. Their unavailable states are expected.
+
+The online screen baseline was refreshed from [36462713769](https://github.com/gbyo/tilecast/actions/runs/36462713769) after the simulator acknowledged unsupported captures. The test waits for the capture error, not the initial preview metadata.
+
+The fleet baseline was refreshed from [36464361568](https://github.com/gbyo/tilecast/actions/runs/36464361568) after contact labels received a fixed screenshot width. All other 21 comparisons passed in that run.
 
 On macOS, run the Linux container helper against the running demo:
 
