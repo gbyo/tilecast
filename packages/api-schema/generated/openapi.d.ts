@@ -3427,7 +3427,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Requires an authenticated dashboard session. Reports the fields a candidate RSS, Atom, Feed, JSON, or CSV connection contains, with a few sample values per field, a suggested field mapping, and which record fields the Source can fill. Runs under the same safe fetch policy as preview and deliberately does not require a mapping, because the mapping is what it exists to produce. */
+    /** @description Requires an authenticated dashboard session. Reports the fields a candidate RSS, Atom, JSON, or CSV connection contains, with a few sample values per field, a suggested field mapping, and which record fields the Source can fill. Runs under the same safe fetch policy as preview and deliberately does not require a mapping, because the mapping is what it exists to produce. */
     post: operations["inspectDataSource"];
     delete?: never;
     options?: never;
@@ -3516,7 +3516,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Publish layout. Requires an authenticated dashboard user. */
+    /** @description Publish layout. Requires an authenticated dashboard user. Publishes the draft the caller read first: the request carries the draft revision it saw, and a 409 means someone else published first. A layout under editorial review answers 202 with the submission instead of publishing. */
     post: operations["publishLayout"];
     delete?: never;
     options?: never;
@@ -5552,7 +5552,7 @@ export interface components {
       /** @default false */
       hidden: boolean;
       security: components["schemas"]["PresentationNetworkSecurity"];
-      secret?: components["schemas"]["PresentationNetworkSecret"];
+      secret: components["schemas"]["PresentationNetworkSecret"];
       identity?: string;
       anonymousIdentity?: string;
       caCertificatePem?: string;
@@ -5568,62 +5568,6 @@ export interface components {
       anonymousIdentity?: string;
       caCertificatePem?: string;
       domainSuffixMatch?: string;
-    };
-    LocationInput: {
-      name: string;
-      addressLine1?: string;
-      addressLine2?: string;
-      city?: string;
-      state?: string;
-      postalCode?: string;
-      country?: string;
-      latitude?: number;
-      longitude?: number;
-    };
-    /** @enum {string} */
-    WebsiteCookiePolicy: "disabled" | "first_party" | "first_and_third_party";
-    /** @enum {string} */
-    WebsiteReloadPolicy: "load_once" | "on_each_activation" | "interval";
-    /** @enum {string} */
-    WebsiteFailureBehavior:
-      "last_success" | "placeholder" | "fallback_image" | "skip";
-    WebsiteInput: {
-      name: string;
-      description: string;
-      /** Format: uri */
-      url: string;
-      allowedHosts: string[];
-      javascriptEnabled?: boolean;
-      domStorageEnabled?: boolean;
-      cookiePolicy?: components["schemas"]["WebsiteCookiePolicy"];
-      reloadPolicy?: components["schemas"]["WebsiteReloadPolicy"];
-      refreshIntervalSeconds?: number;
-      loadTimeoutSeconds?: number;
-      zoomPercent?: number;
-      scrollX: number;
-      scrollY: number;
-      customUserAgent: string;
-      backgroundColor: string;
-      failureBehavior?: components["schemas"]["WebsiteFailureBehavior"];
-      /** Format: uuid */
-      fallbackImageAssetId?: string;
-    };
-    PowerAssistConfirmation: {
-      deviceSleep: string;
-      tvStandby: string;
-      deviceWake: string;
-      tvWake: string;
-      inputSelection: string;
-      tilecastStartup: string;
-    };
-    PolicyUpdate: {
-      /** Format: int64 */
-      revision: number;
-      priority?: number;
-      /** @description Typed player-setting keys for this scope, validated against the settings registry server-side. */
-      values?: {
-        [key: string]: unknown;
-      };
     };
     PresentationNetworkAssignment: {
       /** Format: uuid */
@@ -6245,10 +6189,7 @@ export interface components {
       type: "public-key";
       /** @enum {string} */
       authenticatorAttachment?: "platform" | "cross-platform";
-      /** @description Authenticator extension outputs, parsed by the server WebAuthn library. */
-      clientExtensionResults?: {
-        [key: string]: unknown;
-      };
+      clientExtensionResults?: Record<string, never>;
       response: {
         /** @description base64url */
         clientDataJSON: string;
@@ -6266,10 +6207,7 @@ export interface components {
       type: "public-key";
       /** @enum {string} */
       authenticatorAttachment?: "platform" | "cross-platform";
-      /** @description Authenticator extension outputs, parsed by the server WebAuthn library. */
-      clientExtensionResults?: {
-        [key: string]: unknown;
-      };
+      clientExtensionResults?: Record<string, never>;
       response: {
         /** @description base64url */
         clientDataJSON: string;
@@ -6473,6 +6411,216 @@ export interface components {
       /** Format: int64 */
       newRevision: number;
       skippedItems: number;
+    };
+    LayoutPrimitiveBinding: {
+      /** Format: uuid */
+      dataSourceId: string;
+      field: string;
+      prefix?: string;
+      suffix?: string;
+      fallbackText?: string;
+      hideWhenEmpty?: boolean;
+      /** @enum {string} */
+      format?:
+        "text" | "date-short" | "date-long" | "number" | "integer" | "currency";
+    };
+    LayoutPrimitive: {
+      /** @enum {string} */
+      kind: "text" | "rectangle" | "circle" | "line" | "group";
+      text?: string;
+      /**
+       * @description Only bundled fonts are accepted for text primitives
+       * @enum {string}
+       */
+      fontFamily?: "Inter" | "Roboto" | "Source Sans 3" | "Noto Sans";
+      fontSize?: number;
+      /** @enum {integer} */
+      fontWeight?: 400 | 500 | 600 | 700 | 800;
+      /** @enum {string} */
+      textAlign?: "left" | "center" | "right";
+      /** @enum {string} */
+      verticalAlign?: "top" | "center" | "bottom";
+      color?: string;
+      backgroundColor?: string;
+      lineHeight?: number;
+      letterSpacing?: number;
+      padding?: number;
+      borderWidth?: number;
+      borderColor?: string;
+      cornerRadius?: number;
+      maximumLines?: number;
+      /** @enum {string} */
+      overflow?: "clip" | "ellipsis";
+      autoFit?: boolean;
+      minimumFontSize?: number;
+      fillColor?: string;
+      strokeColor?: string;
+      strokeWidth?: number;
+      binding?: components["schemas"]["LayoutPrimitiveBinding"];
+    };
+    LayoutPlayback: {
+      /** @enum {string} */
+      fit?: "contain" | "cover" | "stretch";
+      muted?: boolean;
+      loop?: boolean;
+      /** @enum {string} */
+      fallback?: "hide" | "background" | "previous";
+      cornerRadius?: number;
+    };
+    /** @description Widget placement override bag. Unknown keys are rejected, so only the keys below are accepted. */
+    LayoutPlacementOverrides: {
+      /** @enum {string} */
+      fit?: "contain" | "cover" | "stretch";
+      /** @enum {string} */
+      alignment?: "left" | "center" | "right";
+      foregroundColor?: string;
+      backgroundColor?: string;
+      /** @enum {string} */
+      fallbackVisibility?: "show" | "hide";
+      muted?: boolean;
+    };
+    LayoutPlacement: {
+      /** Format: uuid */
+      id: string;
+      /** @enum {string} */
+      type: "widget" | "asset" | "playlistZone" | "primitive";
+      name: string;
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      layer: number;
+      opacity: number;
+      visible: boolean;
+      locked: boolean;
+      /** Format: uuid */
+      groupId?: string;
+      /** Format: uuid */
+      widgetId?: string;
+      /** Format: uuid */
+      assetId?: string;
+      /** Format: uuid */
+      variantId?: string;
+      /** Format: uuid */
+      playlistId?: string;
+      overrides?: components["schemas"]["LayoutPlacementOverrides"];
+      primitive?: components["schemas"]["LayoutPrimitive"];
+      playback?: components["schemas"]["LayoutPlayback"];
+    };
+    LayoutCanvas: {
+      width: number;
+      height: number;
+      /** @enum {string} */
+      orientation: "landscape" | "portrait" | "custom";
+      backgroundColor: string;
+      /** Format: uuid */
+      backgroundAssetId?: string;
+      /** Format: uuid */
+      backgroundVariantId?: string;
+      safeAreaPercent: number;
+    };
+    LayoutDocument: {
+      /**
+       * @description Only schema version 2 is accepted.
+       * @enum {integer}
+       */
+      schemaVersion: 2;
+      canvas: components["schemas"]["LayoutCanvas"];
+      placements: components["schemas"]["LayoutPlacement"][];
+    };
+    LayoutDependency: {
+      /** @enum {string} */
+      type: "widget" | "asset" | "playlist" | "data_source";
+      /** Format: uuid */
+      id: string;
+    };
+    LayoutUsageItem: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+    };
+    LayoutUsage: {
+      screens: components["schemas"]["LayoutUsageItem"][];
+      schedules: components["schemas"]["LayoutUsageItem"][];
+      campaigns: components["schemas"]["LayoutUsageItem"][];
+    };
+    Layout: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      description: string;
+      /** @enum {string} */
+      orientation: "landscape" | "portrait" | "custom";
+      canvasWidth: number;
+      canvasHeight: number;
+      draft: components["schemas"]["LayoutDocument"];
+      /** Format: int64 */
+      draftRevision: number;
+      /** Format: uuid */
+      publishedRevisionId?: string;
+      /** Format: int64 */
+      publishedRevision?: number;
+      /** Format: date-time */
+      publishedAt?: string;
+      hasUnpublishedChanges: boolean;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      updatedAt: string;
+      previewImageUrl?: string;
+      dependencies: components["schemas"]["LayoutDependency"][];
+      usage: components["schemas"]["LayoutUsage"];
+    };
+    /** @description Compact Layout row returned by the Layout list. The editable draft, dependency list, and usage breakdown require the detail read. */
+    LayoutSummary: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      description: string;
+      /** @enum {string} */
+      orientation: "landscape" | "portrait" | "custom";
+      canvasWidth: number;
+      canvasHeight: number;
+      /** Format: int64 */
+      draftRevision: number;
+      /** Format: uuid */
+      publishedRevisionId?: string;
+      /** Format: int64 */
+      publishedRevision?: number;
+      /** Format: date-time */
+      publishedAt?: string;
+      hasUnpublishedChanges: boolean;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      updatedAt: string;
+      previewImageUrl?: string;
+    };
+    LayoutList: {
+      items: components["schemas"]["LayoutSummary"][];
+      total: number;
+      page: number;
+      pageSize: number;
+    };
+    LayoutRevision: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      layoutId: string;
+      /** Format: int64 */
+      revision: number;
+      document: components["schemas"]["LayoutDocument"];
+      documentSha256: string;
+      /** Format: uuid */
+      publishedBy?: string;
+      /** Format: date-time */
+      publishedAt: string;
+    };
+    LayoutRevisionList: {
+      items: components["schemas"]["LayoutRevision"][];
+      total: number;
+      page: number;
+      pageSize: number;
     };
     PresentationReference:
       | {
@@ -6833,8 +6981,21 @@ export interface components {
     AssetType: "image" | "video" | "widget";
     /** @description Closed renderable Widget or App identifier from the release-owned content-definition catalog. */
     WidgetProvider: string;
-    /** @description Data Source provider identifier from the content-definition catalog: calendar, rss, atom, feed, json, csv, manual, weather, transit, cap_alerts, air_quality, or a plugin-contributed provider. The server lowercases and trims the value and rejects unknown providers. */
-    DataSourceProvider: string;
+    /**
+     * @description Non-visual Data Source providers.
+     * @enum {string}
+     */
+    DataSourceProvider:
+      | "calendar"
+      | "rss"
+      | "atom"
+      | "json"
+      | "csv"
+      | "manual"
+      | "weather"
+      | "transit"
+      | "cap_alerts"
+      | "air_quality";
     Widget: {
       provider: components["schemas"]["WidgetProvider"];
       /** @enum {string|null} */
@@ -6854,10 +7015,8 @@ export interface components {
        * @description Explicit ownership link for a catalog App's hidden managed Data Source.
        */
       managedDataSourceId?: string;
-      /** @description Provider-specific configuration, validated per provider server-side. Native text Widgets omit textScale for automatic bounds-first sizing or use 25–500 percent; contentPadding defaults to 10 percent per edge and accepts 0–40. */
-      configuration: {
-        [key: string]: unknown;
-      };
+      /** @description Provider-specific configuration. Native text Widgets omit textScale for automatic bounds-first sizing or use 25–500 percent; contentPadding defaults to 10 percent per edge and accepts 0–40. */
+      configuration: Record<string, never>;
     };
     WidgetInput: {
       provider: components["schemas"]["WidgetProvider"];
@@ -6872,10 +7031,8 @@ export interface components {
         | null;
       name: string;
       description?: string;
-      /** @description Provider-specific configuration, validated per provider server-side. Native text Widgets omit textScale for automatic bounds-first sizing or use 25–500 percent; contentPadding defaults to 10 percent per edge and accepts 0–40. */
-      configuration: {
-        [key: string]: unknown;
-      };
+      /** @description Provider-specific configuration. Native text Widgets omit textScale for automatic bounds-first sizing or use 25–500 percent; contentPadding defaults to 10 percent per edge and accepts 0–40. */
+      configuration: Record<string, never>;
     };
     /** @description Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider stays an open string because definition and plugin providers extend the registry beyond the request-side enum. */
     DataSource: {
@@ -7058,10 +7215,7 @@ export interface components {
       provider: components["schemas"]["DataSourceProvider"];
       name: string;
       description?: string;
-      /** @description Provider-specific configuration, validated per provider server-side. */
-      configuration: {
-        [key: string]: unknown;
-      };
+      configuration: Record<string, never>;
     };
     /** @enum {string} */
     AssetStatus:
@@ -7272,8 +7426,10 @@ export interface components {
       allowedHosts: string[];
       javascriptEnabled: boolean;
       domStorageEnabled: boolean;
-      cookiePolicy: components["schemas"]["WebsiteCookiePolicy"];
-      reloadPolicy: components["schemas"]["WebsiteReloadPolicy"];
+      /** @enum {string} */
+      cookiePolicy: "disabled" | "first_party" | "first_and_third_party";
+      /** @enum {string} */
+      reloadPolicy: "load_once" | "on_each_activation" | "interval";
       refreshIntervalSeconds?: number;
       loadTimeoutSeconds: number;
       zoomPercent: number;
@@ -7281,7 +7437,9 @@ export interface components {
       scrollY: number;
       customUserAgent: string;
       backgroundColor: string;
-      failureBehavior: components["schemas"]["WebsiteFailureBehavior"];
+      /** @enum {string} */
+      failureBehavior:
+        "last_success" | "placeholder" | "fallback_image" | "skip";
       /** Format: uuid */
       fallbackImageAssetId?: string;
       /** Format: date-time */
@@ -7311,7 +7469,8 @@ export interface components {
       scope: string;
       state?: string;
       challenge: string;
-      method?: string;
+      /** @enum {string} */
+      method?: "S256";
     };
     OAuthTokenRequest: {
       /** @enum {string} */
@@ -7491,28 +7650,10 @@ export interface components {
       authMethod?: string;
       mfaEnrollmentRequired?: boolean;
     };
-    SettingsExport: {
-      schemaVersion: number;
-      /** Format: date-time */
-      exportedAt: string;
-      tilecastVersion: string;
-      organization: {
-        [key: string]: unknown;
-      };
-      groupPolicies: {
-        [key: string]: unknown;
-      }[];
-      screenPolicies?: {
-        [key: string]: unknown;
-      }[];
-    };
     SettingsUpdate: {
       /** Format: int64 */
       revision: number;
-      /** @description Setting keys for this scope, validated against the registry server-side. */
-      values: {
-        [key: string]: unknown;
-      };
+      values: Record<string, never>;
     };
     SettingDefinition: {
       key: string;
@@ -7643,8 +7784,6 @@ export interface components {
     /** @description Registry identifier such as countdown_bar. */
     PluginID: string;
     ResourceID: string;
-    /** @description Maximum items returned. The server applies its own default and cap. */
-    ResultLimit: number;
     /** @description Fixed safe maintenance action accepted by the server. */
     MaintenanceAction:
       | "expired-upload-cleanup"
@@ -8014,14 +8153,7 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody: {
-      content: {
-        "application/json": {
-          username: string;
-          password: string;
-        };
-      };
-    };
+    requestBody?: never;
     responses: {
       /** @description Signed in, or a multi-factor challenge when the account has a confirmed second factor. A challenge sets no session cookie. */
       200: {
@@ -9528,10 +9660,7 @@ export interface operations {
   };
   listBulkOperations: {
     parameters: {
-      query?: {
-        /** @description Maximum items returned. The server applies its own default and cap. */
-        limit?: components["parameters"]["ResultLimit"];
-      };
+      query?: never;
       header?: never;
       path?: never;
       cookie?: never;
@@ -9710,10 +9839,7 @@ export interface operations {
   };
   listScreenSnapshots: {
     parameters: {
-      query?: {
-        /** @description Maximum items returned. The server applies its own default and cap. */
-        limit?: components["parameters"]["ResultLimit"];
-      };
+      query?: never;
       header?: never;
       path: {
         id: components["parameters"]["ResourceID"];
@@ -10126,10 +10252,7 @@ export interface operations {
   };
   deleteBackup: {
     parameters: {
-      query?: {
-        /** @description Bypass the last-complete-backup protection. The server reads `?force=true` on delete. */
-        force?: boolean;
-      };
+      query?: never;
       header: {
         /** @description Cookie-backed browser requests only. Bearer grants never send it. */
         "X-CSRF-Token": components["parameters"]["CSRFToken"];
@@ -10261,10 +10384,7 @@ export interface operations {
   };
   listNotificationDeliveries: {
     parameters: {
-      query?: {
-        /** @description Maximum items returned. The server applies its own default and cap. */
-        limit?: components["parameters"]["ResultLimit"];
-      };
+      query?: never;
       header?: never;
       path?: never;
       cookie?: never;
@@ -12289,11 +12409,8 @@ export interface operations {
           targetType: "screen" | "group";
           /** Format: uuid */
           targetId: string;
-          /**
-           * @description Minutes, or 0 for until stopped.
-           * @enum {integer}
-           */
-          durationMinutes?: 0 | 15 | 30 | 60;
+          /** @enum {integer} */
+          durationMinutes?: 15 | 30 | 60;
           /** @enum {string} */
           transport?: "auto" | "unicast" | "multicast";
           /** @enum {string} */
@@ -12850,16 +12967,7 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody: {
-      content: {
-        "application/json": {
-          /** Format: uuid */
-          parentId?: string;
-          name: string;
-          description: string;
-        };
-      };
-    };
+    requestBody?: never;
     responses: {
       /** @description Folder created */
       201: {
@@ -12910,14 +13018,7 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody: {
-      content: {
-        "application/json": {
-          name: string;
-          description: string;
-        };
-      };
-    };
+    requestBody?: never;
     responses: {
       /** @description Collection created */
       201: {
@@ -12961,15 +13062,7 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody: {
-      content: {
-        "application/json": {
-          name: string;
-          /** @description Six-digit hex color; empty defaults to slate. */
-          color: string;
-        };
-      };
-    };
+    requestBody?: never;
     responses: {
       /** @description Tag created */
       201: {
@@ -13767,11 +13860,7 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["LocationInput"];
-      };
-    };
+    requestBody?: never;
     responses: {
       /** @description Location created */
       201: {
@@ -13836,11 +13925,7 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["LocationInput"];
-      };
-    };
+    requestBody?: never;
     responses: {
       /** @description Location updated */
       200: {
@@ -14337,14 +14422,6 @@ export interface operations {
         sort?: "newest" | "oldest" | "updated" | "name";
         /** @description Return manually archived and automatically expired library content instead of active content */
         archived?: boolean;
-        /** @description Filter to assets produced by one widget provider */
-        provider?: string;
-        /** @description Filter to one content folder */
-        folderId?: string;
-        /** @description Filter to one content collection */
-        collectionId?: string;
-        /** @description Filter to one content tag */
-        tagId?: string;
       };
       header?: never;
       path?: never;
@@ -14838,14 +14915,7 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody: {
-      content: {
-        "application/json": {
-          name: string;
-          description: string;
-        };
-      };
-    };
+    requestBody?: never;
     responses: {
       /** @description Playlist updated and revision incremented */
       200: {
@@ -14966,13 +15036,7 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody: {
-      content: {
-        "application/json": {
-          itemIds: string[];
-        };
-      };
-    };
+    requestBody?: never;
     responses: {
       /** @description Complete item order replaced transactionally */
       200: {
@@ -15111,11 +15175,7 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["PlaylistItemInput"];
-      };
-    };
+    requestBody?: never;
     responses: {
       /** @description Playback settings updated */
       200: {
@@ -15306,11 +15366,7 @@ export interface operations {
   };
   listScreenGroups: {
     parameters: {
-      query?: {
-        search?: string;
-        page?: number;
-        pageSize?: number;
-      };
+      query?: never;
       header?: never;
       path?: never;
       cookie?: never;
@@ -15339,14 +15395,7 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody: {
-      content: {
-        "application/json": {
-          name: string;
-          description: string;
-        };
-      };
-    };
+    requestBody?: never;
     responses: {
       /** @description Display Group created in Mirror mode */
       201: {
@@ -15428,17 +15477,7 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody: {
-      content: {
-        "application/json": {
-          name: string;
-          description: string;
-          /** Format: uuid */
-          presentationGatewayScreenId?: string;
-          clearPresentationGateway?: boolean;
-        };
-      };
-    };
+    requestBody?: never;
     responses: {
       /** @description Display Group updated */
       200: {
@@ -15627,14 +15666,7 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody: {
-      content: {
-        "application/json": {
-          /** Format: uuid */
-          screenId: string;
-        };
-      };
-    };
+    requestBody?: never;
     responses: {
       /** @description Screen added and member manifests revised */
       200: {
@@ -15862,11 +15894,7 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ScheduleInput"];
-      };
-    };
+    requestBody?: never;
     responses: {
       /** @description Schedule updated and affected manifests revised */
       200: {
@@ -15936,17 +15964,7 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody: {
-      content: {
-        "application/json": {
-          /** Format: uuid */
-          screenId: string;
-          /** Format: date-time */
-          timestamp?: string;
-          proposedSchedule?: components["schemas"]["ScheduleInput"];
-        };
-      };
-    };
+    requestBody?: never;
     responses: {
       /** @description Production resolution result, conflicts, fallback, and next transition */
       200: {
@@ -15974,11 +15992,7 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["WebsiteInput"];
-      };
-    };
+    requestBody?: never;
     responses: {
       /** @description Website asset created */
       201: {
@@ -16012,11 +16026,7 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["WebsiteInput"];
-      };
-    };
+    requestBody?: never;
     responses: {
       /** @description Website configuration updated and affected manifests revised */
       200: {
@@ -16130,16 +16140,7 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody: {
-      content: {
-        "application/json": {
-          provider: string;
-          configuration: {
-            [key: string]: unknown;
-          };
-        };
-      };
-    };
+    requestBody?: never;
     responses: {
       /** @description Declarative presentation schema v1 document */
       200: {
@@ -16255,13 +16256,7 @@ export interface operations {
   };
   listDataSources: {
     parameters: {
-      query?: {
-        search?: string;
-        provider?: string;
-        sort?: string;
-        page?: number;
-        pageSize?: number;
-      };
+      query?: never;
       header?: never;
       path?: never;
       cookie?: never;
@@ -16467,16 +16462,24 @@ export interface operations {
       query?: never;
       header?: never;
       path: {
-        provider: components["schemas"]["DataSourceProvider"];
+        provider:
+          | "calendar"
+          | "rss"
+          | "atom"
+          | "json"
+          | "csv"
+          | "manual"
+          | "weather"
+          | "transit"
+          | "cap_alerts"
+          | "air_quality";
       };
       cookie?: never;
     };
     requestBody: {
       content: {
         "application/json": {
-          configuration: {
-            [key: string]: unknown;
-          };
+          configuration: Record<string, never>;
           /** Format: date */
           previewDate?: string;
         };
@@ -16549,16 +16552,14 @@ export interface operations {
       query?: never;
       header?: never;
       path: {
-        provider: components["schemas"]["DataSourceProvider"];
+        provider: "rss" | "atom" | "json" | "csv";
       };
       cookie?: never;
     };
     requestBody: {
       content: {
         "application/json": {
-          configuration: {
-            [key: string]: unknown;
-          };
+          configuration: Record<string, never>;
         };
       };
     };
@@ -16608,6 +16609,17 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
+        content: {
+          "application/json": {
+            data: components["schemas"]["LayoutList"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
         content?: never;
       };
     };
@@ -16615,7 +16627,10 @@ export interface operations {
   createLayout: {
     parameters: {
       query?: never;
-      header?: never;
+      header: {
+        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
+        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      };
       path?: never;
       cookie?: never;
     };
@@ -16623,8 +16638,9 @@ export interface operations {
       content: {
         "application/json": {
           name: string;
-          description: string;
-          orientation: string;
+          description?: string;
+          /** @enum {string} */
+          orientation: "landscape" | "portrait" | "custom";
           canvasWidth: number;
           canvasHeight: number;
         };
@@ -16636,7 +16652,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["Layout"];
+          };
+        };
       };
       /** @description Layout details rejected */
       422: {
@@ -16663,7 +16683,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["Layout"];
+          };
+        };
       };
       /** @description Layout not found */
       404: {
@@ -16677,7 +16701,10 @@ export interface operations {
   deleteLayout: {
     parameters: {
       query?: never;
-      header?: never;
+      header: {
+        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
+        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      };
       path: {
         id: components["parameters"]["ResourceID"];
       };
@@ -16704,7 +16731,10 @@ export interface operations {
   updateLayout: {
     parameters: {
       query?: never;
-      header?: never;
+      header: {
+        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
+        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      };
       path: {
         id: components["parameters"]["ResourceID"];
       };
@@ -16714,13 +16744,24 @@ export interface operations {
       content: {
         "application/json": {
           name: string;
-          description: string;
+          description?: string;
         };
       };
     };
     responses: {
       /** @description Layout metadata updated */
       200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["Layout"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
         headers: {
           [name: string]: unknown;
         };
@@ -16731,7 +16772,10 @@ export interface operations {
   saveLayoutDraft: {
     parameters: {
       query?: never;
-      header?: never;
+      header: {
+        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
+        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      };
       path: {
         id: components["parameters"]["ResourceID"];
       };
@@ -16740,12 +16784,8 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
-          /** Format: int64 */
           expectedDraftRevision: number;
-          /** @description Layout document, validated against the Layout schema server-side. */
-          document: {
-            [key: string]: unknown;
-          };
+          document: components["schemas"]["LayoutDocument"];
         };
       };
     };
@@ -16755,7 +16795,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["Layout"];
+          };
+        };
       };
       /** @description Draft revision conflict */
       409: {
@@ -16846,7 +16890,10 @@ export interface operations {
   publishLayout: {
     parameters: {
       query?: never;
-      header?: never;
+      header: {
+        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
+        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      };
       path: {
         id: components["parameters"]["ResourceID"];
       };
@@ -16855,7 +16902,6 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
-          /** Format: int64 */
           expectedDraftRevision: number;
         };
       };
@@ -16863,6 +16909,15 @@ export interface operations {
     responses: {
       /** @description Immutable published revision created */
       201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": Record<string, never>;
+        };
+      };
+      /** @description Submitted for editorial review instead of publishing */
+      202: {
         headers: {
           [name: string]: unknown;
         };
@@ -16880,7 +16935,10 @@ export interface operations {
   duplicateLayout: {
     parameters: {
       query?: never;
-      header?: never;
+      header: {
+        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
+        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      };
       path: {
         id: components["parameters"]["ResourceID"];
       };
@@ -16890,6 +16948,17 @@ export interface operations {
     responses: {
       /** @description Independent Layout draft created */
       201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["Layout"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
         headers: {
           [name: string]: unknown;
         };
@@ -16916,6 +16985,17 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
+        content: {
+          "application/json": {
+            data: components["schemas"]["LayoutRevisionList"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
         content?: never;
       };
     };
@@ -16923,7 +17003,10 @@ export interface operations {
   restoreLayoutRevision: {
     parameters: {
       query?: never;
-      header?: never;
+      header: {
+        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
+        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      };
       path: {
         id: components["parameters"]["ResourceID"];
         revisionId: string;
@@ -16933,7 +17016,6 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
-          /** Format: int64 */
           expectedDraftRevision: number;
         };
       };
@@ -16944,7 +17026,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["Layout"];
+          };
+        };
       };
       /** @description Draft revision conflict */
       409: {
@@ -17674,22 +17760,7 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody: {
-      content: {
-        "application/json": {
-          name: string;
-          description: string;
-          /** Format: uuid */
-          playlistId: string;
-          screenIds: string[];
-          groupIds: string[];
-          /** Format: date-time */
-          expiresAt: string;
-          /** @description Current password when the reauthentication policy requires it. */
-          password?: string;
-        };
-      };
-    };
+    requestBody?: never;
     responses: {
       /** @description Takeover activated */
       201: {
@@ -17736,13 +17807,7 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody: {
-      content: {
-        "application/json": {
-          reason: string;
-        };
-      };
-    };
+    requestBody?: never;
     responses: {
       /** @description Takeover cancelled */
       200: {
@@ -18312,13 +18377,7 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: {
-      content: {
-        "application/json": {
-          reason?: string;
-        };
-      };
-    };
+    requestBody?: never;
     responses: {
       /** @description Quick Present stopped */
       200: {
@@ -18365,19 +18424,7 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody: {
-      content: {
-        "application/json": {
-          type: string;
-          /** @description Command payload, validated per command type server-side. */
-          payload: {
-            [key: string]: unknown;
-          };
-          /** Format: uuid */
-          idempotencyKey?: string;
-        };
-      };
-    };
+    requestBody?: never;
     responses: {
       /** @description Command queued */
       202: {
@@ -18658,11 +18705,7 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["PolicyUpdate"];
-      };
-    };
+    requestBody?: never;
     responses: {
       /** @description Updated policy */
       200: {
@@ -18737,11 +18780,7 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["PolicyUpdate"];
-      };
-    };
+    requestBody?: never;
     responses: {
       /** @description Updated policy */
       200: {
@@ -18855,11 +18894,7 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["PowerAssistConfirmation"];
-      };
-    };
+    requestBody?: never;
     responses: {
       /** @description Confirmation stored */
       200: {
@@ -18987,11 +19022,7 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["SettingsExport"];
-      };
-    };
+    requestBody?: never;
     responses: {
       /** @description Import preview */
       200: {
@@ -19016,11 +19047,7 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["SettingsExport"];
-      };
-    };
+    requestBody?: never;
     responses: {
       /** @description Import applied */
       200: {
@@ -19125,14 +19152,7 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody: {
-      content: {
-        "application/json": {
-          /** Format: uuid */
-          flowId: string;
-        };
-      };
-    };
+    requestBody?: never;
     responses: {
       /** @description Pending, connected, denied, or expired state */
       200: {
@@ -19308,22 +19328,7 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody: {
-      content: {
-        "application/json": {
-          /** Format: uuid */
-          releaseId: string;
-          name: string;
-          /** @enum {string} */
-          mode: "download_only" | "install_now" | "maintenance_window";
-          screenIds: string[];
-          groupIds: string[];
-          canarySize?: number;
-          /** Format: date-time */
-          maintenanceWindowStart?: string;
-        };
-      };
-    };
+    requestBody?: never;
     responses: {
       /** @description Deployment created */
       201: {

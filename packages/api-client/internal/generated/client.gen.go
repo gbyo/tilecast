@@ -402,6 +402,48 @@ func (e DataSourceDateSelectionNoMatchBehavior) Valid() bool {
 	}
 }
 
+// Defines values for DataSourceProvider.
+const (
+	DataSourceProviderAirQuality DataSourceProvider = "air_quality"
+	DataSourceProviderAtom       DataSourceProvider = "atom"
+	DataSourceProviderCalendar   DataSourceProvider = "calendar"
+	DataSourceProviderCapAlerts  DataSourceProvider = "cap_alerts"
+	DataSourceProviderCsv        DataSourceProvider = "csv"
+	DataSourceProviderJson       DataSourceProvider = "json"
+	DataSourceProviderManual     DataSourceProvider = "manual"
+	DataSourceProviderRss        DataSourceProvider = "rss"
+	DataSourceProviderTransit    DataSourceProvider = "transit"
+	DataSourceProviderWeather    DataSourceProvider = "weather"
+)
+
+// Valid indicates whether the value is a known member of the DataSourceProvider enum.
+func (e DataSourceProvider) Valid() bool {
+	switch e {
+	case DataSourceProviderAirQuality:
+		return true
+	case DataSourceProviderAtom:
+		return true
+	case DataSourceProviderCalendar:
+		return true
+	case DataSourceProviderCapAlerts:
+		return true
+	case DataSourceProviderCsv:
+		return true
+	case DataSourceProviderJson:
+		return true
+	case DataSourceProviderManual:
+		return true
+	case DataSourceProviderRss:
+		return true
+	case DataSourceProviderTransit:
+		return true
+	case DataSourceProviderWeather:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DependencyNodeType.
 const (
 	DependencyNodeTypeAsset       DependencyNodeType = "asset"
@@ -588,6 +630,402 @@ func (e GitHubDevicePollStatus) Valid() bool {
 	}
 }
 
+// Defines values for LayoutOrientation.
+const (
+	LayoutOrientationCustom    LayoutOrientation = "custom"
+	LayoutOrientationLandscape LayoutOrientation = "landscape"
+	LayoutOrientationPortrait  LayoutOrientation = "portrait"
+)
+
+// Valid indicates whether the value is a known member of the LayoutOrientation enum.
+func (e LayoutOrientation) Valid() bool {
+	switch e {
+	case LayoutOrientationCustom:
+		return true
+	case LayoutOrientationLandscape:
+		return true
+	case LayoutOrientationPortrait:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LayoutCanvasOrientation.
+const (
+	LayoutCanvasOrientationCustom    LayoutCanvasOrientation = "custom"
+	LayoutCanvasOrientationLandscape LayoutCanvasOrientation = "landscape"
+	LayoutCanvasOrientationPortrait  LayoutCanvasOrientation = "portrait"
+)
+
+// Valid indicates whether the value is a known member of the LayoutCanvasOrientation enum.
+func (e LayoutCanvasOrientation) Valid() bool {
+	switch e {
+	case LayoutCanvasOrientationCustom:
+		return true
+	case LayoutCanvasOrientationLandscape:
+		return true
+	case LayoutCanvasOrientationPortrait:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LayoutDependencyType.
+const (
+	LayoutDependencyTypeAsset      LayoutDependencyType = "asset"
+	LayoutDependencyTypeDataSource LayoutDependencyType = "data_source"
+	LayoutDependencyTypePlaylist   LayoutDependencyType = "playlist"
+	LayoutDependencyTypeWidget     LayoutDependencyType = "widget"
+)
+
+// Valid indicates whether the value is a known member of the LayoutDependencyType enum.
+func (e LayoutDependencyType) Valid() bool {
+	switch e {
+	case LayoutDependencyTypeAsset:
+		return true
+	case LayoutDependencyTypeDataSource:
+		return true
+	case LayoutDependencyTypePlaylist:
+		return true
+	case LayoutDependencyTypeWidget:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LayoutDocumentSchemaVersion.
+const (
+	N2 LayoutDocumentSchemaVersion = 2
+)
+
+// Valid indicates whether the value is a known member of the LayoutDocumentSchemaVersion enum.
+func (e LayoutDocumentSchemaVersion) Valid() bool {
+	switch e {
+	case N2:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LayoutPlacementType.
+const (
+	LayoutPlacementTypeAsset        LayoutPlacementType = "asset"
+	LayoutPlacementTypePlaylistZone LayoutPlacementType = "playlistZone"
+	LayoutPlacementTypePrimitive    LayoutPlacementType = "primitive"
+	LayoutPlacementTypeWidget       LayoutPlacementType = "widget"
+)
+
+// Valid indicates whether the value is a known member of the LayoutPlacementType enum.
+func (e LayoutPlacementType) Valid() bool {
+	switch e {
+	case LayoutPlacementTypeAsset:
+		return true
+	case LayoutPlacementTypePlaylistZone:
+		return true
+	case LayoutPlacementTypePrimitive:
+		return true
+	case LayoutPlacementTypeWidget:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LayoutPlacementOverridesAlignment.
+const (
+	LayoutPlacementOverridesAlignmentCenter LayoutPlacementOverridesAlignment = "center"
+	LayoutPlacementOverridesAlignmentLeft   LayoutPlacementOverridesAlignment = "left"
+	LayoutPlacementOverridesAlignmentRight  LayoutPlacementOverridesAlignment = "right"
+)
+
+// Valid indicates whether the value is a known member of the LayoutPlacementOverridesAlignment enum.
+func (e LayoutPlacementOverridesAlignment) Valid() bool {
+	switch e {
+	case LayoutPlacementOverridesAlignmentCenter:
+		return true
+	case LayoutPlacementOverridesAlignmentLeft:
+		return true
+	case LayoutPlacementOverridesAlignmentRight:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LayoutPlacementOverridesFallbackVisibility.
+const (
+	LayoutPlacementOverridesFallbackVisibilityHide LayoutPlacementOverridesFallbackVisibility = "hide"
+	LayoutPlacementOverridesFallbackVisibilityShow LayoutPlacementOverridesFallbackVisibility = "show"
+)
+
+// Valid indicates whether the value is a known member of the LayoutPlacementOverridesFallbackVisibility enum.
+func (e LayoutPlacementOverridesFallbackVisibility) Valid() bool {
+	switch e {
+	case LayoutPlacementOverridesFallbackVisibilityHide:
+		return true
+	case LayoutPlacementOverridesFallbackVisibilityShow:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LayoutPlacementOverridesFit.
+const (
+	LayoutPlacementOverridesFitContain LayoutPlacementOverridesFit = "contain"
+	LayoutPlacementOverridesFitCover   LayoutPlacementOverridesFit = "cover"
+	LayoutPlacementOverridesFitStretch LayoutPlacementOverridesFit = "stretch"
+)
+
+// Valid indicates whether the value is a known member of the LayoutPlacementOverridesFit enum.
+func (e LayoutPlacementOverridesFit) Valid() bool {
+	switch e {
+	case LayoutPlacementOverridesFitContain:
+		return true
+	case LayoutPlacementOverridesFitCover:
+		return true
+	case LayoutPlacementOverridesFitStretch:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LayoutPlaybackFallback.
+const (
+	LayoutPlaybackFallbackBackground LayoutPlaybackFallback = "background"
+	LayoutPlaybackFallbackHide       LayoutPlaybackFallback = "hide"
+	LayoutPlaybackFallbackPrevious   LayoutPlaybackFallback = "previous"
+)
+
+// Valid indicates whether the value is a known member of the LayoutPlaybackFallback enum.
+func (e LayoutPlaybackFallback) Valid() bool {
+	switch e {
+	case LayoutPlaybackFallbackBackground:
+		return true
+	case LayoutPlaybackFallbackHide:
+		return true
+	case LayoutPlaybackFallbackPrevious:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LayoutPlaybackFit.
+const (
+	LayoutPlaybackFitContain LayoutPlaybackFit = "contain"
+	LayoutPlaybackFitCover   LayoutPlaybackFit = "cover"
+	LayoutPlaybackFitStretch LayoutPlaybackFit = "stretch"
+)
+
+// Valid indicates whether the value is a known member of the LayoutPlaybackFit enum.
+func (e LayoutPlaybackFit) Valid() bool {
+	switch e {
+	case LayoutPlaybackFitContain:
+		return true
+	case LayoutPlaybackFitCover:
+		return true
+	case LayoutPlaybackFitStretch:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LayoutPrimitiveFontFamily.
+const (
+	Inter       LayoutPrimitiveFontFamily = "Inter"
+	NotoSans    LayoutPrimitiveFontFamily = "Noto Sans"
+	Roboto      LayoutPrimitiveFontFamily = "Roboto"
+	SourceSans3 LayoutPrimitiveFontFamily = "Source Sans 3"
+)
+
+// Valid indicates whether the value is a known member of the LayoutPrimitiveFontFamily enum.
+func (e LayoutPrimitiveFontFamily) Valid() bool {
+	switch e {
+	case Inter:
+		return true
+	case NotoSans:
+		return true
+	case Roboto:
+		return true
+	case SourceSans3:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LayoutPrimitiveFontWeight.
+const (
+	N400 LayoutPrimitiveFontWeight = 400
+	N500 LayoutPrimitiveFontWeight = 500
+	N600 LayoutPrimitiveFontWeight = 600
+	N700 LayoutPrimitiveFontWeight = 700
+	N800 LayoutPrimitiveFontWeight = 800
+)
+
+// Valid indicates whether the value is a known member of the LayoutPrimitiveFontWeight enum.
+func (e LayoutPrimitiveFontWeight) Valid() bool {
+	switch e {
+	case N400:
+		return true
+	case N500:
+		return true
+	case N600:
+		return true
+	case N700:
+		return true
+	case N800:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LayoutPrimitiveKind.
+const (
+	LayoutPrimitiveKindCircle    LayoutPrimitiveKind = "circle"
+	LayoutPrimitiveKindGroup     LayoutPrimitiveKind = "group"
+	LayoutPrimitiveKindLine      LayoutPrimitiveKind = "line"
+	LayoutPrimitiveKindRectangle LayoutPrimitiveKind = "rectangle"
+	LayoutPrimitiveKindText      LayoutPrimitiveKind = "text"
+)
+
+// Valid indicates whether the value is a known member of the LayoutPrimitiveKind enum.
+func (e LayoutPrimitiveKind) Valid() bool {
+	switch e {
+	case LayoutPrimitiveKindCircle:
+		return true
+	case LayoutPrimitiveKindGroup:
+		return true
+	case LayoutPrimitiveKindLine:
+		return true
+	case LayoutPrimitiveKindRectangle:
+		return true
+	case LayoutPrimitiveKindText:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LayoutPrimitiveOverflow.
+const (
+	Clip     LayoutPrimitiveOverflow = "clip"
+	Ellipsis LayoutPrimitiveOverflow = "ellipsis"
+)
+
+// Valid indicates whether the value is a known member of the LayoutPrimitiveOverflow enum.
+func (e LayoutPrimitiveOverflow) Valid() bool {
+	switch e {
+	case Clip:
+		return true
+	case Ellipsis:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LayoutPrimitiveTextAlign.
+const (
+	LayoutPrimitiveTextAlignCenter LayoutPrimitiveTextAlign = "center"
+	LayoutPrimitiveTextAlignLeft   LayoutPrimitiveTextAlign = "left"
+	LayoutPrimitiveTextAlignRight  LayoutPrimitiveTextAlign = "right"
+)
+
+// Valid indicates whether the value is a known member of the LayoutPrimitiveTextAlign enum.
+func (e LayoutPrimitiveTextAlign) Valid() bool {
+	switch e {
+	case LayoutPrimitiveTextAlignCenter:
+		return true
+	case LayoutPrimitiveTextAlignLeft:
+		return true
+	case LayoutPrimitiveTextAlignRight:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LayoutPrimitiveVerticalAlign.
+const (
+	LayoutPrimitiveVerticalAlignBottom LayoutPrimitiveVerticalAlign = "bottom"
+	LayoutPrimitiveVerticalAlignCenter LayoutPrimitiveVerticalAlign = "center"
+	LayoutPrimitiveVerticalAlignTop    LayoutPrimitiveVerticalAlign = "top"
+)
+
+// Valid indicates whether the value is a known member of the LayoutPrimitiveVerticalAlign enum.
+func (e LayoutPrimitiveVerticalAlign) Valid() bool {
+	switch e {
+	case LayoutPrimitiveVerticalAlignBottom:
+		return true
+	case LayoutPrimitiveVerticalAlignCenter:
+		return true
+	case LayoutPrimitiveVerticalAlignTop:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LayoutPrimitiveBindingFormat.
+const (
+	LayoutPrimitiveBindingFormatCurrency  LayoutPrimitiveBindingFormat = "currency"
+	LayoutPrimitiveBindingFormatDateLong  LayoutPrimitiveBindingFormat = "date-long"
+	LayoutPrimitiveBindingFormatDateShort LayoutPrimitiveBindingFormat = "date-short"
+	LayoutPrimitiveBindingFormatInteger   LayoutPrimitiveBindingFormat = "integer"
+	LayoutPrimitiveBindingFormatNumber    LayoutPrimitiveBindingFormat = "number"
+	LayoutPrimitiveBindingFormatText      LayoutPrimitiveBindingFormat = "text"
+)
+
+// Valid indicates whether the value is a known member of the LayoutPrimitiveBindingFormat enum.
+func (e LayoutPrimitiveBindingFormat) Valid() bool {
+	switch e {
+	case LayoutPrimitiveBindingFormatCurrency:
+		return true
+	case LayoutPrimitiveBindingFormatDateLong:
+		return true
+	case LayoutPrimitiveBindingFormatDateShort:
+		return true
+	case LayoutPrimitiveBindingFormatInteger:
+		return true
+	case LayoutPrimitiveBindingFormatNumber:
+		return true
+	case LayoutPrimitiveBindingFormatText:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LayoutSummaryOrientation.
+const (
+	LayoutSummaryOrientationCustom    LayoutSummaryOrientation = "custom"
+	LayoutSummaryOrientationLandscape LayoutSummaryOrientation = "landscape"
+	LayoutSummaryOrientationPortrait  LayoutSummaryOrientation = "portrait"
+)
+
+// Valid indicates whether the value is a known member of the LayoutSummaryOrientation enum.
+func (e LayoutSummaryOrientation) Valid() bool {
+	switch e {
+	case LayoutSummaryOrientationCustom:
+		return true
+	case LayoutSummaryOrientationLandscape:
+		return true
+	case LayoutSummaryOrientationPortrait:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MFAPolicy.
 const (
 	MFAPolicyAdministrators MFAPolicy = "administrators"
@@ -621,6 +1059,21 @@ func (e ManifestScheduleType) Valid() bool {
 	case ManifestScheduleTypeOneTime:
 		return true
 	case ManifestScheduleTypeWeekly:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for OAuthDecisionMethod.
+const (
+	OAuthDecisionMethodS256 OAuthDecisionMethod = "S256"
+)
+
+// Valid indicates whether the value is a known member of the OAuthDecisionMethod enum.
+func (e OAuthDecisionMethod) Valid() bool {
+	switch e {
+	case OAuthDecisionMethodS256:
 		return true
 	default:
 		return false
@@ -1836,37 +2289,37 @@ func (e WebAuthnCredentialType) Valid() bool {
 	}
 }
 
-// Defines values for WebsiteCookiePolicy.
+// Defines values for WebsiteConfigCookiePolicy.
 const (
-	WebsiteCookiePolicyDisabled           WebsiteCookiePolicy = "disabled"
-	WebsiteCookiePolicyFirstAndThirdParty WebsiteCookiePolicy = "first_and_third_party"
-	WebsiteCookiePolicyFirstParty         WebsiteCookiePolicy = "first_party"
+	WebsiteConfigCookiePolicyDisabled           WebsiteConfigCookiePolicy = "disabled"
+	WebsiteConfigCookiePolicyFirstAndThirdParty WebsiteConfigCookiePolicy = "first_and_third_party"
+	WebsiteConfigCookiePolicyFirstParty         WebsiteConfigCookiePolicy = "first_party"
 )
 
-// Valid indicates whether the value is a known member of the WebsiteCookiePolicy enum.
-func (e WebsiteCookiePolicy) Valid() bool {
+// Valid indicates whether the value is a known member of the WebsiteConfigCookiePolicy enum.
+func (e WebsiteConfigCookiePolicy) Valid() bool {
 	switch e {
-	case WebsiteCookiePolicyDisabled:
+	case WebsiteConfigCookiePolicyDisabled:
 		return true
-	case WebsiteCookiePolicyFirstAndThirdParty:
+	case WebsiteConfigCookiePolicyFirstAndThirdParty:
 		return true
-	case WebsiteCookiePolicyFirstParty:
+	case WebsiteConfigCookiePolicyFirstParty:
 		return true
 	default:
 		return false
 	}
 }
 
-// Defines values for WebsiteFailureBehavior.
+// Defines values for WebsiteConfigFailureBehavior.
 const (
-	FallbackImage WebsiteFailureBehavior = "fallback_image"
-	LastSuccess   WebsiteFailureBehavior = "last_success"
-	Placeholder   WebsiteFailureBehavior = "placeholder"
-	Skip          WebsiteFailureBehavior = "skip"
+	FallbackImage WebsiteConfigFailureBehavior = "fallback_image"
+	LastSuccess   WebsiteConfigFailureBehavior = "last_success"
+	Placeholder   WebsiteConfigFailureBehavior = "placeholder"
+	Skip          WebsiteConfigFailureBehavior = "skip"
 )
 
-// Valid indicates whether the value is a known member of the WebsiteFailureBehavior enum.
-func (e WebsiteFailureBehavior) Valid() bool {
+// Valid indicates whether the value is a known member of the WebsiteConfigFailureBehavior enum.
+func (e WebsiteConfigFailureBehavior) Valid() bool {
 	switch e {
 	case FallbackImage:
 		return true
@@ -1881,15 +2334,15 @@ func (e WebsiteFailureBehavior) Valid() bool {
 	}
 }
 
-// Defines values for WebsiteReloadPolicy.
+// Defines values for WebsiteConfigReloadPolicy.
 const (
-	Interval         WebsiteReloadPolicy = "interval"
-	LoadOnce         WebsiteReloadPolicy = "load_once"
-	OnEachActivation WebsiteReloadPolicy = "on_each_activation"
+	Interval         WebsiteConfigReloadPolicy = "interval"
+	LoadOnce         WebsiteConfigReloadPolicy = "load_once"
+	OnEachActivation WebsiteConfigReloadPolicy = "on_each_activation"
 )
 
-// Valid indicates whether the value is a known member of the WebsiteReloadPolicy enum.
-func (e WebsiteReloadPolicy) Valid() bool {
+// Valid indicates whether the value is a known member of the WebsiteConfigReloadPolicy enum.
+func (e WebsiteConfigReloadPolicy) Valid() bool {
 	switch e {
 	case Interval:
 		return true
@@ -2063,7 +2516,6 @@ func (e CreateAirplaySessionJSONBodyAudioMode) Valid() bool {
 
 // Defines values for CreateAirplaySessionJSONBodyDurationMinutes.
 const (
-	CreateAirplaySessionJSONBodyDurationMinutesN0  CreateAirplaySessionJSONBodyDurationMinutes = 0
 	CreateAirplaySessionJSONBodyDurationMinutesN15 CreateAirplaySessionJSONBodyDurationMinutes = 15
 	CreateAirplaySessionJSONBodyDurationMinutesN30 CreateAirplaySessionJSONBodyDurationMinutes = 30
 	CreateAirplaySessionJSONBodyDurationMinutesN60 CreateAirplaySessionJSONBodyDurationMinutes = 60
@@ -2072,8 +2524,6 @@ const (
 // Valid indicates whether the value is a known member of the CreateAirplaySessionJSONBodyDurationMinutes enum.
 func (e CreateAirplaySessionJSONBodyDurationMinutes) Valid() bool {
 	switch e {
-	case CreateAirplaySessionJSONBodyDurationMinutesN0:
-		return true
 	case CreateAirplaySessionJSONBodyDurationMinutesN15:
 		return true
 	case CreateAirplaySessionJSONBodyDurationMinutesN30:
@@ -2223,6 +2673,72 @@ func (e ListFormRecordsParamsSort) Valid() bool {
 	}
 }
 
+// Defines values for InspectDataSourceParamsProvider.
+const (
+	InspectDataSourceParamsProviderAtom InspectDataSourceParamsProvider = "atom"
+	InspectDataSourceParamsProviderCsv  InspectDataSourceParamsProvider = "csv"
+	InspectDataSourceParamsProviderJson InspectDataSourceParamsProvider = "json"
+	InspectDataSourceParamsProviderRss  InspectDataSourceParamsProvider = "rss"
+)
+
+// Valid indicates whether the value is a known member of the InspectDataSourceParamsProvider enum.
+func (e InspectDataSourceParamsProvider) Valid() bool {
+	switch e {
+	case InspectDataSourceParamsProviderAtom:
+		return true
+	case InspectDataSourceParamsProviderCsv:
+		return true
+	case InspectDataSourceParamsProviderJson:
+		return true
+	case InspectDataSourceParamsProviderRss:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PreviewDataSourceParamsProvider.
+const (
+	PreviewDataSourceParamsProviderAirQuality PreviewDataSourceParamsProvider = "air_quality"
+	PreviewDataSourceParamsProviderAtom       PreviewDataSourceParamsProvider = "atom"
+	PreviewDataSourceParamsProviderCalendar   PreviewDataSourceParamsProvider = "calendar"
+	PreviewDataSourceParamsProviderCapAlerts  PreviewDataSourceParamsProvider = "cap_alerts"
+	PreviewDataSourceParamsProviderCsv        PreviewDataSourceParamsProvider = "csv"
+	PreviewDataSourceParamsProviderJson       PreviewDataSourceParamsProvider = "json"
+	PreviewDataSourceParamsProviderManual     PreviewDataSourceParamsProvider = "manual"
+	PreviewDataSourceParamsProviderRss        PreviewDataSourceParamsProvider = "rss"
+	PreviewDataSourceParamsProviderTransit    PreviewDataSourceParamsProvider = "transit"
+	PreviewDataSourceParamsProviderWeather    PreviewDataSourceParamsProvider = "weather"
+)
+
+// Valid indicates whether the value is a known member of the PreviewDataSourceParamsProvider enum.
+func (e PreviewDataSourceParamsProvider) Valid() bool {
+	switch e {
+	case PreviewDataSourceParamsProviderAirQuality:
+		return true
+	case PreviewDataSourceParamsProviderAtom:
+		return true
+	case PreviewDataSourceParamsProviderCalendar:
+		return true
+	case PreviewDataSourceParamsProviderCapAlerts:
+		return true
+	case PreviewDataSourceParamsProviderCsv:
+		return true
+	case PreviewDataSourceParamsProviderJson:
+		return true
+	case PreviewDataSourceParamsProviderManual:
+		return true
+	case PreviewDataSourceParamsProviderRss:
+		return true
+	case PreviewDataSourceParamsProviderTransit:
+		return true
+	case PreviewDataSourceParamsProviderWeather:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ResetDemoJSONBodyScenario.
 const (
 	Basic       ResetDemoJSONBodyScenario = "basic"
@@ -2235,6 +2751,27 @@ func (e ResetDemoJSONBodyScenario) Valid() bool {
 	case Basic:
 		return true
 	case KitchenSink:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CreateLayoutJSONBodyOrientation.
+const (
+	CreateLayoutJSONBodyOrientationCustom    CreateLayoutJSONBodyOrientation = "custom"
+	CreateLayoutJSONBodyOrientationLandscape CreateLayoutJSONBodyOrientation = "landscape"
+	CreateLayoutJSONBodyOrientationPortrait  CreateLayoutJSONBodyOrientation = "portrait"
+)
+
+// Valid indicates whether the value is a known member of the CreateLayoutJSONBodyOrientation enum.
+func (e CreateLayoutJSONBodyOrientation) Valid() bool {
+	switch e {
+	case CreateLayoutJSONBodyOrientationCustom:
+		return true
+	case CreateLayoutJSONBodyOrientationLandscape:
+		return true
+	case CreateLayoutJSONBodyOrientationPortrait:
 		return true
 	default:
 		return false
@@ -2288,13 +2825,13 @@ func (e CreatePersonalAccessTokenJSONBodyScopes) Valid() bool {
 
 // Defines values for DescribeOAuthApprovalParamsCodeChallengeMethod.
 const (
-	S256 DescribeOAuthApprovalParamsCodeChallengeMethod = "S256"
+	DescribeOAuthApprovalParamsCodeChallengeMethodS256 DescribeOAuthApprovalParamsCodeChallengeMethod = "S256"
 )
 
 // Valid indicates whether the value is a known member of the DescribeOAuthApprovalParamsCodeChallengeMethod enum.
 func (e DescribeOAuthApprovalParamsCodeChallengeMethod) Valid() bool {
 	switch e {
-	case S256:
+	case DescribeOAuthApprovalParamsCodeChallengeMethodS256:
 		return true
 	default:
 		return false
@@ -2388,27 +2925,6 @@ func (e RunSystemMaintenanceParamsAction) Valid() bool {
 	case RunSystemMaintenanceParamsActionRetentionCleanup:
 		return true
 	case RunSystemMaintenanceParamsActionValidateMedia:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CreateUpdateDeploymentJSONBodyMode.
-const (
-	DownloadOnly      CreateUpdateDeploymentJSONBodyMode = "download_only"
-	InstallNow        CreateUpdateDeploymentJSONBodyMode = "install_now"
-	MaintenanceWindow CreateUpdateDeploymentJSONBodyMode = "maintenance_window"
-)
-
-// Valid indicates whether the value is a known member of the CreateUpdateDeploymentJSONBodyMode enum.
-func (e CreateUpdateDeploymentJSONBodyMode) Valid() bool {
-	switch e {
-	case DownloadOnly:
-		return true
-	case InstallNow:
-		return true
-	case MaintenanceWindow:
 		return true
 	default:
 		return false
@@ -3012,12 +3528,11 @@ type DataSourceField struct {
 
 // DataSourceInput defines model for DataSourceInput.
 type DataSourceInput struct {
-	// Configuration Provider-specific configuration, validated per provider server-side.
 	Configuration map[string]interface{} `json:"configuration"`
 	Description   *string                `json:"description,omitempty"`
 	Name          string                 `json:"name"`
 
-	// Provider Data Source provider identifier from the content-definition catalog: calendar, rss, atom, feed, json, csv, manual, weather, transit, cap_alerts, air_quality, or a plugin-contributed provider. The server lowercases and trims the value and rejects unknown providers.
+	// Provider Non-visual Data Source providers.
 	Provider DataSourceProvider `json:"provider"`
 }
 
@@ -3047,8 +3562,8 @@ type DataSourceListResult struct {
 	Total    int                  `json:"total"`
 }
 
-// DataSourceProvider Data Source provider identifier from the content-definition catalog: calendar, rss, atom, feed, json, csv, manual, weather, transit, cap_alerts, air_quality, or a plugin-contributed provider. The server lowercases and trims the value and rejects unknown providers.
-type DataSourceProvider = string
+// DataSourceProvider Non-visual Data Source providers.
+type DataSourceProvider string
 
 // DataSourceWidgetUsage defines model for DataSourceWidgetUsage.
 type DataSourceWidgetUsage struct {
@@ -3211,6 +3726,249 @@ type InstallationIdentity struct {
 	Product          string             `json:"product"`
 }
 
+// Layout defines model for Layout.
+type Layout struct {
+	CanvasHeight          int                 `json:"canvasHeight"`
+	CanvasWidth           int                 `json:"canvasWidth"`
+	CreatedAt             time.Time           `json:"createdAt"`
+	Dependencies          []LayoutDependency  `json:"dependencies"`
+	Description           string              `json:"description"`
+	Draft                 LayoutDocument      `json:"draft"`
+	DraftRevision         int64               `json:"draftRevision"`
+	HasUnpublishedChanges bool                `json:"hasUnpublishedChanges"`
+	Id                    openapi_types.UUID  `json:"id"`
+	Name                  string              `json:"name"`
+	Orientation           LayoutOrientation   `json:"orientation"`
+	PreviewImageUrl       *string             `json:"previewImageUrl,omitempty"`
+	PublishedAt           *time.Time          `json:"publishedAt,omitempty"`
+	PublishedRevision     *int64              `json:"publishedRevision,omitempty"`
+	PublishedRevisionId   *openapi_types.UUID `json:"publishedRevisionId,omitempty"`
+	UpdatedAt             time.Time           `json:"updatedAt"`
+	Usage                 LayoutUsage         `json:"usage"`
+}
+
+// LayoutOrientation defines model for Layout.Orientation.
+type LayoutOrientation string
+
+// LayoutCanvas defines model for LayoutCanvas.
+type LayoutCanvas struct {
+	BackgroundAssetId   *openapi_types.UUID     `json:"backgroundAssetId,omitempty"`
+	BackgroundColor     string                  `json:"backgroundColor"`
+	BackgroundVariantId *openapi_types.UUID     `json:"backgroundVariantId,omitempty"`
+	Height              int                     `json:"height"`
+	Orientation         LayoutCanvasOrientation `json:"orientation"`
+	SafeAreaPercent     float32                 `json:"safeAreaPercent"`
+	Width               int                     `json:"width"`
+}
+
+// LayoutCanvasOrientation defines model for LayoutCanvas.Orientation.
+type LayoutCanvasOrientation string
+
+// LayoutDependency defines model for LayoutDependency.
+type LayoutDependency struct {
+	Id   openapi_types.UUID   `json:"id"`
+	Type LayoutDependencyType `json:"type"`
+}
+
+// LayoutDependencyType defines model for LayoutDependency.Type.
+type LayoutDependencyType string
+
+// LayoutDocument defines model for LayoutDocument.
+type LayoutDocument struct {
+	Canvas     LayoutCanvas      `json:"canvas"`
+	Placements []LayoutPlacement `json:"placements"`
+
+	// SchemaVersion Only schema version 2 is accepted.
+	SchemaVersion LayoutDocumentSchemaVersion `json:"schemaVersion"`
+}
+
+// LayoutDocumentSchemaVersion Only schema version 2 is accepted.
+type LayoutDocumentSchemaVersion int
+
+// LayoutList defines model for LayoutList.
+type LayoutList struct {
+	Items    []LayoutSummary `json:"items"`
+	Page     int             `json:"page"`
+	PageSize int             `json:"pageSize"`
+	Total    int             `json:"total"`
+}
+
+// LayoutPlacement defines model for LayoutPlacement.
+type LayoutPlacement struct {
+	AssetId *openapi_types.UUID `json:"assetId,omitempty"`
+	GroupId *openapi_types.UUID `json:"groupId,omitempty"`
+	Height  float32             `json:"height"`
+	Id      openapi_types.UUID  `json:"id"`
+	Layer   int                 `json:"layer"`
+	Locked  bool                `json:"locked"`
+	Name    string              `json:"name"`
+	Opacity float32             `json:"opacity"`
+
+	// Overrides Widget placement override bag. Unknown keys are rejected, so only the keys below are accepted.
+	Overrides  *LayoutPlacementOverrides `json:"overrides,omitempty"`
+	Playback   *LayoutPlayback           `json:"playback,omitempty"`
+	PlaylistId *openapi_types.UUID       `json:"playlistId,omitempty"`
+	Primitive  *LayoutPrimitive          `json:"primitive,omitempty"`
+	Type       LayoutPlacementType       `json:"type"`
+	VariantId  *openapi_types.UUID       `json:"variantId,omitempty"`
+	Visible    bool                      `json:"visible"`
+	WidgetId   *openapi_types.UUID       `json:"widgetId,omitempty"`
+	Width      float32                   `json:"width"`
+	X          float32                   `json:"x"`
+	Y          float32                   `json:"y"`
+}
+
+// LayoutPlacementType defines model for LayoutPlacement.Type.
+type LayoutPlacementType string
+
+// LayoutPlacementOverrides Widget placement override bag. Unknown keys are rejected, so only the keys below are accepted.
+type LayoutPlacementOverrides struct {
+	Alignment          *LayoutPlacementOverridesAlignment          `json:"alignment,omitempty"`
+	BackgroundColor    *string                                     `json:"backgroundColor,omitempty"`
+	FallbackVisibility *LayoutPlacementOverridesFallbackVisibility `json:"fallbackVisibility,omitempty"`
+	Fit                *LayoutPlacementOverridesFit                `json:"fit,omitempty"`
+	ForegroundColor    *string                                     `json:"foregroundColor,omitempty"`
+	Muted              *bool                                       `json:"muted,omitempty"`
+}
+
+// LayoutPlacementOverridesAlignment defines model for LayoutPlacementOverrides.Alignment.
+type LayoutPlacementOverridesAlignment string
+
+// LayoutPlacementOverridesFallbackVisibility defines model for LayoutPlacementOverrides.FallbackVisibility.
+type LayoutPlacementOverridesFallbackVisibility string
+
+// LayoutPlacementOverridesFit defines model for LayoutPlacementOverrides.Fit.
+type LayoutPlacementOverridesFit string
+
+// LayoutPlayback defines model for LayoutPlayback.
+type LayoutPlayback struct {
+	CornerRadius *float32                `json:"cornerRadius,omitempty"`
+	Fallback     *LayoutPlaybackFallback `json:"fallback,omitempty"`
+	Fit          *LayoutPlaybackFit      `json:"fit,omitempty"`
+	Loop         *bool                   `json:"loop,omitempty"`
+	Muted        *bool                   `json:"muted,omitempty"`
+}
+
+// LayoutPlaybackFallback defines model for LayoutPlayback.Fallback.
+type LayoutPlaybackFallback string
+
+// LayoutPlaybackFit defines model for LayoutPlayback.Fit.
+type LayoutPlaybackFit string
+
+// LayoutPrimitive defines model for LayoutPrimitive.
+type LayoutPrimitive struct {
+	AutoFit         *bool                   `json:"autoFit,omitempty"`
+	BackgroundColor *string                 `json:"backgroundColor,omitempty"`
+	Binding         *LayoutPrimitiveBinding `json:"binding,omitempty"`
+	BorderColor     *string                 `json:"borderColor,omitempty"`
+	BorderWidth     *float32                `json:"borderWidth,omitempty"`
+	Color           *string                 `json:"color,omitempty"`
+	CornerRadius    *float32                `json:"cornerRadius,omitempty"`
+	FillColor       *string                 `json:"fillColor,omitempty"`
+
+	// FontFamily Only bundled fonts are accepted for text primitives
+	FontFamily      *LayoutPrimitiveFontFamily    `json:"fontFamily,omitempty"`
+	FontSize        *float32                      `json:"fontSize,omitempty"`
+	FontWeight      *LayoutPrimitiveFontWeight    `json:"fontWeight,omitempty"`
+	Kind            LayoutPrimitiveKind           `json:"kind"`
+	LetterSpacing   *float32                      `json:"letterSpacing,omitempty"`
+	LineHeight      *float32                      `json:"lineHeight,omitempty"`
+	MaximumLines    *int                          `json:"maximumLines,omitempty"`
+	MinimumFontSize *float32                      `json:"minimumFontSize,omitempty"`
+	Overflow        *LayoutPrimitiveOverflow      `json:"overflow,omitempty"`
+	Padding         *float32                      `json:"padding,omitempty"`
+	StrokeColor     *string                       `json:"strokeColor,omitempty"`
+	StrokeWidth     *float32                      `json:"strokeWidth,omitempty"`
+	Text            *string                       `json:"text,omitempty"`
+	TextAlign       *LayoutPrimitiveTextAlign     `json:"textAlign,omitempty"`
+	VerticalAlign   *LayoutPrimitiveVerticalAlign `json:"verticalAlign,omitempty"`
+}
+
+// LayoutPrimitiveFontFamily Only bundled fonts are accepted for text primitives
+type LayoutPrimitiveFontFamily string
+
+// LayoutPrimitiveFontWeight defines model for LayoutPrimitive.FontWeight.
+type LayoutPrimitiveFontWeight int
+
+// LayoutPrimitiveKind defines model for LayoutPrimitive.Kind.
+type LayoutPrimitiveKind string
+
+// LayoutPrimitiveOverflow defines model for LayoutPrimitive.Overflow.
+type LayoutPrimitiveOverflow string
+
+// LayoutPrimitiveTextAlign defines model for LayoutPrimitive.TextAlign.
+type LayoutPrimitiveTextAlign string
+
+// LayoutPrimitiveVerticalAlign defines model for LayoutPrimitive.VerticalAlign.
+type LayoutPrimitiveVerticalAlign string
+
+// LayoutPrimitiveBinding defines model for LayoutPrimitiveBinding.
+type LayoutPrimitiveBinding struct {
+	DataSourceId  openapi_types.UUID            `json:"dataSourceId"`
+	FallbackText  *string                       `json:"fallbackText,omitempty"`
+	Field         string                        `json:"field"`
+	Format        *LayoutPrimitiveBindingFormat `json:"format,omitempty"`
+	HideWhenEmpty *bool                         `json:"hideWhenEmpty,omitempty"`
+	Prefix        *string                       `json:"prefix,omitempty"`
+	Suffix        *string                       `json:"suffix,omitempty"`
+}
+
+// LayoutPrimitiveBindingFormat defines model for LayoutPrimitiveBinding.Format.
+type LayoutPrimitiveBindingFormat string
+
+// LayoutRevision defines model for LayoutRevision.
+type LayoutRevision struct {
+	Document       LayoutDocument      `json:"document"`
+	DocumentSha256 string              `json:"documentSha256"`
+	Id             openapi_types.UUID  `json:"id"`
+	LayoutId       openapi_types.UUID  `json:"layoutId"`
+	PublishedAt    time.Time           `json:"publishedAt"`
+	PublishedBy    *openapi_types.UUID `json:"publishedBy,omitempty"`
+	Revision       int64               `json:"revision"`
+}
+
+// LayoutRevisionList defines model for LayoutRevisionList.
+type LayoutRevisionList struct {
+	Items    []LayoutRevision `json:"items"`
+	Page     int              `json:"page"`
+	PageSize int              `json:"pageSize"`
+	Total    int              `json:"total"`
+}
+
+// LayoutSummary Compact Layout row returned by the Layout list. The editable draft, dependency list, and usage breakdown require the detail read.
+type LayoutSummary struct {
+	CanvasHeight          int                      `json:"canvasHeight"`
+	CanvasWidth           int                      `json:"canvasWidth"`
+	CreatedAt             time.Time                `json:"createdAt"`
+	Description           string                   `json:"description"`
+	DraftRevision         int64                    `json:"draftRevision"`
+	HasUnpublishedChanges bool                     `json:"hasUnpublishedChanges"`
+	Id                    openapi_types.UUID       `json:"id"`
+	Name                  string                   `json:"name"`
+	Orientation           LayoutSummaryOrientation `json:"orientation"`
+	PreviewImageUrl       *string                  `json:"previewImageUrl,omitempty"`
+	PublishedAt           *time.Time               `json:"publishedAt,omitempty"`
+	PublishedRevision     *int64                   `json:"publishedRevision,omitempty"`
+	PublishedRevisionId   *openapi_types.UUID      `json:"publishedRevisionId,omitempty"`
+	UpdatedAt             time.Time                `json:"updatedAt"`
+}
+
+// LayoutSummaryOrientation defines model for LayoutSummary.Orientation.
+type LayoutSummaryOrientation string
+
+// LayoutUsage defines model for LayoutUsage.
+type LayoutUsage struct {
+	Campaigns []LayoutUsageItem `json:"campaigns"`
+	Schedules []LayoutUsageItem `json:"schedules"`
+	Screens   []LayoutUsageItem `json:"screens"`
+}
+
+// LayoutUsageItem defines model for LayoutUsageItem.
+type LayoutUsageItem struct {
+	Id   openapi_types.UUID `json:"id"`
+	Name string             `json:"name"`
+}
+
 // Location defines model for Location.
 type Location struct {
 	AddressLine1 string             `json:"addressLine1"`
@@ -3226,19 +3984,6 @@ type Location struct {
 	ScreenCount  int                `json:"screenCount"`
 	State        string             `json:"state"`
 	UpdatedAt    time.Time          `json:"updatedAt"`
-}
-
-// LocationInput defines model for LocationInput.
-type LocationInput struct {
-	AddressLine1 *string  `json:"addressLine1,omitempty"`
-	AddressLine2 *string  `json:"addressLine2,omitempty"`
-	City         *string  `json:"city,omitempty"`
-	Country      *string  `json:"country,omitempty"`
-	Latitude     *float32 `json:"latitude,omitempty"`
-	Longitude    *float32 `json:"longitude,omitempty"`
-	Name         string   `json:"name"`
-	PostalCode   *string  `json:"postalCode,omitempty"`
-	State        *string  `json:"state,omitempty"`
 }
 
 // LocationList defines model for LocationList.
@@ -3313,13 +4058,16 @@ type MultiFactorVerifyRequest struct {
 
 // OAuthDecision defines model for OAuthDecision.
 type OAuthDecision struct {
-	Challenge   string  `json:"challenge"`
-	Client      string  `json:"client"`
-	Method      *string `json:"method,omitempty"`
-	RedirectUri string  `json:"redirectUri"`
-	Scope       string  `json:"scope"`
-	State       *string `json:"state,omitempty"`
+	Challenge   string               `json:"challenge"`
+	Client      string               `json:"client"`
+	Method      *OAuthDecisionMethod `json:"method,omitempty"`
+	RedirectUri string               `json:"redirectUri"`
+	Scope       string               `json:"scope"`
+	State       *string              `json:"state,omitempty"`
 }
+
+// OAuthDecisionMethod defines model for OAuthDecision.Method.
+type OAuthDecisionMethod string
 
 // OAuthTokenRequest defines model for OAuthTokenRequest.
 type OAuthTokenRequest struct {
@@ -3834,25 +4582,6 @@ type PolicyDocument struct {
 	SchemaVersion int                    `json:"schemaVersion"`
 	UpdatedAt     time.Time              `json:"updatedAt"`
 	Values        map[string]interface{} `json:"values"`
-}
-
-// PolicyUpdate defines model for PolicyUpdate.
-type PolicyUpdate struct {
-	Priority *int  `json:"priority,omitempty"`
-	Revision int64 `json:"revision"`
-
-	// Values Typed player-setting keys for this scope, validated against the settings registry server-side.
-	Values *map[string]interface{} `json:"values,omitempty"`
-}
-
-// PowerAssistConfirmation defines model for PowerAssistConfirmation.
-type PowerAssistConfirmation struct {
-	DeviceSleep     string `json:"deviceSleep"`
-	DeviceWake      string `json:"deviceWake"`
-	InputSelection  string `json:"inputSelection"`
-	TilecastStartup string `json:"tilecastStartup"`
-	TvStandby       string `json:"tvStandby"`
-	TvWake          string `json:"tvWake"`
 }
 
 // PresentationNetwork defines model for PresentationNetwork.
@@ -4417,22 +5146,10 @@ type SettingsDocument struct {
 	Values        map[string]interface{} `json:"values"`
 }
 
-// SettingsExport defines model for SettingsExport.
-type SettingsExport struct {
-	ExportedAt      time.Time                 `json:"exportedAt"`
-	GroupPolicies   []map[string]interface{}  `json:"groupPolicies"`
-	Organization    map[string]interface{}    `json:"organization"`
-	SchemaVersion   int                       `json:"schemaVersion"`
-	ScreenPolicies  *[]map[string]interface{} `json:"screenPolicies,omitempty"`
-	TilecastVersion string                    `json:"tilecastVersion"`
-}
-
 // SettingsUpdate defines model for SettingsUpdate.
 type SettingsUpdate struct {
-	Revision int64 `json:"revision"`
-
-	// Values Setting keys for this scope, validated against the registry server-side.
-	Values map[string]interface{} `json:"values"`
+	Revision int64                  `json:"revision"`
+	Values   map[string]interface{} `json:"values"`
 }
 
 // SetupRequest defines model for SetupRequest.
@@ -4591,10 +5308,8 @@ type VariantKind string
 // WebAuthnAssertion A PublicKeyCredential from navigator.credentials.get(), serialized with base64url binary fields.
 type WebAuthnAssertion struct {
 	AuthenticatorAttachment *WebAuthnAssertionAuthenticatorAttachment `json:"authenticatorAttachment,omitempty"`
-
-	// ClientExtensionResults Authenticator extension outputs, parsed by the server WebAuthn library.
-	ClientExtensionResults *map[string]interface{} `json:"clientExtensionResults,omitempty"`
-	Id                     string                  `json:"id"`
+	ClientExtensionResults  *map[string]interface{}                   `json:"clientExtensionResults,omitempty"`
+	Id                      string                                    `json:"id"`
 
 	// RawId base64url
 	RawId    string `json:"rawId"`
@@ -4623,10 +5338,8 @@ type WebAuthnAssertionType string
 // WebAuthnCredential A PublicKeyCredential from navigator.credentials.create(), serialized with base64url binary fields. Parsed by the WebAuthn library rather than field by field.
 type WebAuthnCredential struct {
 	AuthenticatorAttachment *WebAuthnCredentialAuthenticatorAttachment `json:"authenticatorAttachment,omitempty"`
-
-	// ClientExtensionResults Authenticator extension outputs, parsed by the server WebAuthn library.
-	ClientExtensionResults *map[string]interface{} `json:"clientExtensionResults,omitempty"`
-	Id                     string                  `json:"id"`
+	ClientExtensionResults  *map[string]interface{}                    `json:"clientExtensionResults,omitempty"`
+	Id                      string                                     `json:"id"`
 
 	// RawId base64url
 	RawId    string `json:"rawId"`
@@ -4649,55 +5362,34 @@ type WebAuthnCredentialType string
 
 // WebsiteConfig defines model for WebsiteConfig.
 type WebsiteConfig struct {
-	AllowedHosts           []string               `json:"allowedHosts"`
-	BackgroundColor        string                 `json:"backgroundColor"`
-	CookiePolicy           WebsiteCookiePolicy    `json:"cookiePolicy"`
-	CreatedAt              time.Time              `json:"createdAt"`
-	CustomUserAgent        string                 `json:"customUserAgent"`
-	DisplayUrl             string                 `json:"displayUrl"`
-	DomStorageEnabled      bool                   `json:"domStorageEnabled"`
-	FailureBehavior        WebsiteFailureBehavior `json:"failureBehavior"`
-	FallbackImageAssetId   *openapi_types.UUID    `json:"fallbackImageAssetId,omitempty"`
-	JavascriptEnabled      bool                   `json:"javascriptEnabled"`
-	LoadTimeoutSeconds     int                    `json:"loadTimeoutSeconds"`
-	RefreshIntervalSeconds *int                   `json:"refreshIntervalSeconds,omitempty"`
-	ReloadPolicy           WebsiteReloadPolicy    `json:"reloadPolicy"`
-	ScrollX                int                    `json:"scrollX"`
-	ScrollY                int                    `json:"scrollY"`
-	UpdatedAt              time.Time              `json:"updatedAt"`
-	Url                    string                 `json:"url"`
-	ZoomPercent            int                    `json:"zoomPercent"`
+	AllowedHosts           []string                     `json:"allowedHosts"`
+	BackgroundColor        string                       `json:"backgroundColor"`
+	CookiePolicy           WebsiteConfigCookiePolicy    `json:"cookiePolicy"`
+	CreatedAt              time.Time                    `json:"createdAt"`
+	CustomUserAgent        string                       `json:"customUserAgent"`
+	DisplayUrl             string                       `json:"displayUrl"`
+	DomStorageEnabled      bool                         `json:"domStorageEnabled"`
+	FailureBehavior        WebsiteConfigFailureBehavior `json:"failureBehavior"`
+	FallbackImageAssetId   *openapi_types.UUID          `json:"fallbackImageAssetId,omitempty"`
+	JavascriptEnabled      bool                         `json:"javascriptEnabled"`
+	LoadTimeoutSeconds     int                          `json:"loadTimeoutSeconds"`
+	RefreshIntervalSeconds *int                         `json:"refreshIntervalSeconds,omitempty"`
+	ReloadPolicy           WebsiteConfigReloadPolicy    `json:"reloadPolicy"`
+	ScrollX                int                          `json:"scrollX"`
+	ScrollY                int                          `json:"scrollY"`
+	UpdatedAt              time.Time                    `json:"updatedAt"`
+	Url                    string                       `json:"url"`
+	ZoomPercent            int                          `json:"zoomPercent"`
 }
 
-// WebsiteCookiePolicy defines model for WebsiteCookiePolicy.
-type WebsiteCookiePolicy string
+// WebsiteConfigCookiePolicy defines model for WebsiteConfig.CookiePolicy.
+type WebsiteConfigCookiePolicy string
 
-// WebsiteFailureBehavior defines model for WebsiteFailureBehavior.
-type WebsiteFailureBehavior string
+// WebsiteConfigFailureBehavior defines model for WebsiteConfig.FailureBehavior.
+type WebsiteConfigFailureBehavior string
 
-// WebsiteInput defines model for WebsiteInput.
-type WebsiteInput struct {
-	AllowedHosts           []string                `json:"allowedHosts"`
-	BackgroundColor        string                  `json:"backgroundColor"`
-	CookiePolicy           *WebsiteCookiePolicy    `json:"cookiePolicy,omitempty"`
-	CustomUserAgent        string                  `json:"customUserAgent"`
-	Description            string                  `json:"description"`
-	DomStorageEnabled      *bool                   `json:"domStorageEnabled,omitempty"`
-	FailureBehavior        *WebsiteFailureBehavior `json:"failureBehavior,omitempty"`
-	FallbackImageAssetId   *openapi_types.UUID     `json:"fallbackImageAssetId,omitempty"`
-	JavascriptEnabled      *bool                   `json:"javascriptEnabled,omitempty"`
-	LoadTimeoutSeconds     *int                    `json:"loadTimeoutSeconds,omitempty"`
-	Name                   string                  `json:"name"`
-	RefreshIntervalSeconds *int                    `json:"refreshIntervalSeconds,omitempty"`
-	ReloadPolicy           *WebsiteReloadPolicy    `json:"reloadPolicy,omitempty"`
-	ScrollX                int                     `json:"scrollX"`
-	ScrollY                int                     `json:"scrollY"`
-	Url                    string                  `json:"url"`
-	ZoomPercent            *int                    `json:"zoomPercent,omitempty"`
-}
-
-// WebsiteReloadPolicy defines model for WebsiteReloadPolicy.
-type WebsiteReloadPolicy string
+// WebsiteConfigReloadPolicy defines model for WebsiteConfig.ReloadPolicy.
+type WebsiteConfigReloadPolicy string
 
 // Widget defines model for Widget.
 type Widget struct {
@@ -4705,7 +5397,7 @@ type Widget struct {
 	AuthorConfiguration *map[string]interface{} `json:"authorConfiguration,omitempty"`
 	ConfigVersion       int                     `json:"configVersion"`
 
-	// Configuration Provider-specific configuration, validated per provider server-side. Native text Widgets omit textScale for automatic bounds-first sizing or use 25–500 percent; contentPadding defaults to 10 percent per edge and accepts 0–40.
+	// Configuration Provider-specific configuration. Native text Widgets omit textScale for automatic bounds-first sizing or use 25–500 percent; contentPadding defaults to 10 percent per edge and accepts 0–40.
 	Configuration map[string]interface{} `json:"configuration"`
 
 	// ManagedDataSourceId Explicit ownership link for a catalog App's hidden managed Data Source.
@@ -4721,7 +5413,7 @@ type WidgetPresetId string
 
 // WidgetInput defines model for WidgetInput.
 type WidgetInput struct {
-	// Configuration Provider-specific configuration, validated per provider server-side. Native text Widgets omit textScale for automatic bounds-first sizing or use 25–500 percent; contentPadding defaults to 10 percent per edge and accepts 0–40.
+	// Configuration Provider-specific configuration. Native text Widgets omit textScale for automatic bounds-first sizing or use 25–500 percent; contentPadding defaults to 10 percent per edge and accepts 0–40.
 	Configuration map[string]interface{} `json:"configuration"`
 	Description   *string                `json:"description,omitempty"`
 	Name          string                 `json:"name"`
@@ -4748,9 +5440,6 @@ type PluginID = string
 
 // ResourceID defines model for ResourceID.
 type ResourceID = openapi_types.UUID
-
-// ResultLimit defines model for ResultLimit.
-type ResultLimit = int
 
 // ListAuditActivityParams defines parameters for ListAuditActivity.
 type ListAuditActivityParams struct {
@@ -4881,9 +5570,7 @@ type GetActivityUptimeParamsWindow string
 
 // CreateAirplaySessionJSONBody defines parameters for CreateAirplaySession.
 type CreateAirplaySessionJSONBody struct {
-	AudioMode *CreateAirplaySessionJSONBodyAudioMode `json:"audioMode,omitempty"`
-
-	// DurationMinutes Minutes, or 0 for until stopped.
+	AudioMode       *CreateAirplaySessionJSONBodyAudioMode       `json:"audioMode,omitempty"`
 	DurationMinutes *CreateAirplaySessionJSONBodyDurationMinutes `json:"durationMinutes,omitempty"`
 	TargetId        openapi_types.UUID                           `json:"targetId"`
 	TargetType      CreateAirplaySessionJSONBodyTargetType       `json:"targetType"`
@@ -4939,18 +5626,6 @@ type ListAssetsParams struct {
 
 	// Archived Return manually archived and automatically expired library content instead of active content
 	Archived *bool `form:"archived,omitempty" json:"archived,omitempty"`
-
-	// Provider Filter to assets produced by one widget provider
-	Provider *string `form:"provider,omitempty" json:"provider,omitempty"`
-
-	// FolderId Filter to one content folder
-	FolderId *openapi_types.UUID `form:"folderId,omitempty" json:"folderId,omitempty"`
-
-	// CollectionId Filter to one content collection
-	CollectionId *openapi_types.UUID `form:"collectionId,omitempty" json:"collectionId,omitempty"`
-
-	// TagId Filter to one content tag
-	TagId *openapi_types.UUID `form:"tagId,omitempty" json:"tagId,omitempty"`
 }
 
 // ListAssetsParamsSort defines parameters for ListAssets.
@@ -5028,12 +5703,6 @@ type UpdateWebsiteAssetParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
-// LoginJSONBody defines parameters for Login.
-type LoginJSONBody struct {
-	Password string `json:"password"`
-	Username string `json:"username"`
-}
-
 // LogoutParams defines parameters for Logout.
 type LogoutParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
@@ -5086,12 +5755,6 @@ type RestoreCampaignReleaseParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
-// CreateContentCollectionJSONBody defines parameters for CreateContentCollection.
-type CreateContentCollectionJSONBody struct {
-	Description string `json:"description"`
-	Name        string `json:"name"`
-}
-
 // DeleteContentCollectionParams defines parameters for DeleteContentCollection.
 type DeleteContentCollectionParams struct {
 	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
@@ -5108,13 +5771,6 @@ type UpdateContentCollectionJSONBody struct {
 type UpdateContentCollectionParams struct {
 	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
-}
-
-// CreateContentFolderJSONBody defines parameters for CreateContentFolder.
-type CreateContentFolderJSONBody struct {
-	Description string              `json:"description"`
-	Name        string              `json:"name"`
-	ParentId    *openapi_types.UUID `json:"parentId,omitempty"`
 }
 
 // DeleteContentFolderParams defines parameters for DeleteContentFolder.
@@ -5219,13 +5875,6 @@ type SubmitContentDraftParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
-// CreateContentTagJSONBody defines parameters for CreateContentTag.
-type CreateContentTagJSONBody struct {
-	// Color Six-digit hex color; empty defaults to slate.
-	Color string `json:"color"`
-	Name  string `json:"name"`
-}
-
 // DeleteContentTagParams defines parameters for DeleteContentTag.
 type DeleteContentTagParams struct {
 	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
@@ -5242,15 +5891,6 @@ type UpdateContentTagJSONBody struct {
 type UpdateContentTagParams struct {
 	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
-}
-
-// ListDataSourcesParams defines parameters for ListDataSources.
-type ListDataSourcesParams struct {
-	Search   *string `form:"search,omitempty" json:"search,omitempty"`
-	Provider *string `form:"provider,omitempty" json:"provider,omitempty"`
-	Sort     *string `form:"sort,omitempty" json:"sort,omitempty"`
-	Page     *int    `form:"page,omitempty" json:"page,omitempty"`
-	PageSize *int    `form:"pageSize,omitempty" json:"pageSize,omitempty"`
 }
 
 // ReplaceFormGrantsJSONBody defines parameters for ReplaceFormGrants.
@@ -5336,11 +5976,17 @@ type InspectDataSourceJSONBody struct {
 	Configuration map[string]interface{} `json:"configuration"`
 }
 
+// InspectDataSourceParamsProvider defines parameters for InspectDataSource.
+type InspectDataSourceParamsProvider string
+
 // PreviewDataSourceJSONBody defines parameters for PreviewDataSource.
 type PreviewDataSourceJSONBody struct {
 	Configuration map[string]interface{} `json:"configuration"`
 	PreviewDate   *openapi_types.Date    `json:"previewDate,omitempty"`
 }
+
+// PreviewDataSourceParamsProvider defines parameters for PreviewDataSource.
+type PreviewDataSourceParamsProvider string
 
 // ResetDemoJSONBody defines parameters for ResetDemo.
 type ResetDemoJSONBody struct {
@@ -5393,24 +6039,56 @@ type ListLayoutsParams struct {
 
 // CreateLayoutJSONBody defines parameters for CreateLayout.
 type CreateLayoutJSONBody struct {
-	CanvasHeight int    `json:"canvasHeight"`
-	CanvasWidth  int    `json:"canvasWidth"`
-	Description  string `json:"description"`
-	Name         string `json:"name"`
-	Orientation  string `json:"orientation"`
+	CanvasHeight int                             `json:"canvasHeight"`
+	CanvasWidth  int                             `json:"canvasWidth"`
+	Description  *string                         `json:"description,omitempty"`
+	Name         string                          `json:"name"`
+	Orientation  CreateLayoutJSONBodyOrientation `json:"orientation"`
+}
+
+// CreateLayoutParams defines parameters for CreateLayout.
+type CreateLayoutParams struct {
+	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// CreateLayoutJSONBodyOrientation defines parameters for CreateLayout.
+type CreateLayoutJSONBodyOrientation string
+
+// DeleteLayoutParams defines parameters for DeleteLayout.
+type DeleteLayoutParams struct {
+	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
 // UpdateLayoutJSONBody defines parameters for UpdateLayout.
 type UpdateLayoutJSONBody struct {
-	Description string `json:"description"`
-	Name        string `json:"name"`
+	Description *string `json:"description,omitempty"`
+	Name        string  `json:"name"`
+}
+
+// UpdateLayoutParams defines parameters for UpdateLayout.
+type UpdateLayoutParams struct {
+	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
 // SaveLayoutDraftJSONBody defines parameters for SaveLayoutDraft.
 type SaveLayoutDraftJSONBody struct {
-	// Document Layout document, validated against the Layout schema server-side.
-	Document              map[string]interface{} `json:"document"`
-	ExpectedDraftRevision int64                  `json:"expectedDraftRevision"`
+	Document              LayoutDocument `json:"document"`
+	ExpectedDraftRevision int            `json:"expectedDraftRevision"`
+}
+
+// SaveLayoutDraftParams defines parameters for SaveLayoutDraft.
+type SaveLayoutDraftParams struct {
+	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// DuplicateLayoutParams defines parameters for DuplicateLayout.
+type DuplicateLayoutParams struct {
+	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
 // UpdateLayoutPreviewImageParams defines parameters for UpdateLayoutPreviewImage.
@@ -5420,7 +6098,13 @@ type UpdateLayoutPreviewImageParams struct {
 
 // PublishLayoutJSONBody defines parameters for PublishLayout.
 type PublishLayoutJSONBody struct {
-	ExpectedDraftRevision int64 `json:"expectedDraftRevision"`
+	ExpectedDraftRevision int `json:"expectedDraftRevision"`
+}
+
+// PublishLayoutParams defines parameters for PublishLayout.
+type PublishLayoutParams struct {
+	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
 // ListLayoutRevisionsParams defines parameters for ListLayoutRevisions.
@@ -5431,7 +6115,13 @@ type ListLayoutRevisionsParams struct {
 
 // RestoreLayoutRevisionJSONBody defines parameters for RestoreLayoutRevision.
 type RestoreLayoutRevisionJSONBody struct {
-	ExpectedDraftRevision int64 `json:"expectedDraftRevision"`
+	ExpectedDraftRevision int `json:"expectedDraftRevision"`
+}
+
+// RestoreLayoutRevisionParams defines parameters for RestoreLayoutRevision.
+type RestoreLayoutRevisionParams struct {
+	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
 // UpdatePreferencesParams defines parameters for UpdatePreferences.
@@ -5509,12 +6199,6 @@ type ConfirmAuthenticatorEnrollmentParams struct {
 // RemoveAuthenticatorParams defines parameters for RemoveAuthenticator.
 type RemoveAuthenticatorParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
-}
-
-// ListNotificationDeliveriesParams defines parameters for ListNotificationDeliveries.
-type ListNotificationDeliveriesParams struct {
-	// Limit Maximum items returned. The server applies its own default and cap.
-	Limit *ResultLimit `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // SendTestNotificationParams defines parameters for SendTestNotification.
@@ -5602,11 +6286,6 @@ type ConfigureGitHubReleasesJSONBody struct {
 type ConfigureGitHubReleasesParams struct {
 	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
-}
-
-// PollGitHubDeviceFlowJSONBody defines parameters for PollGitHubDeviceFlow.
-type PollGitHubDeviceFlowJSONBody struct {
-	FlowId openapi_types.UUID `json:"flowId"`
 }
 
 // UploadPlayerReleaseMultipartBody defines parameters for UploadPlayerRelease.
@@ -5735,12 +6414,6 @@ type DeletePlaylistParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
-// UpdatePlaylistJSONBody defines parameters for UpdatePlaylist.
-type UpdatePlaylistJSONBody struct {
-	Description string `json:"description"`
-	Name        string `json:"name"`
-}
-
 // UpdatePlaylistParams defines parameters for UpdatePlaylist.
 type UpdatePlaylistParams struct {
 	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
@@ -5763,11 +6436,6 @@ type AddPlaylistItemParams struct {
 type BulkUpdatePlaylistItemsParams struct {
 	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
-}
-
-// ReorderPlaylistItemsJSONBody defines parameters for ReorderPlaylistItems.
-type ReorderPlaylistItemsJSONBody struct {
-	ItemIds []openapi_types.UUID `json:"itemIds"`
 }
 
 // ReorderPlaylistItemsParams defines parameters for ReorderPlaylistItems.
@@ -5865,11 +6533,6 @@ type TestPresentationNetworkParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
-// StopPresentationOverrideJSONBody defines parameters for StopPresentationOverride.
-type StopPresentationOverrideJSONBody struct {
-	Reason *string `json:"reason,omitempty"`
-}
-
 // ListSchedulesParams defines parameters for ListSchedules.
 type ListSchedulesParams struct {
 	Search   *string `form:"search,omitempty" json:"search,omitempty"`
@@ -5877,37 +6540,9 @@ type ListSchedulesParams struct {
 	PageSize *int    `form:"pageSize,omitempty" json:"pageSize,omitempty"`
 }
 
-// PreviewScheduleJSONBody defines parameters for PreviewSchedule.
-type PreviewScheduleJSONBody struct {
-	ProposedSchedule *ScheduleInput     `json:"proposedSchedule,omitempty"`
-	ScreenId         openapi_types.UUID `json:"screenId"`
-	Timestamp        *time.Time         `json:"timestamp,omitempty"`
-}
-
-// ListScreenGroupsParams defines parameters for ListScreenGroups.
-type ListScreenGroupsParams struct {
-	Search   *string `form:"search,omitempty" json:"search,omitempty"`
-	Page     *int    `form:"page,omitempty" json:"page,omitempty"`
-	PageSize *int    `form:"pageSize,omitempty" json:"pageSize,omitempty"`
-}
-
-// CreateScreenGroupJSONBody defines parameters for CreateScreenGroup.
-type CreateScreenGroupJSONBody struct {
-	Description string `json:"description"`
-	Name        string `json:"name"`
-}
-
 // CreateScreenGroupParams defines parameters for CreateScreenGroup.
 type CreateScreenGroupParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
-}
-
-// UpdateScreenGroupJSONBody defines parameters for UpdateScreenGroup.
-type UpdateScreenGroupJSONBody struct {
-	ClearPresentationGateway    *bool               `json:"clearPresentationGateway,omitempty"`
-	Description                 string              `json:"description"`
-	Name                        string              `json:"name"`
-	PresentationGatewayScreenId *openapi_types.UUID `json:"presentationGatewayScreenId,omitempty"`
 }
 
 // ApplyDisplayGroupControlJSONBody defines parameters for ApplyDisplayGroupControl.
@@ -5932,11 +6567,6 @@ type PreviewDisplayGroupControlParams struct {
 // PreviewDisplayGroupControlParamsCommandType defines parameters for PreviewDisplayGroupControl.
 type PreviewDisplayGroupControlParamsCommandType string
 
-// AddScreenGroupMemberJSONBody defines parameters for AddScreenGroupMember.
-type AddScreenGroupMemberJSONBody struct {
-	ScreenId openapi_types.UUID `json:"screenId"`
-}
-
 // UpdateSpanGeometryParams defines parameters for UpdateSpanGeometry.
 type UpdateSpanGeometryParams struct {
 	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
@@ -5959,12 +6589,6 @@ type ApplyBulkOperationJSONBody struct {
 type ApplyBulkOperationParams struct {
 	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
-}
-
-// ListBulkOperationsParams defines parameters for ListBulkOperations.
-type ListBulkOperationsParams struct {
-	// Limit Maximum items returned. The server applies its own default and cap.
-	Limit *ResultLimit `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // UndoBulkOperationParams defines parameters for UndoBulkOperation.
@@ -6019,15 +6643,6 @@ type UpdateScreenJSONBody struct {
 	Name        *string             `json:"name,omitempty"`
 	RoomName    *string             `json:"roomName,omitempty"`
 	RoomNumber  *string             `json:"roomNumber,omitempty"`
-}
-
-// SendScreenCommandJSONBody defines parameters for SendScreenCommand.
-type SendScreenCommandJSONBody struct {
-	IdempotencyKey *openapi_types.UUID `json:"idempotencyKey,omitempty"`
-
-	// Payload Command payload, validated per command type server-side.
-	Payload map[string]interface{} `json:"payload"`
-	Type    string                 `json:"type"`
 }
 
 // CancelPlayerCommandParams defines parameters for CancelPlayerCommand.
@@ -6090,12 +6705,6 @@ type RevokeScreenCredentialJSONBody struct {
 	Reason *string `json:"reason,omitempty"`
 }
 
-// ListScreenSnapshotsParams defines parameters for ListScreenSnapshots.
-type ListScreenSnapshotsParams struct {
-	// Limit Maximum items returned. The server applies its own default and cap.
-	Limit *ResultLimit `form:"limit,omitempty" json:"limit,omitempty"`
-}
-
 // UpdateSettingsParams defines parameters for UpdateSettings.
 type UpdateSettingsParams struct {
 	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
@@ -6137,9 +6746,6 @@ type CreateBackupParams struct {
 
 // DeleteBackupParams defines parameters for DeleteBackup.
 type DeleteBackupParams struct {
-	// Force Bypass the last-complete-backup protection. The server reads `?force=true` on delete.
-	Force *bool `form:"force,omitempty" json:"force,omitempty"`
-
 	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
@@ -6163,38 +6769,6 @@ type VerifyBackupParams struct {
 
 // RunSystemMaintenanceParamsAction defines parameters for RunSystemMaintenance.
 type RunSystemMaintenanceParamsAction string
-
-// CreateTakeoverJSONBody defines parameters for CreateTakeover.
-type CreateTakeoverJSONBody struct {
-	Description string               `json:"description"`
-	ExpiresAt   time.Time            `json:"expiresAt"`
-	GroupIds    []openapi_types.UUID `json:"groupIds"`
-	Name        string               `json:"name"`
-
-	// Password Current password when the reauthentication policy requires it.
-	Password   *string              `json:"password,omitempty"`
-	PlaylistId openapi_types.UUID   `json:"playlistId"`
-	ScreenIds  []openapi_types.UUID `json:"screenIds"`
-}
-
-// CancelTakeoverJSONBody defines parameters for CancelTakeover.
-type CancelTakeoverJSONBody struct {
-	Reason string `json:"reason"`
-}
-
-// CreateUpdateDeploymentJSONBody defines parameters for CreateUpdateDeployment.
-type CreateUpdateDeploymentJSONBody struct {
-	CanarySize             *int                               `json:"canarySize,omitempty"`
-	GroupIds               []openapi_types.UUID               `json:"groupIds"`
-	MaintenanceWindowStart *time.Time                         `json:"maintenanceWindowStart,omitempty"`
-	Mode                   CreateUpdateDeploymentJSONBodyMode `json:"mode"`
-	Name                   string                             `json:"name"`
-	ReleaseId              openapi_types.UUID                 `json:"releaseId"`
-	ScreenIds              []openapi_types.UUID               `json:"screenIds"`
-}
-
-// CreateUpdateDeploymentJSONBodyMode defines parameters for CreateUpdateDeployment.
-type CreateUpdateDeploymentJSONBodyMode string
 
 // CreateUploadSessionParams defines parameters for CreateUploadSession.
 type CreateUploadSessionParams struct {
@@ -6270,12 +6844,6 @@ type ResetUserSecurityParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
-// CompileWidgetPreviewJSONBody defines parameters for CompileWidgetPreview.
-type CompileWidgetPreviewJSONBody struct {
-	Configuration map[string]interface{} `json:"configuration"`
-	Provider      string                 `json:"provider"`
-}
-
 // UpdateIncidentJSONRequestBody defines body for UpdateIncident for application/json ContentType.
 type UpdateIncidentJSONRequestBody UpdateIncidentJSONBody
 
@@ -6297,17 +6865,8 @@ type BulkOrganizeAssetsJSONRequestBody BulkOrganizeAssetsJSONBody
 // RestoreAssetsJSONRequestBody defines body for RestoreAssets for application/json ContentType.
 type RestoreAssetsJSONRequestBody RestoreAssetsJSONBody
 
-// CreateWebsiteAssetJSONRequestBody defines body for CreateWebsiteAsset for application/json ContentType.
-type CreateWebsiteAssetJSONRequestBody = WebsiteInput
-
 // UpdateAssetJSONRequestBody defines body for UpdateAsset for application/json ContentType.
 type UpdateAssetJSONRequestBody UpdateAssetJSONBody
-
-// UpdateWebsiteAssetJSONRequestBody defines body for UpdateWebsiteAsset for application/json ContentType.
-type UpdateWebsiteAssetJSONRequestBody = WebsiteInput
-
-// LoginJSONRequestBody defines body for Login for application/json ContentType.
-type LoginJSONRequestBody LoginJSONBody
 
 // MultiFactorPasskeyOptionsJSONRequestBody defines body for MultiFactorPasskeyOptions for application/json ContentType.
 type MultiFactorPasskeyOptionsJSONRequestBody = ChallengeTokenRequest
@@ -6330,14 +6889,8 @@ type UpdateCampaignDraftJSONRequestBody = CampaignDraftRequest
 // PublishCampaignJSONRequestBody defines body for PublishCampaign for application/json ContentType.
 type PublishCampaignJSONRequestBody PublishCampaignJSONBody
 
-// CreateContentCollectionJSONRequestBody defines body for CreateContentCollection for application/json ContentType.
-type CreateContentCollectionJSONRequestBody CreateContentCollectionJSONBody
-
 // UpdateContentCollectionJSONRequestBody defines body for UpdateContentCollection for application/json ContentType.
 type UpdateContentCollectionJSONRequestBody UpdateContentCollectionJSONBody
-
-// CreateContentFolderJSONRequestBody defines body for CreateContentFolder for application/json ContentType.
-type CreateContentFolderJSONRequestBody CreateContentFolderJSONBody
 
 // UpdateContentFolderJSONRequestBody defines body for UpdateContentFolder for application/json ContentType.
 type UpdateContentFolderJSONRequestBody UpdateContentFolderJSONBody
@@ -6356,9 +6909,6 @@ type ScheduleContentPublicationJSONRequestBody = SchedulePublicationRequest
 
 // SubmitContentDraftJSONRequestBody defines body for SubmitContentDraft for application/json ContentType.
 type SubmitContentDraftJSONRequestBody = SubmitContentRequest
-
-// CreateContentTagJSONRequestBody defines body for CreateContentTag for application/json ContentType.
-type CreateContentTagJSONRequestBody CreateContentTagJSONBody
 
 // UpdateContentTagJSONRequestBody defines body for UpdateContentTag for application/json ContentType.
 type UpdateContentTagJSONRequestBody UpdateContentTagJSONBody
@@ -6420,12 +6970,6 @@ type PublishLayoutJSONRequestBody PublishLayoutJSONBody
 // RestoreLayoutRevisionJSONRequestBody defines body for RestoreLayoutRevision for application/json ContentType.
 type RestoreLayoutRevisionJSONRequestBody RestoreLayoutRevisionJSONBody
 
-// CreateLocationJSONRequestBody defines body for CreateLocation for application/json ContentType.
-type CreateLocationJSONRequestBody = LocationInput
-
-// UpdateLocationJSONRequestBody defines body for UpdateLocation for application/json ContentType.
-type UpdateLocationJSONRequestBody = LocationInput
-
 // UpdatePreferencesJSONRequestBody defines body for UpdatePreferences for application/json ContentType.
 type UpdatePreferencesJSONRequestBody = SettingsUpdate
 
@@ -6471,9 +7015,6 @@ type IssueOAuthTokensJSONRequestBody = OAuthTokenRequest
 // ConfigureGitHubReleasesJSONRequestBody defines body for ConfigureGitHubReleases for application/json ContentType.
 type ConfigureGitHubReleasesJSONRequestBody ConfigureGitHubReleasesJSONBody
 
-// PollGitHubDeviceFlowJSONRequestBody defines body for PollGitHubDeviceFlow for application/json ContentType.
-type PollGitHubDeviceFlowJSONRequestBody PollGitHubDeviceFlowJSONBody
-
 // UploadPlayerReleaseMultipartRequestBody defines body for UploadPlayerRelease for multipart/form-data ContentType.
 type UploadPlayerReleaseMultipartRequestBody UploadPlayerReleaseMultipartBody
 
@@ -6498,20 +7039,11 @@ type ReportPlayerUpdateStatusJSONRequestBody ReportPlayerUpdateStatusJSONBody
 // CreatePlaylistJSONRequestBody defines body for CreatePlaylist for application/json ContentType.
 type CreatePlaylistJSONRequestBody CreatePlaylistJSONBody
 
-// UpdatePlaylistJSONRequestBody defines body for UpdatePlaylist for application/json ContentType.
-type UpdatePlaylistJSONRequestBody UpdatePlaylistJSONBody
-
 // AddPlaylistItemJSONRequestBody defines body for AddPlaylistItem for application/json ContentType.
 type AddPlaylistItemJSONRequestBody = PlaylistItemInput
 
 // BulkUpdatePlaylistItemsJSONRequestBody defines body for BulkUpdatePlaylistItems for application/json ContentType.
 type BulkUpdatePlaylistItemsJSONRequestBody = PlaylistBulkItemInput
-
-// ReorderPlaylistItemsJSONRequestBody defines body for ReorderPlaylistItems for application/json ContentType.
-type ReorderPlaylistItemsJSONRequestBody ReorderPlaylistItemsJSONBody
-
-// UpdatePlaylistItemJSONRequestBody defines body for UpdatePlaylistItem for application/json ContentType.
-type UpdatePlaylistItemJSONRequestBody = PlaylistItemInput
 
 // PublishPlaylistJSONRequestBody defines body for PublishPlaylist for application/json ContentType.
 type PublishPlaylistJSONRequestBody PublishPlaylistJSONBody
@@ -6540,35 +7072,14 @@ type TestPresentationNetworkJSONRequestBody = PresentationNetworkTestInput
 // CreatePresentationOverrideJSONRequestBody defines body for CreatePresentationOverride for application/json ContentType.
 type CreatePresentationOverrideJSONRequestBody = PresentationOverrideInput
 
-// StopPresentationOverrideJSONRequestBody defines body for StopPresentationOverride for application/json ContentType.
-type StopPresentationOverrideJSONRequestBody StopPresentationOverrideJSONBody
-
 // CreateScheduleJSONRequestBody defines body for CreateSchedule for application/json ContentType.
 type CreateScheduleJSONRequestBody = ScheduleInput
-
-// PreviewScheduleJSONRequestBody defines body for PreviewSchedule for application/json ContentType.
-type PreviewScheduleJSONRequestBody PreviewScheduleJSONBody
-
-// UpdateScheduleJSONRequestBody defines body for UpdateSchedule for application/json ContentType.
-type UpdateScheduleJSONRequestBody = ScheduleInput
-
-// CreateScreenGroupJSONRequestBody defines body for CreateScreenGroup for application/json ContentType.
-type CreateScreenGroupJSONRequestBody CreateScreenGroupJSONBody
-
-// UpdateScreenGroupJSONRequestBody defines body for UpdateScreenGroup for application/json ContentType.
-type UpdateScreenGroupJSONRequestBody UpdateScreenGroupJSONBody
 
 // ApplyDisplayGroupControlJSONRequestBody defines body for ApplyDisplayGroupControl for application/json ContentType.
 type ApplyDisplayGroupControlJSONRequestBody ApplyDisplayGroupControlJSONBody
 
 // AssignSyncGroupPresentationJSONRequestBody defines body for AssignSyncGroupPresentation for application/json ContentType.
 type AssignSyncGroupPresentationJSONRequestBody = PresentationReference
-
-// PutGroupPolicyJSONRequestBody defines body for PutGroupPolicy for application/json ContentType.
-type PutGroupPolicyJSONRequestBody = PolicyUpdate
-
-// AddScreenGroupMemberJSONRequestBody defines body for AddScreenGroupMember for application/json ContentType.
-type AddScreenGroupMemberJSONRequestBody AddScreenGroupMemberJSONBody
 
 // UpdateSpanGeometryJSONRequestBody defines body for UpdateSpanGeometry for application/json ContentType.
 type UpdateSpanGeometryJSONRequestBody = SpanGeometryInput
@@ -6591,17 +7102,8 @@ type RejectPairingJSONRequestBody RejectPairingJSONBody
 // UpdateScreenJSONRequestBody defines body for UpdateScreen for application/json ContentType.
 type UpdateScreenJSONRequestBody UpdateScreenJSONBody
 
-// SendScreenCommandJSONRequestBody defines body for SendScreenCommand for application/json ContentType.
-type SendScreenCommandJSONRequestBody SendScreenCommandJSONBody
-
 // AssignPresentationJSONRequestBody defines body for AssignPresentation for application/json ContentType.
 type AssignPresentationJSONRequestBody = PresentationReference
-
-// PutScreenPolicyJSONRequestBody defines body for PutScreenPolicy for application/json ContentType.
-type PutScreenPolicyJSONRequestBody = PolicyUpdate
-
-// SetScreenPowerAssistJSONRequestBody defines body for SetScreenPowerAssist for application/json ContentType.
-type SetScreenPowerAssistJSONRequestBody = PowerAssistConfirmation
 
 // AssignScreenPresentationNetworkJSONRequestBody defines body for AssignScreenPresentationNetwork for application/json ContentType.
 type AssignScreenPresentationNetworkJSONRequestBody = ScreenPresentationNetworkInput
@@ -6624,21 +7126,6 @@ type ResetSettingsJSONRequestBody ResetSettingsJSONBody
 // RestoreBackupJSONRequestBody defines body for RestoreBackup for application/json ContentType.
 type RestoreBackupJSONRequestBody RestoreBackupJSONBody
 
-// ApplySettingsImportJSONRequestBody defines body for ApplySettingsImport for application/json ContentType.
-type ApplySettingsImportJSONRequestBody = SettingsExport
-
-// PreviewSettingsImportJSONRequestBody defines body for PreviewSettingsImport for application/json ContentType.
-type PreviewSettingsImportJSONRequestBody = SettingsExport
-
-// CreateTakeoverJSONRequestBody defines body for CreateTakeover for application/json ContentType.
-type CreateTakeoverJSONRequestBody CreateTakeoverJSONBody
-
-// CancelTakeoverJSONRequestBody defines body for CancelTakeover for application/json ContentType.
-type CancelTakeoverJSONRequestBody CancelTakeoverJSONBody
-
-// CreateUpdateDeploymentJSONRequestBody defines body for CreateUpdateDeployment for application/json ContentType.
-type CreateUpdateDeploymentJSONRequestBody CreateUpdateDeploymentJSONBody
-
 // CreateUploadSessionJSONRequestBody defines body for CreateUploadSession for application/json ContentType.
 type CreateUploadSessionJSONRequestBody = CreateUploadRequest
 
@@ -6650,9 +7137,6 @@ type UpdateUserJSONRequestBody UpdateUserJSONBody
 
 // CreateWidgetJSONRequestBody defines body for CreateWidget for application/json ContentType.
 type CreateWidgetJSONRequestBody = WidgetInput
-
-// CompileWidgetPreviewJSONRequestBody defines body for CompileWidgetPreview for application/json ContentType.
-type CompileWidgetPreviewJSONRequestBody CompileWidgetPreviewJSONBody
 
 // UpdateWidgetJSONRequestBody defines body for UpdateWidget for application/json ContentType.
 type UpdateWidgetJSONRequestBody = WidgetInput
@@ -7367,17 +7851,10 @@ type ClientInterface interface {
 	// Restore assets. Requires an authenticated dashboard user.
 	RestoreAssets(ctx context.Context, params *RestoreAssetsParams, body RestoreAssetsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CreateWebsiteAssetWithBody performs a POST /api/v1/assets/websites (the `CreateWebsiteAsset` operationId) request,
-	// with any type of body and a specified content type.
-	//
-	// Requires an authenticated content author with the write scope. Cookie requests additionally require the X-CSRF-Token header; Bearer grants never send it. Creates configuration-only public website content without fetching the page.
-	CreateWebsiteAssetWithBody(ctx context.Context, params *CreateWebsiteAssetParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// CreateWebsiteAsset performs a POST /api/v1/assets/websites (the `CreateWebsiteAsset` operationId) request.
-	// Takes a body of the `application/json` content type.
 	//
 	// Requires an authenticated content author with the write scope. Cookie requests additionally require the X-CSRF-Token header; Bearer grants never send it. Creates configuration-only public website content without fetching the page.
-	CreateWebsiteAsset(ctx context.Context, params *CreateWebsiteAssetParams, body CreateWebsiteAssetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateWebsiteAsset(ctx context.Context, params *CreateWebsiteAssetParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteAsset performs a DELETE /api/v1/assets/{id} (the `DeleteAsset` operationId) request.
 	//
@@ -7421,17 +7898,10 @@ type ClientInterface interface {
 	// Get asset thumbnail. Requires an authenticated dashboard user.
 	GetAssetThumbnail(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// UpdateWebsiteAssetWithBody performs a PATCH /api/v1/assets/{id}/website (the `UpdateWebsiteAsset` operationId) request,
-	// with any type of body and a specified content type.
-	//
-	// Update website asset. Requires an authenticated dashboard user.
-	UpdateWebsiteAssetWithBody(ctx context.Context, id ResourceID, params *UpdateWebsiteAssetParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// UpdateWebsiteAsset performs a PATCH /api/v1/assets/{id}/website (the `UpdateWebsiteAsset` operationId) request.
-	// Takes a body of the `application/json` content type.
 	//
 	// Update website asset. Requires an authenticated dashboard user.
-	UpdateWebsiteAsset(ctx context.Context, id ResourceID, params *UpdateWebsiteAssetParams, body UpdateWebsiteAssetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdateWebsiteAsset(ctx context.Context, id ResourceID, params *UpdateWebsiteAssetParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// WebsiteDiagnostics performs a GET /api/v1/assets/{id}/website/diagnostics (the `WebsiteDiagnostics` operationId) request.
 	//
@@ -7448,17 +7918,10 @@ type ClientInterface interface {
 	// Public. Inspect the configured login background image without downloading it.
 	HeadLoginBackgroundImage(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// LoginWithBody performs a POST /api/v1/auth/login (the `Login` operationId) request,
-	// with any type of body and a specified content type.
-	//
-	// Rate-limited. Exchange an enrolled account's credentials for a dashboard session.
-	LoginWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// Login performs a POST /api/v1/auth/login (the `Login` operationId) request.
-	// Takes a body of the `application/json` content type.
 	//
 	// Rate-limited. Exchange an enrolled account's credentials for a dashboard session.
-	Login(ctx context.Context, body LoginJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	Login(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// Logout performs a POST /api/v1/auth/logout (the `Logout` operationId) request.
 	//
@@ -7594,17 +8057,10 @@ type ClientInterface interface {
 	// List content collections. Requires an authenticated dashboard user.
 	ListContentCollections(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CreateContentCollectionWithBody performs a POST /api/v1/content-collections (the `CreateContentCollection` operationId) request,
-	// with any type of body and a specified content type.
-	//
-	// Create content collection. Requires an authenticated dashboard user.
-	CreateContentCollectionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// CreateContentCollection performs a POST /api/v1/content-collections (the `CreateContentCollection` operationId) request.
-	// Takes a body of the `application/json` content type.
 	//
 	// Create content collection. Requires an authenticated dashboard user.
-	CreateContentCollection(ctx context.Context, body CreateContentCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateContentCollection(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteContentCollection performs a DELETE /api/v1/content-collections/{id} (the `DeleteContentCollection` operationId) request.
 	//
@@ -7633,17 +8089,10 @@ type ClientInterface interface {
 	// List content folders. Requires an authenticated dashboard user.
 	ListContentFolders(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CreateContentFolderWithBody performs a POST /api/v1/content-folders (the `CreateContentFolder` operationId) request,
-	// with any type of body and a specified content type.
-	//
-	// Create content folder. Requires an authenticated dashboard user.
-	CreateContentFolderWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// CreateContentFolder performs a POST /api/v1/content-folders (the `CreateContentFolder` operationId) request.
-	// Takes a body of the `application/json` content type.
 	//
 	// Create content folder. Requires an authenticated dashboard user.
-	CreateContentFolder(ctx context.Context, body CreateContentFolderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateContentFolder(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteContentFolder performs a DELETE /api/v1/content-folders/{id} (the `DeleteContentFolder` operationId) request.
 	//
@@ -7777,17 +8226,10 @@ type ClientInterface interface {
 	// List content tags. Requires an authenticated dashboard user.
 	ListContentTags(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CreateContentTagWithBody performs a POST /api/v1/content-tags (the `CreateContentTag` operationId) request,
-	// with any type of body and a specified content type.
-	//
-	// Create content tag. Requires an authenticated dashboard user.
-	CreateContentTagWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// CreateContentTag performs a POST /api/v1/content-tags (the `CreateContentTag` operationId) request.
-	// Takes a body of the `application/json` content type.
 	//
 	// Create content tag. Requires an authenticated dashboard user.
-	CreateContentTag(ctx context.Context, body CreateContentTagJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateContentTag(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteContentTag performs a DELETE /api/v1/content-tags/{id} (the `DeleteContentTag` operationId) request.
 	//
@@ -7809,7 +8251,7 @@ type ClientInterface interface {
 	// ListDataSources performs a GET /api/v1/data-sources (the `ListDataSources` operationId) request.
 	//
 	// List data sources. Requires an authenticated dashboard user.
-	ListDataSources(ctx context.Context, params *ListDataSourcesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListDataSources(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateDataSourceWithBody performs a POST /api/v1/data-sources (the `CreateDataSource` operationId) request,
 	// with any type of body and a specified content type.
@@ -8045,26 +8487,26 @@ type ClientInterface interface {
 	// InspectDataSourceWithBody performs a POST /api/v1/data-sources/{provider}/inspect (the `InspectDataSource` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Requires an authenticated dashboard session. Reports the fields a candidate RSS, Atom, Feed, JSON, or CSV connection contains, with a few sample values per field, a suggested field mapping, and which record fields the Source can fill. Runs under the same safe fetch policy as preview and deliberately does not require a mapping, because the mapping is what it exists to produce.
-	InspectDataSourceWithBody(ctx context.Context, provider DataSourceProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// Requires an authenticated dashboard session. Reports the fields a candidate RSS, Atom, JSON, or CSV connection contains, with a few sample values per field, a suggested field mapping, and which record fields the Source can fill. Runs under the same safe fetch policy as preview and deliberately does not require a mapping, because the mapping is what it exists to produce.
+	InspectDataSourceWithBody(ctx context.Context, provider InspectDataSourceParamsProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// InspectDataSource performs a POST /api/v1/data-sources/{provider}/inspect (the `InspectDataSource` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
-	// Requires an authenticated dashboard session. Reports the fields a candidate RSS, Atom, Feed, JSON, or CSV connection contains, with a few sample values per field, a suggested field mapping, and which record fields the Source can fill. Runs under the same safe fetch policy as preview and deliberately does not require a mapping, because the mapping is what it exists to produce.
-	InspectDataSource(ctx context.Context, provider DataSourceProvider, body InspectDataSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// Requires an authenticated dashboard session. Reports the fields a candidate RSS, Atom, JSON, or CSV connection contains, with a few sample values per field, a suggested field mapping, and which record fields the Source can fill. Runs under the same safe fetch policy as preview and deliberately does not require a mapping, because the mapping is what it exists to produce.
+	InspectDataSource(ctx context.Context, provider InspectDataSourceParamsProvider, body InspectDataSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PreviewDataSourceWithBody performs a POST /api/v1/data-sources/{provider}/preview (the `PreviewDataSource` operationId) request,
 	// with any type of body and a specified content type.
 	//
 	// Requires an authenticated dashboard session. Fetches and parses a candidate Data Source configuration under the safe fetch policy without saving raw data. A previewDate exercises date-aware selection.
-	PreviewDataSourceWithBody(ctx context.Context, provider DataSourceProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PreviewDataSourceWithBody(ctx context.Context, provider PreviewDataSourceParamsProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PreviewDataSource performs a POST /api/v1/data-sources/{provider}/preview (the `PreviewDataSource` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
 	// Requires an authenticated dashboard session. Fetches and parses a candidate Data Source configuration under the safe fetch policy without saving raw data. A previewDate exercises date-aware selection.
-	PreviewDataSource(ctx context.Context, provider DataSourceProvider, body PreviewDataSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PreviewDataSource(ctx context.Context, provider PreviewDataSourceParamsProvider, body PreviewDataSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DemoState performs a GET /api/v1/demo (the `DemoState` operationId) request.
 	//
@@ -8198,18 +8640,18 @@ type ClientInterface interface {
 	// with any type of body and a specified content type.
 	//
 	// Create layout. Requires an authenticated dashboard user.
-	CreateLayoutWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateLayoutWithBody(ctx context.Context, params *CreateLayoutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateLayout performs a POST /api/v1/layouts (the `CreateLayout` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
 	// Create layout. Requires an authenticated dashboard user.
-	CreateLayout(ctx context.Context, body CreateLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateLayout(ctx context.Context, params *CreateLayoutParams, body CreateLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteLayout performs a DELETE /api/v1/layouts/{id} (the `DeleteLayout` operationId) request.
 	//
 	// Delete layout. Requires an authenticated dashboard user.
-	DeleteLayout(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteLayout(ctx context.Context, id ResourceID, params *DeleteLayoutParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetLayout performs a GET /api/v1/layouts/{id} (the `GetLayout` operationId) request.
 	//
@@ -8220,30 +8662,30 @@ type ClientInterface interface {
 	// with any type of body and a specified content type.
 	//
 	// Update layout. Requires an authenticated dashboard user.
-	UpdateLayoutWithBody(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdateLayoutWithBody(ctx context.Context, id ResourceID, params *UpdateLayoutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpdateLayout performs a PATCH /api/v1/layouts/{id} (the `UpdateLayout` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
 	// Update layout. Requires an authenticated dashboard user.
-	UpdateLayout(ctx context.Context, id ResourceID, body UpdateLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdateLayout(ctx context.Context, id ResourceID, params *UpdateLayoutParams, body UpdateLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SaveLayoutDraftWithBody performs a PUT /api/v1/layouts/{id}/draft (the `SaveLayoutDraft` operationId) request,
 	// with any type of body and a specified content type.
 	//
 	// Requires an authenticated dashboard session. Saves a validated draft using expectedDraftRevision optimistic concurrency.
-	SaveLayoutDraftWithBody(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	SaveLayoutDraftWithBody(ctx context.Context, id ResourceID, params *SaveLayoutDraftParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SaveLayoutDraft performs a PUT /api/v1/layouts/{id}/draft (the `SaveLayoutDraft` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
 	// Requires an authenticated dashboard session. Saves a validated draft using expectedDraftRevision optimistic concurrency.
-	SaveLayoutDraft(ctx context.Context, id ResourceID, body SaveLayoutDraftJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	SaveLayoutDraft(ctx context.Context, id ResourceID, params *SaveLayoutDraftParams, body SaveLayoutDraftJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DuplicateLayout performs a POST /api/v1/layouts/{id}/duplicate (the `DuplicateLayout` operationId) request.
 	//
 	// Duplicate layout. Requires an authenticated dashboard user.
-	DuplicateLayout(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DuplicateLayout(ctx context.Context, id ResourceID, params *DuplicateLayoutParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetLayoutPreviewImage performs a GET /api/v1/layouts/{id}/preview-image (the `GetLayoutPreviewImage` operationId) request.
 	//
@@ -8258,14 +8700,14 @@ type ClientInterface interface {
 	// PublishLayoutWithBody performs a POST /api/v1/layouts/{id}/publish (the `PublishLayout` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Publish layout. Requires an authenticated dashboard user.
-	PublishLayoutWithBody(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// Publish layout. Requires an authenticated dashboard user. Publishes the draft the caller read first: the request carries the draft revision it saw, and a 409 means someone else published first. A layout under editorial review answers 202 with the submission instead of publishing.
+	PublishLayoutWithBody(ctx context.Context, id ResourceID, params *PublishLayoutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PublishLayout performs a POST /api/v1/layouts/{id}/publish (the `PublishLayout` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
-	// Publish layout. Requires an authenticated dashboard user.
-	PublishLayout(ctx context.Context, id ResourceID, body PublishLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// Publish layout. Requires an authenticated dashboard user. Publishes the draft the caller read first: the request carries the draft revision it saw, and a 409 means someone else published first. A layout under editorial review answers 202 with the submission instead of publishing.
+	PublishLayout(ctx context.Context, id ResourceID, params *PublishLayoutParams, body PublishLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListLayoutRevisions performs a GET /api/v1/layouts/{id}/revisions (the `ListLayoutRevisions` operationId) request.
 	//
@@ -8276,47 +8718,33 @@ type ClientInterface interface {
 	// with any type of body and a specified content type.
 	//
 	// Restore layout revision. Requires an authenticated dashboard user.
-	RestoreLayoutRevisionWithBody(ctx context.Context, id ResourceID, revisionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	RestoreLayoutRevisionWithBody(ctx context.Context, id ResourceID, revisionId string, params *RestoreLayoutRevisionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RestoreLayoutRevision performs a POST /api/v1/layouts/{id}/revisions/{revisionId}/restore (the `RestoreLayoutRevision` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
 	// Restore layout revision. Requires an authenticated dashboard user.
-	RestoreLayoutRevision(ctx context.Context, id ResourceID, revisionId string, body RestoreLayoutRevisionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	RestoreLayoutRevision(ctx context.Context, id ResourceID, revisionId string, params *RestoreLayoutRevisionParams, body RestoreLayoutRevisionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListLocations performs a GET /api/v1/locations (the `ListLocations` operationId) request.
 	//
 	// List locations. Requires an authenticated dashboard user.
 	ListLocations(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CreateLocationWithBody performs a POST /api/v1/locations (the `CreateLocation` operationId) request,
-	// with any type of body and a specified content type.
-	//
-	// Create location. Requires an authenticated dashboard user.
-	CreateLocationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// CreateLocation performs a POST /api/v1/locations (the `CreateLocation` operationId) request.
-	// Takes a body of the `application/json` content type.
 	//
 	// Create location. Requires an authenticated dashboard user.
-	CreateLocation(ctx context.Context, body CreateLocationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateLocation(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteLocation performs a DELETE /api/v1/locations/{id} (the `DeleteLocation` operationId) request.
 	//
 	// Delete location. Requires an authenticated dashboard user.
 	DeleteLocation(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// UpdateLocationWithBody performs a PATCH /api/v1/locations/{id} (the `UpdateLocation` operationId) request,
-	// with any type of body and a specified content type.
-	//
-	// Update location. Requires an authenticated dashboard user.
-	UpdateLocationWithBody(ctx context.Context, id openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// UpdateLocation performs a PATCH /api/v1/locations/{id} (the `UpdateLocation` operationId) request.
-	// Takes a body of the `application/json` content type.
 	//
 	// Update location. Requires an authenticated dashboard user.
-	UpdateLocation(ctx context.Context, id openapi_types.UUID, body UpdateLocationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdateLocation(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetPreferences performs a GET /api/v1/me/preferences (the `GetPreferences` operationId) request.
 	//
@@ -8452,7 +8880,7 @@ type ClientInterface interface {
 	// ListNotificationDeliveries performs a GET /api/v1/notifications/deliveries (the `ListNotificationDeliveries` operationId) request.
 	//
 	// List notification deliveries. Requires an Owner or Administrator with the admin scope.
-	ListNotificationDeliveries(ctx context.Context, params *ListNotificationDeliveriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListNotificationDeliveries(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetNotificationStatus performs a GET /api/v1/notifications/status (the `GetNotificationStatus` operationId) request.
 	//
@@ -8596,23 +9024,12 @@ type ClientInterface interface {
 	// Corresponds with POST /api/v1/player-releases/github/device (the `StartGitHubDeviceFlow` operationId).
 	StartGitHubDeviceFlow(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// PollGitHubDeviceFlowWithBody Poll an active GitHub OAuth device flow
-	//
-	// Requires an authenticated dashboard user.
-	//
-	// Takes any type of body and a specified content type.
-	//
-	// Corresponds with POST /api/v1/player-releases/github/device/poll (the `PollGitHubDeviceFlow` operationId).
-	PollGitHubDeviceFlowWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// PollGitHubDeviceFlow Poll an active GitHub OAuth device flow
 	//
 	// Requires an authenticated dashboard user.
 	//
-	// Takes a body of the `application/json` content type.
-	//
 	// Corresponds with POST /api/v1/player-releases/github/device/poll (the `PollGitHubDeviceFlow` operationId).
-	PollGitHubDeviceFlow(ctx context.Context, body PollGitHubDeviceFlowJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PollGitHubDeviceFlow(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UploadPlayerReleaseWithBody Upload and verify a signed Tilecast Player release bundle
 	//
@@ -8861,17 +9278,10 @@ type ClientInterface interface {
 	// Get playlist. Requires an authenticated dashboard user.
 	GetPlaylist(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// UpdatePlaylistWithBody performs a PATCH /api/v1/playlists/{id} (the `UpdatePlaylist` operationId) request,
-	// with any type of body and a specified content type.
-	//
-	// Update playlist. Requires an authenticated dashboard user.
-	UpdatePlaylistWithBody(ctx context.Context, id ResourceID, params *UpdatePlaylistParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// UpdatePlaylist performs a PATCH /api/v1/playlists/{id} (the `UpdatePlaylist` operationId) request.
-	// Takes a body of the `application/json` content type.
 	//
 	// Update playlist. Requires an authenticated dashboard user.
-	UpdatePlaylist(ctx context.Context, id ResourceID, params *UpdatePlaylistParams, body UpdatePlaylistJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdatePlaylist(ctx context.Context, id ResourceID, params *UpdatePlaylistParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DuplicatePlaylist performs a POST /api/v1/playlists/{id}/duplicate (the `DuplicatePlaylist` operationId) request.
 	//
@@ -8902,34 +9312,20 @@ type ClientInterface interface {
 	// Bulk update playlist items. Requires an authenticated dashboard user.
 	BulkUpdatePlaylistItems(ctx context.Context, id ResourceID, params *BulkUpdatePlaylistItemsParams, body BulkUpdatePlaylistItemsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ReorderPlaylistItemsWithBody performs a PUT /api/v1/playlists/{id}/items/order (the `ReorderPlaylistItems` operationId) request,
-	// with any type of body and a specified content type.
-	//
-	// Reorder playlist items. Requires an authenticated dashboard user.
-	ReorderPlaylistItemsWithBody(ctx context.Context, id ResourceID, params *ReorderPlaylistItemsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// ReorderPlaylistItems performs a PUT /api/v1/playlists/{id}/items/order (the `ReorderPlaylistItems` operationId) request.
-	// Takes a body of the `application/json` content type.
 	//
 	// Reorder playlist items. Requires an authenticated dashboard user.
-	ReorderPlaylistItems(ctx context.Context, id ResourceID, params *ReorderPlaylistItemsParams, body ReorderPlaylistItemsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ReorderPlaylistItems(ctx context.Context, id ResourceID, params *ReorderPlaylistItemsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeletePlaylistItem performs a DELETE /api/v1/playlists/{id}/items/{itemId} (the `DeletePlaylistItem` operationId) request.
 	//
 	// Delete playlist item. Requires an authenticated dashboard user.
 	DeletePlaylistItem(ctx context.Context, id ResourceID, itemId openapi_types.UUID, params *DeletePlaylistItemParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// UpdatePlaylistItemWithBody performs a PATCH /api/v1/playlists/{id}/items/{itemId} (the `UpdatePlaylistItem` operationId) request,
-	// with any type of body and a specified content type.
-	//
-	// Update playlist item. Requires an authenticated dashboard user.
-	UpdatePlaylistItemWithBody(ctx context.Context, id ResourceID, itemId openapi_types.UUID, params *UpdatePlaylistItemParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// UpdatePlaylistItem performs a PATCH /api/v1/playlists/{id}/items/{itemId} (the `UpdatePlaylistItem` operationId) request.
-	// Takes a body of the `application/json` content type.
 	//
 	// Update playlist item. Requires an authenticated dashboard user.
-	UpdatePlaylistItem(ctx context.Context, id ResourceID, itemId openapi_types.UUID, params *UpdatePlaylistItemParams, body UpdatePlaylistItemJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdatePlaylistItem(ctx context.Context, id ResourceID, itemId openapi_types.UUID, params *UpdatePlaylistItemParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PublishPlaylistWithBody performs a POST /api/v1/playlists/{id}/publish (the `PublishPlaylist` operationId) request,
 	// with any type of body and a specified content type.
@@ -9139,23 +9535,12 @@ type ClientInterface interface {
 	// Corresponds with POST /api/v1/presentation-overrides (the `CreatePresentationOverride` operationId).
 	CreatePresentationOverride(ctx context.Context, body CreatePresentationOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// StopPresentationOverrideWithBody Stop Quick Present
-	//
-	// Requires an authenticated dashboard user.
-	//
-	// Takes any type of body and a specified content type.
-	//
-	// Corresponds with POST /api/v1/presentation-overrides/{id}/stop (the `StopPresentationOverride` operationId).
-	StopPresentationOverrideWithBody(ctx context.Context, id openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// StopPresentationOverride Stop Quick Present
 	//
 	// Requires an authenticated dashboard user.
 	//
-	// Takes a body of the `application/json` content type.
-	//
 	// Corresponds with POST /api/v1/presentation-overrides/{id}/stop (the `StopPresentationOverride` operationId).
-	StopPresentationOverride(ctx context.Context, id openapi_types.UUID, body StopPresentationOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	StopPresentationOverride(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ProviderCatalog performs a GET /api/v1/provider-catalog (the `ProviderCatalog` operationId) request.
 	//
@@ -9179,17 +9564,10 @@ type ClientInterface interface {
 	// Requires the Owner or Administrator role and an authenticated user with the write scope. Cookie requests also require CSRF. The request contains exactly one of playlistId, layoutId, or displayAction. Display Control actions use the closed typed command registry; display_probe is not schedulable.
 	CreateSchedule(ctx context.Context, body CreateScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// PreviewScheduleWithBody performs a POST /api/v1/schedules/preview (the `PreviewSchedule` operationId) request,
-	// with any type of body and a specified content type.
-	//
-	// Preview schedule. Requires an authenticated dashboard user.
-	PreviewScheduleWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// PreviewSchedule performs a POST /api/v1/schedules/preview (the `PreviewSchedule` operationId) request.
-	// Takes a body of the `application/json` content type.
 	//
 	// Preview schedule. Requires an authenticated dashboard user.
-	PreviewSchedule(ctx context.Context, body PreviewScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PreviewSchedule(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteSchedule performs a DELETE /api/v1/schedules/{id} (the `DeleteSchedule` operationId) request.
 	//
@@ -9201,17 +9579,10 @@ type ClientInterface interface {
 	// Get schedule. Requires an authenticated dashboard user.
 	GetSchedule(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// UpdateScheduleWithBody performs a PATCH /api/v1/schedules/{id} (the `UpdateSchedule` operationId) request,
-	// with any type of body and a specified content type.
-	//
-	// Update schedule. Requires an authenticated dashboard user.
-	UpdateScheduleWithBody(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// UpdateSchedule performs a PATCH /api/v1/schedules/{id} (the `UpdateSchedule` operationId) request.
-	// Takes a body of the `application/json` content type.
 	//
 	// Update schedule. Requires an authenticated dashboard user.
-	UpdateSchedule(ctx context.Context, id ResourceID, body UpdateScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdateSchedule(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DisableSchedule performs a POST /api/v1/schedules/{id}/disable (the `DisableSchedule` operationId) request.
 	//
@@ -9226,19 +9597,12 @@ type ClientInterface interface {
 	// ListScreenGroups performs a GET /api/v1/screen-groups (the `ListScreenGroups` operationId) request.
 	//
 	// List screen groups. Requires an authenticated dashboard user.
-	ListScreenGroups(ctx context.Context, params *ListScreenGroupsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// CreateScreenGroupWithBody performs a POST /api/v1/screen-groups (the `CreateScreenGroup` operationId) request,
-	// with any type of body and a specified content type.
-	//
-	// Create screen group. Requires an authenticated dashboard user.
-	CreateScreenGroupWithBody(ctx context.Context, params *CreateScreenGroupParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListScreenGroups(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateScreenGroup performs a POST /api/v1/screen-groups (the `CreateScreenGroup` operationId) request.
-	// Takes a body of the `application/json` content type.
 	//
 	// Create screen group. Requires an authenticated dashboard user.
-	CreateScreenGroup(ctx context.Context, params *CreateScreenGroupParams, body CreateScreenGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateScreenGroup(ctx context.Context, params *CreateScreenGroupParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteScreenGroup performs a DELETE /api/v1/screen-groups/{id} (the `DeleteScreenGroup` operationId) request.
 	//
@@ -9250,17 +9614,10 @@ type ClientInterface interface {
 	// Get screen group. Requires an authenticated dashboard user.
 	GetScreenGroup(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// UpdateScreenGroupWithBody performs a PATCH /api/v1/screen-groups/{id} (the `UpdateScreenGroup` operationId) request,
-	// with any type of body and a specified content type.
-	//
-	// Update screen group. Requires an authenticated dashboard user.
-	UpdateScreenGroupWithBody(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// UpdateScreenGroup performs a PATCH /api/v1/screen-groups/{id} (the `UpdateScreenGroup` operationId) request.
-	// Takes a body of the `application/json` content type.
 	//
 	// Update screen group. Requires an authenticated dashboard user.
-	UpdateScreenGroup(ctx context.Context, id ResourceID, body UpdateScreenGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdateScreenGroup(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ApplyDisplayGroupControlWithBody performs a POST /api/v1/screen-groups/{id}/display-control (the `ApplyDisplayGroupControl` operationId) request,
 	// with any type of body and a specified content type.
@@ -9310,35 +9667,17 @@ type ClientInterface interface {
 	// Corresponds with GET /api/v1/screen-groups/{id}/policy (the `GetGroupPolicy` operationId).
 	GetGroupPolicy(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// PutGroupPolicyWithBody Replace typed group policy
-	//
-	// Requires an authenticated dashboard user.
-	//
-	// Takes any type of body and a specified content type.
-	//
-	// Corresponds with PUT /api/v1/screen-groups/{id}/policy (the `PutGroupPolicy` operationId).
-	PutGroupPolicyWithBody(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// PutGroupPolicy Replace typed group policy
 	//
 	// Requires an authenticated dashboard user.
 	//
-	// Takes a body of the `application/json` content type.
-	//
 	// Corresponds with PUT /api/v1/screen-groups/{id}/policy (the `PutGroupPolicy` operationId).
-	PutGroupPolicy(ctx context.Context, id ResourceID, body PutGroupPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// AddScreenGroupMemberWithBody performs a POST /api/v1/screen-groups/{id}/screens (the `AddScreenGroupMember` operationId) request,
-	// with any type of body and a specified content type.
-	//
-	// Add screen group member. Requires an authenticated dashboard user.
-	AddScreenGroupMemberWithBody(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PutGroupPolicy(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AddScreenGroupMember performs a POST /api/v1/screen-groups/{id}/screens (the `AddScreenGroupMember` operationId) request.
-	// Takes a body of the `application/json` content type.
 	//
 	// Add screen group member. Requires an authenticated dashboard user.
-	AddScreenGroupMember(ctx context.Context, id ResourceID, body AddScreenGroupMemberJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	AddScreenGroupMember(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RemoveScreenGroupMember performs a DELETE /api/v1/screen-groups/{id}/screens/{screenId} (the `RemoveScreenGroupMember` operationId) request.
 	//
@@ -9387,7 +9726,7 @@ type ClientInterface interface {
 	// ListBulkOperations performs a GET /api/v1/screens/bulk/operations (the `ListBulkOperations` operationId) request.
 	//
 	// List recent fleet bulk operations. Requires an Owner or Administrator with the read scope.
-	ListBulkOperations(ctx context.Context, params *ListBulkOperationsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListBulkOperations(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UndoBulkOperation performs a POST /api/v1/screens/bulk/operations/{id}/undo (the `UndoBulkOperation` operationId) request.
 	//
@@ -9471,23 +9810,12 @@ type ClientInterface interface {
 	// Corresponds with GET /api/v1/screens/{id}/commands (the `ListScreenCommands` operationId).
 	ListScreenCommands(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// SendScreenCommandWithBody Queue a typed operational, Display Control, or bounded player-recovery command
-	//
-	// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
-	//
-	// Takes any type of body and a specified content type.
-	//
-	// Corresponds with POST /api/v1/screens/{id}/commands (the `SendScreenCommand` operationId).
-	SendScreenCommandWithBody(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// SendScreenCommand Queue a typed operational, Display Control, or bounded player-recovery command
 	//
 	// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 	//
-	// Takes a body of the `application/json` content type.
-	//
 	// Corresponds with POST /api/v1/screens/{id}/commands (the `SendScreenCommand` operationId).
-	SendScreenCommand(ctx context.Context, id ResourceID, body SendScreenCommandJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	SendScreenCommand(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CancelPlayerCommand performs a POST /api/v1/screens/{id}/commands/{commandId}/cancel (the `CancelPlayerCommand` operationId) request.
 	//
@@ -9570,41 +9898,19 @@ type ClientInterface interface {
 	// Corresponds with GET /api/v1/screens/{id}/policy (the `GetScreenPolicy` operationId).
 	GetScreenPolicy(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// PutScreenPolicyWithBody Replace typed screen policy
-	//
-	// Requires an authenticated dashboard user.
-	//
-	// Takes any type of body and a specified content type.
-	//
-	// Corresponds with PUT /api/v1/screens/{id}/policy (the `PutScreenPolicy` operationId).
-	PutScreenPolicyWithBody(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// PutScreenPolicy Replace typed screen policy
 	//
 	// Requires an authenticated dashboard user.
 	//
-	// Takes a body of the `application/json` content type.
-	//
 	// Corresponds with PUT /api/v1/screens/{id}/policy (the `PutScreenPolicy` operationId).
-	PutScreenPolicy(ctx context.Context, id ResourceID, body PutScreenPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// SetScreenPowerAssistWithBody Store administrator-confirmed sleep, wake, CEC, input, and startup test results
-	//
-	// Requires an authenticated dashboard user.
-	//
-	// Takes any type of body and a specified content type.
-	//
-	// Corresponds with PUT /api/v1/screens/{id}/power-assist (the `SetScreenPowerAssist` operationId).
-	SetScreenPowerAssistWithBody(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PutScreenPolicy(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SetScreenPowerAssist Store administrator-confirmed sleep, wake, CEC, input, and startup test results
 	//
 	// Requires an authenticated dashboard user.
 	//
-	// Takes a body of the `application/json` content type.
-	//
 	// Corresponds with PUT /api/v1/screens/{id}/power-assist (the `SetScreenPowerAssist` operationId).
-	SetScreenPowerAssist(ctx context.Context, id ResourceID, body SetScreenPowerAssistJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	SetScreenPowerAssist(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UnassignScreenPresentationNetwork Remove a screen's Presentation Network assignment
 	//
@@ -9676,7 +9982,7 @@ type ClientInterface interface {
 	// ListScreenSnapshots performs a GET /api/v1/screens/{id}/snapshots (the `ListScreenSnapshots` operationId) request.
 	//
 	// List a screen's snapshots. Requires an authenticated dashboard user with the read scope.
-	ListScreenSnapshots(ctx context.Context, id ResourceID, params *ListScreenSnapshotsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListScreenSnapshots(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetScreenSnapshotImage performs a GET /api/v1/screens/{id}/snapshots/{snapshotId}/image (the `GetScreenSnapshotImage` operationId) request.
 	//
@@ -9815,41 +10121,19 @@ type ClientInterface interface {
 	// Corresponds with GET /api/v1/system/settings/export (the `ExportSettings` operationId).
 	ExportSettings(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ApplySettingsImportWithBody Apply confirmed settings import
-	//
-	// Requires an authenticated dashboard user.
-	//
-	// Takes any type of body and a specified content type.
-	//
-	// Corresponds with POST /api/v1/system/settings/import/apply (the `ApplySettingsImport` operationId).
-	ApplySettingsImportWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// ApplySettingsImport Apply confirmed settings import
 	//
 	// Requires an authenticated dashboard user.
 	//
-	// Takes a body of the `application/json` content type.
-	//
 	// Corresponds with POST /api/v1/system/settings/import/apply (the `ApplySettingsImport` operationId).
-	ApplySettingsImport(ctx context.Context, body ApplySettingsImportJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// PreviewSettingsImportWithBody Validate settings import without applying
-	//
-	// Requires an authenticated dashboard user.
-	//
-	// Takes any type of body and a specified content type.
-	//
-	// Corresponds with POST /api/v1/system/settings/import/preview (the `PreviewSettingsImport` operationId).
-	PreviewSettingsImportWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ApplySettingsImport(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PreviewSettingsImport Validate settings import without applying
 	//
 	// Requires an authenticated dashboard user.
 	//
-	// Takes a body of the `application/json` content type.
-	//
 	// Corresponds with POST /api/v1/system/settings/import/preview (the `PreviewSettingsImport` operationId).
-	PreviewSettingsImport(ctx context.Context, body PreviewSettingsImportJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PreviewSettingsImport(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetSnapshotUsage performs a GET /api/v1/system/snapshots/usage (the `GetSnapshotUsage` operationId) request.
 	//
@@ -9868,23 +10152,12 @@ type ClientInterface interface {
 	// Corresponds with GET /api/v1/takeovers (the `ListTakeovers` operationId).
 	ListTakeovers(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CreateTakeoverWithBody Activate a Takeover
-	//
-	// Requires an authenticated dashboard user.
-	//
-	// Takes any type of body and a specified content type.
-	//
-	// Corresponds with POST /api/v1/takeovers (the `CreateTakeover` operationId).
-	CreateTakeoverWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// CreateTakeover Activate a Takeover
 	//
 	// Requires an authenticated dashboard user.
 	//
-	// Takes a body of the `application/json` content type.
-	//
 	// Corresponds with POST /api/v1/takeovers (the `CreateTakeover` operationId).
-	CreateTakeover(ctx context.Context, body CreateTakeoverJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateTakeover(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetTakeover Read Takeover and per-screen state
 	//
@@ -9893,23 +10166,12 @@ type ClientInterface interface {
 	// Corresponds with GET /api/v1/takeovers/{id} (the `GetTakeover` operationId).
 	GetTakeover(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CancelTakeoverWithBody Cancel an active Takeover
-	//
-	// Requires an authenticated dashboard user.
-	//
-	// Takes any type of body and a specified content type.
-	//
-	// Corresponds with POST /api/v1/takeovers/{id}/cancel (the `CancelTakeover` operationId).
-	CancelTakeoverWithBody(ctx context.Context, id openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// CancelTakeover Cancel an active Takeover
 	//
 	// Requires an authenticated dashboard user.
 	//
-	// Takes a body of the `application/json` content type.
-	//
 	// Corresponds with POST /api/v1/takeovers/{id}/cancel (the `CancelTakeover` operationId).
-	CancelTakeover(ctx context.Context, id openapi_types.UUID, body CancelTakeoverJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CancelTakeover(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListUpdateDeployments List Player update deployments, narrowed to the caller's screen scope
 	//
@@ -9918,23 +10180,12 @@ type ClientInterface interface {
 	// Corresponds with GET /api/v1/update-deployments (the `ListUpdateDeployments` operationId).
 	ListUpdateDeployments(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CreateUpdateDeploymentWithBody Create a deduplicated screen and group deployment with an optional canary cohort
-	//
-	// Requires an authenticated dashboard user.
-	//
-	// Takes any type of body and a specified content type.
-	//
-	// Corresponds with POST /api/v1/update-deployments (the `CreateUpdateDeployment` operationId).
-	CreateUpdateDeploymentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// CreateUpdateDeployment Create a deduplicated screen and group deployment with an optional canary cohort
 	//
 	// Requires an authenticated dashboard user.
 	//
-	// Takes a body of the `application/json` content type.
-	//
 	// Corresponds with POST /api/v1/update-deployments (the `CreateUpdateDeployment` operationId).
-	CreateUpdateDeployment(ctx context.Context, body CreateUpdateDeploymentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateUpdateDeployment(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetUpdateDeployment Read the deployment header, release artifact size, and per-screen update state for the screens in the caller's scope
 	//
@@ -10046,17 +10297,10 @@ type ClientInterface interface {
 	// Requires an authenticated dashboard session. Creates a reusable Widget or catalog App. An App recipe may atomically provision one hidden managed Data Source while preserving normal dependency and manifest behavior.
 	CreateWidget(ctx context.Context, body CreateWidgetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CompileWidgetPreviewWithBody performs a POST /api/v1/widgets/compile-preview (the `CompileWidgetPreview` operationId) request,
-	// with any type of body and a specified content type.
-	//
-	// Compile widget preview. Requires an authenticated dashboard user.
-	CompileWidgetPreviewWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// CompileWidgetPreview performs a POST /api/v1/widgets/compile-preview (the `CompileWidgetPreview` operationId) request.
-	// Takes a body of the `application/json` content type.
 	//
 	// Compile widget preview. Requires an authenticated dashboard user.
-	CompileWidgetPreview(ctx context.Context, body CompileWidgetPreviewJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CompileWidgetPreview(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpdateWidgetWithBody performs a PATCH /api/v1/widgets/{id} (the `UpdateWidget` operationId) request,
 	// with any type of body and a specified content type.
@@ -10715,28 +10959,11 @@ func (c *Client) RestoreAssets(ctx context.Context, params *RestoreAssetsParams,
 	return c.Client.Do(req)
 }
 
-// CreateWebsiteAssetWithBody performs a POST /api/v1/assets/websites (the `CreateWebsiteAsset` operationId) request,
-// with any type of body and a specified content type.
-//
-// Requires an authenticated content author with the write scope. Cookie requests additionally require the X-CSRF-Token header; Bearer grants never send it. Creates configuration-only public website content without fetching the page.
-func (c *Client) CreateWebsiteAssetWithBody(ctx context.Context, params *CreateWebsiteAssetParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateWebsiteAssetRequestWithBody(c.Server, params, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 // CreateWebsiteAsset performs a POST /api/v1/assets/websites (the `CreateWebsiteAsset` operationId) request.
-// Takes a body of the `application/json` content type.
 //
 // Requires an authenticated content author with the write scope. Cookie requests additionally require the X-CSRF-Token header; Bearer grants never send it. Creates configuration-only public website content without fetching the page.
-func (c *Client) CreateWebsiteAsset(ctx context.Context, params *CreateWebsiteAssetParams, body CreateWebsiteAssetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateWebsiteAssetRequest(c.Server, params, body)
+func (c *Client) CreateWebsiteAsset(ctx context.Context, params *CreateWebsiteAssetParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateWebsiteAssetRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -10869,28 +11096,11 @@ func (c *Client) GetAssetThumbnail(ctx context.Context, id ResourceID, reqEditor
 	return c.Client.Do(req)
 }
 
-// UpdateWebsiteAssetWithBody performs a PATCH /api/v1/assets/{id}/website (the `UpdateWebsiteAsset` operationId) request,
-// with any type of body and a specified content type.
-//
-// Update website asset. Requires an authenticated dashboard user.
-func (c *Client) UpdateWebsiteAssetWithBody(ctx context.Context, id ResourceID, params *UpdateWebsiteAssetParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateWebsiteAssetRequestWithBody(c.Server, id, params, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 // UpdateWebsiteAsset performs a PATCH /api/v1/assets/{id}/website (the `UpdateWebsiteAsset` operationId) request.
-// Takes a body of the `application/json` content type.
 //
 // Update website asset. Requires an authenticated dashboard user.
-func (c *Client) UpdateWebsiteAsset(ctx context.Context, id ResourceID, params *UpdateWebsiteAssetParams, body UpdateWebsiteAssetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateWebsiteAssetRequest(c.Server, id, params, body)
+func (c *Client) UpdateWebsiteAsset(ctx context.Context, id ResourceID, params *UpdateWebsiteAssetParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateWebsiteAssetRequest(c.Server, id, params)
 	if err != nil {
 		return nil, err
 	}
@@ -10946,28 +11156,11 @@ func (c *Client) HeadLoginBackgroundImage(ctx context.Context, reqEditors ...Req
 	return c.Client.Do(req)
 }
 
-// LoginWithBody performs a POST /api/v1/auth/login (the `Login` operationId) request,
-// with any type of body and a specified content type.
-//
-// Rate-limited. Exchange an enrolled account's credentials for a dashboard session.
-func (c *Client) LoginWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewLoginRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 // Login performs a POST /api/v1/auth/login (the `Login` operationId) request.
-// Takes a body of the `application/json` content type.
 //
 // Rate-limited. Exchange an enrolled account's credentials for a dashboard session.
-func (c *Client) Login(ctx context.Context, body LoginJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewLoginRequest(c.Server, body)
+func (c *Client) Login(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLoginRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -11352,28 +11545,11 @@ func (c *Client) ListContentCollections(ctx context.Context, reqEditors ...Reque
 	return c.Client.Do(req)
 }
 
-// CreateContentCollectionWithBody performs a POST /api/v1/content-collections (the `CreateContentCollection` operationId) request,
-// with any type of body and a specified content type.
-//
-// Create content collection. Requires an authenticated dashboard user.
-func (c *Client) CreateContentCollectionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateContentCollectionRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 // CreateContentCollection performs a POST /api/v1/content-collections (the `CreateContentCollection` operationId) request.
-// Takes a body of the `application/json` content type.
 //
 // Create content collection. Requires an authenticated dashboard user.
-func (c *Client) CreateContentCollection(ctx context.Context, body CreateContentCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateContentCollectionRequest(c.Server, body)
+func (c *Client) CreateContentCollection(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateContentCollectionRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -11461,28 +11637,11 @@ func (c *Client) ListContentFolders(ctx context.Context, reqEditors ...RequestEd
 	return c.Client.Do(req)
 }
 
-// CreateContentFolderWithBody performs a POST /api/v1/content-folders (the `CreateContentFolder` operationId) request,
-// with any type of body and a specified content type.
-//
-// Create content folder. Requires an authenticated dashboard user.
-func (c *Client) CreateContentFolderWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateContentFolderRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 // CreateContentFolder performs a POST /api/v1/content-folders (the `CreateContentFolder` operationId) request.
-// Takes a body of the `application/json` content type.
 //
 // Create content folder. Requires an authenticated dashboard user.
-func (c *Client) CreateContentFolder(ctx context.Context, body CreateContentFolderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateContentFolderRequest(c.Server, body)
+func (c *Client) CreateContentFolder(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateContentFolderRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -11865,28 +12024,11 @@ func (c *Client) ListContentTags(ctx context.Context, reqEditors ...RequestEdito
 	return c.Client.Do(req)
 }
 
-// CreateContentTagWithBody performs a POST /api/v1/content-tags (the `CreateContentTag` operationId) request,
-// with any type of body and a specified content type.
-//
-// Create content tag. Requires an authenticated dashboard user.
-func (c *Client) CreateContentTagWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateContentTagRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 // CreateContentTag performs a POST /api/v1/content-tags (the `CreateContentTag` operationId) request.
-// Takes a body of the `application/json` content type.
 //
 // Create content tag. Requires an authenticated dashboard user.
-func (c *Client) CreateContentTag(ctx context.Context, body CreateContentTagJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateContentTagRequest(c.Server, body)
+func (c *Client) CreateContentTag(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateContentTagRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -11947,8 +12089,8 @@ func (c *Client) UpdateContentTag(ctx context.Context, id ResourceID, params *Up
 // ListDataSources performs a GET /api/v1/data-sources (the `ListDataSources` operationId) request.
 //
 // List data sources. Requires an authenticated dashboard user.
-func (c *Client) ListDataSources(ctx context.Context, params *ListDataSourcesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListDataSourcesRequest(c.Server, params)
+func (c *Client) ListDataSources(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListDataSourcesRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -12623,8 +12765,8 @@ func (c *Client) DeleteFormView(ctx context.Context, id openapi_types.UUID, view
 // InspectDataSourceWithBody performs a POST /api/v1/data-sources/{provider}/inspect (the `InspectDataSource` operationId) request,
 // with any type of body and a specified content type.
 //
-// Requires an authenticated dashboard session. Reports the fields a candidate RSS, Atom, Feed, JSON, or CSV connection contains, with a few sample values per field, a suggested field mapping, and which record fields the Source can fill. Runs under the same safe fetch policy as preview and deliberately does not require a mapping, because the mapping is what it exists to produce.
-func (c *Client) InspectDataSourceWithBody(ctx context.Context, provider DataSourceProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+// Requires an authenticated dashboard session. Reports the fields a candidate RSS, Atom, JSON, or CSV connection contains, with a few sample values per field, a suggested field mapping, and which record fields the Source can fill. Runs under the same safe fetch policy as preview and deliberately does not require a mapping, because the mapping is what it exists to produce.
+func (c *Client) InspectDataSourceWithBody(ctx context.Context, provider InspectDataSourceParamsProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewInspectDataSourceRequestWithBody(c.Server, provider, contentType, body)
 	if err != nil {
 		return nil, err
@@ -12639,8 +12781,8 @@ func (c *Client) InspectDataSourceWithBody(ctx context.Context, provider DataSou
 // InspectDataSource performs a POST /api/v1/data-sources/{provider}/inspect (the `InspectDataSource` operationId) request.
 // Takes a body of the `application/json` content type.
 //
-// Requires an authenticated dashboard session. Reports the fields a candidate RSS, Atom, Feed, JSON, or CSV connection contains, with a few sample values per field, a suggested field mapping, and which record fields the Source can fill. Runs under the same safe fetch policy as preview and deliberately does not require a mapping, because the mapping is what it exists to produce.
-func (c *Client) InspectDataSource(ctx context.Context, provider DataSourceProvider, body InspectDataSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+// Requires an authenticated dashboard session. Reports the fields a candidate RSS, Atom, JSON, or CSV connection contains, with a few sample values per field, a suggested field mapping, and which record fields the Source can fill. Runs under the same safe fetch policy as preview and deliberately does not require a mapping, because the mapping is what it exists to produce.
+func (c *Client) InspectDataSource(ctx context.Context, provider InspectDataSourceParamsProvider, body InspectDataSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewInspectDataSourceRequest(c.Server, provider, body)
 	if err != nil {
 		return nil, err
@@ -12656,7 +12798,7 @@ func (c *Client) InspectDataSource(ctx context.Context, provider DataSourceProvi
 // with any type of body and a specified content type.
 //
 // Requires an authenticated dashboard session. Fetches and parses a candidate Data Source configuration under the safe fetch policy without saving raw data. A previewDate exercises date-aware selection.
-func (c *Client) PreviewDataSourceWithBody(ctx context.Context, provider DataSourceProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) PreviewDataSourceWithBody(ctx context.Context, provider PreviewDataSourceParamsProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPreviewDataSourceRequestWithBody(c.Server, provider, contentType, body)
 	if err != nil {
 		return nil, err
@@ -12672,7 +12814,7 @@ func (c *Client) PreviewDataSourceWithBody(ctx context.Context, provider DataSou
 // Takes a body of the `application/json` content type.
 //
 // Requires an authenticated dashboard session. Fetches and parses a candidate Data Source configuration under the safe fetch policy without saving raw data. A previewDate exercises date-aware selection.
-func (c *Client) PreviewDataSource(ctx context.Context, provider DataSourceProvider, body PreviewDataSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) PreviewDataSource(ctx context.Context, provider PreviewDataSourceParamsProvider, body PreviewDataSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPreviewDataSourceRequest(c.Server, provider, body)
 	if err != nil {
 		return nil, err
@@ -13056,8 +13198,8 @@ func (c *Client) ListLayouts(ctx context.Context, params *ListLayoutsParams, req
 // with any type of body and a specified content type.
 //
 // Create layout. Requires an authenticated dashboard user.
-func (c *Client) CreateLayoutWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateLayoutRequestWithBody(c.Server, contentType, body)
+func (c *Client) CreateLayoutWithBody(ctx context.Context, params *CreateLayoutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateLayoutRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -13072,8 +13214,8 @@ func (c *Client) CreateLayoutWithBody(ctx context.Context, contentType string, b
 // Takes a body of the `application/json` content type.
 //
 // Create layout. Requires an authenticated dashboard user.
-func (c *Client) CreateLayout(ctx context.Context, body CreateLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateLayoutRequest(c.Server, body)
+func (c *Client) CreateLayout(ctx context.Context, params *CreateLayoutParams, body CreateLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateLayoutRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -13087,8 +13229,8 @@ func (c *Client) CreateLayout(ctx context.Context, body CreateLayoutJSONRequestB
 // DeleteLayout performs a DELETE /api/v1/layouts/{id} (the `DeleteLayout` operationId) request.
 //
 // Delete layout. Requires an authenticated dashboard user.
-func (c *Client) DeleteLayout(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteLayoutRequest(c.Server, id)
+func (c *Client) DeleteLayout(ctx context.Context, id ResourceID, params *DeleteLayoutParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteLayoutRequest(c.Server, id, params)
 	if err != nil {
 		return nil, err
 	}
@@ -13118,8 +13260,8 @@ func (c *Client) GetLayout(ctx context.Context, id ResourceID, reqEditors ...Req
 // with any type of body and a specified content type.
 //
 // Update layout. Requires an authenticated dashboard user.
-func (c *Client) UpdateLayoutWithBody(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateLayoutRequestWithBody(c.Server, id, contentType, body)
+func (c *Client) UpdateLayoutWithBody(ctx context.Context, id ResourceID, params *UpdateLayoutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateLayoutRequestWithBody(c.Server, id, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -13134,8 +13276,8 @@ func (c *Client) UpdateLayoutWithBody(ctx context.Context, id ResourceID, conten
 // Takes a body of the `application/json` content type.
 //
 // Update layout. Requires an authenticated dashboard user.
-func (c *Client) UpdateLayout(ctx context.Context, id ResourceID, body UpdateLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateLayoutRequest(c.Server, id, body)
+func (c *Client) UpdateLayout(ctx context.Context, id ResourceID, params *UpdateLayoutParams, body UpdateLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateLayoutRequest(c.Server, id, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -13150,8 +13292,8 @@ func (c *Client) UpdateLayout(ctx context.Context, id ResourceID, body UpdateLay
 // with any type of body and a specified content type.
 //
 // Requires an authenticated dashboard session. Saves a validated draft using expectedDraftRevision optimistic concurrency.
-func (c *Client) SaveLayoutDraftWithBody(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSaveLayoutDraftRequestWithBody(c.Server, id, contentType, body)
+func (c *Client) SaveLayoutDraftWithBody(ctx context.Context, id ResourceID, params *SaveLayoutDraftParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSaveLayoutDraftRequestWithBody(c.Server, id, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -13166,8 +13308,8 @@ func (c *Client) SaveLayoutDraftWithBody(ctx context.Context, id ResourceID, con
 // Takes a body of the `application/json` content type.
 //
 // Requires an authenticated dashboard session. Saves a validated draft using expectedDraftRevision optimistic concurrency.
-func (c *Client) SaveLayoutDraft(ctx context.Context, id ResourceID, body SaveLayoutDraftJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSaveLayoutDraftRequest(c.Server, id, body)
+func (c *Client) SaveLayoutDraft(ctx context.Context, id ResourceID, params *SaveLayoutDraftParams, body SaveLayoutDraftJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSaveLayoutDraftRequest(c.Server, id, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -13181,8 +13323,8 @@ func (c *Client) SaveLayoutDraft(ctx context.Context, id ResourceID, body SaveLa
 // DuplicateLayout performs a POST /api/v1/layouts/{id}/duplicate (the `DuplicateLayout` operationId) request.
 //
 // Duplicate layout. Requires an authenticated dashboard user.
-func (c *Client) DuplicateLayout(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDuplicateLayoutRequest(c.Server, id)
+func (c *Client) DuplicateLayout(ctx context.Context, id ResourceID, params *DuplicateLayoutParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDuplicateLayoutRequest(c.Server, id, params)
 	if err != nil {
 		return nil, err
 	}
@@ -13226,9 +13368,9 @@ func (c *Client) UpdateLayoutPreviewImage(ctx context.Context, id ResourceID, pa
 // PublishLayoutWithBody performs a POST /api/v1/layouts/{id}/publish (the `PublishLayout` operationId) request,
 // with any type of body and a specified content type.
 //
-// Publish layout. Requires an authenticated dashboard user.
-func (c *Client) PublishLayoutWithBody(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPublishLayoutRequestWithBody(c.Server, id, contentType, body)
+// Publish layout. Requires an authenticated dashboard user. Publishes the draft the caller read first: the request carries the draft revision it saw, and a 409 means someone else published first. A layout under editorial review answers 202 with the submission instead of publishing.
+func (c *Client) PublishLayoutWithBody(ctx context.Context, id ResourceID, params *PublishLayoutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPublishLayoutRequestWithBody(c.Server, id, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -13242,9 +13384,9 @@ func (c *Client) PublishLayoutWithBody(ctx context.Context, id ResourceID, conte
 // PublishLayout performs a POST /api/v1/layouts/{id}/publish (the `PublishLayout` operationId) request.
 // Takes a body of the `application/json` content type.
 //
-// Publish layout. Requires an authenticated dashboard user.
-func (c *Client) PublishLayout(ctx context.Context, id ResourceID, body PublishLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPublishLayoutRequest(c.Server, id, body)
+// Publish layout. Requires an authenticated dashboard user. Publishes the draft the caller read first: the request carries the draft revision it saw, and a 409 means someone else published first. A layout under editorial review answers 202 with the submission instead of publishing.
+func (c *Client) PublishLayout(ctx context.Context, id ResourceID, params *PublishLayoutParams, body PublishLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPublishLayoutRequest(c.Server, id, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -13274,8 +13416,8 @@ func (c *Client) ListLayoutRevisions(ctx context.Context, id ResourceID, params 
 // with any type of body and a specified content type.
 //
 // Restore layout revision. Requires an authenticated dashboard user.
-func (c *Client) RestoreLayoutRevisionWithBody(ctx context.Context, id ResourceID, revisionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRestoreLayoutRevisionRequestWithBody(c.Server, id, revisionId, contentType, body)
+func (c *Client) RestoreLayoutRevisionWithBody(ctx context.Context, id ResourceID, revisionId string, params *RestoreLayoutRevisionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRestoreLayoutRevisionRequestWithBody(c.Server, id, revisionId, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -13290,8 +13432,8 @@ func (c *Client) RestoreLayoutRevisionWithBody(ctx context.Context, id ResourceI
 // Takes a body of the `application/json` content type.
 //
 // Restore layout revision. Requires an authenticated dashboard user.
-func (c *Client) RestoreLayoutRevision(ctx context.Context, id ResourceID, revisionId string, body RestoreLayoutRevisionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRestoreLayoutRevisionRequest(c.Server, id, revisionId, body)
+func (c *Client) RestoreLayoutRevision(ctx context.Context, id ResourceID, revisionId string, params *RestoreLayoutRevisionParams, body RestoreLayoutRevisionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRestoreLayoutRevisionRequest(c.Server, id, revisionId, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -13317,28 +13459,11 @@ func (c *Client) ListLocations(ctx context.Context, reqEditors ...RequestEditorF
 	return c.Client.Do(req)
 }
 
-// CreateLocationWithBody performs a POST /api/v1/locations (the `CreateLocation` operationId) request,
-// with any type of body and a specified content type.
-//
-// Create location. Requires an authenticated dashboard user.
-func (c *Client) CreateLocationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateLocationRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 // CreateLocation performs a POST /api/v1/locations (the `CreateLocation` operationId) request.
-// Takes a body of the `application/json` content type.
 //
 // Create location. Requires an authenticated dashboard user.
-func (c *Client) CreateLocation(ctx context.Context, body CreateLocationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateLocationRequest(c.Server, body)
+func (c *Client) CreateLocation(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateLocationRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -13364,28 +13489,11 @@ func (c *Client) DeleteLocation(ctx context.Context, id openapi_types.UUID, reqE
 	return c.Client.Do(req)
 }
 
-// UpdateLocationWithBody performs a PATCH /api/v1/locations/{id} (the `UpdateLocation` operationId) request,
-// with any type of body and a specified content type.
-//
-// Update location. Requires an authenticated dashboard user.
-func (c *Client) UpdateLocationWithBody(ctx context.Context, id openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateLocationRequestWithBody(c.Server, id, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 // UpdateLocation performs a PATCH /api/v1/locations/{id} (the `UpdateLocation` operationId) request.
-// Takes a body of the `application/json` content type.
 //
 // Update location. Requires an authenticated dashboard user.
-func (c *Client) UpdateLocation(ctx context.Context, id openapi_types.UUID, body UpdateLocationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateLocationRequest(c.Server, id, body)
+func (c *Client) UpdateLocation(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateLocationRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -13760,8 +13868,8 @@ func (c *Client) RemoveAuthenticator(ctx context.Context, params *RemoveAuthenti
 // ListNotificationDeliveries performs a GET /api/v1/notifications/deliveries (the `ListNotificationDeliveries` operationId) request.
 //
 // List notification deliveries. Requires an Owner or Administrator with the admin scope.
-func (c *Client) ListNotificationDeliveries(ctx context.Context, params *ListNotificationDeliveriesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListNotificationDeliveriesRequest(c.Server, params)
+func (c *Client) ListNotificationDeliveries(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListNotificationDeliveriesRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -14154,34 +14262,13 @@ func (c *Client) StartGitHubDeviceFlow(ctx context.Context, reqEditors ...Reques
 	return c.Client.Do(req)
 }
 
-// PollGitHubDeviceFlowWithBody Poll an active GitHub OAuth device flow
-//
-// Requires an authenticated dashboard user.
-//
-// Takes any type of body and a specified content type.
-//
-// Corresponds with POST /api/v1/player-releases/github/device/poll (the `PollGitHubDeviceFlow` operationId).
-func (c *Client) PollGitHubDeviceFlowWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPollGitHubDeviceFlowRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 // PollGitHubDeviceFlow Poll an active GitHub OAuth device flow
 //
 // Requires an authenticated dashboard user.
 //
-// Takes a body of the `application/json` content type.
-//
 // Corresponds with POST /api/v1/player-releases/github/device/poll (the `PollGitHubDeviceFlow` operationId).
-func (c *Client) PollGitHubDeviceFlow(ctx context.Context, body PollGitHubDeviceFlowJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPollGitHubDeviceFlowRequest(c.Server, body)
+func (c *Client) PollGitHubDeviceFlow(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPollGitHubDeviceFlowRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -14839,28 +14926,11 @@ func (c *Client) GetPlaylist(ctx context.Context, id ResourceID, reqEditors ...R
 	return c.Client.Do(req)
 }
 
-// UpdatePlaylistWithBody performs a PATCH /api/v1/playlists/{id} (the `UpdatePlaylist` operationId) request,
-// with any type of body and a specified content type.
-//
-// Update playlist. Requires an authenticated dashboard user.
-func (c *Client) UpdatePlaylistWithBody(ctx context.Context, id ResourceID, params *UpdatePlaylistParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdatePlaylistRequestWithBody(c.Server, id, params, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 // UpdatePlaylist performs a PATCH /api/v1/playlists/{id} (the `UpdatePlaylist` operationId) request.
-// Takes a body of the `application/json` content type.
 //
 // Update playlist. Requires an authenticated dashboard user.
-func (c *Client) UpdatePlaylist(ctx context.Context, id ResourceID, params *UpdatePlaylistParams, body UpdatePlaylistJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdatePlaylistRequest(c.Server, id, params, body)
+func (c *Client) UpdatePlaylist(ctx context.Context, id ResourceID, params *UpdatePlaylistParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdatePlaylistRequest(c.Server, id, params)
 	if err != nil {
 		return nil, err
 	}
@@ -14950,28 +15020,11 @@ func (c *Client) BulkUpdatePlaylistItems(ctx context.Context, id ResourceID, par
 	return c.Client.Do(req)
 }
 
-// ReorderPlaylistItemsWithBody performs a PUT /api/v1/playlists/{id}/items/order (the `ReorderPlaylistItems` operationId) request,
-// with any type of body and a specified content type.
-//
-// Reorder playlist items. Requires an authenticated dashboard user.
-func (c *Client) ReorderPlaylistItemsWithBody(ctx context.Context, id ResourceID, params *ReorderPlaylistItemsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewReorderPlaylistItemsRequestWithBody(c.Server, id, params, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 // ReorderPlaylistItems performs a PUT /api/v1/playlists/{id}/items/order (the `ReorderPlaylistItems` operationId) request.
-// Takes a body of the `application/json` content type.
 //
 // Reorder playlist items. Requires an authenticated dashboard user.
-func (c *Client) ReorderPlaylistItems(ctx context.Context, id ResourceID, params *ReorderPlaylistItemsParams, body ReorderPlaylistItemsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewReorderPlaylistItemsRequest(c.Server, id, params, body)
+func (c *Client) ReorderPlaylistItems(ctx context.Context, id ResourceID, params *ReorderPlaylistItemsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReorderPlaylistItemsRequest(c.Server, id, params)
 	if err != nil {
 		return nil, err
 	}
@@ -14997,28 +15050,11 @@ func (c *Client) DeletePlaylistItem(ctx context.Context, id ResourceID, itemId o
 	return c.Client.Do(req)
 }
 
-// UpdatePlaylistItemWithBody performs a PATCH /api/v1/playlists/{id}/items/{itemId} (the `UpdatePlaylistItem` operationId) request,
-// with any type of body and a specified content type.
-//
-// Update playlist item. Requires an authenticated dashboard user.
-func (c *Client) UpdatePlaylistItemWithBody(ctx context.Context, id ResourceID, itemId openapi_types.UUID, params *UpdatePlaylistItemParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdatePlaylistItemRequestWithBody(c.Server, id, itemId, params, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 // UpdatePlaylistItem performs a PATCH /api/v1/playlists/{id}/items/{itemId} (the `UpdatePlaylistItem` operationId) request.
-// Takes a body of the `application/json` content type.
 //
 // Update playlist item. Requires an authenticated dashboard user.
-func (c *Client) UpdatePlaylistItem(ctx context.Context, id ResourceID, itemId openapi_types.UUID, params *UpdatePlaylistItemParams, body UpdatePlaylistItemJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdatePlaylistItemRequest(c.Server, id, itemId, params, body)
+func (c *Client) UpdatePlaylistItem(ctx context.Context, id ResourceID, itemId openapi_types.UUID, params *UpdatePlaylistItemParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdatePlaylistItemRequest(c.Server, id, itemId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -15557,34 +15593,13 @@ func (c *Client) CreatePresentationOverride(ctx context.Context, body CreatePres
 	return c.Client.Do(req)
 }
 
-// StopPresentationOverrideWithBody Stop Quick Present
-//
-// Requires an authenticated dashboard user.
-//
-// Takes any type of body and a specified content type.
-//
-// Corresponds with POST /api/v1/presentation-overrides/{id}/stop (the `StopPresentationOverride` operationId).
-func (c *Client) StopPresentationOverrideWithBody(ctx context.Context, id openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewStopPresentationOverrideRequestWithBody(c.Server, id, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 // StopPresentationOverride Stop Quick Present
 //
 // Requires an authenticated dashboard user.
 //
-// Takes a body of the `application/json` content type.
-//
 // Corresponds with POST /api/v1/presentation-overrides/{id}/stop (the `StopPresentationOverride` operationId).
-func (c *Client) StopPresentationOverride(ctx context.Context, id openapi_types.UUID, body StopPresentationOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewStopPresentationOverrideRequest(c.Server, id, body)
+func (c *Client) StopPresentationOverride(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStopPresentationOverrideRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -15657,28 +15672,11 @@ func (c *Client) CreateSchedule(ctx context.Context, body CreateScheduleJSONRequ
 	return c.Client.Do(req)
 }
 
-// PreviewScheduleWithBody performs a POST /api/v1/schedules/preview (the `PreviewSchedule` operationId) request,
-// with any type of body and a specified content type.
-//
-// Preview schedule. Requires an authenticated dashboard user.
-func (c *Client) PreviewScheduleWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPreviewScheduleRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 // PreviewSchedule performs a POST /api/v1/schedules/preview (the `PreviewSchedule` operationId) request.
-// Takes a body of the `application/json` content type.
 //
 // Preview schedule. Requires an authenticated dashboard user.
-func (c *Client) PreviewSchedule(ctx context.Context, body PreviewScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPreviewScheduleRequest(c.Server, body)
+func (c *Client) PreviewSchedule(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewScheduleRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -15719,28 +15717,11 @@ func (c *Client) GetSchedule(ctx context.Context, id ResourceID, reqEditors ...R
 	return c.Client.Do(req)
 }
 
-// UpdateScheduleWithBody performs a PATCH /api/v1/schedules/{id} (the `UpdateSchedule` operationId) request,
-// with any type of body and a specified content type.
-//
-// Update schedule. Requires an authenticated dashboard user.
-func (c *Client) UpdateScheduleWithBody(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateScheduleRequestWithBody(c.Server, id, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 // UpdateSchedule performs a PATCH /api/v1/schedules/{id} (the `UpdateSchedule` operationId) request.
-// Takes a body of the `application/json` content type.
 //
 // Update schedule. Requires an authenticated dashboard user.
-func (c *Client) UpdateSchedule(ctx context.Context, id ResourceID, body UpdateScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateScheduleRequest(c.Server, id, body)
+func (c *Client) UpdateSchedule(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateScheduleRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -15784,24 +15765,8 @@ func (c *Client) EnableSchedule(ctx context.Context, id ResourceID, reqEditors .
 // ListScreenGroups performs a GET /api/v1/screen-groups (the `ListScreenGroups` operationId) request.
 //
 // List screen groups. Requires an authenticated dashboard user.
-func (c *Client) ListScreenGroups(ctx context.Context, params *ListScreenGroupsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListScreenGroupsRequest(c.Server, params)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-// CreateScreenGroupWithBody performs a POST /api/v1/screen-groups (the `CreateScreenGroup` operationId) request,
-// with any type of body and a specified content type.
-//
-// Create screen group. Requires an authenticated dashboard user.
-func (c *Client) CreateScreenGroupWithBody(ctx context.Context, params *CreateScreenGroupParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateScreenGroupRequestWithBody(c.Server, params, contentType, body)
+func (c *Client) ListScreenGroups(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListScreenGroupsRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -15813,11 +15778,10 @@ func (c *Client) CreateScreenGroupWithBody(ctx context.Context, params *CreateSc
 }
 
 // CreateScreenGroup performs a POST /api/v1/screen-groups (the `CreateScreenGroup` operationId) request.
-// Takes a body of the `application/json` content type.
 //
 // Create screen group. Requires an authenticated dashboard user.
-func (c *Client) CreateScreenGroup(ctx context.Context, params *CreateScreenGroupParams, body CreateScreenGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateScreenGroupRequest(c.Server, params, body)
+func (c *Client) CreateScreenGroup(ctx context.Context, params *CreateScreenGroupParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateScreenGroupRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -15858,28 +15822,11 @@ func (c *Client) GetScreenGroup(ctx context.Context, id ResourceID, reqEditors .
 	return c.Client.Do(req)
 }
 
-// UpdateScreenGroupWithBody performs a PATCH /api/v1/screen-groups/{id} (the `UpdateScreenGroup` operationId) request,
-// with any type of body and a specified content type.
-//
-// Update screen group. Requires an authenticated dashboard user.
-func (c *Client) UpdateScreenGroupWithBody(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateScreenGroupRequestWithBody(c.Server, id, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 // UpdateScreenGroup performs a PATCH /api/v1/screen-groups/{id} (the `UpdateScreenGroup` operationId) request.
-// Takes a body of the `application/json` content type.
 //
 // Update screen group. Requires an authenticated dashboard user.
-func (c *Client) UpdateScreenGroup(ctx context.Context, id ResourceID, body UpdateScreenGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateScreenGroupRequest(c.Server, id, body)
+func (c *Client) UpdateScreenGroup(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateScreenGroupRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -16018,50 +15965,13 @@ func (c *Client) GetGroupPolicy(ctx context.Context, id ResourceID, reqEditors .
 	return c.Client.Do(req)
 }
 
-// PutGroupPolicyWithBody Replace typed group policy
-//
-// Requires an authenticated dashboard user.
-//
-// Takes any type of body and a specified content type.
-//
-// Corresponds with PUT /api/v1/screen-groups/{id}/policy (the `PutGroupPolicy` operationId).
-func (c *Client) PutGroupPolicyWithBody(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutGroupPolicyRequestWithBody(c.Server, id, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 // PutGroupPolicy Replace typed group policy
 //
 // Requires an authenticated dashboard user.
 //
-// Takes a body of the `application/json` content type.
-//
 // Corresponds with PUT /api/v1/screen-groups/{id}/policy (the `PutGroupPolicy` operationId).
-func (c *Client) PutGroupPolicy(ctx context.Context, id ResourceID, body PutGroupPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutGroupPolicyRequest(c.Server, id, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-// AddScreenGroupMemberWithBody performs a POST /api/v1/screen-groups/{id}/screens (the `AddScreenGroupMember` operationId) request,
-// with any type of body and a specified content type.
-//
-// Add screen group member. Requires an authenticated dashboard user.
-func (c *Client) AddScreenGroupMemberWithBody(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAddScreenGroupMemberRequestWithBody(c.Server, id, contentType, body)
+func (c *Client) PutGroupPolicy(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutGroupPolicyRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -16073,11 +15983,10 @@ func (c *Client) AddScreenGroupMemberWithBody(ctx context.Context, id ResourceID
 }
 
 // AddScreenGroupMember performs a POST /api/v1/screen-groups/{id}/screens (the `AddScreenGroupMember` operationId) request.
-// Takes a body of the `application/json` content type.
 //
 // Add screen group member. Requires an authenticated dashboard user.
-func (c *Client) AddScreenGroupMember(ctx context.Context, id ResourceID, body AddScreenGroupMemberJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAddScreenGroupMemberRequest(c.Server, id, body)
+func (c *Client) AddScreenGroupMember(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddScreenGroupMemberRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -16215,8 +16124,8 @@ func (c *Client) ApplyBulkOperation(ctx context.Context, params *ApplyBulkOperat
 // ListBulkOperations performs a GET /api/v1/screens/bulk/operations (the `ListBulkOperations` operationId) request.
 //
 // List recent fleet bulk operations. Requires an Owner or Administrator with the read scope.
-func (c *Client) ListBulkOperations(ctx context.Context, params *ListBulkOperationsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListBulkOperationsRequest(c.Server, params)
+func (c *Client) ListBulkOperations(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListBulkOperationsRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -16449,34 +16358,13 @@ func (c *Client) ListScreenCommands(ctx context.Context, id ResourceID, reqEdito
 	return c.Client.Do(req)
 }
 
-// SendScreenCommandWithBody Queue a typed operational, Display Control, or bounded player-recovery command
-//
-// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
-//
-// Takes any type of body and a specified content type.
-//
-// Corresponds with POST /api/v1/screens/{id}/commands (the `SendScreenCommand` operationId).
-func (c *Client) SendScreenCommandWithBody(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSendScreenCommandRequestWithBody(c.Server, id, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 // SendScreenCommand Queue a typed operational, Display Control, or bounded player-recovery command
 //
 // Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 //
-// Takes a body of the `application/json` content type.
-//
 // Corresponds with POST /api/v1/screens/{id}/commands (the `SendScreenCommand` operationId).
-func (c *Client) SendScreenCommand(ctx context.Context, id ResourceID, body SendScreenCommandJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSendScreenCommandRequest(c.Server, id, body)
+func (c *Client) SendScreenCommand(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSendScreenCommandRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -16718,53 +16606,13 @@ func (c *Client) GetScreenPolicy(ctx context.Context, id ResourceID, reqEditors 
 	return c.Client.Do(req)
 }
 
-// PutScreenPolicyWithBody Replace typed screen policy
-//
-// Requires an authenticated dashboard user.
-//
-// Takes any type of body and a specified content type.
-//
-// Corresponds with PUT /api/v1/screens/{id}/policy (the `PutScreenPolicy` operationId).
-func (c *Client) PutScreenPolicyWithBody(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutScreenPolicyRequestWithBody(c.Server, id, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 // PutScreenPolicy Replace typed screen policy
 //
 // Requires an authenticated dashboard user.
 //
-// Takes a body of the `application/json` content type.
-//
 // Corresponds with PUT /api/v1/screens/{id}/policy (the `PutScreenPolicy` operationId).
-func (c *Client) PutScreenPolicy(ctx context.Context, id ResourceID, body PutScreenPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutScreenPolicyRequest(c.Server, id, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-// SetScreenPowerAssistWithBody Store administrator-confirmed sleep, wake, CEC, input, and startup test results
-//
-// Requires an authenticated dashboard user.
-//
-// Takes any type of body and a specified content type.
-//
-// Corresponds with PUT /api/v1/screens/{id}/power-assist (the `SetScreenPowerAssist` operationId).
-func (c *Client) SetScreenPowerAssistWithBody(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSetScreenPowerAssistRequestWithBody(c.Server, id, contentType, body)
+func (c *Client) PutScreenPolicy(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutScreenPolicyRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -16779,11 +16627,9 @@ func (c *Client) SetScreenPowerAssistWithBody(ctx context.Context, id ResourceID
 //
 // Requires an authenticated dashboard user.
 //
-// Takes a body of the `application/json` content type.
-//
 // Corresponds with PUT /api/v1/screens/{id}/power-assist (the `SetScreenPowerAssist` operationId).
-func (c *Client) SetScreenPowerAssist(ctx context.Context, id ResourceID, body SetScreenPowerAssistJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSetScreenPowerAssistRequest(c.Server, id, body)
+func (c *Client) SetScreenPowerAssist(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetScreenPowerAssistRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -16974,8 +16820,8 @@ func (c *Client) RevokeScreenCredential(ctx context.Context, id openapi_types.UU
 // ListScreenSnapshots performs a GET /api/v1/screens/{id}/snapshots (the `ListScreenSnapshots` operationId) request.
 //
 // List a screen's snapshots. Requires an authenticated dashboard user with the read scope.
-func (c *Client) ListScreenSnapshots(ctx context.Context, id ResourceID, params *ListScreenSnapshotsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListScreenSnapshotsRequest(c.Server, id, params)
+func (c *Client) ListScreenSnapshots(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListScreenSnapshotsRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -17373,53 +17219,13 @@ func (c *Client) ExportSettings(ctx context.Context, reqEditors ...RequestEditor
 	return c.Client.Do(req)
 }
 
-// ApplySettingsImportWithBody Apply confirmed settings import
-//
-// Requires an authenticated dashboard user.
-//
-// Takes any type of body and a specified content type.
-//
-// Corresponds with POST /api/v1/system/settings/import/apply (the `ApplySettingsImport` operationId).
-func (c *Client) ApplySettingsImportWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewApplySettingsImportRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 // ApplySettingsImport Apply confirmed settings import
 //
 // Requires an authenticated dashboard user.
 //
-// Takes a body of the `application/json` content type.
-//
 // Corresponds with POST /api/v1/system/settings/import/apply (the `ApplySettingsImport` operationId).
-func (c *Client) ApplySettingsImport(ctx context.Context, body ApplySettingsImportJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewApplySettingsImportRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-// PreviewSettingsImportWithBody Validate settings import without applying
-//
-// Requires an authenticated dashboard user.
-//
-// Takes any type of body and a specified content type.
-//
-// Corresponds with POST /api/v1/system/settings/import/preview (the `PreviewSettingsImport` operationId).
-func (c *Client) PreviewSettingsImportWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPreviewSettingsImportRequestWithBody(c.Server, contentType, body)
+func (c *Client) ApplySettingsImport(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewApplySettingsImportRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -17434,11 +17240,9 @@ func (c *Client) PreviewSettingsImportWithBody(ctx context.Context, contentType 
 //
 // Requires an authenticated dashboard user.
 //
-// Takes a body of the `application/json` content type.
-//
 // Corresponds with POST /api/v1/system/settings/import/preview (the `PreviewSettingsImport` operationId).
-func (c *Client) PreviewSettingsImport(ctx context.Context, body PreviewSettingsImportJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPreviewSettingsImportRequest(c.Server, body)
+func (c *Client) PreviewSettingsImport(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewSettingsImportRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -17496,34 +17300,13 @@ func (c *Client) ListTakeovers(ctx context.Context, reqEditors ...RequestEditorF
 	return c.Client.Do(req)
 }
 
-// CreateTakeoverWithBody Activate a Takeover
-//
-// Requires an authenticated dashboard user.
-//
-// Takes any type of body and a specified content type.
-//
-// Corresponds with POST /api/v1/takeovers (the `CreateTakeover` operationId).
-func (c *Client) CreateTakeoverWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateTakeoverRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 // CreateTakeover Activate a Takeover
 //
 // Requires an authenticated dashboard user.
 //
-// Takes a body of the `application/json` content type.
-//
 // Corresponds with POST /api/v1/takeovers (the `CreateTakeover` operationId).
-func (c *Client) CreateTakeover(ctx context.Context, body CreateTakeoverJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateTakeoverRequest(c.Server, body)
+func (c *Client) CreateTakeover(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateTakeoverRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -17551,34 +17334,13 @@ func (c *Client) GetTakeover(ctx context.Context, id openapi_types.UUID, reqEdit
 	return c.Client.Do(req)
 }
 
-// CancelTakeoverWithBody Cancel an active Takeover
-//
-// Requires an authenticated dashboard user.
-//
-// Takes any type of body and a specified content type.
-//
-// Corresponds with POST /api/v1/takeovers/{id}/cancel (the `CancelTakeover` operationId).
-func (c *Client) CancelTakeoverWithBody(ctx context.Context, id openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCancelTakeoverRequestWithBody(c.Server, id, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 // CancelTakeover Cancel an active Takeover
 //
 // Requires an authenticated dashboard user.
 //
-// Takes a body of the `application/json` content type.
-//
 // Corresponds with POST /api/v1/takeovers/{id}/cancel (the `CancelTakeover` operationId).
-func (c *Client) CancelTakeover(ctx context.Context, id openapi_types.UUID, body CancelTakeoverJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCancelTakeoverRequest(c.Server, id, body)
+func (c *Client) CancelTakeover(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCancelTakeoverRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -17606,34 +17368,13 @@ func (c *Client) ListUpdateDeployments(ctx context.Context, reqEditors ...Reques
 	return c.Client.Do(req)
 }
 
-// CreateUpdateDeploymentWithBody Create a deduplicated screen and group deployment with an optional canary cohort
-//
-// Requires an authenticated dashboard user.
-//
-// Takes any type of body and a specified content type.
-//
-// Corresponds with POST /api/v1/update-deployments (the `CreateUpdateDeployment` operationId).
-func (c *Client) CreateUpdateDeploymentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateUpdateDeploymentRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 // CreateUpdateDeployment Create a deduplicated screen and group deployment with an optional canary cohort
 //
 // Requires an authenticated dashboard user.
 //
-// Takes a body of the `application/json` content type.
-//
 // Corresponds with POST /api/v1/update-deployments (the `CreateUpdateDeployment` operationId).
-func (c *Client) CreateUpdateDeployment(ctx context.Context, body CreateUpdateDeploymentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateUpdateDeploymentRequest(c.Server, body)
+func (c *Client) CreateUpdateDeployment(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateUpdateDeploymentRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -17944,28 +17685,11 @@ func (c *Client) CreateWidget(ctx context.Context, body CreateWidgetJSONRequestB
 	return c.Client.Do(req)
 }
 
-// CompileWidgetPreviewWithBody performs a POST /api/v1/widgets/compile-preview (the `CompileWidgetPreview` operationId) request,
-// with any type of body and a specified content type.
-//
-// Compile widget preview. Requires an authenticated dashboard user.
-func (c *Client) CompileWidgetPreviewWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCompileWidgetPreviewRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 // CompileWidgetPreview performs a POST /api/v1/widgets/compile-preview (the `CompileWidgetPreview` operationId) request.
-// Takes a body of the `application/json` content type.
 //
 // Compile widget preview. Requires an authenticated dashboard user.
-func (c *Client) CompileWidgetPreview(ctx context.Context, body CompileWidgetPreviewJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCompileWidgetPreviewRequest(c.Server, body)
+func (c *Client) CompileWidgetPreview(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCompileWidgetPreviewRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -19862,54 +19586,6 @@ func NewListAssetsRequest(server string, params *ListAssetsParams) (*http.Reques
 
 		}
 
-		if params.Provider != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "provider", *params.Provider, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if params.FolderId != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "folderId", *params.FolderId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if params.CollectionId != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "collectionId", *params.CollectionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if params.TagId != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "tagId", *params.TagId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
 		if encoded := queryValues.Encode(); encoded != "" {
 			rawQueryFragments = append(rawQueryFragments, encoded)
 		}
@@ -20070,19 +19746,8 @@ func NewRestoreAssetsRequestWithBody(server string, params *RestoreAssetsParams,
 	return req, nil
 }
 
-// NewCreateWebsiteAssetRequest calls the generic CreateWebsiteAsset builder with application/json body
-func NewCreateWebsiteAssetRequest(server string, params *CreateWebsiteAssetParams, body CreateWebsiteAssetJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewCreateWebsiteAssetRequestWithBody(server, params, "application/json", bodyReader)
-}
-
-// NewCreateWebsiteAssetRequestWithBody constructs an http.Request for the CreateWebsiteAsset method, with any body, and a specified content type
-func NewCreateWebsiteAssetRequestWithBody(server string, params *CreateWebsiteAssetParams, contentType string, body io.Reader) (*http.Request, error) {
+// NewCreateWebsiteAssetRequest constructs an http.Request for the CreateWebsiteAsset method
+func NewCreateWebsiteAssetRequest(server string, params *CreateWebsiteAssetParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -20100,12 +19765,10 @@ func NewCreateWebsiteAssetRequestWithBody(server string, params *CreateWebsiteAs
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	if params != nil {
 
@@ -20415,19 +20078,8 @@ func NewGetAssetThumbnailRequest(server string, id ResourceID) (*http.Request, e
 	return req, nil
 }
 
-// NewUpdateWebsiteAssetRequest calls the generic UpdateWebsiteAsset builder with application/json body
-func NewUpdateWebsiteAssetRequest(server string, id ResourceID, params *UpdateWebsiteAssetParams, body UpdateWebsiteAssetJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewUpdateWebsiteAssetRequestWithBody(server, id, params, "application/json", bodyReader)
-}
-
-// NewUpdateWebsiteAssetRequestWithBody constructs an http.Request for the UpdateWebsiteAsset method, with any body, and a specified content type
-func NewUpdateWebsiteAssetRequestWithBody(server string, id ResourceID, params *UpdateWebsiteAssetParams, contentType string, body io.Reader) (*http.Request, error) {
+// NewUpdateWebsiteAssetRequest constructs an http.Request for the UpdateWebsiteAsset method
+func NewUpdateWebsiteAssetRequest(server string, id ResourceID, params *UpdateWebsiteAssetParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -20452,12 +20104,10 @@ func NewUpdateWebsiteAssetRequestWithBody(server string, id ResourceID, params *
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	if params != nil {
 
@@ -20563,19 +20213,8 @@ func NewHeadLoginBackgroundImageRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewLoginRequest calls the generic Login builder with application/json body
-func NewLoginRequest(server string, body LoginJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewLoginRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewLoginRequestWithBody constructs an http.Request for the Login method, with any body, and a specified content type
-func NewLoginRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewLoginRequest constructs an http.Request for the Login method
+func NewLoginRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -20593,12 +20232,10 @@ func NewLoginRequestWithBody(server string, contentType string, body io.Reader) 
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -21351,19 +20988,8 @@ func NewListContentCollectionsRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewCreateContentCollectionRequest calls the generic CreateContentCollection builder with application/json body
-func NewCreateContentCollectionRequest(server string, body CreateContentCollectionJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewCreateContentCollectionRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewCreateContentCollectionRequestWithBody constructs an http.Request for the CreateContentCollection method, with any body, and a specified content type
-func NewCreateContentCollectionRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewCreateContentCollectionRequest constructs an http.Request for the CreateContentCollection method
+func NewCreateContentCollectionRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -21381,12 +21007,10 @@ func NewCreateContentCollectionRequestWithBody(server string, contentType string
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -21552,19 +21176,8 @@ func NewListContentFoldersRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewCreateContentFolderRequest calls the generic CreateContentFolder builder with application/json body
-func NewCreateContentFolderRequest(server string, body CreateContentFolderJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewCreateContentFolderRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewCreateContentFolderRequestWithBody constructs an http.Request for the CreateContentFolder method, with any body, and a specified content type
-func NewCreateContentFolderRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewCreateContentFolderRequest constructs an http.Request for the CreateContentFolder method
+func NewCreateContentFolderRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -21582,12 +21195,10 @@ func NewCreateContentFolderRequestWithBody(server string, contentType string, bo
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -22538,19 +22149,8 @@ func NewListContentTagsRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewCreateContentTagRequest calls the generic CreateContentTag builder with application/json body
-func NewCreateContentTagRequest(server string, body CreateContentTagJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewCreateContentTagRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewCreateContentTagRequestWithBody constructs an http.Request for the CreateContentTag method, with any body, and a specified content type
-func NewCreateContentTagRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewCreateContentTagRequest constructs an http.Request for the CreateContentTag method
+func NewCreateContentTagRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -22568,12 +22168,10 @@ func NewCreateContentTagRequestWithBody(server string, contentType string, body 
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -22686,7 +22284,7 @@ func NewUpdateContentTagRequestWithBody(server string, id ResourceID, params *Up
 }
 
 // NewListDataSourcesRequest constructs an http.Request for the ListDataSources method
-func NewListDataSourcesRequest(server string, params *ListDataSourcesParams) (*http.Request, error) {
+func NewListDataSourcesRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -22702,81 +22300,6 @@ func NewListDataSourcesRequest(server string, params *ListDataSourcesParams) (*h
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
-	}
-
-	if params != nil {
-		// queryValues collects non-styled parameters (passthrough, JSON)
-		// that are safe to round-trip through url.Values.Encode().
-		queryValues := queryURL.Query()
-		// rawQueryFragments collects pre-encoded query fragments from
-		// styled parameters, preserving literal commas as delimiters
-		// per the OpenAPI spec (e.g. "color=blue,black,brown").
-		var rawQueryFragments []string
-
-		if params.Search != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "search", *params.Search, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if params.Provider != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "provider", *params.Provider, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if params.Sort != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "sort", *params.Sort, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if params.Page != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page", *params.Page, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if params.PageSize != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "pageSize", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if encoded := queryValues.Encode(); encoded != "" {
-			rawQueryFragments = append(rawQueryFragments, encoded)
-		}
-		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -24342,7 +23865,7 @@ func NewDeleteFormViewRequest(server string, id openapi_types.UUID, viewId opena
 }
 
 // NewInspectDataSourceRequest calls the generic InspectDataSource builder with application/json body
-func NewInspectDataSourceRequest(server string, provider DataSourceProvider, body InspectDataSourceJSONRequestBody) (*http.Request, error) {
+func NewInspectDataSourceRequest(server string, provider InspectDataSourceParamsProvider, body InspectDataSourceJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
@@ -24353,7 +23876,7 @@ func NewInspectDataSourceRequest(server string, provider DataSourceProvider, bod
 }
 
 // NewInspectDataSourceRequestWithBody constructs an http.Request for the InspectDataSource method, with any body, and a specified content type
-func NewInspectDataSourceRequestWithBody(server string, provider DataSourceProvider, contentType string, body io.Reader) (*http.Request, error) {
+func NewInspectDataSourceRequestWithBody(server string, provider InspectDataSourceParamsProvider, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -24389,7 +23912,7 @@ func NewInspectDataSourceRequestWithBody(server string, provider DataSourceProvi
 }
 
 // NewPreviewDataSourceRequest calls the generic PreviewDataSource builder with application/json body
-func NewPreviewDataSourceRequest(server string, provider DataSourceProvider, body PreviewDataSourceJSONRequestBody) (*http.Request, error) {
+func NewPreviewDataSourceRequest(server string, provider PreviewDataSourceParamsProvider, body PreviewDataSourceJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
@@ -24400,7 +23923,7 @@ func NewPreviewDataSourceRequest(server string, provider DataSourceProvider, bod
 }
 
 // NewPreviewDataSourceRequestWithBody constructs an http.Request for the PreviewDataSource method, with any body, and a specified content type
-func NewPreviewDataSourceRequestWithBody(server string, provider DataSourceProvider, contentType string, body io.Reader) (*http.Request, error) {
+func NewPreviewDataSourceRequestWithBody(server string, provider PreviewDataSourceParamsProvider, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -25119,18 +24642,18 @@ func NewListLayoutsRequest(server string, params *ListLayoutsParams) (*http.Requ
 }
 
 // NewCreateLayoutRequest calls the generic CreateLayout builder with application/json body
-func NewCreateLayoutRequest(server string, body CreateLayoutJSONRequestBody) (*http.Request, error) {
+func NewCreateLayoutRequest(server string, params *CreateLayoutParams, body CreateLayoutJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewCreateLayoutRequestWithBody(server, "application/json", bodyReader)
+	return NewCreateLayoutRequestWithBody(server, params, "application/json", bodyReader)
 }
 
 // NewCreateLayoutRequestWithBody constructs an http.Request for the CreateLayout method, with any body, and a specified content type
-func NewCreateLayoutRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewCreateLayoutRequestWithBody(server string, params *CreateLayoutParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -25155,11 +24678,24 @@ func NewCreateLayoutRequestWithBody(server string, contentType string, body io.R
 
 	req.Header.Add("Content-Type", contentType)
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-CSRF-Token", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewDeleteLayoutRequest constructs an http.Request for the DeleteLayout method
-func NewDeleteLayoutRequest(server string, id ResourceID) (*http.Request, error) {
+func NewDeleteLayoutRequest(server string, id ResourceID, params *DeleteLayoutParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -25187,6 +24723,19 @@ func NewDeleteLayoutRequest(server string, id ResourceID) (*http.Request, error)
 	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-CSRF-Token", headerParam0)
+
 	}
 
 	return req, nil
@@ -25227,18 +24776,18 @@ func NewGetLayoutRequest(server string, id ResourceID) (*http.Request, error) {
 }
 
 // NewUpdateLayoutRequest calls the generic UpdateLayout builder with application/json body
-func NewUpdateLayoutRequest(server string, id ResourceID, body UpdateLayoutJSONRequestBody) (*http.Request, error) {
+func NewUpdateLayoutRequest(server string, id ResourceID, params *UpdateLayoutParams, body UpdateLayoutJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewUpdateLayoutRequestWithBody(server, id, "application/json", bodyReader)
+	return NewUpdateLayoutRequestWithBody(server, id, params, "application/json", bodyReader)
 }
 
 // NewUpdateLayoutRequestWithBody constructs an http.Request for the UpdateLayout method, with any body, and a specified content type
-func NewUpdateLayoutRequestWithBody(server string, id ResourceID, contentType string, body io.Reader) (*http.Request, error) {
+func NewUpdateLayoutRequestWithBody(server string, id ResourceID, params *UpdateLayoutParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -25270,22 +24819,35 @@ func NewUpdateLayoutRequestWithBody(server string, id ResourceID, contentType st
 
 	req.Header.Add("Content-Type", contentType)
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-CSRF-Token", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewSaveLayoutDraftRequest calls the generic SaveLayoutDraft builder with application/json body
-func NewSaveLayoutDraftRequest(server string, id ResourceID, body SaveLayoutDraftJSONRequestBody) (*http.Request, error) {
+func NewSaveLayoutDraftRequest(server string, id ResourceID, params *SaveLayoutDraftParams, body SaveLayoutDraftJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewSaveLayoutDraftRequestWithBody(server, id, "application/json", bodyReader)
+	return NewSaveLayoutDraftRequestWithBody(server, id, params, "application/json", bodyReader)
 }
 
 // NewSaveLayoutDraftRequestWithBody constructs an http.Request for the SaveLayoutDraft method, with any body, and a specified content type
-func NewSaveLayoutDraftRequestWithBody(server string, id ResourceID, contentType string, body io.Reader) (*http.Request, error) {
+func NewSaveLayoutDraftRequestWithBody(server string, id ResourceID, params *SaveLayoutDraftParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -25317,11 +24879,24 @@ func NewSaveLayoutDraftRequestWithBody(server string, id ResourceID, contentType
 
 	req.Header.Add("Content-Type", contentType)
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-CSRF-Token", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewDuplicateLayoutRequest constructs an http.Request for the DuplicateLayout method
-func NewDuplicateLayoutRequest(server string, id ResourceID) (*http.Request, error) {
+func NewDuplicateLayoutRequest(server string, id ResourceID, params *DuplicateLayoutParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -25349,6 +24924,19 @@ func NewDuplicateLayoutRequest(server string, id ResourceID) (*http.Request, err
 	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-CSRF-Token", headerParam0)
+
 	}
 
 	return req, nil
@@ -25446,18 +25034,18 @@ func NewUpdateLayoutPreviewImageRequest(server string, id ResourceID, params *Up
 }
 
 // NewPublishLayoutRequest calls the generic PublishLayout builder with application/json body
-func NewPublishLayoutRequest(server string, id ResourceID, body PublishLayoutJSONRequestBody) (*http.Request, error) {
+func NewPublishLayoutRequest(server string, id ResourceID, params *PublishLayoutParams, body PublishLayoutJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPublishLayoutRequestWithBody(server, id, "application/json", bodyReader)
+	return NewPublishLayoutRequestWithBody(server, id, params, "application/json", bodyReader)
 }
 
 // NewPublishLayoutRequestWithBody constructs an http.Request for the PublishLayout method, with any body, and a specified content type
-func NewPublishLayoutRequestWithBody(server string, id ResourceID, contentType string, body io.Reader) (*http.Request, error) {
+func NewPublishLayoutRequestWithBody(server string, id ResourceID, params *PublishLayoutParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -25488,6 +25076,19 @@ func NewPublishLayoutRequestWithBody(server string, id ResourceID, contentType s
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-CSRF-Token", headerParam0)
+
+	}
 
 	return req, nil
 }
@@ -25566,18 +25167,18 @@ func NewListLayoutRevisionsRequest(server string, id ResourceID, params *ListLay
 }
 
 // NewRestoreLayoutRevisionRequest calls the generic RestoreLayoutRevision builder with application/json body
-func NewRestoreLayoutRevisionRequest(server string, id ResourceID, revisionId string, body RestoreLayoutRevisionJSONRequestBody) (*http.Request, error) {
+func NewRestoreLayoutRevisionRequest(server string, id ResourceID, revisionId string, params *RestoreLayoutRevisionParams, body RestoreLayoutRevisionJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewRestoreLayoutRevisionRequestWithBody(server, id, revisionId, "application/json", bodyReader)
+	return NewRestoreLayoutRevisionRequestWithBody(server, id, revisionId, params, "application/json", bodyReader)
 }
 
 // NewRestoreLayoutRevisionRequestWithBody constructs an http.Request for the RestoreLayoutRevision method, with any body, and a specified content type
-func NewRestoreLayoutRevisionRequestWithBody(server string, id ResourceID, revisionId string, contentType string, body io.Reader) (*http.Request, error) {
+func NewRestoreLayoutRevisionRequestWithBody(server string, id ResourceID, revisionId string, params *RestoreLayoutRevisionParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -25616,6 +25217,19 @@ func NewRestoreLayoutRevisionRequestWithBody(server string, id ResourceID, revis
 
 	req.Header.Add("Content-Type", contentType)
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-CSRF-Token", headerParam0)
+
+	}
+
 	return req, nil
 }
 
@@ -25646,19 +25260,8 @@ func NewListLocationsRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewCreateLocationRequest calls the generic CreateLocation builder with application/json body
-func NewCreateLocationRequest(server string, body CreateLocationJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewCreateLocationRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewCreateLocationRequestWithBody constructs an http.Request for the CreateLocation method, with any body, and a specified content type
-func NewCreateLocationRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewCreateLocationRequest constructs an http.Request for the CreateLocation method
+func NewCreateLocationRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -25676,12 +25279,10 @@ func NewCreateLocationRequestWithBody(server string, contentType string, body io
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -25720,19 +25321,8 @@ func NewDeleteLocationRequest(server string, id openapi_types.UUID) (*http.Reque
 	return req, nil
 }
 
-// NewUpdateLocationRequest calls the generic UpdateLocation builder with application/json body
-func NewUpdateLocationRequest(server string, id openapi_types.UUID, body UpdateLocationJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewUpdateLocationRequestWithBody(server, id, "application/json", bodyReader)
-}
-
-// NewUpdateLocationRequestWithBody constructs an http.Request for the UpdateLocation method, with any body, and a specified content type
-func NewUpdateLocationRequestWithBody(server string, id openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+// NewUpdateLocationRequest constructs an http.Request for the UpdateLocation method
+func NewUpdateLocationRequest(server string, id openapi_types.UUID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -25757,12 +25347,10 @@ func NewUpdateLocationRequestWithBody(server string, id openapi_types.UUID, cont
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -26477,7 +26065,7 @@ func NewRemoveAuthenticatorRequestWithBody(server string, params *RemoveAuthenti
 }
 
 // NewListNotificationDeliveriesRequest constructs an http.Request for the ListNotificationDeliveries method
-func NewListNotificationDeliveriesRequest(server string, params *ListNotificationDeliveriesParams) (*http.Request, error) {
+func NewListNotificationDeliveriesRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -26493,33 +26081,6 @@ func NewListNotificationDeliveriesRequest(server string, params *ListNotificatio
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
-	}
-
-	if params != nil {
-		// queryValues collects non-styled parameters (passthrough, JSON)
-		// that are safe to round-trip through url.Values.Encode().
-		queryValues := queryURL.Query()
-		// rawQueryFragments collects pre-encoded query fragments from
-		// styled parameters, preserving literal commas as delimiters
-		// per the OpenAPI spec (e.g. "color=blue,black,brown").
-		var rawQueryFragments []string
-
-		if params.Limit != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if encoded := queryValues.Encode(); encoded != "" {
-			rawQueryFragments = append(rawQueryFragments, encoded)
-		}
-		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -27276,19 +26837,8 @@ func NewStartGitHubDeviceFlowRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewPollGitHubDeviceFlowRequest calls the generic PollGitHubDeviceFlow builder with application/json body
-func NewPollGitHubDeviceFlowRequest(server string, body PollGitHubDeviceFlowJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewPollGitHubDeviceFlowRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewPollGitHubDeviceFlowRequestWithBody constructs an http.Request for the PollGitHubDeviceFlow method, with any body, and a specified content type
-func NewPollGitHubDeviceFlowRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewPollGitHubDeviceFlowRequest constructs an http.Request for the PollGitHubDeviceFlow method
+func NewPollGitHubDeviceFlowRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -27306,12 +26856,10 @@ func NewPollGitHubDeviceFlowRequestWithBody(server string, contentType string, b
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -28604,19 +28152,8 @@ func NewGetPlaylistRequest(server string, id ResourceID) (*http.Request, error) 
 	return req, nil
 }
 
-// NewUpdatePlaylistRequest calls the generic UpdatePlaylist builder with application/json body
-func NewUpdatePlaylistRequest(server string, id ResourceID, params *UpdatePlaylistParams, body UpdatePlaylistJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewUpdatePlaylistRequestWithBody(server, id, params, "application/json", bodyReader)
-}
-
-// NewUpdatePlaylistRequestWithBody constructs an http.Request for the UpdatePlaylist method, with any body, and a specified content type
-func NewUpdatePlaylistRequestWithBody(server string, id ResourceID, params *UpdatePlaylistParams, contentType string, body io.Reader) (*http.Request, error) {
+// NewUpdatePlaylistRequest constructs an http.Request for the UpdatePlaylist method
+func NewUpdatePlaylistRequest(server string, id ResourceID, params *UpdatePlaylistParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -28641,12 +28178,10 @@ func NewUpdatePlaylistRequestWithBody(server string, id ResourceID, params *Upda
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	if params != nil {
 
@@ -28831,19 +28366,8 @@ func NewBulkUpdatePlaylistItemsRequestWithBody(server string, id ResourceID, par
 	return req, nil
 }
 
-// NewReorderPlaylistItemsRequest calls the generic ReorderPlaylistItems builder with application/json body
-func NewReorderPlaylistItemsRequest(server string, id ResourceID, params *ReorderPlaylistItemsParams, body ReorderPlaylistItemsJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewReorderPlaylistItemsRequestWithBody(server, id, params, "application/json", bodyReader)
-}
-
-// NewReorderPlaylistItemsRequestWithBody constructs an http.Request for the ReorderPlaylistItems method, with any body, and a specified content type
-func NewReorderPlaylistItemsRequestWithBody(server string, id ResourceID, params *ReorderPlaylistItemsParams, contentType string, body io.Reader) (*http.Request, error) {
+// NewReorderPlaylistItemsRequest constructs an http.Request for the ReorderPlaylistItems method
+func NewReorderPlaylistItemsRequest(server string, id ResourceID, params *ReorderPlaylistItemsParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -28868,12 +28392,10 @@ func NewReorderPlaylistItemsRequestWithBody(server string, id ResourceID, params
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	if params != nil {
 
@@ -28945,19 +28467,8 @@ func NewDeletePlaylistItemRequest(server string, id ResourceID, itemId openapi_t
 	return req, nil
 }
 
-// NewUpdatePlaylistItemRequest calls the generic UpdatePlaylistItem builder with application/json body
-func NewUpdatePlaylistItemRequest(server string, id ResourceID, itemId openapi_types.UUID, params *UpdatePlaylistItemParams, body UpdatePlaylistItemJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewUpdatePlaylistItemRequestWithBody(server, id, itemId, params, "application/json", bodyReader)
-}
-
-// NewUpdatePlaylistItemRequestWithBody constructs an http.Request for the UpdatePlaylistItem method, with any body, and a specified content type
-func NewUpdatePlaylistItemRequestWithBody(server string, id ResourceID, itemId openapi_types.UUID, params *UpdatePlaylistItemParams, contentType string, body io.Reader) (*http.Request, error) {
+// NewUpdatePlaylistItemRequest constructs an http.Request for the UpdatePlaylistItem method
+func NewUpdatePlaylistItemRequest(server string, id ResourceID, itemId openapi_types.UUID, params *UpdatePlaylistItemParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -28989,12 +28500,10 @@ func NewUpdatePlaylistItemRequestWithBody(server string, id ResourceID, itemId o
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	if params != nil {
 
@@ -30018,19 +29527,8 @@ func NewCreatePresentationOverrideRequestWithBody(server string, contentType str
 	return req, nil
 }
 
-// NewStopPresentationOverrideRequest calls the generic StopPresentationOverride builder with application/json body
-func NewStopPresentationOverrideRequest(server string, id openapi_types.UUID, body StopPresentationOverrideJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewStopPresentationOverrideRequestWithBody(server, id, "application/json", bodyReader)
-}
-
-// NewStopPresentationOverrideRequestWithBody constructs an http.Request for the StopPresentationOverride method, with any body, and a specified content type
-func NewStopPresentationOverrideRequestWithBody(server string, id openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+// NewStopPresentationOverrideRequest constructs an http.Request for the StopPresentationOverride method
+func NewStopPresentationOverrideRequest(server string, id openapi_types.UUID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -30055,12 +29553,10 @@ func NewStopPresentationOverrideRequestWithBody(server string, id openapi_types.
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -30210,19 +29706,8 @@ func NewCreateScheduleRequestWithBody(server string, contentType string, body io
 	return req, nil
 }
 
-// NewPreviewScheduleRequest calls the generic PreviewSchedule builder with application/json body
-func NewPreviewScheduleRequest(server string, body PreviewScheduleJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewPreviewScheduleRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewPreviewScheduleRequestWithBody constructs an http.Request for the PreviewSchedule method, with any body, and a specified content type
-func NewPreviewScheduleRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewPreviewScheduleRequest constructs an http.Request for the PreviewSchedule method
+func NewPreviewScheduleRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -30240,12 +29725,10 @@ func NewPreviewScheduleRequestWithBody(server string, contentType string, body i
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -30318,19 +29801,8 @@ func NewGetScheduleRequest(server string, id ResourceID) (*http.Request, error) 
 	return req, nil
 }
 
-// NewUpdateScheduleRequest calls the generic UpdateSchedule builder with application/json body
-func NewUpdateScheduleRequest(server string, id ResourceID, body UpdateScheduleJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewUpdateScheduleRequestWithBody(server, id, "application/json", bodyReader)
-}
-
-// NewUpdateScheduleRequestWithBody constructs an http.Request for the UpdateSchedule method, with any body, and a specified content type
-func NewUpdateScheduleRequestWithBody(server string, id ResourceID, contentType string, body io.Reader) (*http.Request, error) {
+// NewUpdateScheduleRequest constructs an http.Request for the UpdateSchedule method
+func NewUpdateScheduleRequest(server string, id ResourceID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -30355,12 +29827,10 @@ func NewUpdateScheduleRequestWithBody(server string, id ResourceID, contentType 
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -30434,7 +29904,7 @@ func NewEnableScheduleRequest(server string, id ResourceID) (*http.Request, erro
 }
 
 // NewListScreenGroupsRequest constructs an http.Request for the ListScreenGroups method
-func NewListScreenGroupsRequest(server string, params *ListScreenGroupsParams) (*http.Request, error) {
+func NewListScreenGroupsRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -30450,57 +29920,6 @@ func NewListScreenGroupsRequest(server string, params *ListScreenGroupsParams) (
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
-	}
-
-	if params != nil {
-		// queryValues collects non-styled parameters (passthrough, JSON)
-		// that are safe to round-trip through url.Values.Encode().
-		queryValues := queryURL.Query()
-		// rawQueryFragments collects pre-encoded query fragments from
-		// styled parameters, preserving literal commas as delimiters
-		// per the OpenAPI spec (e.g. "color=blue,black,brown").
-		var rawQueryFragments []string
-
-		if params.Search != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "search", *params.Search, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if params.Page != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page", *params.Page, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if params.PageSize != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "pageSize", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if encoded := queryValues.Encode(); encoded != "" {
-			rawQueryFragments = append(rawQueryFragments, encoded)
-		}
-		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -30511,19 +29930,8 @@ func NewListScreenGroupsRequest(server string, params *ListScreenGroupsParams) (
 	return req, nil
 }
 
-// NewCreateScreenGroupRequest calls the generic CreateScreenGroup builder with application/json body
-func NewCreateScreenGroupRequest(server string, params *CreateScreenGroupParams, body CreateScreenGroupJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewCreateScreenGroupRequestWithBody(server, params, "application/json", bodyReader)
-}
-
-// NewCreateScreenGroupRequestWithBody constructs an http.Request for the CreateScreenGroup method, with any body, and a specified content type
-func NewCreateScreenGroupRequestWithBody(server string, params *CreateScreenGroupParams, contentType string, body io.Reader) (*http.Request, error) {
+// NewCreateScreenGroupRequest constructs an http.Request for the CreateScreenGroup method
+func NewCreateScreenGroupRequest(server string, params *CreateScreenGroupParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -30541,12 +29949,10 @@ func NewCreateScreenGroupRequestWithBody(server string, params *CreateScreenGrou
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	if params != nil {
 
@@ -30632,19 +30038,8 @@ func NewGetScreenGroupRequest(server string, id ResourceID) (*http.Request, erro
 	return req, nil
 }
 
-// NewUpdateScreenGroupRequest calls the generic UpdateScreenGroup builder with application/json body
-func NewUpdateScreenGroupRequest(server string, id ResourceID, body UpdateScreenGroupJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewUpdateScreenGroupRequestWithBody(server, id, "application/json", bodyReader)
-}
-
-// NewUpdateScreenGroupRequestWithBody constructs an http.Request for the UpdateScreenGroup method, with any body, and a specified content type
-func NewUpdateScreenGroupRequestWithBody(server string, id ResourceID, contentType string, body io.Reader) (*http.Request, error) {
+// NewUpdateScreenGroupRequest constructs an http.Request for the UpdateScreenGroup method
+func NewUpdateScreenGroupRequest(server string, id ResourceID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -30669,12 +30064,10 @@ func NewUpdateScreenGroupRequestWithBody(server string, id ResourceID, contentTy
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -30945,19 +30338,8 @@ func NewGetGroupPolicyRequest(server string, id ResourceID) (*http.Request, erro
 	return req, nil
 }
 
-// NewPutGroupPolicyRequest calls the generic PutGroupPolicy builder with application/json body
-func NewPutGroupPolicyRequest(server string, id ResourceID, body PutGroupPolicyJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewPutGroupPolicyRequestWithBody(server, id, "application/json", bodyReader)
-}
-
-// NewPutGroupPolicyRequestWithBody constructs an http.Request for the PutGroupPolicy method, with any body, and a specified content type
-func NewPutGroupPolicyRequestWithBody(server string, id ResourceID, contentType string, body io.Reader) (*http.Request, error) {
+// NewPutGroupPolicyRequest constructs an http.Request for the PutGroupPolicy method
+func NewPutGroupPolicyRequest(server string, id ResourceID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -30982,29 +30364,16 @@ func NewPutGroupPolicyRequestWithBody(server string, id ResourceID, contentType 
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
 
-// NewAddScreenGroupMemberRequest calls the generic AddScreenGroupMember builder with application/json body
-func NewAddScreenGroupMemberRequest(server string, id ResourceID, body AddScreenGroupMemberJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewAddScreenGroupMemberRequestWithBody(server, id, "application/json", bodyReader)
-}
-
-// NewAddScreenGroupMemberRequestWithBody constructs an http.Request for the AddScreenGroupMember method, with any body, and a specified content type
-func NewAddScreenGroupMemberRequestWithBody(server string, id ResourceID, contentType string, body io.Reader) (*http.Request, error) {
+// NewAddScreenGroupMemberRequest constructs an http.Request for the AddScreenGroupMember method
+func NewAddScreenGroupMemberRequest(server string, id ResourceID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -31029,12 +30398,10 @@ func NewAddScreenGroupMemberRequestWithBody(server string, id ResourceID, conten
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -31282,7 +30649,7 @@ func NewApplyBulkOperationRequestWithBody(server string, params *ApplyBulkOperat
 }
 
 // NewListBulkOperationsRequest constructs an http.Request for the ListBulkOperations method
-func NewListBulkOperationsRequest(server string, params *ListBulkOperationsParams) (*http.Request, error) {
+func NewListBulkOperationsRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -31298,33 +30665,6 @@ func NewListBulkOperationsRequest(server string, params *ListBulkOperationsParam
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
-	}
-
-	if params != nil {
-		// queryValues collects non-styled parameters (passthrough, JSON)
-		// that are safe to round-trip through url.Values.Encode().
-		queryValues := queryURL.Query()
-		// rawQueryFragments collects pre-encoded query fragments from
-		// styled parameters, preserving literal commas as delimiters
-		// per the OpenAPI spec (e.g. "color=blue,black,brown").
-		var rawQueryFragments []string
-
-		if params.Limit != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if encoded := queryValues.Encode(); encoded != "" {
-			rawQueryFragments = append(rawQueryFragments, encoded)
-		}
-		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -31698,19 +31038,8 @@ func NewListScreenCommandsRequest(server string, id ResourceID) (*http.Request, 
 	return req, nil
 }
 
-// NewSendScreenCommandRequest calls the generic SendScreenCommand builder with application/json body
-func NewSendScreenCommandRequest(server string, id ResourceID, body SendScreenCommandJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewSendScreenCommandRequestWithBody(server, id, "application/json", bodyReader)
-}
-
-// NewSendScreenCommandRequestWithBody constructs an http.Request for the SendScreenCommand method, with any body, and a specified content type
-func NewSendScreenCommandRequestWithBody(server string, id ResourceID, contentType string, body io.Reader) (*http.Request, error) {
+// NewSendScreenCommandRequest constructs an http.Request for the SendScreenCommand method
+func NewSendScreenCommandRequest(server string, id ResourceID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -31735,12 +31064,10 @@ func NewSendScreenCommandRequestWithBody(server string, id ResourceID, contentTy
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -32340,19 +31667,8 @@ func NewGetScreenPolicyRequest(server string, id ResourceID) (*http.Request, err
 	return req, nil
 }
 
-// NewPutScreenPolicyRequest calls the generic PutScreenPolicy builder with application/json body
-func NewPutScreenPolicyRequest(server string, id ResourceID, body PutScreenPolicyJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewPutScreenPolicyRequestWithBody(server, id, "application/json", bodyReader)
-}
-
-// NewPutScreenPolicyRequestWithBody constructs an http.Request for the PutScreenPolicy method, with any body, and a specified content type
-func NewPutScreenPolicyRequestWithBody(server string, id ResourceID, contentType string, body io.Reader) (*http.Request, error) {
+// NewPutScreenPolicyRequest constructs an http.Request for the PutScreenPolicy method
+func NewPutScreenPolicyRequest(server string, id ResourceID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -32377,29 +31693,16 @@ func NewPutScreenPolicyRequestWithBody(server string, id ResourceID, contentType
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
 
-// NewSetScreenPowerAssistRequest calls the generic SetScreenPowerAssist builder with application/json body
-func NewSetScreenPowerAssistRequest(server string, id ResourceID, body SetScreenPowerAssistJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewSetScreenPowerAssistRequestWithBody(server, id, "application/json", bodyReader)
-}
-
-// NewSetScreenPowerAssistRequestWithBody constructs an http.Request for the SetScreenPowerAssist method, with any body, and a specified content type
-func NewSetScreenPowerAssistRequestWithBody(server string, id ResourceID, contentType string, body io.Reader) (*http.Request, error) {
+// NewSetScreenPowerAssistRequest constructs an http.Request for the SetScreenPowerAssist method
+func NewSetScreenPowerAssistRequest(server string, id ResourceID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -32424,12 +31727,10 @@ func NewSetScreenPowerAssistRequestWithBody(server string, id ResourceID, conten
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -32785,7 +32086,7 @@ func NewRevokeScreenCredentialRequestWithBody(server string, id openapi_types.UU
 }
 
 // NewListScreenSnapshotsRequest constructs an http.Request for the ListScreenSnapshots method
-func NewListScreenSnapshotsRequest(server string, id ResourceID, params *ListScreenSnapshotsParams) (*http.Request, error) {
+func NewListScreenSnapshotsRequest(server string, id ResourceID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -32808,33 +32109,6 @@ func NewListScreenSnapshotsRequest(server string, id ResourceID, params *ListScr
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
-	}
-
-	if params != nil {
-		// queryValues collects non-styled parameters (passthrough, JSON)
-		// that are safe to round-trip through url.Values.Encode().
-		queryValues := queryURL.Query()
-		// rawQueryFragments collects pre-encoded query fragments from
-		// styled parameters, preserving literal commas as delimiters
-		// per the OpenAPI spec (e.g. "color=blue,black,brown").
-		var rawQueryFragments []string
-
-		if params.Limit != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if encoded := queryValues.Encode(); encoded != "" {
-			rawQueryFragments = append(rawQueryFragments, encoded)
-		}
-		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -33293,33 +32567,6 @@ func NewDeleteBackupRequest(server string, id ResourceID, params *DeleteBackupPa
 		return nil, err
 	}
 
-	if params != nil {
-		// queryValues collects non-styled parameters (passthrough, JSON)
-		// that are safe to round-trip through url.Values.Encode().
-		queryValues := queryURL.Query()
-		// rawQueryFragments collects pre-encoded query fragments from
-		// styled parameters, preserving literal commas as delimiters
-		// per the OpenAPI spec (e.g. "color=blue,black,brown").
-		var rawQueryFragments []string
-
-		if params.Force != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "force", *params.Force, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if encoded := queryValues.Encode(); encoded != "" {
-			rawQueryFragments = append(rawQueryFragments, encoded)
-		}
-		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
-	}
-
 	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
@@ -33658,19 +32905,8 @@ func NewExportSettingsRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewApplySettingsImportRequest calls the generic ApplySettingsImport builder with application/json body
-func NewApplySettingsImportRequest(server string, body ApplySettingsImportJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewApplySettingsImportRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewApplySettingsImportRequestWithBody constructs an http.Request for the ApplySettingsImport method, with any body, and a specified content type
-func NewApplySettingsImportRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewApplySettingsImportRequest constructs an http.Request for the ApplySettingsImport method
+func NewApplySettingsImportRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -33688,29 +32924,16 @@ func NewApplySettingsImportRequestWithBody(server string, contentType string, bo
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
 
-// NewPreviewSettingsImportRequest calls the generic PreviewSettingsImport builder with application/json body
-func NewPreviewSettingsImportRequest(server string, body PreviewSettingsImportJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewPreviewSettingsImportRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewPreviewSettingsImportRequestWithBody constructs an http.Request for the PreviewSettingsImport method, with any body, and a specified content type
-func NewPreviewSettingsImportRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewPreviewSettingsImportRequest constructs an http.Request for the PreviewSettingsImport method
+func NewPreviewSettingsImportRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -33728,12 +32951,10 @@ func NewPreviewSettingsImportRequestWithBody(server string, contentType string, 
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -33819,19 +33040,8 @@ func NewListTakeoversRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewCreateTakeoverRequest calls the generic CreateTakeover builder with application/json body
-func NewCreateTakeoverRequest(server string, body CreateTakeoverJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewCreateTakeoverRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewCreateTakeoverRequestWithBody constructs an http.Request for the CreateTakeover method, with any body, and a specified content type
-func NewCreateTakeoverRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewCreateTakeoverRequest constructs an http.Request for the CreateTakeover method
+func NewCreateTakeoverRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -33849,12 +33059,10 @@ func NewCreateTakeoverRequestWithBody(server string, contentType string, body io
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -33893,19 +33101,8 @@ func NewGetTakeoverRequest(server string, id openapi_types.UUID) (*http.Request,
 	return req, nil
 }
 
-// NewCancelTakeoverRequest calls the generic CancelTakeover builder with application/json body
-func NewCancelTakeoverRequest(server string, id openapi_types.UUID, body CancelTakeoverJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewCancelTakeoverRequestWithBody(server, id, "application/json", bodyReader)
-}
-
-// NewCancelTakeoverRequestWithBody constructs an http.Request for the CancelTakeover method, with any body, and a specified content type
-func NewCancelTakeoverRequestWithBody(server string, id openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+// NewCancelTakeoverRequest constructs an http.Request for the CancelTakeover method
+func NewCancelTakeoverRequest(server string, id openapi_types.UUID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -33930,12 +33127,10 @@ func NewCancelTakeoverRequestWithBody(server string, id openapi_types.UUID, cont
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -33967,19 +33162,8 @@ func NewListUpdateDeploymentsRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewCreateUpdateDeploymentRequest calls the generic CreateUpdateDeployment builder with application/json body
-func NewCreateUpdateDeploymentRequest(server string, body CreateUpdateDeploymentJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewCreateUpdateDeploymentRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewCreateUpdateDeploymentRequestWithBody constructs an http.Request for the CreateUpdateDeployment method, with any body, and a specified content type
-func NewCreateUpdateDeploymentRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewCreateUpdateDeploymentRequest constructs an http.Request for the CreateUpdateDeployment method
+func NewCreateUpdateDeploymentRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -33997,12 +33181,10 @@ func NewCreateUpdateDeploymentRequestWithBody(server string, contentType string,
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -34676,19 +33858,8 @@ func NewCreateWidgetRequestWithBody(server string, contentType string, body io.R
 	return req, nil
 }
 
-// NewCompileWidgetPreviewRequest calls the generic CompileWidgetPreview builder with application/json body
-func NewCompileWidgetPreviewRequest(server string, body CompileWidgetPreviewJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewCompileWidgetPreviewRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewCompileWidgetPreviewRequestWithBody constructs an http.Request for the CompileWidgetPreview method, with any body, and a specified content type
-func NewCompileWidgetPreviewRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewCompileWidgetPreviewRequest constructs an http.Request for the CompileWidgetPreview method
+func NewCompileWidgetPreviewRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -34706,12 +33877,10 @@ func NewCompileWidgetPreviewRequestWithBody(server string, contentType string, b
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -35292,19 +34461,12 @@ type ClientWithResponsesInterface interface {
 	// Restore assets. Requires an authenticated dashboard user.
 	RestoreAssetsWithResponse(ctx context.Context, params *RestoreAssetsParams, body RestoreAssetsJSONRequestBody, reqEditors ...RequestEditorFn) (*RestoreAssetsResponse, error)
 
-	// CreateWebsiteAssetWithBodyWithResponse performs a POST /api/v1/assets/websites (the `CreateWebsiteAsset` operationId) request,
-	// with any type of body and a specified content type.
+	// CreateWebsiteAssetWithResponse performs a POST /api/v1/assets/websites (the `CreateWebsiteAsset` operationId) request.
 	//
 	// Requires an authenticated content author with the write scope. Cookie requests additionally require the X-CSRF-Token header; Bearer grants never send it. Creates configuration-only public website content without fetching the page.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	CreateWebsiteAssetWithBodyWithResponse(ctx context.Context, params *CreateWebsiteAssetParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateWebsiteAssetResponse, error)
-
-	// CreateWebsiteAssetWithResponse performs a POST /api/v1/assets/websites (the `CreateWebsiteAsset` operationId) request.
-	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Requires an authenticated content author with the write scope. Cookie requests additionally require the X-CSRF-Token header; Bearer grants never send it. Creates configuration-only public website content without fetching the page.
-	CreateWebsiteAssetWithResponse(ctx context.Context, params *CreateWebsiteAssetParams, body CreateWebsiteAssetJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateWebsiteAssetResponse, error)
+	CreateWebsiteAssetWithResponse(ctx context.Context, params *CreateWebsiteAssetParams, reqEditors ...RequestEditorFn) (*CreateWebsiteAssetResponse, error)
 
 	// DeleteAssetWithResponse performs a DELETE /api/v1/assets/{id} (the `DeleteAsset` operationId) request.
 	//
@@ -35362,19 +34524,12 @@ type ClientWithResponsesInterface interface {
 	// Returns a wrapper object for the known response body format(s).
 	GetAssetThumbnailWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*GetAssetThumbnailResponse, error)
 
-	// UpdateWebsiteAssetWithBodyWithResponse performs a PATCH /api/v1/assets/{id}/website (the `UpdateWebsiteAsset` operationId) request,
-	// with any type of body and a specified content type.
+	// UpdateWebsiteAssetWithResponse performs a PATCH /api/v1/assets/{id}/website (the `UpdateWebsiteAsset` operationId) request.
 	//
 	// Update website asset. Requires an authenticated dashboard user.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	UpdateWebsiteAssetWithBodyWithResponse(ctx context.Context, id ResourceID, params *UpdateWebsiteAssetParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateWebsiteAssetResponse, error)
-
-	// UpdateWebsiteAssetWithResponse performs a PATCH /api/v1/assets/{id}/website (the `UpdateWebsiteAsset` operationId) request.
-	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Update website asset. Requires an authenticated dashboard user.
-	UpdateWebsiteAssetWithResponse(ctx context.Context, id ResourceID, params *UpdateWebsiteAssetParams, body UpdateWebsiteAssetJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateWebsiteAssetResponse, error)
+	UpdateWebsiteAssetWithResponse(ctx context.Context, id ResourceID, params *UpdateWebsiteAssetParams, reqEditors ...RequestEditorFn) (*UpdateWebsiteAssetResponse, error)
 
 	// WebsiteDiagnosticsWithResponse performs a GET /api/v1/assets/{id}/website/diagnostics (the `WebsiteDiagnostics` operationId) request.
 	//
@@ -35397,19 +34552,12 @@ type ClientWithResponsesInterface interface {
 	// Returns a wrapper object for the known response body format(s).
 	HeadLoginBackgroundImageWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*HeadLoginBackgroundImageResponse, error)
 
-	// LoginWithBodyWithResponse performs a POST /api/v1/auth/login (the `Login` operationId) request,
-	// with any type of body and a specified content type.
+	// LoginWithResponse performs a POST /api/v1/auth/login (the `Login` operationId) request.
 	//
 	// Rate-limited. Exchange an enrolled account's credentials for a dashboard session.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	LoginWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LoginResponse, error)
-
-	// LoginWithResponse performs a POST /api/v1/auth/login (the `Login` operationId) request.
-	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Rate-limited. Exchange an enrolled account's credentials for a dashboard session.
-	LoginWithResponse(ctx context.Context, body LoginJSONRequestBody, reqEditors ...RequestEditorFn) (*LoginResponse, error)
+	LoginWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*LoginResponse, error)
 
 	// LogoutWithResponse performs a POST /api/v1/auth/logout (the `Logout` operationId) request.
 	//
@@ -35579,19 +34727,12 @@ type ClientWithResponsesInterface interface {
 	// Returns a wrapper object for the known response body format(s).
 	ListContentCollectionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListContentCollectionsResponse, error)
 
-	// CreateContentCollectionWithBodyWithResponse performs a POST /api/v1/content-collections (the `CreateContentCollection` operationId) request,
-	// with any type of body and a specified content type.
+	// CreateContentCollectionWithResponse performs a POST /api/v1/content-collections (the `CreateContentCollection` operationId) request.
 	//
 	// Create content collection. Requires an authenticated dashboard user.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	CreateContentCollectionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateContentCollectionResponse, error)
-
-	// CreateContentCollectionWithResponse performs a POST /api/v1/content-collections (the `CreateContentCollection` operationId) request.
-	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Create content collection. Requires an authenticated dashboard user.
-	CreateContentCollectionWithResponse(ctx context.Context, body CreateContentCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateContentCollectionResponse, error)
+	CreateContentCollectionWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*CreateContentCollectionResponse, error)
 
 	// DeleteContentCollectionWithResponse performs a DELETE /api/v1/content-collections/{id} (the `DeleteContentCollection` operationId) request.
 	//
@@ -35628,19 +34769,12 @@ type ClientWithResponsesInterface interface {
 	// Returns a wrapper object for the known response body format(s).
 	ListContentFoldersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListContentFoldersResponse, error)
 
-	// CreateContentFolderWithBodyWithResponse performs a POST /api/v1/content-folders (the `CreateContentFolder` operationId) request,
-	// with any type of body and a specified content type.
+	// CreateContentFolderWithResponse performs a POST /api/v1/content-folders (the `CreateContentFolder` operationId) request.
 	//
 	// Create content folder. Requires an authenticated dashboard user.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	CreateContentFolderWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateContentFolderResponse, error)
-
-	// CreateContentFolderWithResponse performs a POST /api/v1/content-folders (the `CreateContentFolder` operationId) request.
-	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Create content folder. Requires an authenticated dashboard user.
-	CreateContentFolderWithResponse(ctx context.Context, body CreateContentFolderJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateContentFolderResponse, error)
+	CreateContentFolderWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*CreateContentFolderResponse, error)
 
 	// DeleteContentFolderWithResponse performs a DELETE /api/v1/content-folders/{id} (the `DeleteContentFolder` operationId) request.
 	//
@@ -35810,19 +34944,12 @@ type ClientWithResponsesInterface interface {
 	// Returns a wrapper object for the known response body format(s).
 	ListContentTagsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListContentTagsResponse, error)
 
-	// CreateContentTagWithBodyWithResponse performs a POST /api/v1/content-tags (the `CreateContentTag` operationId) request,
-	// with any type of body and a specified content type.
+	// CreateContentTagWithResponse performs a POST /api/v1/content-tags (the `CreateContentTag` operationId) request.
 	//
 	// Create content tag. Requires an authenticated dashboard user.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	CreateContentTagWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateContentTagResponse, error)
-
-	// CreateContentTagWithResponse performs a POST /api/v1/content-tags (the `CreateContentTag` operationId) request.
-	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Create content tag. Requires an authenticated dashboard user.
-	CreateContentTagWithResponse(ctx context.Context, body CreateContentTagJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateContentTagResponse, error)
+	CreateContentTagWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*CreateContentTagResponse, error)
 
 	// DeleteContentTagWithResponse performs a DELETE /api/v1/content-tags/{id} (the `DeleteContentTag` operationId) request.
 	//
@@ -35850,7 +34977,7 @@ type ClientWithResponsesInterface interface {
 	// List data sources. Requires an authenticated dashboard user.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	ListDataSourcesWithResponse(ctx context.Context, params *ListDataSourcesParams, reqEditors ...RequestEditorFn) (*ListDataSourcesResponse, error)
+	ListDataSourcesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListDataSourcesResponse, error)
 
 	// CreateDataSourceWithBodyWithResponse performs a POST /api/v1/data-sources (the `CreateDataSource` operationId) request,
 	// with any type of body and a specified content type.
@@ -36156,16 +35283,16 @@ type ClientWithResponsesInterface interface {
 	// InspectDataSourceWithBodyWithResponse performs a POST /api/v1/data-sources/{provider}/inspect (the `InspectDataSource` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Requires an authenticated dashboard session. Reports the fields a candidate RSS, Atom, Feed, JSON, or CSV connection contains, with a few sample values per field, a suggested field mapping, and which record fields the Source can fill. Runs under the same safe fetch policy as preview and deliberately does not require a mapping, because the mapping is what it exists to produce.
+	// Requires an authenticated dashboard session. Reports the fields a candidate RSS, Atom, JSON, or CSV connection contains, with a few sample values per field, a suggested field mapping, and which record fields the Source can fill. Runs under the same safe fetch policy as preview and deliberately does not require a mapping, because the mapping is what it exists to produce.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	InspectDataSourceWithBodyWithResponse(ctx context.Context, provider DataSourceProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InspectDataSourceResponse, error)
+	InspectDataSourceWithBodyWithResponse(ctx context.Context, provider InspectDataSourceParamsProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InspectDataSourceResponse, error)
 
 	// InspectDataSourceWithResponse performs a POST /api/v1/data-sources/{provider}/inspect (the `InspectDataSource` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Requires an authenticated dashboard session. Reports the fields a candidate RSS, Atom, Feed, JSON, or CSV connection contains, with a few sample values per field, a suggested field mapping, and which record fields the Source can fill. Runs under the same safe fetch policy as preview and deliberately does not require a mapping, because the mapping is what it exists to produce.
-	InspectDataSourceWithResponse(ctx context.Context, provider DataSourceProvider, body InspectDataSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*InspectDataSourceResponse, error)
+	// Requires an authenticated dashboard session. Reports the fields a candidate RSS, Atom, JSON, or CSV connection contains, with a few sample values per field, a suggested field mapping, and which record fields the Source can fill. Runs under the same safe fetch policy as preview and deliberately does not require a mapping, because the mapping is what it exists to produce.
+	InspectDataSourceWithResponse(ctx context.Context, provider InspectDataSourceParamsProvider, body InspectDataSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*InspectDataSourceResponse, error)
 
 	// PreviewDataSourceWithBodyWithResponse performs a POST /api/v1/data-sources/{provider}/preview (the `PreviewDataSource` operationId) request,
 	// with any type of body and a specified content type.
@@ -36173,13 +35300,13 @@ type ClientWithResponsesInterface interface {
 	// Requires an authenticated dashboard session. Fetches and parses a candidate Data Source configuration under the safe fetch policy without saving raw data. A previewDate exercises date-aware selection.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	PreviewDataSourceWithBodyWithResponse(ctx context.Context, provider DataSourceProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewDataSourceResponse, error)
+	PreviewDataSourceWithBodyWithResponse(ctx context.Context, provider PreviewDataSourceParamsProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewDataSourceResponse, error)
 
 	// PreviewDataSourceWithResponse performs a POST /api/v1/data-sources/{provider}/preview (the `PreviewDataSource` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Requires an authenticated dashboard session. Fetches and parses a candidate Data Source configuration under the safe fetch policy without saving raw data. A previewDate exercises date-aware selection.
-	PreviewDataSourceWithResponse(ctx context.Context, provider DataSourceProvider, body PreviewDataSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewDataSourceResponse, error)
+	PreviewDataSourceWithResponse(ctx context.Context, provider PreviewDataSourceParamsProvider, body PreviewDataSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewDataSourceResponse, error)
 
 	// DemoStateWithResponse performs a GET /api/v1/demo (the `DemoState` operationId) request.
 	//
@@ -36355,20 +35482,20 @@ type ClientWithResponsesInterface interface {
 	// Create layout. Requires an authenticated dashboard user.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	CreateLayoutWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateLayoutResponse, error)
+	CreateLayoutWithBodyWithResponse(ctx context.Context, params *CreateLayoutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateLayoutResponse, error)
 
 	// CreateLayoutWithResponse performs a POST /api/v1/layouts (the `CreateLayout` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Create layout. Requires an authenticated dashboard user.
-	CreateLayoutWithResponse(ctx context.Context, body CreateLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateLayoutResponse, error)
+	CreateLayoutWithResponse(ctx context.Context, params *CreateLayoutParams, body CreateLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateLayoutResponse, error)
 
 	// DeleteLayoutWithResponse performs a DELETE /api/v1/layouts/{id} (the `DeleteLayout` operationId) request.
 	//
 	// Delete layout. Requires an authenticated dashboard user.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	DeleteLayoutWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*DeleteLayoutResponse, error)
+	DeleteLayoutWithResponse(ctx context.Context, id ResourceID, params *DeleteLayoutParams, reqEditors ...RequestEditorFn) (*DeleteLayoutResponse, error)
 
 	// GetLayoutWithResponse performs a GET /api/v1/layouts/{id} (the `GetLayout` operationId) request.
 	//
@@ -36383,13 +35510,13 @@ type ClientWithResponsesInterface interface {
 	// Update layout. Requires an authenticated dashboard user.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	UpdateLayoutWithBodyWithResponse(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateLayoutResponse, error)
+	UpdateLayoutWithBodyWithResponse(ctx context.Context, id ResourceID, params *UpdateLayoutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateLayoutResponse, error)
 
 	// UpdateLayoutWithResponse performs a PATCH /api/v1/layouts/{id} (the `UpdateLayout` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Update layout. Requires an authenticated dashboard user.
-	UpdateLayoutWithResponse(ctx context.Context, id ResourceID, body UpdateLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLayoutResponse, error)
+	UpdateLayoutWithResponse(ctx context.Context, id ResourceID, params *UpdateLayoutParams, body UpdateLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLayoutResponse, error)
 
 	// SaveLayoutDraftWithBodyWithResponse performs a PUT /api/v1/layouts/{id}/draft (the `SaveLayoutDraft` operationId) request,
 	// with any type of body and a specified content type.
@@ -36397,20 +35524,20 @@ type ClientWithResponsesInterface interface {
 	// Requires an authenticated dashboard session. Saves a validated draft using expectedDraftRevision optimistic concurrency.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	SaveLayoutDraftWithBodyWithResponse(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SaveLayoutDraftResponse, error)
+	SaveLayoutDraftWithBodyWithResponse(ctx context.Context, id ResourceID, params *SaveLayoutDraftParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SaveLayoutDraftResponse, error)
 
 	// SaveLayoutDraftWithResponse performs a PUT /api/v1/layouts/{id}/draft (the `SaveLayoutDraft` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Requires an authenticated dashboard session. Saves a validated draft using expectedDraftRevision optimistic concurrency.
-	SaveLayoutDraftWithResponse(ctx context.Context, id ResourceID, body SaveLayoutDraftJSONRequestBody, reqEditors ...RequestEditorFn) (*SaveLayoutDraftResponse, error)
+	SaveLayoutDraftWithResponse(ctx context.Context, id ResourceID, params *SaveLayoutDraftParams, body SaveLayoutDraftJSONRequestBody, reqEditors ...RequestEditorFn) (*SaveLayoutDraftResponse, error)
 
 	// DuplicateLayoutWithResponse performs a POST /api/v1/layouts/{id}/duplicate (the `DuplicateLayout` operationId) request.
 	//
 	// Duplicate layout. Requires an authenticated dashboard user.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	DuplicateLayoutWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*DuplicateLayoutResponse, error)
+	DuplicateLayoutWithResponse(ctx context.Context, id ResourceID, params *DuplicateLayoutParams, reqEditors ...RequestEditorFn) (*DuplicateLayoutResponse, error)
 
 	// GetLayoutPreviewImageWithResponse performs a GET /api/v1/layouts/{id}/preview-image (the `GetLayoutPreviewImage` operationId) request.
 	//
@@ -36429,16 +35556,16 @@ type ClientWithResponsesInterface interface {
 	// PublishLayoutWithBodyWithResponse performs a POST /api/v1/layouts/{id}/publish (the `PublishLayout` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Publish layout. Requires an authenticated dashboard user.
+	// Publish layout. Requires an authenticated dashboard user. Publishes the draft the caller read first: the request carries the draft revision it saw, and a 409 means someone else published first. A layout under editorial review answers 202 with the submission instead of publishing.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	PublishLayoutWithBodyWithResponse(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PublishLayoutResponse, error)
+	PublishLayoutWithBodyWithResponse(ctx context.Context, id ResourceID, params *PublishLayoutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PublishLayoutResponse, error)
 
 	// PublishLayoutWithResponse performs a POST /api/v1/layouts/{id}/publish (the `PublishLayout` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Publish layout. Requires an authenticated dashboard user.
-	PublishLayoutWithResponse(ctx context.Context, id ResourceID, body PublishLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*PublishLayoutResponse, error)
+	// Publish layout. Requires an authenticated dashboard user. Publishes the draft the caller read first: the request carries the draft revision it saw, and a 409 means someone else published first. A layout under editorial review answers 202 with the submission instead of publishing.
+	PublishLayoutWithResponse(ctx context.Context, id ResourceID, params *PublishLayoutParams, body PublishLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*PublishLayoutResponse, error)
 
 	// ListLayoutRevisionsWithResponse performs a GET /api/v1/layouts/{id}/revisions (the `ListLayoutRevisions` operationId) request.
 	//
@@ -36453,13 +35580,13 @@ type ClientWithResponsesInterface interface {
 	// Restore layout revision. Requires an authenticated dashboard user.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	RestoreLayoutRevisionWithBodyWithResponse(ctx context.Context, id ResourceID, revisionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RestoreLayoutRevisionResponse, error)
+	RestoreLayoutRevisionWithBodyWithResponse(ctx context.Context, id ResourceID, revisionId string, params *RestoreLayoutRevisionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RestoreLayoutRevisionResponse, error)
 
 	// RestoreLayoutRevisionWithResponse performs a POST /api/v1/layouts/{id}/revisions/{revisionId}/restore (the `RestoreLayoutRevision` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Restore layout revision. Requires an authenticated dashboard user.
-	RestoreLayoutRevisionWithResponse(ctx context.Context, id ResourceID, revisionId string, body RestoreLayoutRevisionJSONRequestBody, reqEditors ...RequestEditorFn) (*RestoreLayoutRevisionResponse, error)
+	RestoreLayoutRevisionWithResponse(ctx context.Context, id ResourceID, revisionId string, params *RestoreLayoutRevisionParams, body RestoreLayoutRevisionJSONRequestBody, reqEditors ...RequestEditorFn) (*RestoreLayoutRevisionResponse, error)
 
 	// ListLocationsWithResponse performs a GET /api/v1/locations (the `ListLocations` operationId) request.
 	//
@@ -36468,19 +35595,12 @@ type ClientWithResponsesInterface interface {
 	// Returns a wrapper object for the known response body format(s).
 	ListLocationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListLocationsResponse, error)
 
-	// CreateLocationWithBodyWithResponse performs a POST /api/v1/locations (the `CreateLocation` operationId) request,
-	// with any type of body and a specified content type.
+	// CreateLocationWithResponse performs a POST /api/v1/locations (the `CreateLocation` operationId) request.
 	//
 	// Create location. Requires an authenticated dashboard user.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	CreateLocationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateLocationResponse, error)
-
-	// CreateLocationWithResponse performs a POST /api/v1/locations (the `CreateLocation` operationId) request.
-	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Create location. Requires an authenticated dashboard user.
-	CreateLocationWithResponse(ctx context.Context, body CreateLocationJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateLocationResponse, error)
+	CreateLocationWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*CreateLocationResponse, error)
 
 	// DeleteLocationWithResponse performs a DELETE /api/v1/locations/{id} (the `DeleteLocation` operationId) request.
 	//
@@ -36489,19 +35609,12 @@ type ClientWithResponsesInterface interface {
 	// Returns a wrapper object for the known response body format(s).
 	DeleteLocationWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteLocationResponse, error)
 
-	// UpdateLocationWithBodyWithResponse performs a PATCH /api/v1/locations/{id} (the `UpdateLocation` operationId) request,
-	// with any type of body and a specified content type.
+	// UpdateLocationWithResponse performs a PATCH /api/v1/locations/{id} (the `UpdateLocation` operationId) request.
 	//
 	// Update location. Requires an authenticated dashboard user.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	UpdateLocationWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateLocationResponse, error)
-
-	// UpdateLocationWithResponse performs a PATCH /api/v1/locations/{id} (the `UpdateLocation` operationId) request.
-	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Update location. Requires an authenticated dashboard user.
-	UpdateLocationWithResponse(ctx context.Context, id openapi_types.UUID, body UpdateLocationJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLocationResponse, error)
+	UpdateLocationWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*UpdateLocationResponse, error)
 
 	// GetPreferencesWithResponse performs a GET /api/v1/me/preferences (the `GetPreferences` operationId) request.
 	//
@@ -36669,7 +35782,7 @@ type ClientWithResponsesInterface interface {
 	// List notification deliveries. Requires an Owner or Administrator with the admin scope.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	ListNotificationDeliveriesWithResponse(ctx context.Context, params *ListNotificationDeliveriesParams, reqEditors ...RequestEditorFn) (*ListNotificationDeliveriesResponse, error)
+	ListNotificationDeliveriesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListNotificationDeliveriesResponse, error)
 
 	// GetNotificationStatusWithResponse performs a GET /api/v1/notifications/status (the `GetNotificationStatus` operationId) request.
 	//
@@ -36847,23 +35960,14 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/player-releases/github/device (the `StartGitHubDeviceFlow` operationId).
 	StartGitHubDeviceFlowWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*StartGitHubDeviceFlowResponse, error)
 
-	// PollGitHubDeviceFlowWithBodyWithResponse Poll an active GitHub OAuth device flow
-	//
-	// Requires an authenticated dashboard user.
-	//
-	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Corresponds with POST /api/v1/player-releases/github/device/poll (the `PollGitHubDeviceFlow` operationId).
-	PollGitHubDeviceFlowWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PollGitHubDeviceFlowResponse, error)
-
 	// PollGitHubDeviceFlowWithResponse Poll an active GitHub OAuth device flow
 	//
 	// Requires an authenticated dashboard user.
 	//
-	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/player-releases/github/device/poll (the `PollGitHubDeviceFlow` operationId).
-	PollGitHubDeviceFlowWithResponse(ctx context.Context, body PollGitHubDeviceFlowJSONRequestBody, reqEditors ...RequestEditorFn) (*PollGitHubDeviceFlowResponse, error)
+	PollGitHubDeviceFlowWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PollGitHubDeviceFlowResponse, error)
 
 	// UploadPlayerReleaseWithBodyWithResponse Upload and verify a signed Tilecast Player release bundle
 	//
@@ -37176,19 +36280,12 @@ type ClientWithResponsesInterface interface {
 	// Returns a wrapper object for the known response body format(s).
 	GetPlaylistWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*GetPlaylistResponse, error)
 
-	// UpdatePlaylistWithBodyWithResponse performs a PATCH /api/v1/playlists/{id} (the `UpdatePlaylist` operationId) request,
-	// with any type of body and a specified content type.
+	// UpdatePlaylistWithResponse performs a PATCH /api/v1/playlists/{id} (the `UpdatePlaylist` operationId) request.
 	//
 	// Update playlist. Requires an authenticated dashboard user.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	UpdatePlaylistWithBodyWithResponse(ctx context.Context, id ResourceID, params *UpdatePlaylistParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdatePlaylistResponse, error)
-
-	// UpdatePlaylistWithResponse performs a PATCH /api/v1/playlists/{id} (the `UpdatePlaylist` operationId) request.
-	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Update playlist. Requires an authenticated dashboard user.
-	UpdatePlaylistWithResponse(ctx context.Context, id ResourceID, params *UpdatePlaylistParams, body UpdatePlaylistJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdatePlaylistResponse, error)
+	UpdatePlaylistWithResponse(ctx context.Context, id ResourceID, params *UpdatePlaylistParams, reqEditors ...RequestEditorFn) (*UpdatePlaylistResponse, error)
 
 	// DuplicatePlaylistWithResponse performs a POST /api/v1/playlists/{id}/duplicate (the `DuplicatePlaylist` operationId) request.
 	//
@@ -37225,19 +36322,12 @@ type ClientWithResponsesInterface interface {
 	// Bulk update playlist items. Requires an authenticated dashboard user.
 	BulkUpdatePlaylistItemsWithResponse(ctx context.Context, id ResourceID, params *BulkUpdatePlaylistItemsParams, body BulkUpdatePlaylistItemsJSONRequestBody, reqEditors ...RequestEditorFn) (*BulkUpdatePlaylistItemsResponse, error)
 
-	// ReorderPlaylistItemsWithBodyWithResponse performs a PUT /api/v1/playlists/{id}/items/order (the `ReorderPlaylistItems` operationId) request,
-	// with any type of body and a specified content type.
+	// ReorderPlaylistItemsWithResponse performs a PUT /api/v1/playlists/{id}/items/order (the `ReorderPlaylistItems` operationId) request.
 	//
 	// Reorder playlist items. Requires an authenticated dashboard user.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	ReorderPlaylistItemsWithBodyWithResponse(ctx context.Context, id ResourceID, params *ReorderPlaylistItemsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReorderPlaylistItemsResponse, error)
-
-	// ReorderPlaylistItemsWithResponse performs a PUT /api/v1/playlists/{id}/items/order (the `ReorderPlaylistItems` operationId) request.
-	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Reorder playlist items. Requires an authenticated dashboard user.
-	ReorderPlaylistItemsWithResponse(ctx context.Context, id ResourceID, params *ReorderPlaylistItemsParams, body ReorderPlaylistItemsJSONRequestBody, reqEditors ...RequestEditorFn) (*ReorderPlaylistItemsResponse, error)
+	ReorderPlaylistItemsWithResponse(ctx context.Context, id ResourceID, params *ReorderPlaylistItemsParams, reqEditors ...RequestEditorFn) (*ReorderPlaylistItemsResponse, error)
 
 	// DeletePlaylistItemWithResponse performs a DELETE /api/v1/playlists/{id}/items/{itemId} (the `DeletePlaylistItem` operationId) request.
 	//
@@ -37246,19 +36336,12 @@ type ClientWithResponsesInterface interface {
 	// Returns a wrapper object for the known response body format(s).
 	DeletePlaylistItemWithResponse(ctx context.Context, id ResourceID, itemId openapi_types.UUID, params *DeletePlaylistItemParams, reqEditors ...RequestEditorFn) (*DeletePlaylistItemResponse, error)
 
-	// UpdatePlaylistItemWithBodyWithResponse performs a PATCH /api/v1/playlists/{id}/items/{itemId} (the `UpdatePlaylistItem` operationId) request,
-	// with any type of body and a specified content type.
+	// UpdatePlaylistItemWithResponse performs a PATCH /api/v1/playlists/{id}/items/{itemId} (the `UpdatePlaylistItem` operationId) request.
 	//
 	// Update playlist item. Requires an authenticated dashboard user.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	UpdatePlaylistItemWithBodyWithResponse(ctx context.Context, id ResourceID, itemId openapi_types.UUID, params *UpdatePlaylistItemParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdatePlaylistItemResponse, error)
-
-	// UpdatePlaylistItemWithResponse performs a PATCH /api/v1/playlists/{id}/items/{itemId} (the `UpdatePlaylistItem` operationId) request.
-	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Update playlist item. Requires an authenticated dashboard user.
-	UpdatePlaylistItemWithResponse(ctx context.Context, id ResourceID, itemId openapi_types.UUID, params *UpdatePlaylistItemParams, body UpdatePlaylistItemJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdatePlaylistItemResponse, error)
+	UpdatePlaylistItemWithResponse(ctx context.Context, id ResourceID, itemId openapi_types.UUID, params *UpdatePlaylistItemParams, reqEditors ...RequestEditorFn) (*UpdatePlaylistItemResponse, error)
 
 	// PublishPlaylistWithBodyWithResponse performs a POST /api/v1/playlists/{id}/publish (the `PublishPlaylist` operationId) request,
 	// with any type of body and a specified content type.
@@ -37504,23 +36587,14 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/presentation-overrides (the `CreatePresentationOverride` operationId).
 	CreatePresentationOverrideWithResponse(ctx context.Context, body CreatePresentationOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*CreatePresentationOverrideResponse, error)
 
-	// StopPresentationOverrideWithBodyWithResponse Stop Quick Present
-	//
-	// Requires an authenticated dashboard user.
-	//
-	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Corresponds with POST /api/v1/presentation-overrides/{id}/stop (the `StopPresentationOverride` operationId).
-	StopPresentationOverrideWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StopPresentationOverrideResponse, error)
-
 	// StopPresentationOverrideWithResponse Stop Quick Present
 	//
 	// Requires an authenticated dashboard user.
 	//
-	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/presentation-overrides/{id}/stop (the `StopPresentationOverride` operationId).
-	StopPresentationOverrideWithResponse(ctx context.Context, id openapi_types.UUID, body StopPresentationOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*StopPresentationOverrideResponse, error)
+	StopPresentationOverrideWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*StopPresentationOverrideResponse, error)
 
 	// ProviderCatalogWithResponse performs a GET /api/v1/provider-catalog (the `ProviderCatalog` operationId) request.
 	//
@@ -37550,19 +36624,12 @@ type ClientWithResponsesInterface interface {
 	// Requires the Owner or Administrator role and an authenticated user with the write scope. Cookie requests also require CSRF. The request contains exactly one of playlistId, layoutId, or displayAction. Display Control actions use the closed typed command registry; display_probe is not schedulable.
 	CreateScheduleWithResponse(ctx context.Context, body CreateScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateScheduleResponse, error)
 
-	// PreviewScheduleWithBodyWithResponse performs a POST /api/v1/schedules/preview (the `PreviewSchedule` operationId) request,
-	// with any type of body and a specified content type.
+	// PreviewScheduleWithResponse performs a POST /api/v1/schedules/preview (the `PreviewSchedule` operationId) request.
 	//
 	// Preview schedule. Requires an authenticated dashboard user.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	PreviewScheduleWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewScheduleResponse, error)
-
-	// PreviewScheduleWithResponse performs a POST /api/v1/schedules/preview (the `PreviewSchedule` operationId) request.
-	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Preview schedule. Requires an authenticated dashboard user.
-	PreviewScheduleWithResponse(ctx context.Context, body PreviewScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewScheduleResponse, error)
+	PreviewScheduleWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PreviewScheduleResponse, error)
 
 	// DeleteScheduleWithResponse performs a DELETE /api/v1/schedules/{id} (the `DeleteSchedule` operationId) request.
 	//
@@ -37578,19 +36645,12 @@ type ClientWithResponsesInterface interface {
 	// Returns a wrapper object for the known response body format(s).
 	GetScheduleWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*GetScheduleResponse, error)
 
-	// UpdateScheduleWithBodyWithResponse performs a PATCH /api/v1/schedules/{id} (the `UpdateSchedule` operationId) request,
-	// with any type of body and a specified content type.
+	// UpdateScheduleWithResponse performs a PATCH /api/v1/schedules/{id} (the `UpdateSchedule` operationId) request.
 	//
 	// Update schedule. Requires an authenticated dashboard user.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	UpdateScheduleWithBodyWithResponse(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateScheduleResponse, error)
-
-	// UpdateScheduleWithResponse performs a PATCH /api/v1/schedules/{id} (the `UpdateSchedule` operationId) request.
-	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Update schedule. Requires an authenticated dashboard user.
-	UpdateScheduleWithResponse(ctx context.Context, id ResourceID, body UpdateScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateScheduleResponse, error)
+	UpdateScheduleWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*UpdateScheduleResponse, error)
 
 	// DisableScheduleWithResponse performs a POST /api/v1/schedules/{id}/disable (the `DisableSchedule` operationId) request.
 	//
@@ -37611,21 +36671,14 @@ type ClientWithResponsesInterface interface {
 	// List screen groups. Requires an authenticated dashboard user.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	ListScreenGroupsWithResponse(ctx context.Context, params *ListScreenGroupsParams, reqEditors ...RequestEditorFn) (*ListScreenGroupsResponse, error)
+	ListScreenGroupsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListScreenGroupsResponse, error)
 
-	// CreateScreenGroupWithBodyWithResponse performs a POST /api/v1/screen-groups (the `CreateScreenGroup` operationId) request,
-	// with any type of body and a specified content type.
+	// CreateScreenGroupWithResponse performs a POST /api/v1/screen-groups (the `CreateScreenGroup` operationId) request.
 	//
 	// Create screen group. Requires an authenticated dashboard user.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	CreateScreenGroupWithBodyWithResponse(ctx context.Context, params *CreateScreenGroupParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateScreenGroupResponse, error)
-
-	// CreateScreenGroupWithResponse performs a POST /api/v1/screen-groups (the `CreateScreenGroup` operationId) request.
-	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Create screen group. Requires an authenticated dashboard user.
-	CreateScreenGroupWithResponse(ctx context.Context, params *CreateScreenGroupParams, body CreateScreenGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateScreenGroupResponse, error)
+	CreateScreenGroupWithResponse(ctx context.Context, params *CreateScreenGroupParams, reqEditors ...RequestEditorFn) (*CreateScreenGroupResponse, error)
 
 	// DeleteScreenGroupWithResponse performs a DELETE /api/v1/screen-groups/{id} (the `DeleteScreenGroup` operationId) request.
 	//
@@ -37641,19 +36694,12 @@ type ClientWithResponsesInterface interface {
 	// Returns a wrapper object for the known response body format(s).
 	GetScreenGroupWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*GetScreenGroupResponse, error)
 
-	// UpdateScreenGroupWithBodyWithResponse performs a PATCH /api/v1/screen-groups/{id} (the `UpdateScreenGroup` operationId) request,
-	// with any type of body and a specified content type.
+	// UpdateScreenGroupWithResponse performs a PATCH /api/v1/screen-groups/{id} (the `UpdateScreenGroup` operationId) request.
 	//
 	// Update screen group. Requires an authenticated dashboard user.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	UpdateScreenGroupWithBodyWithResponse(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateScreenGroupResponse, error)
-
-	// UpdateScreenGroupWithResponse performs a PATCH /api/v1/screen-groups/{id} (the `UpdateScreenGroup` operationId) request.
-	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Update screen group. Requires an authenticated dashboard user.
-	UpdateScreenGroupWithResponse(ctx context.Context, id ResourceID, body UpdateScreenGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateScreenGroupResponse, error)
+	UpdateScreenGroupWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*UpdateScreenGroupResponse, error)
 
 	// ApplyDisplayGroupControlWithBodyWithResponse performs a POST /api/v1/screen-groups/{id}/display-control (the `ApplyDisplayGroupControl` operationId) request,
 	// with any type of body and a specified content type.
@@ -37715,37 +36761,21 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /api/v1/screen-groups/{id}/policy (the `GetGroupPolicy` operationId).
 	GetGroupPolicyWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*GetGroupPolicyResponse, error)
 
-	// PutGroupPolicyWithBodyWithResponse Replace typed group policy
-	//
-	// Requires an authenticated dashboard user.
-	//
-	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Corresponds with PUT /api/v1/screen-groups/{id}/policy (the `PutGroupPolicy` operationId).
-	PutGroupPolicyWithBodyWithResponse(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutGroupPolicyResponse, error)
-
 	// PutGroupPolicyWithResponse Replace typed group policy
 	//
 	// Requires an authenticated dashboard user.
 	//
-	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with PUT /api/v1/screen-groups/{id}/policy (the `PutGroupPolicy` operationId).
-	PutGroupPolicyWithResponse(ctx context.Context, id ResourceID, body PutGroupPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*PutGroupPolicyResponse, error)
+	PutGroupPolicyWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*PutGroupPolicyResponse, error)
 
-	// AddScreenGroupMemberWithBodyWithResponse performs a POST /api/v1/screen-groups/{id}/screens (the `AddScreenGroupMember` operationId) request,
-	// with any type of body and a specified content type.
+	// AddScreenGroupMemberWithResponse performs a POST /api/v1/screen-groups/{id}/screens (the `AddScreenGroupMember` operationId) request.
 	//
 	// Add screen group member. Requires an authenticated dashboard user.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	AddScreenGroupMemberWithBodyWithResponse(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddScreenGroupMemberResponse, error)
-
-	// AddScreenGroupMemberWithResponse performs a POST /api/v1/screen-groups/{id}/screens (the `AddScreenGroupMember` operationId) request.
-	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Add screen group member. Requires an authenticated dashboard user.
-	AddScreenGroupMemberWithResponse(ctx context.Context, id ResourceID, body AddScreenGroupMemberJSONRequestBody, reqEditors ...RequestEditorFn) (*AddScreenGroupMemberResponse, error)
+	AddScreenGroupMemberWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*AddScreenGroupMemberResponse, error)
 
 	// RemoveScreenGroupMemberWithResponse performs a DELETE /api/v1/screen-groups/{id}/screens/{screenId} (the `RemoveScreenGroupMember` operationId) request.
 	//
@@ -37808,7 +36838,7 @@ type ClientWithResponsesInterface interface {
 	// List recent fleet bulk operations. Requires an Owner or Administrator with the read scope.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	ListBulkOperationsWithResponse(ctx context.Context, params *ListBulkOperationsParams, reqEditors ...RequestEditorFn) (*ListBulkOperationsResponse, error)
+	ListBulkOperationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListBulkOperationsResponse, error)
 
 	// UndoBulkOperationWithResponse performs a POST /api/v1/screens/bulk/operations/{id}/undo (the `UndoBulkOperation` operationId) request.
 	//
@@ -37910,23 +36940,14 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /api/v1/screens/{id}/commands (the `ListScreenCommands` operationId).
 	ListScreenCommandsWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*ListScreenCommandsResponse, error)
 
-	// SendScreenCommandWithBodyWithResponse Queue a typed operational, Display Control, or bounded player-recovery command
-	//
-	// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
-	//
-	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Corresponds with POST /api/v1/screens/{id}/commands (the `SendScreenCommand` operationId).
-	SendScreenCommandWithBodyWithResponse(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SendScreenCommandResponse, error)
-
 	// SendScreenCommandWithResponse Queue a typed operational, Display Control, or bounded player-recovery command
 	//
 	// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 	//
-	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/screens/{id}/commands (the `SendScreenCommand` operationId).
-	SendScreenCommandWithResponse(ctx context.Context, id ResourceID, body SendScreenCommandJSONRequestBody, reqEditors ...RequestEditorFn) (*SendScreenCommandResponse, error)
+	SendScreenCommandWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*SendScreenCommandResponse, error)
 
 	// CancelPlayerCommandWithResponse performs a POST /api/v1/screens/{id}/commands/{commandId}/cancel (the `CancelPlayerCommand` operationId) request.
 	//
@@ -38037,41 +37058,23 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /api/v1/screens/{id}/policy (the `GetScreenPolicy` operationId).
 	GetScreenPolicyWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*GetScreenPolicyResponse, error)
 
-	// PutScreenPolicyWithBodyWithResponse Replace typed screen policy
-	//
-	// Requires an authenticated dashboard user.
-	//
-	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Corresponds with PUT /api/v1/screens/{id}/policy (the `PutScreenPolicy` operationId).
-	PutScreenPolicyWithBodyWithResponse(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutScreenPolicyResponse, error)
-
 	// PutScreenPolicyWithResponse Replace typed screen policy
 	//
 	// Requires an authenticated dashboard user.
 	//
-	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with PUT /api/v1/screens/{id}/policy (the `PutScreenPolicy` operationId).
-	PutScreenPolicyWithResponse(ctx context.Context, id ResourceID, body PutScreenPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*PutScreenPolicyResponse, error)
-
-	// SetScreenPowerAssistWithBodyWithResponse Store administrator-confirmed sleep, wake, CEC, input, and startup test results
-	//
-	// Requires an authenticated dashboard user.
-	//
-	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Corresponds with PUT /api/v1/screens/{id}/power-assist (the `SetScreenPowerAssist` operationId).
-	SetScreenPowerAssistWithBodyWithResponse(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetScreenPowerAssistResponse, error)
+	PutScreenPolicyWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*PutScreenPolicyResponse, error)
 
 	// SetScreenPowerAssistWithResponse Store administrator-confirmed sleep, wake, CEC, input, and startup test results
 	//
 	// Requires an authenticated dashboard user.
 	//
-	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with PUT /api/v1/screens/{id}/power-assist (the `SetScreenPowerAssist` operationId).
-	SetScreenPowerAssistWithResponse(ctx context.Context, id ResourceID, body SetScreenPowerAssistJSONRequestBody, reqEditors ...RequestEditorFn) (*SetScreenPowerAssistResponse, error)
+	SetScreenPowerAssistWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*SetScreenPowerAssistResponse, error)
 
 	// UnassignScreenPresentationNetworkWithResponse Remove a screen's Presentation Network assignment
 	//
@@ -38159,7 +37162,7 @@ type ClientWithResponsesInterface interface {
 	// List a screen's snapshots. Requires an authenticated dashboard user with the read scope.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	ListScreenSnapshotsWithResponse(ctx context.Context, id ResourceID, params *ListScreenSnapshotsParams, reqEditors ...RequestEditorFn) (*ListScreenSnapshotsResponse, error)
+	ListScreenSnapshotsWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*ListScreenSnapshotsResponse, error)
 
 	// GetScreenSnapshotImageWithResponse performs a GET /api/v1/screens/{id}/snapshots/{snapshotId}/image (the `GetScreenSnapshotImage` operationId) request.
 	//
@@ -38340,41 +37343,23 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /api/v1/system/settings/export (the `ExportSettings` operationId).
 	ExportSettingsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ExportSettingsResponse, error)
 
-	// ApplySettingsImportWithBodyWithResponse Apply confirmed settings import
-	//
-	// Requires an authenticated dashboard user.
-	//
-	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Corresponds with POST /api/v1/system/settings/import/apply (the `ApplySettingsImport` operationId).
-	ApplySettingsImportWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApplySettingsImportResponse, error)
-
 	// ApplySettingsImportWithResponse Apply confirmed settings import
 	//
 	// Requires an authenticated dashboard user.
 	//
-	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/system/settings/import/apply (the `ApplySettingsImport` operationId).
-	ApplySettingsImportWithResponse(ctx context.Context, body ApplySettingsImportJSONRequestBody, reqEditors ...RequestEditorFn) (*ApplySettingsImportResponse, error)
-
-	// PreviewSettingsImportWithBodyWithResponse Validate settings import without applying
-	//
-	// Requires an authenticated dashboard user.
-	//
-	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Corresponds with POST /api/v1/system/settings/import/preview (the `PreviewSettingsImport` operationId).
-	PreviewSettingsImportWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewSettingsImportResponse, error)
+	ApplySettingsImportWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ApplySettingsImportResponse, error)
 
 	// PreviewSettingsImportWithResponse Validate settings import without applying
 	//
 	// Requires an authenticated dashboard user.
 	//
-	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/system/settings/import/preview (the `PreviewSettingsImport` operationId).
-	PreviewSettingsImportWithResponse(ctx context.Context, body PreviewSettingsImportJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewSettingsImportResponse, error)
+	PreviewSettingsImportWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PreviewSettingsImportResponse, error)
 
 	// GetSnapshotUsageWithResponse performs a GET /api/v1/system/snapshots/usage (the `GetSnapshotUsage` operationId) request.
 	//
@@ -38399,23 +37384,14 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /api/v1/takeovers (the `ListTakeovers` operationId).
 	ListTakeoversWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListTakeoversResponse, error)
 
-	// CreateTakeoverWithBodyWithResponse Activate a Takeover
-	//
-	// Requires an authenticated dashboard user.
-	//
-	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Corresponds with POST /api/v1/takeovers (the `CreateTakeover` operationId).
-	CreateTakeoverWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateTakeoverResponse, error)
-
 	// CreateTakeoverWithResponse Activate a Takeover
 	//
 	// Requires an authenticated dashboard user.
 	//
-	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/takeovers (the `CreateTakeover` operationId).
-	CreateTakeoverWithResponse(ctx context.Context, body CreateTakeoverJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTakeoverResponse, error)
+	CreateTakeoverWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*CreateTakeoverResponse, error)
 
 	// GetTakeoverWithResponse Read Takeover and per-screen state
 	//
@@ -38426,23 +37402,14 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /api/v1/takeovers/{id} (the `GetTakeover` operationId).
 	GetTakeoverWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetTakeoverResponse, error)
 
-	// CancelTakeoverWithBodyWithResponse Cancel an active Takeover
-	//
-	// Requires an authenticated dashboard user.
-	//
-	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Corresponds with POST /api/v1/takeovers/{id}/cancel (the `CancelTakeover` operationId).
-	CancelTakeoverWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CancelTakeoverResponse, error)
-
 	// CancelTakeoverWithResponse Cancel an active Takeover
 	//
 	// Requires an authenticated dashboard user.
 	//
-	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/takeovers/{id}/cancel (the `CancelTakeover` operationId).
-	CancelTakeoverWithResponse(ctx context.Context, id openapi_types.UUID, body CancelTakeoverJSONRequestBody, reqEditors ...RequestEditorFn) (*CancelTakeoverResponse, error)
+	CancelTakeoverWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*CancelTakeoverResponse, error)
 
 	// ListUpdateDeploymentsWithResponse List Player update deployments, narrowed to the caller's screen scope
 	//
@@ -38453,23 +37420,14 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /api/v1/update-deployments (the `ListUpdateDeployments` operationId).
 	ListUpdateDeploymentsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListUpdateDeploymentsResponse, error)
 
-	// CreateUpdateDeploymentWithBodyWithResponse Create a deduplicated screen and group deployment with an optional canary cohort
-	//
-	// Requires an authenticated dashboard user.
-	//
-	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Corresponds with POST /api/v1/update-deployments (the `CreateUpdateDeployment` operationId).
-	CreateUpdateDeploymentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateUpdateDeploymentResponse, error)
-
 	// CreateUpdateDeploymentWithResponse Create a deduplicated screen and group deployment with an optional canary cohort
 	//
 	// Requires an authenticated dashboard user.
 	//
-	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/update-deployments (the `CreateUpdateDeployment` operationId).
-	CreateUpdateDeploymentWithResponse(ctx context.Context, body CreateUpdateDeploymentJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateUpdateDeploymentResponse, error)
+	CreateUpdateDeploymentWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*CreateUpdateDeploymentResponse, error)
 
 	// GetUpdateDeploymentWithResponse Read the deployment header, release artifact size, and per-screen update state for the screens in the caller's scope
 	//
@@ -38611,19 +37569,12 @@ type ClientWithResponsesInterface interface {
 	// Requires an authenticated dashboard session. Creates a reusable Widget or catalog App. An App recipe may atomically provision one hidden managed Data Source while preserving normal dependency and manifest behavior.
 	CreateWidgetWithResponse(ctx context.Context, body CreateWidgetJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateWidgetResponse, error)
 
-	// CompileWidgetPreviewWithBodyWithResponse performs a POST /api/v1/widgets/compile-preview (the `CompileWidgetPreview` operationId) request,
-	// with any type of body and a specified content type.
+	// CompileWidgetPreviewWithResponse performs a POST /api/v1/widgets/compile-preview (the `CompileWidgetPreview` operationId) request.
 	//
 	// Compile widget preview. Requires an authenticated dashboard user.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	CompileWidgetPreviewWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CompileWidgetPreviewResponse, error)
-
-	// CompileWidgetPreviewWithResponse performs a POST /api/v1/widgets/compile-preview (the `CompileWidgetPreview` operationId) request.
-	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Compile widget preview. Requires an authenticated dashboard user.
-	CompileWidgetPreviewWithResponse(ctx context.Context, body CompileWidgetPreviewJSONRequestBody, reqEditors ...RequestEditorFn) (*CompileWidgetPreviewResponse, error)
+	CompileWidgetPreviewWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*CompileWidgetPreviewResponse, error)
 
 	// UpdateWidgetWithBodyWithResponse performs a PATCH /api/v1/widgets/{id} (the `UpdateWidget` operationId) request,
 	// with any type of body and a specified content type.
@@ -44144,6 +43095,17 @@ func (r GetIntegrationMetricsResponse) ContentType() string {
 type ListLayoutsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data LayoutList `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListLayoutsResponse) GetJSON200() *struct {
+	Data LayoutList `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -44178,6 +43140,17 @@ func (r ListLayoutsResponse) ContentType() string {
 type CreateLayoutResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data Layout `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateLayoutResponse) GetJSON201() *struct {
+	Data Layout `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -44246,6 +43219,17 @@ func (r DeleteLayoutResponse) ContentType() string {
 type GetLayoutResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data Layout `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetLayoutResponse) GetJSON200() *struct {
+	Data Layout `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -44280,6 +43264,17 @@ func (r GetLayoutResponse) ContentType() string {
 type UpdateLayoutResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data Layout `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateLayoutResponse) GetJSON200() *struct {
+	Data Layout `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -44314,6 +43309,17 @@ func (r UpdateLayoutResponse) ContentType() string {
 type SaveLayoutDraftResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data Layout `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SaveLayoutDraftResponse) GetJSON200() *struct {
+	Data Layout `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -44348,6 +43354,17 @@ func (r SaveLayoutDraftResponse) ContentType() string {
 type DuplicateLayoutResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data Layout `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r DuplicateLayoutResponse) GetJSON201() *struct {
+	Data Layout `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -44450,6 +43467,13 @@ func (r UpdateLayoutPreviewImageResponse) ContentType() string {
 type PublishLayoutResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *map[string]interface{}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r PublishLayoutResponse) GetJSON201() *map[string]interface{} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -44484,6 +43508,17 @@ func (r PublishLayoutResponse) ContentType() string {
 type ListLayoutRevisionsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data LayoutRevisionList `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListLayoutRevisionsResponse) GetJSON200() *struct {
+	Data LayoutRevisionList `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -44518,6 +43553,17 @@ func (r ListLayoutRevisionsResponse) ContentType() string {
 type RestoreLayoutRevisionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data Layout `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RestoreLayoutRevisionResponse) GetJSON200() *struct {
+	Data Layout `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -53562,26 +52608,13 @@ func (c *ClientWithResponses) RestoreAssetsWithResponse(ctx context.Context, par
 	return ParseRestoreAssetsResponse(rsp)
 }
 
-// CreateWebsiteAssetWithBodyWithResponse performs a POST /api/v1/assets/websites (the `CreateWebsiteAsset` operationId) request,
-// with any type of body and a specified content type.
+// CreateWebsiteAssetWithResponse performs a POST /api/v1/assets/websites (the `CreateWebsiteAsset` operationId) request.
 //
 // Requires an authenticated content author with the write scope. Cookie requests additionally require the X-CSRF-Token header; Bearer grants never send it. Creates configuration-only public website content without fetching the page.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) CreateWebsiteAssetWithBodyWithResponse(ctx context.Context, params *CreateWebsiteAssetParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateWebsiteAssetResponse, error) {
-	rsp, err := c.CreateWebsiteAssetWithBody(ctx, params, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateWebsiteAssetResponse(rsp)
-}
-
-// CreateWebsiteAssetWithResponse performs a POST /api/v1/assets/websites (the `CreateWebsiteAsset` operationId) request.
-// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-//
-// Requires an authenticated content author with the write scope. Cookie requests additionally require the X-CSRF-Token header; Bearer grants never send it. Creates configuration-only public website content without fetching the page.
-func (c *ClientWithResponses) CreateWebsiteAssetWithResponse(ctx context.Context, params *CreateWebsiteAssetParams, body CreateWebsiteAssetJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateWebsiteAssetResponse, error) {
-	rsp, err := c.CreateWebsiteAsset(ctx, params, body, reqEditors...)
+func (c *ClientWithResponses) CreateWebsiteAssetWithResponse(ctx context.Context, params *CreateWebsiteAssetParams, reqEditors ...RequestEditorFn) (*CreateWebsiteAssetResponse, error) {
+	rsp, err := c.CreateWebsiteAsset(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -53692,26 +52725,13 @@ func (c *ClientWithResponses) GetAssetThumbnailWithResponse(ctx context.Context,
 	return ParseGetAssetThumbnailResponse(rsp)
 }
 
-// UpdateWebsiteAssetWithBodyWithResponse performs a PATCH /api/v1/assets/{id}/website (the `UpdateWebsiteAsset` operationId) request,
-// with any type of body and a specified content type.
+// UpdateWebsiteAssetWithResponse performs a PATCH /api/v1/assets/{id}/website (the `UpdateWebsiteAsset` operationId) request.
 //
 // Update website asset. Requires an authenticated dashboard user.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) UpdateWebsiteAssetWithBodyWithResponse(ctx context.Context, id ResourceID, params *UpdateWebsiteAssetParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateWebsiteAssetResponse, error) {
-	rsp, err := c.UpdateWebsiteAssetWithBody(ctx, id, params, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUpdateWebsiteAssetResponse(rsp)
-}
-
-// UpdateWebsiteAssetWithResponse performs a PATCH /api/v1/assets/{id}/website (the `UpdateWebsiteAsset` operationId) request.
-// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-//
-// Update website asset. Requires an authenticated dashboard user.
-func (c *ClientWithResponses) UpdateWebsiteAssetWithResponse(ctx context.Context, id ResourceID, params *UpdateWebsiteAssetParams, body UpdateWebsiteAssetJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateWebsiteAssetResponse, error) {
-	rsp, err := c.UpdateWebsiteAsset(ctx, id, params, body, reqEditors...)
+func (c *ClientWithResponses) UpdateWebsiteAssetWithResponse(ctx context.Context, id ResourceID, params *UpdateWebsiteAssetParams, reqEditors ...RequestEditorFn) (*UpdateWebsiteAssetResponse, error) {
+	rsp, err := c.UpdateWebsiteAsset(ctx, id, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -53757,26 +52777,13 @@ func (c *ClientWithResponses) HeadLoginBackgroundImageWithResponse(ctx context.C
 	return ParseHeadLoginBackgroundImageResponse(rsp)
 }
 
-// LoginWithBodyWithResponse performs a POST /api/v1/auth/login (the `Login` operationId) request,
-// with any type of body and a specified content type.
+// LoginWithResponse performs a POST /api/v1/auth/login (the `Login` operationId) request.
 //
 // Rate-limited. Exchange an enrolled account's credentials for a dashboard session.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) LoginWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LoginResponse, error) {
-	rsp, err := c.LoginWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseLoginResponse(rsp)
-}
-
-// LoginWithResponse performs a POST /api/v1/auth/login (the `Login` operationId) request.
-// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-//
-// Rate-limited. Exchange an enrolled account's credentials for a dashboard session.
-func (c *ClientWithResponses) LoginWithResponse(ctx context.Context, body LoginJSONRequestBody, reqEditors ...RequestEditorFn) (*LoginResponse, error) {
-	rsp, err := c.Login(ctx, body, reqEditors...)
+func (c *ClientWithResponses) LoginWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*LoginResponse, error) {
+	rsp, err := c.Login(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -54095,26 +53102,13 @@ func (c *ClientWithResponses) ListContentCollectionsWithResponse(ctx context.Con
 	return ParseListContentCollectionsResponse(rsp)
 }
 
-// CreateContentCollectionWithBodyWithResponse performs a POST /api/v1/content-collections (the `CreateContentCollection` operationId) request,
-// with any type of body and a specified content type.
+// CreateContentCollectionWithResponse performs a POST /api/v1/content-collections (the `CreateContentCollection` operationId) request.
 //
 // Create content collection. Requires an authenticated dashboard user.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) CreateContentCollectionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateContentCollectionResponse, error) {
-	rsp, err := c.CreateContentCollectionWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateContentCollectionResponse(rsp)
-}
-
-// CreateContentCollectionWithResponse performs a POST /api/v1/content-collections (the `CreateContentCollection` operationId) request.
-// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-//
-// Create content collection. Requires an authenticated dashboard user.
-func (c *ClientWithResponses) CreateContentCollectionWithResponse(ctx context.Context, body CreateContentCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateContentCollectionResponse, error) {
-	rsp, err := c.CreateContentCollection(ctx, body, reqEditors...)
+func (c *ClientWithResponses) CreateContentCollectionWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*CreateContentCollectionResponse, error) {
+	rsp, err := c.CreateContentCollection(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -54186,26 +53180,13 @@ func (c *ClientWithResponses) ListContentFoldersWithResponse(ctx context.Context
 	return ParseListContentFoldersResponse(rsp)
 }
 
-// CreateContentFolderWithBodyWithResponse performs a POST /api/v1/content-folders (the `CreateContentFolder` operationId) request,
-// with any type of body and a specified content type.
+// CreateContentFolderWithResponse performs a POST /api/v1/content-folders (the `CreateContentFolder` operationId) request.
 //
 // Create content folder. Requires an authenticated dashboard user.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) CreateContentFolderWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateContentFolderResponse, error) {
-	rsp, err := c.CreateContentFolderWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateContentFolderResponse(rsp)
-}
-
-// CreateContentFolderWithResponse performs a POST /api/v1/content-folders (the `CreateContentFolder` operationId) request.
-// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-//
-// Create content folder. Requires an authenticated dashboard user.
-func (c *ClientWithResponses) CreateContentFolderWithResponse(ctx context.Context, body CreateContentFolderJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateContentFolderResponse, error) {
-	rsp, err := c.CreateContentFolder(ctx, body, reqEditors...)
+func (c *ClientWithResponses) CreateContentFolderWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*CreateContentFolderResponse, error) {
+	rsp, err := c.CreateContentFolder(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -54524,26 +53505,13 @@ func (c *ClientWithResponses) ListContentTagsWithResponse(ctx context.Context, r
 	return ParseListContentTagsResponse(rsp)
 }
 
-// CreateContentTagWithBodyWithResponse performs a POST /api/v1/content-tags (the `CreateContentTag` operationId) request,
-// with any type of body and a specified content type.
+// CreateContentTagWithResponse performs a POST /api/v1/content-tags (the `CreateContentTag` operationId) request.
 //
 // Create content tag. Requires an authenticated dashboard user.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) CreateContentTagWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateContentTagResponse, error) {
-	rsp, err := c.CreateContentTagWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateContentTagResponse(rsp)
-}
-
-// CreateContentTagWithResponse performs a POST /api/v1/content-tags (the `CreateContentTag` operationId) request.
-// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-//
-// Create content tag. Requires an authenticated dashboard user.
-func (c *ClientWithResponses) CreateContentTagWithResponse(ctx context.Context, body CreateContentTagJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateContentTagResponse, error) {
-	rsp, err := c.CreateContentTag(ctx, body, reqEditors...)
+func (c *ClientWithResponses) CreateContentTagWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*CreateContentTagResponse, error) {
+	rsp, err := c.CreateContentTag(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -54594,8 +53562,8 @@ func (c *ClientWithResponses) UpdateContentTagWithResponse(ctx context.Context, 
 // List data sources. Requires an authenticated dashboard user.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) ListDataSourcesWithResponse(ctx context.Context, params *ListDataSourcesParams, reqEditors ...RequestEditorFn) (*ListDataSourcesResponse, error) {
-	rsp, err := c.ListDataSources(ctx, params, reqEditors...)
+func (c *ClientWithResponses) ListDataSourcesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListDataSourcesResponse, error) {
+	rsp, err := c.ListDataSources(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -55164,10 +54132,10 @@ func (c *ClientWithResponses) DeleteFormViewWithResponse(ctx context.Context, id
 // InspectDataSourceWithBodyWithResponse performs a POST /api/v1/data-sources/{provider}/inspect (the `InspectDataSource` operationId) request,
 // with any type of body and a specified content type.
 //
-// Requires an authenticated dashboard session. Reports the fields a candidate RSS, Atom, Feed, JSON, or CSV connection contains, with a few sample values per field, a suggested field mapping, and which record fields the Source can fill. Runs under the same safe fetch policy as preview and deliberately does not require a mapping, because the mapping is what it exists to produce.
+// Requires an authenticated dashboard session. Reports the fields a candidate RSS, Atom, JSON, or CSV connection contains, with a few sample values per field, a suggested field mapping, and which record fields the Source can fill. Runs under the same safe fetch policy as preview and deliberately does not require a mapping, because the mapping is what it exists to produce.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) InspectDataSourceWithBodyWithResponse(ctx context.Context, provider DataSourceProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InspectDataSourceResponse, error) {
+func (c *ClientWithResponses) InspectDataSourceWithBodyWithResponse(ctx context.Context, provider InspectDataSourceParamsProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InspectDataSourceResponse, error) {
 	rsp, err := c.InspectDataSourceWithBody(ctx, provider, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -55178,8 +54146,8 @@ func (c *ClientWithResponses) InspectDataSourceWithBodyWithResponse(ctx context.
 // InspectDataSourceWithResponse performs a POST /api/v1/data-sources/{provider}/inspect (the `InspectDataSource` operationId) request.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Requires an authenticated dashboard session. Reports the fields a candidate RSS, Atom, Feed, JSON, or CSV connection contains, with a few sample values per field, a suggested field mapping, and which record fields the Source can fill. Runs under the same safe fetch policy as preview and deliberately does not require a mapping, because the mapping is what it exists to produce.
-func (c *ClientWithResponses) InspectDataSourceWithResponse(ctx context.Context, provider DataSourceProvider, body InspectDataSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*InspectDataSourceResponse, error) {
+// Requires an authenticated dashboard session. Reports the fields a candidate RSS, Atom, JSON, or CSV connection contains, with a few sample values per field, a suggested field mapping, and which record fields the Source can fill. Runs under the same safe fetch policy as preview and deliberately does not require a mapping, because the mapping is what it exists to produce.
+func (c *ClientWithResponses) InspectDataSourceWithResponse(ctx context.Context, provider InspectDataSourceParamsProvider, body InspectDataSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*InspectDataSourceResponse, error) {
 	rsp, err := c.InspectDataSource(ctx, provider, body, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -55193,7 +54161,7 @@ func (c *ClientWithResponses) InspectDataSourceWithResponse(ctx context.Context,
 // Requires an authenticated dashboard session. Fetches and parses a candidate Data Source configuration under the safe fetch policy without saving raw data. A previewDate exercises date-aware selection.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) PreviewDataSourceWithBodyWithResponse(ctx context.Context, provider DataSourceProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewDataSourceResponse, error) {
+func (c *ClientWithResponses) PreviewDataSourceWithBodyWithResponse(ctx context.Context, provider PreviewDataSourceParamsProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewDataSourceResponse, error) {
 	rsp, err := c.PreviewDataSourceWithBody(ctx, provider, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -55205,7 +54173,7 @@ func (c *ClientWithResponses) PreviewDataSourceWithBodyWithResponse(ctx context.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
 // Requires an authenticated dashboard session. Fetches and parses a candidate Data Source configuration under the safe fetch policy without saving raw data. A previewDate exercises date-aware selection.
-func (c *ClientWithResponses) PreviewDataSourceWithResponse(ctx context.Context, provider DataSourceProvider, body PreviewDataSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewDataSourceResponse, error) {
+func (c *ClientWithResponses) PreviewDataSourceWithResponse(ctx context.Context, provider PreviewDataSourceParamsProvider, body PreviewDataSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewDataSourceResponse, error) {
 	rsp, err := c.PreviewDataSource(ctx, provider, body, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -55531,8 +54499,8 @@ func (c *ClientWithResponses) ListLayoutsWithResponse(ctx context.Context, param
 // Create layout. Requires an authenticated dashboard user.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) CreateLayoutWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateLayoutResponse, error) {
-	rsp, err := c.CreateLayoutWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) CreateLayoutWithBodyWithResponse(ctx context.Context, params *CreateLayoutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateLayoutResponse, error) {
+	rsp, err := c.CreateLayoutWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -55543,8 +54511,8 @@ func (c *ClientWithResponses) CreateLayoutWithBodyWithResponse(ctx context.Conte
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
 // Create layout. Requires an authenticated dashboard user.
-func (c *ClientWithResponses) CreateLayoutWithResponse(ctx context.Context, body CreateLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateLayoutResponse, error) {
-	rsp, err := c.CreateLayout(ctx, body, reqEditors...)
+func (c *ClientWithResponses) CreateLayoutWithResponse(ctx context.Context, params *CreateLayoutParams, body CreateLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateLayoutResponse, error) {
+	rsp, err := c.CreateLayout(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -55556,8 +54524,8 @@ func (c *ClientWithResponses) CreateLayoutWithResponse(ctx context.Context, body
 // Delete layout. Requires an authenticated dashboard user.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) DeleteLayoutWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*DeleteLayoutResponse, error) {
-	rsp, err := c.DeleteLayout(ctx, id, reqEditors...)
+func (c *ClientWithResponses) DeleteLayoutWithResponse(ctx context.Context, id ResourceID, params *DeleteLayoutParams, reqEditors ...RequestEditorFn) (*DeleteLayoutResponse, error) {
+	rsp, err := c.DeleteLayout(ctx, id, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -55583,8 +54551,8 @@ func (c *ClientWithResponses) GetLayoutWithResponse(ctx context.Context, id Reso
 // Update layout. Requires an authenticated dashboard user.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) UpdateLayoutWithBodyWithResponse(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateLayoutResponse, error) {
-	rsp, err := c.UpdateLayoutWithBody(ctx, id, contentType, body, reqEditors...)
+func (c *ClientWithResponses) UpdateLayoutWithBodyWithResponse(ctx context.Context, id ResourceID, params *UpdateLayoutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateLayoutResponse, error) {
+	rsp, err := c.UpdateLayoutWithBody(ctx, id, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -55595,8 +54563,8 @@ func (c *ClientWithResponses) UpdateLayoutWithBodyWithResponse(ctx context.Conte
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
 // Update layout. Requires an authenticated dashboard user.
-func (c *ClientWithResponses) UpdateLayoutWithResponse(ctx context.Context, id ResourceID, body UpdateLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLayoutResponse, error) {
-	rsp, err := c.UpdateLayout(ctx, id, body, reqEditors...)
+func (c *ClientWithResponses) UpdateLayoutWithResponse(ctx context.Context, id ResourceID, params *UpdateLayoutParams, body UpdateLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLayoutResponse, error) {
+	rsp, err := c.UpdateLayout(ctx, id, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -55609,8 +54577,8 @@ func (c *ClientWithResponses) UpdateLayoutWithResponse(ctx context.Context, id R
 // Requires an authenticated dashboard session. Saves a validated draft using expectedDraftRevision optimistic concurrency.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) SaveLayoutDraftWithBodyWithResponse(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SaveLayoutDraftResponse, error) {
-	rsp, err := c.SaveLayoutDraftWithBody(ctx, id, contentType, body, reqEditors...)
+func (c *ClientWithResponses) SaveLayoutDraftWithBodyWithResponse(ctx context.Context, id ResourceID, params *SaveLayoutDraftParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SaveLayoutDraftResponse, error) {
+	rsp, err := c.SaveLayoutDraftWithBody(ctx, id, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -55621,8 +54589,8 @@ func (c *ClientWithResponses) SaveLayoutDraftWithBodyWithResponse(ctx context.Co
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
 // Requires an authenticated dashboard session. Saves a validated draft using expectedDraftRevision optimistic concurrency.
-func (c *ClientWithResponses) SaveLayoutDraftWithResponse(ctx context.Context, id ResourceID, body SaveLayoutDraftJSONRequestBody, reqEditors ...RequestEditorFn) (*SaveLayoutDraftResponse, error) {
-	rsp, err := c.SaveLayoutDraft(ctx, id, body, reqEditors...)
+func (c *ClientWithResponses) SaveLayoutDraftWithResponse(ctx context.Context, id ResourceID, params *SaveLayoutDraftParams, body SaveLayoutDraftJSONRequestBody, reqEditors ...RequestEditorFn) (*SaveLayoutDraftResponse, error) {
+	rsp, err := c.SaveLayoutDraft(ctx, id, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -55634,8 +54602,8 @@ func (c *ClientWithResponses) SaveLayoutDraftWithResponse(ctx context.Context, i
 // Duplicate layout. Requires an authenticated dashboard user.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) DuplicateLayoutWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*DuplicateLayoutResponse, error) {
-	rsp, err := c.DuplicateLayout(ctx, id, reqEditors...)
+func (c *ClientWithResponses) DuplicateLayoutWithResponse(ctx context.Context, id ResourceID, params *DuplicateLayoutParams, reqEditors ...RequestEditorFn) (*DuplicateLayoutResponse, error) {
+	rsp, err := c.DuplicateLayout(ctx, id, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -55671,11 +54639,11 @@ func (c *ClientWithResponses) UpdateLayoutPreviewImageWithResponse(ctx context.C
 // PublishLayoutWithBodyWithResponse performs a POST /api/v1/layouts/{id}/publish (the `PublishLayout` operationId) request,
 // with any type of body and a specified content type.
 //
-// Publish layout. Requires an authenticated dashboard user.
+// Publish layout. Requires an authenticated dashboard user. Publishes the draft the caller read first: the request carries the draft revision it saw, and a 409 means someone else published first. A layout under editorial review answers 202 with the submission instead of publishing.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) PublishLayoutWithBodyWithResponse(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PublishLayoutResponse, error) {
-	rsp, err := c.PublishLayoutWithBody(ctx, id, contentType, body, reqEditors...)
+func (c *ClientWithResponses) PublishLayoutWithBodyWithResponse(ctx context.Context, id ResourceID, params *PublishLayoutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PublishLayoutResponse, error) {
+	rsp, err := c.PublishLayoutWithBody(ctx, id, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -55685,9 +54653,9 @@ func (c *ClientWithResponses) PublishLayoutWithBodyWithResponse(ctx context.Cont
 // PublishLayoutWithResponse performs a POST /api/v1/layouts/{id}/publish (the `PublishLayout` operationId) request.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Publish layout. Requires an authenticated dashboard user.
-func (c *ClientWithResponses) PublishLayoutWithResponse(ctx context.Context, id ResourceID, body PublishLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*PublishLayoutResponse, error) {
-	rsp, err := c.PublishLayout(ctx, id, body, reqEditors...)
+// Publish layout. Requires an authenticated dashboard user. Publishes the draft the caller read first: the request carries the draft revision it saw, and a 409 means someone else published first. A layout under editorial review answers 202 with the submission instead of publishing.
+func (c *ClientWithResponses) PublishLayoutWithResponse(ctx context.Context, id ResourceID, params *PublishLayoutParams, body PublishLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*PublishLayoutResponse, error) {
+	rsp, err := c.PublishLayout(ctx, id, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -55713,8 +54681,8 @@ func (c *ClientWithResponses) ListLayoutRevisionsWithResponse(ctx context.Contex
 // Restore layout revision. Requires an authenticated dashboard user.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) RestoreLayoutRevisionWithBodyWithResponse(ctx context.Context, id ResourceID, revisionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RestoreLayoutRevisionResponse, error) {
-	rsp, err := c.RestoreLayoutRevisionWithBody(ctx, id, revisionId, contentType, body, reqEditors...)
+func (c *ClientWithResponses) RestoreLayoutRevisionWithBodyWithResponse(ctx context.Context, id ResourceID, revisionId string, params *RestoreLayoutRevisionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RestoreLayoutRevisionResponse, error) {
+	rsp, err := c.RestoreLayoutRevisionWithBody(ctx, id, revisionId, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -55725,8 +54693,8 @@ func (c *ClientWithResponses) RestoreLayoutRevisionWithBodyWithResponse(ctx cont
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
 // Restore layout revision. Requires an authenticated dashboard user.
-func (c *ClientWithResponses) RestoreLayoutRevisionWithResponse(ctx context.Context, id ResourceID, revisionId string, body RestoreLayoutRevisionJSONRequestBody, reqEditors ...RequestEditorFn) (*RestoreLayoutRevisionResponse, error) {
-	rsp, err := c.RestoreLayoutRevision(ctx, id, revisionId, body, reqEditors...)
+func (c *ClientWithResponses) RestoreLayoutRevisionWithResponse(ctx context.Context, id ResourceID, revisionId string, params *RestoreLayoutRevisionParams, body RestoreLayoutRevisionJSONRequestBody, reqEditors ...RequestEditorFn) (*RestoreLayoutRevisionResponse, error) {
+	rsp, err := c.RestoreLayoutRevision(ctx, id, revisionId, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -55746,26 +54714,13 @@ func (c *ClientWithResponses) ListLocationsWithResponse(ctx context.Context, req
 	return ParseListLocationsResponse(rsp)
 }
 
-// CreateLocationWithBodyWithResponse performs a POST /api/v1/locations (the `CreateLocation` operationId) request,
-// with any type of body and a specified content type.
+// CreateLocationWithResponse performs a POST /api/v1/locations (the `CreateLocation` operationId) request.
 //
 // Create location. Requires an authenticated dashboard user.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) CreateLocationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateLocationResponse, error) {
-	rsp, err := c.CreateLocationWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateLocationResponse(rsp)
-}
-
-// CreateLocationWithResponse performs a POST /api/v1/locations (the `CreateLocation` operationId) request.
-// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-//
-// Create location. Requires an authenticated dashboard user.
-func (c *ClientWithResponses) CreateLocationWithResponse(ctx context.Context, body CreateLocationJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateLocationResponse, error) {
-	rsp, err := c.CreateLocation(ctx, body, reqEditors...)
+func (c *ClientWithResponses) CreateLocationWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*CreateLocationResponse, error) {
+	rsp, err := c.CreateLocation(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -55785,26 +54740,13 @@ func (c *ClientWithResponses) DeleteLocationWithResponse(ctx context.Context, id
 	return ParseDeleteLocationResponse(rsp)
 }
 
-// UpdateLocationWithBodyWithResponse performs a PATCH /api/v1/locations/{id} (the `UpdateLocation` operationId) request,
-// with any type of body and a specified content type.
+// UpdateLocationWithResponse performs a PATCH /api/v1/locations/{id} (the `UpdateLocation` operationId) request.
 //
 // Update location. Requires an authenticated dashboard user.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) UpdateLocationWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateLocationResponse, error) {
-	rsp, err := c.UpdateLocationWithBody(ctx, id, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUpdateLocationResponse(rsp)
-}
-
-// UpdateLocationWithResponse performs a PATCH /api/v1/locations/{id} (the `UpdateLocation` operationId) request.
-// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-//
-// Update location. Requires an authenticated dashboard user.
-func (c *ClientWithResponses) UpdateLocationWithResponse(ctx context.Context, id openapi_types.UUID, body UpdateLocationJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLocationResponse, error) {
-	rsp, err := c.UpdateLocation(ctx, id, body, reqEditors...)
+func (c *ClientWithResponses) UpdateLocationWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*UpdateLocationResponse, error) {
+	rsp, err := c.UpdateLocation(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -56115,8 +55057,8 @@ func (c *ClientWithResponses) RemoveAuthenticatorWithResponse(ctx context.Contex
 // List notification deliveries. Requires an Owner or Administrator with the admin scope.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) ListNotificationDeliveriesWithResponse(ctx context.Context, params *ListNotificationDeliveriesParams, reqEditors ...RequestEditorFn) (*ListNotificationDeliveriesResponse, error) {
-	rsp, err := c.ListNotificationDeliveries(ctx, params, reqEditors...)
+func (c *ClientWithResponses) ListNotificationDeliveriesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListNotificationDeliveriesResponse, error) {
+	rsp, err := c.ListNotificationDeliveries(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -56443,30 +55385,15 @@ func (c *ClientWithResponses) StartGitHubDeviceFlowWithResponse(ctx context.Cont
 	return ParseStartGitHubDeviceFlowResponse(rsp)
 }
 
-// PollGitHubDeviceFlowWithBodyWithResponse Poll an active GitHub OAuth device flow
-//
-// Requires an authenticated dashboard user.
-//
-// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
-//
-// Corresponds with POST /api/v1/player-releases/github/device/poll (the `PollGitHubDeviceFlow` operationId).
-func (c *ClientWithResponses) PollGitHubDeviceFlowWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PollGitHubDeviceFlowResponse, error) {
-	rsp, err := c.PollGitHubDeviceFlowWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePollGitHubDeviceFlowResponse(rsp)
-}
-
 // PollGitHubDeviceFlowWithResponse Poll an active GitHub OAuth device flow
 //
 // Requires an authenticated dashboard user.
 //
-// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+// Returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /api/v1/player-releases/github/device/poll (the `PollGitHubDeviceFlow` operationId).
-func (c *ClientWithResponses) PollGitHubDeviceFlowWithResponse(ctx context.Context, body PollGitHubDeviceFlowJSONRequestBody, reqEditors ...RequestEditorFn) (*PollGitHubDeviceFlowResponse, error) {
-	rsp, err := c.PollGitHubDeviceFlow(ctx, body, reqEditors...)
+func (c *ClientWithResponses) PollGitHubDeviceFlowWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PollGitHubDeviceFlowResponse, error) {
+	rsp, err := c.PollGitHubDeviceFlow(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -57024,26 +55951,13 @@ func (c *ClientWithResponses) GetPlaylistWithResponse(ctx context.Context, id Re
 	return ParseGetPlaylistResponse(rsp)
 }
 
-// UpdatePlaylistWithBodyWithResponse performs a PATCH /api/v1/playlists/{id} (the `UpdatePlaylist` operationId) request,
-// with any type of body and a specified content type.
+// UpdatePlaylistWithResponse performs a PATCH /api/v1/playlists/{id} (the `UpdatePlaylist` operationId) request.
 //
 // Update playlist. Requires an authenticated dashboard user.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) UpdatePlaylistWithBodyWithResponse(ctx context.Context, id ResourceID, params *UpdatePlaylistParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdatePlaylistResponse, error) {
-	rsp, err := c.UpdatePlaylistWithBody(ctx, id, params, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUpdatePlaylistResponse(rsp)
-}
-
-// UpdatePlaylistWithResponse performs a PATCH /api/v1/playlists/{id} (the `UpdatePlaylist` operationId) request.
-// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-//
-// Update playlist. Requires an authenticated dashboard user.
-func (c *ClientWithResponses) UpdatePlaylistWithResponse(ctx context.Context, id ResourceID, params *UpdatePlaylistParams, body UpdatePlaylistJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdatePlaylistResponse, error) {
-	rsp, err := c.UpdatePlaylist(ctx, id, params, body, reqEditors...)
+func (c *ClientWithResponses) UpdatePlaylistWithResponse(ctx context.Context, id ResourceID, params *UpdatePlaylistParams, reqEditors ...RequestEditorFn) (*UpdatePlaylistResponse, error) {
+	rsp, err := c.UpdatePlaylist(ctx, id, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -57115,26 +56029,13 @@ func (c *ClientWithResponses) BulkUpdatePlaylistItemsWithResponse(ctx context.Co
 	return ParseBulkUpdatePlaylistItemsResponse(rsp)
 }
 
-// ReorderPlaylistItemsWithBodyWithResponse performs a PUT /api/v1/playlists/{id}/items/order (the `ReorderPlaylistItems` operationId) request,
-// with any type of body and a specified content type.
+// ReorderPlaylistItemsWithResponse performs a PUT /api/v1/playlists/{id}/items/order (the `ReorderPlaylistItems` operationId) request.
 //
 // Reorder playlist items. Requires an authenticated dashboard user.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) ReorderPlaylistItemsWithBodyWithResponse(ctx context.Context, id ResourceID, params *ReorderPlaylistItemsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReorderPlaylistItemsResponse, error) {
-	rsp, err := c.ReorderPlaylistItemsWithBody(ctx, id, params, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseReorderPlaylistItemsResponse(rsp)
-}
-
-// ReorderPlaylistItemsWithResponse performs a PUT /api/v1/playlists/{id}/items/order (the `ReorderPlaylistItems` operationId) request.
-// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-//
-// Reorder playlist items. Requires an authenticated dashboard user.
-func (c *ClientWithResponses) ReorderPlaylistItemsWithResponse(ctx context.Context, id ResourceID, params *ReorderPlaylistItemsParams, body ReorderPlaylistItemsJSONRequestBody, reqEditors ...RequestEditorFn) (*ReorderPlaylistItemsResponse, error) {
-	rsp, err := c.ReorderPlaylistItems(ctx, id, params, body, reqEditors...)
+func (c *ClientWithResponses) ReorderPlaylistItemsWithResponse(ctx context.Context, id ResourceID, params *ReorderPlaylistItemsParams, reqEditors ...RequestEditorFn) (*ReorderPlaylistItemsResponse, error) {
+	rsp, err := c.ReorderPlaylistItems(ctx, id, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -57154,26 +56055,13 @@ func (c *ClientWithResponses) DeletePlaylistItemWithResponse(ctx context.Context
 	return ParseDeletePlaylistItemResponse(rsp)
 }
 
-// UpdatePlaylistItemWithBodyWithResponse performs a PATCH /api/v1/playlists/{id}/items/{itemId} (the `UpdatePlaylistItem` operationId) request,
-// with any type of body and a specified content type.
+// UpdatePlaylistItemWithResponse performs a PATCH /api/v1/playlists/{id}/items/{itemId} (the `UpdatePlaylistItem` operationId) request.
 //
 // Update playlist item. Requires an authenticated dashboard user.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) UpdatePlaylistItemWithBodyWithResponse(ctx context.Context, id ResourceID, itemId openapi_types.UUID, params *UpdatePlaylistItemParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdatePlaylistItemResponse, error) {
-	rsp, err := c.UpdatePlaylistItemWithBody(ctx, id, itemId, params, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUpdatePlaylistItemResponse(rsp)
-}
-
-// UpdatePlaylistItemWithResponse performs a PATCH /api/v1/playlists/{id}/items/{itemId} (the `UpdatePlaylistItem` operationId) request.
-// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-//
-// Update playlist item. Requires an authenticated dashboard user.
-func (c *ClientWithResponses) UpdatePlaylistItemWithResponse(ctx context.Context, id ResourceID, itemId openapi_types.UUID, params *UpdatePlaylistItemParams, body UpdatePlaylistItemJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdatePlaylistItemResponse, error) {
-	rsp, err := c.UpdatePlaylistItem(ctx, id, itemId, params, body, reqEditors...)
+func (c *ClientWithResponses) UpdatePlaylistItemWithResponse(ctx context.Context, id ResourceID, itemId openapi_types.UUID, params *UpdatePlaylistItemParams, reqEditors ...RequestEditorFn) (*UpdatePlaylistItemResponse, error) {
+	rsp, err := c.UpdatePlaylistItem(ctx, id, itemId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -57616,30 +56504,15 @@ func (c *ClientWithResponses) CreatePresentationOverrideWithResponse(ctx context
 	return ParseCreatePresentationOverrideResponse(rsp)
 }
 
-// StopPresentationOverrideWithBodyWithResponse Stop Quick Present
-//
-// Requires an authenticated dashboard user.
-//
-// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
-//
-// Corresponds with POST /api/v1/presentation-overrides/{id}/stop (the `StopPresentationOverride` operationId).
-func (c *ClientWithResponses) StopPresentationOverrideWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StopPresentationOverrideResponse, error) {
-	rsp, err := c.StopPresentationOverrideWithBody(ctx, id, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseStopPresentationOverrideResponse(rsp)
-}
-
 // StopPresentationOverrideWithResponse Stop Quick Present
 //
 // Requires an authenticated dashboard user.
 //
-// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+// Returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /api/v1/presentation-overrides/{id}/stop (the `StopPresentationOverride` operationId).
-func (c *ClientWithResponses) StopPresentationOverrideWithResponse(ctx context.Context, id openapi_types.UUID, body StopPresentationOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*StopPresentationOverrideResponse, error) {
-	rsp, err := c.StopPresentationOverride(ctx, id, body, reqEditors...)
+func (c *ClientWithResponses) StopPresentationOverrideWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*StopPresentationOverrideResponse, error) {
+	rsp, err := c.StopPresentationOverride(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -57698,26 +56571,13 @@ func (c *ClientWithResponses) CreateScheduleWithResponse(ctx context.Context, bo
 	return ParseCreateScheduleResponse(rsp)
 }
 
-// PreviewScheduleWithBodyWithResponse performs a POST /api/v1/schedules/preview (the `PreviewSchedule` operationId) request,
-// with any type of body and a specified content type.
+// PreviewScheduleWithResponse performs a POST /api/v1/schedules/preview (the `PreviewSchedule` operationId) request.
 //
 // Preview schedule. Requires an authenticated dashboard user.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) PreviewScheduleWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewScheduleResponse, error) {
-	rsp, err := c.PreviewScheduleWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePreviewScheduleResponse(rsp)
-}
-
-// PreviewScheduleWithResponse performs a POST /api/v1/schedules/preview (the `PreviewSchedule` operationId) request.
-// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-//
-// Preview schedule. Requires an authenticated dashboard user.
-func (c *ClientWithResponses) PreviewScheduleWithResponse(ctx context.Context, body PreviewScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewScheduleResponse, error) {
-	rsp, err := c.PreviewSchedule(ctx, body, reqEditors...)
+func (c *ClientWithResponses) PreviewScheduleWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PreviewScheduleResponse, error) {
+	rsp, err := c.PreviewSchedule(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -57750,26 +56610,13 @@ func (c *ClientWithResponses) GetScheduleWithResponse(ctx context.Context, id Re
 	return ParseGetScheduleResponse(rsp)
 }
 
-// UpdateScheduleWithBodyWithResponse performs a PATCH /api/v1/schedules/{id} (the `UpdateSchedule` operationId) request,
-// with any type of body and a specified content type.
+// UpdateScheduleWithResponse performs a PATCH /api/v1/schedules/{id} (the `UpdateSchedule` operationId) request.
 //
 // Update schedule. Requires an authenticated dashboard user.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) UpdateScheduleWithBodyWithResponse(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateScheduleResponse, error) {
-	rsp, err := c.UpdateScheduleWithBody(ctx, id, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUpdateScheduleResponse(rsp)
-}
-
-// UpdateScheduleWithResponse performs a PATCH /api/v1/schedules/{id} (the `UpdateSchedule` operationId) request.
-// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-//
-// Update schedule. Requires an authenticated dashboard user.
-func (c *ClientWithResponses) UpdateScheduleWithResponse(ctx context.Context, id ResourceID, body UpdateScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateScheduleResponse, error) {
-	rsp, err := c.UpdateSchedule(ctx, id, body, reqEditors...)
+func (c *ClientWithResponses) UpdateScheduleWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*UpdateScheduleResponse, error) {
+	rsp, err := c.UpdateSchedule(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -57807,34 +56654,21 @@ func (c *ClientWithResponses) EnableScheduleWithResponse(ctx context.Context, id
 // List screen groups. Requires an authenticated dashboard user.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) ListScreenGroupsWithResponse(ctx context.Context, params *ListScreenGroupsParams, reqEditors ...RequestEditorFn) (*ListScreenGroupsResponse, error) {
-	rsp, err := c.ListScreenGroups(ctx, params, reqEditors...)
+func (c *ClientWithResponses) ListScreenGroupsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListScreenGroupsResponse, error) {
+	rsp, err := c.ListScreenGroups(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseListScreenGroupsResponse(rsp)
 }
 
-// CreateScreenGroupWithBodyWithResponse performs a POST /api/v1/screen-groups (the `CreateScreenGroup` operationId) request,
-// with any type of body and a specified content type.
+// CreateScreenGroupWithResponse performs a POST /api/v1/screen-groups (the `CreateScreenGroup` operationId) request.
 //
 // Create screen group. Requires an authenticated dashboard user.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) CreateScreenGroupWithBodyWithResponse(ctx context.Context, params *CreateScreenGroupParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateScreenGroupResponse, error) {
-	rsp, err := c.CreateScreenGroupWithBody(ctx, params, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateScreenGroupResponse(rsp)
-}
-
-// CreateScreenGroupWithResponse performs a POST /api/v1/screen-groups (the `CreateScreenGroup` operationId) request.
-// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-//
-// Create screen group. Requires an authenticated dashboard user.
-func (c *ClientWithResponses) CreateScreenGroupWithResponse(ctx context.Context, params *CreateScreenGroupParams, body CreateScreenGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateScreenGroupResponse, error) {
-	rsp, err := c.CreateScreenGroup(ctx, params, body, reqEditors...)
+func (c *ClientWithResponses) CreateScreenGroupWithResponse(ctx context.Context, params *CreateScreenGroupParams, reqEditors ...RequestEditorFn) (*CreateScreenGroupResponse, error) {
+	rsp, err := c.CreateScreenGroup(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -57867,26 +56701,13 @@ func (c *ClientWithResponses) GetScreenGroupWithResponse(ctx context.Context, id
 	return ParseGetScreenGroupResponse(rsp)
 }
 
-// UpdateScreenGroupWithBodyWithResponse performs a PATCH /api/v1/screen-groups/{id} (the `UpdateScreenGroup` operationId) request,
-// with any type of body and a specified content type.
+// UpdateScreenGroupWithResponse performs a PATCH /api/v1/screen-groups/{id} (the `UpdateScreenGroup` operationId) request.
 //
 // Update screen group. Requires an authenticated dashboard user.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) UpdateScreenGroupWithBodyWithResponse(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateScreenGroupResponse, error) {
-	rsp, err := c.UpdateScreenGroupWithBody(ctx, id, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUpdateScreenGroupResponse(rsp)
-}
-
-// UpdateScreenGroupWithResponse performs a PATCH /api/v1/screen-groups/{id} (the `UpdateScreenGroup` operationId) request.
-// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-//
-// Update screen group. Requires an authenticated dashboard user.
-func (c *ClientWithResponses) UpdateScreenGroupWithResponse(ctx context.Context, id ResourceID, body UpdateScreenGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateScreenGroupResponse, error) {
-	rsp, err := c.UpdateScreenGroup(ctx, id, body, reqEditors...)
+func (c *ClientWithResponses) UpdateScreenGroupWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*UpdateScreenGroupResponse, error) {
+	rsp, err := c.UpdateScreenGroup(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -58001,56 +56822,28 @@ func (c *ClientWithResponses) GetGroupPolicyWithResponse(ctx context.Context, id
 	return ParseGetGroupPolicyResponse(rsp)
 }
 
-// PutGroupPolicyWithBodyWithResponse Replace typed group policy
-//
-// Requires an authenticated dashboard user.
-//
-// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
-//
-// Corresponds with PUT /api/v1/screen-groups/{id}/policy (the `PutGroupPolicy` operationId).
-func (c *ClientWithResponses) PutGroupPolicyWithBodyWithResponse(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutGroupPolicyResponse, error) {
-	rsp, err := c.PutGroupPolicyWithBody(ctx, id, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePutGroupPolicyResponse(rsp)
-}
-
 // PutGroupPolicyWithResponse Replace typed group policy
 //
 // Requires an authenticated dashboard user.
 //
-// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+// Returns a wrapper object for the known response body format(s).
 //
 // Corresponds with PUT /api/v1/screen-groups/{id}/policy (the `PutGroupPolicy` operationId).
-func (c *ClientWithResponses) PutGroupPolicyWithResponse(ctx context.Context, id ResourceID, body PutGroupPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*PutGroupPolicyResponse, error) {
-	rsp, err := c.PutGroupPolicy(ctx, id, body, reqEditors...)
+func (c *ClientWithResponses) PutGroupPolicyWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*PutGroupPolicyResponse, error) {
+	rsp, err := c.PutGroupPolicy(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParsePutGroupPolicyResponse(rsp)
 }
 
-// AddScreenGroupMemberWithBodyWithResponse performs a POST /api/v1/screen-groups/{id}/screens (the `AddScreenGroupMember` operationId) request,
-// with any type of body and a specified content type.
+// AddScreenGroupMemberWithResponse performs a POST /api/v1/screen-groups/{id}/screens (the `AddScreenGroupMember` operationId) request.
 //
 // Add screen group member. Requires an authenticated dashboard user.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) AddScreenGroupMemberWithBodyWithResponse(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddScreenGroupMemberResponse, error) {
-	rsp, err := c.AddScreenGroupMemberWithBody(ctx, id, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseAddScreenGroupMemberResponse(rsp)
-}
-
-// AddScreenGroupMemberWithResponse performs a POST /api/v1/screen-groups/{id}/screens (the `AddScreenGroupMember` operationId) request.
-// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-//
-// Add screen group member. Requires an authenticated dashboard user.
-func (c *ClientWithResponses) AddScreenGroupMemberWithResponse(ctx context.Context, id ResourceID, body AddScreenGroupMemberJSONRequestBody, reqEditors ...RequestEditorFn) (*AddScreenGroupMemberResponse, error) {
-	rsp, err := c.AddScreenGroupMember(ctx, id, body, reqEditors...)
+func (c *ClientWithResponses) AddScreenGroupMemberWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*AddScreenGroupMemberResponse, error) {
+	rsp, err := c.AddScreenGroupMember(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -58166,8 +56959,8 @@ func (c *ClientWithResponses) ApplyBulkOperationWithResponse(ctx context.Context
 // List recent fleet bulk operations. Requires an Owner or Administrator with the read scope.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) ListBulkOperationsWithResponse(ctx context.Context, params *ListBulkOperationsParams, reqEditors ...RequestEditorFn) (*ListBulkOperationsResponse, error) {
-	rsp, err := c.ListBulkOperations(ctx, params, reqEditors...)
+func (c *ClientWithResponses) ListBulkOperationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListBulkOperationsResponse, error) {
+	rsp, err := c.ListBulkOperations(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -58358,30 +57151,15 @@ func (c *ClientWithResponses) ListScreenCommandsWithResponse(ctx context.Context
 	return ParseListScreenCommandsResponse(rsp)
 }
 
-// SendScreenCommandWithBodyWithResponse Queue a typed operational, Display Control, or bounded player-recovery command
-//
-// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
-//
-// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
-//
-// Corresponds with POST /api/v1/screens/{id}/commands (the `SendScreenCommand` operationId).
-func (c *ClientWithResponses) SendScreenCommandWithBodyWithResponse(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SendScreenCommandResponse, error) {
-	rsp, err := c.SendScreenCommandWithBody(ctx, id, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseSendScreenCommandResponse(rsp)
-}
-
 // SendScreenCommandWithResponse Queue a typed operational, Display Control, or bounded player-recovery command
 //
 // Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 //
-// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+// Returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /api/v1/screens/{id}/commands (the `SendScreenCommand` operationId).
-func (c *ClientWithResponses) SendScreenCommandWithResponse(ctx context.Context, id ResourceID, body SendScreenCommandJSONRequestBody, reqEditors ...RequestEditorFn) (*SendScreenCommandResponse, error) {
-	rsp, err := c.SendScreenCommand(ctx, id, body, reqEditors...)
+func (c *ClientWithResponses) SendScreenCommandWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*SendScreenCommandResponse, error) {
+	rsp, err := c.SendScreenCommand(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -58587,60 +57365,30 @@ func (c *ClientWithResponses) GetScreenPolicyWithResponse(ctx context.Context, i
 	return ParseGetScreenPolicyResponse(rsp)
 }
 
-// PutScreenPolicyWithBodyWithResponse Replace typed screen policy
-//
-// Requires an authenticated dashboard user.
-//
-// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
-//
-// Corresponds with PUT /api/v1/screens/{id}/policy (the `PutScreenPolicy` operationId).
-func (c *ClientWithResponses) PutScreenPolicyWithBodyWithResponse(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutScreenPolicyResponse, error) {
-	rsp, err := c.PutScreenPolicyWithBody(ctx, id, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePutScreenPolicyResponse(rsp)
-}
-
 // PutScreenPolicyWithResponse Replace typed screen policy
 //
 // Requires an authenticated dashboard user.
 //
-// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+// Returns a wrapper object for the known response body format(s).
 //
 // Corresponds with PUT /api/v1/screens/{id}/policy (the `PutScreenPolicy` operationId).
-func (c *ClientWithResponses) PutScreenPolicyWithResponse(ctx context.Context, id ResourceID, body PutScreenPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*PutScreenPolicyResponse, error) {
-	rsp, err := c.PutScreenPolicy(ctx, id, body, reqEditors...)
+func (c *ClientWithResponses) PutScreenPolicyWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*PutScreenPolicyResponse, error) {
+	rsp, err := c.PutScreenPolicy(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParsePutScreenPolicyResponse(rsp)
-}
-
-// SetScreenPowerAssistWithBodyWithResponse Store administrator-confirmed sleep, wake, CEC, input, and startup test results
-//
-// Requires an authenticated dashboard user.
-//
-// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
-//
-// Corresponds with PUT /api/v1/screens/{id}/power-assist (the `SetScreenPowerAssist` operationId).
-func (c *ClientWithResponses) SetScreenPowerAssistWithBodyWithResponse(ctx context.Context, id ResourceID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetScreenPowerAssistResponse, error) {
-	rsp, err := c.SetScreenPowerAssistWithBody(ctx, id, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseSetScreenPowerAssistResponse(rsp)
 }
 
 // SetScreenPowerAssistWithResponse Store administrator-confirmed sleep, wake, CEC, input, and startup test results
 //
 // Requires an authenticated dashboard user.
 //
-// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+// Returns a wrapper object for the known response body format(s).
 //
 // Corresponds with PUT /api/v1/screens/{id}/power-assist (the `SetScreenPowerAssist` operationId).
-func (c *ClientWithResponses) SetScreenPowerAssistWithResponse(ctx context.Context, id ResourceID, body SetScreenPowerAssistJSONRequestBody, reqEditors ...RequestEditorFn) (*SetScreenPowerAssistResponse, error) {
-	rsp, err := c.SetScreenPowerAssist(ctx, id, body, reqEditors...)
+func (c *ClientWithResponses) SetScreenPowerAssistWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*SetScreenPowerAssistResponse, error) {
+	rsp, err := c.SetScreenPowerAssist(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -58799,8 +57547,8 @@ func (c *ClientWithResponses) RevokeScreenCredentialWithResponse(ctx context.Con
 // List a screen's snapshots. Requires an authenticated dashboard user with the read scope.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) ListScreenSnapshotsWithResponse(ctx context.Context, id ResourceID, params *ListScreenSnapshotsParams, reqEditors ...RequestEditorFn) (*ListScreenSnapshotsResponse, error) {
-	rsp, err := c.ListScreenSnapshots(ctx, id, params, reqEditors...)
+func (c *ClientWithResponses) ListScreenSnapshotsWithResponse(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*ListScreenSnapshotsResponse, error) {
+	rsp, err := c.ListScreenSnapshots(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -59136,60 +57884,30 @@ func (c *ClientWithResponses) ExportSettingsWithResponse(ctx context.Context, re
 	return ParseExportSettingsResponse(rsp)
 }
 
-// ApplySettingsImportWithBodyWithResponse Apply confirmed settings import
-//
-// Requires an authenticated dashboard user.
-//
-// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
-//
-// Corresponds with POST /api/v1/system/settings/import/apply (the `ApplySettingsImport` operationId).
-func (c *ClientWithResponses) ApplySettingsImportWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApplySettingsImportResponse, error) {
-	rsp, err := c.ApplySettingsImportWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseApplySettingsImportResponse(rsp)
-}
-
 // ApplySettingsImportWithResponse Apply confirmed settings import
 //
 // Requires an authenticated dashboard user.
 //
-// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+// Returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /api/v1/system/settings/import/apply (the `ApplySettingsImport` operationId).
-func (c *ClientWithResponses) ApplySettingsImportWithResponse(ctx context.Context, body ApplySettingsImportJSONRequestBody, reqEditors ...RequestEditorFn) (*ApplySettingsImportResponse, error) {
-	rsp, err := c.ApplySettingsImport(ctx, body, reqEditors...)
+func (c *ClientWithResponses) ApplySettingsImportWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ApplySettingsImportResponse, error) {
+	rsp, err := c.ApplySettingsImport(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseApplySettingsImportResponse(rsp)
-}
-
-// PreviewSettingsImportWithBodyWithResponse Validate settings import without applying
-//
-// Requires an authenticated dashboard user.
-//
-// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
-//
-// Corresponds with POST /api/v1/system/settings/import/preview (the `PreviewSettingsImport` operationId).
-func (c *ClientWithResponses) PreviewSettingsImportWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewSettingsImportResponse, error) {
-	rsp, err := c.PreviewSettingsImportWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePreviewSettingsImportResponse(rsp)
 }
 
 // PreviewSettingsImportWithResponse Validate settings import without applying
 //
 // Requires an authenticated dashboard user.
 //
-// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+// Returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /api/v1/system/settings/import/preview (the `PreviewSettingsImport` operationId).
-func (c *ClientWithResponses) PreviewSettingsImportWithResponse(ctx context.Context, body PreviewSettingsImportJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewSettingsImportResponse, error) {
-	rsp, err := c.PreviewSettingsImport(ctx, body, reqEditors...)
+func (c *ClientWithResponses) PreviewSettingsImportWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PreviewSettingsImportResponse, error) {
+	rsp, err := c.PreviewSettingsImport(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -59237,30 +57955,15 @@ func (c *ClientWithResponses) ListTakeoversWithResponse(ctx context.Context, req
 	return ParseListTakeoversResponse(rsp)
 }
 
-// CreateTakeoverWithBodyWithResponse Activate a Takeover
-//
-// Requires an authenticated dashboard user.
-//
-// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
-//
-// Corresponds with POST /api/v1/takeovers (the `CreateTakeover` operationId).
-func (c *ClientWithResponses) CreateTakeoverWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateTakeoverResponse, error) {
-	rsp, err := c.CreateTakeoverWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateTakeoverResponse(rsp)
-}
-
 // CreateTakeoverWithResponse Activate a Takeover
 //
 // Requires an authenticated dashboard user.
 //
-// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+// Returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /api/v1/takeovers (the `CreateTakeover` operationId).
-func (c *ClientWithResponses) CreateTakeoverWithResponse(ctx context.Context, body CreateTakeoverJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTakeoverResponse, error) {
-	rsp, err := c.CreateTakeover(ctx, body, reqEditors...)
+func (c *ClientWithResponses) CreateTakeoverWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*CreateTakeoverResponse, error) {
+	rsp, err := c.CreateTakeover(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -59282,30 +57985,15 @@ func (c *ClientWithResponses) GetTakeoverWithResponse(ctx context.Context, id op
 	return ParseGetTakeoverResponse(rsp)
 }
 
-// CancelTakeoverWithBodyWithResponse Cancel an active Takeover
-//
-// Requires an authenticated dashboard user.
-//
-// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
-//
-// Corresponds with POST /api/v1/takeovers/{id}/cancel (the `CancelTakeover` operationId).
-func (c *ClientWithResponses) CancelTakeoverWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CancelTakeoverResponse, error) {
-	rsp, err := c.CancelTakeoverWithBody(ctx, id, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCancelTakeoverResponse(rsp)
-}
-
 // CancelTakeoverWithResponse Cancel an active Takeover
 //
 // Requires an authenticated dashboard user.
 //
-// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+// Returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /api/v1/takeovers/{id}/cancel (the `CancelTakeover` operationId).
-func (c *ClientWithResponses) CancelTakeoverWithResponse(ctx context.Context, id openapi_types.UUID, body CancelTakeoverJSONRequestBody, reqEditors ...RequestEditorFn) (*CancelTakeoverResponse, error) {
-	rsp, err := c.CancelTakeover(ctx, id, body, reqEditors...)
+func (c *ClientWithResponses) CancelTakeoverWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*CancelTakeoverResponse, error) {
+	rsp, err := c.CancelTakeover(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -59327,30 +58015,15 @@ func (c *ClientWithResponses) ListUpdateDeploymentsWithResponse(ctx context.Cont
 	return ParseListUpdateDeploymentsResponse(rsp)
 }
 
-// CreateUpdateDeploymentWithBodyWithResponse Create a deduplicated screen and group deployment with an optional canary cohort
-//
-// Requires an authenticated dashboard user.
-//
-// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
-//
-// Corresponds with POST /api/v1/update-deployments (the `CreateUpdateDeployment` operationId).
-func (c *ClientWithResponses) CreateUpdateDeploymentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateUpdateDeploymentResponse, error) {
-	rsp, err := c.CreateUpdateDeploymentWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateUpdateDeploymentResponse(rsp)
-}
-
 // CreateUpdateDeploymentWithResponse Create a deduplicated screen and group deployment with an optional canary cohort
 //
 // Requires an authenticated dashboard user.
 //
-// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+// Returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /api/v1/update-deployments (the `CreateUpdateDeployment` operationId).
-func (c *ClientWithResponses) CreateUpdateDeploymentWithResponse(ctx context.Context, body CreateUpdateDeploymentJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateUpdateDeploymentResponse, error) {
-	rsp, err := c.CreateUpdateDeployment(ctx, body, reqEditors...)
+func (c *ClientWithResponses) CreateUpdateDeploymentWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*CreateUpdateDeploymentResponse, error) {
+	rsp, err := c.CreateUpdateDeployment(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -59611,26 +58284,13 @@ func (c *ClientWithResponses) CreateWidgetWithResponse(ctx context.Context, body
 	return ParseCreateWidgetResponse(rsp)
 }
 
-// CompileWidgetPreviewWithBodyWithResponse performs a POST /api/v1/widgets/compile-preview (the `CompileWidgetPreview` operationId) request,
-// with any type of body and a specified content type.
+// CompileWidgetPreviewWithResponse performs a POST /api/v1/widgets/compile-preview (the `CompileWidgetPreview` operationId) request.
 //
 // Compile widget preview. Requires an authenticated dashboard user.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) CompileWidgetPreviewWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CompileWidgetPreviewResponse, error) {
-	rsp, err := c.CompileWidgetPreviewWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCompileWidgetPreviewResponse(rsp)
-}
-
-// CompileWidgetPreviewWithResponse performs a POST /api/v1/widgets/compile-preview (the `CompileWidgetPreview` operationId) request.
-// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-//
-// Compile widget preview. Requires an authenticated dashboard user.
-func (c *ClientWithResponses) CompileWidgetPreviewWithResponse(ctx context.Context, body CompileWidgetPreviewJSONRequestBody, reqEditors ...RequestEditorFn) (*CompileWidgetPreviewResponse, error) {
-	rsp, err := c.CompileWidgetPreview(ctx, body, reqEditors...)
+func (c *ClientWithResponses) CompileWidgetPreviewWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*CompileWidgetPreviewResponse, error) {
+	rsp, err := c.CompileWidgetPreview(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -62684,6 +61344,21 @@ func ParseListLayoutsResponse(rsp *http.Response) (*ListLayoutsResponse, error) 
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data LayoutList `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -62698,6 +61373,21 @@ func ParseCreateLayoutResponse(rsp *http.Response) (*CreateLayoutResponse, error
 	response := &CreateLayoutResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data Layout `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -62732,6 +61422,21 @@ func ParseGetLayoutResponse(rsp *http.Response) (*GetLayoutResponse, error) {
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data Layout `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -62746,6 +61451,21 @@ func ParseUpdateLayoutResponse(rsp *http.Response) (*UpdateLayoutResponse, error
 	response := &UpdateLayoutResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data Layout `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -62764,6 +61484,24 @@ func ParseSaveLayoutDraftResponse(rsp *http.Response) (*SaveLayoutDraftResponse,
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data Layout `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -62778,6 +61516,21 @@ func ParseDuplicateLayoutResponse(rsp *http.Response) (*DuplicateLayoutResponse,
 	response := &DuplicateLayoutResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data Layout `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -62828,6 +61581,22 @@ func ParsePublishLayoutResponse(rsp *http.Response) (*PublishLayoutResponse, err
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest map[string]interface{}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 202:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -62844,6 +61613,21 @@ func ParseListLayoutRevisionsResponse(rsp *http.Response) (*ListLayoutRevisionsR
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data LayoutRevisionList `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -62858,6 +61642,21 @@ func ParseRestoreLayoutRevisionResponse(rsp *http.Response) (*RestoreLayoutRevis
 	response := &RestoreLayoutRevisionResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data Layout `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
 	}
 
 	return response, nil
