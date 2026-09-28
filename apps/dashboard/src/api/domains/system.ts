@@ -489,19 +489,35 @@ export function runMaintenance(
   action: MaintenanceAction,
   csrfToken: string,
 ): Promise<{ action: string; status: string }> {
-  return apiPost<
-    "/api/v1/system/maintenance/{action}",
-    { action: string; status: string }
-  >("/api/v1/system/maintenance/{action}", {
+  return apiPost("/api/v1/system/maintenance/{action}", {
     params: { path: { action } },
     csrfToken,
   });
 }
 
+/** Wire shape of the settings export from the generated contract. */
+export type WireSettingsExport = components["schemas"]["SettingsExport"];
+
+/**
+ * The export strips definitions; the Studio view always carries them,
+ * so bridge the gap with an empty list. The server ignores definitions
+ * on import, which only validates values.
+ */
+export function normalizeSettingsExport(
+  wire: WireSettingsExport | null | undefined,
+): SettingsExportDocument {
+  const source = wire ?? ({} as WireSettingsExport);
+  return {
+    ...source,
+    organization: {
+      ...source.organization,
+      definitions: [],
+    },
+  };
+}
+
 export function exportSettings(): Promise<SettingsExportDocument> {
-  return apiGet<"/api/v1/system/settings/export", SettingsExportDocument>(
-    "/api/v1/system/settings/export",
-  );
+  return apiGet("/api/v1/system/settings/export").then(normalizeSettingsExport);
 }
 
 /**
@@ -534,26 +550,20 @@ export function previewSettingsImport(
   screenPolicyCount: number;
   requiresConfirmation: boolean;
 }> {
-  return apiPost<
-    "/api/v1/system/settings/import/preview",
-    {
-      valid: boolean;
-      changedKeys: string[];
-      groupPolicyCount: number;
-      screenPolicyCount: number;
-      requiresConfirmation: boolean;
-    }
-  >("/api/v1/system/settings/import/preview", { body: document, csrfToken });
+  return apiPost("/api/v1/system/settings/import/preview", {
+    body: document,
+    csrfToken,
+  });
 }
 
 export function applySettingsImport(
   document: SettingsExportDocument,
   csrfToken: string,
 ): Promise<SettingsDocument> {
-  return apiPost<"/api/v1/system/settings/import/apply", SettingsDocument>(
-    "/api/v1/system/settings/import/apply",
-    { body: document, csrfToken },
-  );
+  return apiPost("/api/v1/system/settings/import/apply", {
+    body: document,
+    csrfToken,
+  });
 }
 
 export function getSystemStatus(): Promise<SystemStatus> {

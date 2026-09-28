@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { normalizeTakeover } from "./system";
-import type { Takeover } from "../types";
+import { normalizeSettingsExport, normalizeTakeover } from "./system";
+import type { SettingsExportDocument, Takeover } from "../types";
 
 function wireTakeover(): Parameters<typeof normalizeTakeover>[0] {
   return {
@@ -37,5 +37,24 @@ describe("normalizeTakeover", () => {
     expect(normalized.activatedAt).toBe("2026-09-28T19:00:00.000Z");
     expect(normalized.affectedCount).toBe(3);
     expect(normalized.activeCount).toBe(2);
+  });
+});
+
+describe("normalizeSettingsExport", () => {
+  it("fills the stripped definitions with an empty list", () => {
+    const normalized: SettingsExportDocument = normalizeSettingsExport({
+      schemaVersion: 1,
+      exportedAt: "2026-09-28T20:00:00.000Z",
+      tilecastVersion: "0.8.0",
+      organization: {
+        schemaVersion: 1,
+        revision: 7,
+        values: {},
+        updatedAt: "2026-09-28T20:00:00.000Z",
+      },
+      groupPolicies: [],
+    });
+    expect(normalized.organization.definitions).toEqual([]);
+    expect(normalized.organization.revision).toBe(7);
   });
 });
