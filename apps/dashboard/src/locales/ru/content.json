@@ -611,12 +611,10 @@
       "native": {
         "editTitle": "Изменить виджет {{provider}}",
         "createTitle": "Создать виджет {{provider}}",
-        "qrCodeName": "QR-код",
         "guidanceData": "Подключите данные для показа, настройте оформление и проверьте предпросмотр.",
         "guidanceSimple": "Настройте содержимое экрана и проверяйте предпросмотр в процессе.",
         "contentGuidanceData": "Сначала выберите данные для виджета, затем настройте поля.",
         "contentGuidanceCountdown": "Укажите целевое время, действие по его достижении и видимые единицы.",
-        "contentGuidanceQr": "Введите адрес для перехода после сканирования и добавьте подпись на экране.",
         "contentGuidanceWorldClock": "Добавьте каждое место с его часовым поясом IANA, например America/New_York или Europe/London.",
         "contentGuidanceClock": "Выберите часовой пояс и формат для экрана.",
         "contentGuidanceText": "Введите текст для экрана и настройте его поведение.",
@@ -666,18 +664,6 @@
         "unitsMinutes": "Минуты",
         "unitsSeconds": "Секунды"
       },
-      "qrcode": {
-        "valueLabel": "Текст или URL",
-        "errorCorrection": "Коррекция ошибок",
-        "levelLow": "Низкая",
-        "levelMedium": "Средняя",
-        "levelQuartile": "Квартиль",
-        "levelHigh": "Высокая",
-        "levelHint": "Более высокая коррекция облегчает сканирование повреждённого кода, но делает рисунок плотнее.",
-        "speed": "Скорость",
-        "direction": "Направление",
-        "denseAlert": "Плотный QR-код. Проверьте сканирование с предполагаемого расстояния просмотра."
-      },
       "ticker": {
         "fields": "Поля (до трёх)",
         "separator": "Разделитель",
@@ -690,24 +676,10 @@
         "emptyLabel": "Сообщение при отсутствии данных",
         "emptyHint": "Показывается на экране, когда источник не возвращает подходящих записей."
       },
-      "list": {
-        "primaryField": "Основное поле",
-        "leadingField": "Ведущее поле",
-        "trailingField": "Конечное поле",
-        "showDividers": "Показывать разделители строк"
-      },
       "menu": {
         "presentation": "Представление",
         "modeSingle": "Поля одной записи",
         "modeRows": "Строки «подпись — значение»"
-      },
-      "table": {
-        "showHeader": "Показывать заголовки столбцов",
-        "alternating": "Чередовать фон строк",
-        "columnPresentation": "Отображение столбцов",
-        "columnWidth": "Ширина, %",
-        "formatFor": "Формат поля {{field}}",
-        "alignmentFor": "Выравнивание поля {{field}}"
       },
       "agenda": {
         "timeField": "Поле времени",
@@ -720,14 +692,6 @@
         "prefix": "Префикс",
         "suffix": "Суффикс",
         "emptyState": "Пустое состояние"
-      },
-      "cards": {
-        "subtitleLabel": "подзаголовок",
-        "bodyLabel": "текст",
-        "badgeLabel": "значок",
-        "density": "Плотность",
-        "densityComfortable": "Обычная",
-        "densityCompact": "Компактная"
       },
       "weather": {
         "showLocation": "Местоположение",

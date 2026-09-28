@@ -1689,6 +1689,15 @@ export type WidgetDefinition = {
     empty: "render" | "skip-eligible";
   };
   compatibility?: { fallback: "legacy" | "template" | "none" };
+  /**
+   * Superseded providers stay resolvable for saved content but disappear
+   * from new creation once their replacement proves parity.
+   */
+  deprecation?: {
+    deprecated?: boolean;
+    replacement?: string;
+    message?: string;
+  };
   name: string;
   description: string;
   category: string;

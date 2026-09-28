@@ -11,6 +11,7 @@ import {
   ClockController,
   formatDate,
   formatNumber,
+  formatWidgetValue,
   GeometryController,
   localDayKey,
   mixColors,
@@ -265,6 +266,60 @@ describe("format", () => {
     ).toBe("$12.00");
     expect(boundText("a\u0000b".padEnd(20, "c"), 8)).toBe("a bcccc…");
     expect(boundText({ toString: () => "x" }, 8)).toBe("");
+  });
+
+  it("formats prepared record values by typed metadata and locale", () => {
+    const locale = "en-US";
+    expect(
+      formatWidgetValue({ kind: "text", text: "Hello" }, undefined, { locale }),
+    ).toBe("Hello");
+    expect(
+      formatWidgetValue({ kind: "text", text: "x".repeat(300) }, undefined, {
+        locale,
+      }).length,
+    ).toBeLessThanOrEqual(280);
+    expect(
+      formatWidgetValue({ kind: "number", number: 1234.56 }, undefined, {
+        locale,
+      }),
+    ).toBe("1,234.6");
+    expect(
+      formatWidgetValue(
+        { kind: "currency", number: 12 },
+        { type: "currency", currency: "USD" },
+        { locale },
+      ),
+    ).toBe("$12.00");
+    expect(
+      formatWidgetValue({ kind: "boolean", boolean: true }, undefined, {
+        locale,
+      }),
+    ).toBe("Yes");
+    expect(
+      formatWidgetValue({ kind: "date", date: "2026-09-28" }, undefined, {
+        locale,
+        timeZone: "UTC",
+      }),
+    ).toBe("Sep 28, 2026");
+    // A bare date names no zone, so it never shifts with the screen zone.
+    expect(
+      formatWidgetValue({ kind: "date", date: "2026-09-28" }, undefined, {
+        locale,
+      }),
+    ).toBe("Sep 28, 2026");
+    expect(
+      formatWidgetValue(
+        { kind: "duration", durationSeconds: 7540 },
+        undefined,
+        {
+          locale,
+        },
+      ),
+    ).toBe("2h 5m");
+    expect(formatWidgetValue(null, undefined, { locale })).toBe("");
+    expect(
+      formatWidgetValue({ kind: "object", object: {} }, undefined, { locale }),
+    ).toBe("");
   });
 });
 

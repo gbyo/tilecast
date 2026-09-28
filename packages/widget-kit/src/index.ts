@@ -21,6 +21,8 @@ export {
   boundText,
   formatDate,
   formatNumber,
+  formatWidgetValue,
+  type DisplayValueOptions,
   localDayKey,
   timeParts,
   zoneAbbreviation,

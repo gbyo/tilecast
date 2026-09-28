@@ -1,0 +1,14 @@
+{
+  "name": "Default",
+  "description": "A QR Code saved with Studio defaults plus a heading, instruction and short label.",
+  "configuration": {
+    "payload": "https://example.org/visit",
+    "heading": "Scan to learn more",
+    "instruction": "Point your camera at the code.",
+    "shortLabel": "example.org",
+    "style": "standard",
+    "backgroundColor": "#FFFFFF",
+    "foregroundColor": "#101418"
+  },
+  "expect": "ready"
+}

@@ -165,7 +165,8 @@ func validateComponent(definition WidgetDefinition) error {
 	return nil
 }
 
-// validateConfigTemplate accepts plain JSON and {"$config": key[, "default": v]}.
+// validateConfigTemplate accepts plain JSON and
+// {"$config": key[, "default": v][, "when": flag]}.
 func validateConfigTemplate(value any, depth int) error {
 	if depth > maxComponentConfigDepth {
 		return errors.New("component configTemplate is too deep")
@@ -183,8 +184,13 @@ func validateConfigTemplate(value any, depth int) error {
 				return errors.New(`component configTemplate "$config" must name a key`)
 			}
 			for field := range typed {
-				if field != "$config" && field != "default" {
+				if field != "$config" && field != "default" && field != "when" {
 					return fmt.Errorf("component configTemplate reference has unknown key %q", field)
+				}
+			}
+			if flag, hasWhen := typed["when"]; hasWhen {
+				if name, isString := flag.(string); !isString || name == "" {
+					return errors.New(`component configTemplate "when" must name a key`)
 				}
 			}
 			return nil
@@ -223,6 +229,25 @@ func CompileComponentConfig(spec ComponentSpec, configuration map[string]any) (m
 	return config, nil
 }
 
+// configFlagOn reports whether a "when" gate permits $config resolution.
+// A missing gate always permits; an explicit false, empty string, or zero
+// resolves the default instead, so legacy toggles like showBody keep their
+// meaning when a persisted configuration projects into a V2 component.
+func configFlagOn(value any) bool {
+	switch gated := value.(type) {
+	case nil:
+		return false
+	case bool:
+		return gated
+	case string:
+		return gated != ""
+	case float64:
+		return gated != 0
+	default:
+		return true
+	}
+}
+
 func resolveComponentTemplate(value any, configuration map[string]any) (any, error) {
 	switch typed := value.(type) {
 	case []any:
@@ -237,11 +262,22 @@ func resolveComponentTemplate(value any, configuration map[string]any) (any, err
 		return out, nil
 	case map[string]any:
 		if key, ok := typed["$config"].(string); ok {
+			if flag, hasWhen := typed["when"].(string); hasWhen && flag != "" {
+				if gated, exists := configuration[flag]; exists && !configFlagOn(gated) {
+					if fallback, hasDefault := typed["default"]; hasDefault {
+						return resolveComponentTemplate(fallback, configuration)
+					}
+					return "", nil
+				}
+			}
 			if resolved, exists := configuration[key]; exists {
 				return resolved, nil
 			}
 			if fallback, exists := typed["default"]; exists {
-				return fallback, nil
+				// A default may itself reference configuration, so a
+				// compatibility definition can prefer its current keys and
+				// fall back to the legacy keys it supersedes.
+				return resolveComponentTemplate(fallback, configuration)
 			}
 			return nil, fmt.Errorf("component configTemplate references missing configuration %q", key)
 		}

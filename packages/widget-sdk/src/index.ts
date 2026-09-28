@@ -32,6 +32,7 @@ export {
   createWidgetResources,
   empty,
   failure,
+  firstRecordsDataset,
   ready,
   type ResourceGrant,
   type ResourceTables,

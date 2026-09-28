@@ -270,6 +270,7 @@
     {
       "id": "qr-call-to-action",
       "version": 1,
+      "apiVersion": 1,
       "name": "QR Call to Action",
       "description": "Pair a scannable code with a heading and short instruction.",
       "category": "Essentials",
@@ -399,7 +400,32 @@
           "Preview from the distance viewers will actually stand at."
         ]
       },
-      "deprecation": {}
+      "deprecation": {
+        "deprecated": true,
+        "replacement": "qr-code",
+        "message": "Create a QR Code instead. Saved QR Call to Action content keeps working."
+      },
+      "compatibility": { "fallback": "template" },
+      "component": {
+        "type": "tilecast.qr-code",
+        "version": 1,
+        "tagName": "tc-widget-qr-code",
+        "entrypoint": "./runtime/index.ts",
+        "configTemplate": {
+          "payload": { "$config": "url", "default": "" },
+          "heading": { "$config": "heading", "default": "" },
+          "instruction": {
+            "$config": "body",
+            "default": "",
+            "when": "showBody"
+          },
+          "shortLabel": { "$config": "shortLabel", "default": "" },
+          "style": { "$config": "style", "default": "standard" },
+          "background": { "$config": "backgroundColor", "default": "#FFFFFF" },
+          "foreground": { "$config": "foregroundColor", "default": "#101418" }
+        },
+        "empty": "render"
+      }
     }
   ],
   "dataSources": []

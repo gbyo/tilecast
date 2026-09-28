@@ -62,6 +62,85 @@ func TestComponentOnlyWidgetCompilesWithoutFallback(t *testing.T) {
 	}
 }
 
+// TestLegacyQrProvidersProjectIntoQrCode keeps every persisted QR provider
+// generation compiling into the one V2 component: the legacy qrcode keys,
+// the call-to-action keys, and the canonical QR Code keys all normalize to
+// tilecast.qr-code configuration for capable Players.
+func TestLegacyQrProvidersProjectIntoQrCode(t *testing.T) {
+	service := &Service{definitions: contentdefs.MustLoad()}
+	legacy := json.RawMessage(`{"value":"https://example.org","label":"example.org","errorCorrection":"medium","foregroundColor":"#000000","backgroundColor":"#FFFFFF"}`)
+	component, err := service.compileWidgetComponent("qrcode", legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if component.Component.Type != "tilecast.qr-code" || component.Component.Config["payload"] != "https://example.org" || component.Component.Config["shortLabel"] != "example.org" {
+		t.Fatalf("legacy qrcode config did not project: %+v", component.Component)
+	}
+	callToAction := json.RawMessage(`{"url":"https://example.org","heading":"Scan","body":"Point your camera.","showBody":true,"foregroundColor":"#ffffff","backgroundColor":"#12253a"}`)
+	component, err = service.compileWidgetComponent("qr-call-to-action", callToAction)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if component.Component.Type != "tilecast.qr-code" || component.Component.Config["payload"] != "https://example.org" || component.Component.Config["heading"] != "Scan" || component.Component.Config["instruction"] != "Point your camera." {
+		t.Fatalf("call-to-action config did not project: %+v", component.Component)
+	}
+	hiddenBody := json.RawMessage(`{"url":"https://example.org","heading":"Scan","body":"Point your camera.","showBody":false,"foregroundColor":"#ffffff","backgroundColor":"#12253a"}`)
+	component, err = service.compileWidgetComponent("qr-call-to-action", hiddenBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if component.Component.Type != "tilecast.qr-code" || component.Component.Config["instruction"] != "" {
+		t.Fatalf("hidden call-to-action body leaked into instruction: %+v", component.Component)
+	}
+	canonical := json.RawMessage(`{"payload":"https://example.org","heading":"","instruction":"","shortLabel":"","style":"standard","backgroundColor":"#FFFFFF","foregroundColor":"#101418"}`)
+	component, err = service.compileWidgetComponent("qr-code", canonical)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if component.Component.Type != "tilecast.qr-code" || component.RequiredCapabilities["widget.tilecast.qr-code"] != 1 {
+		t.Fatalf("canonical qr-code config did not compile: %+v", component)
+	}
+}
+
+// TestLegacyDisplayProvidersProjectIntoV2 keeps every persisted display
+// provider compiling into its V2 component: legacy DisplayWidget keys,
+// per-column presentations and card slots all normalize for capable
+// Players, while the provider switch keeps serving older ones.
+func TestLegacyDisplayProvidersProjectIntoV2(t *testing.T) {
+	service := &Service{definitions: contentdefs.MustLoad()}
+	list := json.RawMessage(`{"dataSourceId":"11111111-1111-4111-8111-111111111111","primaryField":"title","maximumItems":6,"rowSpacing":"compact","showDividers":true,"textScale":2}`)
+	component, err := service.compileWidgetComponent("list", list)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if component.Component.Type != "tilecast.list" || component.Component.Config["primaryField"] != "title" || component.Component.Config["density"] != "compact" {
+		t.Fatalf("legacy list config did not project: %+v", component.Component)
+	}
+	table := json.RawMessage(`{"dataSourceId":"11111111-1111-4111-8111-111111111111","fields":["title","budget"],"columns":[{"field":"budget","label":"Budget","format":"currency","alignment":"right"}],"maximumItems":10,"showHeader":true}`)
+	component, err = service.compileWidgetComponent("table", table)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if component.Component.Type != "tilecast.table" || component.Component.Config["maximumRows"] != float64(10) {
+		t.Fatalf("legacy table config did not project: %+v", component.Component)
+	}
+	columns, _ := component.Component.Config["columns"].([]any)
+	if len(columns) != 1 {
+		t.Fatalf("legacy table columns did not project: %+v", component.Component.Config)
+	}
+	cards := json.RawMessage(`{"dataSourceId":"11111111-1111-4111-8111-111111111111","titleField":"title","badgeField":"status","columns":2,"maximumItems":6,"density":"comfortable","emptyState":"Nothing here."}`)
+	component, err = service.compileWidgetComponent("cards", cards)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if component.Component.Type != "tilecast.cards" || component.Component.Config["titleField"] != "title" || component.Component.Config["emptyText"] != "Nothing here." {
+		t.Fatalf("legacy cards config did not project: %+v", component.Component)
+	}
+	if component.RequiredCapabilities["widget.tilecast.cards"] != 1 {
+		t.Fatalf("cards capability missing: %+v", component.RequiredCapabilities)
+	}
+}
+
 func TestPresentationSupportedNeedsSchemaAndVersion(t *testing.T) {
 	presentation := &WidgetPresentation{SchemaVersion: 2, Kind: "component", RequiredCapabilities: map[string]int{"widget.tilecast.clock": 2}}
 	for _, test := range []struct {

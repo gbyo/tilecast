@@ -395,6 +395,43 @@ describe("manifest", () => {
     ).toThrow(/missing configuration/);
   });
 
+  it("honors a when gate so legacy toggles survive projection", () => {
+    const template = {
+      instruction: { $config: "body", default: "", when: "showBody" },
+    };
+    expect(
+      compileComponentConfig(template, { body: "Point it.", showBody: true }),
+    ).toEqual({ instruction: "Point it." });
+    expect(
+      compileComponentConfig(template, { body: "Point it.", showBody: false }),
+    ).toEqual({ instruction: "" });
+    // A persisted record that predates the flag keeps the mapped value.
+    expect(compileComponentConfig(template, { body: "Point it." })).toEqual({
+      instruction: "Point it.",
+    });
+  });
+
+  it("resolves chained defaults onto superseded configuration keys", () => {
+    const template = {
+      payload: {
+        $config: "payload",
+        default: { $config: "value", default: "" },
+      },
+    };
+    expect(
+      compileComponentConfig(template, { value: "https://example.org" }),
+    ).toEqual({
+      payload: "https://example.org",
+    });
+    expect(
+      compileComponentConfig(template, {
+        payload: "https://example.com",
+        value: "https://example.org",
+      }),
+    ).toEqual({ payload: "https://example.com" });
+    expect(compileComponentConfig(template, {})).toEqual({ payload: "" });
+  });
+
   it("bounds component configuration size and shape", () => {
     expect(configLimitProblem({ a: "ok" })).toBeNull();
     expect(configLimitProblem({ a: "x".repeat(2_001) })).toMatch(/string/);

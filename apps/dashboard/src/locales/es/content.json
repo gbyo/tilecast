@@ -596,12 +596,10 @@
       "native": {
         "editTitle": "Editar widget {{provider}}",
         "createTitle": "Crear widget {{provider}}",
-        "qrCodeName": "Código QR",
         "guidanceData": "Conecta la información que mostrarás, elige cómo se presenta y revisa la vista previa en vivo.",
         "guidanceSimple": "Configura lo que aparece en pantalla y revisa la vista previa mientras trabajas.",
         "contentGuidanceData": "Empieza eligiendo los datos que usará este widget, luego asigna y formatea los campos.",
         "contentGuidanceCountdown": "Define la fecha objetivo, decide qué pasa al alcanzarla y elige las unidades visibles.",
-        "contentGuidanceQr": "Escribe el destino que se abrirá al escanear y añade una etiqueta opcional en pantalla.",
         "contentGuidanceWorldClock": "Añade cada ubicación con su huso horario de IANA, como America/New_York o Europe/London.",
         "contentGuidanceClock": "Elige el huso horario y el formato que aparecerán en pantalla.",
         "contentGuidanceText": "Escribe el contenido visible y elige su comportamiento en pantalla.",
@@ -651,18 +649,6 @@
         "unitsMinutes": "Minutos",
         "unitsSeconds": "Segundos"
       },
-      "qrcode": {
-        "valueLabel": "Texto o URL",
-        "errorCorrection": "Corrección de errores",
-        "levelLow": "Baja",
-        "levelMedium": "Media",
-        "levelQuartile": "Cuartil",
-        "levelHigh": "Alta",
-        "levelHint": "Mayor corrección facilita el escaneo si el código está dañado, pero densifica el patrón.",
-        "speed": "Velocidad",
-        "direction": "Dirección",
-        "denseAlert": "Código QR denso. Prueba el escaneo a la distancia de visualización."
-      },
       "ticker": {
         "fields": "Campos (hasta tres)",
         "separator": "Separador",
@@ -675,24 +661,10 @@
         "emptyLabel": "Mensaje sin datos",
         "emptyHint": "Se muestra cuando la fuente no devuelve registros útiles."
       },
-      "list": {
-        "primaryField": "Campo principal",
-        "leadingField": "Campo inicial",
-        "trailingField": "Campo final",
-        "showDividers": "Mostrar divisores de fila"
-      },
       "menu": {
         "presentation": "Presentación",
         "modeSingle": "Campos de un registro",
         "modeRows": "Filas de etiqueta y valor"
-      },
-      "table": {
-        "showHeader": "Mostrar encabezados de columna",
-        "alternating": "Alternar fondos de fila",
-        "columnPresentation": "Presentación de columnas",
-        "columnWidth": "Ancho %",
-        "formatFor": "Formato de {{field}}",
-        "alignmentFor": "Alineación de {{field}}"
       },
       "agenda": {
         "timeField": "Campo de hora",
@@ -705,14 +677,6 @@
         "prefix": "Prefijo",
         "suffix": "Sufijo",
         "emptyState": "Estado vacío"
-      },
-      "cards": {
-        "subtitleLabel": "subtítulo",
-        "bodyLabel": "cuerpo",
-        "badgeLabel": "insignia",
-        "density": "Densidad",
-        "densityComfortable": "Amplia",
-        "densityCompact": "Compacta"
       },
       "weather": {
         "showLocation": "Ubicación",

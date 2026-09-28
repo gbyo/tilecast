@@ -58,13 +58,100 @@
     {
       "id": "qrcode",
       "version": 1,
+      "apiVersion": 1,
       "name": "QR Code",
       "description": "Display text or a URL as a scannable code.",
       "category": "Essentials",
       "icon": "qr_code",
       "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
+      "configurationSchema": {
+        "fields": [
+          {
+            "key": "payload",
+            "label": "Link or text",
+            "description": "What the code opens or says when scanned. Keep it short so the code stays readable from a distance.",
+            "control": "text",
+            "maxLength": 2048,
+            "default": "",
+            "ui": { "section": "content", "order": 1 }
+          },
+          {
+            "key": "heading",
+            "label": "Heading",
+            "description": "Tells viewers why they should scan.",
+            "control": "text",
+            "maxLength": 120,
+            "default": "",
+            "ui": {
+              "section": "content",
+              "order": 2,
+              "visibleWhen": { "key": "style", "notEquals": "code" }
+            }
+          },
+          {
+            "key": "instruction",
+            "label": "Instruction",
+            "control": "multiline_text",
+            "maxLength": 300,
+            "default": "",
+            "ui": {
+              "section": "content",
+              "order": 3,
+              "visibleWhen": { "key": "style", "equals": "standard" }
+            }
+          },
+          {
+            "key": "shortLabel",
+            "label": "Short label",
+            "description": "A short line under the code, such as the domain.",
+            "control": "text",
+            "maxLength": 60,
+            "default": "",
+            "ui": {
+              "section": "content",
+              "order": 4,
+              "visibleWhen": { "key": "style", "equals": "standard" }
+            }
+          },
+          {
+            "key": "style",
+            "label": "Style",
+            "description": "Standard pairs the code with its text. Code only shows the code alone for small zones.",
+            "control": "select",
+            "options": [
+              { "value": "standard", "label": "Standard" },
+              { "value": "code", "label": "Code only" }
+            ],
+            "default": "standard",
+            "ui": { "section": "appearance", "order": 1, "styleCard": true }
+          },
+          {
+            "key": "backgroundColor",
+            "label": "Background color",
+            "description": "Keep it light so the code scans reliably.",
+            "control": "color",
+            "default": "#FFFFFF",
+            "ui": { "section": "appearance", "order": 2 }
+          },
+          {
+            "key": "foregroundColor",
+            "label": "Code color",
+            "description": "Keep it dark so the code scans reliably.",
+            "control": "color",
+            "default": "#101418",
+            "ui": { "section": "appearance", "order": 3 }
+          }
+        ]
+      },
+      "defaultConfiguration": {
+        "payload": "",
+        "heading": "",
+        "instruction": "",
+        "shortLabel": "",
+        "style": "standard",
+        "backgroundColor": "#FFFFFF",
+        "foregroundColor": "#101418"
+      },
       "presentationSchemaVersion": 1,
       "requiredCapabilities": {
         "layout.surface": 1,
@@ -73,7 +160,34 @@
       },
       "emptyStateBehavior": "text",
       "legacyEditor": true,
-      "deprecation": {}
+      "deprecation": {
+        "deprecated": true,
+        "replacement": "qr-code",
+        "message": "Create a QR Code instead. Saved QR Code content keeps working."
+      },
+      "compatibility": { "fallback": "legacy" },
+      "component": {
+        "type": "tilecast.qr-code",
+        "version": 1,
+        "tagName": "tc-widget-qr-code",
+        "entrypoint": "./runtime/index.ts",
+        "configTemplate": {
+          "payload": {
+            "$config": "payload",
+            "default": { "$config": "value", "default": "" }
+          },
+          "heading": { "$config": "heading", "default": "" },
+          "instruction": { "$config": "instruction", "default": "" },
+          "shortLabel": {
+            "$config": "shortLabel",
+            "default": { "$config": "label", "default": "" }
+          },
+          "style": { "$config": "style", "default": "standard" },
+          "background": { "$config": "backgroundColor", "default": "#FFFFFF" },
+          "foreground": { "$config": "foregroundColor", "default": "#101418" }
+        },
+        "empty": "render"
+      }
     },
     {
       "id": "countdown",
@@ -164,50 +278,6 @@
       "deprecation": {}
     },
     {
-      "id": "list",
-      "version": 1,
-      "name": "List",
-      "description": "Display flexible primary and secondary rows.",
-      "category": "Data-driven",
-      "icon": "list",
-      "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
-      "presentationSchemaVersion": 1,
-      "requiredCapabilities": {
-        "layout.surface": 1,
-        "layout.column": 1,
-        "collection.repeat": 2,
-        "content.text": 1,
-        "binding.core": 2
-      },
-      "emptyStateBehavior": "text",
-      "legacyEditor": true,
-      "deprecation": {}
-    },
-    {
-      "id": "table",
-      "version": 1,
-      "name": "Table",
-      "description": "Display typed records in configurable columns.",
-      "category": "Data-driven",
-      "icon": "table",
-      "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
-      "presentationSchemaVersion": 1,
-      "requiredCapabilities": {
-        "layout.surface": 1,
-        "layout.column": 1,
-        "collection.repeat": 2,
-        "content.text": 1,
-        "binding.core": 2
-      },
-      "emptyStateBehavior": "text",
-      "legacyEditor": true,
-      "deprecation": {}
-    },
-    {
       "id": "agenda",
       "version": 1,
       "name": "Agenda",
@@ -242,28 +312,6 @@
       "presentationSchemaVersion": 1,
       "requiredCapabilities": {
         "layout.surface": 1,
-        "content.text": 1,
-        "binding.core": 2
-      },
-      "emptyStateBehavior": "text",
-      "legacyEditor": true,
-      "deprecation": {}
-    },
-    {
-      "id": "cards",
-      "version": 1,
-      "name": "Cards",
-      "description": "Display records in a responsive card grid.",
-      "category": "Data-driven",
-      "icon": "grid",
-      "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
-      "presentationSchemaVersion": 1,
-      "requiredCapabilities": {
-        "layout.surface": 1,
-        "layout.grid": 1,
-        "collection.repeat": 2,
         "content.text": 1,
         "binding.core": 2
       },

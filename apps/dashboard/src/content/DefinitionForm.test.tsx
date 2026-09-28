@@ -393,6 +393,49 @@ describe("DefinitionForm data source controls", () => {
     expect(within(chooser).queryByText("Lunch rows")).toBeNull();
   });
 
+  it("resolves a nested field picker against the root Data Source", async () => {
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue(
+      catalog([
+        definition("csv", [{ key: "title", label: "Title", type: "text" }]),
+      ]),
+    );
+    vi.spyOn(api, "listDataSources").mockResolvedValue({
+      items: [source("s-csv", "csv", "Lunch rows")],
+      total: 1,
+      page: 1,
+      pageSize: 100,
+    });
+    vi.spyOn(api, "getDataSource").mockResolvedValue(
+      detail("s-csv", [{ key: "title", label: "Title", type: "text" }]),
+    );
+
+    form(
+      [
+        { key: "dataSourceId", label: "Data", control: "data_source" },
+        {
+          key: "columns",
+          label: "Columns",
+          control: "repeating_group",
+          maximumItems: 6,
+          itemFields: [
+            {
+              key: "field",
+              label: "Field",
+              control: "data_source_field",
+              dataSourceKey: "dataSourceId",
+            },
+            { key: "label", label: "Label", control: "text" },
+          ],
+        },
+      ],
+      { dataSourceId: "s-csv", columns: [{ label: "Name" }] },
+    );
+
+    // The item carries no source id of its own; the picker still lists the
+    // root source's fields instead of rendering no options.
+    expect(await optionsFor("Field")).toContain("Title (text)");
+  });
+
   it("explains the empty state and offers to connect data instead of disabling the control", async () => {
     vi.spyOn(api, "contentDefinitions").mockResolvedValue(
       catalog([definition("csv", [])]),

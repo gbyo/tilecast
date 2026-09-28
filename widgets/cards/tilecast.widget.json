@@ -1,0 +1,226 @@
+{
+  "$schema": "../../packages/widget-sdk/schema/tilecast-widget.schema.json",
+  "apiVersion": 1,
+  "id": "cards",
+  "version": 1,
+  "name": "Cards",
+  "description": "Show records as a responsive grid of content cards.",
+  "category": "Data display",
+  "icon": "cards",
+  "runtime": "native",
+  "configurationSchema": {
+    "fields": [
+      {
+        "key": "dataSourceId",
+        "label": "Data Source",
+        "description": "The records source these Cards read.",
+        "control": "data_source",
+        "acceptedDataSourceKinds": ["records"],
+        "default": "",
+        "ui": { "section": "data", "order": 1 }
+      },
+      {
+        "key": "titleField",
+        "label": "Title field",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": [
+          "text",
+          "number",
+          "integer",
+          "currency",
+          "boolean",
+          "date",
+          "datetime",
+          "url"
+        ],
+        "default": "",
+        "ui": { "section": "data", "order": 2 }
+      },
+      {
+        "key": "subtitleField",
+        "label": "Subtitle field",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": [
+          "text",
+          "number",
+          "integer",
+          "currency",
+          "boolean",
+          "date",
+          "datetime",
+          "url"
+        ],
+        "default": "",
+        "ui": { "section": "data", "order": 3 }
+      },
+      {
+        "key": "bodyField",
+        "label": "Body field",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": [
+          "text",
+          "number",
+          "integer",
+          "currency",
+          "boolean",
+          "date",
+          "datetime",
+          "url"
+        ],
+        "default": "",
+        "ui": { "section": "data", "order": 4 }
+      },
+      {
+        "key": "imageField",
+        "label": "Image field",
+        "description": "Only managed media the Widget can already resolve is shown; anything else stays hidden.",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": ["text", "url", "asset"],
+        "default": "",
+        "ui": { "section": "data", "order": 5 }
+      },
+      {
+        "key": "badgeField",
+        "label": "Badge field",
+        "description": "A short value shown as a chip on the card.",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": [
+          "text",
+          "number",
+          "integer",
+          "currency",
+          "boolean",
+          "date",
+          "datetime",
+          "url"
+        ],
+        "default": "",
+        "ui": { "section": "data", "order": 6 }
+      },
+      {
+        "key": "metadataField",
+        "label": "Metadata field",
+        "description": "A quiet value at the foot of the card.",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": [
+          "text",
+          "number",
+          "integer",
+          "currency",
+          "boolean",
+          "date",
+          "datetime",
+          "url"
+        ],
+        "default": "",
+        "ui": { "section": "data", "order": 7 }
+      },
+      {
+        "key": "heading",
+        "label": "Heading",
+        "control": "text",
+        "maxLength": 120,
+        "default": "",
+        "ui": { "section": "content", "order": 1 }
+      },
+      {
+        "key": "maximumItems",
+        "label": "Maximum items",
+        "control": "integer",
+        "minimum": 1,
+        "maximum": 100,
+        "default": 6,
+        "ui": { "section": "content", "order": 2 }
+      },
+      {
+        "key": "emptyText",
+        "label": "Empty message",
+        "description": "Shown when the source returns no usable records.",
+        "control": "text",
+        "maxLength": 200,
+        "default": "",
+        "ui": { "section": "content", "order": 3 }
+      },
+      {
+        "key": "density",
+        "label": "Density",
+        "control": "select",
+        "options": [
+          { "value": "comfortable", "label": "Comfortable" },
+          { "value": "compact", "label": "Compact" }
+        ],
+        "default": "comfortable",
+        "ui": { "section": "appearance", "order": 1, "styleCard": true }
+      },
+      {
+        "key": "backgroundColor",
+        "label": "Background color",
+        "control": "color",
+        "default": "",
+        "ui": { "section": "appearance", "order": 2 }
+      },
+      {
+        "key": "foregroundColor",
+        "label": "Text color",
+        "control": "color",
+        "default": "",
+        "ui": { "section": "appearance", "order": 3 }
+      }
+    ]
+  },
+  "defaultConfiguration": {
+    "dataSourceId": "",
+    "titleField": "",
+    "subtitleField": "",
+    "bodyField": "",
+    "imageField": "",
+    "badgeField": "",
+    "metadataField": "",
+    "heading": "",
+    "maximumItems": 6,
+    "emptyText": "",
+    "density": "comfortable",
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "presentationSchemaVersion": 1,
+  "requiredCapabilities": {
+    "layout.surface": 1,
+    "layout.grid": 1,
+    "collection.repeat": 2,
+    "content.text": 1,
+    "binding.core": 2
+  },
+  "emptyStateBehavior": "text",
+  "legacyEditor": true,
+  "deprecation": {},
+  "component": {
+    "type": "tilecast.cards",
+    "version": 1,
+    "tagName": "tc-widget-cards",
+    "entrypoint": "./runtime/index.ts",
+    "configTemplate": {
+      "dataSourceId": { "$config": "dataSourceId", "default": "" },
+      "titleField": { "$config": "titleField", "default": "" },
+      "subtitleField": { "$config": "subtitleField", "default": "" },
+      "bodyField": { "$config": "bodyField", "default": "" },
+      "imageField": { "$config": "imageField", "default": "" },
+      "badgeField": { "$config": "badgeField", "default": "" },
+      "metadataField": { "$config": "metadataField", "default": "" },
+      "heading": { "$config": "heading", "default": "" },
+      "maximumItems": { "$config": "maximumItems", "default": 6 },
+      "emptyText": {
+        "$config": "emptyText",
+        "default": { "$config": "emptyState", "default": "" }
+      },
+      "density": { "$config": "density", "default": "comfortable" },
+      "background": { "$config": "backgroundColor", "default": "" },
+      "foreground": { "$config": "foregroundColor", "default": "" }
+    },
+    "dataSourceFields": ["dataSourceId"],
+    "empty": "skip-eligible"
+  },
+  "compatibility": {
+    "fallback": "legacy"
+  }
+}

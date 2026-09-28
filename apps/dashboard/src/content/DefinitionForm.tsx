@@ -86,13 +86,21 @@ export function DefinitionForm({
   onChange,
   readOnly = false,
   csrf,
+  rootValues,
 }: {
   fields: ContentDefinitionField[];
   value: Values;
   onChange: (value: Values) => void;
   readOnly?: boolean;
   csrf?: string;
+  /**
+   * The outermost configuration. Repeating-group items render a nested
+   * form whose own values cannot name the Data Source, so field pickers
+   * inside a group resolve against these root values instead.
+   */
+  rootValues?: Values;
 }) {
+  const root = rootValues ?? value;
   const needsDataSources = fields.some(
     (field) =>
       field.control === "data_source" || field.control === "data_source_field",
@@ -133,6 +141,7 @@ export function DefinitionForm({
           field={field}
           fields={fields}
           values={value}
+          rootValues={root}
           value={value[field.key]}
           setValue={(next) => set(field.key, next)}
           readOnly={readOnly}
@@ -313,6 +322,7 @@ function DefinitionControl({
   field,
   fields,
   values,
+  rootValues,
   value,
   setValue,
   readOnly,
@@ -324,6 +334,8 @@ function DefinitionControl({
   field: ContentDefinitionField;
   fields: ContentDefinitionField[];
   values: Values;
+  /** The outermost configuration; nested items resolve pickers against it. */
+  rootValues: Values;
   value: unknown;
   setValue: (value: unknown) => void;
   readOnly: boolean;
@@ -339,7 +351,9 @@ function DefinitionControl({
     field.control === "data_source_field"
       ? resolveDataSourceKey(field, fields)
       : undefined;
-  const fieldSourceID = fieldSourceKey ? fieldText(values[fieldSourceKey]) : "";
+  const fieldSourceID = fieldSourceKey
+    ? fieldText(values[fieldSourceKey]) || fieldText(rootValues[fieldSourceKey])
+    : "";
   const fieldSource = useQuery({
     queryKey: ["definition-form-data-source", fieldSourceID],
     queryFn: () => api.getDataSource(fieldSourceID),
@@ -489,6 +503,7 @@ function DefinitionControl({
               value={item}
               readOnly={readOnly}
               csrf={csrf}
+              rootValues={rootValues}
               onChange={(next) =>
                 setValue(
                   items.map((current, currentIndex) =>
