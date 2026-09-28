@@ -7,7 +7,6 @@
  */
 import { readFileSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
-import ts from "typescript";
 import {
   walk,
   type DiscoveredPlugin,
@@ -131,6 +130,26 @@ function checkGo(
     }));
 }
 
+const COMMENTS_OUTSIDE_STRINGS =
+  /("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)|\/\/[^\n]*|\/\*[\s\S]*?\*\//g;
+const STATIC_IMPORT =
+  /\b(?:import|export)\s+(?:type\s+)?(?:[^'";]*?\s+from\s+)?["']([^"']+)["']/g;
+const CALLED_IMPORT = /\b(?:import|require)\s*\(\s*["']([^"']+)["']/g;
+
+// The TypeScript compiler API is not available from the native compiler, so
+// the boundary check scans module specifiers itself. It errs toward reporting
+// too many specifiers, never too few.
+export function importSpecifiers(source: string): string[] {
+  const code = source.replace(
+    COMMENTS_OUTSIDE_STRINGS,
+    (_match, quoted) => quoted ?? " ",
+  );
+  return [
+    ...[...code.matchAll(STATIC_IMPORT)].map((match) => match[1]!),
+    ...[...code.matchAll(CALLED_IMPORT)].map((match) => match[1]!),
+  ];
+}
+
 function checkTs(
   repo: Repo,
   plugin: DiscoveredPlugin,
@@ -139,8 +158,7 @@ function checkTs(
   packages: string[],
 ): Problem[] {
   const problems: Problem[] = [];
-  const info = ts.preProcessFile(readFileSync(file, "utf8"), true, true);
-  for (const { fileName: specifier } of info.importedFiles) {
+  for (const specifier of importSpecifiers(readFileSync(file, "utf8"))) {
     if (specifier.startsWith(".")) {
       const target = resolve(dirname(file), specifier);
       if (target !== plugin.path && !target.startsWith(plugin.path + sep)) {

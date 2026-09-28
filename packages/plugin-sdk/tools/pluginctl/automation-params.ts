@@ -231,9 +231,7 @@ function simplifySchema(
           ? "number"
           : kinds.size === 1 && kinds.has("boolean")
             ? "boolean"
-            : kinds.size === 1 && kinds.has("integer")
-              ? "integer"
-              : "";
+            : "";
   }
   if (
     effectiveType !== "object" &&

@@ -233,6 +233,7 @@ describe("screen management", () => {
           this,
         );
       }
+      readonly scrollMargin = "";
       disconnect() {}
       unobserve() {}
       takeRecords() {

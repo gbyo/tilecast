@@ -1,5 +1,6 @@
 import { useConfirm } from "../components/ConfirmDialog";
 import { DateTimeInput } from "../components/date-picker";
+import { GitHubIcon } from "../components/GitHubIcon";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Button, buttonVariants } from "../components/ui/button";
@@ -50,7 +51,6 @@ import {
   CheckCircle2,
   Download,
   ExternalLink,
-  Github,
   ListChecks,
   LogOut,
   RefreshCw,
@@ -805,7 +805,7 @@ export function PlayerUpdatesPanel({
             {releases.data && (
               <div className="grid gap-3 rounded-xl border border-border p-4">
                 <div className="flex items-center gap-3">
-                  <Github size={20} aria-hidden="true" />
+                  <GitHubIcon size={20} aria-hidden="true" />
                   <div className="grid gap-0.5">
                     <strong className="text-sm font-semibold">
                       {t("updates.panel.githubTitle")}
@@ -862,7 +862,7 @@ export function PlayerUpdatesPanel({
                         {startGitHubAuth.isPending ? (
                           <Spinner />
                         ) : (
-                          <Github size={16} aria-hidden="true" />
+                          <GitHubIcon size={16} aria-hidden="true" />
                         )}
                         {startGitHubAuth.isPending
                           ? t("updates.panel.starting")
