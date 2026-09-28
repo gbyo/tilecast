@@ -3207,7 +3207,15 @@ paths:
           }
         - { in: query, name: type, required: false, schema: { type: string } }
       responses:
-        "200": { description: Incident list }
+        "200":
+          description: Incident list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/IncidentList" }
         "401": { description: Dashboard authentication required }
         "422": { description: incident_status_invalid }
   /api/v1/activity/incidents/{id}:
@@ -3247,12 +3255,20 @@ paths:
               type: object
               required: [action]
               properties:
-                action: { type: string }
+                action: { $ref: "#/components/schemas/IncidentAction" }
                 assignedTo: { type: string }
                 reason: { type: string }
                 notes: { type: string }
       responses:
-        "200": { description: Incident updated }
+        "200":
+          description: Incident updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Incident" }
         "400": { description: Incident action invalid }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
@@ -7433,6 +7449,72 @@ components:
         name: { type: string }
         rowCount: { type: integer, minimum: 0 }
         updatedAt: { type: string, format: date-time }
+    IncidentStatus:
+      type: string
+      enum: [open, acknowledged, recovered, resolved, ignored]
+    IncidentSeverity:
+      type: string
+      enum: [info, warning, error, critical]
+    IncidentType:
+      type: string
+      enum: [connectivity, playback, storage, safe-mode, update]
+    IncidentAction:
+      type: string
+      enum: [acknowledge, assign, note, resolve, ignore, reopen]
+    Incident:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          incidentType,
+          severity,
+          status,
+          title,
+          description,
+          openedAt,
+          lastSeenAt,
+          affectedScreens,
+          occurrenceCount,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        incidentType: { $ref: "#/components/schemas/IncidentType" }
+        severity: { $ref: "#/components/schemas/IncidentSeverity" }
+        status: { $ref: "#/components/schemas/IncidentStatus" }
+        title: { type: string }
+        description: { type: string }
+        openedAt: { type: string, format: date-time }
+        lastSeenAt: { type: string, format: date-time }
+        recoveredAt: { type: string, format: date-time }
+        resolvedAt: { type: string, format: date-time }
+        acknowledgedAt: { type: string, format: date-time }
+        acknowledgedBy: { type: string }
+        assignedTo: { type: string, format: uuid }
+        assignedToName: { type: string }
+        primaryScreenId: { type: string, format: uuid }
+        primaryScreenName: { type: string }
+        locationName: { type: string }
+        groupName: { type: string }
+        deviceModel: { type: string }
+        playerVersion: { type: string }
+        affectedScreens: { type: integer, minimum: 0 }
+        failureCode: { type: string }
+        probableCause: { type: string }
+        recoveryMode: { type: string }
+        resolutionReason: { type: string }
+        resolutionNotes: { type: string }
+        relatedType: { type: string }
+        relatedId: { type: string }
+        occurrenceCount: { type: integer, minimum: 0 }
+    IncidentList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Incident" }
     FleetHealth:
       type: object
       additionalProperties: false

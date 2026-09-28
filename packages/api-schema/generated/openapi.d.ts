@@ -5509,6 +5509,59 @@ export interface components {
       /** Format: date-time */
       updatedAt: string;
     };
+    /** @enum {string} */
+    IncidentStatus:
+      "open" | "acknowledged" | "recovered" | "resolved" | "ignored";
+    /** @enum {string} */
+    IncidentSeverity: "info" | "warning" | "error" | "critical";
+    /** @enum {string} */
+    IncidentType:
+      "connectivity" | "playback" | "storage" | "safe-mode" | "update";
+    /** @enum {string} */
+    IncidentAction:
+      "acknowledge" | "assign" | "note" | "resolve" | "ignore" | "reopen";
+    Incident: {
+      /** Format: uuid */
+      id: string;
+      incidentType: components["schemas"]["IncidentType"];
+      severity: components["schemas"]["IncidentSeverity"];
+      status: components["schemas"]["IncidentStatus"];
+      title: string;
+      description: string;
+      /** Format: date-time */
+      openedAt: string;
+      /** Format: date-time */
+      lastSeenAt: string;
+      /** Format: date-time */
+      recoveredAt?: string;
+      /** Format: date-time */
+      resolvedAt?: string;
+      /** Format: date-time */
+      acknowledgedAt?: string;
+      acknowledgedBy?: string;
+      /** Format: uuid */
+      assignedTo?: string;
+      assignedToName?: string;
+      /** Format: uuid */
+      primaryScreenId?: string;
+      primaryScreenName?: string;
+      locationName?: string;
+      groupName?: string;
+      deviceModel?: string;
+      playerVersion?: string;
+      affectedScreens: number;
+      failureCode?: string;
+      probableCause?: string;
+      recoveryMode?: string;
+      resolutionReason?: string;
+      resolutionNotes?: string;
+      relatedType?: string;
+      relatedId?: string;
+      occurrenceCount: number;
+    };
+    IncidentList: {
+      items: components["schemas"]["Incident"][];
+    };
     /** @description Token-authenticated fleet summary for monitoring systems. Screen buckets mirror the Studio status thresholds, except there is deliberately no online count: live presence lives in the process-local socket hub, which a database read cannot see. */
     FleetHealth: {
       /** Format: date-time */
@@ -14420,7 +14473,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["IncidentList"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -14487,7 +14544,7 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
-          action: string;
+          action: components["schemas"]["IncidentAction"];
           assignedTo?: string;
           reason?: string;
           notes?: string;
@@ -14500,7 +14557,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["Incident"];
+          };
+        };
       };
       /** @description Incident action invalid */
       400: {
