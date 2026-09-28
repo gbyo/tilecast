@@ -127,9 +127,50 @@ object RuntimeBridgeProtocol {
         return null
     }
 
-    /** Capability check for the document-start bootstrap script. */
+    /** Minimal PR1 document-start adapter. It publishes the complete required
+     * host contract so the shared runtime can start even when callers use the
+     * public default [TrustedRuntimeWebView] configuration. */
     fun bootstrapScript(): String =
-        "(function(){if(window.__tilecastHostReady)return;window.__tilecastHostReady=true;})();"
+        """
+        (function(){
+          if(window.__tilecastHostReady)return;
+          window.__tilecastHostReady=true;
+          var bridgeName="$BRIDGE_NAME";
+          function post(message){
+            try{
+              var bridge=window[bridgeName];
+              if(!bridge||typeof bridge.postMessage!=="function")return false;
+              bridge.postMessage(JSON.stringify(message));
+              return true;
+            }catch(e){
+              return false;
+            }
+          }
+          window.__tilecastHostNudge=function(){};
+          var host={
+            contractVersion:$CONTRACT_VERSION,
+            info:{host:"android",hostVersion:"unknown",engine:"android-webview",engineVersion:"unknown"},
+            capabilities:{remoteWeb:null,synchronizedPlayback:false,setup:false,discovery:false},
+            subscribe:function(listener){
+              if(typeof listener!=="function")throw new TypeError("listener must be a function");
+              return function(){};
+            },
+            ready:function(ready){
+              post({type:"ready",contractVersion:$CONTRACT_VERSION,runtimeVersion:String((ready&&ready.runtimeVersion)||"unknown").slice(0,64)});
+            },
+            presentationResult:function(result){
+              post({type:"presentation-result",activation:(result&&result.activation)||null,outcome:result&&result.outcome});
+            },
+            reportEvidence:function(report){
+              post({type:"evidence",activation:(report&&report.activation)||null,itemId:(report&&report.itemId)||null,kind:report&&report.kind,zoneId:(report&&report.zoneId)||null});
+            },
+            reportPlaybackError:function(report){
+              post({type:"playback-error",activation:(report&&report.activation)||null,itemId:(report&&report.itemId)||null,message:String((report&&report.message)||"").slice(0,240)});
+            }
+          };
+          Object.defineProperty(window,"$HOST_GLOBAL",{value:Object.freeze(host),writable:false,configurable:false});
+        })();
+        """.trimIndent()
 
     /** Numeric-only nudge evaluated in the page to pull host state. */
     fun nudgeJs(stateGeneration: Long): String =
