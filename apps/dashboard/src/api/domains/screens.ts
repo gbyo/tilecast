@@ -222,14 +222,35 @@ export function revokeScreen(
   });
 }
 
+/** Wire shape of a player command from the generated contract. */
+export type WirePlayerCommand = components["schemas"]["PlayerCommand"];
+
+/**
+ * The server sends explicit null for command legs that have not happened
+ * yet; the Studio view models those as absent.
+ */
+export function normalizePlayerCommand(wire: WirePlayerCommand): PlayerCommand {
+  return {
+    ...wire,
+    payload: wire.payload ?? {},
+    deliveredAt: wire.deliveredAt ?? undefined,
+    acknowledgedAt: wire.acknowledgedAt ?? undefined,
+    completedAt: wire.completedAt ?? undefined,
+    resultCode: wire.resultCode ?? undefined,
+    resultMessage: wire.resultMessage ?? undefined,
+  };
+}
+
 export function listScreenCommands(id: string): Promise<{
   items: PlayerCommand[];
   total: number;
 }> {
-  return apiGet<
-    "/api/v1/screens/{id}/commands",
-    { items: PlayerCommand[]; total: number }
-  >("/api/v1/screens/{id}/commands", { params: { path: { id } } });
+  return apiGet("/api/v1/screens/{id}/commands", {
+    params: { path: { id } },
+  }).then((result) => ({
+    ...result,
+    items: result.items.map(normalizePlayerCommand),
+  }));
 }
 
 export function createScreenCommand(
@@ -238,10 +259,7 @@ export function createScreenCommand(
   payload: Record<string, unknown>,
   csrfToken: string,
 ): Promise<{ id: string; state: string; expiresAt: string }> {
-  return apiPost<
-    "/api/v1/screens/{id}/commands",
-    { id: string; state: string; expiresAt: string }
-  >("/api/v1/screens/{id}/commands", {
+  return apiPost("/api/v1/screens/{id}/commands", {
     params: { path: { id } },
     body: { type, payload },
     csrfToken,
@@ -253,10 +271,7 @@ export function cancelScreenCommand(
   commandId: string,
   csrfToken: string,
 ): Promise<{ id: string; state: string }> {
-  return apiPost<
-    "/api/v1/screens/{id}/commands/{commandId}/cancel",
-    { id: string; state: string }
-  >("/api/v1/screens/{id}/commands/{commandId}/cancel", {
+  return apiPost("/api/v1/screens/{id}/commands/{commandId}/cancel", {
     params: { path: { id: screenId, commandId } },
     csrfToken,
   });
