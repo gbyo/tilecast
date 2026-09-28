@@ -2451,10 +2451,7 @@ paths:
         group. Requires an Owner or Administrator with the write scope.
         Cookie-authenticated unsafe requests require X-CSRF-Token.
       parameters:
-        - in: header
-          name: X-CSRF-Token
-          required: true
-          schema: { type: string }
+        - { $ref: "#/components/parameters/CSRFToken" }
       requestBody:
         required: true
         content:
@@ -2465,11 +2462,22 @@ paths:
               properties:
                 targetType: { type: string, enum: [screen, group] }
                 targetId: { type: string, format: uuid }
-                durationMinutes: { type: integer, enum: [15, 30, 60] }
+                durationMinutes:
+                  type: integer
+                  enum: [0, 15, 30, 60]
+                  description: Zero runs until stopped.
                 transport: { type: string, enum: [auto, unicast, multicast] }
                 audioMode: { type: string, enum: [gateway_only, none] }
       responses:
-        "202": { description: AirPlay session accepted }
+        "202":
+          description: AirPlay session accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/AirplaySession" }
         "400": { description: Invalid request body }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role or screen scope }
@@ -2488,7 +2496,15 @@ paths:
           required: true
           schema: { type: string, format: uuid }
       responses:
-        "200": { description: AirPlay session }
+        "200":
+          description: AirPlay session
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/AirplaySession" }
         "401": { description: Dashboard authentication required }
         "403": { description: Screen scope forbids this session }
         "404": { description: AirPlay session not found }
@@ -2504,10 +2520,7 @@ paths:
           name: id
           required: true
           schema: { type: string, format: uuid }
-        - in: header
-          name: X-CSRF-Token
-          required: true
-          schema: { type: string }
+        - { $ref: "#/components/parameters/CSRFToken" }
       requestBody:
         required: true
         content:
@@ -2517,7 +2530,15 @@ paths:
               properties:
                 reason: { type: string, maxLength: 120 }
       responses:
-        "200": { description: AirPlay session stopped }
+        "200":
+          description: AirPlay session stopped
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/AirplaySession" }
         "400": { description: Invalid request body }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role or screen scope }
@@ -7079,6 +7100,82 @@ components:
       name: tilecast_session
       description: Enrolled dashboard session cookie
   schemas:
+    AirplaySessionScreenState:
+      type: object
+      additionalProperties: false
+      required: [screenId, screenName, role, state, lastUpdatedAt]
+      properties:
+        screenId: { type: string, format: uuid }
+        screenName: { type: string }
+        role: { type: string }
+        state: { type: string }
+        lastUpdatedAt: { type: string, format: date-time }
+        failureCode: { type: string }
+        failureMessage: { type: string }
+        presentationNetworkState: { type: string }
+    AirplaySession:
+      type: object
+      additionalProperties: false
+      description: >-
+        Temporary AirPlay Present session. The PIN appears only while the
+        session is preparing, waiting, or active, and only when the
+        server issued one. Null audio and network ids mean no audio
+        screen and no Presentation Network, respectively.
+      required:
+        [
+          id,
+          provider,
+          status,
+          targetType,
+          targetId,
+          gatewayScreenId,
+          audioScreenId,
+          receiverName,
+          expiresAt,
+          createdAt,
+          endReason,
+          transport,
+          videoProfile,
+          audioMode,
+          presentationNetworkId,
+          presentationNetworkName,
+          screenCount,
+          readyCount,
+          connectedCount,
+          failedCount,
+          screens,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        provider: { type: string, enum: [airplay] }
+        status:
+          {
+            type: string,
+            enum:
+              [preparing, waiting, active, stopping, ended, expired, failed],
+          }
+        targetType: { type: string, enum: [screen, group] }
+        targetId: { type: string, format: uuid }
+        gatewayScreenId: { type: string, format: uuid }
+        audioScreenId: { type: [string, "null"], format: uuid }
+        receiverName: { type: string }
+        pin: { type: string }
+        expiresAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+        endedAt: { type: [string, "null"], format: date-time }
+        endReason: { type: string }
+        transport: { type: string, enum: [auto, unicast, multicast] }
+        videoProfile: { type: string }
+        audioMode: { type: string, enum: [gateway_only, none] }
+        presentationNetworkId: { type: [string, "null"], format: uuid }
+        presentationNetworkName: { type: string }
+        screenCount: { type: integer, minimum: 0 }
+        readyCount: { type: integer, minimum: 0 }
+        connectedCount: { type: integer, minimum: 0 }
+        failedCount: { type: integer, minimum: 0 }
+        screens:
+          type: array
+          items: { $ref: "#/components/schemas/AirplaySessionScreenState" }
     IntegrationScope:
       type: string
       enum: [data_source:write, activity:read]

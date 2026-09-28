@@ -18,6 +18,111 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for AirplaySessionAudioMode.
+const (
+	AirplaySessionAudioModeGatewayOnly AirplaySessionAudioMode = "gateway_only"
+	AirplaySessionAudioModeNone        AirplaySessionAudioMode = "none"
+)
+
+// Valid indicates whether the value is a known member of the AirplaySessionAudioMode enum.
+func (e AirplaySessionAudioMode) Valid() bool {
+	switch e {
+	case AirplaySessionAudioModeGatewayOnly:
+		return true
+	case AirplaySessionAudioModeNone:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AirplaySessionProvider.
+const (
+	Airplay AirplaySessionProvider = "airplay"
+)
+
+// Valid indicates whether the value is a known member of the AirplaySessionProvider enum.
+func (e AirplaySessionProvider) Valid() bool {
+	switch e {
+	case Airplay:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AirplaySessionStatus.
+const (
+	AirplaySessionStatusActive    AirplaySessionStatus = "active"
+	AirplaySessionStatusEnded     AirplaySessionStatus = "ended"
+	AirplaySessionStatusExpired   AirplaySessionStatus = "expired"
+	AirplaySessionStatusFailed    AirplaySessionStatus = "failed"
+	AirplaySessionStatusPreparing AirplaySessionStatus = "preparing"
+	AirplaySessionStatusStopping  AirplaySessionStatus = "stopping"
+	AirplaySessionStatusWaiting   AirplaySessionStatus = "waiting"
+)
+
+// Valid indicates whether the value is a known member of the AirplaySessionStatus enum.
+func (e AirplaySessionStatus) Valid() bool {
+	switch e {
+	case AirplaySessionStatusActive:
+		return true
+	case AirplaySessionStatusEnded:
+		return true
+	case AirplaySessionStatusExpired:
+		return true
+	case AirplaySessionStatusFailed:
+		return true
+	case AirplaySessionStatusPreparing:
+		return true
+	case AirplaySessionStatusStopping:
+		return true
+	case AirplaySessionStatusWaiting:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AirplaySessionTargetType.
+const (
+	AirplaySessionTargetTypeGroup  AirplaySessionTargetType = "group"
+	AirplaySessionTargetTypeScreen AirplaySessionTargetType = "screen"
+)
+
+// Valid indicates whether the value is a known member of the AirplaySessionTargetType enum.
+func (e AirplaySessionTargetType) Valid() bool {
+	switch e {
+	case AirplaySessionTargetTypeGroup:
+		return true
+	case AirplaySessionTargetTypeScreen:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AirplaySessionTransport.
+const (
+	AirplaySessionTransportAuto      AirplaySessionTransport = "auto"
+	AirplaySessionTransportMulticast AirplaySessionTransport = "multicast"
+	AirplaySessionTransportUnicast   AirplaySessionTransport = "unicast"
+)
+
+// Valid indicates whether the value is a known member of the AirplaySessionTransport enum.
+func (e AirplaySessionTransport) Valid() bool {
+	switch e {
+	case AirplaySessionTransportAuto:
+		return true
+	case AirplaySessionTransportMulticast:
+		return true
+	case AirplaySessionTransportUnicast:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AssetStatus.
 const (
 	AssetStatusDeleted    AssetStatus = "deleted"
@@ -2942,6 +3047,7 @@ func (e CreateAirplaySessionJSONBodyAudioMode) Valid() bool {
 
 // Defines values for CreateAirplaySessionJSONBodyDurationMinutes.
 const (
+	CreateAirplaySessionJSONBodyDurationMinutesN0  CreateAirplaySessionJSONBodyDurationMinutes = 0
 	CreateAirplaySessionJSONBodyDurationMinutesN15 CreateAirplaySessionJSONBodyDurationMinutes = 15
 	CreateAirplaySessionJSONBodyDurationMinutesN30 CreateAirplaySessionJSONBodyDurationMinutes = 30
 	CreateAirplaySessionJSONBodyDurationMinutesN60 CreateAirplaySessionJSONBodyDurationMinutes = 60
@@ -2950,6 +3056,8 @@ const (
 // Valid indicates whether the value is a known member of the CreateAirplaySessionJSONBodyDurationMinutes enum.
 func (e CreateAirplaySessionJSONBodyDurationMinutes) Valid() bool {
 	switch e {
+	case CreateAirplaySessionJSONBodyDurationMinutesN0:
+		return true
 	case CreateAirplaySessionJSONBodyDurationMinutesN15:
 		return true
 	case CreateAirplaySessionJSONBodyDurationMinutesN30:
@@ -3439,6 +3547,60 @@ func (e UpdateUserJSONBodyRole) Valid() bool {
 	default:
 		return false
 	}
+}
+
+// AirplaySession Temporary AirPlay Present session. The PIN appears only while the session is preparing, waiting, or active, and only when the server issued one. Null audio and network ids mean no audio screen and no Presentation Network, respectively.
+type AirplaySession struct {
+	AudioMode               AirplaySessionAudioMode     `json:"audioMode"`
+	AudioScreenId           *openapi_types.UUID         `json:"audioScreenId"`
+	ConnectedCount          int                         `json:"connectedCount"`
+	CreatedAt               time.Time                   `json:"createdAt"`
+	EndReason               string                      `json:"endReason"`
+	EndedAt                 *time.Time                  `json:"endedAt,omitempty"`
+	ExpiresAt               time.Time                   `json:"expiresAt"`
+	FailedCount             int                         `json:"failedCount"`
+	GatewayScreenId         openapi_types.UUID          `json:"gatewayScreenId"`
+	Id                      openapi_types.UUID          `json:"id"`
+	Pin                     *string                     `json:"pin,omitempty"`
+	PresentationNetworkId   *openapi_types.UUID         `json:"presentationNetworkId"`
+	PresentationNetworkName string                      `json:"presentationNetworkName"`
+	Provider                AirplaySessionProvider      `json:"provider"`
+	ReadyCount              int                         `json:"readyCount"`
+	ReceiverName            string                      `json:"receiverName"`
+	ScreenCount             int                         `json:"screenCount"`
+	Screens                 []AirplaySessionScreenState `json:"screens"`
+	Status                  AirplaySessionStatus        `json:"status"`
+	TargetId                openapi_types.UUID          `json:"targetId"`
+	TargetType              AirplaySessionTargetType    `json:"targetType"`
+	Transport               AirplaySessionTransport     `json:"transport"`
+	VideoProfile            string                      `json:"videoProfile"`
+}
+
+// AirplaySessionAudioMode defines model for AirplaySession.AudioMode.
+type AirplaySessionAudioMode string
+
+// AirplaySessionProvider defines model for AirplaySession.Provider.
+type AirplaySessionProvider string
+
+// AirplaySessionStatus defines model for AirplaySession.Status.
+type AirplaySessionStatus string
+
+// AirplaySessionTargetType defines model for AirplaySession.TargetType.
+type AirplaySessionTargetType string
+
+// AirplaySessionTransport defines model for AirplaySession.Transport.
+type AirplaySessionTransport string
+
+// AirplaySessionScreenState defines model for AirplaySessionScreenState.
+type AirplaySessionScreenState struct {
+	FailureCode              *string            `json:"failureCode,omitempty"`
+	FailureMessage           *string            `json:"failureMessage,omitempty"`
+	LastUpdatedAt            time.Time          `json:"lastUpdatedAt"`
+	PresentationNetworkState *string            `json:"presentationNetworkState,omitempty"`
+	Role                     string             `json:"role"`
+	ScreenId                 openapi_types.UUID `json:"screenId"`
+	ScreenName               string             `json:"screenName"`
+	State                    string             `json:"state"`
 }
 
 // Asset defines model for Asset.
@@ -6520,7 +6682,9 @@ type GetActivityUptimeParamsWindow string
 
 // CreateAirplaySessionJSONBody defines parameters for CreateAirplaySession.
 type CreateAirplaySessionJSONBody struct {
-	AudioMode       *CreateAirplaySessionJSONBodyAudioMode       `json:"audioMode,omitempty"`
+	AudioMode *CreateAirplaySessionJSONBodyAudioMode `json:"audioMode,omitempty"`
+
+	// DurationMinutes Zero runs until stopped.
 	DurationMinutes *CreateAirplaySessionJSONBodyDurationMinutes `json:"durationMinutes,omitempty"`
 	TargetId        openapi_types.UUID                           `json:"targetId"`
 	TargetType      CreateAirplaySessionJSONBodyTargetType       `json:"targetType"`
@@ -6529,7 +6693,8 @@ type CreateAirplaySessionJSONBody struct {
 
 // CreateAirplaySessionParams defines parameters for CreateAirplaySession.
 type CreateAirplaySessionParams struct {
-	XCSRFToken string `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // CreateAirplaySessionJSONBodyAudioMode defines parameters for CreateAirplaySession.
@@ -6551,7 +6716,8 @@ type StopAirplaySessionJSONBody struct {
 
 // StopAirplaySessionParams defines parameters for StopAirplaySession.
 type StopAirplaySessionParams struct {
-	XCSRFToken string `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // ListNwsZonesParams defines parameters for ListNwsZones.
@@ -20336,14 +20502,16 @@ func NewCreateAirplaySessionRequestWithBody(server string, params *CreateAirplay
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -20430,14 +20598,16 @@ func NewStopAirplaySessionRequestWithBody(server string, id openapi_types.UUID, 
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -39935,6 +40105,19 @@ func (r GetActivityUptimeResponse) ContentType() string {
 type CreateAirplaySessionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *struct {
+		// Data Temporary AirPlay Present session. The PIN appears only while the session is preparing, waiting, or active, and only when the server issued one. Null audio and network ids mean no audio screen and no Presentation Network, respectively.
+		Data AirplaySession `json:"data"`
+	}
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r CreateAirplaySessionResponse) GetJSON202() *struct {
+	// Data Temporary AirPlay Present session. The PIN appears only while the session is preparing, waiting, or active, and only when the server issued one. Null audio and network ids mean no audio screen and no Presentation Network, respectively.
+	Data AirplaySession `json:"data"`
+} {
+	return r.JSON202
 }
 
 // GetBody returns the raw response body bytes
@@ -39969,6 +40152,19 @@ func (r CreateAirplaySessionResponse) ContentType() string {
 type GetAirplaySessionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Data Temporary AirPlay Present session. The PIN appears only while the session is preparing, waiting, or active, and only when the server issued one. Null audio and network ids mean no audio screen and no Presentation Network, respectively.
+		Data AirplaySession `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetAirplaySessionResponse) GetJSON200() *struct {
+	// Data Temporary AirPlay Present session. The PIN appears only while the session is preparing, waiting, or active, and only when the server issued one. Null audio and network ids mean no audio screen and no Presentation Network, respectively.
+	Data AirplaySession `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -40003,6 +40199,19 @@ func (r GetAirplaySessionResponse) ContentType() string {
 type StopAirplaySessionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Data Temporary AirPlay Present session. The PIN appears only while the session is preparing, waiting, or active, and only when the server issued one. Null audio and network ids mean no audio screen and no Presentation Network, respectively.
+		Data AirplaySession `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r StopAirplaySessionResponse) GetJSON200() *struct {
+	// Data Temporary AirPlay Present session. The PIN appears only while the session is preparing, waiting, or active, and only when the server issued one. Null audio and network ids mean no audio screen and no Presentation Network, respectively.
+	Data AirplaySession `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -61097,6 +61306,34 @@ func ParseCreateAirplaySessionResponse(rsp *http.Response) (*CreateAirplaySessio
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest struct {
+			// Data Temporary AirPlay Present session. The PIN appears only while the session is preparing, waiting, or active, and only when the server issued one. Null audio and network ids mean no audio screen and no Presentation Network, respectively.
+			Data AirplaySession `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -61113,6 +61350,28 @@ func ParseGetAirplaySessionResponse(rsp *http.Response) (*GetAirplaySessionRespo
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Data Temporary AirPlay Present session. The PIN appears only while the session is preparing, waiting, or active, and only when the server issued one. Null audio and network ids mean no audio screen and no Presentation Network, respectively.
+			Data AirplaySession `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -61127,6 +61386,34 @@ func ParseStopAirplaySessionResponse(rsp *http.Response) (*StopAirplaySessionRes
 	response := &StopAirplaySessionResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Data Temporary AirPlay Present session. The PIN appears only while the session is preparing, waiting, or active, and only when the server issued one. Null audio and network ids mean no audio screen and no Presentation Network, respectively.
+			Data AirplaySession `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
