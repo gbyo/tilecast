@@ -16,7 +16,6 @@ import type {
   Asset,
   BulkOrganizeInput,
   CalendarConfig,
-  CalendarPreview,
   CAPAlertsSourceConfig,
   ContentCollection,
   ContentDefinitionCatalog,
@@ -30,11 +29,8 @@ import type {
   ProviderCatalog,
   SourceRefreshDiagnostics,
   StructuredInspection,
-  StructuredPreview,
   StructuredSourceConfig,
   TransitSourceConfig,
-  TypedDatasetPayload,
-  TypedRecordData,
   UploadSession,
   WeatherSourceConfig,
   WebsiteDiagnostics,
@@ -429,6 +425,15 @@ export async function getDataSourceDiagnostics(
   );
 }
 
+/**
+ * Wire shape of a provider-dependent preview from the generated contract:
+ * calendar answers CalendarPreview, manual and weather answer record
+ * data, live and record adapters answer a named-dataset payload, and feed
+ * and document sources answer a structured preview.
+ */
+export type WireDataSourcePreviewResult =
+  components["schemas"]["DataSourcePreviewResult"];
+
 export function previewDataSource(
   provider: DataSourceProvider,
   configuration:
@@ -441,13 +446,8 @@ export function previewDataSource(
     | AirQualitySourceConfig,
   csrfToken: string,
   previewDate?: string,
-): Promise<
-  StructuredPreview | CalendarPreview | TypedRecordData | TypedDatasetPayload
-> {
-  return apiPost<
-    "/api/v1/data-sources/{provider}/preview",
-    StructuredPreview | CalendarPreview | TypedRecordData | TypedDatasetPayload
-  >("/api/v1/data-sources/{provider}/preview", {
+): Promise<WireDataSourcePreviewResult> {
+  return apiPost("/api/v1/data-sources/{provider}/preview", {
     params: { path: { provider } },
     body: { configuration, previewDate },
     csrfToken,
@@ -477,11 +477,8 @@ export function inspectSavedDataSource(
 export function previewSavedDataSource(
   id: string,
   previewDate?: string,
-): Promise<StructuredPreview | CalendarPreview | TypedRecordData> {
-  return apiGet<
-    "/api/v1/data-sources/{id}/preview",
-    StructuredPreview | CalendarPreview | TypedRecordData
-  >("/api/v1/data-sources/{id}/preview", {
+): Promise<WireDataSourcePreviewResult> {
+  return apiGet("/api/v1/data-sources/{id}/preview", {
     params: {
       path: { id },
       query: previewDate === undefined ? undefined : { previewDate },
