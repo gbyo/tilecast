@@ -1,0 +1,12 @@
+{
+  "name": "Date mode",
+  "description": "Today's date as the focal point, with the weekday.",
+  "configuration": {
+    "mode": "date",
+    "timezone": "",
+    "dateFormat": "locale",
+    "foregroundColor": "#F5F7FA",
+    "backgroundColor": "#0E141B"
+  },
+  "expect": "ready"
+}

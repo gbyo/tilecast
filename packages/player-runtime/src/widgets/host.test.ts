@@ -164,7 +164,8 @@ describe("ComponentWidgetSurface", () => {
     withAdoptedStyleSheets(true);
     const { env } = environment();
     const newer = payload();
-    newer.component.version = 2;
+    // Newer than every bundled Widget version.
+    newer.component.version = 99;
     const surface = new surfaceModule.ComponentWidgetSurface(
       widgetItem(newer),
       env,

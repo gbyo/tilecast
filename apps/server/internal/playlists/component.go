@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
@@ -77,9 +78,37 @@ func (s *Service) compileWidgetComponent(provider string, raw json.RawMessage) (
 		RequiredCapabilities: map[string]int{spec.Capability(): spec.Version},
 		Component: &ComponentPresentation{
 			Type: spec.Type, Version: spec.Version, Config: config,
-			DataSources: dataSources, Media: []ComponentMediaRef{},
+			DataSources: dataSources, Media: componentMedia(definition, configuration),
 		},
 	}, nil
+}
+
+// componentMedia grants the media variants a component may display: each
+// media_asset field whose asset manifest projection resolved to a variant.
+// Projection writes the variant beside the asset under the derived key
+// (imageAssetId gives imageVariantId), and adds that variant to the
+// manifest's assets, so the Player verifies and caches it before
+// activation. An asset without a projected variant grants nothing.
+func componentMedia(definition contentdefs.WidgetDefinition, configuration map[string]any) []ComponentMediaRef {
+	media := []ComponentMediaRef{}
+	for _, field := range definition.ConfigurationSchema.Fields {
+		if field.Control != "media_asset" || !strings.HasSuffix(field.Key, "AssetId") {
+			continue
+		}
+		variantKey := strings.TrimSuffix(field.Key, "AssetId") + "VariantId"
+		if !contentdefs.DerivedConfigurationKeys[variantKey] {
+			continue
+		}
+		assetID, _ := configuration[field.Key].(string)
+		variantID, _ := configuration[variantKey].(string)
+		asset, assetErr := uuid.Parse(assetID)
+		variant, variantErr := uuid.Parse(variantID)
+		if assetErr != nil || variantErr != nil || asset == uuid.Nil || variant == uuid.Nil {
+			continue
+		}
+		media = append(media, ComponentMediaRef{AssetID: asset.String(), VariantID: variant.String()})
+	}
+	return media
 }
 
 // presentationSupported reports whether a Player that reported its
@@ -122,4 +151,30 @@ func containsString(values []string, value string) bool {
 		}
 	}
 	return false
+}
+
+// compatibilityConfiguration prepares a migrated Widget's saved
+// configuration for its compatibility presentation. A Widgets V2 component
+// reads a blank "timezone" as the organization timezone from its context,
+// but some Players that predate Widgets V2 read a blank zone as UTC. The
+// compatibility presentation therefore receives the organization timezone
+// explicitly. The saved Widget does not change.
+func (s *Service) compatibilityConfiguration(provider string, raw json.RawMessage, timezone string) json.RawMessage {
+	definition, ok := s.definitions.Widget(provider)
+	if !ok || definition.Component == nil || !definition.HasFallback() {
+		return raw
+	}
+	var configuration map[string]any
+	if json.Unmarshal(raw, &configuration) != nil {
+		return raw
+	}
+	if value, present := configuration["timezone"]; !present || value != "" {
+		return raw
+	}
+	configuration["timezone"] = timezone
+	encoded, err := json.Marshal(configuration)
+	if err != nil {
+		return raw
+	}
+	return encoded
 }

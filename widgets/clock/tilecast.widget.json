@@ -4,19 +4,81 @@
   "id": "clock",
   "version": 1,
   "name": "Clock",
-  "description": "Show live local time in a configured timezone.",
+  "description": "Show the live time, today's date, or the time in several zones.",
   "category": "Essentials",
   "icon": "clock",
   "runtime": "native",
   "configurationSchema": {
     "fields": [
       {
+        "key": "mode",
+        "label": "Show",
+        "description": "Time shows the local time. Date shows today's date. World clocks shows the time in several zones.",
+        "control": "select",
+        "default": "time",
+        "options": [
+          { "value": "time", "label": "Time" },
+          { "value": "date", "label": "Date" },
+          { "value": "world", "label": "World clocks" }
+        ],
+        "ui": { "section": "content", "order": 1, "styleCard": true }
+      },
+      {
         "key": "timezone",
         "label": "Timezone",
         "description": "Leave blank to use the organization timezone, or enter any valid IANA timezone ID.",
         "control": "timezone",
         "default": "",
-        "ui": { "section": "content", "order": 1 }
+        "ui": {
+          "section": "content",
+          "order": 2,
+          "visibleWhen": { "key": "mode", "notEquals": "world" }
+        }
+      },
+      {
+        "key": "zones",
+        "label": "Zones",
+        "description": "Up to eight zones. Leave a label blank to show the city name.",
+        "control": "repeating_group",
+        "maximumItems": 8,
+        "itemFields": [
+          {
+            "key": "label",
+            "label": "Label",
+            "control": "text",
+            "default": "",
+            "maxLength": 80
+          },
+          {
+            "key": "timezone",
+            "label": "Timezone",
+            "control": "timezone",
+            "default": ""
+          }
+        ],
+        "default": [],
+        "ui": {
+          "section": "content",
+          "order": 3,
+          "visibleWhen": { "key": "mode", "equals": "world" }
+        }
+      },
+      {
+        "key": "dateFormat",
+        "label": "Date format",
+        "control": "select",
+        "default": "locale",
+        "options": [
+          { "value": "locale", "label": "Weekday and date" },
+          { "value": "long", "label": "Date" },
+          { "value": "medium", "label": "Short date" },
+          { "value": "short", "label": "Numeric date" }
+        ],
+        "ui": {
+          "section": "content",
+          "order": 4,
+          "visibleWhen": { "key": "mode", "equals": "date" }
+        }
       },
       {
         "key": "format",
@@ -29,14 +91,22 @@
           { "value": "24", "label": "24-hour" }
         ],
         "default": "locale",
-        "ui": { "section": "content", "order": 2 }
+        "ui": {
+          "section": "content",
+          "order": 5,
+          "visibleWhen": { "key": "mode", "notEquals": "date" }
+        }
       },
       {
         "key": "showSeconds",
         "label": "Show seconds",
         "control": "boolean",
         "default": false,
-        "ui": { "section": "content", "order": 3 }
+        "ui": {
+          "section": "content",
+          "order": 6,
+          "visibleWhen": { "key": "mode", "notEquals": "date" }
+        }
       },
       {
         "key": "style",
@@ -49,7 +119,12 @@
           { "value": "analog", "label": "Analog" }
         ],
         "default": "standard",
-        "ui": { "section": "appearance", "order": 1, "styleCard": true }
+        "ui": {
+          "section": "appearance",
+          "order": 1,
+          "styleCard": true,
+          "visibleWhen": { "key": "mode", "equals": "time" }
+        }
       },
       {
         "key": "showDate",
@@ -60,7 +135,10 @@
         "ui": {
           "section": "appearance",
           "order": 2,
-          "visibleWhen": { "key": "style", "notEquals": "minimal" }
+          "visibleWhen": [
+            { "key": "mode", "notEquals": "date" },
+            { "key": "style", "notEquals": "minimal" }
+          ]
         }
       },
       {
@@ -76,11 +154,30 @@
         "control": "color",
         "default": "#F5F7FA",
         "ui": { "section": "appearance", "order": 4 }
+      },
+      {
+        "key": "textScale",
+        "label": "Text scale",
+        "control": "integer",
+        "minimum": 25,
+        "maximum": 500,
+        "ui": { "hidden": true }
+      },
+      {
+        "key": "contentPadding",
+        "label": "Content padding",
+        "control": "integer",
+        "minimum": 0,
+        "maximum": 40,
+        "ui": { "hidden": true }
       }
     ]
   },
   "defaultConfiguration": {
+    "mode": "time",
     "timezone": "",
+    "zones": [],
+    "dateFormat": "locale",
     "format": "locale",
     "showSeconds": false,
     "style": "standard",
@@ -99,21 +196,26 @@
   "deprecation": {},
   "component": {
     "type": "tilecast.clock",
-    "version": 1,
+    "version": 2,
     "tagName": "tc-widget-clock",
     "entrypoint": "./runtime/index.ts",
     "configTemplate": {
+      "mode": { "$config": "mode", "default": "time" },
       "timeZone": { "$config": "timezone", "default": "" },
       "format": { "$config": "format", "default": "locale" },
       "showSeconds": { "$config": "showSeconds", "default": false },
       "style": { "$config": "style", "default": "standard" },
       "showDate": { "$config": "showDate", "default": false },
+      "dateFormat": { "$config": "dateFormat", "default": "locale" },
+      "zones": {
+        "$config": "zones",
+        "default": []
+      },
       "background": { "$config": "backgroundColor", "default": "" },
       "foreground": { "$config": "foregroundColor", "default": "" }
     },
     "empty": "render"
   },
-  "compatibility": {
-    "fallback": "legacy"
-  }
+  "compatibility": { "fallback": "legacy" },
+  "keywords": ["time", "date", "world clock", "time zones"]
 }

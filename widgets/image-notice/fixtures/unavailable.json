@@ -1,0 +1,14 @@
+{
+  "name": "Unavailable",
+  "description": "An image the presentation does not grant is expected empty content.",
+  "configuration": {
+    "imageAssetId": "22222222-2222-4222-8222-222222222222",
+    "fit": "contain",
+    "caption": "Missing",
+    "showCaption": true,
+    "foregroundColor": "#ffffff",
+    "backgroundColor": "#000000",
+    "imageVariantId": "33333333-3333-4333-8333-333333333333"
+  },
+  "expect": "empty"
+}
