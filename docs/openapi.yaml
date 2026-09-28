@@ -1146,8 +1146,20 @@ paths:
         List a screen's snapshots. Requires an authenticated dashboard user with the read scope.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
+        - in: query
+          name: limit
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 200 }
       responses:
-        "200": { description: Screen snapshots }
+        "200":
+          description: Screen snapshots
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ScreenSnapshotList" }
         "401": { description: Dashboard authentication required }
         "403": { description: Screen scope forbids this screen }
   /api/v1/screens/{id}/snapshots/{snapshotId}/image:
@@ -2444,7 +2456,15 @@ paths:
         Read the screen's current preview session for uploading frames. Requires an authenticated player credential.
       security: [{ deviceBearer: [] }]
       responses:
-        "200": { description: Current preview session }
+        "200":
+          description: Current preview session
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PreviewSession" }
         "401": { description: Credential invalid or revoked }
   /api/v1/player/preview:
     post:
@@ -2489,7 +2509,15 @@ paths:
               properties:
                 forceCapture: { type: boolean }
       responses:
-        "200": { description: Preview session renewed }
+        "200":
+          description: Preview session renewed
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PreviewSession" }
         "400": { description: Invalid request body }
         "401": { description: Dashboard authentication required }
   /api/v1/screens/{id}/preview:
@@ -2500,7 +2528,15 @@ paths:
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses:
-        "200": { description: Latest screen preview }
+        "200":
+          description: Latest screen preview
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ScreenPreviewMetadata" }
         "401": { description: Dashboard authentication required }
   /api/v1/screens/{id}/preview/image:
     get:
@@ -2603,7 +2639,15 @@ paths:
           required: true
           schema: { type: string }
       responses:
-        "201": { description: Live stream session started }
+        "201":
+          description: Live stream session started
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/LiveStreamSession" }
         "401": { description: Dashboard authentication required }
         "403": { description: Screen scope forbids this screen }
   /api/v1/screens/{id}/live-stream/{sessionId}/renew:
@@ -2622,7 +2666,15 @@ paths:
           required: true
           schema: { type: string }
       responses:
-        "200": { description: Live stream session renewed }
+        "200":
+          description: Live stream session renewed
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/LiveStreamSession" }
         "401": { description: Dashboard authentication required }
         "403": { description: Screen scope forbids this screen }
         "404": { description: Live stream session not found }
@@ -2669,7 +2721,15 @@ paths:
         Read the screen's current live stream session, if any. Requires an authenticated player credential.
       security: [{ deviceBearer: [] }]
       responses:
-        "200": { description: Current live stream session }
+        "200":
+          description: Current live stream session
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/LiveStreamSession" }
         "401": { description: Credential invalid or revoked }
   /api/v1/airplay/sessions:
     post:
@@ -3768,7 +3828,14 @@ paths:
                 properties:
                   data: { $ref: "#/components/schemas/CatalogPlugin" }
         "200":
-          { description: Plugin was already installed; same representation }
+          description: Plugin was already installed; same representation
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/CatalogPlugin" }
         "403": { description: Owner or Administrator and CSRF token required }
         "404":
           {
@@ -4187,10 +4254,16 @@ paths:
       description: >-
         Get asset playback preview. Requires an authenticated dashboard user.
       responses:
-        {
-          "200": { description: Player-compatible image or video bytes },
-          "206": { description: Partial image or video bytes },
-        }
+        "200":
+          description: Player-compatible image or video bytes
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "206":
+          description: Partial image or video bytes
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
     head:
       operationId: headAssetPlaybackPreview
       description: >-
@@ -9933,6 +10006,83 @@ components:
         totalBytes: { type: integer, minimum: 0 }
         count: { type: integer, minimum: 0 }
         note: { type: string }
+    ScreenSnapshot:
+      type: object
+      additionalProperties: false
+      required: [id, screenId, capturedAt, width, height, fileSize, trigger]
+      properties:
+        id: { type: string, format: uuid }
+        screenId: { type: string, format: uuid }
+        capturedAt: { type: string, format: date-time }
+        width: { type: integer, minimum: 0 }
+        height: { type: integer, minimum: 0 }
+        fileSize: { type: integer, minimum: 0 }
+        playerVersion: { type: string }
+        trigger: { type: string, enum: [scheduled, manual] }
+    ScreenSnapshotList:
+      type: object
+      additionalProperties: false
+      required: [items, enabled, retentionDays, maxPerScreen, proofNote]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ScreenSnapshot" }
+        enabled: { type: boolean }
+        retentionDays: { type: integer, minimum: 0 }
+        maxPerScreen: { type: integer, minimum: 0 }
+        proofNote: { type: string }
+    PreviewSession:
+      type: object
+      additionalProperties: false
+      required: [active, captureIntervalSeconds, captureNow]
+      properties:
+        active: { type: boolean }
+        expiresAt: { type: string, format: date-time }
+        captureIntervalSeconds: { type: integer, minimum: 0 }
+        captureNow: { type: boolean }
+    ScreenPreviewMetadata:
+      type: object
+      additionalProperties: false
+      required: [screenId, status, imageAvailable, updatedAt]
+      properties:
+        screenId: { type: string, format: uuid }
+        status:
+          {
+            type: string,
+            enum: [unavailable, capture_error, available, loading],
+          }
+        leaseExpiresAt: { type: string, format: date-time }
+        capturedAt: { type: string, format: date-time }
+        playerVersion: { type: string }
+        width: { type: integer, minimum: 0 }
+        height: { type: integer, minimum: 0 }
+        fileSize: { type: integer, minimum: 0 }
+        captureFailureStatus: { type: string }
+        imageAvailable: { type: boolean }
+        updatedAt: { type: string, format: date-time }
+    LiveStreamSession:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          screenId,
+          active,
+          expiresAt,
+          frameIntervalMillis,
+          maxWidth,
+          maxHeight,
+          maxFrameBytes,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        screenId: { type: string, format: uuid }
+        active: { type: boolean }
+        expiresAt: { type: string, format: date-time }
+        frameIntervalMillis: { type: integer, minimum: 0 }
+        maxWidth: { type: integer, minimum: 0 }
+        maxHeight: { type: integer, minimum: 0 }
+        maxFrameBytes: { type: integer, minimum: 0 }
     SystemStatus:
       type: object
       additionalProperties: false

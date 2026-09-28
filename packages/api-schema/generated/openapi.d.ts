@@ -6544,6 +6544,65 @@ export interface components {
       count: number;
       note: string;
     };
+    ScreenSnapshot: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      screenId: string;
+      /** Format: date-time */
+      capturedAt: string;
+      width: number;
+      height: number;
+      fileSize: number;
+      playerVersion?: string;
+      /** @enum {string} */
+      trigger: "scheduled" | "manual";
+    };
+    ScreenSnapshotList: {
+      items: components["schemas"]["ScreenSnapshot"][];
+      enabled: boolean;
+      retentionDays: number;
+      maxPerScreen: number;
+      proofNote: string;
+    };
+    PreviewSession: {
+      active: boolean;
+      /** Format: date-time */
+      expiresAt?: string;
+      captureIntervalSeconds: number;
+      captureNow: boolean;
+    };
+    ScreenPreviewMetadata: {
+      /** Format: uuid */
+      screenId: string;
+      /** @enum {string} */
+      status: "unavailable" | "capture_error" | "available" | "loading";
+      /** Format: date-time */
+      leaseExpiresAt?: string;
+      /** Format: date-time */
+      capturedAt?: string;
+      playerVersion?: string;
+      width?: number;
+      height?: number;
+      fileSize?: number;
+      captureFailureStatus?: string;
+      imageAvailable: boolean;
+      /** Format: date-time */
+      updatedAt: string;
+    };
+    LiveStreamSession: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      screenId: string;
+      active: boolean;
+      /** Format: date-time */
+      expiresAt: string;
+      frameIntervalMillis: number;
+      maxWidth: number;
+      maxHeight: number;
+      maxFrameBytes: number;
+    };
     SystemStatus: {
       tilecastVersion: string;
       buildCommit: string;
@@ -12229,7 +12288,9 @@ export interface operations {
   };
   listScreenSnapshots: {
     parameters: {
-      query?: never;
+      query?: {
+        limit?: number;
+      };
       header?: never;
       path: {
         id: components["parameters"]["ResourceID"];
@@ -12243,7 +12304,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ScreenSnapshotList"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -14421,7 +14486,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["PreviewSession"];
+          };
+        };
       };
       /** @description Credential invalid or revoked */
       401: {
@@ -14513,7 +14582,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["PreviewSession"];
+          };
+        };
       };
       /** @description Invalid request body */
       400: {
@@ -14547,7 +14620,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ScreenPreviewMetadata"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -14796,7 +14873,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["LiveStreamSession"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -14833,7 +14914,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["LiveStreamSession"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -14958,7 +15043,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["LiveStreamSession"];
+          };
+        };
       };
       /** @description Credential invalid or revoked */
       401: {
@@ -16658,7 +16747,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["CatalogPlugin"];
+          };
+        };
       };
       /** @description Plugin installed by this request */
       201: {
@@ -17337,14 +17430,18 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/octet-stream": string;
+        };
       };
       /** @description Partial image or video bytes */
       206: {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/octet-stream": string;
+        };
       };
     };
   };
