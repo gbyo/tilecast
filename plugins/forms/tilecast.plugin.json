@@ -1,0 +1,26 @@
+{
+  "$schema": "../../packages/plugin-sdk/schema/tilecast-plugin.schema.json",
+  "apiVersion": 1,
+  "id": "forms",
+  "definitionVersion": 1,
+  "name": "Forms",
+  "description": "Collect submissions, run approval workflows, and publish approved records to Widgets.",
+  "category": "Workflow",
+  "icon": "clipboard-list",
+  "maintainers": ["@gbyo"],
+  "instanceNoun": { "singular": "form", "plural": "forms" },
+  "uses": ["Form Data Sources", "Approval workflows", "Record attachments"],
+  "capabilities": { "backgroundWorkers": true },
+  "server": { "entrypoint": "./plugin.go" },
+  "api": {
+    "basePaths": ["/forms", "/data-sources", "/approvals"],
+    "openapi": "./api/openapi.yaml"
+  },
+  "migrations": "./migrations",
+  "studio": {
+    "route": "/plugins/forms",
+    "entrypoint": "./studio/index.tsx",
+    "additionalRoutes": ["/forms", "/approvals"]
+  },
+  "docs": { "reference": "docs/plugins.md#forms" }
+}

@@ -11,7 +11,7 @@ Create a token with **Read fleet health** in **Settings** > **Integration tokens
 
 Request `GET /api/v1/integration/activity/fleet`:
 
-```sh
+```sh title="Read fleet health" "Authorization: Bearer $TILECAST_INTEGRATION_TOKEN"
 curl --fail-with-body "$TILECAST_URL/api/v1/integration/activity/fleet" \
   -H "Authorization: Bearer $TILECAST_INTEGRATION_TOKEN"
 ```

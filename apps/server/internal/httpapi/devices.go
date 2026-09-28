@@ -10,10 +10,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/playlists"
-	"github.com/tilecast/tilecast/apps/server/internal/plugins"
 )
 
 const deviceContextKey contextKey = "device"
@@ -158,40 +156,7 @@ func (s *server) playerHeartbeat(w http.ResponseWriter, r *http.Request) {
 	if len(dropped) > 0 {
 		data["ignoredFields"] = dropped
 	}
-	// Noise Meter history is acknowledged explicitly. A Player keeps its
-	// buckets until it has seen this count, so a heartbeat that never arrived,
-	// timed out, or failed leaves the batch queued for the next one instead of
-	// silently losing a room's history.
-	if accepted, ok := s.recordNoiseHistory(r, principal.ScreenID, body.NoiseMeter); ok {
-		data["noiseHistory"] = map[string]any{"accepted": accepted}
-	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": data})
-}
-
-// recordNoiseHistory stores the optional history section and reports how many
-// records the server has taken responsibility for. It returns false when
-// nothing was submitted or when the write failed, which is what makes the
-// Player retry the same batch rather than drop it.
-func (s *server) recordNoiseHistory(r *http.Request, screenID uuid.UUID, report *devices.NoiseMeterReport) (int, bool) {
-	if report == nil || len(report.PendingHistory) == 0 || s.plugins == nil {
-		return 0, false
-	}
-	records := make([]plugins.NoiseHistoryRecord, 0, len(report.PendingHistory))
-	for _, bucket := range report.PendingHistory {
-		records = append(records, plugins.NoiseHistoryRecord{
-			StartedAt: bucket.StartedAt, AverageLevel: bucket.AverageLevel, PeakLevel: bucket.PeakLevel,
-			MonitoredMS: bucket.MonitoredMS, WarningMS: bucket.WarningMS, LoudMS: bucket.LoudMS,
-			TriggerCount: bucket.TriggerCount,
-		})
-	}
-	accepted, err := s.plugins.RecordNoiseHistory(r.Context(), screenID, records)
-	if err != nil {
-		// An oversized or unstorable batch is logged rather than failing the
-		// heartbeat: playback status and liveness do not depend on it.
-		s.logger.Warn("noise meter history not stored", "screen_id", screenID, "error", err)
-		return 0, false
-	}
-	return accepted, true
 }
 
 // playerLiveness deliberately updates only the authenticated contact time.
@@ -254,7 +219,12 @@ func (s *server) approvePairing(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	screen, err := s.devices.ApprovePairingWithOptions(r.Context(), id, user.ID, devices.PairingApproval{
 		Name: body.Name, LocationID: body.LocationID, RoomName: body.RoomName, RoomNumber: body.RoomNumber,
 		Description: body.Description, ReplaceExistingCredential: body.ReplaceExistingCredential,
@@ -279,7 +249,12 @@ func (s *server) rejectPairing(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	if err := s.devices.RejectPairing(r.Context(), id, user.ID, body.Reason); err != nil {
 		s.writeDeviceError(w, r, err)
 		return
@@ -290,8 +265,12 @@ func (s *server) rejectPairing(w http.ResponseWriter, r *http.Request) {
 func (s *server) listScreens(w http.ResponseWriter, r *http.Request) {
 	// A scoped account sees only its own screens here. The same predicate backs
 	// the per-screen authorization, so the list and what it can act on agree.
-	session, _ := r.Context().Value(sessionContextKey).(auth.Session)
-	screens, err := s.devices.ListScreensForUser(r.Context(), session.User.ID, session.User.Role)
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	screens, err := s.devices.ListScreensForUser(r.Context(), principal.User.ID, principal.User.Role)
 	if err != nil {
 		s.internalError(w, r, err)
 		return
@@ -335,7 +314,12 @@ func (s *server) updateScreen(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	screen, err := s.devices.UpdateScreen(r.Context(), id, user.ID, body.Name, body.LocationID, body.RoomName, body.RoomNumber, body.Description)
 	if err != nil {
 		s.writeDeviceError(w, r, err)
@@ -354,7 +338,12 @@ func (s *server) setScreenEnabled(w http.ResponseWriter, r *http.Request, enable
 	if !ok {
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	if err := s.devices.SetEnabled(r.Context(), id, user.ID, enabled); err != nil {
 		s.writeDeviceError(w, r, err)
 		return
@@ -374,7 +363,12 @@ func (s *server) revokeScreen(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	if err := s.devices.Revoke(r.Context(), id, user.ID, body.Reason); err != nil {
 		s.writeDeviceError(w, r, err)
 		return

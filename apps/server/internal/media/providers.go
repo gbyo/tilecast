@@ -3,6 +3,16 @@ package media
 // The provider registry is a closed, code-only catalogue. Each provider declares a role
 // (widget or data_source) and its capabilities. Unknown providers, arbitrary configuration
 // keys, scripts, HTML templates, and executable expressions are rejected by the normalizers.
+//
+// Plugin-owned Data Source providers are contributed at startup instead of being listed
+// here; see Service.SetDataSourceProviders.
+
+import (
+	"maps"
+	"slices"
+
+	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
+)
 
 type ProviderRole string
 
@@ -43,6 +53,7 @@ var dataSourceProviderRegistry = map[string]ProviderDescriptor{
 	"calendar":    {ID: "calendar", Role: RoleDataSource, ProducesFields: true, RecordBased: true, Temporal: true},
 	"rss":         {ID: "rss", Role: RoleDataSource, ProducesFields: true, SupportsDateSelection: true, RecordBased: true},
 	"atom":        {ID: "atom", Role: RoleDataSource, ProducesFields: true, SupportsDateSelection: true, RecordBased: true},
+	"feed":        {ID: "feed", Role: RoleDataSource, ProducesFields: true, SupportsDateSelection: true, RecordBased: true},
 	"json":        {ID: "json", Role: RoleDataSource, ProducesFields: true, SupportsDateSelection: true, RecordBased: true, Temporal: true, Numeric: true},
 	"csv":         {ID: "csv", Role: RoleDataSource, ProducesFields: true, SupportsDateSelection: true, RecordBased: true, Temporal: true, Numeric: true},
 	"manual":      {ID: "manual", Role: RoleDataSource, ProducesFields: true, SupportsDateSelection: true, RecordBased: true, Temporal: true, Numeric: true},
@@ -50,7 +61,17 @@ var dataSourceProviderRegistry = map[string]ProviderDescriptor{
 	"transit":     {ID: "transit", Role: RoleDataSource, ProducesFields: true, RecordBased: true, Temporal: true},
 	"cap_alerts":  {ID: "cap_alerts", Role: RoleDataSource, ProducesFields: true, RecordBased: true, Temporal: true},
 	"air_quality": {ID: "air_quality", Role: RoleDataSource, ProducesFields: true, RecordBased: true, Temporal: true, Numeric: true},
-	"form":        {ID: "form", Role: RoleDataSource, ProducesFields: true, SupportsDateSelection: true, RecordBased: true, Temporal: true, Numeric: true},
+}
+
+// Plugin-owned providers overlay the static table above. Their traits come
+// from the registered contribution; core never names them here.
+func contributedDescriptor(provider plugin.DataSourceProvider) ProviderDescriptor {
+	traits := provider.Traits()
+	return ProviderDescriptor{
+		ID: provider.ProviderID(), Role: RoleDataSource,
+		ProducesFields: traits.ProducesFields, SupportsDateSelection: traits.SupportsDateSelection,
+		RecordBased: traits.RecordBased, Temporal: traits.Temporal, Numeric: traits.Numeric,
+	}
 }
 
 var widgetProviderRegistry = map[string]ProviderDescriptor{
@@ -79,6 +100,15 @@ var widgetProviderRegistry = map[string]ProviderDescriptor{
 	"world_clock": {ID: "world_clock", Role: RoleWidget, Renderable: true},
 }
 
+// IsStaticDataSourceProvider reports whether id is a built-in core Data
+// Source provider. Plugin contributions must not reuse one: a contributed
+// provider overlays the static table, so a collision would silently redefine
+// core behavior. The plugin host enforces this at startup.
+func IsStaticDataSourceProvider(id string) bool {
+	_, ok := dataSourceProviderRegistry[id]
+	return ok
+}
+
 func lookupProvider(id string) (ProviderDescriptor, bool) {
 	if descriptor, ok := widgetProviderRegistry[id]; ok {
 		return descriptor, true
@@ -98,13 +128,14 @@ func isDataSourceProvider(id string) bool {
 }
 
 // dataSourceProviderAccepted reports whether a data-driven widget accepts a given
-// Data Source provider.
-func dataSourceProviderAccepted(widgetProvider, dataSourceProvider string) bool {
+// Data Source provider. Plugin-owned providers match on their contributed
+// traits; everything else matches on the static table.
+func (s *Service) dataSourceProviderAccepted(widgetProvider, dataSourceProvider string) bool {
 	widget, ok := widgetProviderRegistry[widgetProvider]
 	if !ok {
 		return false
 	}
-	source, ok := dataSourceProviderRegistry[dataSourceProvider]
+	source, ok := s.effectiveDataSourceDescriptor(dataSourceProvider)
 	if !ok {
 		return false
 	}
@@ -128,8 +159,26 @@ func dataSourceProviderAccepted(widgetProvider, dataSourceProvider string) bool 
 	return widget.RecordBased && source.RecordBased
 }
 
-func ProviderCatalog() []ProviderCatalogEntry {
-	result := make([]ProviderCatalogEntry, 0, len(widgetProviderRegistry)+len(dataSourceProviderRegistry))
+// effectiveDataSourceDescriptor resolves a provider's compatibility traits:
+// a registered plugin contribution first, the static table otherwise.
+func (s *Service) effectiveDataSourceDescriptor(id string) (ProviderDescriptor, bool) {
+	if provider, ok := s.contributedProvider(id); ok {
+		return contributedDescriptor(provider), true
+	}
+	descriptor, ok := dataSourceProviderRegistry[id]
+	return descriptor, ok
+}
+
+// ProviderCatalog lists every Widget and Data Source provider Studio may
+// offer. Plugin-owned providers append after the built-in sources in
+// registration order, carrying their canonical authoring surface in the UI
+// hints so generic Studio code can redirect without naming the provider.
+func (s *Service) ProviderCatalog() []ProviderCatalogEntry {
+	contributed := map[string]plugin.DataSourceProvider{}
+	if s != nil {
+		contributed = s.contributed
+	}
+	result := make([]ProviderCatalogEntry, 0, len(widgetProviderRegistry)+len(dataSourceProviderRegistry)+len(contributed))
 	for _, id := range []string{"website", "youtube", "clock", "date", "qrcode", "countdown", "world_clock", "ticker", "menu", "list", "table", "agenda", "metric", "cards", "weather", "spotlight", "stat_grid", "chart", "progress", "timeline"} {
 		descriptor := widgetProviderRegistry[id]
 		label, group, description := providerCopy(id, RoleWidget)
@@ -147,12 +196,30 @@ func ProviderCatalog() []ProviderCatalogEntry {
 			RequiredCapabilities: required, UIHints: map[string]string{"editor": id, "preview": "compiled"},
 		})
 	}
-	for _, id := range []string{"calendar", "rss", "atom", "json", "csv", "manual", "weather", "transit", "cap_alerts", "air_quality", "form"} {
+	for _, id := range []string{"calendar", "rss", "atom", "feed", "json", "csv", "manual", "weather", "transit", "cap_alerts", "air_quality"} {
 		descriptor := dataSourceProviderRegistry[id]
 		label, group, description := providerCopy(id, RoleDataSource)
 		result = append(result, ProviderCatalogEntry{
 			ID: id, Role: RoleDataSource, Label: label, Group: group, Description: description,
 			Capabilities: descriptorCapabilities(descriptor), UIHints: map[string]string{"editor": id, "preview": "records"},
+		})
+	}
+	for _, id := range slices.Sorted(maps.Keys(contributed)) {
+		provider := contributed[id]
+		label, group, description := provider.Catalog()
+		hints := map[string]string{"editor": id, "preview": "records"}
+		if editor := provider.CanonicalEditor(); editor != "" {
+			hints["canonicalEditor"] = editor
+		}
+		if creator := provider.CanonicalCreator(); creator != "" {
+			hints["canonicalCreator"] = creator
+		}
+		if provider.HiddenFromGallery() {
+			hints["gallery"] = "hidden"
+		}
+		result = append(result, ProviderCatalogEntry{
+			ID: id, Role: RoleDataSource, Label: label, Group: group, Description: description,
+			Capabilities: descriptorCapabilities(contributedDescriptor(provider)), UIHints: hints,
 		})
 	}
 	return result
@@ -190,13 +257,13 @@ func providerCopy(id string, role ProviderRole) (string, string, string) {
 		"calendar":    {"Calendar", "Feeds", "Project public calendar events into typed records."},
 		"rss":         {"RSS", "Feeds", "Project a public RSS feed into typed records."},
 		"atom":        {"Atom", "Feeds", "Project a public Atom feed into typed records."},
+		"feed":        {"RSS / Atom Feed", "Feeds", "Project a public RSS or Atom feed into typed records."},
 		"json":        {"JSON", "Structured", "Map public JSON into typed records."},
 		"csv":         {"CSV", "Structured", "Map uploaded or public CSV into typed records."},
 		"manual":      {"Manual Table", "Structured", "Maintain a bounded typed table in Studio."},
 		"transit":     {"Transit", "Live Information", "Join public GTFS schedules with realtime departures and alerts."},
 		"cap_alerts":  {"CAP Alerts", "Live Information", "Display active public Common Alerting Protocol warnings."},
 		"air_quality": {"Air Quality", "Live Information", "Display current and forecast air-quality measurements."},
-		"form":        {"Form", "Interactive", "Collect submissions, approve them, and publish records to Widgets."},
 	}
 	if id == "weather" && role == RoleDataSource {
 		return "Weather", "External", "Fetch and normalize public MET Norway forecasts."

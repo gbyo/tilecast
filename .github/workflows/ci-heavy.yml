@@ -1,0 +1,16 @@
+name: Scheduled Go race validation
+on:
+  schedule:
+    - cron: "41 3 * * 2,5"
+  workflow_dispatch:
+permissions:
+  contents: read
+  checks: write
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  server_race:
+    uses: ./.github/workflows/ci-server.yml
+    with:
+      race: true

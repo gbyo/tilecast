@@ -91,6 +91,27 @@ func TestCompileWebPresentationIsHTTPSAndLifecycleBounded(t *testing.T) {
 	}
 }
 
+func TestCompileWebPresentationPrivateHTTPAllowance(t *testing.T) {
+	service := presentationTestService()
+	private := json.RawMessage(`{"url":"http://127.0.0.1/site.html"}`)
+	if _, err := service.compileWidgetPresentationWithPolicy("website", private, false); err == nil {
+		t.Fatal("private insecure web presentation was accepted without the allowance")
+	}
+	presentation, err := service.compileWidgetPresentationWithPolicy("website", private, true)
+	if err != nil {
+		t.Fatalf("private insecure web presentation was refused with the allowance: %v", err)
+	}
+	if presentation.Web == nil || presentation.Web.URL != "http://127.0.0.1/site.html" {
+		t.Fatalf("unexpected web descriptor: %#v", presentation.Web)
+	}
+	if _, err := service.compileWidgetPresentationWithPolicy("website", json.RawMessage(`{"url":"http://example.org"}`), true); err == nil {
+		t.Fatal("public insecure web presentation was accepted with the allowance")
+	}
+	if _, err := service.compileWidgetPresentationWithPolicy("website", json.RawMessage(`{"url":"ftp://127.0.0.1/x"}`), true); err == nil {
+		t.Fatal("non-HTTP web presentation was accepted with the allowance")
+	}
+}
+
 func TestDefinitionWebPresentationCompilesProviderURLAndPeriodicReload(t *testing.T) {
 	presentation, err := presentationTestService().compileWidgetPresentation("google-slides", json.RawMessage(`{
 		"slidesUrl":"https://docs.google.com/presentation/d/1234567890abcdef/edit#slide=id.p",

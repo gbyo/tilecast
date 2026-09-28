@@ -9,8 +9,8 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const base = "/tilecast/";
-const site = "https://gbyo.github.io";
+const base = "/";
+const site = "https://tilecast.org";
 const dist = fileURLToPath(new URL("../dist/", import.meta.url));
 const retiredRepository = /github\.com\/Gibsonmb71\//i;
 

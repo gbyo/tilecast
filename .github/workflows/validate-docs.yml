@@ -1,0 +1,31 @@
+name: validate-docs
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  validate:
+    name: Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Check ASD-STE100 hard rules
+        run: bash scripts/check-docs-ste.sh
+      - name: Check documentation formatting
+        run: |
+          mapfile -t doc_files < <(rg --files -g '*.md' -g '*.mdx' docs wiki apps packages plugins deploy | sort)
+          doc_files+=(README.md apps/docs)
+          npx prettier --check "${doc_files[@]}"
+      - name: Check the docs site
+        run: npm run docs:check
+      - name: Build the docs site and check its links
+        run: npm run docs:build

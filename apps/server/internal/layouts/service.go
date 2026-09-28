@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tilecast/tilecast/apps/server/internal/ids"
 	"github.com/tilecast/tilecast/apps/server/internal/manifestchanges"
 )
 
@@ -73,7 +74,7 @@ func (s *Service) Create(ctx context.Context, userID uuid.UUID, name, descriptio
 	}
 	document := defaultDocument(orientation, width, height)
 	encoded, _ := json.Marshal(document)
-	id := uuid.New()
+	id := ids.New(ctx)
 	_, err := s.db.Exec(ctx, `INSERT INTO layouts(id,organization_id,name,description,orientation,canvas_width,canvas_height,draft_document,created_by,updated_by)VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$9)`, id, org, name, description, orientation, width, height, encoded, userID)
 	if err != nil {
 		return Layout{}, err
@@ -552,7 +553,7 @@ func (s *Service) validateDependencies(ctx context.Context, deps []Dependency) e
 	return s.validateDependencyQuery(ctx, s.db, deps)
 }
 func (s *Service) validatePlaybackLimitsTx(ctx context.Context, tx pgx.Tx, document Document) error {
-	videoCapable, audioEmitting := 0, 0
+	videoCapable, audioEmitting, youtubePlacements := 0, 0, 0
 	for _, placement := range document.Placements {
 		if !placement.Visible {
 			continue
@@ -572,6 +573,15 @@ func (s *Service) validatePlaybackLimitsTx(ctx context.Context, tx pgx.Tx, docum
 				return err
 			}
 			video = provider == "website" || provider == "youtube"
+			if provider == "youtube" {
+				youtubePlacements++
+				// The embedded player needs at least 200x200 CSS pixels; the
+				// shared Player Runtime refuses smaller YouTube surfaces with a
+				// typed error, so authoring rejects them first.
+				if placement.Width < 200 || placement.Height < 200 {
+					return errors.New("youtube placements must be at least 200 by 200 pixels")
+				}
+			}
 			muted := false
 			if len(placement.Overrides) > 0 {
 				var overrides struct {
@@ -597,6 +607,9 @@ func (s *Service) validatePlaybackLimitsTx(ctx context.Context, tx pgx.Tx, docum
 		if audio {
 			audioEmitting++
 		}
+	}
+	if youtubePlacements > 1 {
+		return errors.New("layout may contain only one visible youtube placement")
 	}
 	if videoCapable > 1 {
 		return errors.New("layout may contain only one visible video-capable placement or playlist zone")

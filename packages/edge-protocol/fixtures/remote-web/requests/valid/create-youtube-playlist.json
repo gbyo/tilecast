@@ -1,0 +1,21 @@
+{
+  "type": "create",
+  "surfaceId": "yt-3",
+  "width": 1280,
+  "height": 720,
+  "muted": true,
+  "visible": false,
+  "content": {
+    "kind": "youtube",
+    "videoId": null,
+    "playlistId": "PLx0sYbCqOb8TBPRdmBHs5Iftvv9TPboYG",
+    "startSeconds": 5,
+    "endSeconds": 90,
+    "loop": true,
+    "muted": false,
+    "volume": 60,
+    "captions": true,
+    "captionLanguage": "",
+    "controls": false
+  }
+}

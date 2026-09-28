@@ -1,0 +1,36 @@
+# The renderer half of the release self-test (M7 migration step 3): the
+# installed renderer, WPE WebKit, GStreamer and the Player Runtime, drawing
+# the built-in fixture off screen while the legacy player keeps the display.
+# The DRM output itself is checked by tilecast-renderer-probe.service before
+# the cutover and proven on screen by the migration's settlement.
+[Unit]
+Description=Tilecast WPE renderer for the release self-test
+Documentation=https://github.com/gbyo/tilecast/blob/main/apps/edge/packaging/README.md
+
+[Service]
+Type=simple
+User=tilecast
+Group=tilecast
+SupplementaryGroups=video render
+ExecStart=/opt/tilecast-edge/current/bin/tilecast-renderer-wpe --platform=headless --socket=/run/tilecast-edge-selftest/edge.sock --media-socket=/run/tilecast-edge-selftest/media.sock --runtime-dir=/opt/tilecast-edge/current/share/tilecast/renderer-web --gst-plugin-dir=/opt/tilecast-edge/current/lib/gstreamer-1.0
+Restart=no
+TimeoutStopSec=10s
+CacheDirectory=tilecast-renderer-selftest
+CacheDirectoryMode=0700
+Environment=XDG_CACHE_HOME=/var/cache/tilecast-renderer-selftest
+Environment=XDG_DATA_HOME=/var/cache/tilecast-renderer-selftest/data
+UMask=0077
+PrivateNetwork=yes
+ProtectHome=yes
+ProtectSystem=strict
+InaccessiblePaths=-/var/lib/tilecast-edge
+PrivateTmp=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+LockPersonality=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+SystemCallArchitectures=native

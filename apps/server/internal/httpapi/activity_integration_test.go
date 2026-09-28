@@ -377,7 +377,7 @@ func TestPlaybackGapAppearsInOverviewAndClosesProofUnknown(t *testing.T) {
 		}
 
 		request := httptest.NewRequest(http.MethodGet, "/api/v1/activity/overview?range=24h", nil)
-		request = request.WithContext(context.WithValue(request.Context(), sessionContextKey, env.owner))
+		request = requestWithTestPrincipal(request, env.owner)
 		response := httptest.NewRecorder()
 		env.server.activityOverview(response, request)
 		if response.Code != http.StatusOK {
@@ -419,13 +419,13 @@ func TestPlaybackGapAppearsInOverviewAndClosesProofUnknown(t *testing.T) {
 func TestAuditFilteringRedactionAndCSV(t *testing.T) {
 	withActivityDatabase(t, func(env activityTestEnvironment) {
 		auditID := uuid.New()
-		_, err := env.pool.Exec(context.Background(), `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,resource_name,result,ip_address,request_id,summary,metadata,metadata_sensitive) VALUES($1,$2,'layouts.published','layout',$3,'Morning Layout','success','192.0.2.10','request-1','Activity Owner published Morning Layout','{"revision":4,"diagnosticPayload":"private"}'::jsonb,TRUE)`, auditID, env.owner.User.ID, uuid.NewString())
+		_, err := env.pool.Exec(context.Background(), `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,resource_name,result,ip_address,request_id,summary,metadata,metadata_sensitive,created_at) VALUES($1,$2,'layouts.published','layout',$3,'Morning Layout','success','192.0.2.10','request-1','Activity Owner published Morning Layout','{"revision":4,"diagnosticPayload":"private"}'::jsonb,TRUE,now()-interval '1 second')`, auditID, env.owner.User.ID, uuid.NewString())
 		if err != nil {
 			t.Fatal(err)
 		}
 		editor := auth.Session{User: auth.User{ID: uuid.New(), Role: "editor", Active: true}}
 		request := httptest.NewRequest(http.MethodGet, "/api/v1/activity/audit?resourceType=layout&search=Morning", nil)
-		request = request.WithContext(context.WithValue(request.Context(), sessionContextKey, editor))
+		request = requestWithTestPrincipal(request, editor)
 		response := httptest.NewRecorder()
 		env.server.listAuditActivity(response, request)
 		if response.Code != http.StatusOK {
@@ -443,7 +443,7 @@ func TestAuditFilteringRedactionAndCSV(t *testing.T) {
 		}
 
 		exportRequest := httptest.NewRequest(http.MethodGet, "/api/v1/activity/audit/export.csv?resourceType=layout", nil)
-		exportRequest = exportRequest.WithContext(context.WithValue(exportRequest.Context(), sessionContextKey, env.owner))
+		exportRequest = requestWithTestPrincipal(exportRequest, env.owner)
 		exportResponse := httptest.NewRecorder()
 		env.server.exportAuditActivity(exportResponse, exportRequest)
 		if exportResponse.Code != http.StatusOK || !strings.Contains(exportResponse.Body.String(), "Morning Layout") || !strings.Contains(exportResponse.Body.String(), "Timestamp,Actor") {
@@ -477,7 +477,7 @@ func TestDateAwareProofAttributionAndAuditRedaction(t *testing.T) {
 func TestActivityExportsAndRetentionRespectPermissions(t *testing.T) {
 	withActivityDatabase(t, func(env activityTestEnvironment) {
 		viewerRequest := httptest.NewRequest(http.MethodGet, "/api/v1/activity/proof-of-play/export.csv", nil)
-		viewerRequest = viewerRequest.WithContext(context.WithValue(viewerRequest.Context(), sessionContextKey, auth.Session{User: auth.User{ID: uuid.New(), Role: "viewer"}}))
+		viewerRequest = requestWithTestPrincipal(viewerRequest, auth.Session{User: auth.User{ID: uuid.New(), Role: "viewer"}})
 		viewerResponse := httptest.NewRecorder()
 		env.server.exportProofOfPlay(viewerResponse, viewerRequest)
 		if viewerResponse.Code != http.StatusForbidden {
@@ -562,7 +562,7 @@ func TestOverlappingZonesDoNotInflateScreenPlaybackTime(t *testing.T) {
 				start.Add(time.Hour).Format(time.RFC3339),
 			nil,
 		)
-		request = request.WithContext(context.WithValue(request.Context(), sessionContextKey, env.owner))
+		request = requestWithTestPrincipal(request, env.owner)
 		response := httptest.NewRecorder()
 		env.server.proofOfPlaySummary(response, request)
 		if response.Code != http.StatusOK {
@@ -698,7 +698,7 @@ func TestArchivedScreensAreExcludedFromActivityEventsAndTimeline(t *testing.T) {
 		}
 
 		eventsRequest := httptest.NewRequest(http.MethodGet, "/api/v1/activity/events?range=24h&screen="+env.screenID.String(), nil)
-		eventsRequest = eventsRequest.WithContext(context.WithValue(eventsRequest.Context(), sessionContextKey, env.owner))
+		eventsRequest = requestWithTestPrincipal(eventsRequest, env.owner)
 		eventsResponse := httptest.NewRecorder()
 		env.server.listScreenEvents(eventsResponse, eventsRequest)
 		if eventsResponse.Code != http.StatusOK {
@@ -715,7 +715,7 @@ func TestArchivedScreensAreExcludedFromActivityEventsAndTimeline(t *testing.T) {
 		}
 
 		timelineRequest := httptest.NewRequest(http.MethodGet, "/api/v1/activity/screens/"+env.screenID.String()+"/timeline?range=24h", nil)
-		timelineRequest = timelineRequest.WithContext(context.WithValue(timelineRequest.Context(), sessionContextKey, env.owner))
+		timelineRequest = requestWithTestPrincipal(timelineRequest, env.owner)
 		timelineResponse := httptest.NewRecorder()
 		env.server.screenTimeline(timelineResponse, timelineRequest)
 		if timelineResponse.Code != http.StatusNotFound {
@@ -723,7 +723,7 @@ func TestArchivedScreensAreExcludedFromActivityEventsAndTimeline(t *testing.T) {
 		}
 
 		screenRequest := httptest.NewRequest(http.MethodGet, "/api/v1/activity/screens/"+env.screenID.String(), nil)
-		screenRequest = screenRequest.WithContext(context.WithValue(screenRequest.Context(), sessionContextKey, env.owner))
+		screenRequest = requestWithTestPrincipal(screenRequest, env.owner)
 		screenResponse := httptest.NewRecorder()
 		env.server.screenActivity(screenResponse, screenRequest)
 		if screenResponse.Code != http.StatusNotFound {
@@ -769,15 +769,15 @@ func TestScreenTimelineMergesEverySource(t *testing.T) {
 			},
 		}}, http.StatusAccepted)
 		if _, err := env.pool.Exec(ctx, `
-			INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,result,summary)
-			VALUES($1,$2,'screen.updated','screen',$3,'success','Renamed the screen')`,
+			INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,result,summary,created_at)
+			VALUES($1,$2,'screen.updated','screen',$3,'success','Renamed the screen',now()-interval '1 second')`,
 			uuid.New(), env.owner.User.ID, env.screenID.String()); err != nil {
 			t.Fatal(err)
 		}
 
 		request := httptest.NewRequest(http.MethodGet,
 			"/api/v1/activity/screens/"+env.screenID.String()+"/timeline?range=24h", nil)
-		request = request.WithContext(context.WithValue(request.Context(), sessionContextKey, env.owner))
+		request = requestWithTestPrincipal(request, env.owner)
 		response := httptest.NewRecorder()
 		env.server.screenTimeline(response, request)
 		if response.Code != http.StatusOK {
@@ -818,7 +818,7 @@ func TestScreenTimelineMergesEverySource(t *testing.T) {
 
 		filtered := httptest.NewRequest(http.MethodGet,
 			"/api/v1/activity/screens/"+env.screenID.String()+"/timeline?range=24h&domain=audit", nil)
-		filtered = filtered.WithContext(context.WithValue(filtered.Context(), sessionContextKey, env.owner))
+		filtered = requestWithTestPrincipal(filtered, env.owner)
 		filteredResponse := httptest.NewRecorder()
 		env.server.screenTimeline(filteredResponse, filtered)
 		var filteredEnvelope struct {

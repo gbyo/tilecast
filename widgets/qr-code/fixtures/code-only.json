@@ -1,0 +1,14 @@
+{
+  "name": "Code only",
+  "description": "The code alone for a small Layout zone.",
+  "configuration": {
+    "payload": "https://example.org/visit",
+    "heading": "",
+    "instruction": "",
+    "shortLabel": "",
+    "style": "code",
+    "backgroundColor": "#FFFFFF",
+    "foregroundColor": "#101418"
+  },
+  "expect": "ready"
+}

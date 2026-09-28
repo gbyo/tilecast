@@ -1,0 +1,18 @@
+name: Build Edge test images
+description: Build the dependency chain with explicit Bake contexts and GHA caches.
+inputs:
+  targets:
+    description: Space separated Bake targets from scripts/ci/edge-images.hcl.
+    required: true
+runs:
+  using: composite
+  steps:
+    - uses: docker/setup-buildx-action@v4
+    - uses: docker/bake-action@v7
+      env:
+        CI_CACHE: "true"
+      with:
+        source: .
+        files: scripts/ci/edge-images.hcl
+        targets: ${{ inputs.targets }}
+        load: true

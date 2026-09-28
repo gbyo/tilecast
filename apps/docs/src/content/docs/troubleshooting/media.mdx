@@ -1,0 +1,34 @@
+---
+title: Media uploads and processing
+description: Troubleshoot uploads, media processing, storage, and playback-file problems.
+---
+
+## An upload will not resume
+
+If an upload was interrupted, select the original file again. It must have the same name and size as the file that started the upload.
+
+Tilecast resumes from the upload position saved by the server instead of starting from a guessed position.
+
+## An item stays in processing
+
+Open the asset and read the processing error.
+
+Tilecast Server needs writable media storage and working FFmpeg and FFprobe tools. Check `/readyz` if the media-processing dependencies themselves are unavailable.
+
+The production container already includes the media tools and runs without root privileges. Running the entire server as root is not the normal fix for a media-processing problem.
+
+If processing was interrupted while Tilecast was finishing a file move, leave the database record and media/temp storage in place so recovery can finish. Do not manually delete an item that is still marked as finalizing.
+
+## Storage is full
+
+Free some storage or reduce the upload size before retrying.
+
+Keep the database and `tilecast_data` media volume from the same point in time when restoring a backup. Restoring only one can leave database records without files, or files without matching records.
+
+## A Player cannot use a media item
+
+The asset must be **Ready** and have a playback file the Player can use.
+
+A Player rejects an incomplete or corrupt download instead of using it for playback.
+
+Use [Activity](../../operations/activity/) to tell the difference between a server-side processing problem and a Player download or playback problem.
