@@ -3944,12 +3944,15 @@ paths:
       description: >-
         List screen groups. Requires an authenticated dashboard user.
       responses:
-        {
-          "200":
-            {
-              description: "Paginated Display Groups, assignments, and members",
-            },
-        }
+        "200":
+          description: "Paginated Display Groups, assignments, and members"
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ScreenGroupList" }
     post:
       operationId: createScreenGroup
       description: >-
@@ -3964,10 +3967,16 @@ paths:
           },
         ]
       responses:
-        {
-          "201": { description: Display Group created in Mirror mode },
-          "422": { description: Validation or configured limit failed },
-        }
+        "201":
+          description: Display Group created in Mirror mode
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ScreenGroup" }
+        "422": { description: Validation or configured limit failed }
   /api/v1/screen-groups/{id}:
     get:
       operationId: getScreenGroup
@@ -3976,18 +3985,32 @@ paths:
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses:
-        {
-          "200":
-            { description: Display Group with assignment and screen members },
-          "404": { description: Display Group not found },
-        }
+        "200":
+          description: Display Group with assignment and screen members
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ScreenGroup" }
+        "404": { description: Display Group not found }
     patch:
       operationId: updateScreenGroup
       description: >-
         Update screen group. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
-      responses: { "200": { description: Display Group updated } }
+      responses:
+        "200":
+          description: Display Group updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ScreenGroup" }
     delete:
       operationId: deleteScreenGroup
       description: >-
@@ -4004,10 +4027,15 @@ paths:
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses:
-        {
-          "200":
-            { description: "Canvas, panel geometry, and preparation status" },
-        }
+        "200":
+          description: "Canvas, panel geometry, and preparation status"
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/SpanStatus" }
     put:
       operationId: updateSpanGeometry
       description: >-
@@ -4022,7 +4050,14 @@ paths:
             schema: { $ref: "#/components/schemas/SpanGeometryInput" }
       responses:
         "200":
-          { description: Display Group updated and member manifests revised }
+          description: Display Group updated and member manifests revised
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ScreenGroup" }
         "409": { description: Geometry conflicts with current membership }
         "422": { description: Canvas or panel validation failed }
   /api/v1/screen-groups/{id}/display-control/preview:
@@ -4045,7 +4080,16 @@ paths:
                 display_unmute,
               ]
       responses:
-        "200": { description: Capability coverage and apply fingerprint }
+        "200":
+          description: Capability coverage and apply fingerprint
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    { $ref: "#/components/schemas/DisplayControlGroupPreview" }
         "404": { description: Display Group not found }
         "422": { description: Unsupported group action }
   /api/v1/screen-groups/{id}/display-control:
@@ -4079,7 +4123,18 @@ paths:
                     ]
                 fingerprint: { type: string, minLength: 64, maxLength: 64 }
       responses:
-        "202": { description: Typed commands queued for eligible members }
+        "202":
+          description: Typed commands queued for eligible members
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    {
+                      $ref: "#/components/schemas/DisplayControlGroupApplyResult",
+                    }
         "409": { description: Capability preview is stale }
         "422": { description: Unsupported group action }
   /api/v1/screen-groups/{id}/screens:
@@ -4090,10 +4145,16 @@ paths:
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses:
-        {
-          "200": { description: Screen added and member manifests revised },
-          "409": { description: Screen already belongs to a Display Group },
-        }
+        "200":
+          description: Screen added and member manifests revised
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ScreenGroup" }
+        "409": { description: Screen already belongs to a Display Group }
   /api/v1/screen-groups/{id}/screens/{screenId}:
     delete:
       operationId: removeScreenGroupMember
@@ -4120,12 +4181,15 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/PresentationReference" }
       responses:
-        {
-          "200":
-            {
-              description: Group fallback assigned and member manifests revised,
-            },
-        }
+        "200":
+          description: Group fallback assigned and member manifests revised
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ScreenGroup" }
     delete:
       operationId: unassignSyncGroupPlaylist
       description: >-
@@ -4133,12 +4197,15 @@ paths:
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses:
-        {
-          "200":
-            {
-              description: Group fallback removed and member manifests revised,
-            },
-        }
+        "200":
+          description: Group fallback removed and member manifests revised
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ScreenGroup" }
   /api/v1/schedules:
     get:
       operationId: listSchedules
@@ -7917,6 +7984,9 @@ components:
           items: { $ref: "#/components/schemas/SpanPanel" }
     SpanPreparation:
       type: object
+      additionalProperties: false
+      required:
+        [id, screenId, sourceAssetId, sourceVariantId, status, updatedAt]
       properties:
         id: { type: string, format: uuid }
         screenId: { type: string, format: uuid }
@@ -7924,17 +7994,176 @@ components:
         sourceVariantId: { type: string, format: uuid }
         status: { type: string, enum: [queued, processing, ready, failed] }
         progress: { type: number, minimum: 0, maximum: 1 }
+        width: { type: integer, minimum: 1 }
+        height: { type: integer, minimum: 1 }
+        durationSeconds: { type: number, minimum: 0 }
+        frameRate: { type: number, minimum: 0 }
         errorCode: { type: string }
         errorMessage: { type: string }
+        updatedAt: { type: string }
+    SpanGeometry:
+      type: object
+      additionalProperties: false
+      required: [canvas, panels]
+      properties:
+        canvas:
+          type: object
+          additionalProperties: false
+          required: [width, height]
+          properties:
+            width: { type: integer, minimum: 1 }
+            height: { type: integer, minimum: 1 }
+        panels:
+          type: array
+          items: { $ref: "#/components/schemas/SpanPanel" }
     SpanStatus:
       type: object
+      additionalProperties: false
+      required: [groupId, displayMode, geometry, preparations]
       properties:
         groupId: { type: string, format: uuid }
         displayMode: { type: string, enum: [mirror, span] }
-        geometry: { type: object }
+        geometry: { $ref: "#/components/schemas/SpanGeometry" }
         preparations:
           type: array
           items: { $ref: "#/components/schemas/SpanPreparation" }
+    ScreenGroupScreen:
+      type: object
+      additionalProperties: false
+      required: [id, name, location]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        location: { type: string }
+    ScreenGroup:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          name,
+          description,
+          displayMode,
+          playbackEpoch,
+          membershipCount,
+          screens,
+          createdAt,
+          updatedAt,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+        displayMode: { type: string, enum: [mirror, span] }
+        presentationGatewayScreenId: { type: string, format: uuid }
+        playlistId: { type: string, format: uuid }
+        playlistName: { type: string }
+        layoutId: { type: string, format: uuid }
+        layoutName: { type: string }
+        presentationType: { type: string, enum: [playlist, layout] }
+        playbackEpoch: { type: string, format: date-time }
+        membershipCount: { type: integer, minimum: 0 }
+        screens:
+          type: array
+          items: { $ref: "#/components/schemas/ScreenGroupScreen" }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ScreenGroupList:
+      type: object
+      additionalProperties: false
+      required: [items, total, page, pageSize]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ScreenGroup" }
+        total: { type: integer, minimum: 0 }
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1 }
+    DisplayControlGroupScreen:
+      type: object
+      additionalProperties: false
+      required: [screenId, name, provider, capabilities, supported, eligible]
+      properties:
+        screenId: { type: string, format: uuid }
+        name: { type: string }
+        provider: { type: string }
+        capabilities:
+          type: object
+          additionalProperties: { type: string }
+        supported: { type: boolean }
+        eligible: { type: boolean }
+        reason: { type: string }
+    DisplayControlGroupPreview:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          groupId,
+          groupName,
+          commandType,
+          selectedCount,
+          supportedCount,
+          unsupportedCount,
+          eligibleCount,
+          fingerprint,
+          screens,
+        ]
+      properties:
+        groupId: { type: string, format: uuid }
+        groupName: { type: string }
+        commandType:
+          type: string
+          enum:
+            [display_power_on, display_power_off, display_mute, display_unmute]
+        selectedCount: { type: integer, minimum: 0 }
+        supportedCount: { type: integer, minimum: 0 }
+        unsupportedCount: { type: integer, minimum: 0 }
+        eligibleCount: { type: integer, minimum: 0 }
+        fingerprint: { type: string }
+        screens:
+          type: [array, "null"]
+          description: >-
+            Null for groups with no members; Studio reads an empty
+            selection.
+          items: { $ref: "#/components/schemas/DisplayControlGroupScreen" }
+    DisplayControlGroupResult:
+      type: object
+      additionalProperties: false
+      required: [screenId, name, state]
+      properties:
+        screenId: { type: string, format: uuid }
+        name: { type: string }
+        state: { type: string, enum: [queued, skipped, failed] }
+        reason: { type: string }
+        id: { type: string, format: uuid }
+    DisplayControlGroupApplyResult:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          groupId,
+          commandType,
+          selectedCount,
+          supportedCount,
+          queuedCount,
+          failedCount,
+          unsupportedCount,
+          results,
+        ]
+      properties:
+        groupId: { type: string, format: uuid }
+        commandType:
+          type: string
+          enum:
+            [display_power_on, display_power_off, display_mute, display_unmute]
+        selectedCount: { type: integer, minimum: 0 }
+        supportedCount: { type: integer, minimum: 0 }
+        queuedCount: { type: integer, minimum: 0 }
+        failedCount: { type: integer, minimum: 0 }
+        unsupportedCount: { type: integer, minimum: 0 }
+        results:
+          type: array
+          items: { $ref: "#/components/schemas/DisplayControlGroupResult" }
     PlayerManifest:
       type: object
       additionalProperties: false
