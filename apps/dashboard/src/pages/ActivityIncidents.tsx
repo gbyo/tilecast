@@ -13,13 +13,7 @@ import {
   EmptyTitle,
 } from "../components/ui/empty";
 import { buttonVariants } from "../components/ui/button";
-import {
-  activityParams,
-  activityRequest,
-  ErrorNotice,
-  humanize,
-  Loading,
-} from "./ActivityShared";
+import { ErrorNotice, humanize, Loading } from "./ActivityShared";
 import {
   IncidentActionButtons,
   IncidentRow,
@@ -28,7 +22,7 @@ import {
   useIncidentAction,
   type Incident,
 } from "./ActivityIncidentShared";
-import { listIncidents } from "../api/domains/activity";
+import { getIncidentAnalytics, listIncidents } from "../api/domains/activity";
 import { buildActivityLink } from "./activityLinks";
 
 export type { Incident, IncidentStatus } from "./ActivityIncidentShared";
@@ -204,10 +198,7 @@ export function IncidentAnalyticsPanel({
   const { t } = useTranslation("activity");
   const query = useQuery({
     queryKey: ["activity", "incident-analytics", range.from, range.to],
-    queryFn: () =>
-      activityRequest<IncidentAnalytics>(
-        `/incidents/analytics?${activityParams(range, {}).toString()}`,
-      ),
+    queryFn: () => getIncidentAnalytics({ from: range.from, to: range.to }),
   });
   const data = query.data;
   if (!data) return null;

@@ -40,8 +40,10 @@ export type Overview = {
    * Measured right now rather than over the selected range. Every measured
    * screen is in exactly one of the four states, so they sum to `measured`.
    * `online` counts reachability and deliberately overlaps the others.
+   * Absent when the fleet query fails; callers omit the section instead
+   * of rendering zeroes that would assert an all-down fleet.
    */
-  fleet: {
+  fleet?: {
     measured: number;
     online: number;
     healthy: number;

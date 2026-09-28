@@ -597,8 +597,7 @@ export function normalizeContentHealthReport(
 }
 
 export function getFleetUptime(window: UptimeWindow): Promise<UptimeReport> {
-  return apiGet<"/api/v1/activity/uptime", UptimeReport>(
-    "/api/v1/activity/uptime",
-    { params: { query: { window } } },
-  );
+  return apiGet("/api/v1/activity/uptime", {
+    params: { query: { window } },
+  });
 }

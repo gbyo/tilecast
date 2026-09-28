@@ -156,6 +156,35 @@ export function listAuditActivity(
   });
 }
 
+export type ActivityRange = { from?: string; to?: string };
+
+export function getActivityOverview(
+  range: ActivityRange,
+): Promise<components["schemas"]["ActivityOverview"]> {
+  return apiGet("/api/v1/activity/overview", {
+    params: { query: range },
+  });
+}
+
+export type ComplianceDimension =
+  components["schemas"]["ComplianceReport"]["dimension"];
+
+export function getPlaybackCompliance(
+  range: ActivityRange & { dimension?: ComplianceDimension },
+): Promise<components["schemas"]["ComplianceReport"]> {
+  return apiGet("/api/v1/activity/compliance", {
+    params: { query: range },
+  });
+}
+
+export function getIncidentAnalytics(
+  range: ActivityRange,
+): Promise<components["schemas"]["IncidentAnalytics"]> {
+  return apiGet("/api/v1/activity/incidents/analytics", {
+    params: { query: range },
+  });
+}
+
 export function getActivityRetention(): Promise<
   components["schemas"]["ActivityRetention"]
 > {

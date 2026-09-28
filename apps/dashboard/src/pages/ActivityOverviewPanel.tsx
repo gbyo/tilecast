@@ -24,8 +24,6 @@ import {
 } from "../components/ui/empty";
 import { FleetUptimePanel } from "../components/FleetUptimePanel";
 import {
-  activityParams,
-  activityRequest,
   ErrorNotice,
   formatDay,
   formatDuration,
@@ -33,6 +31,7 @@ import {
   humanize,
   Loading,
 } from "./ActivityShared";
+import { getActivityOverview } from "../api/domains/activity";
 import type { Overview } from "./ActivityShared";
 import { useActivityLinkBuilder, type ActivityTabName } from "./activityLinks";
 import {
@@ -205,10 +204,7 @@ export function OverviewTab({
   const activityLink = useActivityLinkBuilder();
   const query = useQuery({
     queryKey: ["activity", "overview", range.from, range.to],
-    queryFn: () =>
-      activityRequest<Overview>(
-        `/overview?${activityParams(range, {}).toString()}`,
-      ),
+    queryFn: () => getActivityOverview({ from: range.from, to: range.to }),
     refetchInterval: 30_000,
   });
   // The comparison period is fetched separately so a delta reflects the same
@@ -221,9 +217,10 @@ export function OverviewTab({
       range.previous?.to,
     ],
     queryFn: () =>
-      activityRequest<Overview>(
-        `/overview?${activityParams(range.previous!, {}).toString()}`,
-      ),
+      getActivityOverview({
+        from: range.previous!.from,
+        to: range.previous!.to,
+      }),
     enabled: Boolean(range.previous),
   });
 
