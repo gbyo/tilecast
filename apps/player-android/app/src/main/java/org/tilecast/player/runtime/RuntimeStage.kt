@@ -48,6 +48,7 @@ import kotlinx.serialization.json.put
 import org.tilecast.player.content.PlaybackSession
 import org.tilecast.player.content.WebsiteNavigationPolicy
 import org.tilecast.player.content.youtubeHTML
+import org.tilecast.player.network.ManifestItem
 import org.tilecast.player.network.ManifestWebsite
 import org.tilecast.player.network.YouTubeSourceConfig
 import org.tilecast.player.runtime.MediaAuthorization.AuthorizedMedia
@@ -143,6 +144,8 @@ fun SharedRuntimePlayback(
         } else {
             RuntimeStageBody(
                 message = message,
+                activationId = activationId,
+                items = items,
                 instance = instance,
                 refs = refs,
                 crashPolicy = crashPolicy,
@@ -168,6 +171,8 @@ fun SharedRuntimePlayback(
 @Composable
 private fun RuntimeStageBody(
     message: JsonObject,
+    activationId: String,
+    items: List<ManifestItem>,
     instance: Int,
     refs: StageRefs,
     crashPolicy: RuntimeCrashPolicy,
