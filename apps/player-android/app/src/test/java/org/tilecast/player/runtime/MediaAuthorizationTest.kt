@@ -11,6 +11,10 @@ class MediaAuthorizationTest {
     @Test fun authorizesOnlyActiveManifestMedia() {
         assertEquals(AuthorizedMedia("asset1", "v720"), MediaAuthorization.authorize("tcmedia:asset1/v720", authorized))
         assertEquals(AuthorizedMedia("asset1", "v720"), MediaAuthorization.authorize("tcmedia://asset1/v720", authorized))
+        assertEquals(
+            AuthorizedMedia("asset1", "v720"),
+            MediaAuthorization.authorize("tcmedia://variant/asset1/v720", authorized),
+        )
         assertNull(MediaAuthorization.authorize("tcmedia:other/v720", authorized))
         assertNull(MediaAuthorization.authorize("tcmedia:asset1/v1080", authorized))
         assertNull(MediaAuthorization.authorize("tcmedia:asset1/v720", emptySet()))
@@ -26,6 +30,7 @@ class MediaAuthorizationTest {
         assertNull(MediaAuthorization.authorize("tcmedia:asset1/v720#frag", authorized))
         assertNull(MediaAuthorization.authorize("tcmedia:asset1", authorized))
         assertNull(MediaAuthorization.authorize("tcmedia:asset1/v720/extra", authorized))
+        assertNull(MediaAuthorization.authorize("tcmedia://variant/asset1/v720/extra", authorized))
         assertNull(MediaAuthorization.authorize("https://example.com/a.mp4", authorized))
         assertNull(MediaAuthorization.authorize(null, authorized))
     }
