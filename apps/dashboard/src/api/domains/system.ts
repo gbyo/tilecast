@@ -2,11 +2,12 @@
  * System administration domain helpers over the typed transport: player
  * releases, update deployments, takeovers, settings, users, preferences,
  * integration tokens, notifications, backups, and maintenance. Player
- * release and GitHub device-flow success bodies are contract-typed and
- * inferred from the generated schemas; the remaining areas still state
- * their local Studio response type explicitly until the contract gains
- * schemas. Binary release uploads stay on XHR in ../client.ts: upload
- * progress is an explicitly exceptional transport.
+ * release, GitHub device-flow, settings, and preference success bodies
+ * are contract-typed and inferred from the generated schemas; the
+ * remaining areas still state their local Studio response type
+ * explicitly until the contract gains schemas. Binary release uploads
+ * stay on XHR in ../client.ts: upload progress is an explicitly
+ * exceptional transport.
  */
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from "../transport";
 import type {
@@ -196,7 +197,7 @@ export function cancelTakeover(
 }
 
 export function getSettings(): Promise<SettingsDocument> {
-  return apiGet<"/api/v1/settings", SettingsDocument>("/api/v1/settings");
+  return apiGet("/api/v1/settings");
 }
 
 export function updateSettings(
@@ -204,7 +205,7 @@ export function updateSettings(
   values: Record<string, unknown>,
   csrfToken: string,
 ): Promise<SettingsDocument> {
-  return apiPatch<"/api/v1/settings", SettingsDocument>("/api/v1/settings", {
+  return apiPatch("/api/v1/settings", {
     body: { revision, values },
     csrfToken,
   });
@@ -215,10 +216,10 @@ export function resetSettings(
   category: string,
   csrfToken: string,
 ): Promise<SettingsDocument> {
-  return apiPost<"/api/v1/settings/reset", SettingsDocument>(
-    "/api/v1/settings/reset",
-    { body: { revision, category }, csrfToken },
-  );
+  return apiPost("/api/v1/settings/reset", {
+    body: { revision, category },
+    csrfToken,
+  });
 }
 
 export async function listUsers(): Promise<{
@@ -286,9 +287,7 @@ export function permanentlyDeleteUser(
 }
 
 export function getPreferences(): Promise<SettingsDocument> {
-  return apiGet<"/api/v1/me/preferences", SettingsDocument>(
-    "/api/v1/me/preferences",
-  );
+  return apiGet("/api/v1/me/preferences");
 }
 
 export function updatePreferences(
@@ -296,10 +295,10 @@ export function updatePreferences(
   values: Record<string, unknown>,
   csrfToken: string,
 ): Promise<SettingsDocument> {
-  return apiPatch<"/api/v1/me/preferences", SettingsDocument>(
-    "/api/v1/me/preferences",
-    { body: { revision, values }, csrfToken },
-  );
+  return apiPatch("/api/v1/me/preferences", {
+    body: { revision, values },
+    csrfToken,
+  });
 }
 
 export function listIntegrationTokens(): Promise<IntegrationToken[]> {

@@ -1,10 +1,10 @@
 /**
  * Fleet domain helpers over the typed transport: locations,
  * presentation networks, plugins, AirPlay sessions, presentation
- * overrides, and screen groups. Location and presentation-network
- * success bodies are contract-typed and inferred from the generated
- * OpenAPI schemas; other areas still state their local Studio
- * response type explicitly until the contract gains schemas.
+ * overrides, and screen groups. Location, presentation-network, and
+ * player-policy success bodies are contract-typed and inferred from
+ * the generated OpenAPI schemas; other areas still state their local
+ * Studio response type explicitly until the contract gains schemas.
  */
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from "../transport";
 import type {
@@ -436,10 +436,9 @@ export async function unassignSyncGroupPlaylist(
 }
 
 export function getGroupPolicy(id: string): Promise<PolicyDocument> {
-  return apiGet<"/api/v1/screen-groups/{id}/policy", PolicyDocument>(
-    "/api/v1/screen-groups/{id}/policy",
-    { params: { path: { id } } },
-  );
+  return apiGet("/api/v1/screen-groups/{id}/policy", {
+    params: { path: { id } },
+  });
 }
 
 export function putGroupPolicy(
@@ -449,14 +448,11 @@ export function putGroupPolicy(
   values: Record<string, unknown>,
   csrfToken: string,
 ): Promise<PolicyDocument> {
-  return apiPut<"/api/v1/screen-groups/{id}/policy", PolicyDocument>(
-    "/api/v1/screen-groups/{id}/policy",
-    {
-      params: { path: { id } },
-      body: { revision, priority, values },
-      csrfToken,
-    },
-  );
+  return apiPut("/api/v1/screen-groups/{id}/policy", {
+    params: { path: { id } },
+    body: { revision, priority, values },
+    csrfToken,
+  });
 }
 
 export function deleteGroupPolicy(
@@ -470,10 +466,9 @@ export function deleteGroupPolicy(
 }
 
 export function getScreenPolicy(id: string): Promise<PolicyDocument> {
-  return apiGet<"/api/v1/screens/{id}/policy", PolicyDocument>(
-    "/api/v1/screens/{id}/policy",
-    { params: { path: { id } } },
-  );
+  return apiGet("/api/v1/screens/{id}/policy", {
+    params: { path: { id } },
+  });
 }
 
 export function putScreenPolicy(
@@ -482,10 +477,11 @@ export function putScreenPolicy(
   values: Record<string, unknown>,
   csrfToken: string,
 ): Promise<PolicyDocument> {
-  return apiPut<"/api/v1/screens/{id}/policy", PolicyDocument>(
-    "/api/v1/screens/{id}/policy",
-    { params: { path: { id } }, body: { revision, values }, csrfToken },
-  );
+  return apiPut("/api/v1/screens/{id}/policy", {
+    params: { path: { id } },
+    body: { revision, values },
+    csrfToken,
+  });
 }
 
 export function deleteScreenPolicy(
@@ -499,8 +495,7 @@ export function deleteScreenPolicy(
 }
 
 export function getEffectivePolicy(id: string): Promise<EffectivePolicy> {
-  return apiGet<"/api/v1/screens/{id}/effective-policy", EffectivePolicy>(
-    "/api/v1/screens/{id}/effective-policy",
-    { params: { path: { id } } },
-  );
+  return apiGet("/api/v1/screens/{id}/effective-policy", {
+    params: { path: { id } },
+  });
 }
