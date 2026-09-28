@@ -586,7 +586,9 @@ async fn player_socket(fake: Arc<FakeServer>, stream: tokio::net::TcpStream) {
 fn record_live_frame(fake: &FakeServer, frame: &[u8]) {
     let mut record =
         LiveFrameRecord { session_id: "malformed".to_owned(), width: 0, height: 0, jpeg_len: 0, complete: false };
-    if frame.len() >= 37 && &frame[0..4] == b"TCLS" && frame[4] == 1
+    if frame.len() >= 37
+        && &frame[0..4] == b"TCLS"
+        && frame[4] == 1
         && let Ok(id) = uuid::Uuid::from_slice(&frame[5..21])
     {
         let width = u16::from_be_bytes([frame[29], frame[30]]) as u32;
