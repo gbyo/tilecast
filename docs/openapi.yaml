@@ -2150,7 +2150,15 @@ paths:
           required: false
           schema: { type: string, format: date-time }
       responses:
-        "200": { description: Screen activity }
+        "200":
+          description: Screen activity
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ScreenActivity" }
         "401": { description: Dashboard authentication required }
   /api/v1/activity/screens/{id}/timeline:
     get:
@@ -2168,8 +2176,20 @@ paths:
           name: to
           required: false
           schema: { type: string, format: date-time }
+        - in: query
+          name: domain
+          required: false
+          schema: { $ref: "#/components/schemas/ScreenTimelineDomain" }
       responses:
-        "200": { description: Screen timeline }
+        "200":
+          description: Screen timeline
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ScreenTimeline" }
         "401": { description: Dashboard authentication required }
   /api/v1/activity/screens/{id}/telemetry:
     get:
@@ -2188,7 +2208,15 @@ paths:
           required: false
           schema: { type: string, format: date-time }
       responses:
-        "200": { description: Screen telemetry }
+        "200":
+          description: Screen telemetry
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ScreenTelemetry" }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
   /api/v1/activity/incidents/analytics:
@@ -3463,7 +3491,15 @@ paths:
             schema: { type: string, format: uuid },
           }
       responses:
-        "200": { description: Current and retired physical player records }
+        "200":
+          description: Current and retired physical player records
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PlayerHistoryList" }
         "404": { description: Screen not found }
   /api/v1/screens/pairing/pending:
     get:
@@ -8501,6 +8537,300 @@ components:
         byType:
           type: array
           items: { $ref: "#/components/schemas/IncidentBreakdown" }
+    ScreenActivity:
+      type: object
+      additionalProperties: false
+      required: [screenId, recentProof, recentEvents, playbackGaps]
+      properties:
+        screenId: { type: string, format: uuid }
+        currentPresentation: { type: string }
+        recentProof:
+          type: array
+          items: { $ref: "#/components/schemas/ProofOfPlayRecord" }
+        recentEvents:
+          type: array
+          items: { $ref: "#/components/schemas/ScreenEventRecord" }
+        playbackGaps: { type: integer, minimum: 0 }
+        lastHealthyPlayback: { type: string, format: date-time }
+        lastSuccessfulPlayback: { type: string, format: date-time }
+        currentIssue:
+          type: object
+          description: >-
+            The current playback issue, when one is present. Fields vary by issue source.
+    ScreenHealth:
+      type: string
+      enum: [healthy, impaired, offline, unmeasured]
+    ScreenTimelineStatus:
+      type: object
+      additionalProperties: false
+      required: [health, healthReason]
+      properties:
+        currentPresentation: { type: string }
+        currentItem: { type: string }
+        currentIncident: { type: string }
+        currentIncidentId: { type: string, format: uuid }
+        lastHealthyPlayback: { type: string, format: date-time }
+        lastManifestActivation: { type: string, format: date-time }
+        lastHeartbeatAt: { type: string, format: date-time }
+        playerVersion: { type: string }
+        health: { $ref: "#/components/schemas/ScreenHealth" }
+        healthReason: { type: string }
+    ScreenTimelineDomain:
+      type: string
+      enum:
+        [
+          playback,
+          connectivity,
+          reliability,
+          scheduling,
+          commands,
+          updates,
+          takeovers,
+          manifest,
+          state,
+          incidents,
+          audit,
+        ]
+    ScreenTimelineEntry:
+      type: object
+      additionalProperties: false
+      required: [id, timestamp, domain, kind, severity, title]
+      properties:
+        id: { type: string }
+        timestamp: { type: string, format: date-time }
+        domain: { type: string }
+        kind: { type: string }
+        severity: { type: string }
+        title: { type: string }
+        description: { type: string }
+        endedAt: { type: string, format: date-time }
+        durationMs: { type: integer, format: int64, minimum: 0 }
+        result: { type: string }
+        linkType: { type: string }
+        linkId: { type: string }
+    ScreenTimeline:
+      type: object
+      additionalProperties: false
+      required: [range, status, entries]
+      properties:
+        range: { $ref: "#/components/schemas/ActivityTimeRange" }
+        status: { $ref: "#/components/schemas/ScreenTimelineStatus" }
+        entries:
+          type: array
+          items: { $ref: "#/components/schemas/ScreenTimelineEntry" }
+    TelemetrySnapshot:
+      type: object
+      additionalProperties: false
+      required: [observedAt]
+      properties:
+        observedAt: { type: string, format: date-time }
+        currentItemId: { type: string }
+        itemStartedAt: { type: string, format: date-time }
+        lastMeaningfulProgressAt: { type: string, format: date-time }
+        playbackStallDurationMs: { type: integer, format: int64, minimum: 0 }
+        stallReason: { type: string }
+        rendererState: { type: string }
+        rendererResponding: { type: boolean }
+        expectedMotion: { type: boolean }
+        serverRoundTripMs: { type: integer, minimum: 0 }
+        downloadQueueCount: { type: integer, minimum: 0 }
+        bytesRemaining: { type: integer, format: int64, minimum: 0 }
+        cacheUsedBytes: { type: integer, format: int64, minimum: 0 }
+        cacheLimitBytes: { type: integer, format: int64, minimum: 0 }
+        freeStorageBytes: { type: integer, format: int64, minimum: 0 }
+        processUptimeSeconds: { type: integer, format: int64, minimum: 0 }
+        deviceUptimeSeconds: { type: integer, format: int64, minimum: 0 }
+        syncGroupDriftMs: { type: integer }
+        frameFingerprint: { type: string }
+        averageLuminance: { type: number, minimum: 0 }
+        thermalState: { type: string }
+        memoryPressureState: { type: string }
+        networkLinkType: { type: string }
+        wifiSignalDbm: { type: integer }
+        wifiLinkSpeedMbps: { type: integer, minimum: 0 }
+        gatewayReachable: { type: boolean }
+        captivePortalSuspected: { type: boolean }
+        lastDisconnectReason: { type: string }
+        displayConnected: { type: boolean }
+        displayResolution: { type: string }
+        displayRefreshHz: { type: number, minimum: 0 }
+        displayPowerState: { type: string }
+        lastShutdownReason: { type: string }
+        powerSource: { type: string }
+        batteryPercent: { type: integer, minimum: 0, maximum: 100 }
+        clockOffsetSeconds: { type: integer }
+        timeSyncState: { type: string }
+        startupTotalMs: { type: integer, format: int64, minimum: 0 }
+        startupConfigMs: { type: integer, format: int64, minimum: 0 }
+        startupManifestMs: { type: integer, format: int64, minimum: 0 }
+        startupAssetVerifyMs: { type: integer, format: int64, minimum: 0 }
+        startupFirstFrameMs: { type: integer, format: int64, minimum: 0 }
+        videoDecoderPath: { type: string }
+        videoDecodedResolution: { type: string }
+    TelemetryRollup:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          bucketStart,
+          samples,
+          connectedSeconds,
+          disconnectedSeconds,
+          healthyPlaybackSeconds,
+          stalledPlaybackSeconds,
+          blackOutputSeconds,
+          droppedFrames,
+          frameChangeCount,
+          downloadedBytes,
+          cacheHits,
+          cacheMisses,
+          thermalDistribution,
+          httpRequestCount,
+          httpFailureCount,
+          httpClientErrorCount,
+          httpServerErrorCount,
+          requestRetryCount,
+          socketReconnectCount,
+          networkInterfaceChangeCount,
+          jankFrameCount,
+          rendererCrashCount,
+          surfaceLostCount,
+          decoderInitFailureCount,
+          cacheEvictionCount,
+          cacheEvictedBytes,
+          integrityFailureCount,
+          downloadResumeCount,
+          downloadFailureCount,
+          unexpectedRebootCount,
+          displaySleepCount,
+          displayWakeCount,
+        ]
+      properties:
+        bucketStart: { type: string, format: date-time }
+        samples: { type: integer, minimum: 0 }
+        averageRoundTripMs: { type: number, minimum: 0 }
+        maxRoundTripMs: { type: integer, minimum: 0 }
+        connectedSeconds: { type: integer, minimum: 0 }
+        disconnectedSeconds: { type: integer, minimum: 0 }
+        healthyPlaybackSeconds: { type: integer, minimum: 0 }
+        stalledPlaybackSeconds: { type: integer, minimum: 0 }
+        blackOutputSeconds: { type: integer, minimum: 0 }
+        droppedFrames: { type: integer, format: int64, minimum: 0 }
+        frameChangeCount: { type: integer, format: int64, minimum: 0 }
+        downloadedBytes: { type: integer, format: int64, minimum: 0 }
+        cacheHits: { type: integer, format: int64, minimum: 0 }
+        cacheMisses: { type: integer, format: int64, minimum: 0 }
+        averageMemoryBytes: { type: integer, format: int64, minimum: 0 }
+        peakMemoryBytes: { type: integer, format: int64, minimum: 0 }
+        averageCpuPercent: { type: number, minimum: 0, maximum: 100 }
+        thermalDistribution:
+          type: object
+          additionalProperties: { type: number }
+        syncDriftP50Ms: { type: integer }
+        syncDriftP95Ms: { type: integer }
+        syncDriftMaxMs: { type: integer }
+        httpRequestCount: { type: integer, format: int64, minimum: 0 }
+        httpFailureCount: { type: integer, format: int64, minimum: 0 }
+        httpClientErrorCount: { type: integer, format: int64, minimum: 0 }
+        httpServerErrorCount: { type: integer, format: int64, minimum: 0 }
+        requestRetryCount: { type: integer, format: int64, minimum: 0 }
+        socketReconnectCount: { type: integer, format: int64, minimum: 0 }
+        networkInterfaceChangeCount:
+          { type: integer, format: int64, minimum: 0 }
+        dnsResolveP95Ms: { type: integer, minimum: 0 }
+        tlsHandshakeP95Ms: { type: integer, minimum: 0 }
+        timeToFirstByteP95Ms: { type: integer, minimum: 0 }
+        averageThroughputBytesPerSecond:
+          { type: integer, format: int64, minimum: 0 }
+        frameTimeP95Ms: { type: number, minimum: 0 }
+        frameTimeP99Ms: { type: number, minimum: 0 }
+        jankFrameCount: { type: integer, format: int64, minimum: 0 }
+        rendererCrashCount: { type: integer, format: int64, minimum: 0 }
+        surfaceLostCount: { type: integer, format: int64, minimum: 0 }
+        decoderInitFailureCount: { type: integer, format: int64, minimum: 0 }
+        cacheEvictionCount: { type: integer, format: int64, minimum: 0 }
+        cacheEvictedBytes: { type: integer, format: int64, minimum: 0 }
+        integrityFailureCount: { type: integer, format: int64, minimum: 0 }
+        downloadResumeCount: { type: integer, format: int64, minimum: 0 }
+        downloadFailureCount: { type: integer, format: int64, minimum: 0 }
+        unexpectedRebootCount: { type: integer, format: int64, minimum: 0 }
+        displaySleepCount: { type: integer, format: int64, minimum: 0 }
+        displayWakeCount: { type: integer, format: int64, minimum: 0 }
+    TelemetryCondition:
+      type: object
+      additionalProperties: false
+      required: [condition, active, occurrenceCount]
+      properties:
+        condition: { type: string }
+        active: { type: boolean }
+        enteredAt: { type: string, format: date-time }
+        exitedAt: { type: string, format: date-time }
+        occurrenceCount: { type: integer, format: int64, minimum: 0 }
+    ScreenTelemetry:
+      type: object
+      additionalProperties: false
+      required: [range, snapshot, conditions, rollups]
+      properties:
+        range: { $ref: "#/components/schemas/ActivityTimeRange" }
+        snapshot:
+          anyOf:
+            - { $ref: "#/components/schemas/TelemetrySnapshot" }
+            - { type: "null" }
+          description: >-
+            Null when the player has never reported telemetry, which is different from having reported zeroes.
+        conditions:
+          type: array
+          items: { $ref: "#/components/schemas/TelemetryCondition" }
+        rollups:
+          type: array
+          items: { $ref: "#/components/schemas/TelemetryRollup" }
+    PlayerHistory:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          screenId,
+          installationId,
+          platform,
+          manufacturer,
+          model,
+          androidVersion,
+          playerVersion,
+          screenWidth,
+          screenHeight,
+          density,
+          locale,
+          timezone,
+          pairedAt,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        screenId: { type: string, format: uuid }
+        credentialId: { type: string, format: uuid }
+        installationId: { type: string }
+        platform: { type: string }
+        manufacturer: { type: string }
+        model: { type: string }
+        androidVersion: { type: string }
+        playerVersion: { type: string }
+        screenWidth: { type: integer, minimum: 0 }
+        screenHeight: { type: integer, minimum: 0 }
+        density: { type: number, minimum: 0 }
+        locale: { type: string }
+        timezone: { type: string }
+        pairedAt: { type: string, format: date-time }
+        retiredAt: { type: string, format: date-time }
+        retirementReason: { type: string }
+    PlayerHistoryList:
+      type: object
+      additionalProperties: false
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/PlayerHistory" }
+        total: { type: integer, minimum: 0 }
     IncidentStatus:
       type: string
       enum: [open, acknowledged, recovered, resolved, ignored]
