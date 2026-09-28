@@ -50,6 +50,11 @@ import {
   useIncidentAction,
   type Incident,
 } from "./ActivityIncidentShared";
+import {
+  listIncidents,
+  type IncidentAction,
+  type IncidentFilters,
+} from "../api/domains/activity";
 import { screenActivityLink } from "./activityLinks";
 
 type IncidentTimelineEntry = {
@@ -102,7 +107,7 @@ export function IncidentsTab({
   const query = useQuery({
     queryKey: ["activity", "incidents", "tab", paramsKey],
     queryFn: () =>
-      activityRequest<{ items: Incident[] }>(`/incidents?${params}`),
+      listIncidents(Object.fromEntries(params.entries()) as IncidentFilters),
     refetchInterval: 30_000,
   });
 
@@ -199,7 +204,7 @@ function IncidentDrawer({
   onOpenChangeComplete: (open: boolean) => void;
   onClose: () => void;
   canAct: boolean;
-  onAct: (action: string) => void;
+  onAct: (action: IncidentAction) => void;
   pending: boolean;
   error?: string;
 }) {

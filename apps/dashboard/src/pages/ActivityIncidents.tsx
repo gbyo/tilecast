@@ -28,6 +28,7 @@ import {
   useIncidentAction,
   type Incident,
 } from "./ActivityIncidentShared";
+import { listIncidents } from "../api/domains/activity";
 import { buildActivityLink } from "./activityLinks";
 
 export type { Incident, IncidentStatus } from "./ActivityIncidentShared";
@@ -94,8 +95,7 @@ export function NeedsAttentionPanel() {
   const act = useIncidentAction();
   const query = useQuery({
     queryKey: ["activity", "incidents", "active"],
-    queryFn: () =>
-      activityRequest<{ items: Incident[] }>(`/incidents?status=active`),
+    queryFn: () => listIncidents({ status: "active" }),
     refetchInterval: 30_000,
   });
 
