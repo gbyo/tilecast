@@ -5187,18 +5187,24 @@ paths:
         "404": { description: Screen unknown or outside caller scope }
   /api/v1/screens/{id}/reliability:
     get:
-      {
-        description: "Requires an authenticated dashboard user.",
-
-        operationId: getScreenReliability,
-        summary: "Read commissioning, zero-touch readiness, Android reliability, and Power Assist state",
-        parameters: [{ $ref: "#/components/parameters/ResourceID" }],
-        responses:
-          {
-            "200": { description: Capability and effective-state diagnostics },
-            "404": { description: Screen not found },
-          },
-      }
+      description: "Requires an authenticated dashboard user."
+      operationId: getScreenReliability
+      summary: "Read commissioning, zero-touch readiness, Android reliability, and Power Assist state"
+      parameters: [{ $ref: "#/components/parameters/ResourceID" }]
+      responses:
+        "200":
+          description: Capability and effective-state diagnostics
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    description: >-
+                      Player-reported diagnostics bag. Fields vary by player state and caller role (managers see package details viewers do not); every field is optional.
+        "404": { description: Screen not found }
   /api/v1/screens/{id}/power-assist:
     put:
       {
