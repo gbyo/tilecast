@@ -1,9 +1,10 @@
 /**
  * System administration domain helpers over the typed transport: player
  * releases, update deployments, takeovers, settings, users, preferences,
- * integration tokens, notifications, backups, and maintenance. Success
- * bodies in this area are not contract-typed yet, so each call states
- * its local Studio response type explicitly until the contract gains
+ * integration tokens, notifications, backups, and maintenance. Player
+ * release and GitHub device-flow success bodies are contract-typed and
+ * inferred from the generated schemas; the remaining areas still state
+ * their local Studio response type explicitly until the contract gains
  * schemas. Binary release uploads stay on XHR in ../client.ts: upload
  * progress is an explicitly exceptional transport.
  */
@@ -16,8 +17,6 @@ import type {
   BulkOperationRequest,
   BulkPreview,
   ContentHealthReport,
-  GitHubDevicePoll,
-  GitHubDeviceStart,
   IntegrationScope,
   IntegrationToken,
   IntegrationTokenCreated,
@@ -27,7 +26,6 @@ import type {
   NotificationStatus,
   NotificationWebhook,
   NotificationWebhookCreated,
-  PlayerReleaseList,
   SettingsDocument,
   SettingsExportDocument,
   SystemStatus,
@@ -40,38 +38,30 @@ import type {
   User,
 } from "../types";
 
-export function listPlayerReleases(): Promise<PlayerReleaseList> {
-  return apiGet<"/api/v1/player-releases", PlayerReleaseList>(
-    "/api/v1/player-releases",
-  );
+export function listPlayerReleases() {
+  return apiGet("/api/v1/player-releases");
 }
 
-export function checkPlayerReleases(
-  csrfToken: string,
-): Promise<{ checked: boolean }> {
-  return apiPost<"/api/v1/player-releases/check", { checked: boolean }>(
-    "/api/v1/player-releases/check",
-    { csrfToken },
-  );
+export function checkPlayerReleases(csrfToken: string) {
+  return apiPost("/api/v1/player-releases/check", { csrfToken });
 }
 
-export function startGitHubDeviceAuthorization(
-  csrfToken: string,
-): Promise<GitHubDeviceStart> {
-  return apiPost<"/api/v1/player-releases/github/device", GitHubDeviceStart>(
-    "/api/v1/player-releases/github/device",
-    { csrfToken },
-  );
+export function configureGitHubReleases(clientId: string, csrfToken: string) {
+  return apiPost("/api/v1/player-releases/github/configuration", {
+    body: { clientId },
+    csrfToken,
+  });
+}
+
+export function startGitHubDeviceAuthorization(csrfToken: string) {
+  return apiPost("/api/v1/player-releases/github/device", { csrfToken });
 }
 
 export function pollGitHubDeviceAuthorization(
   flowId: string,
   csrfToken: string,
-): Promise<GitHubDevicePoll> {
-  return apiPost<
-    "/api/v1/player-releases/github/device/poll",
-    GitHubDevicePoll
-  >("/api/v1/player-releases/github/device/poll", {
+) {
+  return apiPost("/api/v1/player-releases/github/device/poll", {
     body: { flowId },
     csrfToken,
   });
@@ -81,27 +71,15 @@ export function disconnectGitHub(csrfToken: string): Promise<void> {
   return apiDelete("/api/v1/player-releases/github", { csrfToken });
 }
 
-export function cachePlayerRelease(
-  id: string,
-  csrfToken: string,
-): Promise<{ id: string; cacheStatus: string }> {
-  return apiPost<
-    "/api/v1/player-releases/{id}/cache",
-    { id: string; cacheStatus: string }
-  >("/api/v1/player-releases/{id}/cache", {
+export function cachePlayerRelease(id: string, csrfToken: string) {
+  return apiPost("/api/v1/player-releases/{id}/cache", {
     params: { path: { id } },
     csrfToken,
   });
 }
 
-export function deletePlayerRelease(
-  id: string,
-  csrfToken: string,
-): Promise<{ id: string; deleted: boolean }> {
-  return apiDelete<
-    "/api/v1/player-releases/{id}",
-    { id: string; deleted: boolean }
-  >("/api/v1/player-releases/{id}", {
+export function deletePlayerRelease(id: string, csrfToken: string) {
+  return apiDelete("/api/v1/player-releases/{id}", {
     params: { path: { id } },
     csrfToken,
   });
