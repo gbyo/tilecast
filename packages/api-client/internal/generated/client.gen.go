@@ -3027,6 +3027,30 @@ func (e ScreenGroupPresentationType) Valid() bool {
 	}
 }
 
+// Defines values for ScreenHealth.
+const (
+	ScreenHealthHealthy    ScreenHealth = "healthy"
+	ScreenHealthImpaired   ScreenHealth = "impaired"
+	ScreenHealthOffline    ScreenHealth = "offline"
+	ScreenHealthUnmeasured ScreenHealth = "unmeasured"
+)
+
+// Valid indicates whether the value is a known member of the ScreenHealth enum.
+func (e ScreenHealth) Valid() bool {
+	switch e {
+	case ScreenHealthHealthy:
+		return true
+	case ScreenHealthImpaired:
+		return true
+	case ScreenHealthOffline:
+		return true
+	case ScreenHealthUnmeasured:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ScreenStatus.
 const (
 	ScreenStatusDisabled ScreenStatus = "disabled"
@@ -3051,6 +3075,51 @@ func (e ScreenStatus) Valid() bool {
 	case ScreenStatusRevoked:
 		return true
 	case ScreenStatusStale:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ScreenTimelineDomain.
+const (
+	ScreenTimelineDomainAudit        ScreenTimelineDomain = "audit"
+	ScreenTimelineDomainCommands     ScreenTimelineDomain = "commands"
+	ScreenTimelineDomainConnectivity ScreenTimelineDomain = "connectivity"
+	ScreenTimelineDomainIncidents    ScreenTimelineDomain = "incidents"
+	ScreenTimelineDomainManifest     ScreenTimelineDomain = "manifest"
+	ScreenTimelineDomainPlayback     ScreenTimelineDomain = "playback"
+	ScreenTimelineDomainReliability  ScreenTimelineDomain = "reliability"
+	ScreenTimelineDomainScheduling   ScreenTimelineDomain = "scheduling"
+	ScreenTimelineDomainState        ScreenTimelineDomain = "state"
+	ScreenTimelineDomainTakeovers    ScreenTimelineDomain = "takeovers"
+	ScreenTimelineDomainUpdates      ScreenTimelineDomain = "updates"
+)
+
+// Valid indicates whether the value is a known member of the ScreenTimelineDomain enum.
+func (e ScreenTimelineDomain) Valid() bool {
+	switch e {
+	case ScreenTimelineDomainAudit:
+		return true
+	case ScreenTimelineDomainCommands:
+		return true
+	case ScreenTimelineDomainConnectivity:
+		return true
+	case ScreenTimelineDomainIncidents:
+		return true
+	case ScreenTimelineDomainManifest:
+		return true
+	case ScreenTimelineDomainPlayback:
+		return true
+	case ScreenTimelineDomainReliability:
+		return true
+	case ScreenTimelineDomainScheduling:
+		return true
+	case ScreenTimelineDomainState:
+		return true
+	case ScreenTimelineDomainTakeovers:
+		return true
+	case ScreenTimelineDomainUpdates:
 		return true
 	default:
 		return false
@@ -6288,6 +6357,33 @@ type PlayerHeartbeat struct {
 	PlayerFamily *string `json:"playerFamily,omitempty"`
 }
 
+// PlayerHistory defines model for PlayerHistory.
+type PlayerHistory struct {
+	AndroidVersion   string              `json:"androidVersion"`
+	CredentialId     *openapi_types.UUID `json:"credentialId,omitempty"`
+	Density          float32             `json:"density"`
+	Id               openapi_types.UUID  `json:"id"`
+	InstallationId   string              `json:"installationId"`
+	Locale           string              `json:"locale"`
+	Manufacturer     string              `json:"manufacturer"`
+	Model            string              `json:"model"`
+	PairedAt         time.Time           `json:"pairedAt"`
+	Platform         string              `json:"platform"`
+	PlayerVersion    string              `json:"playerVersion"`
+	RetiredAt        *time.Time          `json:"retiredAt,omitempty"`
+	RetirementReason *string             `json:"retirementReason,omitempty"`
+	ScreenHeight     int                 `json:"screenHeight"`
+	ScreenId         openapi_types.UUID  `json:"screenId"`
+	ScreenWidth      int                 `json:"screenWidth"`
+	Timezone         string              `json:"timezone"`
+}
+
+// PlayerHistoryList defines model for PlayerHistoryList.
+type PlayerHistoryList struct {
+	Items []PlayerHistory `json:"items"`
+	Total int             `json:"total"`
+}
+
 // PlayerManifest defines model for PlayerManifest.
 type PlayerManifest struct {
 	Assets []map[string]interface{} `json:"assets"`
@@ -7291,6 +7387,19 @@ type Screen struct {
 	UptimeSeconds             *int64              `json:"uptimeSeconds,omitempty"`
 }
 
+// ScreenActivity defines model for ScreenActivity.
+type ScreenActivity struct {
+	// CurrentIssue The current playback issue, when one is present. Fields vary by issue source.
+	CurrentIssue           *map[string]interface{} `json:"currentIssue,omitempty"`
+	CurrentPresentation    *string                 `json:"currentPresentation,omitempty"`
+	LastHealthyPlayback    *time.Time              `json:"lastHealthyPlayback,omitempty"`
+	LastSuccessfulPlayback *time.Time              `json:"lastSuccessfulPlayback,omitempty"`
+	PlaybackGaps           int                     `json:"playbackGaps"`
+	RecentEvents           []ScreenEventRecord     `json:"recentEvents"`
+	RecentProof            []ProofOfPlayRecord     `json:"recentProof"`
+	ScreenId               openapi_types.UUID      `json:"screenId"`
+}
+
 // ScreenEventPage defines model for ScreenEventPage.
 type ScreenEventPage struct {
 	Items      []ScreenEventRecord `json:"items"`
@@ -7364,6 +7473,9 @@ type ScreenGroupScreen struct {
 	Name     string             `json:"name"`
 }
 
+// ScreenHealth defines model for ScreenHealth.
+type ScreenHealth string
+
 // ScreenList defines model for ScreenList.
 type ScreenList struct {
 	Items []Screen `json:"items"`
@@ -7394,6 +7506,56 @@ type ScreenPresentationNetworkInput struct {
 
 // ScreenStatus defines model for ScreenStatus.
 type ScreenStatus string
+
+// ScreenTelemetry defines model for ScreenTelemetry.
+type ScreenTelemetry struct {
+	Conditions []TelemetryCondition `json:"conditions"`
+	Range      ActivityTimeRange    `json:"range"`
+	Rollups    []TelemetryRollup    `json:"rollups"`
+
+	// Snapshot Null when the player has never reported telemetry, which is different from having reported zeroes.
+	Snapshot *TelemetrySnapshot `json:"snapshot"`
+}
+
+// ScreenTimeline defines model for ScreenTimeline.
+type ScreenTimeline struct {
+	Entries []ScreenTimelineEntry `json:"entries"`
+	Range   ActivityTimeRange     `json:"range"`
+	Status  ScreenTimelineStatus  `json:"status"`
+}
+
+// ScreenTimelineDomain defines model for ScreenTimelineDomain.
+type ScreenTimelineDomain string
+
+// ScreenTimelineEntry defines model for ScreenTimelineEntry.
+type ScreenTimelineEntry struct {
+	Description *string    `json:"description,omitempty"`
+	Domain      string     `json:"domain"`
+	DurationMs  *int64     `json:"durationMs,omitempty"`
+	EndedAt     *time.Time `json:"endedAt,omitempty"`
+	Id          string     `json:"id"`
+	Kind        string     `json:"kind"`
+	LinkId      *string    `json:"linkId,omitempty"`
+	LinkType    *string    `json:"linkType,omitempty"`
+	Result      *string    `json:"result,omitempty"`
+	Severity    string     `json:"severity"`
+	Timestamp   time.Time  `json:"timestamp"`
+	Title       string     `json:"title"`
+}
+
+// ScreenTimelineStatus defines model for ScreenTimelineStatus.
+type ScreenTimelineStatus struct {
+	CurrentIncident        *string             `json:"currentIncident,omitempty"`
+	CurrentIncidentId      *openapi_types.UUID `json:"currentIncidentId,omitempty"`
+	CurrentItem            *string             `json:"currentItem,omitempty"`
+	CurrentPresentation    *string             `json:"currentPresentation,omitempty"`
+	Health                 ScreenHealth        `json:"health"`
+	HealthReason           string              `json:"healthReason"`
+	LastHealthyPlayback    *time.Time          `json:"lastHealthyPlayback,omitempty"`
+	LastHeartbeatAt        *time.Time          `json:"lastHeartbeatAt,omitempty"`
+	LastManifestActivation *time.Time          `json:"lastManifestActivation,omitempty"`
+	PlayerVersion          *string             `json:"playerVersion,omitempty"`
+}
 
 // SecurityStatus defines model for SecurityStatus.
 type SecurityStatus struct {
@@ -7748,6 +7910,113 @@ type TakeoverScreenState struct {
 	ScreenId        openapi_types.UUID `json:"screenId"`
 	ScreenName      string             `json:"screenName"`
 	State           string             `json:"state"`
+}
+
+// TelemetryCondition defines model for TelemetryCondition.
+type TelemetryCondition struct {
+	Active          bool       `json:"active"`
+	Condition       string     `json:"condition"`
+	EnteredAt       *time.Time `json:"enteredAt,omitempty"`
+	ExitedAt        *time.Time `json:"exitedAt,omitempty"`
+	OccurrenceCount int64      `json:"occurrenceCount"`
+}
+
+// TelemetryRollup defines model for TelemetryRollup.
+type TelemetryRollup struct {
+	AverageCpuPercent               *float32           `json:"averageCpuPercent,omitempty"`
+	AverageMemoryBytes              *int64             `json:"averageMemoryBytes,omitempty"`
+	AverageRoundTripMs              *float32           `json:"averageRoundTripMs,omitempty"`
+	AverageThroughputBytesPerSecond *int64             `json:"averageThroughputBytesPerSecond,omitempty"`
+	BlackOutputSeconds              int                `json:"blackOutputSeconds"`
+	BucketStart                     time.Time          `json:"bucketStart"`
+	CacheEvictedBytes               int64              `json:"cacheEvictedBytes"`
+	CacheEvictionCount              int64              `json:"cacheEvictionCount"`
+	CacheHits                       int64              `json:"cacheHits"`
+	CacheMisses                     int64              `json:"cacheMisses"`
+	ConnectedSeconds                int                `json:"connectedSeconds"`
+	DecoderInitFailureCount         int64              `json:"decoderInitFailureCount"`
+	DisconnectedSeconds             int                `json:"disconnectedSeconds"`
+	DisplaySleepCount               int64              `json:"displaySleepCount"`
+	DisplayWakeCount                int64              `json:"displayWakeCount"`
+	DnsResolveP95Ms                 *int               `json:"dnsResolveP95Ms,omitempty"`
+	DownloadFailureCount            int64              `json:"downloadFailureCount"`
+	DownloadResumeCount             int64              `json:"downloadResumeCount"`
+	DownloadedBytes                 int64              `json:"downloadedBytes"`
+	DroppedFrames                   int64              `json:"droppedFrames"`
+	FrameChangeCount                int64              `json:"frameChangeCount"`
+	FrameTimeP95Ms                  *float32           `json:"frameTimeP95Ms,omitempty"`
+	FrameTimeP99Ms                  *float32           `json:"frameTimeP99Ms,omitempty"`
+	HealthyPlaybackSeconds          int                `json:"healthyPlaybackSeconds"`
+	HttpClientErrorCount            int64              `json:"httpClientErrorCount"`
+	HttpFailureCount                int64              `json:"httpFailureCount"`
+	HttpRequestCount                int64              `json:"httpRequestCount"`
+	HttpServerErrorCount            int64              `json:"httpServerErrorCount"`
+	IntegrityFailureCount           int64              `json:"integrityFailureCount"`
+	JankFrameCount                  int64              `json:"jankFrameCount"`
+	MaxRoundTripMs                  *int               `json:"maxRoundTripMs,omitempty"`
+	NetworkInterfaceChangeCount     int64              `json:"networkInterfaceChangeCount"`
+	PeakMemoryBytes                 *int64             `json:"peakMemoryBytes,omitempty"`
+	RendererCrashCount              int64              `json:"rendererCrashCount"`
+	RequestRetryCount               int64              `json:"requestRetryCount"`
+	Samples                         int                `json:"samples"`
+	SocketReconnectCount            int64              `json:"socketReconnectCount"`
+	StalledPlaybackSeconds          int                `json:"stalledPlaybackSeconds"`
+	SurfaceLostCount                int64              `json:"surfaceLostCount"`
+	SyncDriftMaxMs                  *int               `json:"syncDriftMaxMs,omitempty"`
+	SyncDriftP50Ms                  *int               `json:"syncDriftP50Ms,omitempty"`
+	SyncDriftP95Ms                  *int               `json:"syncDriftP95Ms,omitempty"`
+	ThermalDistribution             map[string]float32 `json:"thermalDistribution"`
+	TimeToFirstByteP95Ms            *int               `json:"timeToFirstByteP95Ms,omitempty"`
+	TlsHandshakeP95Ms               *int               `json:"tlsHandshakeP95Ms,omitempty"`
+	UnexpectedRebootCount           int64              `json:"unexpectedRebootCount"`
+}
+
+// TelemetrySnapshot defines model for TelemetrySnapshot.
+type TelemetrySnapshot struct {
+	AverageLuminance         *float32   `json:"averageLuminance,omitempty"`
+	BatteryPercent           *int       `json:"batteryPercent,omitempty"`
+	BytesRemaining           *int64     `json:"bytesRemaining,omitempty"`
+	CacheLimitBytes          *int64     `json:"cacheLimitBytes,omitempty"`
+	CacheUsedBytes           *int64     `json:"cacheUsedBytes,omitempty"`
+	CaptivePortalSuspected   *bool      `json:"captivePortalSuspected,omitempty"`
+	ClockOffsetSeconds       *int       `json:"clockOffsetSeconds,omitempty"`
+	CurrentItemId            *string    `json:"currentItemId,omitempty"`
+	DeviceUptimeSeconds      *int64     `json:"deviceUptimeSeconds,omitempty"`
+	DisplayConnected         *bool      `json:"displayConnected,omitempty"`
+	DisplayPowerState        *string    `json:"displayPowerState,omitempty"`
+	DisplayRefreshHz         *float32   `json:"displayRefreshHz,omitempty"`
+	DisplayResolution        *string    `json:"displayResolution,omitempty"`
+	DownloadQueueCount       *int       `json:"downloadQueueCount,omitempty"`
+	ExpectedMotion           *bool      `json:"expectedMotion,omitempty"`
+	FrameFingerprint         *string    `json:"frameFingerprint,omitempty"`
+	FreeStorageBytes         *int64     `json:"freeStorageBytes,omitempty"`
+	GatewayReachable         *bool      `json:"gatewayReachable,omitempty"`
+	ItemStartedAt            *time.Time `json:"itemStartedAt,omitempty"`
+	LastDisconnectReason     *string    `json:"lastDisconnectReason,omitempty"`
+	LastMeaningfulProgressAt *time.Time `json:"lastMeaningfulProgressAt,omitempty"`
+	LastShutdownReason       *string    `json:"lastShutdownReason,omitempty"`
+	MemoryPressureState      *string    `json:"memoryPressureState,omitempty"`
+	NetworkLinkType          *string    `json:"networkLinkType,omitempty"`
+	ObservedAt               time.Time  `json:"observedAt"`
+	PlaybackStallDurationMs  *int64     `json:"playbackStallDurationMs,omitempty"`
+	PowerSource              *string    `json:"powerSource,omitempty"`
+	ProcessUptimeSeconds     *int64     `json:"processUptimeSeconds,omitempty"`
+	RendererResponding       *bool      `json:"rendererResponding,omitempty"`
+	RendererState            *string    `json:"rendererState,omitempty"`
+	ServerRoundTripMs        *int       `json:"serverRoundTripMs,omitempty"`
+	StallReason              *string    `json:"stallReason,omitempty"`
+	StartupAssetVerifyMs     *int64     `json:"startupAssetVerifyMs,omitempty"`
+	StartupConfigMs          *int64     `json:"startupConfigMs,omitempty"`
+	StartupFirstFrameMs      *int64     `json:"startupFirstFrameMs,omitempty"`
+	StartupManifestMs        *int64     `json:"startupManifestMs,omitempty"`
+	StartupTotalMs           *int64     `json:"startupTotalMs,omitempty"`
+	SyncGroupDriftMs         *int       `json:"syncGroupDriftMs,omitempty"`
+	ThermalState             *string    `json:"thermalState,omitempty"`
+	TimeSyncState            *string    `json:"timeSyncState,omitempty"`
+	VideoDecodedResolution   *string    `json:"videoDecodedResolution,omitempty"`
+	VideoDecoderPath         *string    `json:"videoDecoderPath,omitempty"`
+	WifiLinkSpeedMbps        *int       `json:"wifiLinkSpeedMbps,omitempty"`
+	WifiSignalDbm            *int       `json:"wifiSignalDbm,omitempty"`
 }
 
 // UploadSession defines model for UploadSession.
@@ -8146,8 +8415,9 @@ type GetScreenTelemetryParams struct {
 
 // GetScreenTimelineParams defines parameters for GetScreenTimeline.
 type GetScreenTimelineParams struct {
-	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
-	To   *time.Time `form:"to,omitempty" json:"to,omitempty"`
+	From   *time.Time            `form:"from,omitempty" json:"from,omitempty"`
+	To     *time.Time            `form:"to,omitempty" json:"to,omitempty"`
+	Domain *ScreenTimelineDomain `form:"domain,omitempty" json:"domain,omitempty"`
 }
 
 // GetActivityUptimeParams defines parameters for GetActivityUptime.
@@ -22464,6 +22734,18 @@ func NewGetScreenTimelineRequest(server string, id ResourceID, params *GetScreen
 		if params.To != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "to", *params.To, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "date-time"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Domain != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "domain", *params.Domain, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -42179,6 +42461,17 @@ func (r ListScreenEventsResponse) ContentType() string {
 type GetScreenActivityResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ScreenActivity `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetScreenActivityResponse) GetJSON200() *struct {
+	Data ScreenActivity `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -42213,6 +42506,17 @@ func (r GetScreenActivityResponse) ContentType() string {
 type GetScreenTelemetryResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ScreenTelemetry `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetScreenTelemetryResponse) GetJSON200() *struct {
+	Data ScreenTelemetry `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -42247,6 +42551,17 @@ func (r GetScreenTelemetryResponse) ContentType() string {
 type GetScreenTimelineResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ScreenTimeline `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetScreenTimelineResponse) GetJSON200() *struct {
+	Data ScreenTimeline `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -54219,6 +54534,17 @@ func (r RenewLiveStreamResponse) ContentType() string {
 type ListScreenPlayerHistoryResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PlayerHistoryList `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListScreenPlayerHistoryResponse) GetJSON200() *struct {
+	Data PlayerHistoryList `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -63985,6 +64311,21 @@ func ParseGetScreenActivityResponse(rsp *http.Response) (*GetScreenActivityRespo
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ScreenActivity `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -64001,6 +64342,24 @@ func ParseGetScreenTelemetryResponse(rsp *http.Response) (*GetScreenTelemetryRes
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ScreenTelemetry `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -64015,6 +64374,21 @@ func ParseGetScreenTimelineResponse(rsp *http.Response) (*GetScreenTimelineRespo
 	response := &GetScreenTimelineResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ScreenTimeline `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -71672,6 +72046,21 @@ func ParseListScreenPlayerHistoryResponse(rsp *http.Response) (*ListScreenPlayer
 	response := &ListScreenPlayerHistoryResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PlayerHistoryList `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
 	}
 
 	return response, nil

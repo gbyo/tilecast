@@ -5712,6 +5712,257 @@ export interface components {
       byFailureCode: components["schemas"]["IncidentBreakdown"][];
       byType: components["schemas"]["IncidentBreakdown"][];
     };
+    ScreenActivity: {
+      /** Format: uuid */
+      screenId: string;
+      currentPresentation?: string;
+      recentProof: components["schemas"]["ProofOfPlayRecord"][];
+      recentEvents: components["schemas"]["ScreenEventRecord"][];
+      playbackGaps: number;
+      /** Format: date-time */
+      lastHealthyPlayback?: string;
+      /** Format: date-time */
+      lastSuccessfulPlayback?: string;
+      /** @description The current playback issue, when one is present. Fields vary by issue source. */
+      currentIssue?: Record<string, never>;
+    };
+    /** @enum {string} */
+    ScreenHealth: "healthy" | "impaired" | "offline" | "unmeasured";
+    ScreenTimelineStatus: {
+      currentPresentation?: string;
+      currentItem?: string;
+      currentIncident?: string;
+      /** Format: uuid */
+      currentIncidentId?: string;
+      /** Format: date-time */
+      lastHealthyPlayback?: string;
+      /** Format: date-time */
+      lastManifestActivation?: string;
+      /** Format: date-time */
+      lastHeartbeatAt?: string;
+      playerVersion?: string;
+      health: components["schemas"]["ScreenHealth"];
+      healthReason: string;
+    };
+    /** @enum {string} */
+    ScreenTimelineDomain:
+      | "playback"
+      | "connectivity"
+      | "reliability"
+      | "scheduling"
+      | "commands"
+      | "updates"
+      | "takeovers"
+      | "manifest"
+      | "state"
+      | "incidents"
+      | "audit";
+    ScreenTimelineEntry: {
+      id: string;
+      /** Format: date-time */
+      timestamp: string;
+      domain: string;
+      kind: string;
+      severity: string;
+      title: string;
+      description?: string;
+      /** Format: date-time */
+      endedAt?: string;
+      /** Format: int64 */
+      durationMs?: number;
+      result?: string;
+      linkType?: string;
+      linkId?: string;
+    };
+    ScreenTimeline: {
+      range: components["schemas"]["ActivityTimeRange"];
+      status: components["schemas"]["ScreenTimelineStatus"];
+      entries: components["schemas"]["ScreenTimelineEntry"][];
+    };
+    TelemetrySnapshot: {
+      /** Format: date-time */
+      observedAt: string;
+      currentItemId?: string;
+      /** Format: date-time */
+      itemStartedAt?: string;
+      /** Format: date-time */
+      lastMeaningfulProgressAt?: string;
+      /** Format: int64 */
+      playbackStallDurationMs?: number;
+      stallReason?: string;
+      rendererState?: string;
+      rendererResponding?: boolean;
+      expectedMotion?: boolean;
+      serverRoundTripMs?: number;
+      downloadQueueCount?: number;
+      /** Format: int64 */
+      bytesRemaining?: number;
+      /** Format: int64 */
+      cacheUsedBytes?: number;
+      /** Format: int64 */
+      cacheLimitBytes?: number;
+      /** Format: int64 */
+      freeStorageBytes?: number;
+      /** Format: int64 */
+      processUptimeSeconds?: number;
+      /** Format: int64 */
+      deviceUptimeSeconds?: number;
+      syncGroupDriftMs?: number;
+      frameFingerprint?: string;
+      averageLuminance?: number;
+      thermalState?: string;
+      memoryPressureState?: string;
+      networkLinkType?: string;
+      wifiSignalDbm?: number;
+      wifiLinkSpeedMbps?: number;
+      gatewayReachable?: boolean;
+      captivePortalSuspected?: boolean;
+      lastDisconnectReason?: string;
+      displayConnected?: boolean;
+      displayResolution?: string;
+      displayRefreshHz?: number;
+      displayPowerState?: string;
+      lastShutdownReason?: string;
+      powerSource?: string;
+      batteryPercent?: number;
+      clockOffsetSeconds?: number;
+      timeSyncState?: string;
+      /** Format: int64 */
+      startupTotalMs?: number;
+      /** Format: int64 */
+      startupConfigMs?: number;
+      /** Format: int64 */
+      startupManifestMs?: number;
+      /** Format: int64 */
+      startupAssetVerifyMs?: number;
+      /** Format: int64 */
+      startupFirstFrameMs?: number;
+      videoDecoderPath?: string;
+      videoDecodedResolution?: string;
+    };
+    TelemetryRollup: {
+      /** Format: date-time */
+      bucketStart: string;
+      samples: number;
+      averageRoundTripMs?: number;
+      maxRoundTripMs?: number;
+      connectedSeconds: number;
+      disconnectedSeconds: number;
+      healthyPlaybackSeconds: number;
+      stalledPlaybackSeconds: number;
+      blackOutputSeconds: number;
+      /** Format: int64 */
+      droppedFrames: number;
+      /** Format: int64 */
+      frameChangeCount: number;
+      /** Format: int64 */
+      downloadedBytes: number;
+      /** Format: int64 */
+      cacheHits: number;
+      /** Format: int64 */
+      cacheMisses: number;
+      /** Format: int64 */
+      averageMemoryBytes?: number;
+      /** Format: int64 */
+      peakMemoryBytes?: number;
+      averageCpuPercent?: number;
+      thermalDistribution: {
+        [key: string]: number;
+      };
+      syncDriftP50Ms?: number;
+      syncDriftP95Ms?: number;
+      syncDriftMaxMs?: number;
+      /** Format: int64 */
+      httpRequestCount: number;
+      /** Format: int64 */
+      httpFailureCount: number;
+      /** Format: int64 */
+      httpClientErrorCount: number;
+      /** Format: int64 */
+      httpServerErrorCount: number;
+      /** Format: int64 */
+      requestRetryCount: number;
+      /** Format: int64 */
+      socketReconnectCount: number;
+      /** Format: int64 */
+      networkInterfaceChangeCount: number;
+      dnsResolveP95Ms?: number;
+      tlsHandshakeP95Ms?: number;
+      timeToFirstByteP95Ms?: number;
+      /** Format: int64 */
+      averageThroughputBytesPerSecond?: number;
+      frameTimeP95Ms?: number;
+      frameTimeP99Ms?: number;
+      /** Format: int64 */
+      jankFrameCount: number;
+      /** Format: int64 */
+      rendererCrashCount: number;
+      /** Format: int64 */
+      surfaceLostCount: number;
+      /** Format: int64 */
+      decoderInitFailureCount: number;
+      /** Format: int64 */
+      cacheEvictionCount: number;
+      /** Format: int64 */
+      cacheEvictedBytes: number;
+      /** Format: int64 */
+      integrityFailureCount: number;
+      /** Format: int64 */
+      downloadResumeCount: number;
+      /** Format: int64 */
+      downloadFailureCount: number;
+      /** Format: int64 */
+      unexpectedRebootCount: number;
+      /** Format: int64 */
+      displaySleepCount: number;
+      /** Format: int64 */
+      displayWakeCount: number;
+    };
+    TelemetryCondition: {
+      condition: string;
+      active: boolean;
+      /** Format: date-time */
+      enteredAt?: string;
+      /** Format: date-time */
+      exitedAt?: string;
+      /** Format: int64 */
+      occurrenceCount: number;
+    };
+    ScreenTelemetry: {
+      range: components["schemas"]["ActivityTimeRange"];
+      /** @description Null when the player has never reported telemetry, which is different from having reported zeroes. */
+      snapshot: components["schemas"]["TelemetrySnapshot"] | null;
+      conditions: components["schemas"]["TelemetryCondition"][];
+      rollups: components["schemas"]["TelemetryRollup"][];
+    };
+    PlayerHistory: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      screenId: string;
+      /** Format: uuid */
+      credentialId?: string;
+      installationId: string;
+      platform: string;
+      manufacturer: string;
+      model: string;
+      androidVersion: string;
+      playerVersion: string;
+      screenWidth: number;
+      screenHeight: number;
+      density: number;
+      locale: string;
+      timezone: string;
+      /** Format: date-time */
+      pairedAt: string;
+      /** Format: date-time */
+      retiredAt?: string;
+      retirementReason?: string;
+    };
+    PlayerHistoryList: {
+      items: components["schemas"]["PlayerHistory"][];
+      total: number;
+    };
     /** @enum {string} */
     IncidentStatus:
       "open" | "acknowledged" | "recovered" | "resolved" | "ignored";
@@ -12907,7 +13158,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ScreenActivity"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -12923,6 +13178,7 @@ export interface operations {
       query?: {
         from?: string;
         to?: string;
+        domain?: components["schemas"]["ScreenTimelineDomain"];
       };
       header?: never;
       path: {
@@ -12937,7 +13193,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ScreenTimeline"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -12967,7 +13227,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ScreenTelemetry"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -15242,7 +15506,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["PlayerHistoryList"];
+          };
+        };
       };
       /** @description Screen not found */
       404: {
