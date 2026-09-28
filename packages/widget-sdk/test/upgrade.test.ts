@@ -82,7 +82,11 @@ describe("upgradeAuthorConfiguration", () => {
     expect(
       upgradeAuthorConfiguration(fields, template, saved, { dropUnknown: true })
         .configuration,
-    ).toEqual({ columns: [{ field: "title", label: "Name" }] });
+    ).toEqual({
+      // textScale is a retained hidden field of Table, so it stays.
+      columns: [{ field: "title", label: "Name" }],
+      textScale: 120,
+    });
   });
 
   it("does not mutate the saved configuration", () => {
