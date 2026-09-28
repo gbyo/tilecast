@@ -41,11 +41,11 @@ class TcMediaBridgeTest {
         assertEquals("video/mp4", headers["Content-Type"])
         assertEquals("bytes", headers["Accept-Ranges"])
         assertEquals("100", headers["Content-Length"])
-        // The stream is positioned at the range offset; the caller truncates to contentLength.
+        // The body itself is bounded: draining it reaches EOF at the Content-Range end.
         val body = TcMediaBridge.openStream(resolved)!!.readBytes()
-        assertEquals(1024 - 100, body.size)
+        assertEquals(100, body.size)
         assertEquals(videoBytes[100], body[0])
-        assertArrayEquals(videoBytes.copyOfRange(100, 200), body.copyOfRange(0, 100))
+        assertArrayEquals(videoBytes.copyOfRange(100, 200), body)
     }
 
     @Test fun servesSuffixAndOpenRanges() {
