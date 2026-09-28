@@ -163,6 +163,8 @@ class HostChannelTest {
         assertTrue(script.contains("remoteWeb:\"host-view\"") || script.contains("\"host-view\""))
         assertFalse(script.contains("evil()"))
         assertFalse(script.contains("if (host =="))
+        assertTrue(script.contains("resolve({ok:true,target:message.result})"))
+        assertFalse(script.contains('id:""'))
     }
 }
 
@@ -201,6 +203,8 @@ class RuntimeEvidenceRouterTest {
         val router = sink.router("act1")
         assertFalse(router.handle(RuntimeBridgeProtocol.RuntimeReport.Evidence("act0", "i1", "item-started", null), "act0"))
         assertTrue(sink.boundaries.isEmpty())
+        assertFalse(router.handle(RuntimeBridgeProtocol.RuntimeReport.Evidence(null, "i1", "item-started", null), null))
+        assertTrue(sink.boundaries.isEmpty())
         router.handle(RuntimeBridgeProtocol.RuntimeReport.PresentationResult("act1", "rejected"), "act1")
         router.handle(RuntimeBridgeProtocol.RuntimeReport.PlaybackError("act1", "i1", "boom"), "act1")
         assertEquals(listOf("shared presentation rejected", "boom"), sink.errors)
@@ -211,12 +215,15 @@ class RuntimeEvidenceRouterTest {
             15, 1, "s", "t", "single-zone",
             assets = listOf(ManifestAsset("a1", "v1", "image/png", "sha", 100, downloadPath = "/dl")),
         )
+        val cached = org.tilecast.player.content.PreparedContent(manifest, mapOf("v1" to "/tmp/v1"))
+        val uncached = org.tilecast.player.content.PreparedContent(manifest, emptyMap())
         assertFalse(RuntimeCutover.enabled)
-        assertFalse(RuntimeCutover.useSharedRuntime(manifest, items))
+        assertFalse(RuntimeCutover.useSharedRuntime(cached, items))
         RuntimeCutover.enabled = true
         try {
-            assertTrue(RuntimeCutover.useSharedRuntime(manifest, items))
-            assertFalse(RuntimeCutover.useSharedRuntime(manifest.copy(layout = null), emptyList()))
+            assertTrue(RuntimeCutover.useSharedRuntime(cached, items))
+            assertFalse(RuntimeCutover.useSharedRuntime(uncached, items))
+            assertFalse(RuntimeCutover.useSharedRuntime(cached, emptyList()))
         } finally {
             RuntimeCutover.enabled = false
         }
