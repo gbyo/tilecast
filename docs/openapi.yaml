@@ -324,7 +324,16 @@ paths:
           required: true
           schema: { type: string }
       responses:
-        "200": { description: Creation options and a challenge token }
+        "200":
+          description: Creation options and a challenge token
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    { $ref: "#/components/schemas/PasskeyRegistrationOptions" }
         "409": { description: Passkeys are unavailable on this installation }
   /api/v1/me/security/passkeys:
     post:
@@ -550,7 +559,15 @@ paths:
       description: >-
         Requires an authenticated user with the admin scope. Lists the caller's authorization grants newest first, revoked included.
       responses:
-        "200": { description: Grant list }
+        "200":
+          description: Grant list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/OAuthGrantList" }
         "401": { description: Dashboard authentication required }
   /api/v1/me/security/grants/{id}:
     delete:
@@ -577,7 +594,15 @@ paths:
           required: false
           schema: { type: string }
       responses:
-        "200": { description: PAT list }
+        "200":
+          description: PAT list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PersonalAccessTokenList" }
         "401": { description: Dashboard authentication required }
     post:
       operationId: createPersonalAccessToken
@@ -600,7 +625,16 @@ paths:
                   items: { type: string, enum: [read, write, admin] }
                 expiresInDays: { type: integer, enum: [7, 30, 90, 365] }
       responses:
-        "201": { description: PAT created with one-time secret }
+        "201":
+          description: PAT created with one-time secret
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    { $ref: "#/components/schemas/PersonalAccessTokenCreated" }
         "400":
           description: >-
             Invalid name, scopes, or lifetime
@@ -11378,6 +11412,68 @@ components:
         refresh_token: { type: string }
         token_type: { type: string, enum: [Bearer] }
         expires_at: { type: string, format: date-time }
+    PasskeyRegistrationOptions:
+      type: object
+      additionalProperties: false
+      required: [challengeToken, options]
+      properties:
+        challengeToken: { type: string }
+        options:
+          type: object
+          description: >-
+            WebAuthn public-key credential creation options for navigator.credentials.create(), serialized with base64url binary fields. Consumed by the platform authenticator rather than field by field.
+    OAuthGrant:
+      type: object
+      additionalProperties: false
+      required: [id, client, scopes, createdAt, lastUsedAt, revokedAt]
+      properties:
+        id: { type: string, format: uuid }
+        client: { type: string }
+        scopes:
+          type: array
+          items: { type: string, enum: [read, write, admin] }
+        createdAt: { type: string, format: date-time }
+        lastUsedAt: { type: [string, "null"], format: date-time }
+        revokedAt: { type: [string, "null"], format: date-time }
+    OAuthGrantList:
+      type: object
+      additionalProperties: false
+      required: [grants]
+      properties:
+        grants:
+          type: array
+          items: { $ref: "#/components/schemas/OAuthGrant" }
+    PersonalAccessToken:
+      type: object
+      additionalProperties: false
+      required: [id, name, scopes, createdAt, expiresAt, lastUsedAt, revokedAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        scopes:
+          type: array
+          items: { type: string, enum: [read, write, admin] }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        lastUsedAt: { type: [string, "null"], format: date-time }
+        revokedAt: { type: [string, "null"], format: date-time }
+    PersonalAccessTokenList:
+      type: object
+      additionalProperties: false
+      required: [pats]
+      properties:
+        pats:
+          type: array
+          items: { $ref: "#/components/schemas/PersonalAccessToken" }
+    PersonalAccessTokenCreated:
+      type: object
+      additionalProperties: false
+      required: [token, pat]
+      properties:
+        token:
+          type: string
+          description: Plaintext secret returned exactly once; never listed again.
+        pat: { $ref: "#/components/schemas/PersonalAccessToken" }
     InstallationIdentity:
       type: object
       additionalProperties: false

@@ -8027,6 +8027,48 @@ export interface components {
       /** Format: date-time */
       expires_at: string;
     };
+    PasskeyRegistrationOptions: {
+      challengeToken: string;
+      /** @description WebAuthn public-key credential creation options for navigator.credentials.create(), serialized with base64url binary fields. Consumed by the platform authenticator rather than field by field. */
+      options: Record<string, never>;
+    };
+    OAuthGrant: {
+      /** Format: uuid */
+      id: string;
+      client: string;
+      scopes: ("read" | "write" | "admin")[];
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      lastUsedAt: string | null;
+      /** Format: date-time */
+      revokedAt: string | null;
+    };
+    OAuthGrantList: {
+      grants: components["schemas"]["OAuthGrant"][];
+    };
+    PersonalAccessToken: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      scopes: ("read" | "write" | "admin")[];
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      expiresAt: string;
+      /** Format: date-time */
+      lastUsedAt: string | null;
+      /** Format: date-time */
+      revokedAt: string | null;
+    };
+    PersonalAccessTokenList: {
+      pats: components["schemas"]["PersonalAccessToken"][];
+    };
+    PersonalAccessTokenCreated: {
+      /** @description Plaintext secret returned exactly once; never listed again. */
+      token: string;
+      pat: components["schemas"]["PersonalAccessToken"];
+    };
     InstallationIdentity: {
       /** @example tilecast */
       product: string;
@@ -9121,7 +9163,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["PasskeyRegistrationOptions"];
+          };
+        };
       };
       /** @description Passkeys are unavailable on this installation */
       409: {
@@ -9476,7 +9522,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["OAuthGrantList"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -9547,7 +9597,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["PersonalAccessTokenList"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -9584,7 +9638,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["PersonalAccessTokenCreated"];
+          };
+        };
       };
       /** @description Invalid name, scopes, or lifetime */
       400: {
