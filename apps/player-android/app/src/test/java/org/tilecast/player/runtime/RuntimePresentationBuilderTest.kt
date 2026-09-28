@@ -140,8 +140,9 @@ class RuntimePresentationBuilderTest {
         )
         val items = listOf(item("irw", "rw1", null, "widget", 15_000))
         val manifest = manifest(items).copy(widgets = listOf(widget))
-        val remote = RuntimePresentationBuilder.build(playing(manifest, items))
-            ["items"]!!.jsonArray[0].jsonObject["remoteWeb"]!!.jsonObject["presentation"]!!.jsonObject
+        val presentation = RuntimePresentationBuilder.build(playing(manifest, items))
+        val remote = presentation["items"]!!.jsonArray[0].jsonObject["remoteWeb"]!!
+            .jsonObject["presentation"]!!.jsonObject
         assertEquals("keep_warm", remote["lifecycle"]!!.jsonPrimitive.content)
         assertEquals(45, remote["warmSeconds"]!!.jsonPrimitive.content.toInt())
     }
