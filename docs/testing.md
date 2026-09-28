@@ -81,6 +81,8 @@ The initial 22 Studio PNG files were captured on Ubuntu 24.04 x64 with Playwrigh
 
 The online screen baseline was refreshed from [36462713769](https://github.com/gbyo/tilecast/actions/runs/36462713769) after the simulator acknowledged unsupported captures. The test waits for the capture error, not the initial preview metadata.
 
+The fleet baseline was refreshed from [36464361568](https://github.com/gbyo/tilecast/actions/runs/36464361568) after contact labels received a fixed screenshot width. All other 21 comparisons passed in that run.
+
 On macOS, run the Linux container helper against the running demo:
 
 ```sh
