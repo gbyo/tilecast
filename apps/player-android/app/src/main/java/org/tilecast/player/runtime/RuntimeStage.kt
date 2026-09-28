@@ -500,6 +500,7 @@ private fun YouTubeRemoteView(
     } ?: return
     val html = remember(surface.surfaceId) { youtubeHTML(config, origin) }
     var lastReload by remember(surface.surfaceId) { mutableIntStateOf(0) }
+    var lastAudioState by remember(surface.surfaceId) { mutableStateOf<Pair<Boolean, Int>?>(null) }
     AndroidView(
         modifier = modifier.background(Color.Black),
         factory = { context ->
@@ -540,10 +541,14 @@ private fun YouTubeRemoteView(
             container.isClickable = surface.visible
             container.isFocusable = surface.visible
             val shouldMute = content.muted || surface.muted || !surface.visible
-            webView?.evaluateJavascript(
-                "if(window.tilecastSetMuted){window.tilecastSetMuted($shouldMute);}if(window.player){window.player.setVolume(${content.volume.coerceIn(0, 100)});}",
-                null,
-            )
+            val audioState = shouldMute to content.volume.coerceIn(0, 100)
+            if (audioState != lastAudioState) {
+                lastAudioState = audioState
+                webView?.evaluateJavascript(
+                    "if(window.tilecastSetMuted){window.tilecastSetMuted($shouldMute);}if(window.player){window.player.setVolume(${audioState.second});}",
+                    null,
+                )
+            }
         },
         onRelease = { container ->
             val webView = container.getChildAt(0) as? WebView
