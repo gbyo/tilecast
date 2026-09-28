@@ -59,10 +59,6 @@ const rules = [
     /^packages\/(api-schema|layout-schema|manifest-schema|settings-schema)\/package\.json$/,
     ["server", "dashboard", "cli", "docs"],
   ],
-  [
-    /^packages\/api-schema\/(?!activity\/|README\.md$|package\.json$)/,
-    ["server", "dashboard", "cli"],
-  ],
   [/^packages\/api-schema\/activity\//, ["activity"]],
   [
     /^apps\/server\/internal\/(devices|manifestchanges|previews|settings|presentnet)\//,

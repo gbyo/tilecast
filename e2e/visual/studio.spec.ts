@@ -48,6 +48,16 @@ for (const [name, path, ready] of states) {
   test(name, async ({ page }) => {
     await page.goto(path);
     await expect(page.getByText(ready, { exact: true }).first()).toBeVisible();
+    if (name === "content") {
+      // Processing completion order is real and concurrent. Choose a stable
+      // sort through the production UI rather than masking whole cards.
+      await page.getByRole("combobox", { name: "Sort media" }).click();
+      await page.getByRole("option", { name: "Name", exact: true }).click();
+      await expect(page.getByRole("article")).toHaveCount(8);
+      await expect(page.getByRole("article").first()).toContainText(
+        "Booster Club",
+      );
+    }
     if (name === "widget-editor") {
       await page
         .getByRole("button", { name: "Small zone", exact: true })

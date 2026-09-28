@@ -47,6 +47,8 @@ Shared Widget renderer changes now explicitly select WPE and Electron conformanc
 
 The full Edge run used 159 fewer job execution seconds. Its elapsed time increased by 36 seconds. These two runs do not establish a cache speed trend. They confirm that all deep validation still runs successfully.
 
+A second full [Edge run 36393103397](https://github.com/gbyo/tilecast/actions/runs/36393103397) passed at commit `e9d6ac6b2d4114c1578ee6b2e319ecd21d3e25af`. It completed in 15m 19s and used 51m 37s of job execution time. The two after-change runs show why one elapsed duration is not a reliable cache speed estimate.
+
 The main reduction comes from selection. Ordinary Studio or server administration changes select zero deep Edge jobs. The old workflow selected the full matrix for these changes. The after-run matrix used 52m 52s of job execution time. This is an example of the work that selection avoids, not a measured duration for a targeted PR.
 
 The production browser job now includes 14 functional tests and 22 Studio visual comparisons. Studio also collects V8 coverage. The workload differs from the old smoke job, so a full PR comparison must include these extra checks. [PR 739](https://github.com/gbyo/tilecast/pull/739) records the final baseline-inclusive PR run and its elapsed and job execution times. Do not treat a synthetic selection comparison as a measured speed improvement.

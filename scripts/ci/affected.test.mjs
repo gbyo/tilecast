@@ -172,10 +172,11 @@ test("shared schema contracts distinguish players from ordinary API consumers", 
     "packages/settings-schema/player-config-v1.json",
   ])
     assert.equal(affected([path]).edge_server, true, path);
-  assert.deepEqual(selected(["packages/api-schema/studio/users.json"]), [
+  assert.deepEqual(selected(["packages/api-schema/package.json"]), [
     "cli",
     "container",
     "dashboard",
+    "docs",
     "e2e",
     "server",
   ]);
@@ -202,6 +203,7 @@ test("graph, workflows, lockfiles and unknown shared packages fail conservative"
     ".github/workflows/pr-validation.yml",
     "package-lock.json",
     "packages/new-contract/index.ts",
+    "packages/api-schema/new-contract.json",
   ])
     assert.deepEqual(selected([path]), [...areas].sort());
 });

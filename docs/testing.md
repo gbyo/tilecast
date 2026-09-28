@@ -35,7 +35,7 @@ Detection runs the dependency-free affected-area and aggregate tests with Node b
 
 HTTP rules identify files with Player endpoints and shared routing or authentication. The Player configuration, manifest, and media delivery handlers have separate files. Settings, users, dashboard authentication, backups, notifications, and content administration select server and production browser validation. They do not select Players. A source contract test requires each Player handler to retain its consumer mapping.
 
-Manifest, layout, and Player configuration JSON schemas select Player consumers. The activity fixtures select activity parity. Other API schemas select server, Studio, and CLI contracts. Schema package README files select documentation only. Unknown shared packages still select all areas.
+Manifest, layout, and Player configuration JSON schemas select Player consumers. The activity fixtures select activity parity. Reserved schema package metadata selects server, Studio, and CLI contracts. Schema package README files select documentation only. New API schema files and unknown shared packages select all areas until their consumers have a rule.
 
 The Demo Mode browser job builds and starts the production server image. It also validates the production Compose file. This job satisfies container validation when browser tests are selected. A separate container job runs only when the browser job does not run.
 
@@ -72,6 +72,8 @@ Linux Chromium is the committed screenshot authority for Studio and Widgets. The
 Studio fixes browser `Date` while timers and real server time continue. The tests mask server contact times, enrollment and sign-in dates, update ages, notification counts, and pairing expiry metadata. Screen details mask the effective assignment and next transition values because the server evaluates schedules with real time. Status labels and controls remain visible. The overview masks its live chart, health values, and measured-screen counts. The next schedule panel uses the fixed browser time and remains visible. Widget renderers have no masks. Widget editor snapshots select the 320 × 180 Small zone preset so the full frame is visible.
 
 Simulated Players do not send screenshot captures. Screen detail tests wait for the real Live preview panel and its uncaptured metadata. The Activity snapshot covers the seeded empty Proof of Play state. Dialog captures hide volatile background labels in their own layer, so masks cannot cover the dialog. Fixed date controls remain visible. The Widget suite uses each fixture's manual clock and production mount. Both suites permit at most a 0.5% pixel difference. Do not increase this tolerance to make a failure pass.
+
+The Media snapshot selects name sorting through the real UI. Media processing can finish in a different order, so update time is not a deterministic sort key.
 
 On macOS, run the Linux container helper against the running demo:
 
