@@ -24,7 +24,6 @@ import {
   ready,
   type ConfigResult,
   type WidgetDataDocument,
-  type WidgetDataset,
   type WidgetField,
   type WidgetResources,
   type WidgetResolution,
@@ -32,6 +31,9 @@ import {
 } from "@tilecast/widget-sdk";
 import {
   boundText,
+  fieldRef,
+  fieldsByKey,
+  firstObjectValues,
   formatDisplayNumber,
   formatWidgetValue,
   TilecastWidgetElement,
@@ -83,14 +85,6 @@ export interface MetricEntry {
 export interface MetricsData {
   readonly metrics: readonly MetricEntry[];
   readonly single: boolean;
-}
-
-const MAX_FIELD_LENGTH = 120;
-
-function fieldRef(value: unknown): string | null {
-  if (value === undefined || value === null) return "";
-  if (typeof value !== "string" || value.length > MAX_FIELD_LENGTH) return null;
-  return value;
 }
 
 function parseMetricItem(value: unknown): MetricItem | "skip" | null {
@@ -167,27 +161,6 @@ export function parseMetricsConfig(
       foreground: parseHexColor(raw["foreground"]),
     },
   };
-}
-
-function fieldsByKey(
-  dataset: Pick<WidgetDataset, "fields">,
-): Readonly<Record<string, WidgetField>> {
-  const fields: Record<string, WidgetField> = {};
-  for (const field of dataset.fields ?? []) fields[field.key] = field;
-  return fields;
-}
-
-function firstObjectValues(document: WidgetDataDocument): {
-  values: Readonly<Record<string, WidgetValue>>;
-  fields: Readonly<Record<string, WidgetField>>;
-} | null {
-  for (const dataset of document.datasets) {
-    if (dataset.kind !== "object") continue;
-    const object = dataset.value?.object;
-    if (!object) return null;
-    return { values: object, fields: fieldsByKey(dataset) };
-  }
-  return null;
 }
 
 export function formatMetricValue(

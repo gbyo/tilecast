@@ -17,12 +17,10 @@ import { css, html, nothing, svg, type TemplateResult } from "lit";
 import {
   empty,
   failure,
-  firstRecordsDataset,
   parseHexColor,
   ready,
   type ConfigResult,
   type WidgetDataDocument,
-  type WidgetDataset,
   type WidgetField,
   type WidgetResources,
   type WidgetResolution,
@@ -30,7 +28,12 @@ import {
 } from "@tilecast/widget-sdk";
 import {
   boundText,
+  fieldRef,
+  fieldsByKey,
   formatWidgetValue,
+  optionalBoolean,
+  optionalFinite,
+  pickDataset,
   TilecastWidgetElement,
   emptyState,
   toFiniteNumber,
@@ -40,6 +43,7 @@ import {
   CHART_HEIGHT,
   CHART_WIDTH,
   computeDomain,
+  formatTick,
   niceTicks,
   PLOT_BOTTOM,
   PLOT_LEFT,
@@ -115,23 +119,6 @@ export interface ChartData {
 
 const MAX_FIELD_LENGTH = 120;
 const MAX_LABEL_LENGTH = 80;
-
-function fieldRef(value: unknown): string | null {
-  if (value === undefined || value === null) return "";
-  if (typeof value !== "string" || value.length > MAX_FIELD_LENGTH) return null;
-  return value;
-}
-
-function optionalFinite(value: unknown): number | null | undefined {
-  if (value === undefined || value === null) return null;
-  if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
-  return value;
-}
-
-function optionalBoolean(value: unknown, fallback: boolean): boolean | null {
-  if (value === undefined) return fallback;
-  return typeof value === "boolean" ? value : null;
-}
 
 /** A valid new style wins; otherwise the legacy chart type maps over. */
 export function resolveChartStyle(
@@ -221,30 +208,16 @@ export function parseChartConfig(value: unknown): ConfigResult<ChartConfig> {
   };
 }
 
-function fieldsByKey(
-  dataset: Pick<WidgetDataset, "fields">,
-): Readonly<Record<string, WidgetField>> {
-  const fields: Record<string, WidgetField> = {};
-  for (const field of dataset.fields ?? []) fields[field.key] = field;
-  return fields;
-}
-
-function pickDataset(
-  document: WidgetDataDocument,
-  name: string,
-): WidgetDataset | null {
-  if (name !== "") {
-    const named = document.datasets.find(
-      (dataset) =>
-        dataset.id === name &&
-        (dataset.kind === "records" || dataset.kind === "time_series"),
-    );
-    if (named) return named;
-  }
+/** X position of a category label: bar centers for bars, points for lines. */
+export function categoryLabelX(
+  index: number,
+  count: number,
+  style: ChartStyle,
+): number {
+  if (style !== "bar") return scaleX(index, count);
+  if (count <= 1) return (PLOT_LEFT + PLOT_RIGHT) / 2;
   return (
-    document.datasets.find((dataset) => dataset.kind === "records") ??
-    document.datasets.find((dataset) => dataset.kind === "time_series") ??
-    null
+    PLOT_LEFT + ((index + 0.5) / count) * (PLOT_RIGHT - PLOT_LEFT)
   );
 }
 
@@ -294,8 +267,8 @@ export function resolveChartData(
   const document = resources.dataDocument(config.dataSourceId);
   if (!document) return empty("no_source");
   // Records carry their own datasets; fall back to the first usable one.
-  const dataset =
-    firstRecordsDataset(document) ?? pickDataset(document, config.dataset);
+  // A named dataset wins; otherwise the first records, then time-series.
+  const dataset = pickDataset(document, config.dataset);
   if (!dataset) return failure("incompatible_source");
   const fields = fieldsByKey(dataset);
   if (dataset.kind === "time_series") {
@@ -503,7 +476,6 @@ export class TilecastChartWidget extends TilecastWidgetElement<
     labels: readonly string[],
     locale: string,
   ): TemplateResult {
-    void locale;
     if (!data.showAxes) return svg``;
     const ticks = niceTicks(data.domain);
     const stride = Math.max(1, Math.ceil(labels.length / 6));
@@ -529,7 +501,7 @@ export class TilecastChartWidget extends TilecastWidgetElement<
             y=${scaleY(tick, data.domain) + 4}
             text-anchor="end"
           >
-            ${tick}
+            ${formatTick(tick, locale)}
           </text>`,
       )}
       ${(() => {
@@ -544,7 +516,7 @@ export class TilecastChartWidget extends TilecastWidgetElement<
           index % stride === 0
             ? svg`<text
                 class="chart-tick chart-tick-label"
-                x=${scaleX(index, labels.length)}
+                x=${categoryLabelX(index, labels.length, data.style)}
                 y=${PLOT_BOTTOM + 14}
                 text-anchor=${shown.length > 1 && index === first ? "start" : shown.length > 1 && index === last ? "end" : "middle"}
               >

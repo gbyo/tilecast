@@ -5,12 +5,14 @@ import widget from "./index.ts";
 import {
   baselineY,
   computeDomain,
+  formatTick,
   niceTicks,
   scaleY,
   seriesPaths,
   barRects,
 } from "./chart-model.ts";
 import {
+  categoryLabelX,
   formatChartLabel,
   parseChartConfig,
   resolveChartData,
@@ -154,6 +156,30 @@ describe("Chart domain correctness", () => {
     const ticks = niceTicks({ min: 0, max: 96.4 });
     expect(ticks.length).toBeLessThanOrEqual(6);
     expect(ticks.every((tick) => tick >= 0 && tick <= 96.4)).toBe(true);
+  });
+
+  it("keeps very small ranges distinct instead of duplicate zeros", () => {
+    const ticks = niceTicks({ min: 0.0001, max: 0.0005 });
+    expect(ticks.length).toBeGreaterThan(1);
+    expect(new Set(ticks).size).toBe(ticks.length);
+    expect(ticks.every((tick) => tick >= 0.0001 && tick <= 0.0005)).toBe(true);
+    expect(ticks.every((tick) => tick !== 0)).toBe(true);
+  });
+
+  it("formats large ticks compactly so they fit the gutter", () => {
+    expect(formatTick(1500000, "en-US")).toBe("1.5M");
+    expect(formatTick(0.0004, "en-US")).not.toBe("0");
+  });
+
+  it("centers bar labels under bar slots, not edge points", () => {
+    const count = 3;
+    for (let index = 0; index < count; index += 1) {
+      const labelX = categoryLabelX(index, count, "bar");
+      const slotCenter =
+        34 + ((index + 0.5) / count) * (392 - 34);
+      expect(labelX).toBeCloseTo(slotCenter, 5);
+    }
+    expect(categoryLabelX(0, 1, "bar")).toBe((34 + 392) / 2);
   });
 });
 
@@ -324,6 +350,40 @@ describe("Chart data resolution", () => {
         }),
       ),
     ).toMatchObject({ state: "error", code: "incompatible_source" });
+  });
+
+  it("honors a named time-series dataset over a records dataset", () => {
+    const resolved = resolveChartData(
+      { ...base, dataset: "series", categoryField: "", style: "line" },
+      fixtureResources({
+        documents: {
+          [SOURCE]: {
+            schemaVersion: 1,
+            datasets: [
+              { id: "records", kind: "records", fields, records },
+              {
+                id: "series",
+                kind: "time_series",
+                points: [
+                  {
+                    at: "2026-09-26T09:00:00Z",
+                    value: { kind: "number", number: 3 },
+                  },
+                  {
+                    at: "2026-09-27T09:00:00Z",
+                    value: { kind: "number", number: 5 },
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      }),
+    );
+    expect(resolved).toMatchObject({
+      state: "ready",
+      data: { series: [{ points: [3, 5] }] },
+    });
   });
 });
 

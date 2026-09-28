@@ -29,8 +29,12 @@ import {
 } from "@tilecast/widget-sdk";
 import {
   boundText,
+  fieldRef,
+  fieldsByKey,
+  firstObjectValues,
   formatDisplayNumber,
   formatWidgetValue,
+  optionalBoolean,
   TilecastWidgetElement,
   emptyState,
   toFiniteNumber,
@@ -75,23 +79,10 @@ export interface ProgressData {
   readonly style: ProgressStyle;
 }
 
-const MAX_FIELD_LENGTH = 120;
-
-function fieldRef(value: unknown): string | null {
-  if (value === undefined || value === null) return "";
-  if (typeof value !== "string" || value.length > MAX_FIELD_LENGTH) return null;
-  return value;
-}
-
 function optionalNumber(value: unknown): number | null | undefined {
   if (value === undefined || value === null) return null;
   if (typeof value !== "number") return undefined;
   return value;
-}
-
-function optionalBoolean(value: unknown, fallback: boolean): boolean | null {
-  if (value === undefined) return fallback;
-  return typeof value === "boolean" ? value : null;
 }
 
 export function parseProgressConfig(
@@ -164,21 +155,6 @@ export function parseProgressConfig(
   };
 }
 
-function firstObjectValues(document: WidgetDataDocument): {
-  values: Readonly<Record<string, WidgetValue>>;
-  fields: Readonly<Record<string, WidgetField>>;
-} | null {
-  for (const dataset of document.datasets) {
-    if (dataset.kind !== "object") continue;
-    const object = dataset.value?.object;
-    if (!object) return null;
-    const fields: Record<string, WidgetField> = {};
-    for (const field of dataset.fields ?? []) fields[field.key] = field;
-    return { values: object, fields };
-  }
-  return null;
-}
-
 export function resolveProgressData(
   config: ProgressConfig,
   resources: WidgetResources,
@@ -193,9 +169,7 @@ export function resolveProgressData(
     ? (records.records ?? []).length > 0
       ? {
           values: records.records![0]!.values,
-          fields: Object.fromEntries(
-            (records.fields ?? []).map((field) => [field.key, field]),
-          ) as Readonly<Record<string, WidgetField>>,
+          fields: fieldsByKey(records),
         }
       : null
     : object;
@@ -327,7 +301,7 @@ export class TilecastProgressWidget extends TilecastWidgetElement<
       .bar-fill {
         height: 100%;
         border-radius: 999px;
-        background: var(--tc-color-accent, currentColor);
+        background: var(--tc-color-accent);
       }
       .ring-wrap {
         display: flex;
@@ -368,7 +342,7 @@ export class TilecastProgressWidget extends TilecastWidgetElement<
         left: 0;
         right: 0;
         bottom: 0;
-        background: var(--tc-color-accent, currentColor);
+        background: var(--tc-color-accent);
       }
       .thermo-side {
         display: flex;
@@ -394,7 +368,10 @@ export class TilecastProgressWidget extends TilecastWidgetElement<
   ];
 
   protected override themeOverrides(config: ProgressConfig) {
-    return { background: config.background, foreground: config.foreground };
+    // The inspector calls this "Accent color": it recolors the bar,
+    // thermometer, and ring through the accent token, leaving body text on
+    // the default foreground.
+    return { background: config.background, accent: config.foreground };
   }
 
   protected override renderEmpty(reason: string): TemplateResult {
@@ -509,7 +486,7 @@ export class TilecastProgressWidget extends TilecastWidgetElement<
             cy="50"
             r=${radius}
             fill="none"
-            stroke="currentColor"
+            stroke="var(--tc-color-accent)"
             stroke-width="10"
             stroke-linecap="round"
             stroke-dasharray=${circumference.toFixed(2)}

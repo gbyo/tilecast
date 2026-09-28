@@ -260,6 +260,17 @@ describe("resolveDataSourceKey", () => {
       resolveDataSourceKey(field, [sourceField, secondSource, field]),
     ).toBeUndefined();
   });
+
+  it("falls back to the root single source for a nested keyless field", () => {
+    const nested: ContentDefinitionField = {
+      key: "valueField",
+      label: "Value",
+      control: "data_source_field",
+    };
+    expect(resolveDataSourceKey(nested, [nested], [sourceField])).toBe(
+      "primarySource",
+    );
+  });
 });
 
 describe("dataFormatGuideFor", () => {

@@ -185,12 +185,14 @@ export function seriesPaths(
 
 /**
  * Bounded nice ticks for the value axis. Never more than five, always
- * finite, always inside the domain.
+ * finite, always inside the domain. Precision follows the step size so very
+ * small ranges keep distinct ticks instead of rounding to duplicate zeros.
  */
 export function niceTicks(domain: ChartDomain, count = 4): number[] {
   if (!(domain.min < domain.max)) return [domain.min];
   const target = Math.max(2, Math.min(5, count));
   const raw = (domain.max - domain.min) / (target - 1);
+  if (!(raw > 0) || !Number.isFinite(raw)) return [domain.min];
   const magnitude = 10 ** Math.floor(Math.log10(raw));
   const normalized = raw / magnitude;
   const step =
@@ -201,13 +203,53 @@ export function niceTicks(domain: ChartDomain, count = 4): number[] {
         : normalized <= 5
           ? 5 * magnitude
           : 10 * magnitude;
+  if (!(step > 0) || !Number.isFinite(step)) return [domain.min];
+  // Decimals from the step: a 0.0002 step needs four places, a step of 2
+  // needs none. Fixed two-decimal rounding collapsed small ranges to "0".
+  const decimals = Math.max(0, -Math.floor(Math.log10(step) + 1e-9));
+  const start = Math.ceil(domain.min / step - 1e-9);
   const ticks: number[] = [];
-  for (
-    let tick = Math.ceil(domain.min / step) * step;
-    tick <= domain.max && ticks.length < target + 1;
-    tick += step
-  ) {
-    ticks.push(Math.round(tick * 100) / 100);
+  for (let index = start; ticks.length < target + 1; index += 1) {
+    const tick = Number((index * step).toFixed(decimals));
+    if (!Number.isFinite(tick)) break;
+    if (tick > domain.max + 1e-9) break;
+    if (tick < domain.min - 1e-9) {
+      if (index > start + 100) break;
+      continue;
+    }
+    if (ticks.length > 0 && ticks[ticks.length - 1] === tick) continue;
+    ticks.push(tick);
+    if (index > start + 100) break;
   }
   return ticks.length > 0 ? ticks : [domain.min];
+}
+
+/**
+ * Format one axis tick in the Widget locale. Large magnitudes use compact
+ * notation so labels fit the gutter instead of clipping past the plot
+ * frame; small values keep the precision their step requires.
+ */
+export function formatTick(value: number, locale: string): string {
+  if (!Number.isFinite(value)) return "—";
+  const absolute = Math.abs(value);
+  try {
+    if (absolute >= 10000) {
+      return new Intl.NumberFormat(locale, {
+        notation: "compact",
+        maximumFractionDigits: 1,
+      }).format(value);
+    }
+    const decimals =
+      absolute !== 0 && absolute < 1
+        ? Math.min(6, Math.max(0, -Math.floor(Math.log10(absolute)) + 1))
+        : value % 1 === 0
+          ? 0
+          : 1;
+    return new Intl.NumberFormat(locale, {
+      maximumFractionDigits: decimals,
+      minimumFractionDigits: 0,
+    }).format(value);
+  } catch {
+    return String(value);
+  }
 }

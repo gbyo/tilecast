@@ -96,8 +96,25 @@ func (normalizer definitionConfigNormalizer) normalizeObject(ctx context.Context
 }
 
 func (normalizer definitionConfigNormalizer) validateDataSourceFieldSelections(ctx context.Context, fields []contentdefs.FieldDefinition, values map[string]any) error {
-	validator := dataSourceSelectionValidator{normalizer: normalizer, root: values, cache: map[string]map[string]string{}}
+	validator := dataSourceSelectionValidator{normalizer: normalizer, root: values, cache: map[string]map[string]string{}, rootSources: rootDataSources(fields)}
 	return validator.walk(ctx, fields, values, "")
+}
+
+func rootDataSources(fields []contentdefs.FieldDefinition) []string {
+	var sources []string
+	var collect func(list []contentdefs.FieldDefinition)
+	collect = func(list []contentdefs.FieldDefinition) {
+		for _, field := range list {
+			if field.Control == "data_source" {
+				sources = append(sources, field.Key)
+			}
+			if len(field.ItemFields) > 0 {
+				collect(field.ItemFields)
+			}
+		}
+	}
+	collect(fields)
+	return sources
 }
 
 // dataSourceSelectionValidator checks every populated data_source_field in a
@@ -108,9 +125,10 @@ func (normalizer definitionConfigNormalizer) validateDataSourceFieldSelections(c
 // relationship ambiguous the check fails closed rather than validating
 // against the wrong source. Field schemas resolve once per Data Source ID.
 type dataSourceSelectionValidator struct {
-	normalizer definitionConfigNormalizer
-	root       map[string]any
-	cache      map[string]map[string]string
+	normalizer  definitionConfigNormalizer
+	root        map[string]any
+	cache       map[string]map[string]string
+	rootSources []string
 }
 
 func (validator *dataSourceSelectionValidator) walk(ctx context.Context, fields []contentdefs.FieldDefinition, current map[string]any, path string) error {
@@ -169,13 +187,19 @@ func (validator *dataSourceSelectionValidator) checkField(ctx context.Context, f
 	selected, _ := current[field.Key].(string)
 	key := field.DataSourceKey
 	if key == "" {
-		if len(siblings) != 1 {
+		if len(siblings) == 1 {
+			key = siblings[0]
+		} else if len(validator.rootSources) == 1 {
+			// A nested field with no dataSourceKey reads the definition's
+			// single root source. Load-time validation accepts this, so
+			// save-time must too; only multiple root sources stay ambiguous.
+			key = validator.rootSources[0]
+		} else {
 			if selected == "" && !field.Required {
 				return nil
 			}
 			return fmt.Errorf("%s does not identify which Data Source supplies its fields", label)
 		}
-		key = siblings[0]
 	}
 	rawID, _ := current[key].(string)
 	if rawID == "" {

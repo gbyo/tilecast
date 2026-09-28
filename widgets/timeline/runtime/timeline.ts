@@ -28,6 +28,7 @@ import {
 import {
   badge,
   boundText,
+  fieldRef,
   formatWidgetValue,
   TilecastWidgetElement,
   emptyState,
@@ -62,14 +63,6 @@ export interface TimelineMilestone {
 export interface TimelineData {
   readonly orientation: TimelineOrientation;
   readonly milestones: readonly TimelineMilestone[];
-}
-
-const MAX_FIELD_LENGTH = 120;
-
-function fieldRef(value: unknown): string | null {
-  if (value === undefined || value === null) return "";
-  if (typeof value !== "string" || value.length > MAX_FIELD_LENGTH) return null;
-  return value;
 }
 
 export function parseTimelineConfig(
@@ -189,7 +182,9 @@ export class TilecastTimelineWidget extends TilecastWidgetElement<
       .timeline {
         position: relative;
         height: 100%;
+        min-height: 0;
         overflow-y: auto;
+        overscroll-behavior: contain;
         scrollbar-width: none;
         padding-left: calc(min(4cqh, 4cqw) + 6px);
       }
@@ -216,7 +211,7 @@ export class TilecastTimelineWidget extends TilecastWidgetElement<
         width: 9px;
         height: 9px;
         border-radius: 50%;
-        background: var(--tc-widget-background, Canvas);
+        background: var(--tc-color-bg);
         border: 2px solid currentColor;
       }
       .milestone-date {
@@ -248,7 +243,8 @@ export class TilecastTimelineWidget extends TilecastWidgetElement<
       }
       .timeline[data-horizontal] {
         overflow-x: auto;
-        overflow-y: hidden;
+        overflow-y: auto;
+        overscroll-behavior: contain;
         padding-left: 0;
         padding-top: calc(min(4cqh, 4cqw) + 6px);
       }

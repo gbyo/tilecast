@@ -36,19 +36,13 @@ import {
 import {
   badge,
   boundText,
+  fieldRef,
   formatWidgetValue,
   TilecastWidgetElement,
   emptyState,
 } from "@tilecast/widget-kit";
 
-const MAX_FIELD_LENGTH = 120;
 const IDENTIFIER = /^[A-Za-z0-9-]{0,64}$/;
-
-function fieldRef(value: unknown): string | null {
-  if (value === undefined || value === null) return "";
-  if (typeof value !== "string" || value.length > MAX_FIELD_LENGTH) return null;
-  return value;
-}
 
 function assetRef(value: unknown): string | null {
   if (value === undefined || value === null) return "";

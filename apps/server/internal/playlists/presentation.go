@@ -843,7 +843,14 @@ func compileNativeRoot(provider string, c map[string]any) (PresentationNode, map
 		for _, rawSeries := range series {
 			value, _ := rawSeries.(map[string]any)
 			fields = append(fields, stringValue(value, "field", ""))
-			labels = append(labels, stringValue(value, "label", stringValue(value, "field", "")))
+			// V2 saves an empty label when the legend should fall back to
+			// the field name. stringValue only falls back when the key is
+			// missing, so an explicit empty string needs the same fallback.
+			label := nonEmptyString(value, "label", "")
+			if label == "" {
+				label = stringValue(value, "field", "")
+			}
+			labels = append(labels, label)
 			colors = append(colors, stringValue(value, "color", ""))
 		}
 		// Charts edited through the V2 editor save a style. Old Players
@@ -859,7 +866,10 @@ func compileNativeRoot(provider string, c map[string]any) (PresentationNode, map
 			chartKind = "line"
 		}
 		nodeType := chartKind + "_chart"
-		dataset := stringValue(c, "dataSourceId", "") + ":" + stringValue(c, "dataset", "records")
+		// V2 saves dataset as "" for "first usable". An explicit empty
+		// string must fall back to "records" like a missing key.
+		datasetName := nonEmptyString(c, "dataset", "records")
+		dataset := stringValue(c, "dataSourceId", "") + ":" + datasetName
 		surface.Children = []PresentationNode{{Type: nodeType, Props: map[string]any{"seriesLabels": labels, "seriesColors": colors, "categoryField": stringValue(c, "categoryField", ""), "timeField": stringValue(c, "timeField", ""), "showLegend": boolValue(c["showLegend"]), "showAxes": boolValue(c["showAxes"]), "minimum": c["minimum"], "maximum": c["maximum"]}, Binding: &PresentationBinding{Source: "dataset", Dataset: dataset, Fields: fields}}}
 		caps["content."+nodeType] = 2
 	case "progress":
@@ -955,6 +965,16 @@ func fieldFormat(c map[string]any, field string) string {
 
 func stringValue(values map[string]any, key, fallback string) string {
 	if value, ok := values[key].(string); ok {
+		return value
+	}
+	return fallback
+}
+
+// nonEmptyString is stringValue with an empty-string fallback: V2 saves
+// "first usable" and "use the field" as "", so old Players need the same
+// default they got when the key was missing entirely.
+func nonEmptyString(values map[string]any, key, fallback string) string {
+	if value, ok := values[key].(string); ok && value != "" {
 		return value
 	}
 	return fallback

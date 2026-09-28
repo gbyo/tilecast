@@ -52,3 +52,21 @@ func TestLegacyPresentationMapsChartStyles(t *testing.T) {
 		t.Fatalf("a legacy donut compiled a %s node", child.Type)
 	}
 }
+
+func TestV2EmptyDatasetAndLabelFallBackForOldPlayers(t *testing.T) {
+	service := releaseService()
+	source := "11111111-1111-4111-8111-111111111111"
+	presentation, err := service.compileWidgetPresentation("chart", json.RawMessage(`{"dataSourceId":"`+source+`","dataset":"","series":[{"field":"sales","label":"","color":""}],"chartType":"line","style":"bar"}`))
+	if err != nil || presentation == nil || presentation.Native == nil {
+		t.Fatalf("v2 chart presentation: %v", err)
+	}
+	child := presentation.Native.Root.Children[0]
+	binding := child.Binding
+	if binding == nil || binding.Dataset != source+":records" {
+		t.Fatalf("an empty dataset bound %v, want %s:records", binding, source)
+	}
+	labels, _ := child.Props["seriesLabels"].([]string)
+	if len(labels) != 1 || labels[0] != "sales" {
+		t.Fatalf("an empty series label compiled %v, want [sales]", child.Props["seriesLabels"])
+	}
+}
