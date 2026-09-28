@@ -1593,6 +1593,159 @@ func (e PersonalAccessTokenScopes) Valid() bool {
 	}
 }
 
+// Defines values for PlayerCommandState.
+const (
+	PlayerCommandStateAcknowledged PlayerCommandState = "acknowledged"
+	PlayerCommandStateCancelled    PlayerCommandState = "cancelled"
+	PlayerCommandStateDelivered    PlayerCommandState = "delivered"
+	PlayerCommandStateExpired      PlayerCommandState = "expired"
+	PlayerCommandStateFailed       PlayerCommandState = "failed"
+	PlayerCommandStatePending      PlayerCommandState = "pending"
+	PlayerCommandStateRunning      PlayerCommandState = "running"
+	PlayerCommandStateSucceeded    PlayerCommandState = "succeeded"
+)
+
+// Valid indicates whether the value is a known member of the PlayerCommandState enum.
+func (e PlayerCommandState) Valid() bool {
+	switch e {
+	case PlayerCommandStateAcknowledged:
+		return true
+	case PlayerCommandStateCancelled:
+		return true
+	case PlayerCommandStateDelivered:
+		return true
+	case PlayerCommandStateExpired:
+		return true
+	case PlayerCommandStateFailed:
+		return true
+	case PlayerCommandStatePending:
+		return true
+	case PlayerCommandStateRunning:
+		return true
+	case PlayerCommandStateSucceeded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PlayerCommandType.
+const (
+	PlayerCommandTypeClearMediaCache              PlayerCommandType = "clear_media_cache"
+	PlayerCommandTypeClearWebsiteData             PlayerCommandType = "clear_website_data"
+	PlayerCommandTypeDisablePlayback              PlayerCommandType = "disable_playback"
+	PlayerCommandTypeDisplayMute                  PlayerCommandType = "display_mute"
+	PlayerCommandTypeDisplayPowerOff              PlayerCommandType = "display_power_off"
+	PlayerCommandTypeDisplayPowerOn               PlayerCommandType = "display_power_on"
+	PlayerCommandTypeDisplayProbe                 PlayerCommandType = "display_probe"
+	PlayerCommandTypeDisplaySetBrightness         PlayerCommandType = "display_set_brightness"
+	PlayerCommandTypeDisplaySetInput              PlayerCommandType = "display_set_input"
+	PlayerCommandTypeDisplaySetVolume             PlayerCommandType = "display_set_volume"
+	PlayerCommandTypeDisplayUnmute                PlayerCommandType = "display_unmute"
+	PlayerCommandTypeEnablePlayback               PlayerCommandType = "enable_playback"
+	PlayerCommandTypeExitSafeMode                 PlayerCommandType = "exit_safe_mode"
+	PlayerCommandTypeIdentifyScreen               PlayerCommandType = "identify_screen"
+	PlayerCommandTypeInstallAutostart             PlayerCommandType = "install_autostart"
+	PlayerCommandTypeInstallPlayerUpdate          PlayerCommandType = "install_player_update"
+	PlayerCommandTypePowerAssistSleep             PlayerCommandType = "power_assist_sleep"
+	PlayerCommandTypePowerAssistWake              PlayerCommandType = "power_assist_wake"
+	PlayerCommandTypePrepareAirplaySession        PlayerCommandType = "prepare_airplay_session"
+	PlayerCommandTypeProvisionPresentationNetwork PlayerCommandType = "provision_presentation_network"
+	PlayerCommandTypeRecreatePlaybackSession      PlayerCommandType = "recreate_playback_session"
+	PlayerCommandTypeRecreateRenderer             PlayerCommandType = "recreate_renderer"
+	PlayerCommandTypeReloadPlayback               PlayerCommandType = "reload_playback"
+	PlayerCommandTypeRemoveAutostart              PlayerCommandType = "remove_autostart"
+	PlayerCommandTypeRestartActivity              PlayerCommandType = "restart_activity"
+	PlayerCommandTypeRestartPlayerProcess         PlayerCommandType = "restart_player_process"
+	PlayerCommandTypeResynchronizePlayer          PlayerCommandType = "resynchronize_player"
+	PlayerCommandTypeRetryCurrentItem             PlayerCommandType = "retry_current_item"
+	PlayerCommandTypeRetryPlayerRecovery          PlayerCommandType = "retry_player_recovery"
+	PlayerCommandTypeRunPlayerSelfTest            PlayerCommandType = "run_player_self_test"
+	PlayerCommandTypeSkipCurrentItem              PlayerCommandType = "skip_current_item"
+	PlayerCommandTypeStopAirplaySession           PlayerCommandType = "stop_airplay_session"
+	PlayerCommandTypeSyncNow                      PlayerCommandType = "sync_now"
+	PlayerCommandTypeTestAirplaySupport           PlayerCommandType = "test_airplay_support"
+	PlayerCommandTypeTestPresentationNetwork      PlayerCommandType = "test_presentation_network"
+)
+
+// Valid indicates whether the value is a known member of the PlayerCommandType enum.
+func (e PlayerCommandType) Valid() bool {
+	switch e {
+	case PlayerCommandTypeClearMediaCache:
+		return true
+	case PlayerCommandTypeClearWebsiteData:
+		return true
+	case PlayerCommandTypeDisablePlayback:
+		return true
+	case PlayerCommandTypeDisplayMute:
+		return true
+	case PlayerCommandTypeDisplayPowerOff:
+		return true
+	case PlayerCommandTypeDisplayPowerOn:
+		return true
+	case PlayerCommandTypeDisplayProbe:
+		return true
+	case PlayerCommandTypeDisplaySetBrightness:
+		return true
+	case PlayerCommandTypeDisplaySetInput:
+		return true
+	case PlayerCommandTypeDisplaySetVolume:
+		return true
+	case PlayerCommandTypeDisplayUnmute:
+		return true
+	case PlayerCommandTypeEnablePlayback:
+		return true
+	case PlayerCommandTypeExitSafeMode:
+		return true
+	case PlayerCommandTypeIdentifyScreen:
+		return true
+	case PlayerCommandTypeInstallAutostart:
+		return true
+	case PlayerCommandTypeInstallPlayerUpdate:
+		return true
+	case PlayerCommandTypePowerAssistSleep:
+		return true
+	case PlayerCommandTypePowerAssistWake:
+		return true
+	case PlayerCommandTypePrepareAirplaySession:
+		return true
+	case PlayerCommandTypeProvisionPresentationNetwork:
+		return true
+	case PlayerCommandTypeRecreatePlaybackSession:
+		return true
+	case PlayerCommandTypeRecreateRenderer:
+		return true
+	case PlayerCommandTypeReloadPlayback:
+		return true
+	case PlayerCommandTypeRemoveAutostart:
+		return true
+	case PlayerCommandTypeRestartActivity:
+		return true
+	case PlayerCommandTypeRestartPlayerProcess:
+		return true
+	case PlayerCommandTypeResynchronizePlayer:
+		return true
+	case PlayerCommandTypeRetryCurrentItem:
+		return true
+	case PlayerCommandTypeRetryPlayerRecovery:
+		return true
+	case PlayerCommandTypeRunPlayerSelfTest:
+		return true
+	case PlayerCommandTypeSkipCurrentItem:
+		return true
+	case PlayerCommandTypeStopAirplaySession:
+		return true
+	case PlayerCommandTypeSyncNow:
+		return true
+	case PlayerCommandTypeTestAirplaySupport:
+		return true
+	case PlayerCommandTypeTestPresentationNetwork:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PlayerManifestMode.
 const (
 	PlayerManifestModePresentation PlayerManifestMode = "presentation"
@@ -2397,6 +2550,21 @@ func (e PublicationHistoryItemMethod) Valid() bool {
 	case PublicationHistoryItemMethodRollback:
 		return true
 	case PublicationHistoryItemMethodScheduled:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for QueuedPlayerCommandState.
+const (
+	QueuedPlayerCommandStatePending QueuedPlayerCommandState = "pending"
+)
+
+// Valid indicates whether the value is a known member of the QueuedPlayerCommandState enum.
+func (e QueuedPlayerCommandState) Valid() bool {
+	switch e {
+	case QueuedPlayerCommandStatePending:
 		return true
 	default:
 		return false
@@ -4557,6 +4725,24 @@ type DeviceMetadata struct {
 	Timezone             string             `json:"timezone"`
 }
 
+// DevicePlayerCommand defines model for DevicePlayerCommand.
+type DevicePlayerCommand struct {
+	CreatedAt      time.Time          `json:"createdAt"`
+	ExpiresAt      time.Time          `json:"expiresAt"`
+	Id             openapi_types.UUID `json:"id"`
+	IdempotencyKey openapi_types.UUID `json:"idempotencyKey"`
+
+	// Payload Per-type command arguments validated at queue time.
+	Payload map[string]interface{} `json:"payload"`
+	State   PlayerCommandState     `json:"state"`
+	Type    PlayerCommandType      `json:"type"`
+}
+
+// DevicePlayerCommandList defines model for DevicePlayerCommandList.
+type DevicePlayerCommandList struct {
+	Items []DevicePlayerCommand `json:"items"`
+}
+
 // DisplayControlAction A bounded Display Control action. A schedule may contain one action instead of a playlist or Layout. The server validates that only the field belonging to the selected type is present.
 type DisplayControlAction struct {
 	Brightness *int                     `json:"brightness,omitempty"`
@@ -5370,6 +5556,41 @@ type PersonalAccessTokenList struct {
 	Pats []PersonalAccessToken `json:"pats"`
 }
 
+// PlayerCommand defines model for PlayerCommand.
+type PlayerCommand struct {
+	AcknowledgedAt *time.Time         `json:"acknowledgedAt,omitempty"`
+	CompletedAt    *time.Time         `json:"completedAt,omitempty"`
+	CreatedAt      time.Time          `json:"createdAt"`
+	DeliveredAt    *time.Time         `json:"deliveredAt,omitempty"`
+	ExpiresAt      time.Time          `json:"expiresAt"`
+	Id             openapi_types.UUID `json:"id"`
+
+	// Payload Per-type command arguments validated at queue time.
+	Payload       map[string]interface{} `json:"payload"`
+	ResultCode    *string                `json:"resultCode,omitempty"`
+	ResultMessage *string                `json:"resultMessage,omitempty"`
+	State         PlayerCommandState     `json:"state"`
+	Type          PlayerCommandType      `json:"type"`
+}
+
+// PlayerCommandList defines model for PlayerCommandList.
+type PlayerCommandList struct {
+	Items []PlayerCommand `json:"items"`
+	Total int             `json:"total"`
+}
+
+// PlayerCommandState defines model for PlayerCommandState.
+type PlayerCommandState string
+
+// PlayerCommandStateUpdate defines model for PlayerCommandStateUpdate.
+type PlayerCommandStateUpdate struct {
+	Id    openapi_types.UUID `json:"id"`
+	State PlayerCommandState `json:"state"`
+}
+
+// PlayerCommandType defines model for PlayerCommandType.
+type PlayerCommandType string
+
 // PlayerFamily The Player release family. A deployment reaches only screens of its release's family, and for `edge` only screens of its architecture.
 type PlayerFamily = interface{}
 
@@ -6144,6 +6365,16 @@ type PublicationHistoryItem struct {
 
 // PublicationHistoryItemMethod defines model for PublicationHistoryItem.Method.
 type PublicationHistoryItemMethod string
+
+// QueuedPlayerCommand defines model for QueuedPlayerCommand.
+type QueuedPlayerCommand struct {
+	ExpiresAt time.Time                `json:"expiresAt"`
+	Id        openapi_types.UUID       `json:"id"`
+	State     QueuedPlayerCommandState `json:"state"`
+}
+
+// QueuedPlayerCommandState defines model for QueuedPlayerCommand.State.
+type QueuedPlayerCommandState string
 
 // RecoveryCodes defines model for RecoveryCodes.
 type RecoveryCodes struct {
@@ -47943,6 +48174,17 @@ func (r InspectPlayerVariantResponse) ContentType() string {
 type ListPlayerCommandsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data DevicePlayerCommandList `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListPlayerCommandsResponse) GetJSON200() *struct {
+	Data DevicePlayerCommandList `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -47977,6 +48219,17 @@ func (r ListPlayerCommandsResponse) ContentType() string {
 type AcknowledgePlayerCommandResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PlayerCommandStateUpdate `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AcknowledgePlayerCommandResponse) GetJSON200() *struct {
+	Data PlayerCommandStateUpdate `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -48011,6 +48264,17 @@ func (r AcknowledgePlayerCommandResponse) ContentType() string {
 type ReportPlayerCommandResultResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PlayerCommandStateUpdate `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ReportPlayerCommandResultResponse) GetJSON200() *struct {
+	Data PlayerCommandStateUpdate `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -51922,6 +52186,17 @@ func (r UpdateScreenResponse) ContentType() string {
 type ListScreenCommandsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PlayerCommandList `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListScreenCommandsResponse) GetJSON200() *struct {
+	Data PlayerCommandList `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -51956,6 +52231,17 @@ func (r ListScreenCommandsResponse) ContentType() string {
 type SendScreenCommandResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *struct {
+		Data QueuedPlayerCommand `json:"data"`
+	}
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r SendScreenCommandResponse) GetJSON202() *struct {
+	Data QueuedPlayerCommand `json:"data"`
+} {
+	return r.JSON202
 }
 
 // GetBody returns the raw response body bytes
@@ -51990,6 +52276,17 @@ func (r SendScreenCommandResponse) ContentType() string {
 type CancelPlayerCommandResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PlayerCommandStateUpdate `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CancelPlayerCommandResponse) GetJSON200() *struct {
+	Data PlayerCommandStateUpdate `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -66543,6 +66840,18 @@ func ParseListPlayerCommandsResponse(rsp *http.Response) (*ListPlayerCommandsRes
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data DevicePlayerCommandList `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
 	return response, nil
 }
 
@@ -66559,6 +66868,18 @@ func ParseAcknowledgePlayerCommandResponse(rsp *http.Response) (*AcknowledgePlay
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PlayerCommandStateUpdate `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
 	return response, nil
 }
 
@@ -66573,6 +66894,21 @@ func ParseReportPlayerCommandResultResponse(rsp *http.Response) (*ReportPlayerCo
 	response := &ReportPlayerCommandResultResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PlayerCommandStateUpdate `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -69212,6 +69548,18 @@ func ParseListScreenCommandsResponse(rsp *http.Response) (*ListScreenCommandsRes
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PlayerCommandList `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
 	return response, nil
 }
 
@@ -69228,6 +69576,21 @@ func ParseSendScreenCommandResponse(rsp *http.Response) (*SendScreenCommandRespo
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest struct {
+			Data QueuedPlayerCommand `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case rsp.StatusCode == 429:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -69242,6 +69605,27 @@ func ParseCancelPlayerCommandResponse(rsp *http.Response) (*CancelPlayerCommandR
 	response := &CancelPlayerCommandResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PlayerCommandStateUpdate `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
 	}
 
 	return response, nil
