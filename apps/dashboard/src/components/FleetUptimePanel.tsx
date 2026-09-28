@@ -90,6 +90,10 @@ export function FleetUptimePanel({
   const query = useQuery({
     queryKey: ["fleet-uptime", activeWindow],
     queryFn: () => api.fleetUptime(activeWindow),
+    // Keep the current chart mounted while an uncached window is fetched so
+    // Recharts can animate directly to the next dataset instead of flashing
+    // through the initial-loading skeleton on first selection.
+    placeholderData: (previousData) => previousData,
     refetchInterval: 60_000,
   });
   const report = query.data;
