@@ -74,6 +74,8 @@ object RemoteWebCallHandler {
         val page = content.takeIf { it["kind"]?.jsonPrimitive?.contentOrNull == "page" }?.let(::parsePage)
         val youTube = content.takeIf { it["kind"]?.jsonPrimitive?.contentOrNull == "youtube" }?.let(::parseYouTube)
         if ((page == null) == (youTube == null)) return CallOutcome.Refused("bad_content")
+        if (page != null && !RemoteWebHostManager.validPage(page)) return CallOutcome.Refused("bad_content")
+        if (youTube != null && !RemoteWebHostManager.validYouTube(youTube)) return CallOutcome.Refused("bad_content")
         val surface = Surface(surfaceId, page, youTube, viewport, muted, visible, 0, generation)
         return if (tracker.create(surface)) CallOutcome.Created(surface)
         else CallOutcome.Refused("stale_generation")
