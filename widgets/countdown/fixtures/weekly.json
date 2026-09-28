@@ -1,0 +1,21 @@
+{
+  "name": "Weekly",
+  "description": "A countdown that repeats every week at the same local time.",
+  "configuration": {
+    "label": "Next staff meeting",
+    "target": "2026-09-01T15:30",
+    "timezone": "",
+    "mode": "countdown",
+    "recurrence": "weekly",
+    "completionAction": "completed_text",
+    "completionText": "",
+    "showDays": true,
+    "showHours": true,
+    "showMinutes": true,
+    "showSeconds": false,
+    "layout": "countdown_only",
+    "backgroundColor": "#0E141B",
+    "foregroundColor": "#F5F7FA"
+  },
+  "expect": "ready"
+}

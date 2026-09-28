@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
-import { DateTimeInput } from "../components/date-picker";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import {
   AlertDialog,
@@ -13,7 +12,6 @@ import {
   AlertDialogTitle,
 } from "../components/ui/alert-dialog";
 import { Button } from "../components/ui/button";
-import { Checkbox } from "../components/ui/checkbox";
 import {
   Field,
   FieldDescription,
@@ -53,9 +51,6 @@ import type {
   DataSourceField,
   DataSourceProvider,
   WidgetProvider,
-  ClockWidgetConfig,
-  DateWidgetConfig,
-  CountdownWidgetConfig,
   TickerWidgetConfig,
   MetricWidgetConfig,
   SpotlightWidgetConfig,
@@ -63,7 +58,6 @@ import type {
   ChartWidgetConfig,
   ProgressWidgetConfig,
   TimelineWidgetConfig,
-  WorldClockWidgetConfig,
   WidgetPreset,
   YouTubeConfig,
   WidgetPresentation,
@@ -108,22 +102,14 @@ function galleryCategoryLabel(t: WidgetsT, name: string): string {
   switch (name) {
     case "All":
       return t("widgets.gallery.categories.all");
-    case "News":
-      return t("widgets.gallery.categories.news");
-    case "Google":
-      return t("widgets.gallery.categories.google");
-    case "Design & Documents":
-      return t("widgets.gallery.categories.designDocuments");
-    case "Dashboards":
-      return t("widgets.gallery.categories.dashboards");
-    case "Feeds":
-      return t("widgets.gallery.categories.feeds");
-    case "Video":
-      return t("widgets.gallery.categories.video");
-    case "Social":
-      return t("widgets.gallery.categories.social");
-    case "Building Blocks / Advanced":
-      return t("widgets.gallery.categories.buildingBlocks");
+    case "Essentials":
+      return t("widgets.gallery.categories.essentials");
+    case "Information":
+      return t("widgets.gallery.categories.information");
+    case "Data display":
+      return t("widgets.gallery.categories.dataDisplay");
+    case "Integrations":
+      return t("widgets.gallery.categories.integrations");
     default:
       return name;
   }
@@ -189,20 +175,19 @@ export function WidgetProviderGallery({
       unavailable: null as string | null,
     };
   };
+  // The visual Widget catalog comes first, grouped by purpose; every Web
+  // Integration (runtime "web") shows remote content and sits apart from
+  // it (docs/widgets-v2-catalog.md §7).
   const categories = [
-    "News",
-    "Google",
-    "Design & Documents",
-    "Dashboards",
-    "Feeds",
-    "Video",
-    "Social",
-    "Building Blocks / Advanced",
+    "Essentials",
+    "Information",
+    "Data display",
+    "Integrations",
   ];
   const galleryCategory = (definition: (typeof catalog)[number]) => {
+    if (definition.runtime === "web") return "Integrations";
     if (categories.includes(definition.category)) return definition.category;
-    if (definition.id === "youtube") return "Video";
-    return "Building Blocks / Advanced";
+    return "Data display";
   };
   const needle = search.trim().toLowerCase();
   const visible = catalog.filter((definition) => {
@@ -398,61 +383,22 @@ export function WidgetProviderGallery({
   );
 }
 
+/**
+ * The legacy Widgets that still author through this editor until their
+ * Widgets V2 components land (docs/widgets-v2-catalog.md, PR B). Every
+ * other native provider authors through the generic V2 editor.
+ */
 export type NativeProvider =
-  | "clock"
-  | "date"
-  | "qrcode"
-  | "countdown"
-  | "ticker"
-  | "menu"
-  | "list"
-  | "table"
-  | "agenda"
-  | "metric"
-  | "cards"
-  | "weather"
-  | "spotlight"
-  | "stat_grid"
-  | "chart"
-  | "progress"
-  | "timeline"
-  | "world_clock";
+  "metric" | "spotlight" | "stat_grid" | "chart" | "progress" | "timeline";
 type NativeConfig =
-  | ClockWidgetConfig
-  | DateWidgetConfig
-  | CountdownWidgetConfig
-  | TickerWidgetConfig
   | MetricWidgetConfig
   | SpotlightWidgetConfig
   | StatGridWidgetConfig
   | ChartWidgetConfig
   | ProgressWidgetConfig
-  | TimelineWidgetConfig
-  | WorldClockWidgetConfig;
+  | TimelineWidgetConfig;
 const nativeDefault = (provider: NativeProvider, t: WidgetsT): NativeConfig => {
   const colors = { foregroundColor: "#F5F7FA", backgroundColor: "#0E141B" };
-  if (provider === "date")
-    return {
-      timezone: "",
-      format: "locale",
-      ...colors,
-    };
-  if (provider === "countdown")
-    return {
-      target: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 16),
-      timezone: "UTC",
-      mode: "countdown",
-      recurrence: "none",
-      layout: "stacked",
-      label: "",
-      completionText: t("widgets.defaults.eventStarted"),
-      completionAction: "completed_text",
-      showDays: true,
-      showHours: true,
-      showMinutes: true,
-      showSeconds: false,
-      ...colors,
-    };
   if (provider === "metric")
     return {
       dataSourceId: "",
@@ -513,37 +459,13 @@ const nativeDefault = (provider: NativeProvider, t: WidgetsT): NativeConfig => {
       emptyState: t("widgets.defaults.noInformation"),
       ...colors,
     };
-  if (provider === "timeline")
-    return {
-      dataSourceId: "",
-      dateField: "",
-      titleField: "",
-      orientation: "vertical",
-      maximumItems: 8,
-      emptyState: t("widgets.defaults.noMilestones"),
-      ...colors,
-    };
-  if (provider === "world_clock")
-    return {
-      zones: [
-        {
-          label: t("widgets.defaults.zoneLocal"),
-          timezone: "",
-        },
-      ],
-      format: "locale",
-      showSeconds: false,
-      showDate: true,
-      columns: 1,
-      ...colors,
-    };
   return {
     dataSourceId: "",
-    field: "title",
-    separator: " • ",
-    speed: "normal",
-    direction: "left",
-    emptyState: t("widgets.defaults.noItems"),
+    dateField: "",
+    titleField: "",
+    orientation: "vertical",
+    maximumItems: 8,
+    emptyState: t("widgets.defaults.noMilestones"),
     ...colors,
   };
 };
@@ -575,12 +497,6 @@ function nativeWidgetContentGuidance(provider: NativeProvider, t: WidgetsT) {
     ].includes(provider)
   )
     return t("widgets.editors.native.contentGuidanceData");
-  if (provider === "countdown")
-    return t("widgets.editors.native.contentGuidanceCountdown");
-  if (provider === "world_clock")
-    return t("widgets.editors.native.contentGuidanceWorldClock");
-  if (provider === "clock" || provider === "date")
-    return t("widgets.editors.native.contentGuidanceClock");
   return t("widgets.editors.native.contentGuidanceText");
 }
 
@@ -607,27 +523,12 @@ export function NativeAppEditor({
   const queryClient = useQueryClient();
   const regional = useOrganizationRegionalProfile();
   const previewRef = useRef<HTMLDivElement>(null);
-  const touchedCountdownTimezone = useRef(Boolean(asset));
   const [name, setName] = useState(asset?.name ?? "");
   const [description, setDescription] = useState(asset?.description ?? "");
   const [configuration, setConfiguration] = useState<NativeConfig>(
     (asset?.widget?.configuration as NativeConfig | undefined) ??
       nativeDefault(provider, t),
   );
-  useEffect(() => {
-    if (
-      asset ||
-      provider !== "countdown" ||
-      !regional.ready ||
-      touchedCountdownTimezone.current
-    ) {
-      return;
-    }
-    setConfiguration((current) => ({
-      ...current,
-      timezone: regional.timezone,
-    }));
-  }, [asset, provider, regional.ready, regional.timezone]);
   const [previewTime, setPreviewTime] = useState(initialPreviewTime);
   const dataSources = useQuery({
     queryKey: ["widget-data-sources"],
@@ -874,459 +775,6 @@ export function NativeAppEditor({
               <p>{nativeWidgetContentGuidance(provider, t)}</p>
             </header>
             <div className="widget-editor__section-body">
-              {(provider === "clock" || provider === "date") && (
-                <Field>
-                  <FieldLabel htmlFor="timezone">
-                    {t("widgets.editors.shared.timezone")}
-                  </FieldLabel>
-                  <Input
-                    id="timezone"
-                    value={
-                      (configuration as ClockWidgetConfig | DateWidgetConfig)
-                        .timezone
-                    }
-                    disabled={readOnly}
-                    onChange={(e) =>
-                      setConfiguration((current) => ({
-                        ...current,
-                        timezone: e.target.value,
-                      }))
-                    }
-                  />
-                  <FieldDescription>
-                    {t("widgets.editors.clock.timezoneHint")}
-                  </FieldDescription>
-                </Field>
-              )}
-              {provider === "date" && (
-                <Field>
-                  <FieldLabel htmlFor="widget-date-format">
-                    {t("widgets.editors.date.dateFormat")}
-                  </FieldLabel>
-                  <Select
-                    items={[
-                      {
-                        value: "locale",
-                        label: t("widgets.editors.options.organizationFormat"),
-                      },
-                      {
-                        value: "full",
-                        label: t("widgets.editors.options.dateFull"),
-                      },
-                      {
-                        value: "long",
-                        label: t("widgets.editors.options.dateLong"),
-                      },
-                      {
-                        value: "medium",
-                        label: t("widgets.editors.options.dateMedium"),
-                      },
-                      {
-                        value: "short",
-                        label: t("widgets.editors.options.dateShort"),
-                      },
-                    ]}
-                    value={(configuration as DateWidgetConfig).format}
-                    disabled={readOnly}
-                    onValueChange={(next) =>
-                      setConfiguration((current) => ({
-                        ...(current as DateWidgetConfig),
-                        format: next as DateWidgetConfig["format"],
-                      }))
-                    }
-                  >
-                    <SelectTrigger
-                      id="widget-date-format"
-                      aria-label={t("widgets.editors.date.dateFormat")}
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="locale">
-                        {t("widgets.editors.options.organizationFormat")}
-                      </SelectItem>
-                      <SelectItem value="full">
-                        {t("widgets.editors.options.dateFull")}
-                      </SelectItem>
-                      <SelectItem value="long">
-                        {t("widgets.editors.options.dateLong")}
-                      </SelectItem>
-                      <SelectItem value="medium">
-                        {t("widgets.editors.options.dateMedium")}
-                      </SelectItem>
-                      <SelectItem value="short">
-                        {t("widgets.editors.options.dateShort")}
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </Field>
-              )}
-              {provider === "countdown" && (
-                <>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <Field>
-                      <FieldLabel htmlFor="countdown-target">
-                        {t("widgets.editors.countdown.target")}
-                      </FieldLabel>
-                      <DateTimeInput
-                        id="countdown-target"
-                        aria-label={t("widgets.editors.countdown.target")}
-                        timeLabel={t("widgets.editors.countdown.targetTime")}
-                        value={(configuration as CountdownWidgetConfig).target}
-                        disabled={readOnly}
-                        onChange={(value) =>
-                          setConfiguration((current) => ({
-                            ...current,
-                            target: value,
-                          }))
-                        }
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor="countdown-timezone">
-                        {t("widgets.editors.shared.timezone")}
-                      </FieldLabel>
-                      <Input
-                        id="countdown-timezone"
-                        value={
-                          (configuration as CountdownWidgetConfig).timezone
-                        }
-                        disabled={readOnly}
-                        onChange={(event) => {
-                          touchedCountdownTimezone.current = true;
-                          setConfiguration((current) => ({
-                            ...current,
-                            timezone: event.target.value,
-                          }));
-                        }}
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor="countdown-mode">
-                        {t("widgets.editors.countdown.mode")}
-                      </FieldLabel>
-                      <Select
-                        items={[
-                          {
-                            value: "locale",
-                            label: t(
-                              "widgets.editors.options.organizationFormat",
-                            ),
-                          },
-                          {
-                            value: "locale",
-                            label: t(
-                              "widgets.editors.options.organizationFormat",
-                            ),
-                          },
-                          {
-                            value: "countdown",
-                            label: t("widgets.editors.countdown.modeDown"),
-                          },
-                          {
-                            value: "count_up",
-                            label: t("widgets.editors.countdown.modeUp"),
-                          },
-                        ]}
-                        value={(configuration as CountdownWidgetConfig).mode}
-                        disabled={readOnly}
-                        onValueChange={(next) =>
-                          setConfiguration((current) => ({
-                            ...(current as CountdownWidgetConfig),
-                            mode: next as CountdownWidgetConfig["mode"],
-                            recurrence:
-                              next === "count_up"
-                                ? "none"
-                                : ((current as CountdownWidgetConfig)
-                                    .recurrence ?? "none"),
-                          }))
-                        }
-                      >
-                        <SelectTrigger
-                          id="countdown-mode"
-                          aria-label={t("widgets.editors.countdown.mode")}
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="countdown">
-                            {t("widgets.editors.countdown.modeDown")}
-                          </SelectItem>
-                          <SelectItem value="count_up">
-                            {t("widgets.editors.countdown.modeUp")}
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor="countdown-repeat">
-                        {t("widgets.editors.countdown.repeat")}
-                      </FieldLabel>
-                      <Select
-                        items={[
-                          {
-                            value: "none",
-                            label: t("widgets.editors.countdown.repeatNone"),
-                          },
-                          {
-                            value: "daily",
-                            label: t("widgets.editors.countdown.repeatDaily"),
-                          },
-                          {
-                            value: "weekly",
-                            label: t("widgets.editors.countdown.repeatWeekly"),
-                          },
-                          {
-                            value: "monthly",
-                            label: t("widgets.editors.countdown.repeatMonthly"),
-                          },
-                          {
-                            value: "yearly",
-                            label: t("widgets.editors.countdown.repeatYearly"),
-                          },
-                        ]}
-                        value={
-                          (configuration as CountdownWidgetConfig).recurrence ??
-                          "none"
-                        }
-                        disabled={
-                          readOnly ||
-                          (configuration as CountdownWidgetConfig).mode ===
-                            "count_up"
-                        }
-                        onValueChange={(next) =>
-                          setConfiguration((current) => ({
-                            ...(current as CountdownWidgetConfig),
-                            recurrence:
-                              next as CountdownWidgetConfig["recurrence"],
-                          }))
-                        }
-                      >
-                        <SelectTrigger
-                          id="countdown-repeat"
-                          aria-label={t("widgets.editors.countdown.repeat")}
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">
-                            {t("widgets.editors.countdown.repeatNone")}
-                          </SelectItem>
-                          <SelectItem value="daily">
-                            {t("widgets.editors.countdown.repeatDaily")}
-                          </SelectItem>
-                          <SelectItem value="weekly">
-                            {t("widgets.editors.countdown.repeatWeekly")}
-                          </SelectItem>
-                          <SelectItem value="monthly">
-                            {t("widgets.editors.countdown.repeatMonthly")}
-                          </SelectItem>
-                          <SelectItem value="yearly">
-                            {t("widgets.editors.countdown.repeatYearly")}
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor="countdown-layout">
-                        {t("widgets.editors.countdown.layout")}
-                      </FieldLabel>
-                      <Select
-                        items={[
-                          {
-                            value: "stacked",
-                            label: t("widgets.editors.countdown.layoutStacked"),
-                          },
-                          {
-                            value: "horizontal",
-                            label: t(
-                              "widgets.editors.countdown.layoutHorizontal",
-                            ),
-                          },
-                          {
-                            value: "countdown_only",
-                            label: t("widgets.editors.countdown.layoutOnly"),
-                          },
-                        ]}
-                        value={
-                          (configuration as CountdownWidgetConfig).layout ??
-                          "stacked"
-                        }
-                        disabled={readOnly}
-                        onValueChange={(next) =>
-                          setConfiguration((current) => ({
-                            ...(current as CountdownWidgetConfig),
-                            layout: next as CountdownWidgetConfig["layout"],
-                          }))
-                        }
-                      >
-                        <SelectTrigger
-                          id="countdown-layout"
-                          aria-label={t("widgets.editors.countdown.layout")}
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="stacked">
-                            {t("widgets.editors.countdown.layoutStacked")}
-                          </SelectItem>
-                          <SelectItem value="horizontal">
-                            {t("widgets.editors.countdown.layoutHorizontal")}
-                          </SelectItem>
-                          <SelectItem value="countdown_only">
-                            {t("widgets.editors.countdown.layoutOnly")}
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor="countdown-completion">
-                        {t("widgets.editors.countdown.completion")}
-                      </FieldLabel>
-                      <Select
-                        items={[
-                          {
-                            value: "completed_text",
-                            label: t(
-                              "widgets.editors.countdown.completionText",
-                            ),
-                          },
-                          {
-                            value: "hide",
-                            label: t("widgets.editors.countdown.hide"),
-                          },
-                          {
-                            value: "count_up",
-                            label: t(
-                              "widgets.editors.countdown.completionCountUp",
-                            ),
-                          },
-                        ]}
-                        value={
-                          (configuration as CountdownWidgetConfig)
-                            .completionAction
-                        }
-                        disabled={
-                          readOnly ||
-                          ((configuration as CountdownWidgetConfig)
-                            .recurrence ?? "none") !== "none"
-                        }
-                        onValueChange={(next) =>
-                          setConfiguration((current) => ({
-                            ...current,
-                            completionAction:
-                              next as CountdownWidgetConfig["completionAction"],
-                          }))
-                        }
-                      >
-                        <SelectTrigger
-                          id="countdown-completion"
-                          aria-label={t("widgets.editors.countdown.completion")}
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="completed_text">
-                            {t("widgets.editors.countdown.completionText")}
-                          </SelectItem>
-                          <SelectItem value="hide">
-                            {t("widgets.editors.countdown.hide")}
-                          </SelectItem>
-                          <SelectItem value="count_up">
-                            {t("widgets.editors.countdown.completionCountUp")}
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <Field>
-                      <FieldLabel htmlFor="countdown-title">
-                        {t("widgets.editors.countdown.title")}
-                      </FieldLabel>
-                      <Input
-                        id="countdown-title"
-                        value={
-                          (configuration as CountdownWidgetConfig).label ?? ""
-                        }
-                        disabled={
-                          readOnly ||
-                          ((configuration as CountdownWidgetConfig).layout ??
-                            "stacked") === "countdown_only"
-                        }
-                        onChange={(event) =>
-                          setConfiguration((current) => ({
-                            ...current,
-                            label: event.target.value,
-                          }))
-                        }
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor="countdown-completion-text">
-                        {t("widgets.editors.countdown.completionLabel")}
-                      </FieldLabel>
-                      <Input
-                        id="countdown-completion-text"
-                        value={
-                          (configuration as CountdownWidgetConfig)
-                            .completionText ?? ""
-                        }
-                        disabled={
-                          readOnly ||
-                          ((configuration as CountdownWidgetConfig)
-                            .recurrence ?? "none") !== "none"
-                        }
-                        onChange={(event) =>
-                          setConfiguration((current) => ({
-                            ...current,
-                            completionText: event.target.value,
-                          }))
-                        }
-                      />
-                    </Field>
-                  </div>
-                  <fieldset className="grid gap-2">
-                    <legend className="text-sm font-medium">
-                      {t("widgets.editors.countdown.units")}
-                    </legend>
-                    <div className="flex flex-wrap gap-x-4 gap-y-2">
-                      {(
-                        [
-                          ["Days", "widgets.editors.countdown.unitsDays"],
-                          ["Hours", "widgets.editors.countdown.unitsHours"],
-                          ["Minutes", "widgets.editors.countdown.unitsMinutes"],
-                          ["Seconds", "widgets.editors.countdown.unitsSeconds"],
-                        ] as const
-                      ).map(([unit, labelKey]) => {
-                        const key =
-                          `show${unit}` as keyof CountdownWidgetConfig;
-                        return (
-                          <label
-                            key={unit}
-                            className="flex items-center gap-2 text-sm"
-                          >
-                            <Checkbox
-                              checked={Boolean(
-                                (configuration as CountdownWidgetConfig)[key],
-                              )}
-                              disabled={readOnly}
-                              onCheckedChange={(checked) =>
-                                setConfiguration((current) => ({
-                                  ...current,
-                                  [key]: checked === true,
-                                }))
-                              }
-                              aria-label={t(labelKey)}
-                            />
-                            <span>{t(labelKey)}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </fieldset>
-                </>
-              )}
               {provider === "metric" && (
                 <>
                   <DataSourceSelect
@@ -2345,174 +1793,6 @@ export function NativeAppEditor({
                       </Select>
                     </Field>
                   </div>
-                </>
-              )}
-              {provider === "world_clock" && (
-                <>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <Field>
-                      <FieldLabel htmlFor="world-clock-format">
-                        {t("widgets.editors.shared.timeFormat")}
-                      </FieldLabel>
-                      <Select
-                        items={[
-                          {
-                            value: "locale",
-                            label: t(
-                              "widgets.editors.options.organizationFormat",
-                            ),
-                          },
-                          {
-                            value: "12",
-                            label: t("widgets.editors.options.hour12"),
-                          },
-                          {
-                            value: "24",
-                            label: t("widgets.editors.options.hour24"),
-                          },
-                        ]}
-                        value={(configuration as WorldClockWidgetConfig).format}
-                        disabled={readOnly}
-                        onValueChange={(next) =>
-                          setConfiguration((current) => ({
-                            ...(current as WorldClockWidgetConfig),
-                            format: next as WorldClockWidgetConfig["format"],
-                          }))
-                        }
-                      >
-                        <SelectTrigger
-                          id="world-clock-format"
-                          aria-label={t("widgets.editors.shared.timeFormat")}
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="locale">
-                            {t("widgets.editors.options.organizationFormat")}
-                          </SelectItem>
-                          <SelectItem value="12">
-                            {t("widgets.editors.options.hour12")}
-                          </SelectItem>
-                          <SelectItem value="24">
-                            {t("widgets.editors.options.hour24")}
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor="world-clock-columns">
-                        {t("widgets.editors.shared.columns")}
-                      </FieldLabel>
-                      <Input
-                        id="world-clock-columns"
-                        type="number"
-                        min={1}
-                        max={4}
-                        value={
-                          (configuration as WorldClockWidgetConfig).columns
-                        }
-                        disabled={readOnly}
-                        onChange={(event) =>
-                          setConfiguration((current) => ({
-                            ...(current as WorldClockWidgetConfig),
-                            columns: Number(event.target.value),
-                          }))
-                        }
-                      />
-                    </Field>
-                  </div>
-                  <fieldset className="grid gap-2">
-                    <legend className="text-sm font-medium">
-                      {t("widgets.editors.worldClock.locations")}
-                    </legend>
-                    {(configuration as WorldClockWidgetConfig).zones.map(
-                      (zone, index) => (
-                        <div className="grid gap-3 sm:grid-cols-2" key={index}>
-                          <Field>
-                            <FieldLabel htmlFor={`world-clock-label-${index}`}>
-                              {t("widgets.editors.shared.label")}
-                            </FieldLabel>
-                            <Input
-                              id={`world-clock-label-${index}`}
-                              value={zone.label}
-                              disabled={readOnly}
-                              onChange={(event) =>
-                                setConfiguration((current) => {
-                                  const config =
-                                    current as WorldClockWidgetConfig;
-                                  return {
-                                    ...config,
-                                    zones: config.zones.map(
-                                      (item, itemIndex) =>
-                                        itemIndex === index
-                                          ? {
-                                              ...item,
-                                              label: event.target.value,
-                                            }
-                                          : item,
-                                    ),
-                                  };
-                                })
-                              }
-                            />
-                          </Field>
-                          <Field>
-                            <FieldLabel
-                              htmlFor={`world-clock-timezone-${index}`}
-                            >
-                              {t("widgets.editors.worldClock.ianaLabel")}
-                            </FieldLabel>
-                            <Input
-                              id={`world-clock-timezone-${index}`}
-                              value={zone.timezone}
-                              disabled={readOnly}
-                              onChange={(event) =>
-                                setConfiguration((current) => {
-                                  const config =
-                                    current as WorldClockWidgetConfig;
-                                  return {
-                                    ...config,
-                                    zones: config.zones.map(
-                                      (item, itemIndex) =>
-                                        itemIndex === index
-                                          ? {
-                                              ...item,
-                                              timezone: event.target.value,
-                                            }
-                                          : item,
-                                    ),
-                                  };
-                                })
-                              }
-                            />
-                          </Field>
-                        </div>
-                      ),
-                    )}
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      disabled={
-                        readOnly ||
-                        (configuration as WorldClockWidgetConfig).zones
-                          .length >= 8
-                      }
-                      onClick={() =>
-                        setConfiguration((current) => ({
-                          ...current,
-                          zones: [
-                            ...(current as WorldClockWidgetConfig).zones,
-                            {
-                              label: t("widgets.defaults.zoneAdded"),
-                              timezone: "UTC",
-                            },
-                          ],
-                        }))
-                      }
-                    >
-                      {t("widgets.editors.worldClock.addLocation")}
-                    </Button>
-                  </fieldset>
                 </>
               )}
             </div>

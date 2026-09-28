@@ -1,0 +1,21 @@
+{
+  "name": "Seconds",
+  "description": "Hours, minutes and seconds beside the title.",
+  "configuration": {
+    "label": "Doors open in",
+    "target": "2026-09-28T11:00",
+    "timezone": "America/Chicago",
+    "mode": "countdown",
+    "recurrence": "none",
+    "completionAction": "completed_text",
+    "completionText": "",
+    "showDays": false,
+    "showHours": true,
+    "showMinutes": true,
+    "showSeconds": true,
+    "layout": "horizontal",
+    "backgroundColor": "#123b2c",
+    "foregroundColor": "#ffffff"
+  },
+  "expect": "ready"
+}

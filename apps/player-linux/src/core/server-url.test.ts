@@ -35,6 +35,27 @@ describe("normalizeServerUrl", () => {
     }
   });
 
+  it("allows http on local IPv6 ranges", () => {
+    for (const host of [
+      "http://[::1]",
+      "http://[fd12:3456::1]:8080",
+      "http://[fc00::10]",
+      "http://[fe80::1234]",
+    ]) {
+      expect(normalizeServerUrl(host).ok).toBe(true);
+    }
+    expect(normalizeServerUrl("http://[fd12:3456::1]:8080")).toEqual({
+      ok: true,
+      url: "http://[fd12:3456::1]:8080",
+    });
+  });
+
+  it("still rejects http on non-local IPv6 addresses", () => {
+    const result = normalizeServerUrl("http://[2001:db8::1]");
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/https/);
+  });
+
   it("treats 172.32 as public (outside the /12)", () => {
     expect(normalizeServerUrl("http://172.32.0.1").ok).toBe(false);
   });

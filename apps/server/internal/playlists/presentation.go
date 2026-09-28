@@ -701,6 +701,17 @@ func compileNativeRoot(provider string, c map[string]any) (PresentationNode, map
 	text := func(binding PresentationBinding, role string) PresentationNode {
 		return PresentationNode{Type: "text", Props: map[string]any{"color": foreground, "role": role}, Binding: &binding}
 	}
+	// A Clock saved in its date or world clocks mode renders like the
+	// retired Date and World Clock Widgets on Players that predate Clock V2.
+	if provider == "clock" {
+		switch stringValue(c, "mode", "time") {
+		case "date":
+			provider = "date"
+			c["format"] = stringValue(c, "dateFormat", "locale")
+		case "world":
+			provider = "world_clock"
+		}
+	}
 	switch provider {
 	case "clock":
 		surface.Children = []PresentationNode{text(PresentationBinding{Source: "environment", Path: "currentTime", Format: "time:" + stringValue(c, "format", "locale") + ":" + strconv.FormatBool(boolValue(c["showSeconds"])) + ":" + stringValue(c, "timezone", "")}, "metric")}
@@ -736,7 +747,11 @@ func compileNativeRoot(provider string, c map[string]any) (PresentationNode, map
 		caps["format.typed"] = 2
 		caps["environment.time"] = 1
 	case "qrcode":
-		surface.Children = []PresentationNode{{Type: "qr_code", Props: map[string]any{"errorCorrection": stringValue(c, "errorCorrection", "medium")}, Binding: &PresentationBinding{Source: "literal", Value: stringValue(c, "value", "")}}, text(PresentationBinding{Source: "literal", Value: stringValue(c, "label", "")}, "label")}
+		// The QR Code V2 editor saves payload and shortLabel in place of the
+		// legacy value and label keys.
+		payload := stringValue(c, "payload", stringValue(c, "value", ""))
+		label := stringValue(c, "shortLabel", stringValue(c, "label", ""))
+		surface.Children = []PresentationNode{{Type: "qr_code", Props: map[string]any{"errorCorrection": stringValue(c, "errorCorrection", "medium")}, Binding: &PresentationBinding{Source: "literal", Value: payload}}, text(PresentationBinding{Source: "literal", Value: label}, "label")}
 		caps["content.qr_code"] = 1
 	case "world_clock":
 		zones, _ := c["zones"].([]any)
@@ -744,13 +759,19 @@ func compileNativeRoot(provider string, c map[string]any) (PresentationNode, map
 		for _, rawZone := range zones {
 			zone, _ := rawZone.(map[string]any)
 			timeNode := text(PresentationBinding{Source: "environment", Path: "currentTime", Format: "time:" + stringValue(c, "format", "locale") + ":" + strconv.FormatBool(boolValue(c["showSeconds"])) + ":" + stringValue(zone, "timezone", "")}, "metric")
-			zoneChildren := []PresentationNode{text(PresentationBinding{Source: "literal", Value: stringValue(zone, "label", "")}, "label"), timeNode}
+			// World clocks leave a label blank to show the zone's city.
+			label := stringValue(zone, "label", "")
+			if label == "" {
+				city := stringValue(zone, "timezone", "")
+				label = strings.ReplaceAll(city[strings.LastIndex(city, "/")+1:], "_", " ")
+			}
+			zoneChildren := []PresentationNode{text(PresentationBinding{Source: "literal", Value: label}, "label"), timeNode}
 			if boolValue(c["showDate"]) {
 				zoneChildren = append(zoneChildren, text(PresentationBinding{Source: "environment", Path: "currentTime", Format: "date:medium:" + stringValue(zone, "timezone", "")}, "body"))
 			}
 			children = append(children, PresentationNode{Type: "column", Props: map[string]any{"card": true}, Children: zoneChildren})
 		}
-		surface.Children = []PresentationNode{{Type: "grid", Props: map[string]any{"columns": intValue(c["columns"], 2)}, Children: children}}
+		surface.Children = []PresentationNode{{Type: "grid", Props: map[string]any{"columns": intValue(c["columns"], clampInt(len(zones), 1, 4))}, Children: children}}
 		caps["layout.grid"] = 1
 		caps["environment.time"] = 1
 	case "ticker":
