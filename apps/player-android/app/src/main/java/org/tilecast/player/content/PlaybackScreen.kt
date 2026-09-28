@@ -85,6 +85,14 @@ data class PlaybackSession(
     val runtimeActivation: RuntimeActivationIdentity = nextRuntimeActivationIdentity(),
 )
 
+internal fun runtimePlaylistItems(session: PlaybackSession): List<ManifestItem> {
+    val items = session.content.manifest.playlist?.items ?: return emptyList()
+    if (session.content.manifest.syncGroup != null) return items
+    val start = session.initialCursor.index
+    if (start !in items.indices || start == 0) return items
+    return items.drop(start) + items.take(start)
+}
+
 /**
  * Apply the player defaults only where a manifest item does not carry a
  * usable value. Author-provided item values remain authoritative. The
@@ -160,16 +168,7 @@ private fun FullscreenPlaybackBody(
     // Shared-runtime cutover (PR2): fully runtime-renderable playlists play
     // in the trusted Player Runtime WebView. The gate defaults off until
     // device validation flips it; everything else keeps the legacy path.
-    val rawSharedRuntimeItems = session.content.manifest.playlist?.items ?: emptyList()
-    val sharedRuntimeItems = if (
-        session.content.manifest.syncGroup == null &&
-        session.initialCursor.index in rawSharedRuntimeItems.indices
-    ) {
-        val start = session.initialCursor.index
-        rawSharedRuntimeItems.drop(start) + rawSharedRuntimeItems.take(start)
-    } else {
-        rawSharedRuntimeItems
-    }
+    val sharedRuntimeItems = runtimePlaylistItems(session)
     if (org.tilecast.player.runtime.RuntimeCutover.useSharedRuntime(session.content, sharedRuntimeItems)) {
         val runtimeManifest = session.content.manifest
         val runtimeActivity = rememberRuntimeActivityTracker(activityReporter, session)
