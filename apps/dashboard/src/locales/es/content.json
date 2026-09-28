@@ -509,14 +509,10 @@
       "categoriesLabel": "Categorías de widgets",
       "categories": {
         "all": "Todos",
-        "news": "Noticias",
-        "google": "Google",
-        "designDocuments": "Diseño y documentos",
-        "dashboards": "Tableros",
-        "feeds": "Fuentes",
-        "video": "Video",
-        "social": "Redes sociales",
-        "buildingBlocks": "Bloques de construcción / Avanzado"
+        "essentials": "Esenciales",
+        "information": "Información",
+        "dataDisplay": "Visualización de datos",
+        "integrations": "Integraciones"
       },
       "featured": "Destacados",
       "featuredHint": "Integraciones recomendadas para necesidades comunes.",
@@ -550,13 +546,10 @@
         "widgetName": "Nombre del widget",
         "description": "Descripción",
         "descriptionHint": "Notas opcionales para otras personas que gestionan esta instalación.",
-        "timezone": "Zona horaria",
-        "timeFormat": "Formato de hora",
         "label": "Etiqueta",
         "format": "Formato",
         "alignment": "Alineación",
         "columns": "Columnas",
-        "maximumItems": "Elementos máximos",
         "none": "Ninguno",
         "remove": "Eliminar",
         "valueField": "Campo de valor",
@@ -574,26 +567,13 @@
         "saveWidget": "Guardar widget"
       },
       "options": {
-        "organizationFormat": "Usar la configuración de la organización",
-        "hour12": "12 horas",
-        "hour24": "24 horas",
-        "dateFull": "Completa",
-        "dateLong": "Larga",
-        "dateMedium": "Media",
-        "dateShort": "Corta",
         "alignLeft": "Izquierda",
         "alignCenter": "Centro",
         "alignRight": "Derecha",
-        "formatText": "Texto",
         "formatNumber": "Número",
         "formatInteger": "Entero",
         "formatPercent": "Porcentaje",
-        "formatCurrency": "Moneda",
-        "formatDateShort": "Fecha corta",
-        "formatDateLong": "Fecha larga",
-        "speedSlow": "Lenta",
-        "speedNormal": "Normal",
-        "speedFast": "Rápida"
+        "formatCurrency": "Moneda"
       },
       "native": {
         "editTitle": "Editar widget {{provider}}",
@@ -601,60 +581,11 @@
         "guidanceData": "Conecta la información que mostrarás, elige cómo se presenta y revisa la vista previa en vivo.",
         "guidanceSimple": "Configura lo que aparece en pantalla y revisa la vista previa mientras trabajas.",
         "contentGuidanceData": "Empieza eligiendo los datos que usará este widget, luego asigna y formatea los campos.",
-        "contentGuidanceCountdown": "Define la fecha objetivo, decide qué pasa al alcanzarla y elige las unidades visibles.",
-        "contentGuidanceWorldClock": "Añade cada ubicación con su huso horario de IANA, como America/New_York o Europe/London.",
-        "contentGuidanceClock": "Elige el huso horario y el formato que aparecerán en pantalla.",
         "contentGuidanceText": "Escribe el contenido visible y elige su comportamiento en pantalla.",
         "presetNotice": "Preajuste guiado: <strong>{{preset}}</strong>. Se guarda como widget {{provider}} reutilizable; la reproducción no depende del preajuste.",
         "contentTitle": "Contenido y comportamiento",
         "nameHint": "Se usa para encontrar este widget en Contenido y en las listas de reproducción.",
         "completeFields": "Completa los campos obligatorios para ver una vista previa."
-      },
-      "clock": {
-        "timezoneHint": "Déjalo en blanco para usar la zona horaria de la organización o escribe cualquier identificador IANA válido.",
-        "showSeconds": "Mostrar segundos",
-        "style": "Estilo",
-        "styleStandard": "Estándar",
-        "styleMinimal": "Mínimo",
-        "styleAnalog": "Analógico",
-        "styleHint": "Estándar muestra la hora con una fecha opcional. Mínimo muestra solo la hora, lo más grande posible. Analógico muestra una esfera con la hora digital al lado. Las pantallas con un Player anterior a estos estilos muestran solo la hora.",
-        "showDate": "Mostrar fecha"
-      },
-      "date": {
-        "dateFormat": "Formato de fecha"
-      },
-      "countdown": {
-        "target": "Fecha y hora objetivo",
-        "targetTime": "Hora objetivo",
-        "mode": "Modo",
-        "modeDown": "Cuenta atrás",
-        "modeUp": "Cuenta adelante",
-        "repeat": "Repetición",
-        "repeatNone": "No se repite",
-        "repeatDaily": "Diaria",
-        "repeatWeekly": "Semanal",
-        "repeatMonthly": "Mensual",
-        "repeatYearly": "Anual",
-        "layout": "Diseño",
-        "layoutStacked": "Título sobre la cuenta atrás",
-        "layoutHorizontal": "Título junto a la cuenta atrás",
-        "layoutOnly": "Solo cuenta atrás",
-        "completion": "Al completarse",
-        "completionText": "Mostrar texto de finalización",
-        "hide": "Ocultar",
-        "completionCountUp": "Seguir contando hacia arriba",
-        "title": "Título",
-        "completionLabel": "Texto de finalización",
-        "units": "Unidades visibles",
-        "unitsDays": "Días",
-        "unitsHours": "Horas",
-        "unitsMinutes": "Minutos",
-        "unitsSeconds": "Segundos"
-      },
-      "ticker": {
-        "fields": "Campos (hasta tres)",
-        "separator": "Separador",
-        "fieldSeparator": "Separador de campos"
       },
       "metric": {
         "staticLabel": "Etiqueta fija",
@@ -692,11 +623,6 @@
         "orientationVertical": "Vertical",
         "orientationHorizontal": "Horizontal",
         "statusField": "Campo de estado"
-      },
-      "worldClock": {
-        "locations": "Ubicaciones",
-        "ianaLabel": "Huso horario de IANA",
-        "addLocation": "Añadir ubicación"
       },
       "appearance": {
         "title": "Apariencia",
@@ -813,9 +739,7 @@
       "fieldDescription": "Elige el campo de los datos conectados que aporta este valor."
     },
     "defaults": {
-      "eventStarted": "Evento iniciado",
       "noValue": "Sin valor disponible",
-      "noItems": "Sin elementos disponibles",
       "noInformation": "Sin información disponible",
       "noChartData": "Sin datos de gráfico disponibles",
       "noMilestones": "Sin hitos disponibles",
@@ -823,9 +747,7 @@
       "metricLabel": "Valor",
       "seriesFirst": "Serie 1",
       "seriesAdded": "Serie",
-      "progressLabel": "Progreso",
-      "zoneLocal": "Local",
-      "zoneAdded": "Ubicación"
+      "progressLabel": "Progreso"
     },
     "errors": {
       "previewWait": "Espera a la vista previa del widget antes de guardar.",

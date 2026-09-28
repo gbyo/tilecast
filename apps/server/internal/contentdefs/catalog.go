@@ -21,7 +21,7 @@ const CompilerVersion = "definition-compiler-v2"
 var supportedControls = map[string]bool{
 	"text": true, "multiline_text": true, "number": true, "integer": true,
 	"boolean": true, "select": true, "color": true, "date": true,
-	"datetime": true, "timezone": true, "currency_code": true, "url": true, "data_source": true,
+	"datetime": true, "local_datetime": true, "timezone": true, "currency_code": true, "url": true, "data_source": true,
 	"data_source_field": true, "media_asset": true, "repeating_group": true,
 }
 

@@ -64,7 +64,7 @@ jobs:
       - uses: actions/checkout@v7
       # rust-toolchain.toml pins the toolchain; rustup installs it on first use.
       - run: rustup show active-toolchain
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -113,7 +113,7 @@ jobs:
         run: |
           docker run --rm -v "$PWD:/src" -v "$RUNNER_TEMP/edge-target:/target" \
             tilecast-edge-dev /src/apps/edge/session-bridge/ci/run-e2e.sh
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with:
           name: edge-wpe-engine-versions
@@ -180,7 +180,7 @@ jobs:
           node packages/player-runtime/conformance/compare.mjs \
             --a "$RUNNER_TEMP/conformance/electron" --b "$RUNNER_TEMP/conformance/wpe" \
             --report "$RUNNER_TEMP/conformance/report"
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with:
           name: player-runtime-conformance
@@ -259,7 +259,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/edge-target"
           docker run --rm -v "$PWD:/src" -v "$RUNNER_TEMP/edge-target:/target" \
             tilecast-edge-parity /src/apps/edge/ci/run-activity-parity.sh
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         if: ${{ failure() }}
         with:
           name: activity-parity-records

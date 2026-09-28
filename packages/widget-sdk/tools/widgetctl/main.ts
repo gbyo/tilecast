@@ -97,20 +97,26 @@ export function authoringUiProblem(
   }
   const visibleWhen = record["visibleWhen"];
   if (visibleWhen !== undefined) {
-    if (
-      !visibleWhen ||
-      typeof visibleWhen !== "object" ||
-      Array.isArray(visibleWhen) ||
-      typeof (visibleWhen as Record<string, unknown>)["key"] !== "string"
-    ) {
-      return `${where} has an invalid authoring visibility rule`;
+    const rules = Array.isArray(visibleWhen) ? visibleWhen : [visibleWhen];
+    if (rules.length === 0) {
+      return `${where} has an empty authoring visibility rule list`;
     }
-    const rule = visibleWhen as Record<string, unknown>;
-    if (rule["equals"] === undefined && rule["notEquals"] === undefined) {
-      return `${where} has a visibility rule with nothing to compare`;
-    }
-    if (fieldKeys && !fieldKeys.has(rule["key"] as string)) {
-      return `${where} has a visibility rule on unknown field ${String(rule["key"])}`;
+    for (const candidate of rules) {
+      if (
+        !candidate ||
+        typeof candidate !== "object" ||
+        Array.isArray(candidate) ||
+        typeof (candidate as Record<string, unknown>)["key"] !== "string"
+      ) {
+        return `${where} has an invalid authoring visibility rule`;
+      }
+      const rule = candidate as Record<string, unknown>;
+      if (rule["equals"] === undefined && rule["notEquals"] === undefined) {
+        return `${where} has a visibility rule with nothing to compare`;
+      }
+      if (fieldKeys && !fieldKeys.has(rule["key"] as string)) {
+        return `${where} has a visibility rule on unknown field ${String(rule["key"])}`;
+      }
     }
   }
   if (record["styleCard"] !== undefined) {
@@ -120,6 +126,13 @@ export function authoringUiProblem(
     if (record["styleCard"] === true && control !== "select") {
       return `${where} renders style cards for a non-select control`;
     }
+  }
+  if (
+    record["hidden"] !== undefined &&
+    record["hidden"] !== true &&
+    record["hidden"] !== false
+  ) {
+    return `${where} has a non-boolean hidden flag`;
   }
   if (
     record["semanticRole"] !== undefined &&

@@ -2134,12 +2134,13 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 	components := make([]*WidgetPresentation, len(manifest.Widgets))
 	canCompileV13 := true
 	allowPrivateHTTP := s.orgPrivateHTTP(ctx)
+	organizationTimezone := s.orgTimezone(ctx)
 	for index := range manifest.Widgets {
 		widget := manifest.Widgets[index]
 		if err = s.requireWidgetSourceUsable(installed, widget.Name, widget.Provider); err != nil {
 			return Manifest{}, "", fmt.Errorf("%w: %v", ErrConflict, err)
 		}
-		compiled[index], _ = s.compileWidgetPresentationForPreset(widget.Provider, widget.PresetID, widget.Configuration, allowPrivateHTTP)
+		compiled[index], _ = s.compileWidgetPresentationForPreset(widget.Provider, widget.PresetID, s.compatibilityConfiguration(widget.Provider, widget.Configuration, organizationTimezone), allowPrivateHTTP)
 		components[index], err = s.compileWidgetComponent(widget.Provider, widget.Configuration)
 		if err != nil {
 			return Manifest{}, "", fmt.Errorf("%w: Widget “%s” cannot be compiled: %v", ErrConflict, widget.Name, err)

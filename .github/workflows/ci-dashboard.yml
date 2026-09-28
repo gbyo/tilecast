@@ -45,7 +45,7 @@ jobs:
       - name: Coverage summary
         if: ${{ !cancelled() }}
         run: node scripts/ci/coverage-summary.mjs apps/dashboard/coverage/coverage-summary.json >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with:
           name: dashboard-coverage

@@ -170,6 +170,14 @@ func (p webDefinitionWidgetProvider) Normalize(ctx context.Context, raw json.Raw
 }
 
 func (s *Service) widgetProvider(name string) (configNormalizer, error) {
+	// Every provider with a Widgets V2 component validates through its
+	// manifest schema, including the migrated legacy providers.
+	if definition, ok := s.definitions.Widget(name); ok && definition.Component != nil && len(definition.ConfigurationSchema.Fields) > 0 {
+		if !definition.Availability.IsEnabled() {
+			return nil, errors.New(definition.Availability.Reason)
+		}
+		return componentConfigNormalizer{service: s, definition: definition}, nil
+	}
 	if definition, ok := s.definitions.Widget(name); ok && !definition.LegacyEditor {
 		if !definition.Availability.IsEnabled() {
 			return nil, errors.New(definition.Availability.Reason)
@@ -184,24 +192,8 @@ func (s *Service) widgetProvider(name string) (configNormalizer, error) {
 		return websiteWidgetProvider{s}, nil
 	case "youtube":
 		return youtubeWidgetProvider{s}, nil
-	case "clock":
-		return clockWidgetProvider{}, nil
-	case "date":
-		return dateWidgetProvider{}, nil
-	case "qrcode":
-		return qrCodeWidgetProvider{}, nil
-	case "countdown":
-		return countdownWidgetProvider{}, nil
-	case "ticker":
-		return tickerWidgetProvider{s}, nil
-	case "menu", "list", "table", "agenda":
-		return displayWidgetProvider{s, name}, nil
 	case "metric":
 		return metricWidgetProvider{s}, nil
-	case "cards":
-		return cardsWidgetProvider{s}, nil
-	case "weather":
-		return weatherWidgetProvider{s}, nil
 	case "spotlight":
 		return spotlightWidgetProvider{s}, nil
 	case "stat_grid":
@@ -212,8 +204,6 @@ func (s *Service) widgetProvider(name string) (configNormalizer, error) {
 		return progressWidgetProvider{s}, nil
 	case "timeline":
 		return timelineWidgetProvider{s}, nil
-	case "world_clock":
-		return worldClockWidgetProvider{}, nil
 	default:
 		return nil, errors.New("widget provider is not supported")
 	}

@@ -14,7 +14,7 @@ func TestWidgetModulesJoinTheCatalog(t *testing.T) {
 	if !ok || clock.Component == nil {
 		t.Fatal("the Clock module is not in the catalog")
 	}
-	if clock.Component.Capability() != "widget.tilecast.clock" || clock.Component.Version != 1 {
+	if clock.Component.Capability() != "widget.tilecast.clock" || clock.Component.Version != 2 {
 		t.Fatalf("unexpected Clock component: %+v", clock.Component)
 	}
 	if !clock.LegacyEditor || !clock.HasFallback() || clock.Compatibility.Fallback != "legacy" {
@@ -275,13 +275,33 @@ func TestWidgetFixturesCompileInGo(t *testing.T) {
 			t.Fatal(err)
 		}
 		var fixture struct {
+			Provider      string         `json:"provider"`
 			Configuration map[string]any `json:"configuration"`
+			ExpectConfig  map[string]any `json:"expectConfig"`
 		}
 		if err := json.Unmarshal(raw, &fixture); err != nil {
 			t.Fatalf("%s: %v", path, err)
 		}
-		if _, err := CompileComponentConfig(*definition.Component, fixture.Configuration); err != nil {
+		spec := *definition.Component
+		if fixture.Provider != "" && fixture.Provider != identity.ID {
+			// A compatibility provider compiles with its own template into
+			// this module's component.
+			alias, ok := catalog.Widget(fixture.Provider)
+			if !ok || alias.Component == nil || alias.Component.Type != spec.Type {
+				t.Fatalf("%s: provider %q does not map into %s", path, fixture.Provider, spec.Type)
+			}
+			spec = *alias.Component
+		}
+		compiled, err := CompileComponentConfig(spec, fixture.Configuration)
+		if err != nil {
 			t.Fatalf("%s: %v", path, err)
+		}
+		if fixture.ExpectConfig != nil {
+			got, _ := json.Marshal(compiled)
+			want, _ := json.Marshal(fixture.ExpectConfig)
+			if string(got) != string(want) {
+				t.Fatalf("%s compiled to %s, want %s", path, got, want)
+			}
 		}
 	}
 	clock, _ := catalog.Widget("clock")
@@ -290,7 +310,7 @@ func TestWidgetFixturesCompileInGo(t *testing.T) {
 		t.Fatal(err)
 	}
 	encoded, _ := json.Marshal(config)
-	want := `{"background":"#0E141B","foreground":"#F5F7FA","format":"locale","showDate":false,"showSeconds":false,"style":"standard","timeZone":""}`
+	want := `{"background":"#0E141B","dateFormat":"locale","foreground":"#F5F7FA","format":"locale","mode":"time","showDate":false,"showSeconds":false,"style":"standard","timeZone":"","zones":[]}`
 	if string(encoded) != want {
 		t.Fatalf("Clock default compiled to %s, want %s", encoded, want)
 	}
