@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
 import { test } from "node:test";
@@ -27,6 +33,48 @@ test("doctor does not demand unrelated Android toolchain for server/edge/docs", 
       `${area} must not report ANDROID_HOME`,
     );
   }
+});
+
+test("doctor asks only Android contributors for Java", () => {
+  for (const area of ["server", "edge", "docs", "dashboard", "media"]) {
+    assert.doesNotMatch(
+      run(area),
+      /\bjava\b/i,
+      `${area} must not ask for Java`,
+    );
+  }
+  for (const area of ["android", "all"]) {
+    assert.match(run(area), /\bjava\b/i, `${area} must report Java`);
+  }
+});
+
+const root = join(here, "..", "..");
+const mise = readFileSync(join(root, "mise.toml"), "utf8");
+const pinned = (tool) =>
+  new RegExp(`^${tool}\\s*=\\s*"([^"]+)"`, "m").exec(mise)?.[1];
+
+test("mise.toml pins the versions that go.work and CI use", () => {
+  const goWork = readFileSync(join(root, "go.work"), "utf8");
+  const goVersion = /^go (\d+\.\d+)/m.exec(goWork)?.[1];
+  assert.equal(pinned("go"), goVersion, "mise go must match go.work");
+  const validation = readFileSync(
+    join(root, ".github", "workflows", "pr-validation.yml"),
+    "utf8",
+  );
+  assert.equal(
+    pinned("node"),
+    /node-version:\s*"?(\d+)"?/.exec(validation)?.[1],
+    "mise node must match primary CI",
+  );
+  const android = readFileSync(
+    join(root, ".github", "workflows", "ci-android.yml"),
+    "utf8",
+  );
+  assert.equal(
+    pinned("java"),
+    /java-version:\s*"?(\d+)"?/.exec(android)?.[1],
+    "mise java must match Android CI",
+  );
 });
 
 test("doctor reports the Java version written to stderr", () => {

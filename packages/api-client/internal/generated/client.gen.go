@@ -975,48 +975,6 @@ func (e DataSourceDateSelectionNoMatchBehavior) Valid() bool {
 	}
 }
 
-// Defines values for DataSourceProvider.
-const (
-	DataSourceProviderAirQuality DataSourceProvider = "air_quality"
-	DataSourceProviderAtom       DataSourceProvider = "atom"
-	DataSourceProviderCalendar   DataSourceProvider = "calendar"
-	DataSourceProviderCapAlerts  DataSourceProvider = "cap_alerts"
-	DataSourceProviderCsv        DataSourceProvider = "csv"
-	DataSourceProviderJson       DataSourceProvider = "json"
-	DataSourceProviderManual     DataSourceProvider = "manual"
-	DataSourceProviderRss        DataSourceProvider = "rss"
-	DataSourceProviderTransit    DataSourceProvider = "transit"
-	DataSourceProviderWeather    DataSourceProvider = "weather"
-)
-
-// Valid indicates whether the value is a known member of the DataSourceProvider enum.
-func (e DataSourceProvider) Valid() bool {
-	switch e {
-	case DataSourceProviderAirQuality:
-		return true
-	case DataSourceProviderAtom:
-		return true
-	case DataSourceProviderCalendar:
-		return true
-	case DataSourceProviderCapAlerts:
-		return true
-	case DataSourceProviderCsv:
-		return true
-	case DataSourceProviderJson:
-		return true
-	case DataSourceProviderManual:
-		return true
-	case DataSourceProviderRss:
-		return true
-	case DataSourceProviderTransit:
-		return true
-	case DataSourceProviderWeather:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for DemoPlayerStatusTransport.
 const (
 	Heartbeat DemoPlayerStatusTransport = "heartbeat"
@@ -4810,6 +4768,7 @@ func (e ListFormRecordsParamsSort) Valid() bool {
 const (
 	InspectDataSourceParamsProviderAtom InspectDataSourceParamsProvider = "atom"
 	InspectDataSourceParamsProviderCsv  InspectDataSourceParamsProvider = "csv"
+	InspectDataSourceParamsProviderFeed InspectDataSourceParamsProvider = "feed"
 	InspectDataSourceParamsProviderJson InspectDataSourceParamsProvider = "json"
 	InspectDataSourceParamsProviderRss  InspectDataSourceParamsProvider = "rss"
 )
@@ -4820,6 +4779,8 @@ func (e InspectDataSourceParamsProvider) Valid() bool {
 	case InspectDataSourceParamsProviderAtom:
 		return true
 	case InspectDataSourceParamsProviderCsv:
+		return true
+	case InspectDataSourceParamsProviderFeed:
 		return true
 	case InspectDataSourceParamsProviderJson:
 		return true
@@ -5329,10 +5290,10 @@ type Asset struct {
 	AudioChannels      *int                   `json:"audioChannels,omitempty"`
 	AudioCodec         *string                `json:"audioCodec,omitempty"`
 	AvailableFrom      *time.Time             `json:"availableFrom,omitempty"`
-	CollectionIds      *[]openapi_types.UUID  `json:"collectionIds,omitempty"`
+	CollectionIds      []openapi_types.UUID   `json:"collectionIds"`
 	CreatedAt          time.Time              `json:"createdAt"`
 	Creator            *AssetCreator          `json:"creator,omitempty"`
-	DeclaredMimeType   *string                `json:"declaredMimeType,omitempty"`
+	DeclaredMimeType   string                 `json:"declaredMimeType"`
 	Description        string                 `json:"description"`
 	DetectedMimeType   string                 `json:"detectedMimeType"`
 	DurationSeconds    *float32               `json:"durationSeconds,omitempty"`
@@ -5343,17 +5304,17 @@ type Asset struct {
 	FrameRate          *float32               `json:"frameRate,omitempty"`
 	Height             *int                   `json:"height,omitempty"`
 	Id                 openapi_types.UUID     `json:"id"`
-	LayoutUsage        *[]AssetLayoutUsage    `json:"layoutUsage,omitempty"`
+	LayoutUsage        []AssetLayoutUsage     `json:"layoutUsage"`
 	Metadata           map[string]interface{} `json:"metadata"`
 	Name               string                 `json:"name"`
 	OriginalFilename   string                 `json:"originalFilename"`
 	OriginalSize       int64                  `json:"originalSize"`
-	PlaylistUsage      *int                   `json:"playlistUsage,omitempty"`
+	PlaylistUsage      int                    `json:"playlistUsage"`
 	PlaylistsUsing     *[]AssetPlaylistUsage  `json:"playlistsUsing,omitempty"`
 	ProcessingProgress *float32               `json:"processingProgress,omitempty"`
 	ProcessingStatus   AssetStatus            `json:"processingStatus"`
 	Sha256             string                 `json:"sha256"`
-	Tags               *[]ContentTag          `json:"tags,omitempty"`
+	Tags               []ContentTag           `json:"tags"`
 	ThumbnailUrl       *string                `json:"thumbnailUrl,omitempty"`
 	Type               AssetType              `json:"type"`
 	UpdatedAt          time.Time              `json:"updatedAt"`
@@ -6518,8 +6479,8 @@ type DataSourceInput struct {
 	Description   *string                `json:"description,omitempty"`
 	Name          string                 `json:"name"`
 
-	// Provider Non-visual Data Source providers.
-	Provider DataSourceProvider `json:"provider"`
+	// Provider Built-in provider, definition provider, or an installed plugin's provider. The Server resolves it against the live registry.
+	Provider string `json:"provider"`
 }
 
 // DataSourceListItem List row with the refresh summary Studio needs to present and select a source without fetching every detail separately.
@@ -6552,9 +6513,6 @@ type DataSourceListResult struct {
 type DataSourcePreviewResult struct {
 	union json.RawMessage
 }
-
-// DataSourceProvider Non-visual Data Source providers.
-type DataSourceProvider string
 
 // DataSourceWidgetUsage defines model for DataSourceWidgetUsage.
 type DataSourceWidgetUsage struct {
@@ -7996,7 +7954,7 @@ type Playlist struct {
 	CreatedAt time.Time `json:"createdAt"`
 
 	// DataSourceIds Data Sources reached through this playlist's items. Only IDs; null on list rows and populated on the detail read only.
-	DataSourceIds         *[]openapi_types.UUID `json:"dataSourceIds,omitempty"`
+	DataSourceIds         *[]openapi_types.UUID `json:"dataSourceIds"`
 	Description           string                `json:"description"`
 	DraftRevision         *int64                `json:"draftRevision,omitempty"`
 	HasUnpublishedChanges bool                  `json:"hasUnpublishedChanges"`
@@ -8015,7 +7973,7 @@ type Playlist struct {
 	UpdatedAt         time.Time              `json:"updatedAt"`
 
 	// Usage Null on list rows; populated on the detail read only.
-	Usage    *PlaylistUsage `json:"usage,omitempty"`
+	Usage    *PlaylistUsage `json:"usage"`
 	Warnings []string       `json:"warnings"`
 }
 
@@ -8738,7 +8696,7 @@ type PublicationHistoryItem struct {
 	NativeRevisionId        *openapi_types.UUID          `json:"nativeRevisionId,omitempty"`
 	PublishedAt             time.Time                    `json:"publishedAt"`
 	PublishedBy             *openapi_types.UUID          `json:"publishedBy,omitempty"`
-	PublisherName           *string                      `json:"publisherName,omitempty"`
+	PublisherName           string                       `json:"publisherName"`
 	Revision                int64                        `json:"revision"`
 	SnapshotSha256          *string                      `json:"snapshotSha256,omitempty"`
 	SubmissionId            *openapi_types.UUID          `json:"submissionId,omitempty"`

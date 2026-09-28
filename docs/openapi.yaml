@@ -5788,7 +5788,7 @@ paths:
         - in: path
           name: provider
           required: true
-          schema: { type: string, enum: [rss, atom, json, csv] }
+          schema: { type: string, enum: [rss, atom, feed, json, csv] }
       requestBody:
         required: true
         content:
@@ -11599,7 +11599,8 @@ components:
         fingerprint: { type: string }
     PublicationHistoryItem:
       type: object
-      required: [id, revision, publishedAt, method, affectedScreenCount]
+      required:
+        [id, revision, publishedAt, method, affectedScreenCount, publisherName]
       properties:
         id: { type: string, format: uuid }
         revision: { type: integer, format: int64, minimum: 1 }
@@ -12624,6 +12625,8 @@ components:
           warnings,
           layoutUsage,
           sourceType,
+          usage,
+          dataSourceIds,
         ]
       properties:
         id: { type: string, format: uuid }
@@ -13924,22 +13927,6 @@ components:
       type: string
       pattern: "^[a-z][a-z0-9_-]{0,79}$"
       description: Closed renderable Widget or App identifier from the release-owned content-definition catalog.
-    DataSourceProvider:
-      type: string
-      description: Non-visual Data Source providers.
-      enum:
-        [
-          calendar,
-          rss,
-          atom,
-          json,
-          csv,
-          manual,
-          weather,
-          transit,
-          cap_alerts,
-          air_quality,
-        ]
     Widget:
       type: object
       additionalProperties: false
@@ -14571,7 +14558,10 @@ components:
       additionalProperties: false
       required: [provider, name, configuration]
       properties:
-        provider: { $ref: "#/components/schemas/DataSourceProvider" }
+        provider:
+          type: string
+          description: >-
+            Built-in provider, definition provider, or an installed plugin's provider. The Server resolves it against the live registry.
         name: { type: string, minLength: 1, maxLength: 180 }
         description: { type: string, maxLength: 2000 }
         configuration: { type: object, additionalProperties: true }
@@ -14664,6 +14654,11 @@ components:
           createdAt,
           updatedAt,
           variants,
+          declaredMimeType,
+          playlistUsage,
+          layoutUsage,
+          tags,
+          collectionIds,
         ]
       properties:
         id: { type: string, format: uuid }

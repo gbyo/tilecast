@@ -20,6 +20,10 @@
  *   non-public operation; operations that declare themselves public are
  *   exempt from the evidence rule
  * - every local `$ref` resolves inside the composed document
+ * - every object schema says what it holds: declared properties, an
+ *   explicit additionalProperties, or a composition. A bare
+ *   `type: object` generates a type that accepts no key at all, which
+ *   silently breaks a genuinely dynamic map
  * - every plugin fragment operation carries a stable operationId before
  *   automation can refer to it
  *
@@ -326,6 +330,62 @@ function collectLocalRefs(node: unknown, refs: string[]): void {
   }
 }
 
+function isObjectSchema(node: Record<string, unknown>): boolean {
+  const type = node.type;
+  return type === "object" || (Array.isArray(type) && type.includes("object"));
+}
+
+const OBJECT_SHAPE_KEYS = [
+  "properties",
+  "additionalProperties",
+  "patternProperties",
+  "allOf",
+  "oneOf",
+  "anyOf",
+  "$ref",
+];
+
+function collectBareObjects(
+  node: unknown,
+  path: string,
+  found: string[],
+): void {
+  if (Array.isArray(node)) {
+    node.forEach((item, index) =>
+      collectBareObjects(item, `${path}[${index}]`, found),
+    );
+    return;
+  }
+  if (typeof node !== "object" || node === null) return;
+  const record = node as Record<string, unknown>;
+  if (
+    isObjectSchema(record) &&
+    !OBJECT_SHAPE_KEYS.some((key) => key in record)
+  ) {
+    found.push(path);
+  }
+  for (const [key, value] of Object.entries(record)) {
+    collectBareObjects(value, `${path}.${key}`, found);
+  }
+}
+
+/**
+ * openapi-typescript renders `{ type: object }` with nothing else as
+ * `Record<string, never>`, so a schema that is meant to hold arbitrary
+ * keys must say `additionalProperties: true` (or a value schema). An
+ * intentionally empty object says `additionalProperties: false`.
+ */
+function checkObjectShapes(doc: Document, problems: Problem[]): void {
+  const found: string[] = [];
+  collectBareObjects(doc.toJS({ mapAsMap: false }), "", found);
+  for (const path of found) {
+    problems.push({
+      file: COMPOSED_OPENAPI,
+      message: `object schema at ${path} needs properties or an explicit additionalProperties`,
+    });
+  }
+}
+
 function checkReferences(doc: Document, problems: Problem[]): void {
   const refs: string[] = [];
   const root = doc.contents;
@@ -417,6 +477,7 @@ export function checkDerivedConformance(
     checkAuth(entry.operation, location, problems);
   }
   checkReferences(composed, problems);
+  checkObjectShapes(composed, problems);
   return problems;
 }
 

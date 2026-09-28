@@ -7426,7 +7426,7 @@ export interface components {
       campaignReleaseId?: string;
       /** Format: uuid */
       publishedBy?: string;
-      publisherName?: string;
+      publisherName: string;
       /** Format: date-time */
       publishedAt: string;
       /** Format: uuid */
@@ -8170,11 +8170,11 @@ export interface components {
       warnings: string[];
       layoutUsage: components["schemas"]["PlaylistLayoutUsage"][];
       /** @description Null on list rows; populated on the detail read only. */
-      usage?: components["schemas"]["PlaylistUsage"] | null;
+      usage: components["schemas"]["PlaylistUsage"] | null;
       /** @description Compact visual metadata returned by playlist list requests. */
       previewItems?: components["schemas"]["PlaylistPreviewItem"][];
       /** @description Data Sources reached through this playlist's items. Only IDs; null on list rows and populated on the detail read only. */
-      dataSourceIds?: string[] | null;
+      dataSourceIds: string[] | null;
       /** @enum {string} */
       sourceType: "static" | "tag";
       tagRule?: components["schemas"]["PlaylistTagRule"];
@@ -9170,21 +9170,6 @@ export interface components {
     AssetType: "image" | "video" | "widget";
     /** @description Closed renderable Widget or App identifier from the release-owned content-definition catalog. */
     WidgetProvider: string;
-    /**
-     * @description Non-visual Data Source providers.
-     * @enum {string}
-     */
-    DataSourceProvider:
-      | "calendar"
-      | "rss"
-      | "atom"
-      | "json"
-      | "csv"
-      | "manual"
-      | "weather"
-      | "transit"
-      | "cap_alerts"
-      | "air_quality";
     Widget: {
       provider: components["schemas"]["WidgetProvider"];
       /** @enum {string|null} */
@@ -9628,7 +9613,8 @@ export interface components {
       available: components["schemas"]["StructuredSourceFields"];
     };
     DataSourceInput: {
-      provider: components["schemas"]["DataSourceProvider"];
+      /** @description Built-in provider, definition provider, or an installed plugin's provider. The Server resolves it against the live registry. */
+      provider: string;
       name: string;
       description?: string;
       configuration: {
@@ -9706,7 +9692,7 @@ export interface components {
       description: string;
       type: components["schemas"]["AssetType"];
       originalFilename: string;
-      declaredMimeType?: string;
+      declaredMimeType: string;
       detectedMimeType: string;
       sha256: string;
       /** Format: int64 */
@@ -9738,14 +9724,14 @@ export interface components {
       archivedAt?: string;
       variants: components["schemas"]["AssetVariant"][];
       widget?: components["schemas"]["Widget"];
-      playlistUsage?: number;
+      playlistUsage: number;
       creator?: components["schemas"]["AssetCreator"];
       playlistsUsing?: components["schemas"]["AssetPlaylistUsage"][];
-      layoutUsage?: components["schemas"]["AssetLayoutUsage"][];
+      layoutUsage: components["schemas"]["AssetLayoutUsage"][];
       /** Format: uuid */
       folderId?: string;
-      tags?: components["schemas"]["ContentTag"][];
-      collectionIds?: string[];
+      tags: components["schemas"]["ContentTag"][];
+      collectionIds: string[];
       website?: components["schemas"]["WebsiteConfig"];
     };
     AssetCreator: {
@@ -19843,7 +19829,7 @@ export interface operations {
       query?: never;
       header?: never;
       path: {
-        provider: "rss" | "atom" | "json" | "csv";
+        provider: "rss" | "atom" | "feed" | "json" | "csv";
       };
       cookie?: never;
     };
