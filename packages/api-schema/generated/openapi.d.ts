@@ -7068,6 +7068,231 @@ export interface components {
       autoPublishOnApproval: boolean;
       items: components["schemas"]["ContentSubmission"][];
     };
+    ProviderCatalogEntry: {
+      id: string;
+      /** @enum {string} */
+      role: "widget" | "data_source";
+      label: string;
+      group: string;
+      description: string;
+      /** @enum {string} */
+      presentationKind?: "native" | "web";
+      capabilities: {
+        [key: string]: boolean;
+      };
+      requiredCapabilities?: {
+        [key: string]: number;
+      };
+      uiHints: {
+        [key: string]: string;
+      };
+    };
+    ProviderCatalog: {
+      revision: number;
+      providers: components["schemas"]["ProviderCatalogEntry"][];
+    };
+    /** @description Where the definition came from; an absent source means release-owned core. */
+    ContentExtensionSource: {
+      /** @enum {string} */
+      kind?: "core" | "plugin" | "package";
+      pluginId?: string;
+      packageId?: string;
+      packageVersion?: string;
+      digest?: string;
+    };
+    ContentDefinitionSetup: {
+      eyebrow?: string;
+      tip?: string;
+      steps?: string[];
+      emptyState?: string;
+    };
+    ContentDefinitionDeprecation: {
+      deprecated: boolean;
+      replacement?: string;
+      message?: string;
+    };
+    ContentDefinitionAvailability: {
+      enabled?: boolean;
+      reason?: string;
+    };
+    ContentDefinitionSelectOption: {
+      value: string;
+      label: string;
+    };
+    ContentDefinitionField: {
+      key: string;
+      label: string;
+      description?: string;
+      /** @enum {string} */
+      control:
+        | "text"
+        | "multiline_text"
+        | "number"
+        | "integer"
+        | "boolean"
+        | "select"
+        | "color"
+        | "date"
+        | "datetime"
+        | "timezone"
+        | "currency_code"
+        | "url"
+        | "data_source"
+        | "data_source_field"
+        | "media_asset"
+        | "repeating_group";
+      required?: boolean;
+      /** @description Release-owned default value of any JSON type. */
+      default?: unknown;
+      minimum?: number;
+      maximum?: number;
+      minLength?: number;
+      maxLength?: number;
+      options?: components["schemas"]["ContentDefinitionSelectOption"][];
+      acceptedDataSourceKinds?: string[];
+      requiredFields?: {
+        [key: string]: string;
+      };
+      dataSourceFieldTypes?: string[];
+      mediaTypes?: string[];
+      maximumItems?: number;
+      itemFields?: components["schemas"]["ContentDefinitionField"][];
+      /** @description Release-owned authoring hints of any JSON shape. */
+      ui?: Record<string, never>;
+    };
+    ContentDefinitionConfigurationSchema: {
+      fields: components["schemas"]["ContentDefinitionField"][];
+    };
+    ContentDefinitionOutputField: {
+      key: string;
+      label: string;
+      type: string;
+      currency?: string;
+      currencyConfigKey?: string;
+      required?: boolean;
+    };
+    ContentDefinitionOutputSchema: {
+      /** @enum {string} */
+      kind: "scalar" | "records" | "time_series" | "list" | "object";
+      fields: components["schemas"]["ContentDefinitionOutputField"][];
+    };
+    ContentDefinitionFetchSpec: {
+      urlTemplate: string;
+      /** @enum {string} */
+      format: "json" | "csv";
+      accept?: string;
+      recordsPath?: string;
+      mapping: {
+        [key: string]: string;
+      };
+      maximumRecords?: number;
+      refreshSeconds?: number;
+    };
+    ContentDefinitionComponent: {
+      type: string;
+      version: number;
+      tagName: string;
+      entrypoint: string;
+      /** @description Release-owned component configuration template. */
+      configTemplate: Record<string, never>;
+      dataSourceFields?: string[];
+      /** @enum {string} */
+      empty: "render" | "skip-eligible";
+    };
+    ContentDefinitionCompatibility: {
+      /** @enum {string} */
+      fallback: "legacy" | "template" | "none";
+    };
+    ContentDefinitionAppRecipe: {
+      dataSource: {
+        provider: string;
+        name: string;
+        description?: string;
+        /** @description Release-owned Data Source configuration template. */
+        configurationTemplate: Record<string, never>;
+      };
+    };
+    ContentDefinitionWebIntegration: {
+      urlField: string;
+      allowedHosts?: string[];
+      allowAnyHttpsHost?: boolean;
+      requiredPathPrefix?: string;
+      transform: string;
+      reloadIntervalField?: string;
+      loadTimeoutSeconds?: number;
+      lifecycle?: string;
+      warmSeconds?: number;
+      fallbackBehavior?: string;
+    };
+    ContentWidgetDefinition: {
+      id: string;
+      version: number;
+      apiVersion?: number;
+      source?: components["schemas"]["ContentExtensionSource"];
+      name: string;
+      description: string;
+      category: string;
+      icon: string;
+      thumbnail?: string;
+      /** @enum {string} */
+      kind?: "widget" | "app";
+      featured?: boolean;
+      keywords?: string[];
+      availability?: components["schemas"]["ContentDefinitionAvailability"];
+      /** @enum {string} */
+      runtime: "native" | "web";
+      configurationSchema: components["schemas"]["ContentDefinitionConfigurationSchema"];
+      /** @description Release-owned default Widget configuration. */
+      defaultConfiguration: Record<string, never> | null;
+      acceptedDataSourceKinds?: string[];
+      requiredFieldTypes?: {
+        [key: string]: string;
+      };
+      presentationSchemaVersion: number;
+      /** @description Release-owned presentation template. */
+      presentationTemplate?: Record<string, never>;
+      presentationBase?: string;
+      requiredCapabilities: {
+        [key: string]: number;
+      };
+      emptyStateBehavior: string;
+      legacyEditor?: boolean;
+      requiresManifestV13?: boolean;
+      setup?: components["schemas"]["ContentDefinitionSetup"];
+      recipe?: components["schemas"]["ContentDefinitionAppRecipe"];
+      webIntegration?: components["schemas"]["ContentDefinitionWebIntegration"];
+      deprecation: components["schemas"]["ContentDefinitionDeprecation"];
+      component?: components["schemas"]["ContentDefinitionComponent"];
+      compatibility?: components["schemas"]["ContentDefinitionCompatibility"];
+    };
+    ContentDataSourceDefinition: {
+      id: string;
+      version: number;
+      source?: components["schemas"]["ContentExtensionSource"];
+      name: string;
+      description: string;
+      category: string;
+      icon: string;
+      configurationSchema: components["schemas"]["ContentDefinitionConfigurationSchema"];
+      /** @description Release-owned default Data Source configuration. */
+      defaultConfiguration: Record<string, never> | null;
+      outputSchema: components["schemas"]["ContentDefinitionOutputSchema"];
+      fetch?: components["schemas"]["ContentDefinitionFetchSpec"];
+      adapterId: string;
+      refreshBehavior: string;
+      attribution?: string;
+      legacyEditor?: boolean;
+      requiresManifestV13?: boolean;
+      setup?: components["schemas"]["ContentDefinitionSetup"];
+      deprecation: components["schemas"]["ContentDefinitionDeprecation"];
+    };
+    ContentDefinitionCatalog: {
+      revision: string;
+      compilerVersion: string;
+      widgets: components["schemas"]["ContentWidgetDefinition"][];
+      dataSources: components["schemas"]["ContentDataSourceDefinition"][];
+      fingerprint: string;
+    };
     PublicationHistoryItem: {
       /** Format: uuid */
       id: string;
@@ -18353,7 +18578,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ProviderCatalog"];
+          };
+        };
       };
     };
   };
@@ -18371,7 +18600,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ContentDefinitionCatalog"];
+          };
+        };
       };
     };
   };

@@ -516,6 +516,171 @@ func (e ComplianceReportDimension) Valid() bool {
 	}
 }
 
+// Defines values for ContentDefinitionCompatibilityFallback.
+const (
+	ContentDefinitionCompatibilityFallbackLegacy   ContentDefinitionCompatibilityFallback = "legacy"
+	ContentDefinitionCompatibilityFallbackNone     ContentDefinitionCompatibilityFallback = "none"
+	ContentDefinitionCompatibilityFallbackTemplate ContentDefinitionCompatibilityFallback = "template"
+)
+
+// Valid indicates whether the value is a known member of the ContentDefinitionCompatibilityFallback enum.
+func (e ContentDefinitionCompatibilityFallback) Valid() bool {
+	switch e {
+	case ContentDefinitionCompatibilityFallbackLegacy:
+		return true
+	case ContentDefinitionCompatibilityFallbackNone:
+		return true
+	case ContentDefinitionCompatibilityFallbackTemplate:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ContentDefinitionComponentEmpty.
+const (
+	Render       ContentDefinitionComponentEmpty = "render"
+	SkipEligible ContentDefinitionComponentEmpty = "skip-eligible"
+)
+
+// Valid indicates whether the value is a known member of the ContentDefinitionComponentEmpty enum.
+func (e ContentDefinitionComponentEmpty) Valid() bool {
+	switch e {
+	case Render:
+		return true
+	case SkipEligible:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ContentDefinitionFetchSpecFormat.
+const (
+	ContentDefinitionFetchSpecFormatCsv  ContentDefinitionFetchSpecFormat = "csv"
+	ContentDefinitionFetchSpecFormatJson ContentDefinitionFetchSpecFormat = "json"
+)
+
+// Valid indicates whether the value is a known member of the ContentDefinitionFetchSpecFormat enum.
+func (e ContentDefinitionFetchSpecFormat) Valid() bool {
+	switch e {
+	case ContentDefinitionFetchSpecFormatCsv:
+		return true
+	case ContentDefinitionFetchSpecFormatJson:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ContentDefinitionFieldControl.
+const (
+	ContentDefinitionFieldControlBoolean         ContentDefinitionFieldControl = "boolean"
+	ContentDefinitionFieldControlColor           ContentDefinitionFieldControl = "color"
+	ContentDefinitionFieldControlCurrencyCode    ContentDefinitionFieldControl = "currency_code"
+	ContentDefinitionFieldControlDataSource      ContentDefinitionFieldControl = "data_source"
+	ContentDefinitionFieldControlDataSourceField ContentDefinitionFieldControl = "data_source_field"
+	ContentDefinitionFieldControlDate            ContentDefinitionFieldControl = "date"
+	ContentDefinitionFieldControlDatetime        ContentDefinitionFieldControl = "datetime"
+	ContentDefinitionFieldControlInteger         ContentDefinitionFieldControl = "integer"
+	ContentDefinitionFieldControlMediaAsset      ContentDefinitionFieldControl = "media_asset"
+	ContentDefinitionFieldControlMultilineText   ContentDefinitionFieldControl = "multiline_text"
+	ContentDefinitionFieldControlNumber          ContentDefinitionFieldControl = "number"
+	ContentDefinitionFieldControlRepeatingGroup  ContentDefinitionFieldControl = "repeating_group"
+	ContentDefinitionFieldControlSelect          ContentDefinitionFieldControl = "select"
+	ContentDefinitionFieldControlText            ContentDefinitionFieldControl = "text"
+	ContentDefinitionFieldControlTimezone        ContentDefinitionFieldControl = "timezone"
+	ContentDefinitionFieldControlUrl             ContentDefinitionFieldControl = "url"
+)
+
+// Valid indicates whether the value is a known member of the ContentDefinitionFieldControl enum.
+func (e ContentDefinitionFieldControl) Valid() bool {
+	switch e {
+	case ContentDefinitionFieldControlBoolean:
+		return true
+	case ContentDefinitionFieldControlColor:
+		return true
+	case ContentDefinitionFieldControlCurrencyCode:
+		return true
+	case ContentDefinitionFieldControlDataSource:
+		return true
+	case ContentDefinitionFieldControlDataSourceField:
+		return true
+	case ContentDefinitionFieldControlDate:
+		return true
+	case ContentDefinitionFieldControlDatetime:
+		return true
+	case ContentDefinitionFieldControlInteger:
+		return true
+	case ContentDefinitionFieldControlMediaAsset:
+		return true
+	case ContentDefinitionFieldControlMultilineText:
+		return true
+	case ContentDefinitionFieldControlNumber:
+		return true
+	case ContentDefinitionFieldControlRepeatingGroup:
+		return true
+	case ContentDefinitionFieldControlSelect:
+		return true
+	case ContentDefinitionFieldControlText:
+		return true
+	case ContentDefinitionFieldControlTimezone:
+		return true
+	case ContentDefinitionFieldControlUrl:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ContentDefinitionOutputSchemaKind.
+const (
+	List       ContentDefinitionOutputSchemaKind = "list"
+	Object     ContentDefinitionOutputSchemaKind = "object"
+	Records    ContentDefinitionOutputSchemaKind = "records"
+	Scalar     ContentDefinitionOutputSchemaKind = "scalar"
+	TimeSeries ContentDefinitionOutputSchemaKind = "time_series"
+)
+
+// Valid indicates whether the value is a known member of the ContentDefinitionOutputSchemaKind enum.
+func (e ContentDefinitionOutputSchemaKind) Valid() bool {
+	switch e {
+	case List:
+		return true
+	case Object:
+		return true
+	case Records:
+		return true
+	case Scalar:
+		return true
+	case TimeSeries:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ContentExtensionSourceKind.
+const (
+	Core    ContentExtensionSourceKind = "core"
+	Package ContentExtensionSourceKind = "package"
+	Plugin  ContentExtensionSourceKind = "plugin"
+)
+
+// Valid indicates whether the value is a known member of the ContentExtensionSourceKind enum.
+func (e ContentExtensionSourceKind) Valid() bool {
+	switch e {
+	case Core:
+		return true
+	case Package:
+		return true
+	case Plugin:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ContentReviewContentType.
 const (
 	ContentReviewContentTypeLayout   ContentReviewContentType = "layout"
@@ -660,6 +825,42 @@ func (e ContentSubmissionListPolicy) Valid() bool {
 	case Everyone:
 		return true
 	case Off:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ContentWidgetDefinitionKind.
+const (
+	ContentWidgetDefinitionKindApp    ContentWidgetDefinitionKind = "app"
+	ContentWidgetDefinitionKindWidget ContentWidgetDefinitionKind = "widget"
+)
+
+// Valid indicates whether the value is a known member of the ContentWidgetDefinitionKind enum.
+func (e ContentWidgetDefinitionKind) Valid() bool {
+	switch e {
+	case ContentWidgetDefinitionKindApp:
+		return true
+	case ContentWidgetDefinitionKindWidget:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ContentWidgetDefinitionRuntime.
+const (
+	ContentWidgetDefinitionRuntimeNative ContentWidgetDefinitionRuntime = "native"
+	ContentWidgetDefinitionRuntimeWeb    ContentWidgetDefinitionRuntime = "web"
+)
+
+// Valid indicates whether the value is a known member of the ContentWidgetDefinitionRuntime enum.
+func (e ContentWidgetDefinitionRuntime) Valid() bool {
+	switch e {
+	case ContentWidgetDefinitionRuntimeNative:
+		return true
+	case ContentWidgetDefinitionRuntimeWeb:
 		return true
 	default:
 		return false
@@ -2937,6 +3138,42 @@ func (e ProofTerminalReason) Valid() bool {
 	case ProofTerminalReasonTakeover:
 		return true
 	case ProofTerminalReasonUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProviderCatalogEntryPresentationKind.
+const (
+	ProviderCatalogEntryPresentationKindNative ProviderCatalogEntryPresentationKind = "native"
+	ProviderCatalogEntryPresentationKindWeb    ProviderCatalogEntryPresentationKind = "web"
+)
+
+// Valid indicates whether the value is a known member of the ProviderCatalogEntryPresentationKind enum.
+func (e ProviderCatalogEntryPresentationKind) Valid() bool {
+	switch e {
+	case ProviderCatalogEntryPresentationKindNative:
+		return true
+	case ProviderCatalogEntryPresentationKindWeb:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProviderCatalogEntryRole.
+const (
+	ProviderCatalogEntryRoleDataSource ProviderCatalogEntryRole = "data_source"
+	ProviderCatalogEntryRoleWidget     ProviderCatalogEntryRole = "widget"
+)
+
+// Valid indicates whether the value is a known member of the ProviderCatalogEntryRole enum.
+func (e ProviderCatalogEntryRole) Valid() bool {
+	switch e {
+	case ProviderCatalogEntryRoleDataSource:
+		return true
+	case ProviderCatalogEntryRoleWidget:
 		return true
 	default:
 		return false
@@ -5372,6 +5609,195 @@ type ContentCollection struct {
 	UpdatedAt   time.Time          `json:"updatedAt"`
 }
 
+// ContentDataSourceDefinition defines model for ContentDataSourceDefinition.
+type ContentDataSourceDefinition struct {
+	AdapterId           string                               `json:"adapterId"`
+	Attribution         *string                              `json:"attribution,omitempty"`
+	Category            string                               `json:"category"`
+	ConfigurationSchema ContentDefinitionConfigurationSchema `json:"configurationSchema"`
+
+	// DefaultConfiguration Release-owned default Data Source configuration.
+	DefaultConfiguration *map[string]interface{}       `json:"defaultConfiguration"`
+	Deprecation          ContentDefinitionDeprecation  `json:"deprecation"`
+	Description          string                        `json:"description"`
+	Fetch                *ContentDefinitionFetchSpec   `json:"fetch,omitempty"`
+	Icon                 string                        `json:"icon"`
+	Id                   string                        `json:"id"`
+	LegacyEditor         *bool                         `json:"legacyEditor,omitempty"`
+	Name                 string                        `json:"name"`
+	OutputSchema         ContentDefinitionOutputSchema `json:"outputSchema"`
+	RefreshBehavior      string                        `json:"refreshBehavior"`
+	RequiresManifestV13  *bool                         `json:"requiresManifestV13,omitempty"`
+	Setup                *ContentDefinitionSetup       `json:"setup,omitempty"`
+
+	// Source Where the definition came from; an absent source means release-owned core.
+	Source  *ContentExtensionSource `json:"source,omitempty"`
+	Version int                     `json:"version"`
+}
+
+// ContentDefinitionAppRecipe defines model for ContentDefinitionAppRecipe.
+type ContentDefinitionAppRecipe struct {
+	DataSource struct {
+		// ConfigurationTemplate Release-owned Data Source configuration template.
+		ConfigurationTemplate map[string]interface{} `json:"configurationTemplate"`
+		Description           *string                `json:"description,omitempty"`
+		Name                  string                 `json:"name"`
+		Provider              string                 `json:"provider"`
+	} `json:"dataSource"`
+}
+
+// ContentDefinitionAvailability defines model for ContentDefinitionAvailability.
+type ContentDefinitionAvailability struct {
+	Enabled *bool   `json:"enabled,omitempty"`
+	Reason  *string `json:"reason,omitempty"`
+}
+
+// ContentDefinitionCatalog defines model for ContentDefinitionCatalog.
+type ContentDefinitionCatalog struct {
+	CompilerVersion string                        `json:"compilerVersion"`
+	DataSources     []ContentDataSourceDefinition `json:"dataSources"`
+	Fingerprint     string                        `json:"fingerprint"`
+	Revision        string                        `json:"revision"`
+	Widgets         []ContentWidgetDefinition     `json:"widgets"`
+}
+
+// ContentDefinitionCompatibility defines model for ContentDefinitionCompatibility.
+type ContentDefinitionCompatibility struct {
+	Fallback ContentDefinitionCompatibilityFallback `json:"fallback"`
+}
+
+// ContentDefinitionCompatibilityFallback defines model for ContentDefinitionCompatibility.Fallback.
+type ContentDefinitionCompatibilityFallback string
+
+// ContentDefinitionComponent defines model for ContentDefinitionComponent.
+type ContentDefinitionComponent struct {
+	// ConfigTemplate Release-owned component configuration template.
+	ConfigTemplate   map[string]interface{}          `json:"configTemplate"`
+	DataSourceFields *[]string                       `json:"dataSourceFields,omitempty"`
+	Empty            ContentDefinitionComponentEmpty `json:"empty"`
+	Entrypoint       string                          `json:"entrypoint"`
+	TagName          string                          `json:"tagName"`
+	Type             string                          `json:"type"`
+	Version          int                             `json:"version"`
+}
+
+// ContentDefinitionComponentEmpty defines model for ContentDefinitionComponent.Empty.
+type ContentDefinitionComponentEmpty string
+
+// ContentDefinitionConfigurationSchema defines model for ContentDefinitionConfigurationSchema.
+type ContentDefinitionConfigurationSchema struct {
+	Fields []ContentDefinitionField `json:"fields"`
+}
+
+// ContentDefinitionDeprecation defines model for ContentDefinitionDeprecation.
+type ContentDefinitionDeprecation struct {
+	Deprecated  bool    `json:"deprecated"`
+	Message     *string `json:"message,omitempty"`
+	Replacement *string `json:"replacement,omitempty"`
+}
+
+// ContentDefinitionFetchSpec defines model for ContentDefinitionFetchSpec.
+type ContentDefinitionFetchSpec struct {
+	Accept         *string                          `json:"accept,omitempty"`
+	Format         ContentDefinitionFetchSpecFormat `json:"format"`
+	Mapping        map[string]string                `json:"mapping"`
+	MaximumRecords *int                             `json:"maximumRecords,omitempty"`
+	RecordsPath    *string                          `json:"recordsPath,omitempty"`
+	RefreshSeconds *int                             `json:"refreshSeconds,omitempty"`
+	UrlTemplate    string                           `json:"urlTemplate"`
+}
+
+// ContentDefinitionFetchSpecFormat defines model for ContentDefinitionFetchSpec.Format.
+type ContentDefinitionFetchSpecFormat string
+
+// ContentDefinitionField defines model for ContentDefinitionField.
+type ContentDefinitionField struct {
+	AcceptedDataSourceKinds *[]string                     `json:"acceptedDataSourceKinds,omitempty"`
+	Control                 ContentDefinitionFieldControl `json:"control"`
+	DataSourceFieldTypes    *[]string                     `json:"dataSourceFieldTypes,omitempty"`
+
+	// Default Release-owned default value of any JSON type.
+	Default        interface{}                      `json:"default,omitempty"`
+	Description    *string                          `json:"description,omitempty"`
+	ItemFields     *[]ContentDefinitionField        `json:"itemFields,omitempty"`
+	Key            string                           `json:"key"`
+	Label          string                           `json:"label"`
+	MaxLength      *int                             `json:"maxLength,omitempty"`
+	Maximum        *float32                         `json:"maximum,omitempty"`
+	MaximumItems   *int                             `json:"maximumItems,omitempty"`
+	MediaTypes     *[]string                        `json:"mediaTypes,omitempty"`
+	MinLength      *int                             `json:"minLength,omitempty"`
+	Minimum        *float32                         `json:"minimum,omitempty"`
+	Options        *[]ContentDefinitionSelectOption `json:"options,omitempty"`
+	Required       *bool                            `json:"required,omitempty"`
+	RequiredFields *map[string]string               `json:"requiredFields,omitempty"`
+
+	// Ui Release-owned authoring hints of any JSON shape.
+	Ui *map[string]interface{} `json:"ui,omitempty"`
+}
+
+// ContentDefinitionFieldControl defines model for ContentDefinitionField.Control.
+type ContentDefinitionFieldControl string
+
+// ContentDefinitionOutputField defines model for ContentDefinitionOutputField.
+type ContentDefinitionOutputField struct {
+	Currency          *string `json:"currency,omitempty"`
+	CurrencyConfigKey *string `json:"currencyConfigKey,omitempty"`
+	Key               string  `json:"key"`
+	Label             string  `json:"label"`
+	Required          *bool   `json:"required,omitempty"`
+	Type              string  `json:"type"`
+}
+
+// ContentDefinitionOutputSchema defines model for ContentDefinitionOutputSchema.
+type ContentDefinitionOutputSchema struct {
+	Fields []ContentDefinitionOutputField    `json:"fields"`
+	Kind   ContentDefinitionOutputSchemaKind `json:"kind"`
+}
+
+// ContentDefinitionOutputSchemaKind defines model for ContentDefinitionOutputSchema.Kind.
+type ContentDefinitionOutputSchemaKind string
+
+// ContentDefinitionSelectOption defines model for ContentDefinitionSelectOption.
+type ContentDefinitionSelectOption struct {
+	Label string `json:"label"`
+	Value string `json:"value"`
+}
+
+// ContentDefinitionSetup defines model for ContentDefinitionSetup.
+type ContentDefinitionSetup struct {
+	EmptyState *string   `json:"emptyState,omitempty"`
+	Eyebrow    *string   `json:"eyebrow,omitempty"`
+	Steps      *[]string `json:"steps,omitempty"`
+	Tip        *string   `json:"tip,omitempty"`
+}
+
+// ContentDefinitionWebIntegration defines model for ContentDefinitionWebIntegration.
+type ContentDefinitionWebIntegration struct {
+	AllowAnyHttpsHost   *bool     `json:"allowAnyHttpsHost,omitempty"`
+	AllowedHosts        *[]string `json:"allowedHosts,omitempty"`
+	FallbackBehavior    *string   `json:"fallbackBehavior,omitempty"`
+	Lifecycle           *string   `json:"lifecycle,omitempty"`
+	LoadTimeoutSeconds  *int      `json:"loadTimeoutSeconds,omitempty"`
+	ReloadIntervalField *string   `json:"reloadIntervalField,omitempty"`
+	RequiredPathPrefix  *string   `json:"requiredPathPrefix,omitempty"`
+	Transform           string    `json:"transform"`
+	UrlField            string    `json:"urlField"`
+	WarmSeconds         *int      `json:"warmSeconds,omitempty"`
+}
+
+// ContentExtensionSource Where the definition came from; an absent source means release-owned core.
+type ContentExtensionSource struct {
+	Digest         *string                     `json:"digest,omitempty"`
+	Kind           *ContentExtensionSourceKind `json:"kind,omitempty"`
+	PackageId      *string                     `json:"packageId,omitempty"`
+	PackageVersion *string                     `json:"packageVersion,omitempty"`
+	PluginId       *string                     `json:"pluginId,omitempty"`
+}
+
+// ContentExtensionSourceKind defines model for ContentExtensionSource.Kind.
+type ContentExtensionSourceKind string
+
 // ContentFolder defines model for ContentFolder.
 type ContentFolder struct {
 	AssetCount  int                 `json:"assetCount"`
@@ -5537,6 +5963,53 @@ type ContentTag struct {
 	Id         openapi_types.UUID `json:"id"`
 	Name       string             `json:"name"`
 }
+
+// ContentWidgetDefinition defines model for ContentWidgetDefinition.
+type ContentWidgetDefinition struct {
+	AcceptedDataSourceKinds *[]string                            `json:"acceptedDataSourceKinds,omitempty"`
+	ApiVersion              *int                                 `json:"apiVersion,omitempty"`
+	Availability            *ContentDefinitionAvailability       `json:"availability,omitempty"`
+	Category                string                               `json:"category"`
+	Compatibility           *ContentDefinitionCompatibility      `json:"compatibility,omitempty"`
+	Component               *ContentDefinitionComponent          `json:"component,omitempty"`
+	ConfigurationSchema     ContentDefinitionConfigurationSchema `json:"configurationSchema"`
+
+	// DefaultConfiguration Release-owned default Widget configuration.
+	DefaultConfiguration      *map[string]interface{}      `json:"defaultConfiguration"`
+	Deprecation               ContentDefinitionDeprecation `json:"deprecation"`
+	Description               string                       `json:"description"`
+	EmptyStateBehavior        string                       `json:"emptyStateBehavior"`
+	Featured                  *bool                        `json:"featured,omitempty"`
+	Icon                      string                       `json:"icon"`
+	Id                        string                       `json:"id"`
+	Keywords                  *[]string                    `json:"keywords,omitempty"`
+	Kind                      *ContentWidgetDefinitionKind `json:"kind,omitempty"`
+	LegacyEditor              *bool                        `json:"legacyEditor,omitempty"`
+	Name                      string                       `json:"name"`
+	PresentationBase          *string                      `json:"presentationBase,omitempty"`
+	PresentationSchemaVersion int                          `json:"presentationSchemaVersion"`
+
+	// PresentationTemplate Release-owned presentation template.
+	PresentationTemplate *map[string]interface{}        `json:"presentationTemplate,omitempty"`
+	Recipe               *ContentDefinitionAppRecipe    `json:"recipe,omitempty"`
+	RequiredCapabilities map[string]int                 `json:"requiredCapabilities"`
+	RequiredFieldTypes   *map[string]string             `json:"requiredFieldTypes,omitempty"`
+	RequiresManifestV13  *bool                          `json:"requiresManifestV13,omitempty"`
+	Runtime              ContentWidgetDefinitionRuntime `json:"runtime"`
+	Setup                *ContentDefinitionSetup        `json:"setup,omitempty"`
+
+	// Source Where the definition came from; an absent source means release-owned core.
+	Source         *ContentExtensionSource          `json:"source,omitempty"`
+	Thumbnail      *string                          `json:"thumbnail,omitempty"`
+	Version        int                              `json:"version"`
+	WebIntegration *ContentDefinitionWebIntegration `json:"webIntegration,omitempty"`
+}
+
+// ContentWidgetDefinitionKind defines model for ContentWidgetDefinition.Kind.
+type ContentWidgetDefinitionKind string
+
+// ContentWidgetDefinitionRuntime defines model for ContentWidgetDefinition.Runtime.
+type ContentWidgetDefinitionRuntime string
 
 // CountdownBarInput defines model for CountdownBarInput.
 type CountdownBarInput struct {
@@ -7717,6 +8190,31 @@ type ProofSummaryItem struct {
 
 // ProofTerminalReason defines model for ProofTerminalReason.
 type ProofTerminalReason string
+
+// ProviderCatalog defines model for ProviderCatalog.
+type ProviderCatalog struct {
+	Providers []ProviderCatalogEntry `json:"providers"`
+	Revision  int                    `json:"revision"`
+}
+
+// ProviderCatalogEntry defines model for ProviderCatalogEntry.
+type ProviderCatalogEntry struct {
+	Capabilities         map[string]bool                       `json:"capabilities"`
+	Description          string                                `json:"description"`
+	Group                string                                `json:"group"`
+	Id                   string                                `json:"id"`
+	Label                string                                `json:"label"`
+	PresentationKind     *ProviderCatalogEntryPresentationKind `json:"presentationKind,omitempty"`
+	RequiredCapabilities *map[string]int                       `json:"requiredCapabilities,omitempty"`
+	Role                 ProviderCatalogEntryRole              `json:"role"`
+	UiHints              map[string]string                     `json:"uiHints"`
+}
+
+// ProviderCatalogEntryPresentationKind defines model for ProviderCatalogEntry.PresentationKind.
+type ProviderCatalogEntryPresentationKind string
+
+// ProviderCatalogEntryRole defines model for ProviderCatalogEntry.Role.
+type ProviderCatalogEntryRole string
 
 // PublicationHistoryItem defines model for PublicationHistoryItem.
 type PublicationHistoryItem struct {
@@ -45582,6 +46080,17 @@ func (r UpdateContentCollectionResponse) ContentType() string {
 type ContentDefinitionsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ContentDefinitionCatalog `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ContentDefinitionsResponse) GetJSON200() *struct {
+	Data ContentDefinitionCatalog `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -53628,6 +54137,17 @@ func (r StopPresentationOverrideResponse) ContentType() string {
 type ProviderCatalogResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ProviderCatalog `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ProviderCatalogResponse) GetJSON200() *struct {
+	Data ProviderCatalog `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -66880,6 +67400,18 @@ func ParseContentDefinitionsResponse(rsp *http.Response) (*ContentDefinitionsRes
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ContentDefinitionCatalog `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
 	return response, nil
 }
 
@@ -72083,6 +72615,18 @@ func ParseProviderCatalogResponse(rsp *http.Response) (*ProviderCatalogResponse,
 	response := &ProviderCatalogResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ProviderCatalog `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	}
 
 	return response, nil
