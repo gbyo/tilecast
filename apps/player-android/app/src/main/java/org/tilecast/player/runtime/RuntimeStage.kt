@@ -433,7 +433,7 @@ private fun YouTubeRemoteView(
                     put("startSeconds", content.startSeconds)
                     content.endSeconds?.let { put("endSeconds", it) }
                     put("loop", content.loop)
-                    put("muted", content.muted || surface.muted)
+                    put("muted", content.muted)
                     put("volume", content.volume)
                     put("captions", content.captions)
                     put("captionLanguage", content.captionLanguage)
@@ -483,7 +483,7 @@ private fun YouTubeRemoteView(
             // host layer. Apply that state to the already-created IFrame.
             val shouldMute = content.muted || surface.muted
             webView?.evaluateJavascript(
-                if (shouldMute) "if(window.player){window.player.mute();}" else "if(window.player){window.player.unMute();window.player.setVolume(${content.volume.coerceIn(0, 100)});}",
+                "if(window.tilecastSetMuted){window.tilecastSetMuted($shouldMute);}if(window.player){window.player.setVolume(${content.volume.coerceIn(0, 100)});}",
                 null,
             )
         },
