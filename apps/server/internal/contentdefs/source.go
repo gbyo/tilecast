@@ -38,6 +38,13 @@ type ExtensionSource struct {
 // CoreSource is the source of release-owned definitions.
 func CoreSource() ExtensionSource { return ExtensionSource{Kind: SourceKindCore} }
 
+// PluginSource is the source of definitions bundled by a plugin. The id is
+// always the stable tilecast.plugin.json id, never the plugin directory
+// basename.
+func PluginSource(pluginID string) ExtensionSource {
+	return ExtensionSource{Kind: SourceKindPlugin, PluginID: pluginID}
+}
+
 // Normalized reports the source with an empty kind defaulted to core.
 func (source ExtensionSource) Normalized() ExtensionSource {
 	if source.Kind == "" {
@@ -89,4 +96,22 @@ func (source ExtensionSource) FingerprintString() string {
 // ID or lives beneath its namespace.
 func packageOwnsType(packageID, componentType string) bool {
 	return componentType == packageID || strings.HasPrefix(componentType, packageID+".")
+}
+
+// Usable reports whether a contribution from this source may be authored or
+// projected given the installed plugin IDs. Core and package contributions
+// follow their static definition availability; a plugin contribution
+// additionally requires its owning plugin to be installed. The release
+// catalog knows what contributions exist, the installation state knows
+// which plugin-owned ones are currently available, and effective
+// availability is the conjunction of the two with a useful reason.
+func (source ExtensionSource) Usable(installed map[string]bool) (bool, string) {
+	normalized := source.Normalized()
+	if normalized.Kind != SourceKindPlugin {
+		return true, ""
+	}
+	if installed[normalized.PluginID] {
+		return true, ""
+	}
+	return false, fmt.Sprintf("plugin %q is not installed", normalized.PluginID)
 }

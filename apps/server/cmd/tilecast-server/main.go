@@ -143,8 +143,13 @@ func serve() {
 	}
 	pluginService.SetManifestInvalidator(playlistService)
 	playlistService.SetPluginProjector(pluginService)
+	// Plugin-owned Widget creation locks the owning plugin's installation
+	// row in the creation transaction so removal cannot race it. The gate
+	// is injected so media never imports plugin implementation details.
+	mediaService.SetPluginSourceGate(pluginService)
 	mediaService.SetContentDefinitions(contentDefinitions)
 	playlistService.SetContentDefinitions(contentDefinitions)
+	pluginService.SetContentDefinitions(contentDefinitions)
 	layoutService := layouts.NewService(db)
 	layoutService.SetNotifier(deviceService)
 	layoutService.SetManifestInvalidator(playlistService)

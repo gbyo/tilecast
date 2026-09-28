@@ -521,7 +521,9 @@
       "featured": "Destacados",
       "featuredHint": "Integraciones recomendadas para necesidades comunes.",
       "noResults": "Ningún widget coincide con esta búsqueda.",
-      "noMatch": "Ninguna app o widget coincide con “{{search}}”."
+      "noMatch": "Ninguna app o widget coincide con “{{search}}”.",
+      "sourcePlugin": "Plugin · {{name}}",
+      "requiresPlugin": "Requiere {{name}}"
     },
     "preview": {
       "webUnavailable": "URL de presentación web no disponible.",

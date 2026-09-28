@@ -130,6 +130,42 @@ func Installed(ctx context.Context, db queryRower, id string) (bool, error) {
 	return isInstalled(ctx, db, id)
 }
 
+// installedSetDB is satisfied by pools and transactions for one-shot reads.
+type installedSetDB interface {
+	Query(context.Context, string, ...any) (pgx.Rows, error)
+}
+
+// InstalledSet returns the IDs of every installed plugin. Callers combine
+// it with contentdefs source metadata to compute effective availability:
+// the release catalog knows what contributions exist, and this set knows
+// which plugin-owned ones are currently usable.
+func InstalledSet(ctx context.Context, db installedSetDB) (map[string]bool, error) {
+	installed := map[string]bool{}
+	rows, err := db.Query(ctx, `SELECT plugin_id FROM plugin_installations`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		installed[id] = true
+	}
+	return installed, rows.Err()
+}
+
+// LockPluginSource confirms a plugin-owned contribution may be created
+// inside the caller's transaction: the plugin must be installed, and the
+// installation row is share-locked until commit so a concurrent Remove,
+// which locks the row for update before counting blockers, cannot slip
+// between the check and the insert. Content packages call this through an
+// injected gate so media never imports plugin implementation details.
+func (s *Service) LockPluginSource(ctx context.Context, tx pgx.Tx, pluginID string) error {
+	return s.lockInstallation(ctx, tx, pluginID)
+}
+
 // installations reads every installation row, split into known plugins and
 // rows this release does not recognize.
 func (s *Service) installations(ctx context.Context) (map[string]bool, []UnsupportedInstallation, error) {
@@ -182,7 +218,7 @@ func (s *Service) Install(ctx context.Context, id string, userID uuid.UUID) (Cat
 		if err = auditInstallation(ctx, tx, "plugin.installed", definition, userID); err != nil {
 			return CatalogPlugin{}, false, err
 		}
-		if definition.PlayerFacing {
+		if s.affectsPlayerContent(definition) {
 			if notes, err = bumpAllScreens(ctx, tx, "plugin.installed"); err != nil {
 				return CatalogPlugin{}, false, err
 			}
@@ -247,7 +283,7 @@ func (s *Service) Remove(ctx context.Context, id string, userID uuid.UUID) error
 		return err
 	}
 	var notes []note
-	if definition.PlayerFacing {
+	if s.affectsPlayerContent(definition) {
 		if notes, err = bumpAllScreens(ctx, tx, "plugin.removed"); err != nil {
 			return err
 		}
@@ -260,24 +296,29 @@ func (s *Service) Remove(ctx context.Context, id string, userID uuid.UUID) error
 }
 
 // removalBlockers lists the plugin-owned resources that must be deleted
-// through the plugin's own UI before its installation can go. A plugin that
-// implements RemovalGuard answers for itself.
+// through the plugin's own UI before its installation can go. Generic
+// static-contribution blockers come first, in a deterministic order; a
+// plugin that implements RemovalGuard answers for its own domain state
+// after them. No plugin author counts generic contributed Widget rows.
 func (s *Service) removalBlockers(ctx context.Context, tx pgx.Tx, id string) ([]InUseResource, error) {
 	hosted, ok := s.hostedPlugin(id)
 	if !ok {
 		return nil, ErrPluginNotFound
 	}
+	resources := []InUseResource{}
+	static, err := s.staticContributionBlockers(ctx, tx, id)
+	if err != nil {
+		return nil, err
+	}
+	resources = append(resources, static...)
 	guard, ok := hosted.plugin.(plugin.RemovalGuard)
 	if !ok {
-		// A plugin with no removal rules blocks nothing: the migration-era
-		// fallback is gone, and every surviving plugin answers for itself.
-		return []InUseResource{}, nil
+		return resources, nil
 	}
 	blockers, err := guard.RemovalBlockers(ctx, tx)
 	if err != nil {
 		return nil, fmt.Errorf("plugin %s: removal blockers: %w", id, err)
 	}
-	resources := []InUseResource{}
 	for _, blocker := range blockers {
 		if blocker.Count <= 0 {
 			continue
@@ -289,6 +330,45 @@ func (s *Service) removalBlockers(ctx context.Context, tx pgx.Tx, id string) ([]
 		resources = append(resources, InUseResource{Kind: blocker.Kind, Count: blocker.Count, Label: blocker.Label(), Resolution: string(resolution)})
 	}
 	return resources, nil
+}
+
+// staticContributionBlockers counts persisted content using the plugin's
+// static Widget contributions. Removal deletes only the installation
+// record, never the content itself, so any remaining row blocks.
+func (s *Service) staticContributionBlockers(ctx context.Context, tx pgx.Tx, id string) ([]InUseResource, error) {
+	providers := s.catalog().PluginWidgetProviders(id)
+	if len(providers) == 0 {
+		return nil, nil
+	}
+	var count int
+	if err := tx.QueryRow(ctx, `SELECT count(*) FROM widgets widget
+		JOIN assets asset ON asset.id=widget.asset_id AND asset.deleted_at IS NULL
+		WHERE widget.provider=ANY($1)`, providers).Scan(&count); err != nil {
+		return nil, fmt.Errorf("plugin %s: contributed Widget usage: %w", id, err)
+	}
+	if count == 0 {
+		return nil, nil
+	}
+	blocker := plugin.Blocker{Kind: "widget", Count: count, Singular: "Widget", Plural: "Widgets", Resolution: plugin.ResolveDelete}
+	return []InUseResource{{Kind: blocker.Kind, Count: blocker.Count, Label: blocker.Label(), Resolution: string(blocker.Resolution)}}, nil
+}
+
+// affectsPlayerContent reports whether installing or removing the plugin
+// can change what a screen receives. Plugins with Plugin API runtime
+// manifest entries do by definition; so does any plugin with static
+// Widget contributions, because installing it can make preserved
+// plugin-owned content usable again. (Declarative Data Source
+// contributions join the same check when they land.)
+func (s *Service) affectsPlayerContent(definition Definition) bool {
+	if definition.PlayerFacing {
+		return true
+	}
+	for _, contributor := range s.catalog().StaticWidgetContributors() {
+		if contributor == definition.ID {
+			return true
+		}
+	}
+	return false
 }
 
 func auditInstallation(ctx context.Context, tx pgx.Tx, action string, definition Definition, userID uuid.UUID) error {

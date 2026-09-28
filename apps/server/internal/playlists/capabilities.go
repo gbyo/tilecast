@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/tilecast/tilecast/apps/server/internal/plugins"
 )
 
 type presentationWidgetRequirement struct {
@@ -129,6 +130,15 @@ func (s *Service) orgPrivateHTTP(ctx context.Context) bool {
 
 func (s *Service) presentationRequirements(ctx context.Context, q presentationQuery, playlistID, layoutID *uuid.UUID) ([]presentationWidgetRequirement, string, error) {
 	allowPrivateHTTP := s.orgPrivateHTTP(ctx)
+	// Effective availability is evaluated once per requirements pass: a
+	// plugin-owned provider whose plugin is not installed cannot be
+	// assigned or projected, while preserved rows stay in the database.
+	// This reads before the widget rows open below because q may be a
+	// transaction pinned to one connection.
+	installed, err := plugins.InstalledSet(ctx, q)
+	if err != nil {
+		return nil, "", err
+	}
 	rows, err := q.Query(ctx, `
 		WITH RECURSIVE refs(kind,id) AS (
 			SELECT 'playlist', $1::uuid WHERE $1::uuid IS NOT NULL
@@ -180,6 +190,9 @@ func (s *Service) presentationRequirements(ctx context.Context, q presentationQu
 		var requirement presentationWidgetRequirement
 		if err = rows.Scan(&requirement.Name, &requirement.Provider, &requirement.PresetID, &requirement.Configuration); err != nil {
 			return nil, "", err
+		}
+		if err = s.requireWidgetSourceUsable(installed, requirement.Name, requirement.Provider); err != nil {
+			return nil, "", fmt.Errorf("compile Widget %q: %w", requirement.Name, err)
 		}
 		sourceIDs = append(sourceIDs, s.widgetDataSourceIDs(requirement.Provider, requirement.Configuration)...)
 		requirement.Presentation, err = s.compileWidgetPresentationForPreset(requirement.Provider, requirement.PresetID, requirement.Configuration, allowPrivateHTTP)

@@ -14,6 +14,8 @@ import {
   discoverSourcedWidgets,
   discoverWidgets,
   pairSourcedEntries,
+  pluginIdResolver,
+  sourceForWidgetManifestPath,
 } from "../src/discovery.ts";
 import { MAX_COMPONENT_TYPE_LENGTH } from "../src/identity.ts";
 import {
@@ -250,6 +252,87 @@ describe("discovery", () => {
     expect(discovery.problems).toEqual([
       "widgets/orphan: has runtime/index.ts but no tilecast.widget.json",
     ]);
+  });
+
+  it("resolves plugin identity from tilecast.plugin.json, not the directory", () => {
+    // plugins/emergency-alerts/ is owned by plugin emergency_alerts: the
+    // directory basename must never become the semantic plugin id.
+    const resolve = pluginIdResolver({
+      "../../plugins/emergency-alerts/tilecast.plugin.json": {
+        id: "emergency_alerts",
+      },
+      "../../plugins/athletics/tilecast.plugin.json": { id: "athletics" },
+    });
+    expect(resolve("emergency-alerts")).toBe("emergency_alerts");
+    expect(resolve("athletics")).toBe("athletics");
+    expect(resolve("unknown")).toBeNull();
+    expect(
+      sourceForWidgetManifestPath(
+        "../../plugins/emergency-alerts/widgets/siren/tilecast.widget.json",
+        resolve,
+      ),
+    ).toEqual({ kind: "plugin", pluginId: "emergency_alerts" });
+
+    const entries = pairSourcedEntries(
+      {
+        "../../plugins/emergency-alerts/widgets/siren/tilecast.widget.json": {
+          ...manifest("emergencyalerts.siren", "acme-siren"),
+          id: "emergency_alerts_siren",
+        },
+      },
+      {
+        "../../plugins/emergency-alerts/widgets/siren/runtime/index.ts": {
+          default: definition("emergencyalerts.siren", "acme-siren"),
+        },
+      },
+      resolve,
+    );
+    expect(entries.map((entry) => entry.source)).toEqual([
+      { kind: "plugin", pluginId: "emergency_alerts" },
+    ]);
+    const discovery = discoverSourcedWidgets(entries);
+    expect(discovery.problems).toEqual([]);
+    expect(discovery.widgets.map((widget) => widget.dir)).toEqual([
+      "plugins/emergency-alerts/widgets/siren",
+    ]);
+    expect(discovery.widgets[0]!.source).toEqual({
+      kind: "plugin",
+      pluginId: "emergency_alerts",
+    });
+  });
+
+  it("fails closed when a plugin directory has no manifest identity", () => {
+    const entries = pairSourcedEntries(
+      {
+        "../../plugins/mystery/widgets/siren/tilecast.widget.json": {
+          ...manifest("mystery.siren", "acme-siren"),
+          id: "mystery_siren",
+        },
+      },
+      {
+        "../../plugins/mystery/widgets/siren/runtime/index.ts": {
+          default: definition("mystery.siren", "acme-siren"),
+        },
+      },
+      pluginIdResolver({}),
+    );
+    expect(entries.map((entry) => entry.source)).toEqual([
+      { kind: "plugin", pluginId: "" },
+    ]);
+    const discovery = discoverSourcedWidgets(entries);
+    expect(discovery.widgets).toEqual([]);
+    expect(discovery.problems).toEqual([
+      "plugins/mystery/widgets/siren: plugin directory has no readable tilecast.plugin.json identity",
+    ]);
+  });
+
+  it("derives the directory basename only without a resolver", () => {
+    // Legacy behavior for unit tests: real hosts always pass a resolver.
+    expect(
+      sourceForWidgetManifestPath(
+        "../../plugins/athletics/widgets/scoreboard/tilecast.widget.json",
+      ),
+    ).toEqual({ kind: "plugin", pluginId: "athletics" });
   });
 
   it("discovers plugin sources with explicit ownership", () => {

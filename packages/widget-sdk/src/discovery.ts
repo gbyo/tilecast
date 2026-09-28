@@ -7,7 +7,9 @@
  *   plugins/<plugin>/widgets/<name>/tilecast.widget.json (...)    plugin
  *
  * Ownership is passed structurally by the caller, never inferred here from
- * a bare directory name. Every definition must agree with its manifest. A
+ * a bare directory name: hosts resolve each plugin directory to its stable
+ * tilecast.plugin.json id (pluginIdResolver) and pass that resolver to
+ * pairSourcedEntries. Every definition must agree with its manifest. A
  * Widget that does not is left out with a diagnostic instead of being
  * allowed to destabilize a display, and each host's tests fail on any
  * diagnostic, so a mismatch never reaches a release. Nothing central
@@ -55,6 +57,39 @@ export interface WidgetSourceEntry {
   readonly source: ExtensionSource;
 }
 
+/**
+ * Maps a plugin directory (the filesystem location below plugins/) to the
+ * stable plugin identity from that plugin's tilecast.plugin.json. The
+ * directory is never identity: `plugins/emergency-alerts/` is owned by
+ * plugin `emergency_alerts`. Hosts build one from their trusted plugin
+ * manifest set (see pluginIdResolver); a null result means the directory
+ * has no readable manifest and pairing must fail closed with a diagnostic.
+ */
+export type PluginIdResolver = (pluginDir: string) => string | null;
+
+/** Minimal shape a plugin manifest glob entry needs for identity. */
+export interface PluginManifestRef {
+  readonly id?: unknown;
+}
+
+/**
+ * Build a PluginIdResolver from a trusted per-plugin tilecast.plugin.json
+ * glob. Non-string or empty ids resolve to null so the Widget is left out
+ * with a diagnostic instead of inheriting a guess.
+ */
+export function pluginIdResolver(
+  manifests: Record<string, PluginManifestRef | undefined>,
+): PluginIdResolver {
+  const byDir = new Map<string, string>();
+  for (const [path, manifest] of Object.entries(manifests)) {
+    const match = /(^|\/)plugins\/([^/]+)\/tilecast\.plugin\.json$/.exec(path);
+    if (!match?.[2] || typeof manifest?.id !== "string") continue;
+    const id = manifest.id;
+    if (id.length > 0 && !byDir.has(match[2])) byDir.set(match[2], id);
+  }
+  return (dir: string) => byDir.get(dir) ?? null;
+}
+
 function problemFor(problems: string[], dir: string) {
   return (message: string) => problems.push(`${dir}: ${message}`);
 }
@@ -99,9 +134,9 @@ function sourcePathProblem(entry: WidgetSourceEntry): string | null {
     if (!match) {
       return `plugin Widget must live at plugins/<plugin>/widgets/<name>/tilecast.widget.json (saw ${entry.manifestPath})`;
     }
-    if (match[2] !== source.pluginId) {
-      return `plugin Widget path ${entry.manifestPath} does not match source plugin ${source.pluginId}`;
-    }
+    // The path segment is the plugin's directory (a filesystem location),
+    // never its identity: the stable tilecast.plugin.json id arrives with
+    // the source from the caller's resolver, so no comparison here.
     return null;
   }
   return null;
@@ -131,28 +166,53 @@ const PLUGIN_MANIFEST_PATTERN =
 const PLUGIN_MODULE_PATTERN =
   /(^|\/)plugins\/([^/]+)\/widgets\/[^/]+\/runtime\/index\.ts$/;
 
-/** The explicit source a manifest path structurally belongs to. */
-export function sourceForWidgetManifestPath(path: string): ExtensionSource {
+/**
+ * The explicit source a manifest path structurally belongs to. The plugin
+ * directory is a location, not identity: without a resolver the directory
+ * basename is used (legacy behavior for tests), but every real host passes
+ * a resolver built from its trusted tilecast.plugin.json set so the stable
+ * manifest id owns the Widget. A resolver that cannot identify the
+ * directory yields an empty plugin id, which source validation rejects.
+ */
+export function sourceForWidgetManifestPath(
+  path: string,
+  resolvePluginId?: PluginIdResolver,
+): ExtensionSource {
   const plugin = PLUGIN_MANIFEST_PATTERN.exec(path);
-  if (plugin?.[2]) return { kind: "plugin", pluginId: plugin[2] };
+  if (plugin?.[2]) {
+    const dir = plugin[2];
+    const pluginId = resolvePluginId ? (resolvePluginId(dir) ?? "") : dir;
+    return { kind: "plugin", pluginId };
+  }
   return { kind: "core" };
 }
 
 /** The explicit source a runtime module path structurally belongs to. */
-export function sourceForWidgetModulePath(path: string): ExtensionSource {
+export function sourceForWidgetModulePath(
+  path: string,
+  resolvePluginId?: PluginIdResolver,
+): ExtensionSource {
   const plugin = PLUGIN_MODULE_PATTERN.exec(path);
-  if (plugin?.[2]) return { kind: "plugin", pluginId: plugin[2] };
+  if (plugin?.[2]) {
+    const dir = plugin[2];
+    const pluginId = resolvePluginId ? (resolvePluginId(dir) ?? "") : dir;
+    return { kind: "plugin", pluginId };
+  }
   return { kind: "core" };
 }
 
 /**
  * Pair `import.meta.glob` manifest and module records into source entries.
- * Ownership comes from each path's structure; callers pass one trusted glob
- * pair at a time (core, then each plugin root) and concatenate the results.
+ * Ownership comes from each path's structure plus the caller's resolver;
+ * callers pass one trusted glob pair at a time (core, then each plugin
+ * root) and concatenate the results. Real hosts always pass a resolver so
+ * the stable plugin manifest id — never the directory basename — owns
+ * plugin Widgets.
  */
 export function pairSourcedEntries(
   manifests: Record<string, WidgetManifestInput | undefined>,
   modules: Record<string, { default?: unknown }>,
+  resolvePluginId?: PluginIdResolver,
 ): WidgetSourceEntry[] {
   const leafOf = (path: string) =>
     path.split("/widgets/")[1]?.split("/")[0] ?? path;
@@ -163,7 +223,7 @@ export function pairSourcedEntries(
   const byKey = new Map<string, WidgetSourceEntry>();
   for (const [path, manifest] of Object.entries(manifests)) {
     if (manifest === undefined) continue;
-    const source = sourceForWidgetManifestPath(path);
+    const source = sourceForWidgetManifestPath(path, resolvePluginId);
     byKey.set(keyOf(path, source), {
       manifestPath: path,
       manifest,
@@ -171,7 +231,7 @@ export function pairSourcedEntries(
     });
   }
   for (const [path, module] of Object.entries(modules)) {
-    const source = sourceForWidgetModulePath(path);
+    const source = sourceForWidgetModulePath(path, resolvePluginId);
     const manifestPath = path.replace(
       /\/runtime\/index\.ts$/,
       "/tilecast.widget.json",
@@ -233,6 +293,13 @@ export function discoverSourcedWidgets(
       continue;
     }
     const problem = problemFor(problems, dir);
+    if (entry.source.kind === "plugin" && entry.source.pluginId === "") {
+      // The caller's resolver could not map this directory to a stable
+      // tilecast.plugin.json id. Fail closed: the Widget is left out with
+      // a diagnostic instead of inheriting the directory basename.
+      problem("plugin directory has no readable tilecast.plugin.json identity");
+      continue;
+    }
     const sourceIssue = sourceProblem(entry.source);
     if (sourceIssue) {
       problem(sourceIssue);

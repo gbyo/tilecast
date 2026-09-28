@@ -42,6 +42,7 @@ type Service struct {
 	cfg         Config
 	invalidator AssetInvalidator
 	definitions *contentdefs.Catalog
+	pluginGate  PluginSourceGate
 	hooks       FinalizationHooks
 	// contributed are plugin-owned Data Source providers. They overlay the
 	// static registry for traits, configuration shape, field discovery,

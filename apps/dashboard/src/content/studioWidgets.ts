@@ -13,6 +13,8 @@ import type { AnyWidgetDefinition } from "@tilecast/widget-sdk";
 import {
   discoverSourcedWidgets,
   pairSourcedEntries,
+  pluginIdResolver,
+  type PluginManifestRef,
   type WidgetDiscovery,
 } from "@tilecast/widget-sdk/discovery";
 import type { WidgetManifestInput } from "@tilecast/widget-sdk/manifest";
@@ -34,10 +36,18 @@ const pluginModules = import.meta.glob<{ default?: unknown }>(
   "../../../../plugins/*/widgets/*/runtime/index.ts",
   { eager: true },
 );
+// Stable plugin identities from each plugin's tilecast.plugin.json. The
+// plugin directory is a filesystem location, never identity.
+const resolvePluginId = pluginIdResolver(
+  import.meta.glob<PluginManifestRef>(
+    "../../../../plugins/*/tilecast.plugin.json",
+    { eager: true, import: "default" },
+  ),
+);
 
 export const studioWidgetDiscovery: WidgetDiscovery = discoverSourcedWidgets(
   pairSourcedEntries(coreManifests, coreModules).concat(
-    pairSourcedEntries(pluginManifests, pluginModules),
+    pairSourcedEntries(pluginManifests, pluginModules, resolvePluginId),
   ),
 );
 

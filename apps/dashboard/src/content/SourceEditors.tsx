@@ -144,6 +144,11 @@ export function WidgetProviderGallery({
     queryFn: api.contentDefinitions,
     staleTime: 5 * 60_000,
   });
+  const pluginCatalog = useQuery({
+    queryKey: ["plugins"],
+    queryFn: api.plugins,
+    staleTime: 5 * 60_000,
+  });
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
   useEffect(() => {
@@ -158,6 +163,32 @@ export function WidgetProviderGallery({
   }, [onClose]);
 
   const catalog = definitions.data?.widgets ?? [];
+  // Provenance for plugin-owned Widgets: the gallery is built from the
+  // effective catalog, and installation state decides whether a
+  // plugin-owned provider can be created. An uninstalled plugin's Widget
+  // stays visible but disabled with its owning plugin named, so the
+  // definition never looks silently broken. The Server enforces the same
+  // decision authoritatively; when the plugin catalog cannot be read the
+  // gallery degrades to the static catalog alone.
+  const installedPlugins = new Map(
+    (pluginCatalog.data?.items ?? []).map((plugin) => [plugin.id, plugin]),
+  );
+  const sourceInfo = (definition: (typeof catalog)[number]) => {
+    const source = definition.source;
+    if (!source || source.kind !== "plugin") return null;
+    const plugin = installedPlugins.get(source.pluginId);
+    const name = plugin?.name ?? source.pluginId;
+    if (plugin && !plugin.installed) {
+      return {
+        badge: t("widgets.gallery.sourcePlugin", { name }),
+        unavailable: t("widgets.gallery.requiresPlugin", { name }),
+      };
+    }
+    return {
+      badge: t("widgets.gallery.sourcePlugin", { name }),
+      unavailable: null as string | null,
+    };
+  };
   const categories = [
     "News",
     "Google",
@@ -204,7 +235,11 @@ export function WidgetProviderGallery({
       : [{ name: category, items: visible }];
 
   const card = (definition: (typeof catalog)[number]) => {
-    const disabled = definition.availability?.enabled === false;
+    const provenance = sourceInfo(definition);
+    const reason = provenance?.unavailable ?? definition.availability?.reason;
+    const disabled =
+      definition.availability?.enabled === false ||
+      provenance?.unavailable != null;
     return (
       <Button
         type="button"
@@ -230,12 +265,17 @@ export function WidgetProviderGallery({
           <span className="text-xs text-muted-foreground">
             {definition.description}
           </span>
-          {disabled && (
+          {provenance?.badge && (
+            <span className="text-xs text-muted-foreground">
+              {provenance.badge}
+            </span>
+          )}
+          {disabled && reason && (
             <small
               id={`widget-availability-${definition.id}`}
               className="text-xs text-muted-foreground"
             >
-              {definition.availability?.reason}
+              {reason}
             </small>
           )}
         </span>
@@ -245,7 +285,9 @@ export function WidgetProviderGallery({
 
   const featured = visible.filter(
     (definition) =>
-      definition.featured && definition.availability?.enabled !== false,
+      definition.featured &&
+      definition.availability?.enabled !== false &&
+      sourceInfo(definition)?.unavailable == null,
   );
 
   return (

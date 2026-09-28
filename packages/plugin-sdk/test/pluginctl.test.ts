@@ -44,6 +44,11 @@ function makeRepo(): string {
     join(dir, "packages/plugin-sdk/schema"),
     { recursive: true },
   );
+  mkdirSync(join(dir, "packages/widget-sdk/schema"), { recursive: true });
+  cpSync(
+    join(repoRoot(), "packages/widget-sdk/schema/tilecast-widget.schema.json"),
+    join(dir, "packages/widget-sdk/schema/tilecast-widget.schema.json"),
+  );
   return dir;
 }
 
@@ -113,6 +118,94 @@ describe("pluginctl", () => {
     expect(codeowners).toContain(
       "# /plugins/transit-alerts/ has no maintainer eligible",
     );
+  });
+
+  it("validates a plugin's nested Widgets against the Widget schema", async () => {
+    scaffold(root, {
+      id: "transit_alerts",
+      category: "Display",
+      maintainer: "@gbyo",
+      api: false,
+    });
+    const widget = join(root, "plugins/transit-alerts/widgets/departures");
+    mkdirSync(join(widget, "runtime"), { recursive: true });
+    writeFileSync(
+      join(widget, "tilecast.widget.json"),
+      JSON.stringify({
+        apiVersion: 1,
+        id: "transit_alerts_departures",
+        version: 1,
+        name: "Departures",
+        description: "Departure times.",
+        category: "Essentials",
+        icon: "layout",
+        runtime: "native",
+        configurationSchema: { fields: [] },
+        defaultConfiguration: {},
+        presentationSchemaVersion: 1,
+        requiredCapabilities: {},
+        emptyStateBehavior: "text",
+        deprecation: {},
+        component: {
+          type: "transitalerts.departures",
+          version: 1,
+          tagName: "tc-widget-transitalerts-departures",
+          entrypoint: "./runtime/index.ts",
+          configTemplate: {},
+          empty: "render",
+        },
+        compatibility: { fallback: "none" },
+      }),
+    );
+    writeFileSync(
+      join(widget, "runtime/index.ts"),
+      'import { defineWidget } from "@tilecast/widget-sdk";\nexport default defineWidget;\n',
+    );
+    await generateInto(root);
+    expect(await problems(root)).toEqual([]);
+  });
+
+  it("rejects a nested Widget that declares its own source", async () => {
+    scaffold(root, {
+      id: "transit_alerts",
+      category: "Display",
+      maintainer: "@gbyo",
+      api: false,
+    });
+    const widget = join(root, "plugins/transit-alerts/widgets/departures");
+    mkdirSync(join(widget, "runtime"), { recursive: true });
+    writeFileSync(
+      join(widget, "tilecast.widget.json"),
+      JSON.stringify({
+        apiVersion: 1,
+        id: "transit_alerts_departures",
+        version: 1,
+        name: "Departures",
+        description: "Departure times.",
+        category: "Essentials",
+        icon: "layout",
+        runtime: "native",
+        source: { kind: "core" },
+        configurationSchema: { fields: [] },
+        defaultConfiguration: {},
+        presentationSchemaVersion: 1,
+        requiredCapabilities: {},
+        emptyStateBehavior: "text",
+        deprecation: {},
+        component: {
+          type: "transitalerts.departures",
+          version: 1,
+          tagName: "tc-widget-transitalerts-departures",
+          entrypoint: "./runtime/index.ts",
+          configTemplate: {},
+          empty: "render",
+        },
+        compatibility: { fallback: "none" },
+      }),
+    );
+    await generateInto(root);
+    const found = await problems(root);
+    expect(found.some((message) => message.includes("source"))).toBe(true);
   });
 
   it("detects generated files that are stale", async () => {

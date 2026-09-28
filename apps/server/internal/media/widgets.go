@@ -254,6 +254,13 @@ func (s *Service) CreateWidget(ctx context.Context, user uuid.UUID, input Widget
 	if err = tx.QueryRow(ctx, `SELECT id FROM organization_settings WHERE singleton`).Scan(&organizationID); err != nil {
 		return Asset{}, err
 	}
+	// A plugin-owned provider may only be created while its plugin is
+	// installed. The installation row is share-locked in this transaction
+	// so a concurrent plugin removal cannot commit between the check and
+	// the insert below.
+	if err = s.lockWidgetSource(ctx, tx, input.Provider); err != nil {
+		return Asset{}, err
+	}
 	id := ids.New(ctx)
 	if _, err = tx.Exec(ctx, `INSERT INTO assets(id,organization_id,name,description,type,original_filename,detected_mime_type,sha256,original_size,processing_status,created_by) VALUES($1,$2,$3,$4,'widget','','application/vnd.tilecast.widget+json',''::bytea,0,'ready',$5)`, id, organizationID, input.Name, input.Description, user); err != nil {
 		return Asset{}, err
@@ -297,6 +304,10 @@ func (s *Service) UpdateWidget(ctx context.Context, id, user uuid.UUID, input Wi
 	if input.Provider != existing.Widget.Provider {
 		return Asset{}, errors.New("widget provider cannot be changed")
 	}
+	// Updates keep their provider, so no installation lock is taken here:
+	// editing a preserved Widget cannot reactivate unavailable behavior
+	// because creation, assignment validation, and manifest projection all
+	// re-evaluate effective availability at use time.
 	input.Name = strings.TrimSpace(input.Name)
 	input.Description = strings.TrimSpace(input.Description)
 	if input.Name == "" || len(input.Name) > 180 || len(input.Description) > 2000 {

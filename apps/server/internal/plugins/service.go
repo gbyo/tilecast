@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
 	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 	bundled "github.com/tilecast/tilecast/plugins"
 )
@@ -44,6 +45,24 @@ type Service struct {
 	bundle      []plugin.Plugin
 	definitions []Definition
 	hosted      []hostedPlugin
+	// content is the release content catalog static contributions are
+	// read from. It defaults to the embedded catalog; tests inject a
+	// synthetic one through SetContentDefinitions.
+	content *contentdefs.Catalog
+}
+
+// SetContentDefinitions injects the release content catalog generic
+// lifecycle decisions (removal blockers, manifest invalidation) derive
+// static Widget and Data Source contributions from.
+func (s *Service) SetContentDefinitions(catalog *contentdefs.Catalog) {
+	s.content = catalog
+}
+
+func (s *Service) catalog() *contentdefs.Catalog {
+	if s.content == nil {
+		return contentdefs.MustLoad()
+	}
+	return s.content
 }
 
 // NewService hosts the plugins bundled with this release, or the ones given
