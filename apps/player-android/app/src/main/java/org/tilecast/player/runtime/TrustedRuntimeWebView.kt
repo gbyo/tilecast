@@ -86,11 +86,18 @@ class TrustedRuntimeWebView(
                     ?: super.shouldInterceptRequest(view, request)
             }
 
-            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                if (TrustedRuntimeOrigin.allowsTopLevelNavigation(request.url?.toString())) return false
+            private fun shouldBlockTopLevelNavigation(view: WebView, url: String?): Boolean {
+                if (TrustedRuntimeOrigin.allowsTopLevelNavigation(url)) return false
                 view.stopLoading()
                 return true
             }
+
+            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
+                shouldBlockTopLevelNavigation(view, request.url?.toString())
+
+            @Suppress("DEPRECATION")
+            override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean =
+                shouldBlockTopLevelNavigation(view, url)
 
             override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
                 val dead = crashPolicy.onRendererGone()
