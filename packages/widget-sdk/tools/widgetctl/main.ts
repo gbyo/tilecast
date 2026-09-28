@@ -58,6 +58,7 @@ export function authoringUiProblem(
   key: string | undefined,
   control: string | undefined,
   ui: unknown,
+  fieldKeys?: ReadonlySet<string | undefined>,
 ): string | null {
   if (ui === undefined) return null;
   const where = key ? `field ${key}` : "a configuration field";
@@ -90,6 +91,9 @@ export function authoringUiProblem(
     const rule = visibleWhen as Record<string, unknown>;
     if (rule["equals"] === undefined && rule["notEquals"] === undefined) {
       return `${where} has a visibility rule with nothing to compare`;
+    }
+    if (fieldKeys && !fieldKeys.has(rule["key"] as string)) {
+      return `${where} has a visibility rule on unknown field ${String(rule["key"])}`;
     }
   }
   if (record["styleCard"] !== undefined) {
@@ -191,7 +195,12 @@ export async function check(repo: Repo): Promise<Problem[]> {
       control?: string;
       ui?: unknown;
     }[]) {
-      const problem = authoringUiProblem(field.key, field.control, field.ui);
+      const problem = authoringUiProblem(
+        field.key,
+        field.control,
+        field.ui,
+        new Set(schemaKeys.keys()),
+      );
       if (problem) add(problem);
     }
     const compile = (configuration: Record<string, unknown>, file?: string) => {
