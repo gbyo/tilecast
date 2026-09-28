@@ -11,7 +11,7 @@ object MediaAuthorization {
 
     data class AuthorizedMedia(val assetId: String, val variantId: String)
 
-    /** Resolves an opaque `tcmedia:<assetId>/<variantId>` URI against the authorized set. */
+    /** Resolves canonical `tcmedia://variant/<assetId>/<variantId>` and legacy direct URIs against the authorized set. */
     fun authorize(rawUri: String?, authorized: Set<AuthorizedMedia>): AuthorizedMedia? {
         if (rawUri.isNullOrBlank() || authorized.isEmpty()) return null
         val uri = rawUri.trim()
@@ -23,7 +23,12 @@ object MediaAuthorization {
         var rest = uri.substring(schemeEnd + 1)
         while (rest.startsWith("/")) rest = rest.substring(1)
         if (rest.isEmpty() || rest.contains("?") || rest.contains("#")) return null
-        val parts = rest.split("/")
+        val rawParts = rest.split("/")
+        val parts = if (rawParts.size == 3 && rawParts[0].equals("variant", ignoreCase = true)) {
+            rawParts.drop(1)
+        } else {
+            rawParts
+        }
         if (parts.size != 2) return null
         val (assetId, variantId) = parts
         if (!isToken(assetId) || !isToken(variantId)) return null
