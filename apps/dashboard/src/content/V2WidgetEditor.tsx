@@ -144,9 +144,10 @@ export function V2WidgetEditor({
         !Object.hasOwn(saved, "style") &&
         !Object.hasOwn(upgraded, "style")
       ) {
+        const savedRecord = saved as Record<string, unknown>;
         const chartType =
           (upgraded["chartType"] as string | undefined) ??
-          ((saved as Record<string, unknown>)["chartType"] as string | undefined);
+          (savedRecord["chartType"] as string | undefined);
         if (chartType === "bar" || chartType === "donut")
           upgraded["style"] = "bar";
         else if (chartType === "line") upgraded["style"] = "line";
