@@ -7999,6 +7999,34 @@ export interface components {
       code_verifier?: string;
       refresh_token?: string;
     };
+    OAuthApprovalClient: {
+      name: string;
+      clientId: string;
+    };
+    OAuthApprovalScope: {
+      /** @enum {string} */
+      scope: "read" | "write" | "admin";
+      description: string;
+    };
+    OAuthApproval: {
+      client: components["schemas"]["OAuthApprovalClient"];
+      scopes: components["schemas"]["OAuthApprovalScope"][];
+      /** Format: uri */
+      redirectUri: string;
+      state: string;
+    };
+    OAuthRedirect: {
+      /** Format: uri */
+      redirectUri: string;
+    };
+    OAuthTokens: {
+      access_token: string;
+      refresh_token: string;
+      /** @enum {string} */
+      token_type: "Bearer";
+      /** Format: date-time */
+      expires_at: string;
+    };
     InstallationIdentity: {
       /** @example tilecast */
       product: string;
@@ -9234,7 +9262,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["OAuthApproval"];
+          };
+        };
       };
       /** @description Unknown client, redirect, scope, or challenge */
       400: {
@@ -9273,7 +9305,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["OAuthRedirect"];
+          };
+        };
       };
       /** @description Unknown client, redirect, scope, or challenge */
       400: {
@@ -9319,7 +9355,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["OAuthRedirect"];
+          };
+        };
       };
       /** @description The authorization request is not valid */
       400: {
@@ -9362,7 +9402,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["OAuthTokens"];
+          };
+        };
       };
       /** @description Expired, used, mismatched, or revoked grant */
       400: {

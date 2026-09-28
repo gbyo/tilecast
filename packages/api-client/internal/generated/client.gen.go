@@ -1416,6 +1416,27 @@ func (e NotificationDeliveryStatus) Valid() bool {
 	}
 }
 
+// Defines values for OAuthApprovalScopeScope.
+const (
+	OAuthApprovalScopeScopeAdmin OAuthApprovalScopeScope = "admin"
+	OAuthApprovalScopeScopeRead  OAuthApprovalScopeScope = "read"
+	OAuthApprovalScopeScopeWrite OAuthApprovalScopeScope = "write"
+)
+
+// Valid indicates whether the value is a known member of the OAuthApprovalScopeScope enum.
+func (e OAuthApprovalScopeScope) Valid() bool {
+	switch e {
+	case OAuthApprovalScopeScopeAdmin:
+		return true
+	case OAuthApprovalScopeScopeRead:
+		return true
+	case OAuthApprovalScopeScopeWrite:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for OAuthDecisionMethod.
 const (
 	OAuthDecisionMethodS256 OAuthDecisionMethod = "S256"
@@ -1443,6 +1464,21 @@ func (e OAuthTokenRequestGrantType) Valid() bool {
 	case AuthorizationCode:
 		return true
 	case RefreshToken:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for OAuthTokensTokenType.
+const (
+	Bearer OAuthTokensTokenType = "Bearer"
+)
+
+// Valid indicates whether the value is a known member of the OAuthTokensTokenType enum.
+func (e OAuthTokensTokenType) Valid() bool {
+	switch e {
+	case Bearer:
 		return true
 	default:
 		return false
@@ -5098,6 +5134,29 @@ type NotificationWebhookCreated struct {
 	Webhook       NotificationWebhook `json:"webhook"`
 }
 
+// OAuthApproval defines model for OAuthApproval.
+type OAuthApproval struct {
+	Client      OAuthApprovalClient  `json:"client"`
+	RedirectUri string               `json:"redirectUri"`
+	Scopes      []OAuthApprovalScope `json:"scopes"`
+	State       string               `json:"state"`
+}
+
+// OAuthApprovalClient defines model for OAuthApprovalClient.
+type OAuthApprovalClient struct {
+	ClientId string `json:"clientId"`
+	Name     string `json:"name"`
+}
+
+// OAuthApprovalScope defines model for OAuthApprovalScope.
+type OAuthApprovalScope struct {
+	Description string                  `json:"description"`
+	Scope       OAuthApprovalScopeScope `json:"scope"`
+}
+
+// OAuthApprovalScopeScope defines model for OAuthApprovalScope.Scope.
+type OAuthApprovalScopeScope string
+
 // OAuthDecision defines model for OAuthDecision.
 type OAuthDecision struct {
 	Challenge   string               `json:"challenge"`
@@ -5111,6 +5170,11 @@ type OAuthDecision struct {
 // OAuthDecisionMethod defines model for OAuthDecision.Method.
 type OAuthDecisionMethod string
 
+// OAuthRedirect defines model for OAuthRedirect.
+type OAuthRedirect struct {
+	RedirectUri string `json:"redirectUri"`
+}
+
 // OAuthTokenRequest defines model for OAuthTokenRequest.
 type OAuthTokenRequest struct {
 	ClientId     *string                    `json:"client_id,omitempty"`
@@ -5123,6 +5187,17 @@ type OAuthTokenRequest struct {
 
 // OAuthTokenRequestGrantType defines model for OAuthTokenRequest.GrantType.
 type OAuthTokenRequestGrantType string
+
+// OAuthTokens defines model for OAuthTokens.
+type OAuthTokens struct {
+	AccessToken  string               `json:"access_token"`
+	ExpiresAt    time.Time            `json:"expires_at"`
+	RefreshToken string               `json:"refresh_token"`
+	TokenType    OAuthTokensTokenType `json:"token_type"`
+}
+
+// OAuthTokensTokenType defines model for OAuthTokens.TokenType.
+type OAuthTokensTokenType string
 
 // PairingRequest defines model for PairingRequest.
 type PairingRequest struct {
@@ -46973,6 +47048,17 @@ func (r TestNotificationWebhookResponse) ContentType() string {
 type ApproveOAuthRequestResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data OAuthRedirect `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ApproveOAuthRequestResponse) GetJSON200() *struct {
+	Data OAuthRedirect `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -47007,6 +47093,17 @@ func (r ApproveOAuthRequestResponse) ContentType() string {
 type DescribeOAuthApprovalResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data OAuthApproval `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DescribeOAuthApprovalResponse) GetJSON200() *struct {
+	Data OAuthApproval `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -47041,6 +47138,17 @@ func (r DescribeOAuthApprovalResponse) ContentType() string {
 type DenyOAuthRequestResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data OAuthRedirect `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DenyOAuthRequestResponse) GetJSON200() *struct {
+	Data OAuthRedirect `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -47109,6 +47217,17 @@ func (r RevokeOAuthCredentialResponse) ContentType() string {
 type IssueOAuthTokensResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data OAuthTokens `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r IssueOAuthTokensResponse) GetJSON200() *struct {
+	Data OAuthTokens `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -65667,6 +65786,27 @@ func ParseApproveOAuthRequestResponse(rsp *http.Response) (*ApproveOAuthRequestR
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data OAuthRedirect `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -65683,6 +65823,24 @@ func ParseDescribeOAuthApprovalResponse(rsp *http.Response) (*DescribeOAuthAppro
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data OAuthApproval `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -65697,6 +65855,27 @@ func ParseDenyOAuthRequestResponse(rsp *http.Response) (*DenyOAuthRequestRespons
 	response := &DenyOAuthRequestResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data OAuthRedirect `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -65729,6 +65908,24 @@ func ParseIssueOAuthTokensResponse(rsp *http.Response) (*IssueOAuthTokensRespons
 	response := &IssueOAuthTokensResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data OAuthTokens `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 429:
+		break // No content-type
+
 	}
 
 	return response, nil
