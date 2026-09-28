@@ -3633,6 +3633,36 @@ func (e ListIncidentsParamsDateBasis) Valid() bool {
 	}
 }
 
+// Defines values for ListProofOfPlayParamsTerminalReason1.
+const (
+	ListProofOfPlayParamsTerminalReason1Unexpected ListProofOfPlayParamsTerminalReason1 = "unexpected"
+)
+
+// Valid indicates whether the value is a known member of the ListProofOfPlayParamsTerminalReason1 enum.
+func (e ListProofOfPlayParamsTerminalReason1) Valid() bool {
+	switch e {
+	case ListProofOfPlayParamsTerminalReason1Unexpected:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetProofOfPlaySummaryParamsTerminalReason1.
+const (
+	GetProofOfPlaySummaryParamsTerminalReason1Unexpected GetProofOfPlaySummaryParamsTerminalReason1 = "unexpected"
+)
+
+// Valid indicates whether the value is a known member of the GetProofOfPlaySummaryParamsTerminalReason1 enum.
+func (e GetProofOfPlaySummaryParamsTerminalReason1) Valid() bool {
+	switch e {
+	case GetProofOfPlaySummaryParamsTerminalReason1Unexpected:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetActivityUptimeParamsWindow.
 const (
 	N24h GetActivityUptimeParamsWindow = "24h"
@@ -7677,11 +7707,30 @@ type GetActivityOverviewParams struct {
 
 // ListProofOfPlayParams defines parameters for ListProofOfPlay.
 type ListProofOfPlayParams struct {
-	From     *time.Time `form:"from,omitempty" json:"from,omitempty"`
-	To       *time.Time `form:"to,omitempty" json:"to,omitempty"`
-	Page     *int       `form:"page,omitempty" json:"page,omitempty"`
-	PageSize *int       `form:"pageSize,omitempty" json:"pageSize,omitempty"`
+	From           *time.Time          `form:"from,omitempty" json:"from,omitempty"`
+	To             *time.Time          `form:"to,omitempty" json:"to,omitempty"`
+	Page           *int                `form:"page,omitempty" json:"page,omitempty"`
+	PageSize       *int                `form:"pageSize,omitempty" json:"pageSize,omitempty"`
+	Cursor         *string             `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Screen         *openapi_types.UUID `form:"screen,omitempty" json:"screen,omitempty"`
+	Group          *openapi_types.UUID `form:"group,omitempty" json:"group,omitempty"`
+	Result         *string             `form:"result,omitempty" json:"result,omitempty"`
+	SessionType    *ProofSessionType   `form:"sessionType,omitempty" json:"sessionType,omitempty"`
+	TerminalReason *struct {
+		union json.RawMessage
+	} `form:"terminalReason,omitempty" json:"terminalReason,omitempty"`
+	Media    *string `form:"media,omitempty" json:"media,omitempty"`
+	Widget   *string `form:"widget,omitempty" json:"widget,omitempty"`
+	Content  *string `form:"content,omitempty" json:"content,omitempty"`
+	Playlist *string `form:"playlist,omitempty" json:"playlist,omitempty"`
+	Layout   *string `form:"layout,omitempty" json:"layout,omitempty"`
+	Schedule *string `form:"schedule,omitempty" json:"schedule,omitempty"`
+	Takeover *string `form:"takeover,omitempty" json:"takeover,omitempty"`
+	Search   *string `form:"search,omitempty" json:"search,omitempty"`
 }
+
+// ListProofOfPlayParamsTerminalReason1 defines parameters for ListProofOfPlay.
+type ListProofOfPlayParamsTerminalReason1 string
 
 // ExportProofOfPlayParams defines parameters for ExportProofOfPlay.
 type ExportProofOfPlayParams struct {
@@ -7691,9 +7740,28 @@ type ExportProofOfPlayParams struct {
 
 // GetProofOfPlaySummaryParams defines parameters for GetProofOfPlaySummary.
 type GetProofOfPlaySummaryParams struct {
-	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
-	To   *time.Time `form:"to,omitempty" json:"to,omitempty"`
+	From           *time.Time          `form:"from,omitempty" json:"from,omitempty"`
+	To             *time.Time          `form:"to,omitempty" json:"to,omitempty"`
+	Dimension      *string             `form:"dimension,omitempty" json:"dimension,omitempty"`
+	Screen         *openapi_types.UUID `form:"screen,omitempty" json:"screen,omitempty"`
+	Group          *openapi_types.UUID `form:"group,omitempty" json:"group,omitempty"`
+	Result         *string             `form:"result,omitempty" json:"result,omitempty"`
+	SessionType    *ProofSessionType   `form:"sessionType,omitempty" json:"sessionType,omitempty"`
+	TerminalReason *struct {
+		union json.RawMessage
+	} `form:"terminalReason,omitempty" json:"terminalReason,omitempty"`
+	Media    *string `form:"media,omitempty" json:"media,omitempty"`
+	Widget   *string `form:"widget,omitempty" json:"widget,omitempty"`
+	Content  *string `form:"content,omitempty" json:"content,omitempty"`
+	Playlist *string `form:"playlist,omitempty" json:"playlist,omitempty"`
+	Layout   *string `form:"layout,omitempty" json:"layout,omitempty"`
+	Schedule *string `form:"schedule,omitempty" json:"schedule,omitempty"`
+	Takeover *string `form:"takeover,omitempty" json:"takeover,omitempty"`
+	Search   *string `form:"search,omitempty" json:"search,omitempty"`
 }
+
+// GetProofOfPlaySummaryParamsTerminalReason1 defines parameters for GetProofOfPlaySummary.
+type GetProofOfPlaySummaryParamsTerminalReason1 string
 
 // UpdateActivityRetentionJSONBody defines parameters for UpdateActivityRetention.
 type UpdateActivityRetentionJSONBody struct {
@@ -7713,10 +7781,17 @@ type UpdateActivityRetentionParams struct {
 
 // ListScreenEventsParams defines parameters for ListScreenEvents.
 type ListScreenEventsParams struct {
-	From     *time.Time `form:"from,omitempty" json:"from,omitempty"`
-	To       *time.Time `form:"to,omitempty" json:"to,omitempty"`
-	Page     *int       `form:"page,omitempty" json:"page,omitempty"`
-	PageSize *int       `form:"pageSize,omitempty" json:"pageSize,omitempty"`
+	From     *time.Time          `form:"from,omitempty" json:"from,omitempty"`
+	To       *time.Time          `form:"to,omitempty" json:"to,omitempty"`
+	Page     *int                `form:"page,omitempty" json:"page,omitempty"`
+	PageSize *int                `form:"pageSize,omitempty" json:"pageSize,omitempty"`
+	Cursor   *string             `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Screen   *openapi_types.UUID `form:"screen,omitempty" json:"screen,omitempty"`
+	Group    *openapi_types.UUID `form:"group,omitempty" json:"group,omitempty"`
+	Category *string             `form:"category,omitempty" json:"category,omitempty"`
+	Severity *string             `form:"severity,omitempty" json:"severity,omitempty"`
+	Result   *string             `form:"result,omitempty" json:"result,omitempty"`
+	Search   *string             `form:"search,omitempty" json:"search,omitempty"`
 }
 
 // GetScreenActivityParams defines parameters for GetScreenActivity.
@@ -21045,6 +21120,174 @@ func NewListProofOfPlayRequest(server string, params *ListProofOfPlayParams) (*h
 
 		}
 
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Screen != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "screen", *params.Screen, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Group != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "group", *params.Group, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Result != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "result", *params.Result, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.SessionType != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "sessionType", *params.SessionType, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.TerminalReason != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "terminalReason", *params.TerminalReason, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Media != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "media", *params.Media, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Widget != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "widget", *params.Widget, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Content != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "content", *params.Content, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Playlist != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "playlist", *params.Playlist, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Layout != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "layout", *params.Layout, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Schedule != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "schedule", *params.Schedule, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Takeover != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "takeover", *params.Takeover, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Search != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "search", *params.Search, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
 		if encoded := queryValues.Encode(); encoded != "" {
 			rawQueryFragments = append(rawQueryFragments, encoded)
 		}
@@ -21168,6 +21411,174 @@ func NewGetProofOfPlaySummaryRequest(server string, params *GetProofOfPlaySummar
 		if params.To != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "to", *params.To, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "date-time"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Dimension != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "dimension", *params.Dimension, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Screen != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "screen", *params.Screen, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Group != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "group", *params.Group, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Result != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "result", *params.Result, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.SessionType != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "sessionType", *params.SessionType, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.TerminalReason != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "terminalReason", *params.TerminalReason, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Media != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "media", *params.Media, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Widget != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "widget", *params.Widget, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Content != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "content", *params.Content, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Playlist != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "playlist", *params.Playlist, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Layout != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "layout", *params.Layout, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Schedule != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "schedule", *params.Schedule, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Takeover != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "takeover", *params.Takeover, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Search != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "search", *params.Search, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -21340,6 +21751,90 @@ func NewListScreenEventsRequest(server string, params *ListScreenEventsParams) (
 		if params.PageSize != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "pageSize", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Screen != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "screen", *params.Screen, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Group != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "group", *params.Group, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Category != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "category", *params.Category, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Severity != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "severity", *params.Severity, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Result != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "result", *params.Result, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Search != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "search", *params.Search, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {

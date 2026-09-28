@@ -12340,6 +12340,21 @@ export interface operations {
         to?: string;
         page?: number;
         pageSize?: number;
+        cursor?: string;
+        screen?: string;
+        group?: string;
+        result?: string;
+        sessionType?: components["schemas"]["ProofSessionType"];
+        terminalReason?:
+          components["schemas"]["ProofTerminalReason"] | "unexpected";
+        media?: string;
+        widget?: string;
+        content?: string;
+        playlist?: string;
+        layout?: string;
+        schedule?: string;
+        takeover?: string;
+        search?: string;
       };
       header?: never;
       path?: never;
@@ -12379,6 +12394,21 @@ export interface operations {
       query?: {
         from?: string;
         to?: string;
+        dimension?: string;
+        screen?: string;
+        group?: string;
+        result?: string;
+        sessionType?: components["schemas"]["ProofSessionType"];
+        terminalReason?:
+          components["schemas"]["ProofTerminalReason"] | "unexpected";
+        media?: string;
+        widget?: string;
+        content?: string;
+        playlist?: string;
+        layout?: string;
+        schedule?: string;
+        takeover?: string;
+        search?: string;
       };
       header?: never;
       path?: never;
@@ -12462,6 +12492,13 @@ export interface operations {
         to?: string;
         page?: number;
         pageSize?: number;
+        cursor?: string;
+        screen?: string;
+        group?: string;
+        category?: string;
+        severity?: string;
+        result?: string;
+        search?: string;
       };
       header?: never;
       path?: never;
