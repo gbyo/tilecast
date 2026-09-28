@@ -159,6 +159,8 @@ class RuntimePresentationBuilderTest {
             serverUrl = "https://example.com",
             credential = "c",
             initialCursor = PlaybackCursor(1, 0),
+            startedAtElapsedRealtimeMs = 0L,
+            startedAtWallClock = java.time.Instant.EPOCH,
         )
         assertEquals(listOf("i2", "i3", "i1"), runtimePlaylistItems(resumed).map { it.id })
 
