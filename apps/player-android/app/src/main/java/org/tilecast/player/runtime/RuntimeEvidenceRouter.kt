@@ -22,8 +22,8 @@ object RuntimeCutover {
         if (items.isEmpty()) return false
         return items.all { item ->
             if (!RuntimePresentationBuilder.isRuntimeRenderable(manifest, item)) return@all false
-            val variantId = item.variantId
-            val isMedia = variantId != null && manifest.assets.any { it.variantId == variantId }
+            val variantId = item.variantId ?: return@all true
+            val isMedia = manifest.assets.any { it.variantId == variantId }
             // tcmedia: has deliberately no authenticated network fallback.
             // A stream-policy or uncached automatic asset stays on legacy
             // playback, which can fetch it from the server.
