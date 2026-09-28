@@ -269,6 +269,11 @@ pub async fn run(context: Arc<DaemonContext>) {
                     // frames instead of queueing video. The socket stays
                     // owned here; the producer never touches it.
                     if changed.is_err() {
+                        // The frame source is gone for good: retire this arm
+                        // instead of polling the closed channel. (Unreachable
+                        // in practice; the sender lives in the shared daemon
+                        // context this task itself holds.)
+                        std::future::pending::<()>().await;
                         continue;
                     }
                     let frame: Option<crate::live_stream::LiveFrame> =

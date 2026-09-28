@@ -134,29 +134,42 @@ def upload(client, path, mime):
     return wait_for(ready, f"processing of {os.path.basename(path)}", timeout=120)
 
 
+def open_mjpeg_stream(opener, request):
+    """Opens one MJPEG live-stream response, asserting the server accepted."""
+    response = opener.open(request, timeout=10)
+    assert response.status == 200, response.status
+    content_type = response.headers.get("Content-Type", "")
+    assert "multipart/x-mixed-replace" in content_type, content_type
+    return response
+
+
 def read_mjpeg_frames(url, opener, want, timeout):
     """Reads complete JPEG frames from a Tilecast MJPEG live-stream response.
 
     Returns the JPEG bodies. Asserts each is a bounded complete JPEG; the
-    frame rate is deliberately not asserted (shared CI hardware).
+    frame rate is deliberately not asserted (shared CI hardware). ``read1``
+    returns available bytes instead of blocking for a full buffer on the
+    trickling stream; a timed-out response is never reused, the stream is
+    reopened while the overall deadline remains.
     """
     frames = []
     rest = b""
     deadline = time.time() + timeout
     request = urllib.request.Request(url)
-    with opener.open(request, timeout=10) as response:
-        assert response.status == 200, response.status
-        content_type = response.headers.get("Content-Type", "")
-        assert "multipart/x-mixed-replace" in content_type, content_type
+    response = None
+    try:
+        response = open_mjpeg_stream(opener, request)
         while len(frames) < want and time.time() < deadline:
             try:
-                chunk = response.read(65536)
+                chunk = response.read1(65536)
             except socket.timeout:
-                # A slow first capture still leaves the stream open; the
-                # deadline bounds the wait.
+                response.close()
+                response = open_mjpeg_stream(opener, request)
                 continue
             if not chunk:
-                break
+                response.close()
+                response = open_mjpeg_stream(opener, request)
+                continue
             rest += chunk
             while len(frames) < want:
                 start = rest.find(b"--tilecastframe\r\n")
@@ -181,6 +194,9 @@ def read_mjpeg_frames(url, opener, want, timeout):
                 assert jpeg[:2] == b"\xff\xd8" and jpeg[-2:] == b"\xff\xd9", jpeg[:8]
                 assert 4 <= len(jpeg) <= 100 * 1024, len(jpeg)
                 frames.append(jpeg)
+    finally:
+        if response is not None:
+            response.close()
     return frames
 
 
