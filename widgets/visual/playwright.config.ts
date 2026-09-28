@@ -7,12 +7,13 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: ".",
   outputDir: "./test-results",
-  snapshotPathTemplate: "{testDir}/__screenshots__/{platform}/{arg}{ext}",
+  snapshotPathTemplate: "{testDir}/__screenshots__/linux/{arg}{ext}",
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
-  reporter: process.env.CI
-    ? [["list"], ["html", { outputFolder: "playwright-report", open: "never" }]]
-    : "list",
+  reporter: [
+    ["list"],
+    ["html", { outputFolder: "playwright-report", open: "never" }],
+  ],
   expect: {
     toHaveScreenshot: {
       maxDiffPixelRatio: 0.005,
@@ -20,7 +21,15 @@ export default defineConfig({
       caret: "hide",
     },
   },
-  use: { baseURL: "http://localhost:6116", deviceScaleFactor: 1 },
+  use: {
+    baseURL: "http://localhost:6116",
+    deviceScaleFactor: 1,
+    locale: "en-US",
+    timezoneId: "America/Chicago",
+    reducedMotion: "reduce",
+    colorScheme: "light",
+    trace: "retain-on-failure",
+  },
   webServer: {
     command: "node serve.mjs",
     url: "http://localhost:6116/index.json",
