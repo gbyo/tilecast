@@ -13,14 +13,14 @@ afterEach(() => {
 describe("network link metrics", () => {
   it("does not report Ethernet speed as Wi-Fi link speed", async () => {
     const readFile = vi.spyOn(fs, "readFile");
-    readFile.mockImplementation(
-      (async (path: Parameters<typeof fs.readFile>[0]) => {
-        const filename = String(path);
-        if (filename === "/proc/net/route") return ETHERNET_DEFAULT_ROUTE;
-        if (filename === "/sys/class/net/eth0/speed") return "1000\n";
-        throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
-      }) as typeof fs.readFile,
-    );
+    readFile.mockImplementation((async (
+      path: Parameters<typeof fs.readFile>[0],
+    ) => {
+      const filename = String(path);
+      if (filename === "/proc/net/route") return ETHERNET_DEFAULT_ROUTE;
+      if (filename === "/sys/class/net/eth0/speed") return "1000\n";
+      throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
+    }) as typeof fs.readFile);
     vi.spyOn(fs, "stat").mockRejectedValue(
       Object.assign(new Error("ENOENT"), { code: "ENOENT" }),
     );
