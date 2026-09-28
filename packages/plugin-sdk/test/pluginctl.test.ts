@@ -178,6 +178,23 @@ describe("pluginctl", () => {
     expect(await problems(root)).toEqual([]);
   });
 
+  it("reports a nested Widget directory with no manifest as missing, not invalid JSON", async () => {
+    scaffold(root, {
+      id: "transit_alerts",
+      category: "Display",
+      maintainer: "@gbyo",
+      api: false,
+    });
+    mkdirSync(join(root, "plugins/transit-alerts/widgets/departures/runtime"), {
+      recursive: true,
+    });
+    const found = await problems(root);
+    expect(found).toContainEqual(
+      expect.stringContaining("widgets/departures has no tilecast.widget.json"),
+    );
+    expect(found.join("\n")).not.toContain("is not valid JSON");
+  });
+
   it("rejects a nested Widget that declares its own source", async () => {
     scaffold(root, {
       id: "transit_alerts",

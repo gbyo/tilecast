@@ -37,6 +37,8 @@ For the exact API contract, use the [Plugin API v1 engineering reference](https:
     - api/openapi.yaml Optional API description.
     - automation.yaml Optional automation mapping (Automation Contract v1).
     - automation.gen.json Generated from automation.yaml and the API description.
+    - widgets/ Optional bundled Widgets.
+    - data-sources/ Optional declarative Data Sources.
     - studio/ Optional Studio pages and translations.
     - runtime/ Optional Player runtime and styles.
     - docs/ Optional public docs pages.
@@ -88,9 +90,9 @@ The schema lives in `@tilecast/plugin-sdk` (`./automation`, plus the portable `s
 
 ## Widgets and plugins
 
-Plugin API v1 has no Widget contribution. Core Widgets live in `widgets/` and are described in [Widgets V2](https://github.com/gbyo/tilecast/blob/main/docs/widgets-v2.md). To put plugin data on a screen, [publish a Data Source](./data-sources/) that core Widgets such as List, Table, or Cards can display. Forms works this way.
+A plugin can bundle ordinary Widgets and declarative Data Sources in its own directory. A bundled Widget is the same Widgets V2 module as a core Widget in `widgets/`; only its owner differs, and `tilecast.plugin.json` doesn't change. See [Bundle Widgets and Data Sources](./static-content/).
 
-Bundling Widgets with a plugin is an accepted plan in the [content extension model](https://github.com/gbyo/tilecast/blob/main/docs/content-extension-model.md), not a supported part of Plugin API v1.
+A plugin can also put its data on a screen without its own Widget: [publish a Data Source](./data-sources/) that core Widgets such as List, Table, or Cards can display. Forms works this way.
 
 ## Use the existing plugins as examples
 
