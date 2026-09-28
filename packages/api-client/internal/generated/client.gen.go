@@ -1017,6 +1017,42 @@ func (e DataSourceProvider) Valid() bool {
 	}
 }
 
+// Defines values for DemoPlayerStatusTransport.
+const (
+	Heartbeat DemoPlayerStatusTransport = "heartbeat"
+	Socket    DemoPlayerStatusTransport = "socket"
+)
+
+// Valid indicates whether the value is a known member of the DemoPlayerStatusTransport enum.
+func (e DemoPlayerStatusTransport) Valid() bool {
+	switch e {
+	case Heartbeat:
+		return true
+	case Socket:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DemoStateScenario.
+const (
+	DemoStateScenarioBasic       DemoStateScenario = "basic"
+	DemoStateScenarioKitchenSink DemoStateScenario = "kitchen-sink"
+)
+
+// Valid indicates whether the value is a known member of the DemoStateScenario enum.
+func (e DemoStateScenario) Valid() bool {
+	switch e {
+	case DemoStateScenarioBasic:
+		return true
+	case DemoStateScenarioKitchenSink:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DependencyNodeType.
 const (
 	DependencyNodeTypeAsset       DependencyNodeType = "asset"
@@ -3767,13 +3803,13 @@ func (e SpanStatusDisplayMode) Valid() bool {
 
 // Defines values for SystemHealthService.
 const (
-	TilecastServer SystemHealthService = "tilecast-server"
+	SystemHealthServiceTilecastServer SystemHealthService = "tilecast-server"
 )
 
 // Valid indicates whether the value is a known member of the SystemHealthService enum.
 func (e SystemHealthService) Valid() bool {
 	switch e {
-	case TilecastServer:
+	case SystemHealthServiceTilecastServer:
 		return true
 	default:
 		return false
@@ -4790,16 +4826,16 @@ func (e PreviewDataSourceParamsProvider) Valid() bool {
 
 // Defines values for ResetDemoJSONBodyScenario.
 const (
-	Basic       ResetDemoJSONBodyScenario = "basic"
-	KitchenSink ResetDemoJSONBodyScenario = "kitchen-sink"
+	ResetDemoJSONBodyScenarioBasic       ResetDemoJSONBodyScenario = "basic"
+	ResetDemoJSONBodyScenarioKitchenSink ResetDemoJSONBodyScenario = "kitchen-sink"
 )
 
 // Valid indicates whether the value is a known member of the ResetDemoJSONBodyScenario enum.
 func (e ResetDemoJSONBodyScenario) Valid() bool {
 	switch e {
-	case Basic:
+	case ResetDemoJSONBodyScenarioBasic:
 		return true
-	case KitchenSink:
+	case ResetDemoJSONBodyScenarioKitchenSink:
 		return true
 	default:
 		return false
@@ -4896,6 +4932,21 @@ const (
 func (e DescribeOAuthApprovalParamsCodeChallengeMethod) Valid() bool {
 	switch e {
 	case DescribeOAuthApprovalParamsCodeChallengeMethodS256:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for IngestPlayerTelemetry202JSONResponseBodyDataAccepted.
+const (
+	IngestPlayerTelemetry202JSONResponseBodyDataAcceptedTrue IngestPlayerTelemetry202JSONResponseBodyDataAccepted = true
+)
+
+// Valid indicates whether the value is a known member of the IngestPlayerTelemetry202JSONResponseBodyDataAccepted enum.
+func (e IngestPlayerTelemetry202JSONResponseBodyDataAccepted) Valid() bool {
+	switch e {
+	case IngestPlayerTelemetry202JSONResponseBodyDataAcceptedTrue:
 		return true
 	default:
 		return false
@@ -5058,6 +5109,51 @@ func (e UpdateUserJSONBodyRole) Valid() bool {
 	case UpdateUserJSONBodyRoleOwner:
 		return true
 	case UpdateUserJSONBodyRoleViewer:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for Health200JSONResponseBodyDataService.
+const (
+	Health200JSONResponseBodyDataServiceTilecastServer Health200JSONResponseBodyDataService = "tilecast-server"
+)
+
+// Valid indicates whether the value is a known member of the Health200JSONResponseBodyDataService enum.
+func (e Health200JSONResponseBodyDataService) Valid() bool {
+	switch e {
+	case Health200JSONResponseBodyDataServiceTilecastServer:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for Health200JSONResponseBodyDataStatus.
+const (
+	Health200JSONResponseBodyDataStatusOk Health200JSONResponseBodyDataStatus = "ok"
+)
+
+// Valid indicates whether the value is a known member of the Health200JSONResponseBodyDataStatus enum.
+func (e Health200JSONResponseBodyDataStatus) Valid() bool {
+	switch e {
+	case Health200JSONResponseBodyDataStatusOk:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for Ready200JSONResponseBodyDataStatus.
+const (
+	Ready200JSONResponseBodyDataStatusReady Ready200JSONResponseBodyDataStatus = "ready"
+)
+
+// Valid indicates whether the value is a known member of the Ready200JSONResponseBodyDataStatus enum.
+func (e Ready200JSONResponseBodyDataStatus) Valid() bool {
+	switch e {
+	case Ready200JSONResponseBodyDataStatusReady:
 		return true
 	default:
 		return false
@@ -6397,6 +6493,33 @@ type DataSourceWidgetUsage struct {
 	Provider string             `json:"provider"`
 }
 
+// DemoPlayerStatus defines model for DemoPlayerStatus.
+type DemoPlayerStatus struct {
+	CommandsHandled int                       `json:"commandsHandled"`
+	Connected       bool                      `json:"connected"`
+	LastCommand     *string                   `json:"lastCommand,omitempty"`
+	LastError       *string                   `json:"lastError,omitempty"`
+	ManifestFetches int                       `json:"manifestFetches"`
+	ManifestVersion int64                     `json:"manifestVersion"`
+	ScreenId        openapi_types.UUID        `json:"screenId"`
+	ScreenName      string                    `json:"screenName"`
+	Transport       DemoPlayerStatusTransport `json:"transport"`
+}
+
+// DemoPlayerStatusTransport defines model for DemoPlayerStatus.Transport.
+type DemoPlayerStatusTransport string
+
+// DemoState defines model for DemoState.
+type DemoState struct {
+	Players   []DemoPlayerStatus `json:"players"`
+	Scenario  DemoStateScenario  `json:"scenario"`
+	Scenarios []string           `json:"scenarios"`
+	SeededAt  time.Time          `json:"seededAt"`
+}
+
+// DemoStateScenario defines model for DemoState.Scenario.
+type DemoStateScenario string
+
 // DependencyEdge defines model for DependencyEdge.
 type DependencyEdge struct {
 	FromId       openapi_types.UUID `json:"fromId"`
@@ -7446,6 +7569,14 @@ type PersonalAccessTokenCreated struct {
 // PersonalAccessTokenList defines model for PersonalAccessTokenList.
 type PersonalAccessTokenList struct {
 	Pats []PersonalAccessToken `json:"pats"`
+}
+
+// PlayerActivityBatchResult defines model for PlayerActivityBatchResult.
+type PlayerActivityBatchResult struct {
+	Accepted             int                  `json:"accepted"`
+	AcknowledgedEventIds []openapi_types.UUID `json:"acknowledgedEventIds"`
+	Duplicates           int                  `json:"duplicates"`
+	HighestSequence      int64                `json:"highestSequence"`
 }
 
 // PlayerCommand defines model for PlayerCommand.
@@ -10875,6 +11006,9 @@ type IngestPlayerTelemetryJSONBody struct {
 	StallReason              *string    `json:"stallReason,omitempty"`
 }
 
+// IngestPlayerTelemetry202JSONResponseBodyDataAccepted defines parameters for IngestPlayerTelemetry.
+type IngestPlayerTelemetry202JSONResponseBodyDataAccepted bool
+
 // ReportPlayerUpdateStatusJSONBody defines parameters for ReportPlayerUpdateStatus.
 type ReportPlayerUpdateStatusJSONBody struct {
 	DownloadedBytes *int `json:"downloadedBytes,omitempty"`
@@ -11440,6 +11574,15 @@ type CompileWidgetPreviewJSONBody struct {
 	// Provider Closed renderable Widget or App identifier from the release-owned content-definition catalog.
 	Provider WidgetProvider `json:"provider"`
 }
+
+// Health200JSONResponseBodyDataService defines parameters for Health.
+type Health200JSONResponseBodyDataService string
+
+// Health200JSONResponseBodyDataStatus defines parameters for Health.
+type Health200JSONResponseBodyDataStatus string
+
+// Ready200JSONResponseBodyDataStatus defines parameters for Ready.
+type Ready200JSONResponseBodyDataStatus string
 
 // UpdateIncidentJSONRequestBody defines body for UpdateIncident for application/json ContentType.
 type UpdateIncidentJSONRequestBody UpdateIncidentJSONBody
@@ -49243,6 +49386,17 @@ func (r PreviewDataSourceResponse) ContentType() string {
 type DemoStateResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data DemoState `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DemoStateResponse) GetJSON200() *struct {
+	Data DemoState `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -49277,6 +49431,23 @@ func (r DemoStateResponse) ContentType() string {
 type ResetDemoResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data struct {
+			CsrfToken *string   `json:"csrfToken,omitempty"`
+			State     DemoState `json:"state"`
+		} `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ResetDemoResponse) GetJSON200() *struct {
+	Data struct {
+		CsrfToken *string   `json:"csrfToken,omitempty"`
+		State     DemoState `json:"state"`
+	} `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -52258,6 +52429,17 @@ func (r CachePlayerReleaseResponse) ContentType() string {
 type IngestPlayerActivityEventsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *struct {
+		Data PlayerActivityBatchResult `json:"data"`
+	}
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r IngestPlayerActivityEventsResponse) GetJSON202() *struct {
+	Data PlayerActivityBatchResult `json:"data"`
+} {
+	return r.JSON202
 }
 
 // GetBody returns the raw response body bytes
@@ -53081,6 +53263,21 @@ func (r HeadPlayerSpanPanelResponse) ContentType() string {
 type IngestPlayerTelemetryResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *struct {
+		Data struct {
+			Accepted IngestPlayerTelemetry202JSONResponseBodyDataAccepted `json:"accepted"`
+		} `json:"data"`
+	}
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r IngestPlayerTelemetryResponse) GetJSON202() *struct {
+	Data struct {
+		Accepted IngestPlayerTelemetry202JSONResponseBodyDataAccepted `json:"accepted"`
+	} `json:"data"`
+} {
+	return r.JSON202
 }
 
 // GetBody returns the raw response body bytes
@@ -59760,6 +59957,23 @@ func (r UpdateWidgetPreviewImageResponse) ContentType() string {
 type HealthResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data struct {
+			Service Health200JSONResponseBodyDataService `json:"service"`
+			Status  Health200JSONResponseBodyDataStatus  `json:"status"`
+		} `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r HealthResponse) GetJSON200() *struct {
+	Data struct {
+		Service Health200JSONResponseBodyDataService `json:"service"`
+		Status  Health200JSONResponseBodyDataStatus  `json:"status"`
+	} `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -59896,6 +60110,21 @@ func (r InstallLinuxPlayerServiceResponse) ContentType() string {
 type ReadyResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data struct {
+			Status Ready200JSONResponseBodyDataStatus `json:"status"`
+		} `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ReadyResponse) GetJSON200() *struct {
+	Data struct {
+		Status Ready200JSONResponseBodyDataStatus `json:"status"`
+	} `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -69751,6 +69980,21 @@ func ParseDemoStateResponse(rsp *http.Response) (*DemoStateResponse, error) {
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data DemoState `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -69765,6 +70009,27 @@ func ParseResetDemoResponse(rsp *http.Response) (*ResetDemoResponse, error) {
 	response := &ResetDemoResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data struct {
+				CsrfToken *string   `json:"csrfToken,omitempty"`
+				State     DemoState `json:"state"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -71762,6 +72027,27 @@ func ParseIngestPlayerActivityEventsResponse(rsp *http.Response) (*IngestPlayerA
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest struct {
+			Data PlayerActivityBatchResult `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -72312,6 +72598,29 @@ func ParseIngestPlayerTelemetryResponse(rsp *http.Response) (*IngestPlayerTeleme
 	response := &IngestPlayerTelemetryResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest struct {
+			Data struct {
+				Accepted IngestPlayerTelemetry202JSONResponseBodyDataAccepted `json:"accepted"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -76972,6 +77281,21 @@ func ParseHealthResponse(rsp *http.Response) (*HealthResponse, error) {
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data struct {
+				Service Health200JSONResponseBodyDataService `json:"service"`
+				Status  Health200JSONResponseBodyDataStatus  `json:"status"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
 	return response, nil
 }
 
@@ -77034,6 +77358,23 @@ func ParseReadyResponse(rsp *http.Response) (*ReadyResponse, error) {
 	response := &ReadyResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data struct {
+				Status Ready200JSONResponseBodyDataStatus `json:"status"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 503:
+		break // No content-type
+
 	}
 
 	return response, nil

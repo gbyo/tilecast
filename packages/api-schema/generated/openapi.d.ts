@@ -5788,6 +5788,35 @@ export interface components {
       status: components["schemas"]["ScreenTimelineStatus"];
       entries: components["schemas"]["ScreenTimelineEntry"][];
     };
+    PlayerActivityBatchResult: {
+      accepted: number;
+      duplicates: number;
+      /** Format: int64 */
+      highestSequence: number;
+      acknowledgedEventIds: string[];
+    };
+    DemoPlayerStatus: {
+      /** Format: uuid */
+      screenId: string;
+      screenName: string;
+      /** @enum {string} */
+      transport: "heartbeat" | "socket";
+      connected: boolean;
+      /** Format: int64 */
+      manifestVersion: number;
+      manifestFetches: number;
+      commandsHandled: number;
+      lastCommand?: string;
+      lastError?: string;
+    };
+    DemoState: {
+      /** @enum {string} */
+      scenario: "basic" | "kitchen-sink";
+      scenarios: string[];
+      /** Format: date-time */
+      seededAt: string;
+      players: components["schemas"]["DemoPlayerStatus"][];
+    };
     TelemetrySnapshot: {
       /** Format: date-time */
       observedAt: string;
@@ -10165,7 +10194,16 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: {
+              /** @enum {string} */
+              status: "ok";
+              /** @enum {string} */
+              service: "tilecast-server";
+            };
+          };
+        };
       };
     };
   };
@@ -10237,7 +10275,14 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: {
+              /** @enum {string} */
+              status: "ready";
+            };
+          };
+        };
       };
       /** @description Database is unavailable */
       503: {
@@ -10411,7 +10456,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["DemoState"];
+          };
+        };
       };
       /** @description Authentication required */
       401: {
@@ -10443,7 +10492,14 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: {
+              state: components["schemas"]["DemoState"];
+              csrfToken?: string;
+            };
+          };
+        };
       };
       /** @description Owner role or CSRF token missing */
       403: {
@@ -13658,7 +13714,14 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: {
+              /** @enum {boolean} */
+              accepted: true;
+            };
+          };
+        };
       };
       /** @description Telemetry invalid */
       400: {
@@ -13720,7 +13783,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["PlayerActivityBatchResult"];
+          };
+        };
       };
       /** @description Activity batch invalid */
       400: {
