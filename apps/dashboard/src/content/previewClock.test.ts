@@ -52,4 +52,15 @@ describe("PreviewClock", () => {
     await new Promise((resolve) => setTimeout(resolve, 25));
     expect(fired).toBe(0);
   });
+
+  it("never moves monotonic time backward when scrubbing fixed instants", () => {
+    const clock = new PreviewClock();
+    const later = Date.parse("2026-09-28T14:37:45.000Z");
+    const earlier = Date.parse("2026-09-28T14:37:40.000Z");
+    clock.setFixed(later);
+    expect(clock.monotonicNow()).toBe(later);
+    clock.setFixed(earlier);
+    expect(clock.now()).toBe(earlier);
+    expect(clock.monotonicNow()).toBe(later);
+  });
 });
