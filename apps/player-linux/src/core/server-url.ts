@@ -94,7 +94,12 @@ export function normalizeServerUrl(input: string): UrlPolicyResult {
   }
 
   const host = parsed.hostname;
-  if (parsed.protocol === "http:" && !isPrivateOrLocalHost(host)) {
+  // WHATWG URL keeps brackets around IPv6 hostnames (for example `[::1]`).
+  // The policy helper expects the address itself, so remove those brackets
+  // only for classification while preserving them in the canonical URL.
+  const policyHost =
+    host.startsWith("[") && host.endsWith("]") ? host.slice(1, -1) : host;
+  if (parsed.protocol === "http:" && !isPrivateOrLocalHost(policyHost)) {
     return {
       ok: false,
       error:
