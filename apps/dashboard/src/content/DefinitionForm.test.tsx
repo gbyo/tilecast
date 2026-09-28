@@ -704,12 +704,14 @@ describe("DefinitionForm automatic semantic mapping", () => {
 
   it("remaps a key the newly connected source does not have", async () => {
     mocks();
-    vi.mocked(api.getDataSource).mockImplementation(async (id: string) =>
-      id === "s-dessert"
-        ? detail("s-dessert", [
-            { key: "sweet", label: "Sweet", type: "text", role: "title" },
-          ])
-        : menuSource(),
+    vi.mocked(api.getDataSource).mockImplementation((id: string) =>
+      Promise.resolve(
+        id === "s-dessert"
+          ? detail("s-dessert", [
+              { key: "sweet", label: "Sweet", type: "text", role: "title" },
+            ])
+          : menuSource(),
+      ),
     );
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
