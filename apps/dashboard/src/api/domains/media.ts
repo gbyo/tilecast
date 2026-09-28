@@ -480,17 +480,14 @@ export function createUpload(
   input: { filename: string; mimeType: string; sizeBytes: number },
   csrfToken: string,
 ): Promise<UploadSession> {
-  return apiPost<"/api/v1/uploads", UploadSession>("/api/v1/uploads", {
-    body: input,
-    csrfToken,
-  });
+  return apiPost("/api/v1/uploads", { body: input, csrfToken });
 }
 
 export function completeUpload(id: string, csrfToken: string): Promise<Asset> {
-  return apiPost<"/api/v1/uploads/{id}/complete", Asset>(
-    "/api/v1/uploads/{id}/complete",
-    { params: { path: { id } }, csrfToken },
-  );
+  return apiPost("/api/v1/uploads/{id}/complete", {
+    params: { path: { id } },
+    csrfToken,
+  });
 }
 
 export function cancelUpload(id: string, csrfToken: string): Promise<void> {
