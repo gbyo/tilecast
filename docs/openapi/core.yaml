@@ -975,7 +975,15 @@ paths:
           required: false
           schema: { type: string }
       responses:
-        "200": { description: Data source preview }
+        "200":
+          description: Data source preview
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/DataSourcePreviewResult" }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
   /api/v1/screens/archive:
@@ -5558,6 +5566,7 @@ paths:
                   calendar,
                   rss,
                   atom,
+                  feed,
                   json,
                   csv,
                   manual,
@@ -5579,7 +5588,14 @@ paths:
                 previewDate: { type: string, format: date }
       responses:
         "200":
-          { description: Sanitized real-data preview and typed diagnostics }
+          description: Sanitized real-data preview and typed diagnostics
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/DataSourcePreviewResult" }
         "404": { description: Data Source provider not found }
         "422": { description: Validation or safe fetch failed }
   /api/v1/data-sources/{id}/inspect:
@@ -12947,6 +12963,203 @@ components:
           type: string
           enum: [fallback_text, next_available, empty, hide, last_known_good]
         fallbackText: { type: string }
+    TypedPreviewRecord:
+      type: object
+      additionalProperties: false
+      required: [id, values]
+      properties:
+        id: { type: string }
+        values:
+          type: object
+          additionalProperties: { type: string }
+    TypedPreviewPoint:
+      type: object
+      additionalProperties: false
+      required: [at, values]
+      properties:
+        at: { type: string, format: date-time }
+        values:
+          type: object
+          additionalProperties: { type: string }
+    TypedRecordData:
+      type: object
+      additionalProperties: false
+      required: [fields, records, usingCachedData, unavailable]
+      properties:
+        fields:
+          type: array
+          items: { $ref: "#/components/schemas/DataSourceField" }
+        records:
+          type: array
+          items: { $ref: "#/components/schemas/TypedPreviewRecord" }
+        cachedAt: { type: string, format: date-time }
+        staleAt: { type: string, format: date-time }
+        usingCachedData: { type: boolean }
+        unavailable: { type: boolean }
+        dateSelection: { $ref: "#/components/schemas/DataSourceDateSelection" }
+        dateField: { type: string }
+        attribution: { type: string }
+    TypedPreviewDataset:
+      type: object
+      additionalProperties: false
+      required: [id, kind, usingCachedData, unavailable]
+      properties:
+        id: { type: string }
+        kind: { type: string }
+        fields:
+          type: array
+          items: { $ref: "#/components/schemas/DataSourceField" }
+        records:
+          type: array
+          items: { $ref: "#/components/schemas/TypedPreviewRecord" }
+        points:
+          type: array
+          items: { $ref: "#/components/schemas/TypedPreviewPoint" }
+        values:
+          type: object
+          additionalProperties: { type: string }
+        cachedAt: { type: string, format: date-time }
+        staleAt: { type: string, format: date-time }
+        attribution: { type: string }
+        timezone: { type: string }
+        units:
+          type: object
+          additionalProperties: { type: string }
+        usingCachedData: { type: boolean }
+        unavailable: { type: boolean }
+    TypedDatasetPayload:
+      type: object
+      additionalProperties: false
+      required: [datasets]
+      properties:
+        datasets:
+          type: array
+          items: { $ref: "#/components/schemas/TypedPreviewDataset" }
+    StructuredPreviewFields:
+      type: object
+      additionalProperties: false
+      required: [title, subtitle, date, author, description, image, link]
+      properties:
+        title: { type: boolean }
+        subtitle: { type: boolean }
+        date: { type: boolean }
+        author: { type: boolean }
+        description: { type: boolean }
+        image: { type: boolean }
+        link: { type: boolean }
+    StructuredPreviewRecord:
+      type: object
+      additionalProperties: false
+      required: [id, title]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        subtitle: { type: string }
+        date: { type: string }
+        author: { type: string }
+        description: { type: string }
+        source: { type: string }
+        imageUrl: { type: string }
+        link: { type: string }
+        values:
+          type: object
+          additionalProperties: { type: string }
+    StructuredPreviewData:
+      type: object
+      additionalProperties: false
+      required: [records, cachedAt, staleAt, usingCachedData, unavailable]
+      properties:
+        records:
+          type: array
+          items: { $ref: "#/components/schemas/StructuredPreviewRecord" }
+        cachedAt: { type: string, format: date-time }
+        staleAt: { type: string, format: date-time }
+        usingCachedData: { type: boolean }
+        unavailable: { type: boolean }
+    StructuredPlayerPreviewConfig:
+      type: object
+      additionalProperties: false
+      required: [presentation, fields, emptyState, dateSelection, data]
+      properties:
+        presentation: { type: string }
+        fields: { $ref: "#/components/schemas/StructuredPreviewFields" }
+        emptyState: { type: string }
+        dateSelection: { $ref: "#/components/schemas/DataSourceDateSelection" }
+        data: { $ref: "#/components/schemas/StructuredPreviewData" }
+    StructuredPreview:
+      type: object
+      additionalProperties: false
+      required: [configuration, diagnostics]
+      properties:
+        configuration:
+          { $ref: "#/components/schemas/StructuredPlayerPreviewConfig" }
+        diagnostics: { $ref: "#/components/schemas/DataSourceDiagnostics" }
+    CalendarPreviewFields:
+      type: object
+      additionalProperties: false
+      required: [title, startTime, endTime, date, location, descriptionExcerpt]
+      properties:
+        title: { type: boolean }
+        startTime: { type: boolean }
+        endTime: { type: boolean }
+        date: { type: boolean }
+        location: { type: boolean }
+        descriptionExcerpt: { type: boolean }
+    CalendarPreviewEvent:
+      type: object
+      additionalProperties: false
+      required: [id, calendar, title, start, end, allDay]
+      properties:
+        id: { type: string }
+        calendar: { type: string }
+        title: { type: string }
+        start: { type: string, format: date-time }
+        end: { type: string, format: date-time }
+        allDay: { type: boolean }
+        location: { type: string }
+        descriptionExcerpt: { type: string }
+    CalendarPreviewData:
+      type: object
+      additionalProperties: false
+      required: [events, cachedAt, staleAt, usingCachedData, unavailable]
+      properties:
+        events:
+          type: array
+          items: { $ref: "#/components/schemas/CalendarPreviewEvent" }
+        cachedAt: { type: string, format: date-time }
+        staleAt: { type: string, format: date-time }
+        usingCachedData: { type: boolean }
+        unavailable: { type: boolean }
+    CalendarPlayerPreviewConfig:
+      type: object
+      additionalProperties: false
+      required: [displayMode, maxEvents, fields, timezone, emptyState, data]
+      properties:
+        displayMode: { type: string }
+        maxEvents: { type: integer, minimum: 0 }
+        fields: { $ref: "#/components/schemas/CalendarPreviewFields" }
+        timezone: { type: string }
+        emptyState: { type: string }
+        data: { $ref: "#/components/schemas/CalendarPreviewData" }
+    CalendarPreview:
+      type: object
+      additionalProperties: false
+      required: [configuration, diagnostics]
+      properties:
+        configuration:
+          { $ref: "#/components/schemas/CalendarPlayerPreviewConfig" }
+        diagnostics: { $ref: "#/components/schemas/DataSourceDiagnostics" }
+    DataSourcePreviewResult:
+      description: >-
+        Provider-dependent preview payload: calendar, manual, and weather
+        sources answer their own shapes; live and record adapters answer a
+        named-dataset payload; feed and document sources answer a
+        structured preview.
+      oneOf:
+        - { $ref: "#/components/schemas/CalendarPreview" }
+        - { $ref: "#/components/schemas/TypedRecordData" }
+        - { $ref: "#/components/schemas/TypedDatasetPayload" }
+        - { $ref: "#/components/schemas/StructuredPreview" }
     DataSourceWidgetUsage:
       type: object
       additionalProperties: false

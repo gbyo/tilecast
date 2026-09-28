@@ -4690,6 +4690,7 @@ const (
 	PreviewDataSourceParamsProviderCalendar   PreviewDataSourceParamsProvider = "calendar"
 	PreviewDataSourceParamsProviderCapAlerts  PreviewDataSourceParamsProvider = "cap_alerts"
 	PreviewDataSourceParamsProviderCsv        PreviewDataSourceParamsProvider = "csv"
+	PreviewDataSourceParamsProviderFeed       PreviewDataSourceParamsProvider = "feed"
 	PreviewDataSourceParamsProviderJson       PreviewDataSourceParamsProvider = "json"
 	PreviewDataSourceParamsProviderManual     PreviewDataSourceParamsProvider = "manual"
 	PreviewDataSourceParamsProviderRss        PreviewDataSourceParamsProvider = "rss"
@@ -4709,6 +4710,8 @@ func (e PreviewDataSourceParamsProvider) Valid() bool {
 	case PreviewDataSourceParamsProviderCapAlerts:
 		return true
 	case PreviewDataSourceParamsProviderCsv:
+		return true
+	case PreviewDataSourceParamsProviderFeed:
 		return true
 	case PreviewDataSourceParamsProviderJson:
 		return true
@@ -5397,6 +5400,53 @@ type BulkScreenChange struct {
 	Next      string             `json:"next"`
 	ScreenId  openapi_types.UUID `json:"screenId"`
 	Selected  bool               `json:"selected"`
+}
+
+// CalendarPlayerPreviewConfig defines model for CalendarPlayerPreviewConfig.
+type CalendarPlayerPreviewConfig struct {
+	Data        CalendarPreviewData   `json:"data"`
+	DisplayMode string                `json:"displayMode"`
+	EmptyState  string                `json:"emptyState"`
+	Fields      CalendarPreviewFields `json:"fields"`
+	MaxEvents   int                   `json:"maxEvents"`
+	Timezone    string                `json:"timezone"`
+}
+
+// CalendarPreview defines model for CalendarPreview.
+type CalendarPreview struct {
+	Configuration CalendarPlayerPreviewConfig `json:"configuration"`
+	Diagnostics   DataSourceDiagnostics       `json:"diagnostics"`
+}
+
+// CalendarPreviewData defines model for CalendarPreviewData.
+type CalendarPreviewData struct {
+	CachedAt        time.Time              `json:"cachedAt"`
+	Events          []CalendarPreviewEvent `json:"events"`
+	StaleAt         time.Time              `json:"staleAt"`
+	Unavailable     bool                   `json:"unavailable"`
+	UsingCachedData bool                   `json:"usingCachedData"`
+}
+
+// CalendarPreviewEvent defines model for CalendarPreviewEvent.
+type CalendarPreviewEvent struct {
+	AllDay             bool      `json:"allDay"`
+	Calendar           string    `json:"calendar"`
+	DescriptionExcerpt *string   `json:"descriptionExcerpt,omitempty"`
+	End                time.Time `json:"end"`
+	Id                 string    `json:"id"`
+	Location           *string   `json:"location,omitempty"`
+	Start              time.Time `json:"start"`
+	Title              string    `json:"title"`
+}
+
+// CalendarPreviewFields defines model for CalendarPreviewFields.
+type CalendarPreviewFields struct {
+	Date               bool `json:"date"`
+	DescriptionExcerpt bool `json:"descriptionExcerpt"`
+	EndTime            bool `json:"endTime"`
+	Location           bool `json:"location"`
+	StartTime          bool `json:"startTime"`
+	Title              bool `json:"title"`
 }
 
 // Campaign defines model for Campaign.
@@ -6183,6 +6233,11 @@ type DataSourceListResult struct {
 	Page     int                  `json:"page"`
 	PageSize int                  `json:"pageSize"`
 	Total    int                  `json:"total"`
+}
+
+// DataSourcePreviewResult Provider-dependent preview payload: calendar, manual, and weather sources answer their own shapes; live and record adapters answer a named-dataset payload; feed and document sources answer a structured preview.
+type DataSourcePreviewResult struct {
+	union json.RawMessage
 }
 
 // DataSourceProvider Non-visual Data Source providers.
@@ -8875,6 +8930,55 @@ type StructuredInspection struct {
 	Suggested StructuredSourceMapping `json:"suggested"`
 }
 
+// StructuredPlayerPreviewConfig defines model for StructuredPlayerPreviewConfig.
+type StructuredPlayerPreviewConfig struct {
+	Data          StructuredPreviewData   `json:"data"`
+	DateSelection DataSourceDateSelection `json:"dateSelection"`
+	EmptyState    string                  `json:"emptyState"`
+	Fields        StructuredPreviewFields `json:"fields"`
+	Presentation  string                  `json:"presentation"`
+}
+
+// StructuredPreview defines model for StructuredPreview.
+type StructuredPreview struct {
+	Configuration StructuredPlayerPreviewConfig `json:"configuration"`
+	Diagnostics   DataSourceDiagnostics         `json:"diagnostics"`
+}
+
+// StructuredPreviewData defines model for StructuredPreviewData.
+type StructuredPreviewData struct {
+	CachedAt        time.Time                 `json:"cachedAt"`
+	Records         []StructuredPreviewRecord `json:"records"`
+	StaleAt         time.Time                 `json:"staleAt"`
+	Unavailable     bool                      `json:"unavailable"`
+	UsingCachedData bool                      `json:"usingCachedData"`
+}
+
+// StructuredPreviewFields defines model for StructuredPreviewFields.
+type StructuredPreviewFields struct {
+	Author      bool `json:"author"`
+	Date        bool `json:"date"`
+	Description bool `json:"description"`
+	Image       bool `json:"image"`
+	Link        bool `json:"link"`
+	Subtitle    bool `json:"subtitle"`
+	Title       bool `json:"title"`
+}
+
+// StructuredPreviewRecord defines model for StructuredPreviewRecord.
+type StructuredPreviewRecord struct {
+	Author      *string            `json:"author,omitempty"`
+	Date        *string            `json:"date,omitempty"`
+	Description *string            `json:"description,omitempty"`
+	Id          string             `json:"id"`
+	ImageUrl    *string            `json:"imageUrl,omitempty"`
+	Link        *string            `json:"link,omitempty"`
+	Source      *string            `json:"source,omitempty"`
+	Subtitle    *string            `json:"subtitle,omitempty"`
+	Title       string             `json:"title"`
+	Values      *map[string]string `json:"values,omitempty"`
+}
+
 // StructuredSourceField defines model for StructuredSourceField.
 type StructuredSourceField struct {
 	Key     string   `json:"key"`
@@ -9138,6 +9242,53 @@ type TelemetrySnapshot struct {
 	VideoDecoderPath         *string    `json:"videoDecoderPath,omitempty"`
 	WifiLinkSpeedMbps        *int       `json:"wifiLinkSpeedMbps,omitempty"`
 	WifiSignalDbm            *int       `json:"wifiSignalDbm,omitempty"`
+}
+
+// TypedDatasetPayload defines model for TypedDatasetPayload.
+type TypedDatasetPayload struct {
+	Datasets []TypedPreviewDataset `json:"datasets"`
+}
+
+// TypedPreviewDataset defines model for TypedPreviewDataset.
+type TypedPreviewDataset struct {
+	Attribution     *string               `json:"attribution,omitempty"`
+	CachedAt        *time.Time            `json:"cachedAt,omitempty"`
+	Fields          *[]DataSourceField    `json:"fields,omitempty"`
+	Id              string                `json:"id"`
+	Kind            string                `json:"kind"`
+	Points          *[]TypedPreviewPoint  `json:"points,omitempty"`
+	Records         *[]TypedPreviewRecord `json:"records,omitempty"`
+	StaleAt         *time.Time            `json:"staleAt,omitempty"`
+	Timezone        *string               `json:"timezone,omitempty"`
+	Unavailable     bool                  `json:"unavailable"`
+	Units           *map[string]string    `json:"units,omitempty"`
+	UsingCachedData bool                  `json:"usingCachedData"`
+	Values          *map[string]string    `json:"values,omitempty"`
+}
+
+// TypedPreviewPoint defines model for TypedPreviewPoint.
+type TypedPreviewPoint struct {
+	At     time.Time         `json:"at"`
+	Values map[string]string `json:"values"`
+}
+
+// TypedPreviewRecord defines model for TypedPreviewRecord.
+type TypedPreviewRecord struct {
+	Id     string            `json:"id"`
+	Values map[string]string `json:"values"`
+}
+
+// TypedRecordData defines model for TypedRecordData.
+type TypedRecordData struct {
+	Attribution     *string                  `json:"attribution,omitempty"`
+	CachedAt        *time.Time               `json:"cachedAt,omitempty"`
+	DateField       *string                  `json:"dateField,omitempty"`
+	DateSelection   *DataSourceDateSelection `json:"dateSelection,omitempty"`
+	Fields          []DataSourceField        `json:"fields"`
+	Records         []TypedPreviewRecord     `json:"records"`
+	StaleAt         *time.Time               `json:"staleAt,omitempty"`
+	Unavailable     bool                     `json:"unavailable"`
+	UsingCachedData bool                     `json:"usingCachedData"`
 }
 
 // UpdateDeploymentCancelled defines model for UpdateDeploymentCancelled.
@@ -11343,6 +11494,120 @@ type CreateWidgetJSONRequestBody = WidgetInput
 
 // UpdateWidgetJSONRequestBody defines body for UpdateWidget for application/json ContentType.
 type UpdateWidgetJSONRequestBody = WidgetInput
+
+// AsCalendarPreview returns the union data inside the DataSourcePreviewResult as a CalendarPreview
+func (t DataSourcePreviewResult) AsCalendarPreview() (CalendarPreview, error) {
+	var body CalendarPreview
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCalendarPreview overwrites any union data inside the DataSourcePreviewResult as the provided CalendarPreview
+func (t *DataSourcePreviewResult) FromCalendarPreview(v CalendarPreview) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCalendarPreview performs a merge with any union data inside the DataSourcePreviewResult, using the provided CalendarPreview
+func (t *DataSourcePreviewResult) MergeCalendarPreview(v CalendarPreview) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedRecordData returns the union data inside the DataSourcePreviewResult as a TypedRecordData
+func (t DataSourcePreviewResult) AsTypedRecordData() (TypedRecordData, error) {
+	var body TypedRecordData
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedRecordData overwrites any union data inside the DataSourcePreviewResult as the provided TypedRecordData
+func (t *DataSourcePreviewResult) FromTypedRecordData(v TypedRecordData) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedRecordData performs a merge with any union data inside the DataSourcePreviewResult, using the provided TypedRecordData
+func (t *DataSourcePreviewResult) MergeTypedRecordData(v TypedRecordData) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedDatasetPayload returns the union data inside the DataSourcePreviewResult as a TypedDatasetPayload
+func (t DataSourcePreviewResult) AsTypedDatasetPayload() (TypedDatasetPayload, error) {
+	var body TypedDatasetPayload
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedDatasetPayload overwrites any union data inside the DataSourcePreviewResult as the provided TypedDatasetPayload
+func (t *DataSourcePreviewResult) FromTypedDatasetPayload(v TypedDatasetPayload) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedDatasetPayload performs a merge with any union data inside the DataSourcePreviewResult, using the provided TypedDatasetPayload
+func (t *DataSourcePreviewResult) MergeTypedDatasetPayload(v TypedDatasetPayload) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsStructuredPreview returns the union data inside the DataSourcePreviewResult as a StructuredPreview
+func (t DataSourcePreviewResult) AsStructuredPreview() (StructuredPreview, error) {
+	var body StructuredPreview
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromStructuredPreview overwrites any union data inside the DataSourcePreviewResult as the provided StructuredPreview
+func (t *DataSourcePreviewResult) FromStructuredPreview(v StructuredPreview) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeStructuredPreview performs a merge with any union data inside the DataSourcePreviewResult, using the provided StructuredPreview
+func (t *DataSourcePreviewResult) MergeStructuredPreview(v StructuredPreview) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t DataSourcePreviewResult) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *DataSourcePreviewResult) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
 
 // AsSessionCreated returns the union data inside the LoginResult as a SessionCreated
 func (t LoginResult) AsSessionCreated() (SessionCreated, error) {
@@ -47936,6 +48201,19 @@ func (r RebuildFormOutputsResponse) ContentType() string {
 type PreviewSavedDataSourceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Data Provider-dependent preview payload: calendar, manual, and weather sources answer their own shapes; live and record adapters answer a named-dataset payload; feed and document sources answer a structured preview.
+		Data DataSourcePreviewResult `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PreviewSavedDataSourceResponse) GetJSON200() *struct {
+	// Data Provider-dependent preview payload: calendar, manual, and weather sources answer their own shapes; live and record adapters answer a named-dataset payload; feed and document sources answer a structured preview.
+	Data DataSourcePreviewResult `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -48525,6 +48803,19 @@ func (r InspectDataSourceResponse) ContentType() string {
 type PreviewDataSourceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Data Provider-dependent preview payload: calendar, manual, and weather sources answer their own shapes; live and record adapters answer a named-dataset payload; feed and document sources answer a structured preview.
+		Data DataSourcePreviewResult `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PreviewDataSourceResponse) GetJSON200() *struct {
+	// Data Provider-dependent preview payload: calendar, manual, and weather sources answer their own shapes; live and record adapters answer a named-dataset payload; feed and document sources answer a structured preview.
+	Data DataSourcePreviewResult `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -68575,6 +68866,25 @@ func ParsePreviewSavedDataSourceResponse(rsp *http.Response) (*PreviewSavedDataS
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Data Provider-dependent preview payload: calendar, manual, and weather sources answer their own shapes; live and record adapters answer a named-dataset payload; feed and document sources answer a structured preview.
+			Data DataSourcePreviewResult `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -68863,6 +69173,25 @@ func ParsePreviewDataSourceResponse(rsp *http.Response) (*PreviewDataSourceRespo
 	response := &PreviewDataSourceResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Data Provider-dependent preview payload: calendar, manual, and weather sources answer their own shapes; live and record adapters answer a named-dataset payload; feed and document sources answer a structured preview.
+			Data DataSourcePreviewResult `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil

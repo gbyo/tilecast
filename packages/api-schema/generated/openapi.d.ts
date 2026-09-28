@@ -9031,6 +9031,146 @@ export interface components {
         | "last_known_good";
       fallbackText?: string;
     };
+    TypedPreviewRecord: {
+      id: string;
+      values: {
+        [key: string]: string;
+      };
+    };
+    TypedPreviewPoint: {
+      /** Format: date-time */
+      at: string;
+      values: {
+        [key: string]: string;
+      };
+    };
+    TypedRecordData: {
+      fields: components["schemas"]["DataSourceField"][];
+      records: components["schemas"]["TypedPreviewRecord"][];
+      /** Format: date-time */
+      cachedAt?: string;
+      /** Format: date-time */
+      staleAt?: string;
+      usingCachedData: boolean;
+      unavailable: boolean;
+      dateSelection?: components["schemas"]["DataSourceDateSelection"];
+      dateField?: string;
+      attribution?: string;
+    };
+    TypedPreviewDataset: {
+      id: string;
+      kind: string;
+      fields?: components["schemas"]["DataSourceField"][];
+      records?: components["schemas"]["TypedPreviewRecord"][];
+      points?: components["schemas"]["TypedPreviewPoint"][];
+      values?: {
+        [key: string]: string;
+      };
+      /** Format: date-time */
+      cachedAt?: string;
+      /** Format: date-time */
+      staleAt?: string;
+      attribution?: string;
+      timezone?: string;
+      units?: {
+        [key: string]: string;
+      };
+      usingCachedData: boolean;
+      unavailable: boolean;
+    };
+    TypedDatasetPayload: {
+      datasets: components["schemas"]["TypedPreviewDataset"][];
+    };
+    StructuredPreviewFields: {
+      title: boolean;
+      subtitle: boolean;
+      date: boolean;
+      author: boolean;
+      description: boolean;
+      image: boolean;
+      link: boolean;
+    };
+    StructuredPreviewRecord: {
+      id: string;
+      title: string;
+      subtitle?: string;
+      date?: string;
+      author?: string;
+      description?: string;
+      source?: string;
+      imageUrl?: string;
+      link?: string;
+      values?: {
+        [key: string]: string;
+      };
+    };
+    StructuredPreviewData: {
+      records: components["schemas"]["StructuredPreviewRecord"][];
+      /** Format: date-time */
+      cachedAt: string;
+      /** Format: date-time */
+      staleAt: string;
+      usingCachedData: boolean;
+      unavailable: boolean;
+    };
+    StructuredPlayerPreviewConfig: {
+      presentation: string;
+      fields: components["schemas"]["StructuredPreviewFields"];
+      emptyState: string;
+      dateSelection: components["schemas"]["DataSourceDateSelection"];
+      data: components["schemas"]["StructuredPreviewData"];
+    };
+    StructuredPreview: {
+      configuration: components["schemas"]["StructuredPlayerPreviewConfig"];
+      diagnostics: components["schemas"]["DataSourceDiagnostics"];
+    };
+    CalendarPreviewFields: {
+      title: boolean;
+      startTime: boolean;
+      endTime: boolean;
+      date: boolean;
+      location: boolean;
+      descriptionExcerpt: boolean;
+    };
+    CalendarPreviewEvent: {
+      id: string;
+      calendar: string;
+      title: string;
+      /** Format: date-time */
+      start: string;
+      /** Format: date-time */
+      end: string;
+      allDay: boolean;
+      location?: string;
+      descriptionExcerpt?: string;
+    };
+    CalendarPreviewData: {
+      events: components["schemas"]["CalendarPreviewEvent"][];
+      /** Format: date-time */
+      cachedAt: string;
+      /** Format: date-time */
+      staleAt: string;
+      usingCachedData: boolean;
+      unavailable: boolean;
+    };
+    CalendarPlayerPreviewConfig: {
+      displayMode: string;
+      maxEvents: number;
+      fields: components["schemas"]["CalendarPreviewFields"];
+      timezone: string;
+      emptyState: string;
+      data: components["schemas"]["CalendarPreviewData"];
+    };
+    CalendarPreview: {
+      configuration: components["schemas"]["CalendarPlayerPreviewConfig"];
+      diagnostics: components["schemas"]["DataSourceDiagnostics"];
+    };
+    /** @description Provider-dependent preview payload: calendar, manual, and weather sources answer their own shapes; live and record adapters answer a named-dataset payload; feed and document sources answer a structured preview. */
+    DataSourcePreviewResult:
+      | components["schemas"]["CalendarPreview"]
+      | components["schemas"]["TypedRecordData"]
+      | components["schemas"]["TypedDatasetPayload"]
+      | components["schemas"]["StructuredPreview"];
     DataSourceWidgetUsage: {
       /** Format: uuid */
       id: string;
@@ -11534,7 +11674,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["DataSourcePreviewResult"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -18956,6 +19100,7 @@ export interface operations {
           | "calendar"
           | "rss"
           | "atom"
+          | "feed"
           | "json"
           | "csv"
           | "manual"
@@ -18981,7 +19126,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["DataSourcePreviewResult"];
+          };
+        };
       };
       /** @description Data Source provider not found */
       404: {
