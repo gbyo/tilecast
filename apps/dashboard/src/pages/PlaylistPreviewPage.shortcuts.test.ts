@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
-import { playlistPreviewShortcutTargetIsInteractive } from "./PlaylistPreviewPage";
+import {
+  playlistPreviewShortcutTargetIsInteractive,
+} from "./PlaylistPreviewPage";
 
 describe("playlist preview keyboard shortcuts", () => {
   it("defers to native keyboard behavior for interactive controls", () => {
