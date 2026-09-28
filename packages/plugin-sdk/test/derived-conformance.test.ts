@@ -66,12 +66,12 @@ paths:
     get:
       operationId: same
       description: Requires an authenticated dashboard session.
-      responses: { "200": { description: ok } }
+      responses: { "200": { description: ok, content: { application/json: { schema: { type: object } } } } }
   /api/v1/b:
     get:
       operationId: same
       description: Requires an authenticated dashboard session.
-      responses: { "200": { description: ok } }
+      responses: { "200": { description: ok, content: { application/json: { schema: { type: object } } } } }
 `),
     );
     expect(problems.map((p) => p.message)).toEqual([
@@ -83,7 +83,7 @@ paths:
     const problems = checkDerivedConformance(
       doc(
         OPERATION(`description: Requires an authenticated dashboard session.
-responses: { "200": { description: ok } }`),
+responses: { "200": { description: ok, content: { application/json: { schema: { type: object } } } } }`),
       ),
     );
     expect(problems.map((p) => p.message)).toEqual([
@@ -96,7 +96,11 @@ responses: { "200": { description: ok } }`),
       doc(
         OPERATION(`operationId: getThings
 responses:
-  "200": { description: ok }
+  "200":
+    description: ok
+    content:
+      application/json:
+        schema: { type: object }
   "401": { description: Dashboard authentication required }`),
       ),
     );
@@ -111,7 +115,11 @@ responses:
         OPERATION(`operationId: getThings
 summary: List things.
 responses:
-  "200": { description: ok }
+  "200":
+    description: ok
+    content:
+      application/json:
+        schema: { type: object }
   "401": { description: Dashboard authentication required }`),
       ),
     );
@@ -125,7 +133,11 @@ responses:
 description: "   "
 summary: List things from the dashboard.
 responses:
-  "200": { description: ok }
+  "200":
+    description: ok
+    content:
+      application/json:
+        schema: { type: object }
   "401": { description: Dashboard authentication required }`),
       ),
     );
@@ -138,7 +150,11 @@ responses:
         OPERATION(`operationId: getThings
 description: TODO.
 responses:
-  "200": { description: ok }
+  "200":
+    description: ok
+    content:
+      application/json:
+        schema: { type: object }
   "401": { description: Dashboard authentication required }`),
       ),
     );
@@ -168,7 +184,7 @@ responses:
 description: Requires an authenticated dashboard session.
 parameters:
   - { name: type, in: query, required: false, schema: { $ref: "#/components/schemas/ThingType" } }
-responses: { "200": { description: ok } }`) +
+responses: { "200": { description: ok, content: { application/json: { schema: { type: object } } } } }`) +
           `components:
   schemas:
     ThingType: { type: string }
@@ -185,7 +201,7 @@ responses: { "200": { description: ok } }`) +
 description: Requires an authenticated dashboard session.
 parameters:
   - { name: q, in: query, required: false }
-responses: { "200": { description: ok } }`),
+responses: { "200": { description: ok, content: { application/json: { schema: { type: object } } } } }`),
       ),
     );
     expect(problems.map((p) => p.message)).toEqual([
@@ -203,7 +219,7 @@ requestBody:
   required: true
   content:
     application/json: {}
-responses: { "200": { description: ok } }`,
+responses: { "200": { description: ok, content: { application/json: { schema: { type: object } } } } }`,
           "/api/v1/things/{id}",
           "patch",
         ),
@@ -231,7 +247,7 @@ description: Requires an authenticated dashboard session.`),
       doc(
         OPERATION(`operationId: getThings
 description: Returns things.
-responses: { "200": { description: ok } }`),
+responses: { "200": { description: ok, content: { application/json: { schema: { type: object } } } } }`),
       ),
     );
     expect(problems.map((p) => p.message)).toEqual([
@@ -285,7 +301,7 @@ paths:
     get:
       operationId: ${excluded!.operationId}
       description: Demo-only endpoint for tests.
-      responses: { "200": { description: ok } }
+      responses: { "200": { description: ok, content: { application/json: { schema: { type: object } } } } }
 `),
     );
     expect(problems).toEqual([]);
