@@ -64,41 +64,6 @@ jobs:
     if: needs.changes.outputs.android == 'true'
     uses: ./.github/workflows/ci-android.yml
 
-  linux_player_ci:
-    name: Linux Player release contract
-    needs: changes
-    if: needs.changes.outputs.linux == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm test --workspace @tilecast/player-runtime
-      # The Linux Player imports the runtime's compiled Node entry points.
-      - run: npm run build:node --workspace @tilecast/player-runtime
-      - run: npm run player:linux:test
-      - run: npm run player:linux:build
-      - name: Create test-only release signing keys
-        run: |
-          set -euo pipefail
-          openssl genpkey -algorithm Ed25519 -out "$RUNNER_TEMP/linux-update-private.pem"
-          openssl pkey \
-            -in "$RUNNER_TEMP/linux-update-private.pem" \
-            -pubout \
-            -out "$RUNNER_TEMP/linux-update-public.pem"
-      - name: Build and validate packaged release
-        env:
-          TILECAST_UPDATE_MANIFEST_PRIVATE_KEY: ${{ runner.temp }}/linux-update-private.pem
-          TILECAST_UPDATE_MANIFEST_PUBLIC_KEY_FILE: ${{ runner.temp }}/linux-update-public.pem
-          TILECAST_RELEASE_OUTPUT: ${{ runner.temp }}/linux-player-release
-          TILECAST_RELEASE_CHANNEL: stable
-          TILECAST_RELEASE_NOTES: Pull request release-contract validation
-        run: scripts/build-linux-player-release.sh
->>>>>>> b73bcb4c (android: fix PR1 CI packaging (fail-fast sync, build runtime in Android jobs))
-
   server_ci:
     needs: changes
     if: needs.changes.outputs.server == 'true'
