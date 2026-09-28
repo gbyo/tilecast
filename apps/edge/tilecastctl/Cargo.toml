@@ -1,0 +1,19 @@
+[package]
+name = "tilecastctl"
+description = "Local administration CLI for tilecastd (talks only to the Edge Unix socket)."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+clap.workspace = true
+edge-ipc.workspace = true
+edge-platform.workspace = true
+edge-protocol.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = ["rt", "macros", "net"] }
+
+[lints]
+workspace = true

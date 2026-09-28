@@ -1,0 +1,34 @@
+# Release self-test host (M7 migration step 3): the real daemon on a tmpfs
+# state with the release's built-in fixture. Started by the migrator; never
+# enabled. It has no network, no credential and no access to the Edge state.
+[Unit]
+Description=Tilecast Edge release self-test host
+Documentation=https://github.com/gbyo/tilecast/blob/main/apps/edge/packaging/README.md
+
+[Service]
+Type=oneshot
+User=tilecast
+Group=tilecast
+RuntimeDirectory=tilecast-edge-selftest
+RuntimeDirectoryMode=0750
+ExecStart=/opt/tilecast-edge/current/bin/tilecastd self-test --fixture /opt/tilecast-edge/current/share/tilecast/selftest/fixture.json --timeout-seconds 120
+StandardOutput=truncate:/run/tilecast-edge-migrate/selftest.json
+# Only the JSON result goes to the file; diagnostics go to the journal.
+StandardError=journal
+TimeoutStartSec=180s
+UMask=0077
+PrivateNetwork=yes
+ProtectHome=yes
+ProtectSystem=strict
+InaccessiblePaths=-/var/lib/tilecast-edge
+PrivateTmp=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+LockPersonality=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX
+SystemCallArchitectures=native
+MemoryDenyWriteExecute=yes

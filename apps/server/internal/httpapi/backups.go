@@ -7,7 +7,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/backup"
 )
 
@@ -41,8 +40,8 @@ func (s *server) blockDuringBackup(next http.Handler) http.Handler {
 }
 
 func (s *server) sessionUserID(r *http.Request) *uuid.UUID {
-	if session, ok := r.Context().Value(sessionContextKey).(auth.Session); ok {
-		id := session.User.ID
+	if principal, ok := principalOf(r); ok {
+		id := principal.User.ID
 		return &id
 	}
 	return nil

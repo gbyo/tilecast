@@ -6,13 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/tilecast/tilecast/apps/server/internal/auth"
 )
 
 const (
@@ -35,8 +35,19 @@ type activityCursor struct {
 	ID   uuid.UUID
 }
 
-func activitySession(r *http.Request) auth.Session {
-	return r.Context().Value(sessionContextKey).(auth.Session)
+// activityPrincipal returns the request's management principal for the
+// activity reads. Callers fail closed with 401 when it is absent.
+func activityPrincipal(r *http.Request) (auth.Principal, bool) {
+	return principalOf(r)
+}
+
+// activityRole returns the caller's role for activity visibility decisions.
+func activityRole(r *http.Request) (string, bool) {
+	principal, ok := activityPrincipal(r)
+	if !ok {
+		return "", false
+	}
+	return principal.User.Role, true
 }
 
 func activityCanSeeSensitive(role string) bool {

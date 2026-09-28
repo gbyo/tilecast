@@ -8,7 +8,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/approvals"
-	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/campaigns"
 )
 
@@ -42,7 +41,12 @@ func (s *server) createCampaign(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	item, err := s.campaigns.Create(r.Context(), user.ID, body.Name, body.Description, body.Timezone)
 	if err != nil {
 		s.writeCampaignError(w, r, err)
@@ -74,7 +78,12 @@ func (s *server) updateCampaignDraft(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	item, err := s.campaigns.UpdateDraft(r.Context(), id, user.ID, body.ExpectedDraftRevision, body.Draft)
 	if err != nil {
 		s.writeCampaignError(w, r, err)
@@ -119,7 +128,12 @@ func (s *server) restoreCampaignRelease(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusNotFound, "release_not_found", "The requested campaign release was not found.")
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	item, err := s.campaigns.RestoreReleaseToDraft(r.Context(), id, releaseID, user.ID)
 	if err != nil {
 		s.writeCampaignError(w, r, err)
@@ -133,7 +147,12 @@ func (s *server) archiveCampaign(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	if err := s.campaigns.Archive(r.Context(), id, user.ID); err != nil {
 		s.writeCampaignError(w, r, err)
 		return
@@ -153,7 +172,12 @@ func (s *server) publishCampaign(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	if s.approvals == nil {
 		writeError(w, http.StatusServiceUnavailable, "editorial_unavailable", "Editorial publication is unavailable.")
 		return

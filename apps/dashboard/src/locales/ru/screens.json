@@ -495,6 +495,7 @@
     "selectionScheduledNamed": "По расписанию · {{name}}",
     "selectionScheduleFallback": "расписание",
     "selectionDirect": "Прямой резерв",
+    "selectionQuickPresent": "Показать сейчас",
     "selectionNone": "Нет контента",
     "nextScheduledChange": "Следующая смена по расписанию",
     "notGrouped": "Вне группы",

@@ -10,7 +10,8 @@ coverage/
 /data/
 /postgres/
 apps/server/internal/web/static/assets/
-apps/server/tilecast
+apps/server/tilecast-server
+apps/cli/tilecast
 **/.gradle/
 **/build/
 **/local.properties
@@ -22,3 +23,15 @@ tilecast-player.apk
 tilecast-player-update.json
 tilecast-player-update.json.sig
 release-secrets/
+# Python bytecode from the Edge CI scripts
+__pycache__/
+e2e/test-results/
+e2e/playwright-report/
+e2e/visual/test-results/
+e2e/visual/playwright-report/
+**/coverage.out
+
+# Widgets V2 Storybook and visual-regression output
+widgets/storybook-static/
+widgets/visual/test-results/
+widgets/visual/playwright-report/

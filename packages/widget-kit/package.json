@@ -1,0 +1,24 @@
+{
+  "name": "@tilecast/widget-kit",
+  "version": "1.0.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "description": "The Tilecast signage visual system for Widgets V2: display tokens, the Lit base element, clock, geometry and motion controllers, formatting and status templates.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@tilecast/widget-sdk": "*",
+    "lit": "^3.3.3"
+  },
+  "devDependencies": {
+    "jsdom": "^30.0.0",
+    "typescript": "~5.8.3",
+    "vitest": "^4.1.10"
+  }
+}

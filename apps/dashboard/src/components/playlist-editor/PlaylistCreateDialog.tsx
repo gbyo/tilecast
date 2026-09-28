@@ -73,7 +73,7 @@ export function PlaylistCreateDialog({
               <Button
                 type="button"
                 variant={sourceType === "static" ? "default" : "outline"}
-                className="h-auto flex-col items-start gap-1 p-3 text-left"
+                className="h-auto min-w-0 flex-col items-start gap-1 whitespace-normal p-3 text-left"
                 aria-pressed={sourceType === "static"}
                 onClick={() => setSourceType("static")}
               >
@@ -85,7 +85,7 @@ export function PlaylistCreateDialog({
               <Button
                 type="button"
                 variant={sourceType === "tag" ? "default" : "outline"}
-                className="h-auto flex-col items-start gap-1 p-3 text-left"
+                className="h-auto min-w-0 flex-col items-start gap-1 whitespace-normal p-3 text-left"
                 aria-pressed={sourceType === "tag"}
                 onClick={() => setSourceType("tag")}
               >

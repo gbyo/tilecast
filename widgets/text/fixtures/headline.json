@@ -1,0 +1,13 @@
+{
+  "name": "Headline",
+  "description": "A short message as display type with an eyebrow label.",
+  "configuration": {
+    "heading": "Today",
+    "body": "Welcome back, Class of 2027!",
+    "style": "headline",
+    "align": "center",
+    "backgroundColor": "#123b2c",
+    "foregroundColor": "#ffffff"
+  },
+  "expect": "ready"
+}

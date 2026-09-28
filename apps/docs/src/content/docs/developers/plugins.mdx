@@ -1,0 +1,105 @@
+---
+title: Build a first-party plugin
+description: Add a bundled Tilecast plugin without adding plugin-specific wiring to the rest of Tilecast.
+---
+
+import { FileTree } from "@astrojs/starlight/components";
+
+A Tilecast plugin is one directory below `plugins/`. Tilecast discovers its server code, Studio pages, Player runtime, migrations, API description, and public docs from that directory.
+
+Plugins ship with Tilecast. Plugin API v1 does not download or run third-party code.
+
+## Pick the part you need
+
+- [Create a plugin](./create/) starts with `plugins:new` and gets a new plugin to a clean conformance check.
+- [Write the manifest](./manifest/) explains the fields in `tilecast.plugin.json`.
+- [Add server behavior](./server/) covers Host services, routes, workers, status, removal blockers, and Demo Mode.
+- [Add Studio pages](./studio/) covers management routes, standalone routes, translations, and secondary navigation.
+- [Draw on the Player](./player/) covers manifest projection, surfaces, tiers, CSS, and runtime tests.
+- [Publish a Data Source or private asset](./data-sources/) covers `DataSourceProvider`, `Host.DataSources`, and `Host.PluginAssets`.
+- [Bundle Widgets and Data Sources](./static-content/) ships ordinary Widget and declarative Data Source modules inside the plugin directory.
+- [Add migrations and tests](./testing/) covers the global migration sequence, conformance, PostgreSQL tests, and generated files.
+- [Offer CLI commands and MCP tools](#automation-mapping) covers `automation.yaml`.
+
+For the exact API contract, use the [Plugin API v1 engineering reference](https://github.com/gbyo/tilecast/blob/main/docs/plugin-api.md).
+
+## What belongs in a plugin
+
+<FileTree>
+
+- plugins/
+  - transit-alerts/
+    - tilecast.plugin.json Identity, capabilities, and entry points.
+    - plugin.go Go entry point.
+    - plugin_test.go Conformance test.
+    - server/ Optional server implementation.
+    - migrations/ Optional Goose migrations.
+    - api/openapi.yaml Optional API description.
+    - automation.yaml Optional automation mapping (Automation Contract v1).
+    - automation.gen.json Generated from automation.yaml and the API description.
+    - widgets/ Optional bundled Widgets.
+    - data-sources/ Optional declarative Data Sources.
+    - studio/ Optional Studio pages and translations.
+    - runtime/ Optional Player runtime and styles.
+    - docs/ Optional public docs pages.
+
+</FileTree>
+
+The plugin ID uses underscores. The directory uses hyphens, so `transit_alerts` lives in `plugins/transit-alerts/`.
+
+The build owns the few files that list every plugin. Run `npm run plugins:generate` instead of editing those files by hand.
+
+## Automation mapping
+
+A plugin with an HTTP API can offer its operations in the [`tilecast` CLI](../../integrations/cli/) and the [MCP server](../../integrations/mcp/) through `automation.yaml` (Automation Contract v1). The file maps operation IDs from the plugin's `api/openapi.yaml` to a CLI path, an MCP action, and a risk level. It doesn't redefine any path, schema, authorization, or validation; the server stays authoritative for all of those.
+
+```yaml title="plugins/countdown-bar/automation.yaml (excerpt)"
+apiVersion: 1
+
+operations:
+  - operationId: listCountdownBarInstances
+    risk: read
+    description: List the configured Countdown Bar instances.
+    cli:
+      path: [countdown-bar, instance, list]
+    mcp:
+      action: list_instances
+
+  - operationId: createCountdownBarInstance
+    risk: routine
+    description: Create a Countdown Bar instance from a JSON document.
+    cli:
+      path: [countdown-bar, instance, create]
+    mcp:
+      action: create_instance
+    input: document
+```
+
+Once the plugin is installed, each mapped operation appears in two places:
+
+- **CLI:** below `tilecast plugin`, at the declared path, such as `tilecast plugin countdown-bar instance list`. Path parameters are positional arguments, query parameters become flags, and an operation with `input: document` takes its JSON body from `--input` or `--file`.
+- **MCP:** as a tool named after the plugin ID and the action, such as `countdown_bar_list_instances`. Its input schema comes from the operation's OpenAPI parameters and request body.
+
+Choose the risk level that matches the operation's effect: `read`, `routine`, `sensitive`, `high-impact`, or `security-critical`. The CLI asks for confirmation at `sensitive` and above, MCP requires `confirm: true` for the same levels, and `tilecast mcp --read-only` offers only `read` operations. The [MCP guide](../../integrations/mcp/#risk-levels-and-confirmation) explains what each level means to an operator. A risk level describes the operation; it never replaces the server's authorization.
+
+List operations that must stay out of automation under `exclusions`, each with a reason, such as a browser-only security step.
+
+The CLI and MCP server read the resolved mappings from Tilecast Server at run time. Nothing about the plugin is written into the CLI, so no CLI change ships with the plugin. `npm run plugins:generate` derives parameter and body metadata into the plugin's generated `automation.gen.json`, and `npm run plugins:check` rejects a mapping that doesn't match the OpenAPI fragment.
+
+The schema lives in `@tilecast/plugin-sdk` (`./automation`, plus the portable `schema/tilecast-automation.schema.json`). Countdown Bar's [`automation.yaml`](https://github.com/gbyo/tilecast/blob/main/plugins/countdown-bar/automation.yaml) is the worked example. For the exact contract, see the [programmable control plane reference](https://github.com/gbyo/tilecast/blob/main/docs/programmable-control-plane.md).
+
+## Widgets and plugins
+
+A plugin can bundle ordinary Widgets and declarative Data Sources in its own directory. A bundled Widget is the same Widgets V2 module as a core Widget in `widgets/`; only its owner differs, and `tilecast.plugin.json` doesn't change. See [Bundle Widgets and Data Sources](./static-content/).
+
+A plugin can also put its data on a screen without its own Widget: [publish a Data Source](./data-sources/) that core Widgets such as List, Table, or Cards can display. Forms works this way.
+
+## Use the existing plugins as examples
+
+The three bundled plugins cover different parts of the API:
+
+- [Countdown Bar](https://github.com/gbyo/tilecast/tree/main/plugins/countdown-bar) is the smallest Player-facing example. It has Studio configuration, a manifest projector, and shared-runtime surfaces.
+- [Emergency Alerts](https://github.com/gbyo/tilecast/tree/main/plugins/emergency-alerts) shows routes, background work, network access, Takeovers, and an emergency Player surface.
+- [Forms](https://github.com/gbyo/tilecast/tree/main/plugins/forms) shows a larger workflow plugin with standalone Studio routes, secondary navigation, a Data Source provider, private assets, and PostgreSQL-heavy tests.
+
+Start with the example closest to what you are building. Don't copy a contribution interface that your plugin does not need.

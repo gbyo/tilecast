@@ -21,7 +21,7 @@ Run these commands from the root of a clone of the [Tilecast repository](https:/
 
 1. Copy the example environment file.
 
-   ```sh
+   ```sh title="Repository root · Copy the environment file"
    cp deploy/docker/.env.example deploy/docker/.env
    ```
 
@@ -38,7 +38,7 @@ Run these commands from the root of a clone of the [Tilecast repository](https:/
 
 4. Start the services.
 
-   ```sh
+   ```sh title="Repository root · Start Tilecast"
    docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml up -d --build
    ```
 
@@ -62,7 +62,7 @@ When using HTTPS behind a proxy, keep `TILECAST_PUBLIC_URL` set to the external 
 
 Use `/healthz` to check whether the server process answers. Use `/readyz` to check whether the database, media storage, FFmpeg, and FFprobe are ready. Replace the example address below with your configured `TILECAST_PUBLIC_URL`.
 
-```sh
+```sh title="Check server readiness"
 curl --fail http://tilecast.local:8080/readyz
 ```
 

@@ -1,0 +1,221 @@
+{
+  "$schema": "../../packages/widget-sdk/schema/tilecast-widget.schema.json",
+  "apiVersion": 1,
+  "id": "clock",
+  "version": 1,
+  "name": "Clock",
+  "description": "Show the live time, today's date, or the time in several zones.",
+  "category": "Essentials",
+  "icon": "clock",
+  "runtime": "native",
+  "configurationSchema": {
+    "fields": [
+      {
+        "key": "mode",
+        "label": "Show",
+        "description": "Time shows the local time. Date shows today's date. World clocks shows the time in several zones.",
+        "control": "select",
+        "default": "time",
+        "options": [
+          { "value": "time", "label": "Time" },
+          { "value": "date", "label": "Date" },
+          { "value": "world", "label": "World clocks" }
+        ],
+        "ui": { "section": "content", "order": 1, "styleCard": true }
+      },
+      {
+        "key": "timezone",
+        "label": "Timezone",
+        "description": "Leave blank to use the organization timezone, or enter any valid IANA timezone ID.",
+        "control": "timezone",
+        "default": "",
+        "ui": {
+          "section": "content",
+          "order": 2,
+          "visibleWhen": { "key": "mode", "notEquals": "world" }
+        }
+      },
+      {
+        "key": "zones",
+        "label": "Zones",
+        "description": "Up to eight zones. Leave a label blank to show the city name.",
+        "control": "repeating_group",
+        "maximumItems": 8,
+        "itemFields": [
+          {
+            "key": "label",
+            "label": "Label",
+            "control": "text",
+            "default": "",
+            "maxLength": 80
+          },
+          {
+            "key": "timezone",
+            "label": "Timezone",
+            "control": "timezone",
+            "default": ""
+          }
+        ],
+        "default": [],
+        "ui": {
+          "section": "content",
+          "order": 3,
+          "visibleWhen": { "key": "mode", "equals": "world" }
+        }
+      },
+      {
+        "key": "dateFormat",
+        "label": "Date format",
+        "control": "select",
+        "default": "locale",
+        "options": [
+          { "value": "locale", "label": "Weekday and date" },
+          { "value": "long", "label": "Date" },
+          { "value": "medium", "label": "Short date" },
+          { "value": "short", "label": "Numeric date" }
+        ],
+        "ui": {
+          "section": "content",
+          "order": 4,
+          "visibleWhen": { "key": "mode", "equals": "date" }
+        }
+      },
+      {
+        "key": "format",
+        "label": "Time format",
+        "description": "Use the organization setting, or force a 12- or 24-hour clock.",
+        "control": "select",
+        "options": [
+          { "value": "locale", "label": "Use organization setting" },
+          { "value": "12", "label": "12-hour" },
+          { "value": "24", "label": "24-hour" }
+        ],
+        "default": "locale",
+        "ui": {
+          "section": "content",
+          "order": 5,
+          "visibleWhen": { "key": "mode", "notEquals": "date" }
+        }
+      },
+      {
+        "key": "showSeconds",
+        "label": "Show seconds",
+        "control": "boolean",
+        "default": false,
+        "ui": {
+          "section": "content",
+          "order": 6,
+          "visibleWhen": { "key": "mode", "notEquals": "date" }
+        }
+      },
+      {
+        "key": "style",
+        "label": "Style",
+        "description": "Standard shows the time with an optional date. Minimal shows the time alone, as large as possible. Analog shows a dial with the digital time beside it. Screens whose Player predates these styles show the time alone.",
+        "control": "select",
+        "options": [
+          { "value": "standard", "label": "Standard" },
+          { "value": "minimal", "label": "Minimal" },
+          { "value": "analog", "label": "Analog" }
+        ],
+        "default": "standard",
+        "ui": {
+          "section": "appearance",
+          "order": 1,
+          "styleCard": true,
+          "visibleWhen": { "key": "mode", "equals": "time" }
+        }
+      },
+      {
+        "key": "showDate",
+        "label": "Show date",
+        "description": "Minimal style always shows the time alone.",
+        "control": "boolean",
+        "default": false,
+        "ui": {
+          "section": "appearance",
+          "order": 2,
+          "visibleWhen": [
+            { "key": "mode", "notEquals": "date" },
+            { "key": "style", "notEquals": "minimal" }
+          ]
+        }
+      },
+      {
+        "key": "backgroundColor",
+        "label": "Background color",
+        "control": "color",
+        "default": "#0E141B",
+        "ui": { "section": "appearance", "order": 3 }
+      },
+      {
+        "key": "foregroundColor",
+        "label": "Text and accent color",
+        "control": "color",
+        "default": "#F5F7FA",
+        "ui": { "section": "appearance", "order": 4 }
+      },
+      {
+        "key": "textScale",
+        "label": "Text scale",
+        "control": "integer",
+        "minimum": 25,
+        "maximum": 500,
+        "ui": { "hidden": true }
+      },
+      {
+        "key": "contentPadding",
+        "label": "Content padding",
+        "control": "integer",
+        "minimum": 0,
+        "maximum": 40,
+        "ui": { "hidden": true }
+      }
+    ]
+  },
+  "defaultConfiguration": {
+    "mode": "time",
+    "timezone": "",
+    "zones": [],
+    "dateFormat": "locale",
+    "format": "locale",
+    "showSeconds": false,
+    "style": "standard",
+    "showDate": false,
+    "backgroundColor": "#0E141B",
+    "foregroundColor": "#F5F7FA"
+  },
+  "presentationSchemaVersion": 1,
+  "requiredCapabilities": {
+    "layout.surface": 1,
+    "content.text": 1,
+    "binding.core": 1
+  },
+  "emptyStateBehavior": "text",
+  "legacyEditor": true,
+  "deprecation": {},
+  "component": {
+    "type": "tilecast.clock",
+    "version": 2,
+    "tagName": "tc-widget-clock",
+    "entrypoint": "./runtime/index.ts",
+    "configTemplate": {
+      "mode": { "$config": "mode", "default": "time" },
+      "timeZone": { "$config": "timezone", "default": "" },
+      "format": { "$config": "format", "default": "locale" },
+      "showSeconds": { "$config": "showSeconds", "default": false },
+      "style": { "$config": "style", "default": "standard" },
+      "showDate": { "$config": "showDate", "default": false },
+      "dateFormat": { "$config": "dateFormat", "default": "locale" },
+      "zones": {
+        "$config": "zones",
+        "default": []
+      },
+      "background": { "$config": "backgroundColor", "default": "" },
+      "foreground": { "$config": "foregroundColor", "default": "" }
+    },
+    "empty": "render"
+  },
+  "compatibility": { "fallback": "legacy" },
+  "keywords": ["time", "date", "world clock", "time zones"]
+}

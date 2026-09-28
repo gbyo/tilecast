@@ -1,8 +1,8 @@
 name: Android CodeQL
 
 on:
+  # Every pull request, including one stacked on another PR's branch.
   pull_request:
-    branches: [main]
   push:
     branches: [main]
     paths:

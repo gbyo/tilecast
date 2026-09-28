@@ -1,0 +1,13 @@
+{
+  "name": "Other zone, 24-hour",
+  "description": "A Clock for another office shows the zone's city as a caption.",
+  "configuration": {
+    "timezone": "Europe/London",
+    "format": "24",
+    "showSeconds": false,
+    "showDate": true,
+    "foregroundColor": "#F5F7FA",
+    "backgroundColor": "#0E141B"
+  },
+  "expect": "ready"
+}

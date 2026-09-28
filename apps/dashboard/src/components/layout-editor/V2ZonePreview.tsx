@@ -1,0 +1,156 @@
+/**
+ * The Layout zone preview for migrated V2 Widgets
+ * (docs/widgets-v2-authoring-and-first-wave.md).
+ *
+ * The same real Web Component the editor previews and the Player mounts,
+ * sized to the zone. Widgets still on their hand-written zone preview keep
+ * it; each migration deletes its branch from `WidgetLivePreview` and lands
+ * here with no zone-specific renderer.
+ */
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
+import { resolveTheme, type WidgetContext } from "@tilecast/widget-sdk";
+import { compileComponentConfig } from "@tilecast/widget-sdk/manifest";
+import type {
+  WidgetComponentRef,
+  WidgetMountState,
+} from "@tilecast/widget-sdk/mount";
+import { api } from "../../api/client";
+import type { Asset } from "../../api/types";
+import { useOrganizationRegionalProfile } from "../../settings/regionalProfile";
+import { PreviewClock } from "../../content/previewClock";
+import { studioWidgetComponent } from "../../content/studioWidgets";
+import { WidgetPreviewHost } from "../../content/WidgetPreviewHost";
+import { useWidgetPreviewResources } from "../../content/widgetPreviewResources";
+import {
+  widgetPreviewConfiguration,
+  widgetPreviewDataSourceIds,
+  widgetPreviewMedia,
+} from "../../content/widgetPreviewSources";
+
+export function V2ZonePreview({
+  provider,
+  asset,
+  width,
+  height,
+  overrides,
+  onState,
+}: {
+  provider: string;
+  asset?: Asset;
+  /** Zone dimensions in preview pixels. Sizes the frame, never the Widget. */
+  width: number;
+  height: number;
+  /** Per-placement overrides win over Widget configuration, as in Studio. */
+  overrides?: Record<string, unknown>;
+  /** Mount state, for callers that capture the preview once it settles. */
+  onState?: (state: WidgetMountState) => void;
+}) {
+  const { t } = useTranslation(["content", "common"]);
+  const regional = useOrganizationRegionalProfile();
+  const definitions = useQuery({
+    queryKey: ["content-definitions"],
+    queryFn: () => api.contentDefinitions(),
+  });
+  const component = useMemo(
+    () => studioWidgetComponent(definitions.data, provider),
+    [definitions.data, provider],
+  );
+  const definitionFields = useMemo(
+    () =>
+      definitions.data?.widgets.find((entry) => entry.id === provider)
+        ?.configurationSchema.fields ?? [],
+    [definitions.data, provider],
+  );
+  const preview = useMemo(
+    () =>
+      widgetPreviewMedia(
+        definitionFields,
+        widgetPreviewConfiguration(
+          asset?.widget?.authorConfiguration ??
+            asset?.widget?.configuration ??
+            {},
+          asset?.widget?.managedDataSourceId,
+        ),
+      ),
+    [asset, definitionFields],
+  );
+  const configuration = preview.configuration;
+  const dataSourceIds = useMemo(
+    () =>
+      widgetPreviewDataSourceIds(
+        definitionFields,
+        configuration,
+        asset?.widget?.managedDataSourceId,
+      ),
+    [definitionFields, configuration, asset],
+  );
+  const { resources, loading: sourcesLoading } = useWidgetPreviewResources(
+    dataSourceIds,
+    dataSourceIds,
+    preview.media,
+  );
+  const compiled = useMemo((): WidgetComponentRef | null => {
+    if (!component) return null;
+    try {
+      return {
+        type: component.type,
+        version: component.version,
+        config: compileComponentConfig(component.configTemplate, configuration),
+      };
+    } catch {
+      return null;
+    }
+  }, [component, configuration]);
+  const clock = useMemo(() => new PreviewClock(), []);
+  const reducedMotion =
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const context: WidgetContext = useMemo(
+    () => ({
+      clock,
+      locale: regional.locale ?? "en-US",
+      timeZone: regional.timezone ?? "UTC",
+      hourCycle:
+        regional.timeFormat === "12-hour"
+          ? ("h12" as const)
+          : regional.timeFormat === "24-hour"
+            ? ("h23" as const)
+            : ("locale" as const),
+      theme: resolveTheme({
+        background:
+          (overrides?.backgroundColor as string | undefined) ??
+          configuration["backgroundColor"],
+        foreground:
+          (overrides?.foregroundColor as string | undefined) ??
+          configuration["foregroundColor"],
+      }),
+      motion: { reduced: reducedMotion },
+      mode: "preview" as const,
+    }),
+    [
+      clock,
+      reducedMotion,
+      overrides,
+      regional.locale,
+      regional.timezone,
+      regional.timeFormat,
+      configuration,
+    ],
+  );
+
+  if (definitions.isLoading) return null;
+  if (sourcesLoading) return null;
+  if (!compiled) return null;
+  return (
+    <WidgetPreviewHost
+      component={compiled}
+      resources={resources}
+      context={context}
+      frame={{ width, height }}
+      label={t("widgets.editors.v2.zonePreview")}
+      onState={onState}
+    />
+  );
+}

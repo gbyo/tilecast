@@ -5,6 +5,8 @@ description: Give a script or service limited access to Tilecast without sharing
 
 Integration tokens are for scripts and services that need to update a Manual Table or read fleet health. Only the **Owner** can create and revoke them from **Settings** > **Integration tokens**.
 
+An integration token can't do anything else. To manage screens, content, or settings from a script, the CLI, or MCP, use a [personal access token](../personal-access-tokens/) instead. That token acts as your own account.
+
 import { Steps } from "@astrojs/starlight/components";
 
 ## Create a token

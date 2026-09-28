@@ -1,0 +1,122 @@
+---
+title: Connect an MCP client
+description: Give an AI assistant or other MCP client controlled access to Tilecast through tilecast mcp, with read-only mode and explicit confirmation for risky actions.
+---
+
+import { Aside, Steps } from "@astrojs/starlight/components";
+
+Tilecast includes a Model Context Protocol (MCP) server. An MCP client, such as an AI assistant or an agent tool, can use it to list screens, read Activity, publish a Playlist, or approve pairing on your behalf.
+
+The MCP server is part of the [`tilecast` CLI](../cli/). The client starts `tilecast mcp` and exchanges messages with it over standard input and output (stdio). The command does not open a network port.
+
+## How access works
+
+`tilecast mcp` signs in exactly like other CLI commands. It uses the current CLI context, the context you name with `--context`, or `TILECAST_URL` and `TILECAST_TOKEN`. See [how the CLI picks a server](../cli/#how-the-cli-picks-a-server).
+
+Every tool call goes to Tilecast Server as you. The server checks your account, role, screen access, and the credential's scope on every call, exactly as it does for Studio. An MCP client can't do anything your account can't do. If an Owner disables your account or changes your role, the next tool call follows the change.
+
+A browser sign-in from `tilecast auth login` renews itself for as long as the MCP server runs. You don't restart the client when the short-lived access token expires.
+
+## Before you start
+
+- [Build the CLI](../cli/#build-the-cli) on the computer that runs the MCP client.
+- [Sign in](../cli/#sign-in-to-a-server) to the installation, or create a [personal access token](../personal-access-tokens/) for it.
+
+## Connect a client
+
+MCP clients use different configuration screens and files, so check your client's documentation for where to add a stdio server. The values Tilecast needs are the same in every client.
+
+<Steps>
+
+1. Decide what the client may change. For read access only, sign in to a separate context with the `read` scope:
+
+   ```sh title="A read-only context for an assistant"
+   tilecast auth login https://signage.example.org --context-name assistant --scopes read
+   ```
+
+2. In the MCP client, add a stdio server. Set the command to `tilecast`, or to the binary's full path if the client doesn't use your shell's `PATH`.
+3. Set the arguments. To use the context from step 1 and register only read tools, use:
+
+   ```text title="Arguments"
+   --context assistant mcp --read-only
+   ```
+
+   Leave out `--context assistant` to use the current context. Leave out `--read-only` to register every tool.
+
+4. Start or reload the client, and check that its tool list includes tools such as `screen_list` and `activity_overview`.
+
+</Steps>
+
+To reach two installations, add one server entry for each context.
+
+## Available tools
+
+Tools are grouped by the task an operator performs, not by API route. Tool names start with the group, such as `screen_list` or `playlist_publish`.
+
+| Group      | Tools can                                                                               |
+| ---------- | --------------------------------------------------------------------------------------- |
+| `screen`   | List and inspect screens; update details; disable, enable, or revoke a screen.          |
+| `pairing`  | List pending pairing requests, look up a pairing code, and approve or reject a request. |
+| `playlist` | List and inspect Playlists, and publish a draft.                                        |
+| `schedule` | List and inspect schedules, and create one from a JSON document.                        |
+| `settings` | Read and change organization settings, and read one screen's effective Player policy.   |
+| `activity` | Read the overview, uptime, incidents, one incident's timeline, and playback compliance. |
+| `plugin`   | List, inspect, install, and remove built-in plugins.                                    |
+| `token`    | List your personal access tokens and create a new one.                                  |
+
+Other areas, such as media, Layouts, Widgets, Campaigns, and user management, are not available through MCP. Use Studio for those.
+
+### Tools from plugins
+
+An installed plugin with automation adds its own tools. Their names start with the plugin ID. In current releases, Countdown Bar adds tools such as `countdown_bar_list_instances` and `countdown_bar_create_instance`.
+
+The MCP server reads the installed plugins' tools from Tilecast Server when it starts. After an Owner or Administrator installs or removes a plugin, restart the MCP server to update its tool list. Nothing about a plugin is built into the CLI.
+
+## Risk levels and confirmation
+
+Every tool has a risk level, shown at the end of its description. The level decides how the MCP server treats the tool:
+
+| Risk level          | Meaning                                                 | Examples                                                | In the MCP server                  |
+| ------------------- | ------------------------------------------------------- | ------------------------------------------------------- | ---------------------------------- |
+| `read`              | Reads information only.                                 | `screen_list`, `activity_incidents`                     | Runs. Available in read-only mode. |
+| `routine`           | Makes a low-impact change.                              | `settings_set`, `schedule_create`, `plugin_install`     | Runs.                              |
+| `sensitive`         | Affects one screen or one account.                      | `screen_disable`, `playlist_publish`, `pairing_approve` | Needs `confirm` set to `true`.     |
+| `high-impact`       | Affects the whole fleet or is visible outside Tilecast. | None of the current core tools.                         | Needs `confirm` set to `true`.     |
+| `security-critical` | Changes account security or credentials.                | `token_create`                                          | Needs `confirm` set to `true`.     |
+
+A tool that needs confirmation has a required `confirm` argument. When the client leaves it out or sends `false`, the tool refuses and returns an error instead of running. There is no prompt on the Tilecast side, because stdio has no terminal to answer.
+
+Local recovery operations, such as restoring a backup from the server's shell or the emergency MFA reset, are never available through MCP. They also aren't in the remote CLI.
+
+<Aside type="caution" title="Confirmation is not a permission check">
+
+`confirm` stops an accidental call. It does not stop a client that decides to send `confirm: true`. If an assistant must not change anything, use `--read-only`, a `read`-scope credential, or both.
+
+</Aside>
+
+## Read-only mode
+
+`tilecast mcp --read-only` registers only `read` tools. The client doesn't see the other tools, so it can't call them.
+
+Read-only mode is a filter in the MCP server on your computer. For a limit that Tilecast Server enforces, sign in with `--scopes read` or use a personal access token with only the **Read** scope. The server then refuses every change from that credential, whatever the client sends. Using both gives the client a short tool list and a credential that can't make changes.
+
+`token_list` is a `read` tool, so it stays available in read-only mode. It shows token names and expiry dates, never token secrets.
+
+<Aside type="caution" title="Created tokens appear in the conversation">
+
+`token_create` returns the new token's secret in its result, and the client can store that result. Create tokens in Studio when you don't want the secret in an assistant's history.
+
+</Aside>
+
+## Audit records
+
+Tilecast records changes made through MCP under your account and marks them as coming from MCP, even when the MCP server uses your CLI sign-in. Calls made with a personal access token are marked as API calls and include the token's name.
+
+## Limits
+
+- The MCP server communicates only over stdio. Run it on the same computer as the MCP client.
+- One MCP server process connects to one installation.
+- The plugin tool list is fixed when the MCP server starts.
+- The CLI's own confirmation prompts don't apply. MCP uses the `confirm` argument instead.
+
+For the exact contract, see the [programmable control plane reference](https://github.com/gbyo/tilecast/blob/main/docs/programmable-control-plane.md).

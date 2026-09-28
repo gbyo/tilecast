@@ -220,7 +220,9 @@ func (s *Service) fetchStructured(ctx context.Context, provider string, c Struct
 	if err != nil {
 		return nil, "invalid_request", err
 	}
-	accept := map[string]string{"rss": "application/rss+xml, application/xml;q=0.9", "atom": "application/atom+xml, application/xml;q=0.9", "json": "application/json", "csv": "text/csv, text/plain;q=0.8"}[provider]
+	// The unified Feed provider accepts both feed forms; the Server detects
+	// and parses supported RSS/Atom documents into one records contract.
+	accept := map[string]string{"rss": "application/rss+xml, application/xml;q=0.9", "atom": "application/atom+xml, application/xml;q=0.9", "feed": "application/rss+xml, application/atom+xml, application/xml;q=0.9", "json": "application/json", "csv": "text/csv, text/plain;q=0.8"}[provider]
 	request.Header.Set("Accept", accept)
 	request.Header.Set("User-Agent", "Tilecast-Source-Refresh/1")
 	response, err := s.sourceHTTPClient().Do(request)
@@ -232,7 +234,7 @@ func (s *Service) fetchStructured(ctx context.Context, provider string, c Struct
 		return nil, fmt.Sprintf("http_%d", response.StatusCode), errors.New("source server returned an unsuccessful status")
 	}
 	contentType := strings.ToLower(strings.Split(response.Header.Get("Content-Type"), ";")[0])
-	allowed := map[string]map[string]bool{"rss": {"application/rss+xml": true, "application/xml": true, "text/xml": true}, "atom": {"application/atom+xml": true, "application/xml": true, "text/xml": true}, "json": {"application/json": true, "text/json": true}, "csv": {"text/csv": true, "application/csv": true, "text/plain": true, "application/octet-stream": true}}[provider]
+	allowed := map[string]map[string]bool{"rss": {"application/rss+xml": true, "application/xml": true, "text/xml": true}, "atom": {"application/atom+xml": true, "application/xml": true, "text/xml": true}, "feed": {"application/rss+xml": true, "application/atom+xml": true, "application/xml": true, "text/xml": true}, "json": {"application/json": true, "text/json": true}, "csv": {"text/csv": true, "application/csv": true, "text/plain": true, "application/octet-stream": true}}[provider]
 	if !allowed[contentType] {
 		return nil, "unsupported_content_type", errors.New("source response content type is not supported")
 	}
@@ -268,6 +270,9 @@ type feedItem struct {
 		Name string `xml:"name"`
 		Text string `xml:",chardata"`
 	} `xml:"author"`
+	// Dublin Core creators carry feed authorship (for example the New York
+	// Times preset publishes dc:creator instead of author).
+	Creator   string `xml:"http://purl.org/dc/elements/1.1/ creator"`
 	PubDate   string `xml:"pubDate"`
 	Published string `xml:"published"`
 	Updated   string `xml:"updated"`
@@ -337,7 +342,7 @@ func parseFeed(body []byte, c StructuredSourceConfig) ([]StructuredRecord, error
 			continue
 		}
 		seen[stableID] = true
-		records = append(records, StructuredRecord{ID: stableID, Title: sanitizeCalendarText(item.Title, 240), Date: normalizeRecordDate(date), Author: sanitizeCalendarText(firstNonempty(item.Author.Name, item.Author.Text), 160), Description: sanitizeCalendarText(description, 500), Source: sanitizeCalendarText(source, 160), ImageURL: safeRemoteRecordURL(image), Link: safeRemoteRecordURL(link)})
+		records = append(records, StructuredRecord{ID: stableID, Title: sanitizeCalendarText(item.Title, 240), Date: normalizeRecordDate(date), Author: sanitizeCalendarText(firstNonempty(item.Author.Name, item.Author.Text, item.Creator), 160), Description: sanitizeCalendarText(description, 500), Source: sanitizeCalendarText(source, 160), ImageURL: safeRemoteRecordURL(image), Link: safeRemoteRecordURL(link)})
 	}
 	return applyStructuredOptions(records, c), nil
 }
@@ -678,7 +683,7 @@ func (s *Service) refreshStructured(ctx context.Context, assetID uuid.UUID, prov
 	}
 	var records []StructuredRecord
 	switch provider {
-	case "rss", "atom":
+	case "rss", "atom", "feed":
 		records, err = parseFeed(body, c)
 	case "json":
 		records, err = parseJSONRecords(body, c)

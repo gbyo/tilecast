@@ -17,10 +17,31 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { TFunction } from "i18next";
-import type { DataSourceDefinition, DataSourceProvider } from "../api/types";
+import type {
+  DataSourceDefinition,
+  DataSourceProvider,
+  ProviderCatalog,
+} from "../api/types";
 import { translateKnown } from "../i18n";
 
 type ContentT = TFunction<["content", "common"]>;
+
+/**
+ * Data Source providers the generic UI never authors directly: their plugin
+ * contribution hides them from the creation gallery in favor of a canonical
+ * editor. The generic list, filter options, gallery, and connect flows all
+ * skip those providers without naming any of them.
+ */
+export function galleryHiddenProviders(
+  catalog: ProviderCatalog | undefined,
+): DataSourceProvider[] {
+  return (catalog?.providers ?? [])
+    .filter(
+      (entry) =>
+        entry.role === "data_source" && entry.uiHints?.gallery === "hidden",
+    )
+    .map((entry) => entry.id);
+}
 
 // Display names for the providers Studio knows. Values sent to or compared
 // with the API (provider IDs, status strings) are never translated; only
@@ -51,6 +72,8 @@ export function providerLabel(
       return t("dataSources.providerNames.transit");
     case "atom":
       return t("dataSources.providerNames.atom");
+    case "feed":
+      return t("dataSources.providerNames.feed");
     case "form":
       return t("dataSources.providerNames.form");
     default:
@@ -90,6 +113,7 @@ const galleryCopy: Record<string, string> = {
   calendar: "Public Google, Microsoft, Apple, or other ICS calendars.",
   rss: "News, announcements, blog posts, and published updates.",
   atom: "Atom entries from publishing systems and update feeds.",
+  feed: "RSS or Atom headlines normalized into one records contract.",
   json: "Public API data mapped with simple JSON Pointer paths.",
   csv: "Upload a spreadsheet export or connect a hosted CSV URL.",
   manual: "Maintain a small typed dataset directly in Studio.",
@@ -116,6 +140,7 @@ function galleryDescriptionKey(
     calendar: "dataSources.gallery.calendar",
     rss: "dataSources.gallery.rss",
     atom: "dataSources.gallery.atom",
+    feed: "dataSources.gallery.feed",
     json: "dataSources.gallery.json",
     csv: "dataSources.gallery.csv",
     manual: "dataSources.gallery.manual",
@@ -186,6 +211,7 @@ export function setupCopyKeys(provider: DataSourceProvider):
     calendar: "dataSources.setup.calendar",
     rss: "dataSources.setup.rss",
     atom: "dataSources.setup.atom",
+    feed: "dataSources.setup.feed",
     json: "dataSources.setup.json",
     csv: "dataSources.setup.csv",
     manual: "dataSources.setup.manual",
@@ -286,6 +312,17 @@ const createCopy: Record<string, SetupCopy> = {
       "Name the connection and paste the Atom feed URL.",
       "Choose the fields, item limit, and sort order.",
       "Preview the mapped entries, then save.",
+    ],
+  },
+  feed: {
+    eyebrow: "News and headlines", // i18n-ignore: legacy English asserted by DataSourcesPage.test
+    description:
+      "Turn an RSS or Atom feed into clean, cached records for News, tickers, lists, and layouts.", // i18n-ignore: legacy English asserted by DataSourcesPage.test
+    tip: "Paste the direct feed URL. It often ends in /feed, .xml, or .rss. Publisher presets fill in a trusted address.",
+    steps: [
+      "Pick a publisher preset or paste a custom feed URL.",
+      "Choose the fields, item limit, and sort order.",
+      "Preview the mapped stories, then save.",
     ],
   },
   json: {

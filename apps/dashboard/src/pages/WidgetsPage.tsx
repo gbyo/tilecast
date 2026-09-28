@@ -38,6 +38,7 @@ import {
   YouTubeSourceEditor,
 } from "../content/SourceEditors";
 import { GenericWidgetEditor } from "../content/GenericDefinitionEditors";
+import { V2WidgetEditor } from "../content/V2WidgetEditor";
 import { UsedByPanel } from "../content/UsedByPanel";
 import { WidgetSnapshotBackfill } from "../content/WidgetSnapshotBackfill";
 import { inAppPath, withParam } from "../navigation/returnPaths";
@@ -319,6 +320,15 @@ export function WidgetEditorPage() {
         <WebsiteEditor {...common} />
       ) : provider === "youtube" ? (
         <YouTubeSourceEditor {...common} />
+      ) : definition?.component ? (
+        // Migrated V2 Widgets author through the generic V2 editor and its
+        // real shared preview. Component presence is the routing rule, so
+        // the next migrated Widget needs no editor change to land here.
+        <V2WidgetEditor
+          {...common}
+          definition={definition}
+          catalog={definitions.data}
+        />
       ) : definition && !definition.legacyEditor ? (
         <GenericWidgetEditor {...common} definition={definition} />
       ) : (

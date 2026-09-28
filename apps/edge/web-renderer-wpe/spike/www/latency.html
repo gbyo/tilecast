@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+  <body style="margin: 0; background: #000">
+    <video
+      id="v"
+      src="tcweb://cap/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      autoplay
+      muted
+      style="width: 640px; height: 360px"
+    ></video>
+    <script>
+      const v = document.getElementById("v"),
+        c = document.createElement("canvas"),
+        x = c.getContext("2d", { willReadFrequently: true });
+      const samples = [];
+      const cb = () => {
+        if (v.videoWidth) {
+          c.width = 1024;
+          c.height = 4;
+          x.drawImage(v, 0, 0, 1024, 4, 0, 0, 1024, 4);
+          const d = x.getImageData(0, 1, 1024, 1).data;
+          let t = 0n;
+          for (let b = 0; b < 64; b++) {
+            t = (t << 1n) | (d[(b * 4 + 2) * 4] > 127 ? 1n : 0n);
+          }
+          const now = BigInt(
+            Math.round((performance.timeOrigin + performance.now()) * 1000),
+          );
+          const lat = Number(now - t) / 1000;
+          if (lat > 0 && lat < 5000) samples.push(lat);
+        }
+        v.requestVideoFrameCallback(cb);
+      };
+      v.requestVideoFrameCallback(cb);
+      setInterval(() => {
+        if (!samples.length) return;
+        const s = [...samples].sort((a, b) => a - b);
+        console.log(
+          "latency ms: n=" +
+            s.length +
+            " p50=" +
+            s[s.length >> 1].toFixed(1) +
+            " p95=" +
+            s[Math.floor(s.length * 0.95)].toFixed(1) +
+            " max=" +
+            s[s.length - 1].toFixed(1),
+        );
+        samples.length = 0;
+      }, 3000);
+    </script>
+  </body>
+</html>

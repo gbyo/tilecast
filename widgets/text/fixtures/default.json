@@ -1,0 +1,21 @@
+{
+  "name": "Default",
+  "description": "A heading over a two-sentence notice.",
+  "configuration": {
+    "heading": "Library hours",
+    "body": "The library closes at 6 PM on Friday for the staff training day.\nNormal hours return on Monday.",
+    "style": "standard",
+    "align": "center",
+    "backgroundColor": "#0e141b",
+    "foregroundColor": "#f5f7fa"
+  },
+  "expectConfig": {
+    "heading": "Library hours",
+    "body": "The library closes at 6 PM on Friday for the staff training day.\nNormal hours return on Monday.",
+    "style": "standard",
+    "align": "center",
+    "background": "#0e141b",
+    "foreground": "#f5f7fa"
+  },
+  "expect": "ready"
+}

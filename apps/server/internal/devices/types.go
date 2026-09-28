@@ -1,6 +1,7 @@
 package devices
 
 import (
+	"encoding/json"
 	"net/netip"
 	"time"
 
@@ -134,26 +135,30 @@ type Screen struct {
 	UpdateDownloadedBytes     *int64     `json:"updateDownloadedBytes,omitempty"`
 	UpdateExpectedBytes       *int64     `json:"updateExpectedBytes,omitempty"`
 	UpdateError               *string    `json:"updateError,omitempty"`
-	ScreenWidth               int        `json:"screenWidth"`
-	ScreenHeight              int        `json:"screenHeight"`
-	Density                   float32    `json:"density"`
-	Locale                    string     `json:"locale"`
-	Timezone                  string     `json:"timezone"`
-	AvailableStorageBytes     *int64     `json:"availableStorageBytes,omitempty"`
-	UptimeSeconds             *int64     `json:"uptimeSeconds,omitempty"`
-	Enabled                   bool       `json:"enabled"`
-	PairedAt                  time.Time  `json:"pairedAt"`
-	LastConnectedAt           *time.Time `json:"lastConnectedAt,omitempty"`
-	LastDisconnectedAt        *time.Time `json:"lastDisconnectedAt,omitempty"`
-	LastHeartbeatAt           *time.Time `json:"lastHeartbeatAt,omitempty"`
-	LastKnownIP               *string    `json:"lastKnownIp,omitempty"`
-	LastContactAt             *time.Time `json:"lastContactAt,omitempty"`
-	Status                    Status     `json:"status"`
-	HasActiveCredential       bool       `json:"hasActiveCredential"`
-	ArchivedAt                *time.Time `json:"archivedAt,omitempty"`
-	ArchivedReason            string     `json:"archivedReason,omitempty"`
-	CreatedAt                 time.Time  `json:"createdAt"`
-	UpdatedAt                 time.Time  `json:"updatedAt"`
+	// PlayerFamily is what the running player reported (`edge` for Tilecast
+	// Edge); absent for players that do not report it.
+	PlayerFamily          *string    `json:"playerFamily,omitempty"`
+	PlayerArchitecture    *string    `json:"playerArchitecture,omitempty"`
+	ScreenWidth           int        `json:"screenWidth"`
+	ScreenHeight          int        `json:"screenHeight"`
+	Density               float32    `json:"density"`
+	Locale                string     `json:"locale"`
+	Timezone              string     `json:"timezone"`
+	AvailableStorageBytes *int64     `json:"availableStorageBytes,omitempty"`
+	UptimeSeconds         *int64     `json:"uptimeSeconds,omitempty"`
+	Enabled               bool       `json:"enabled"`
+	PairedAt              time.Time  `json:"pairedAt"`
+	LastConnectedAt       *time.Time `json:"lastConnectedAt,omitempty"`
+	LastDisconnectedAt    *time.Time `json:"lastDisconnectedAt,omitempty"`
+	LastHeartbeatAt       *time.Time `json:"lastHeartbeatAt,omitempty"`
+	LastKnownIP           *string    `json:"lastKnownIp,omitempty"`
+	LastContactAt         *time.Time `json:"lastContactAt,omitempty"`
+	Status                Status     `json:"status"`
+	HasActiveCredential   bool       `json:"hasActiveCredential"`
+	ArchivedAt            *time.Time `json:"archivedAt,omitempty"`
+	ArchivedReason        string     `json:"archivedReason,omitempty"`
+	CreatedAt             time.Time  `json:"createdAt"`
+	UpdatedAt             time.Time  `json:"updatedAt"`
 }
 
 type Status string
@@ -175,12 +180,18 @@ type DevicePrincipal struct {
 }
 
 type Heartbeat struct {
-	ScreenWidth                       int               `json:"screenWidth"`
-	ScreenHeight                      int               `json:"screenHeight"`
-	AvailableStorageBytes             *int64            `json:"availableStorageBytes,omitempty"`
-	UptimeSeconds                     *int64            `json:"uptimeSeconds,omitempty"`
-	PlayerVersion                     string            `json:"playerVersion"`
-	PlayerVersionCode                 *int64            `json:"playerVersionCode,omitempty"`
+	ScreenWidth           int    `json:"screenWidth"`
+	ScreenHeight          int    `json:"screenHeight"`
+	AvailableStorageBytes *int64 `json:"availableStorageBytes,omitempty"`
+	UptimeSeconds         *int64 `json:"uptimeSeconds,omitempty"`
+	PlayerVersion         string `json:"playerVersion"`
+	PlayerVersionCode     *int64 `json:"playerVersionCode,omitempty"`
+	// PlayerFamily and PlayerArchitecture say which Player release family
+	// the running player installs (`android`, `electron-linux`, `edge`) and,
+	// for Tilecast Edge, its architecture. A release reaches only screens of
+	// its family; older players omit both.
+	PlayerFamily                      string            `json:"playerFamily,omitempty"`
+	PlayerArchitecture                string            `json:"playerArchitecture,omitempty"`
 	PresentationSchemaVersions        []int             `json:"presentationSchemaVersions,omitempty"`
 	NativePresentationCapabilities    map[string]int    `json:"nativePresentationCapabilities,omitempty"`
 	WebRuntimeVersion                 int               `json:"webRuntimeVersion,omitempty"`
@@ -339,37 +350,10 @@ type Heartbeat struct {
 	WiredInterfaceAvailable *bool  `json:"wiredInterfaceAvailable,omitempty"`
 	WiredIPv4               string `json:"wiredIpv4,omitempty"`
 
-	// The Noise Meter plugin's optional section. It rides the ordinary
-	// heartbeat rather than a channel of its own: microphone analysis happens
-	// fifteen to twenty times a second on the Player, and none of that rate may
-	// reach the network. What travels here is the current state and completed
-	// ten-second aggregates — numbers only. There is no audio, no waveform, and
-	// no sample in this contract, and no field here could carry one.
-	NoiseMeter *NoiseMeterReport `json:"noiseMeter,omitempty"`
-}
-
-type NoiseMeterReport struct {
-	// active, normal, loud, unavailable, or inactive.
-	Status string `json:"status,omitempty"`
-	// The live relative 0-100 level at the moment the heartbeat was built.
-	CurrentLevel *float64 `json:"currentLevel,omitempty"`
-	// The oldest unacknowledged buckets, bounded by the Player. The server
-	// answers with how many it has taken responsibility for; only then does the
-	// Player drop them.
-	PendingHistory []NoiseHistoryBucket `json:"pendingHistory,omitempty"`
-}
-
-// NoiseHistoryBucket is one completed ten-second aggregate. Durations are
-// milliseconds inside that bucket, and monitoredMs is how much of it the
-// microphone actually covered.
-type NoiseHistoryBucket struct {
-	StartedAt    time.Time `json:"startedAt"`
-	AverageLevel float64   `json:"averageLevel"`
-	PeakLevel    float64   `json:"peakLevel"`
-	MonitoredMS  int       `json:"monitoredMs"`
-	WarningMS    int       `json:"warningMs"`
-	LoudMS       int       `json:"loudMs"`
-	TriggerCount int       `json:"triggerCount"`
+	// COMPATIBILITY: the retired Noise Meter plugin's section. Linux and Edge
+	// Players released with it keep sending it, and strict decoding would
+	// otherwise refuse their whole heartbeat. It is accepted and ignored.
+	RetiredNoiseMeter json.RawMessage `json:"noiseMeter,omitempty"`
 }
 
 func addressString(address netip.Addr) *string {

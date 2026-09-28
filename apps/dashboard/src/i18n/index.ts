@@ -10,7 +10,14 @@ import {
   type LanguagePreference,
   type SupportedLanguage,
 } from "./languages";
-import { DEFAULT_NAMESPACE, NAMESPACES, englishResources } from "./resources";
+import {
+  DEFAULT_NAMESPACE,
+  NAMESPACES,
+  PLUGIN_NAMESPACES,
+  englishResources,
+  pluginEnglishResources,
+} from "./resources";
+import { pluginNamespaceFromPath } from "../plugin-host/translation";
 
 export * from "./languages";
 export { NAMESPACES, type Namespace } from "./resources";
@@ -20,13 +27,46 @@ export { NAMESPACES, type Namespace } from "./resources";
 const localeLoaders = import.meta.glob<{ default: Record<string, unknown> }>([
   "../locales/*/*.json",
   "!../locales/en/*.json",
+  "../../../../plugins/*/studio/locales/*.json",
+  "!../../../../plugins/*/studio/locales/en.json",
 ]);
+
+/**
+ * Plugin locale files by namespace, from the locale files the bundler ships.
+ * Namespaces resolve through this map instead of reversing the
+ * directory-to-namespace mapping, which cannot round-trip: a directory name
+ * with an underscore maps to the same namespace as one with a hyphen, so
+ * string replacement can point at a file that does not exist.
+ */
+export function pluginLocalePaths(
+  loaders: Record<string, unknown>,
+): Record<string, string[]> {
+  const byNamespace: Record<string, string[]> = {};
+  for (const path of Object.keys(loaders)) {
+    if (!path.includes("/plugins/")) continue;
+    (byNamespace[pluginNamespaceFromPath(path)] ??= []).push(path);
+  }
+  return byNamespace;
+}
+
+const pluginLocales = pluginLocalePaths(localeLoaders);
+
+function localePath(language: string, namespace: string) {
+  if (namespace.startsWith("plugin.")) {
+    return (
+      pluginLocales[namespace]?.find((path) =>
+        path.endsWith(`/studio/locales/${language}.json`),
+      ) ?? ""
+    );
+  }
+  return `../locales/${language}/${namespace}.json`;
+}
 
 const lazyLocales: BackendModule = {
   type: "backend",
   init: () => undefined,
   read(language, namespace, callback) {
-    const load = localeLoaders[`../locales/${language}/${namespace}.json`];
+    const load = localeLoaders[localePath(language, namespace)];
     if (!load) {
       callback(null, {});
       return;
@@ -119,9 +159,9 @@ export function initI18n(
       fallbackLng: DEFAULT_LANGUAGE,
       supportedLngs: SUPPORTED_LANGUAGES,
       load: "languageOnly",
-      ns: NAMESPACES,
+      ns: [...NAMESPACES, ...PLUGIN_NAMESPACES],
       defaultNS: DEFAULT_NAMESPACE,
-      resources: { en: englishResources },
+      resources: { en: { ...englishResources, ...pluginEnglishResources } },
       partialBundledLanguages: true,
       // React already escapes rendered strings.
       interpolation: { escapeValue: false },

@@ -209,6 +209,7 @@ type DataSourceField struct {
 	Label    string `json:"label"`
 	Type     string `json:"type"`
 	Currency string `json:"currency,omitempty"`
+	Role     string `json:"role,omitempty"`
 }
 
 type TypedRecord struct {
@@ -629,6 +630,10 @@ type ClockWidgetConfig struct {
 	BackgroundColor string `json:"backgroundColor"`
 	TextScale       *int   `json:"textScale,omitempty"`
 	ContentPadding  *int   `json:"contentPadding,omitempty"`
+	// Style and ShowDate are Widgets V2 appearance choices (widgets/clock).
+	// Players that predate Clock V2 ignore them and show the time alone.
+	Style    string `json:"style,omitempty"`
+	ShowDate *bool  `json:"showDate,omitempty"`
 }
 type DateWidgetConfig struct {
 	Timezone        string `json:"timezone"`
