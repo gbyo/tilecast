@@ -2018,7 +2018,7 @@ paths:
         - in: query
           name: terminalReason
           required: false
-          schema: { $ref: "#/components/schemas/ProofTerminalReason" }
+          schema: { $ref: "#/components/schemas/ProofTerminalReasonFilter" }
         - in: query
           name: media
           required: false
@@ -2103,7 +2103,7 @@ paths:
         - in: query
           name: terminalReason
           required: false
-          schema: { $ref: "#/components/schemas/ProofTerminalReason" }
+          schema: { $ref: "#/components/schemas/ProofTerminalReasonFilter" }
         - in: query
           name: media
           required: false
@@ -9737,6 +9737,30 @@ components:
           bounded_timeout,
           unknown,
         ]
+    ProofTerminalReasonFilter:
+      type: string
+      description: >-
+        A terminal reason, or `unexpected`, which matches every interrupted reason the Interrupted plays metric counts.
+      enum:
+        [
+          expected_item_boundary,
+          completed_duration,
+          schedule_transition,
+          manifest_replacement,
+          direct_assignment_change,
+          takeover,
+          manual_skip,
+          empty_content,
+          player_restart,
+          process_exit,
+          heartbeat_gap,
+          renderer_failure,
+          decoder_failure,
+          recovery_action,
+          bounded_timeout,
+          unknown,
+          unexpected,
+        ]
     ProofOfPlayRecord:
       type: object
       additionalProperties: false
@@ -11206,6 +11230,9 @@ components:
           status,
           reviewRequired,
           allowSelfApproval,
+          newerWorkingDraft,
+          affectedScreenCount,
+          affectedLocationCount,
         ]
       properties:
         id: { type: string, format: uuid }

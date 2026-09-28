@@ -6149,6 +6149,28 @@ export interface components {
       | "recovery_action"
       | "bounded_timeout"
       | "unknown";
+    /**
+     * @description A terminal reason, or `unexpected`, which matches every interrupted reason the Interrupted plays metric counts.
+     * @enum {string}
+     */
+    ProofTerminalReasonFilter:
+      | "expected_item_boundary"
+      | "completed_duration"
+      | "schedule_transition"
+      | "manifest_replacement"
+      | "direct_assignment_change"
+      | "takeover"
+      | "manual_skip"
+      | "empty_content"
+      | "player_restart"
+      | "process_exit"
+      | "heartbeat_gap"
+      | "renderer_failure"
+      | "decoder_failure"
+      | "recovery_action"
+      | "bounded_timeout"
+      | "unknown"
+      | "unexpected";
     ProofOfPlayRecord: {
       /** Format: uuid */
       id: string;
@@ -7163,11 +7185,11 @@ export interface components {
       publicationFailureReason?: string;
       /** Format: date-time */
       publishedAt?: string;
-      newerWorkingDraft?: boolean;
+      newerWorkingDraft: boolean;
       /** Format: int64 */
       currentPublishedRevision?: number;
-      affectedScreenCount?: number;
-      affectedLocationCount?: number;
+      affectedScreenCount: number;
+      affectedLocationCount: number;
     };
     ContentSubmissionList: {
       /** @enum {string} */
@@ -14054,7 +14076,7 @@ export interface operations {
         group?: string;
         result?: string;
         sessionType?: components["schemas"]["ProofSessionType"];
-        terminalReason?: components["schemas"]["ProofTerminalReason"];
+        terminalReason?: components["schemas"]["ProofTerminalReasonFilter"];
         media?: string;
         widget?: string;
         content?: string;
@@ -14107,7 +14129,7 @@ export interface operations {
         group?: string;
         result?: string;
         sessionType?: components["schemas"]["ProofSessionType"];
-        terminalReason?: components["schemas"]["ProofTerminalReason"];
+        terminalReason?: components["schemas"]["ProofTerminalReasonFilter"];
         media?: string;
         widget?: string;
         content?: string;
