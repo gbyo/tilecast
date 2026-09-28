@@ -1,0 +1,50 @@
+---
+title: Testing and CI
+description: Run Tilecast's application tests, review visual differences, and understand which CI checks a change selects.
+---
+
+Tilecast combines fast unit and component tests with browser tests against a real Demo Mode installation. Platform suites test the Android Player, Electron, WPE, and Edge's systemd installation separately.
+
+## Run application tests
+
+Use a disposable [Demo Mode installation](../demo-mode/) for browser tests. Every test resets its data. Run these suites in sequence:
+
+```sh title="Repository root · Application tests"
+npx playwright install chromium
+make demo
+npm run test:e2e
+npm run test:visual
+```
+
+The functional suite exercises authoring, publishing, settings, previews, manifest delivery, and player commands. The visual suite compares 22 selected Studio states, including dark-mode editors and the shared Widget renderer in a Layout preview. Both use the real Studio bundle, server, and PostgreSQL schema.
+
+## Review screenshot changes
+
+Linux Chromium is the committed baseline. On macOS, use the Linux Docker helper so you do not need a separate set of macOS screenshots:
+
+```sh title="Run Linux screenshot comparisons"
+bash scripts/ci/visual-linux.sh studio
+bash scripts/ci/visual-linux.sh widgets
+```
+
+After an intentional design change, add `--update-snapshots` to the helper command. Inspect every changed PNG, then run the comparison again without that flag. Commit only reviewed baselines. CI compares screenshots and never accepts changes automatically.
+
+A failed visual job includes expected, actual, and diff images, an HTML report, and traces. Studio failures also include the demo server logs. Open a downloaded HTML report with `npx playwright show-report <report-directory>`. The Linux helper saves reports in `e2e/visual/test-results/linux-run/`.
+
+The [Testing and CI reference](https://github.com/gbyo/tilecast/blob/main/docs/testing.md) gives the exact environment, masks, tolerance, baseline commands, and artifact paths.
+
+## Understand affected checks
+
+Run `npm run test:ci` to test the CI dependency graph. Inspect a branch's selected areas with:
+
+```sh title="Inspect selected CI areas"
+node scripts/ci/affected.mjs --base origin/main --head HEAD
+```
+
+The classifier follows package consumers. Studio changes select Studio and Demo Mode; an Edge installer change selects Rust and migration tests. Shared renderer changes select WPE and Electron conformance. Stacked PRs compare their actual base and head.
+
+The stable aggregate checks are **Required PR validation** and **Required Edge validation**. Each requires every selected job to pass. Full Edge runs continue on relevant main-branch changes, manual dispatch, and a twice-weekly schedule. A separate scheduled workflow runs Go's race detector against the server integration suite.
+
+## Inspect coverage
+
+Run `npm run coverage` for Studio's terminal summary, HTML report, JSON summary, and LCOV file. Server and CLI CI jobs publish Go coverage profiles. Coverage is diagnostic and has no repository-wide percentage gate. Use uncovered paths to find missing behavior evidence, rather than adding assertions only to raise a percentage.

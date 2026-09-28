@@ -1,0 +1,24 @@
+name: validate-plugins
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  validate:
+    name: Plugin conformance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Check plugins and generated files
+        run: npm run plugins:check
+      - name: Test the plugin SDK and pluginctl
+        run: npm test --workspace @tilecast/plugin-sdk

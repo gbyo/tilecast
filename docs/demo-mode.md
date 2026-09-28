@@ -96,7 +96,7 @@ npm run test:e2e
 
 Set `TILECAST_E2E_BASE_URL` to test a different address. Before any test runs, the suite verifies that the server reports `demoMode`, and it stops if the server does not. Each test resets the demo first. Playwright keeps a trace and a screenshot for each failed test in `e2e/test-results`.
 
-The `E2E smoke (Demo Mode)` job in pull request validation runs this suite. On a failure, it keeps the Playwright output and the server logs as an artifact.
+The `Studio browser and visual (Demo Mode)` job runs this suite and the Studio screenshot comparisons. On a failure, it keeps the Playwright output and the server logs as an artifact. See [Testing and CI](testing.md) for the visual baseline procedure and the affected-area graph.
 
 ## Production safety
 

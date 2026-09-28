@@ -9,6 +9,7 @@
     "dev": "vite",
     "lint": "eslint . --max-warnings=0 && eslint --max-warnings=0 ../../plugins",
     "test": "vitest run",
+    "coverage": "vitest run --coverage",
     "i18n:scan": "node scripts/i18n-scan.mjs"
   },
   "dependencies": {
@@ -54,6 +55,7 @@
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^6.0.4",
+    "@vitest/coverage-v8": "^4.1.10",
     "eslint": "^10.8.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.3",
