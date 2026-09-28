@@ -5417,6 +5417,64 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    AirplaySessionScreenState: {
+      /** Format: uuid */
+      screenId: string;
+      screenName: string;
+      role: string;
+      state: string;
+      /** Format: date-time */
+      lastUpdatedAt: string;
+      failureCode?: string;
+      failureMessage?: string;
+      presentationNetworkState?: string;
+    };
+    /** @description Temporary AirPlay Present session. The PIN appears only while the session is preparing, waiting, or active, and only when the server issued one. Null audio and network ids mean no audio screen and no Presentation Network, respectively. */
+    AirplaySession: {
+      /** Format: uuid */
+      id: string;
+      /** @enum {string} */
+      provider: "airplay";
+      /** @enum {string} */
+      status:
+        | "preparing"
+        | "waiting"
+        | "active"
+        | "stopping"
+        | "ended"
+        | "expired"
+        | "failed";
+      /** @enum {string} */
+      targetType: "screen" | "group";
+      /** Format: uuid */
+      targetId: string;
+      /** Format: uuid */
+      gatewayScreenId: string;
+      /** Format: uuid */
+      audioScreenId: string | null;
+      receiverName: string;
+      pin?: string;
+      /** Format: date-time */
+      expiresAt: string;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      endedAt?: string | null;
+      endReason: string;
+      /** @enum {string} */
+      transport: "auto" | "unicast" | "multicast";
+      videoProfile: string;
+      /** @enum {string} */
+      audioMode: "gateway_only" | "none";
+      /** Format: uuid */
+      presentationNetworkId: string | null;
+      presentationNetworkName: string;
+      screenCount: number;
+      readyCount: number;
+      connectedCount: number;
+      failedCount: number;
+      screens: components["schemas"]["AirplaySessionScreenState"][];
+    };
     /** @enum {string} */
     IntegrationScope: "data_source:write" | "activity:read";
     IntegrationToken: {
@@ -12989,8 +13047,9 @@ export interface operations {
   createAirplaySession: {
     parameters: {
       query?: never;
-      header: {
-        "X-CSRF-Token": string;
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path?: never;
       cookie?: never;
@@ -13002,8 +13061,11 @@ export interface operations {
           targetType: "screen" | "group";
           /** Format: uuid */
           targetId: string;
-          /** @enum {integer} */
-          durationMinutes?: 15 | 30 | 60;
+          /**
+           * @description Zero runs until stopped.
+           * @enum {integer}
+           */
+          durationMinutes?: 0 | 15 | 30 | 60;
           /** @enum {string} */
           transport?: "auto" | "unicast" | "multicast";
           /** @enum {string} */
@@ -13017,7 +13079,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["AirplaySession"];
+          };
+        };
       };
       /** @description Invalid request body */
       400: {
@@ -13072,7 +13138,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["AirplaySession"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -13100,8 +13170,9 @@ export interface operations {
   stopAirplaySession: {
     parameters: {
       query?: never;
-      header: {
-        "X-CSRF-Token": string;
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: string;
@@ -13121,7 +13192,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["AirplaySession"];
+          };
+        };
       };
       /** @description Invalid request body */
       400: {
