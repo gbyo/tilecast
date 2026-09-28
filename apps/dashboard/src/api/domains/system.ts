@@ -309,9 +309,7 @@ export function updatePreferences(
 }
 
 export function listIntegrationTokens(): Promise<IntegrationToken[]> {
-  return apiGet<"/api/v1/integration-tokens", IntegrationToken[]>(
-    "/api/v1/integration-tokens",
-  );
+  return apiGet("/api/v1/integration-tokens");
 }
 
 export function createIntegrationToken(
@@ -323,10 +321,7 @@ export function createIntegrationToken(
   },
   csrfToken: string,
 ): Promise<IntegrationTokenCreated> {
-  return apiPost<"/api/v1/integration-tokens", IntegrationTokenCreated>(
-    "/api/v1/integration-tokens",
-    { body, csrfToken },
-  );
+  return apiPost("/api/v1/integration-tokens", { body, csrfToken });
 }
 
 export function revokeIntegrationToken(
