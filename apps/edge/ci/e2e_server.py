@@ -42,6 +42,7 @@ import os
 import re
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import tempfile
@@ -148,7 +149,12 @@ def read_mjpeg_frames(url, opener, want, timeout):
         content_type = response.headers.get("Content-Type", "")
         assert "multipart/x-mixed-replace" in content_type, content_type
         while len(frames) < want and time.time() < deadline:
-            chunk = response.read(65536)
+            try:
+                chunk = response.read(65536)
+            except socket.timeout:
+                # A slow first capture still leaves the stream open; the
+                # deadline bounds the wait.
+                continue
             if not chunk:
                 break
             rest += chunk
