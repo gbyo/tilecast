@@ -36,18 +36,30 @@ class RuntimeStateReplay {
         }
     }
 
-    /** Ordered snapshot for a runtime that just became ready. Commands are actions,
-     * so consume them after one delivery instead of replaying them to every new runtime. */
-    fun collectReplay(): List<HostMessage> {
-        val replay = listOfNotNull(
-            presentation,
-            plugins,
-            identify,
-            command,
-            discoveredServer,
-        )
-        command = null
-        return replay
+    /** Ordered snapshot for a runtime that just became ready.
+     *
+     * Commands are actions, but collecting a snapshot does not prove the page
+     * received it. The caller must acknowledge a successfully delivered
+     * snapshot with [acknowledgeDelivered].
+     */
+    fun collectReplay(): List<HostMessage> = listOfNotNull(
+        presentation,
+        plugins,
+        identify,
+        command,
+        discoveredServer,
+    )
+
+    /** Consumes only the command that was part of a successfully delivered snapshot.
+     *
+     * Identity comparison matters here: if a newer command was offered while an
+     * older response was in flight, acknowledging the older response must not
+     * clear the newer command even when both commands have identical bodies.
+     */
+    fun acknowledgeDelivered(delivered: List<HostMessage>) {
+        val deliveredCommand = delivered.filterIsInstance<HostMessage.Command>().singleOrNull()
+            ?: return
+        if (command === deliveredCommand) command = null
     }
 
     fun clearVolatile() {
