@@ -10627,8 +10627,8 @@ components:
         mode: { $ref: "#/components/schemas/UpdateDeploymentMode" }
         status: { $ref: "#/components/schemas/UpdateDeploymentStatus" }
         createdAt: { type: string, format: date-time }
-        platform: { type: string }
-        playerFamily: { type: string }
+        platform: { $ref: "#/components/schemas/PlayerPlatform" }
+        playerFamily: { $ref: "#/components/schemas/PlayerFamily" }
         architecture: { type: string }
         versionCode: { type: integer, format: int64, minimum: 0 }
         versionName: { type: string }
@@ -10710,8 +10710,8 @@ components:
         rolloutPhase: { $ref: "#/components/schemas/UpdateRolloutPhase" }
         canarySize: { type: integer, minimum: 0, maximum: 50 }
         pauseReason: { type: [string, "null"] }
-        platform: { type: string }
-        playerFamily: { type: string }
+        platform: { $ref: "#/components/schemas/PlayerPlatform" }
+        playerFamily: { $ref: "#/components/schemas/PlayerFamily" }
         architecture: { type: string }
         versionCode: { type: integer, format: int64, minimum: 0 }
         versionName: { type: string }

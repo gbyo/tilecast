@@ -8451,23 +8451,25 @@ type UpdateDeploymentCreatedStatus string
 
 // UpdateDeploymentDetail defines model for UpdateDeploymentDetail.
 type UpdateDeploymentDetail struct {
-	Architecture      string                   `json:"architecture"`
-	ArtifactSizeBytes int64                    `json:"artifactSizeBytes"`
-	CanarySize        int                      `json:"canarySize"`
-	CompletedAt       *time.Time               `json:"completedAt,omitempty"`
-	CreatedAt         time.Time                `json:"createdAt"`
-	Id                openapi_types.UUID       `json:"id"`
-	Mode              UpdateDeploymentMode     `json:"mode"`
-	Name              string                   `json:"name"`
-	PauseReason       *string                  `json:"pauseReason,omitempty"`
-	Platform          string                   `json:"platform"`
-	PlayerFamily      string                   `json:"playerFamily"`
-	RolloutMode       UpdateRolloutMode        `json:"rolloutMode"`
-	RolloutPhase      UpdateRolloutPhase       `json:"rolloutPhase"`
-	Screens           []UpdateDeploymentScreen `json:"screens"`
-	Status            UpdateDeploymentStatus   `json:"status"`
-	VersionCode       int64                    `json:"versionCode"`
-	VersionName       string                   `json:"versionName"`
+	Architecture      string               `json:"architecture"`
+	ArtifactSizeBytes int64                `json:"artifactSizeBytes"`
+	CanarySize        int                  `json:"canarySize"`
+	CompletedAt       *time.Time           `json:"completedAt,omitempty"`
+	CreatedAt         time.Time            `json:"createdAt"`
+	Id                openapi_types.UUID   `json:"id"`
+	Mode              UpdateDeploymentMode `json:"mode"`
+	Name              string               `json:"name"`
+	PauseReason       *string              `json:"pauseReason,omitempty"`
+	Platform          PlayerPlatform       `json:"platform"`
+
+	// PlayerFamily The Player release family. A deployment reaches only screens of its release's family, and for `edge` only screens of its architecture.
+	PlayerFamily PlayerFamily             `json:"playerFamily"`
+	RolloutMode  UpdateRolloutMode        `json:"rolloutMode"`
+	RolloutPhase UpdateRolloutPhase       `json:"rolloutPhase"`
+	Screens      []UpdateDeploymentScreen `json:"screens"`
+	Status       UpdateDeploymentStatus   `json:"status"`
+	VersionCode  int64                    `json:"versionCode"`
+	VersionName  string                   `json:"versionName"`
 }
 
 // UpdateDeploymentList defines model for UpdateDeploymentList.
@@ -8502,17 +8504,19 @@ type UpdateDeploymentStatus string
 
 // UpdateDeploymentSummary defines model for UpdateDeploymentSummary.
 type UpdateDeploymentSummary struct {
-	Architecture        string                 `json:"architecture"`
-	CanarySize          int                    `json:"canarySize"`
-	CreatedAt           time.Time              `json:"createdAt"`
-	FailedCount         int                    `json:"failedCount"`
-	Id                  openapi_types.UUID     `json:"id"`
-	LastFailure         *string                `json:"lastFailure,omitempty"`
-	Mode                UpdateDeploymentMode   `json:"mode"`
-	Name                string                 `json:"name"`
-	PauseReason         *string                `json:"pauseReason,omitempty"`
-	Platform            string                 `json:"platform"`
-	PlayerFamily        string                 `json:"playerFamily"`
+	Architecture string               `json:"architecture"`
+	CanarySize   int                  `json:"canarySize"`
+	CreatedAt    time.Time            `json:"createdAt"`
+	FailedCount  int                  `json:"failedCount"`
+	Id           openapi_types.UUID   `json:"id"`
+	LastFailure  *string              `json:"lastFailure,omitempty"`
+	Mode         UpdateDeploymentMode `json:"mode"`
+	Name         string               `json:"name"`
+	PauseReason  *string              `json:"pauseReason,omitempty"`
+	Platform     PlayerPlatform       `json:"platform"`
+
+	// PlayerFamily The Player release family. A deployment reaches only screens of its release's family, and for `edge` only screens of its architecture.
+	PlayerFamily        PlayerFamily           `json:"playerFamily"`
 	RolloutMode         UpdateRolloutMode      `json:"rolloutMode"`
 	RolloutPhase        UpdateRolloutPhase     `json:"rolloutPhase"`
 	Status              UpdateDeploymentStatus `json:"status"`
