@@ -9637,7 +9637,7 @@ export interface components {
         [key: string]: string;
       };
       valueFieldTypes?: {
-        [key: string]: string;
+        [key: string]: "text" | "number" | "date" | "datetime" | "url";
       };
     };
     StructuredSourceFields: {
@@ -9939,8 +9939,8 @@ export interface components {
       scope: string;
       state?: string;
       challenge: string;
-      /** @enum {string} */
-      method?: "S256";
+      /** @description S256, or omitted. The Server rejects any other value. */
+      method?: string;
     };
     OAuthTokenRequest: {
       /** @enum {string} */
@@ -11338,7 +11338,8 @@ export interface operations {
         scope: string;
         state?: string;
         code_challenge: string;
-        code_challenge_method?: "S256";
+        /** @description S256 */
+        code_challenge_method?: string;
       };
       header?: never;
       path?: never;

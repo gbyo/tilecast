@@ -1995,21 +1995,6 @@ func (e OAuthApprovalScopeScope) Valid() bool {
 	}
 }
 
-// Defines values for OAuthDecisionMethod.
-const (
-	OAuthDecisionMethodS256 OAuthDecisionMethod = "S256"
-)
-
-// Valid indicates whether the value is a known member of the OAuthDecisionMethod enum.
-func (e OAuthDecisionMethod) Valid() bool {
-	switch e {
-	case OAuthDecisionMethodS256:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for OAuthGrantScopes.
 const (
 	OAuthGrantScopesAdmin OAuthGrantScopes = "admin"
@@ -3924,6 +3909,33 @@ func (e StructuredSourceFieldType) Valid() bool {
 	}
 }
 
+// Defines values for StructuredSourceMappingValueFieldTypes.
+const (
+	StructuredSourceMappingValueFieldTypesDate     StructuredSourceMappingValueFieldTypes = "date"
+	StructuredSourceMappingValueFieldTypesDatetime StructuredSourceMappingValueFieldTypes = "datetime"
+	StructuredSourceMappingValueFieldTypesNumber   StructuredSourceMappingValueFieldTypes = "number"
+	StructuredSourceMappingValueFieldTypesText     StructuredSourceMappingValueFieldTypes = "text"
+	StructuredSourceMappingValueFieldTypesUrl      StructuredSourceMappingValueFieldTypes = "url"
+)
+
+// Valid indicates whether the value is a known member of the StructuredSourceMappingValueFieldTypes enum.
+func (e StructuredSourceMappingValueFieldTypes) Valid() bool {
+	switch e {
+	case StructuredSourceMappingValueFieldTypesDate:
+		return true
+	case StructuredSourceMappingValueFieldTypesDatetime:
+		return true
+	case StructuredSourceMappingValueFieldTypesNumber:
+		return true
+	case StructuredSourceMappingValueFieldTypesText:
+		return true
+	case StructuredSourceMappingValueFieldTypesUrl:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SystemHealthService.
 const (
 	SystemHealthServiceTilecastServer SystemHealthService = "tilecast-server"
@@ -5079,21 +5091,6 @@ const (
 func (e TestNotificationWebhook200JSONResponseBodyDataDelivered) Valid() bool {
 	switch e {
 	case TestNotificationWebhook200JSONResponseBodyDataDeliveredTrue:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for DescribeOAuthApprovalParamsCodeChallengeMethod.
-const (
-	DescribeOAuthApprovalParamsCodeChallengeMethodS256 DescribeOAuthApprovalParamsCodeChallengeMethod = "S256"
-)
-
-// Valid indicates whether the value is a known member of the DescribeOAuthApprovalParamsCodeChallengeMethod enum.
-func (e DescribeOAuthApprovalParamsCodeChallengeMethod) Valid() bool {
-	switch e {
-	case DescribeOAuthApprovalParamsCodeChallengeMethodS256:
 		return true
 	default:
 		return false
@@ -7645,16 +7642,15 @@ type OAuthApprovalScopeScope string
 
 // OAuthDecision defines model for OAuthDecision.
 type OAuthDecision struct {
-	Challenge   string               `json:"challenge"`
-	Client      string               `json:"client"`
-	Method      *OAuthDecisionMethod `json:"method,omitempty"`
-	RedirectUri string               `json:"redirectUri"`
-	Scope       string               `json:"scope"`
-	State       *string              `json:"state,omitempty"`
-}
+	Challenge string `json:"challenge"`
+	Client    string `json:"client"`
 
-// OAuthDecisionMethod defines model for OAuthDecision.Method.
-type OAuthDecisionMethod string
+	// Method S256, or omitted. The Server rejects any other value.
+	Method      *string `json:"method,omitempty"`
+	RedirectUri string  `json:"redirectUri"`
+	Scope       string  `json:"scope"`
+	State       *string `json:"state,omitempty"`
+}
 
 // OAuthGrant defines model for OAuthGrant.
 type OAuthGrant struct {
@@ -9675,15 +9671,18 @@ type StructuredSourceFields struct {
 
 // StructuredSourceMapping defines model for StructuredSourceMapping.
 type StructuredSourceMapping struct {
-	Date            string             `json:"date"`
-	ImageUrl        string             `json:"imageUrl"`
-	Link            string             `json:"link"`
-	RootList        string             `json:"rootList"`
-	Subtitle        string             `json:"subtitle"`
-	Title           string             `json:"title"`
-	ValueFieldTypes *map[string]string `json:"valueFieldTypes,omitempty"`
-	ValueFields     *map[string]string `json:"valueFields,omitempty"`
+	Date            string                                             `json:"date"`
+	ImageUrl        string                                             `json:"imageUrl"`
+	Link            string                                             `json:"link"`
+	RootList        string                                             `json:"rootList"`
+	Subtitle        string                                             `json:"subtitle"`
+	Title           string                                             `json:"title"`
+	ValueFieldTypes *map[string]StructuredSourceMappingValueFieldTypes `json:"valueFieldTypes,omitempty"`
+	ValueFields     *map[string]string                                 `json:"valueFields,omitempty"`
 }
+
+// StructuredSourceMappingValueFieldTypes defines model for StructuredSourceMapping.ValueFieldTypes.
+type StructuredSourceMappingValueFieldTypes string
 
 // SubmitContentRequest defines model for SubmitContentRequest.
 type SubmitContentRequest struct {
@@ -11266,16 +11265,15 @@ type ApproveOAuthRequestParams struct {
 
 // DescribeOAuthApprovalParams defines parameters for DescribeOAuthApproval.
 type DescribeOAuthApprovalParams struct {
-	ClientId            string                                          `form:"client_id" json:"client_id"`
-	RedirectUri         string                                          `form:"redirect_uri" json:"redirect_uri"`
-	Scope               string                                          `form:"scope" json:"scope"`
-	State               *string                                         `form:"state,omitempty" json:"state,omitempty"`
-	CodeChallenge       string                                          `form:"code_challenge" json:"code_challenge"`
-	CodeChallengeMethod *DescribeOAuthApprovalParamsCodeChallengeMethod `form:"code_challenge_method,omitempty" json:"code_challenge_method,omitempty"`
-}
+	ClientId      string  `form:"client_id" json:"client_id"`
+	RedirectUri   string  `form:"redirect_uri" json:"redirect_uri"`
+	Scope         string  `form:"scope" json:"scope"`
+	State         *string `form:"state,omitempty" json:"state,omitempty"`
+	CodeChallenge string  `form:"code_challenge" json:"code_challenge"`
 
-// DescribeOAuthApprovalParamsCodeChallengeMethod defines parameters for DescribeOAuthApproval.
-type DescribeOAuthApprovalParamsCodeChallengeMethod string
+	// CodeChallengeMethod S256
+	CodeChallengeMethod *string `form:"code_challenge_method,omitempty" json:"code_challenge_method,omitempty"`
+}
 
 // DenyOAuthRequestParams defines parameters for DenyOAuthRequest.
 type DenyOAuthRequestParams struct {

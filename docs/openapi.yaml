@@ -574,7 +574,9 @@ paths:
             in: query,
             name: code_challenge_method,
             required: false,
-            schema: { type: string, enum: [S256] },
+            description: S256,
+            or omitted. The Server rejects any other value.,
+            schema: { type: string },
           }
       responses:
         "200":
@@ -14587,7 +14589,8 @@ components:
           additionalProperties: { type: string }
         valueFieldTypes:
           type: object
-          additionalProperties: { type: string }
+          additionalProperties:
+            { type: string, enum: [text, number, date, datetime, url] }
     StructuredSourceFields:
       type: object
       additionalProperties: false
@@ -15002,7 +15005,9 @@ components:
         scope: { type: string }
         state: { type: string }
         challenge: { type: string }
-        method: { type: string, enum: [S256] }
+        method:
+          type: string
+          description: S256, or omitted. The Server rejects any other value.
     OAuthTokenRequest:
       type: object
       additionalProperties: false
