@@ -2267,11 +2267,20 @@ async fn a_stale_persisted_server_offset_gives_way_to_the_next_sample() {
     let sampled = offset().await;
     assert!(sampled.server_clock_synchronized_at.unwrap().unix_millis() > now_ms() - 60_000);
 
-    // Repeated samples of an unchanged server clock are not written again.
+    // Repeated samples of an unchanged server clock are not written again
+    // unless they differ by 250 ms or more. Round-trip jitter under load can
+    // produce that difference, so a rewrite is accepted only with it.
     // (The exact 250 ms rule is `server_link`'s unit test; a scripted small
     // change here would be at the mercy of round-trip jitter under load.)
     tokio::time::sleep(Duration::from_secs(2)).await;
-    assert_eq!(offset().await.server_clock_synchronized_at, sampled.server_clock_synchronized_at);
+    let later = offset().await;
+    if later.server_clock_synchronized_at != sampled.server_clock_synchronized_at {
+        let (before, after) = (sampled.server_clock_offset_ms.unwrap(), later.server_clock_offset_ms.unwrap());
+        assert!(
+            (after - before).abs() >= 250,
+            "a sample within 250 ms of the stored offset is not written again: {before} ms, then {after} ms"
+        );
+    }
     renderer.stop();
     player.stop().await;
 }
