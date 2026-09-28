@@ -858,6 +858,114 @@ func (e GitHubDevicePollStatus) Valid() bool {
 	}
 }
 
+// Defines values for IncidentAction.
+const (
+	Acknowledge IncidentAction = "acknowledge"
+	Assign      IncidentAction = "assign"
+	Ignore      IncidentAction = "ignore"
+	Note        IncidentAction = "note"
+	Reopen      IncidentAction = "reopen"
+	Resolve     IncidentAction = "resolve"
+)
+
+// Valid indicates whether the value is a known member of the IncidentAction enum.
+func (e IncidentAction) Valid() bool {
+	switch e {
+	case Acknowledge:
+		return true
+	case Assign:
+		return true
+	case Ignore:
+		return true
+	case Note:
+		return true
+	case Reopen:
+		return true
+	case Resolve:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for IncidentSeverity.
+const (
+	IncidentSeverityCritical IncidentSeverity = "critical"
+	IncidentSeverityError    IncidentSeverity = "error"
+	IncidentSeverityInfo     IncidentSeverity = "info"
+	IncidentSeverityWarning  IncidentSeverity = "warning"
+)
+
+// Valid indicates whether the value is a known member of the IncidentSeverity enum.
+func (e IncidentSeverity) Valid() bool {
+	switch e {
+	case IncidentSeverityCritical:
+		return true
+	case IncidentSeverityError:
+		return true
+	case IncidentSeverityInfo:
+		return true
+	case IncidentSeverityWarning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for IncidentStatus.
+const (
+	IncidentStatusAcknowledged IncidentStatus = "acknowledged"
+	IncidentStatusIgnored      IncidentStatus = "ignored"
+	IncidentStatusOpen         IncidentStatus = "open"
+	IncidentStatusRecovered    IncidentStatus = "recovered"
+	IncidentStatusResolved     IncidentStatus = "resolved"
+)
+
+// Valid indicates whether the value is a known member of the IncidentStatus enum.
+func (e IncidentStatus) Valid() bool {
+	switch e {
+	case IncidentStatusAcknowledged:
+		return true
+	case IncidentStatusIgnored:
+		return true
+	case IncidentStatusOpen:
+		return true
+	case IncidentStatusRecovered:
+		return true
+	case IncidentStatusResolved:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for IncidentType.
+const (
+	IncidentTypeConnectivity IncidentType = "connectivity"
+	IncidentTypePlayback     IncidentType = "playback"
+	IncidentTypeSafeMode     IncidentType = "safe-mode"
+	IncidentTypeStorage      IncidentType = "storage"
+	IncidentTypeUpdate       IncidentType = "update"
+)
+
+// Valid indicates whether the value is a known member of the IncidentType enum.
+func (e IncidentType) Valid() bool {
+	switch e {
+	case IncidentTypeConnectivity:
+		return true
+	case IncidentTypePlayback:
+		return true
+	case IncidentTypeSafeMode:
+		return true
+	case IncidentTypeStorage:
+		return true
+	case IncidentTypeUpdate:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for IntegrationScope.
 const (
 	ActivityRead    IntegrationScope = "activity:read"
@@ -3044,22 +3152,22 @@ func (e UserRole) Valid() bool {
 
 // Defines values for VariantKind.
 const (
-	Original  VariantKind = "original"
-	Playback  VariantKind = "playback"
-	Poster    VariantKind = "poster"
-	Thumbnail VariantKind = "thumbnail"
+	VariantKindOriginal  VariantKind = "original"
+	VariantKindPlayback  VariantKind = "playback"
+	VariantKindPoster    VariantKind = "poster"
+	VariantKindThumbnail VariantKind = "thumbnail"
 )
 
 // Valid indicates whether the value is a known member of the VariantKind enum.
 func (e VariantKind) Valid() bool {
 	switch e {
-	case Original:
+	case VariantKindOriginal:
 		return true
-	case Playback:
+	case VariantKindPlayback:
 		return true
-	case Poster:
+	case VariantKindPoster:
 		return true
-	case Thumbnail:
+	case VariantKindThumbnail:
 		return true
 	default:
 		return false
@@ -4910,6 +5018,56 @@ type HeartbeatAccepted struct {
 	// IgnoredFields Optional playback identifiers that were malformed and therefore dropped.
 	IgnoredFields *[]string `json:"ignoredFields,omitempty"`
 }
+
+// Incident defines model for Incident.
+type Incident struct {
+	AcknowledgedAt    *time.Time          `json:"acknowledgedAt,omitempty"`
+	AcknowledgedBy    *string             `json:"acknowledgedBy,omitempty"`
+	AffectedScreens   int                 `json:"affectedScreens"`
+	AssignedTo        *openapi_types.UUID `json:"assignedTo,omitempty"`
+	AssignedToName    *string             `json:"assignedToName,omitempty"`
+	Description       string              `json:"description"`
+	DeviceModel       *string             `json:"deviceModel,omitempty"`
+	FailureCode       *string             `json:"failureCode,omitempty"`
+	GroupName         *string             `json:"groupName,omitempty"`
+	Id                openapi_types.UUID  `json:"id"`
+	IncidentType      IncidentType        `json:"incidentType"`
+	LastSeenAt        time.Time           `json:"lastSeenAt"`
+	LocationName      *string             `json:"locationName,omitempty"`
+	OccurrenceCount   int                 `json:"occurrenceCount"`
+	OpenedAt          time.Time           `json:"openedAt"`
+	PlayerVersion     *string             `json:"playerVersion,omitempty"`
+	PrimaryScreenId   *openapi_types.UUID `json:"primaryScreenId,omitempty"`
+	PrimaryScreenName *string             `json:"primaryScreenName,omitempty"`
+	ProbableCause     *string             `json:"probableCause,omitempty"`
+	RecoveredAt       *time.Time          `json:"recoveredAt,omitempty"`
+	RecoveryMode      *string             `json:"recoveryMode,omitempty"`
+	RelatedId         *string             `json:"relatedId,omitempty"`
+	RelatedType       *string             `json:"relatedType,omitempty"`
+	ResolutionNotes   *string             `json:"resolutionNotes,omitempty"`
+	ResolutionReason  *string             `json:"resolutionReason,omitempty"`
+	ResolvedAt        *time.Time          `json:"resolvedAt,omitempty"`
+	Severity          IncidentSeverity    `json:"severity"`
+	Status            IncidentStatus      `json:"status"`
+	Title             string              `json:"title"`
+}
+
+// IncidentAction defines model for IncidentAction.
+type IncidentAction string
+
+// IncidentList defines model for IncidentList.
+type IncidentList struct {
+	Items []Incident `json:"items"`
+}
+
+// IncidentSeverity defines model for IncidentSeverity.
+type IncidentSeverity string
+
+// IncidentStatus defines model for IncidentStatus.
+type IncidentStatus string
+
+// IncidentType defines model for IncidentType.
+type IncidentType string
 
 // InstallationIdentity defines model for InstallationIdentity.
 type InstallationIdentity struct {
@@ -7166,10 +7324,10 @@ type GetIncidentAnalyticsParams struct {
 
 // UpdateIncidentJSONBody defines parameters for UpdateIncident.
 type UpdateIncidentJSONBody struct {
-	Action     string  `json:"action"`
-	AssignedTo *string `json:"assignedTo,omitempty"`
-	Notes      *string `json:"notes,omitempty"`
-	Reason     *string `json:"reason,omitempty"`
+	Action     IncidentAction `json:"action"`
+	AssignedTo *string        `json:"assignedTo,omitempty"`
+	Notes      *string        `json:"notes,omitempty"`
+	Reason     *string        `json:"reason,omitempty"`
 }
 
 // UpdateIncidentParams defines parameters for UpdateIncident.
@@ -40169,6 +40327,17 @@ func (r GetPlaybackComplianceResponse) ContentType() string {
 type ListIncidentsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data IncidentList `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListIncidentsResponse) GetJSON200() *struct {
+	Data IncidentList `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -40271,6 +40440,17 @@ func (r GetIncidentResponse) ContentType() string {
 type UpdateIncidentResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data Incident `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateIncidentResponse) GetJSON200() *struct {
+	Data Incident `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -61928,6 +62108,24 @@ func ParseListIncidentsResponse(rsp *http.Response) (*ListIncidentsResponse, err
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data IncidentList `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -61974,6 +62172,33 @@ func ParseUpdateIncidentResponse(rsp *http.Response) (*UpdateIncidentResponse, e
 	response := &UpdateIncidentResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data Incident `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
