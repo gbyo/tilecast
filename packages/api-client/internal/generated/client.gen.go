@@ -3426,6 +3426,27 @@ func (e GetPlaybackComplianceParamsDimension) Valid() bool {
 	}
 }
 
+// Defines values for ListIncidentsParamsDateBasis.
+const (
+	ListIncidentsParamsDateBasisOpened    ListIncidentsParamsDateBasis = "opened"
+	ListIncidentsParamsDateBasisRecovered ListIncidentsParamsDateBasis = "recovered"
+	ListIncidentsParamsDateBasisResolved  ListIncidentsParamsDateBasis = "resolved"
+)
+
+// Valid indicates whether the value is a known member of the ListIncidentsParamsDateBasis enum.
+func (e ListIncidentsParamsDateBasis) Valid() bool {
+	switch e {
+	case ListIncidentsParamsDateBasisOpened:
+		return true
+	case ListIncidentsParamsDateBasisRecovered:
+		return true
+	case ListIncidentsParamsDateBasisResolved:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetActivityUptimeParamsWindow.
 const (
 	N24h GetActivityUptimeParamsWindow = "24h"
@@ -7311,10 +7332,22 @@ type GetPlaybackComplianceParamsDimension string
 
 // ListIncidentsParams defines parameters for ListIncidents.
 type ListIncidentsParams struct {
-	Status   *string `form:"status,omitempty" json:"status,omitempty"`
-	Severity *string `form:"severity,omitempty" json:"severity,omitempty"`
-	Type     *string `form:"type,omitempty" json:"type,omitempty"`
+	Status      *string                       `form:"status,omitempty" json:"status,omitempty"`
+	Severity    *string                       `form:"severity,omitempty" json:"severity,omitempty"`
+	Type        *string                       `form:"type,omitempty" json:"type,omitempty"`
+	Screen      *openapi_types.UUID           `form:"screen,omitempty" json:"screen,omitempty"`
+	Group       *openapi_types.UUID           `form:"group,omitempty" json:"group,omitempty"`
+	Location    *openapi_types.UUID           `form:"location,omitempty" json:"location,omitempty"`
+	Assignee    *openapi_types.UUID           `form:"assignee,omitempty" json:"assignee,omitempty"`
+	FailureCode *string                       `form:"failureCode,omitempty" json:"failureCode,omitempty"`
+	Search      *string                       `form:"search,omitempty" json:"search,omitempty"`
+	From        *time.Time                    `form:"from,omitempty" json:"from,omitempty"`
+	To          *time.Time                    `form:"to,omitempty" json:"to,omitempty"`
+	DateBasis   *ListIncidentsParamsDateBasis `form:"dateBasis,omitempty" json:"dateBasis,omitempty"`
 }
+
+// ListIncidentsParamsDateBasis defines parameters for ListIncidents.
+type ListIncidentsParamsDateBasis string
 
 // GetIncidentAnalyticsParams defines parameters for GetIncidentAnalytics.
 type GetIncidentAnalyticsParams struct {
@@ -20277,6 +20310,114 @@ func NewListIncidentsRequest(server string, params *ListIncidentsParams) (*http.
 		if params.Type != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "type", *params.Type, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Screen != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "screen", *params.Screen, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Group != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "group", *params.Group, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Location != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "location", *params.Location, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Assignee != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "assignee", *params.Assignee, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.FailureCode != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "failureCode", *params.FailureCode, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Search != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "search", *params.Search, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.From != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "from", *params.From, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "date-time"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.To != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "to", *params.To, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "date-time"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.DateBasis != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "dateBasis", *params.DateBasis, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {

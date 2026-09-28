@@ -3206,6 +3206,55 @@ paths:
             schema: { type: string },
           }
         - { in: query, name: type, required: false, schema: { type: string } }
+        - {
+            in: query,
+            name: screen,
+            required: false,
+            schema: { type: string, format: uuid },
+          }
+        - {
+            in: query,
+            name: group,
+            required: false,
+            schema: { type: string, format: uuid },
+          }
+        - {
+            in: query,
+            name: location,
+            required: false,
+            schema: { type: string, format: uuid },
+          }
+        - {
+            in: query,
+            name: assignee,
+            required: false,
+            schema: { type: string, format: uuid },
+          }
+        - {
+            in: query,
+            name: failureCode,
+            required: false,
+            schema: { type: string },
+          }
+        - { in: query, name: search, required: false, schema: { type: string } }
+        - {
+            in: query,
+            name: from,
+            required: false,
+            schema: { type: string, format: date-time },
+          }
+        - {
+            in: query,
+            name: to,
+            required: false,
+            schema: { type: string, format: date-time },
+          }
+        - {
+            in: query,
+            name: dateBasis,
+            required: false,
+            schema: { type: string, enum: [opened, recovered, resolved] },
+          }
       responses:
         "200":
           description: Incident list
