@@ -1,0 +1,18 @@
+{
+  "name": "No source",
+  "description": "Chart with no connected source reports the empty state instead of failing.",
+  "configuration": {
+    "dataSourceId": "",
+    "dataset": "",
+    "series": [],
+    "categoryField": "",
+    "timeField": "",
+    "style": "line",
+    "showLegend": true,
+    "showAxes": true,
+    "emptyText": "",
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "expect": "empty"
+}

@@ -12,6 +12,7 @@ pub const COMPONENT_PRESENTATION_SCHEMA: u32 = 2;
 pub const WIDGET_COMPONENTS: &[(&str, u32)] = &[
     ("widget.tilecast.agenda", 1),
     ("widget.tilecast.cards", 1),
+    ("widget.tilecast.chart", 1),
     ("widget.tilecast.clock", 2),
     ("widget.tilecast.countdown", 1),
     ("widget.tilecast.image-notice", 1),

@@ -846,7 +846,19 @@ func compileNativeRoot(provider string, c map[string]any) (PresentationNode, map
 			labels = append(labels, stringValue(value, "label", stringValue(value, "field", "")))
 			colors = append(colors, stringValue(value, "color", ""))
 		}
-		nodeType := stringValue(c, "chartType", "line") + "_chart"
+		// Charts edited through the V2 editor save a style. Old Players
+		// render areas as lines; a saved legacy donut keeps its old path
+		// until PR G removes it.
+		chartKind := stringValue(c, "chartType", "line")
+		switch stringValue(c, "style", "") {
+		case "bar":
+			chartKind = "bar"
+		case "line":
+			chartKind = "line"
+		case "area":
+			chartKind = "line"
+		}
+		nodeType := chartKind + "_chart"
 		dataset := stringValue(c, "dataSourceId", "") + ":" + stringValue(c, "dataset", "records")
 		surface.Children = []PresentationNode{{Type: nodeType, Props: map[string]any{"seriesLabels": labels, "seriesColors": colors, "categoryField": stringValue(c, "categoryField", ""), "timeField": stringValue(c, "timeField", ""), "showLegend": boolValue(c["showLegend"]), "showAxes": boolValue(c["showAxes"]), "minimum": c["minimum"], "maximum": c["maximum"]}, Binding: &PresentationBinding{Source: "dataset", Dataset: dataset, Fields: fields}}}
 		caps["content."+nodeType] = 2

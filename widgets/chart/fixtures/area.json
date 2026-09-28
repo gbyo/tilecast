@@ -1,0 +1,56 @@
+{
+  "name": "Area",
+  "description": "Cumulative signups as an area with a time axis.",
+  "configuration": {
+    "dataSourceId": "11111111-1111-4111-8111-111111111111",
+    "dataset": "",
+    "series": [{ "field": "signups", "label": "Signups", "color": "" }],
+    "categoryField": "",
+    "timeField": "week",
+    "style": "area",
+    "showLegend": false,
+    "showAxes": true,
+    "emptyText": "",
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "documents": {
+    "11111111-1111-4111-8111-111111111111": {
+      "schemaVersion": 1,
+      "datasets": [
+        {
+          "id": "records",
+          "kind": "records",
+          "fields": [
+            { "key": "week", "label": "Week", "type": "date" },
+            { "key": "signups", "label": "Signups", "type": "integer" }
+          ],
+          "records": [
+            {
+              "id": "r1",
+              "values": {
+                "week": { "kind": "text", "text": "2026-09-07" },
+                "signups": { "kind": "number", "integer": 12 }
+              }
+            },
+            {
+              "id": "r2",
+              "values": {
+                "week": { "kind": "text", "text": "2026-09-14" },
+                "signups": { "kind": "number", "integer": 19 }
+              }
+            },
+            {
+              "id": "r3",
+              "values": {
+                "week": { "kind": "text", "text": "2026-09-21" },
+                "signups": { "kind": "number", "integer": 25 }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expect": "ready"
+}
