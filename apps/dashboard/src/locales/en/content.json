@@ -730,6 +730,8 @@
       "v2": {
         "unavailable": "This Widget's preview component is not part of this Studio build, so it cannot be edited here yet.",
         "unsaved": "Unsaved changes",
+        "savedUpdated": "Widget updated.",
+        "savedCreated": "Widget created.",
         "noControls": "This section has no controls for the current configuration.",
         "zonePreview": "Live Widget preview",
         "sizeLabel": "Preview size",

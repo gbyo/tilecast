@@ -276,7 +276,9 @@ export function V2WidgetEditor({
     onSuccess: (saved) => {
       touched.current = false;
       toast.add({
-        title: asset ? "Widget updated." : "Widget created.",
+        title: asset
+          ? t("widgets.editors.v2.savedUpdated")
+          : t("widgets.editors.v2.savedCreated"),
         type: "success",
       });
       void queryClient.invalidateQueries({ queryKey: ["assets"] });
