@@ -939,6 +939,7 @@
       "calendar": "Calendarios ICS públicos de Google, Microsoft, Apple u otros.",
       "capAlerts": "Alertas públicas activas de emergencia e instrucciones.",
       "csv": "Sube una exportación de hoja de cálculo o conecta una URL de CSV alojado.",
+      "feed": "Titulares RSS o Atom normalizados en un contrato de registros.",
       "form": "Recopila envíos, apruébalos y publica registros a los widgets.",
       "json": "Datos de API públicas asignados con rutas JSON Pointer simples.",
       "manual": "Mantén un pequeño conjunto de datos tipado directamente en Studio.",
@@ -1163,6 +1164,7 @@
       "capAlerts": "Alertas CAP",
       "csv": "CSV",
       "dataSource": "Fuente de datos",
+      "feed": "Fuente RSS / Atom",
       "form": "Formulario",
       "json": "JSON",
       "manual": "Tabla manual",
@@ -1220,6 +1222,16 @@
           "step3": "Revisa las filas asignadas y guarda."
         },
         "tip": "Los nombres de columna deben coincidir con la primera fila del CSV. Empieza con la columna de título; las demás son opcionales."
+      },
+      "feed": {
+        "eyebrow": "Noticias y titulares",
+        "description": "Convierte una fuente RSS o Atom en registros limpios y almacenados en caché para Noticias, tickers, listas y diseños.",
+        "tip": "Pega la URL directa de la fuente. Suele terminar en /feed, .xml o .rss. Los preajustes de editor rellenan una dirección de confianza.",
+        "steps": {
+          "step1": "Elige un preajuste de editor o pega una URL personalizada.",
+          "step2": "Elige los campos, el límite de elementos y el orden.",
+          "step3": "Vista previa de las historias asignadas y guarda."
+        }
       },
       "json": {
         "description": "Conecta un endpoint JSON público, asigna sus rutas de registros y verifica el resultado normalizado antes de guardar.",
@@ -1318,6 +1330,12 @@
       "feedItemsRead_many": "{{count}} de elementos leídos de esta fuente. Los campos que no publica no aparecen.",
       "feedItemsRead_other": "{{count}} elementos leídos de esta fuente. Los campos que no publica no aparecen.",
       "feedUrl": "URL de la fuente",
+      "feedPreset": "Preajuste de editor",
+      "feedPresetAttribution": "El contenido de la fuente pertenece a su editor. Confirma que puedes mostrarlo y acredita al editor en pantalla.",
+      "feedPresetNames": {
+        "nyt-top-stories": "New York Times — Top Stories",
+        "custom": "URL personalizada"
+      },
       "fieldAuthor": "Autor",
       "fieldDate": "Fecha",
       "fieldDescription": "Descripción",

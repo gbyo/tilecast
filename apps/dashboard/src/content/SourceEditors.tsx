@@ -509,7 +509,6 @@ const nativeDefault = (provider: NativeProvider, t: WidgetsT): NativeConfig => {
 function nativeWidgetGuidance(provider: NativeProvider, t: WidgetsT) {
   if (
     [
-      "ticker",
       "metric",
       "spotlight",
       "stat_grid",
@@ -525,7 +524,6 @@ function nativeWidgetGuidance(provider: NativeProvider, t: WidgetsT) {
 function nativeWidgetContentGuidance(provider: NativeProvider, t: WidgetsT) {
   if (
     [
-      "ticker",
       "metric",
       "spotlight",
       "stat_grid",
@@ -596,7 +594,6 @@ export function NativeAppEditor({
         new URLSearchParams({ page: "1", pageSize: "100", sort: "name" }),
       ),
     enabled: [
-      "ticker",
       "metric",
       "spotlight",
       "stat_grid",
@@ -620,7 +617,6 @@ export function NativeAppEditor({
     enabled: provider === "spotlight",
   });
   const acceptedProviders: Record<string, string[]> = {
-    ticker: ["rss", "atom", "calendar", "json", "csv", "manual", "weather"],
     metric: ["json", "csv", "manual", "weather"],
     spotlight: [
       "calendar",
@@ -655,7 +651,6 @@ export function NativeAppEditor({
   const acceptedCreateProviders = (acceptedProviders[provider] ??
     []) as DataSourceProvider[];
   const selectedDataSourceId = [
-    "ticker",
     "metric",
     "spotlight",
     "stat_grid",
@@ -1290,112 +1285,6 @@ export function NativeAppEditor({
                   </fieldset>
                 </>
               )}
-              {provider === "ticker" && (
-                <>
-                  <DataSourceSelect
-                    value={(configuration as TickerWidgetConfig).dataSourceId}
-                    sources={compatibleDataSources}
-                    createProviders={acceptedCreateProviders}
-                    csrf={csrf}
-                    disabled={readOnly}
-                    onChange={(dataSourceId) =>
-                      setConfiguration((current) => ({
-                        ...current,
-                        dataSourceId,
-                      }))
-                    }
-                  />
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <fieldset className="grid gap-2">
-                      <legend className="text-sm font-medium">
-                        {t("widgets.editors.ticker.fields")}
-                      </legend>
-                      <div className="flex flex-wrap gap-x-4 gap-y-2">
-                        {availableFields.map((field) => {
-                          const config = configuration as TickerWidgetConfig;
-                          const selected = (
-                            config.fields ?? [config.field]
-                          ).includes(field.key);
-                          return (
-                            <label
-                              key={field.key}
-                              className="flex items-center gap-2 text-sm"
-                            >
-                              <Checkbox
-                                checked={selected}
-                                disabled={
-                                  readOnly ||
-                                  (!selected &&
-                                    (config.fields ?? [config.field]).filter(
-                                      Boolean,
-                                    ).length >= 3)
-                                }
-                                onCheckedChange={(checked) =>
-                                  setConfiguration((current) => {
-                                    const ticker =
-                                      current as TickerWidgetConfig;
-                                    const fields = (
-                                      ticker.fields ?? [ticker.field]
-                                    ).filter(Boolean);
-                                    const next =
-                                      checked === true
-                                        ? [...fields, field.key]
-                                        : fields.filter(
-                                            (item) => item !== field.key,
-                                          );
-                                    return {
-                                      ...ticker,
-                                      fields: next,
-                                      field: next[0] ?? "",
-                                    };
-                                  })
-                                }
-                                aria-label={field.label}
-                              />
-                              <span>{field.label}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </fieldset>
-                    <Field>
-                      <FieldLabel htmlFor="ticker-separator">
-                        {t("widgets.editors.ticker.separator")}
-                      </FieldLabel>
-                      <Input
-                        id="ticker-separator"
-                        value={(configuration as TickerWidgetConfig).separator}
-                        disabled={readOnly}
-                        onChange={(e) =>
-                          setConfiguration((current) => ({
-                            ...current,
-                            separator: e.target.value,
-                          }))
-                        }
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor="ticker-field-separator">
-                        {t("widgets.editors.ticker.fieldSeparator")}
-                      </FieldLabel>
-                      <Input
-                        id="ticker-field-separator"
-                        value={
-                          (configuration as TickerWidgetConfig)
-                            .fieldSeparator ?? " — "
-                        }
-                        disabled={readOnly}
-                        onChange={(event) =>
-                          setConfiguration((current) => ({
-                            ...current,
-                            fieldSeparator: event.target.value,
-                          }))
-                        }
-                      />
-                    </Field>
-                  </div>
-                </>
-              )}
               {provider === "metric" && (
                 <>
                   <DataSourceSelect
@@ -1641,7 +1530,7 @@ export function NativeAppEditor({
                     <Input
                       id="metric-empty-state"
                       value={
-                        (configuration as TickerWidgetConfig).emptyState ?? ""
+                        (configuration as MetricWidgetConfig).emptyState ?? ""
                       }
                       disabled={readOnly}
                       onChange={(event) =>

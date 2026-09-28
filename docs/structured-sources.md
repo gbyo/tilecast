@@ -1,16 +1,27 @@
 # Structured Sources
 
-Tilecast provides native RSS, Atom, JSON, CSV, and Manual Table **Data Sources**. Each is reusable and non-visual. The server keeps one bounded last-known-good payload and manifest v12 projects a common typed field-and-record contract shared by every Widget that consumes it.
+Tilecast provides a native RSS / Atom Feed and native JSON, CSV, and Manual Table **Data Sources**. Each is reusable and non-visual. The server keeps one bounded last-known-good payload and manifest v12 projects a common typed field-and-record contract shared by every Widget that consumes it. Persisted RSS and Atom providers remain supported and refresh unchanged; new creation offers the one Feed provider.
 
 ## Providers
 
-- RSS and Atom parse standard feed entries. Title, date, author, description excerpt, HTTPS link, and safely discovered HTTPS enclosure images are normalized into typed records. Feed HTML is stripped and never rendered.
+- The Feed provider detects the feed form and parses supported RSS and Atom entries into one records contract. Title, date, author (including Dublin Core creators), description excerpt, HTTPS link, and safely discovered HTTPS enclosure images are normalized into typed records. Feed HTML is stripped and never rendered. Every fixed feed field declares its semantic role — title as headline, description as summary, date as published_at, source as source_name, plus author, link, and image — so feed-driven Widgets map by role instead of by column name.
+- JSON selects a root array and scalar fields with RFC 6901 JSON Pointer. JavaScript, JMESPath functions, templates, expressions, and server-side scripts are not supported.
 - JSON selects a root array and scalar fields with RFC 6901 JSON Pointer. JavaScript, JMESPath functions, templates, expressions, and server-side scripts are not supported.
 - CSV accepts a public URL or an uploaded UTF-8 file. The parser detects comma, semicolon, tab, or pipe delimiters unless one is selected, requires a header row, validates every row width, and maps columns by exact header name.
 
+## Feed presets
+
+Publisher presets are configuration for the Feed Data Source, not Widgets. A preset fills in a trusted, release-verified feed address; the author can still edit the address into a custom URL afterwards.
+
+- New York Times Top Stories (`https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml`) is the verified preset. It returned HTTP 200 with same-day items on 2026-09-27.
+- A custom URL preset covers every other publisher feed.
+- CNN has no preset: its public feed endpoints serve stale content from April 2023 with no dependable current upstream, so the verification gate keeps it out.
+
+Feed content belongs to its publisher. Confirm the installation may display a feed before using it, and credit the publisher on screen; News shows the source name for this purpose. When a feed is unreachable, the source reports its unavailable state and Players keep the last-known-good records until the staleness deadline, then show the Widget's empty message.
+
 ## Field detection
 
-RSS, Atom, JSON, and CSV Sources are inspected before they are mapped. Studio reads the connected data through `POST /api/v1/data-sources/{provider}/inspect` and offers what it found: CSV column names, JSON Pointer paths for the scalar fields of the detected record array, or the record fields a feed actually publishes — each with a few sanitized sample values. A mapping is suggested from those names and applied only while the author has not mapped anything themselves.
+Feed (including persisted RSS and Atom), JSON, and CSV Sources are inspected before they are mapped. Studio reads the connected data through `POST /api/v1/data-sources/{provider}/inspect` and offers what it found: CSV column names, JSON Pointer paths for the scalar fields of the detected record array, or the record fields a feed actually publishes — each with a few sanitized sample values. A mapping is suggested from those names and applied only while the author has not mapped anything themselves.
 
 Each detected field is also typed from its samples — text, number, date, or datetime — and every sample has to agree, so one timestamp in a column of free text does not mistype the column. Detected timestamps are suggested as mapped values with their type, because the display slots carry one date between them and a Widget that asks for a start and an end can only select fields the Source exposes. A Source whose mapping predates its times offers the fields detection found as a single action instead.
 

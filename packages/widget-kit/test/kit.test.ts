@@ -439,4 +439,43 @@ describe("semantic field roles", () => {
       }),
     ).toEqual({ title: "Title" });
   });
+
+  it("maps normalized feed roles to news slots", () => {
+    const feed = [
+      { key: "title", type: "text", role: "headline" },
+      { key: "description", type: "text", role: "summary" },
+      { key: "date", type: "datetime", role: "published_at" },
+      { key: "source", type: "text", role: "source_name" },
+      { key: "author", type: "text", role: "author" },
+    ];
+    expect(
+      suggestFieldMapping(feed, {
+        headline: {
+          roles: ["headline"],
+          legacyKeys: ["title", "headline"],
+          types: ["text"],
+        },
+        summary: {
+          roles: ["summary"],
+          legacyKeys: ["description", "summary"],
+          types: ["text"],
+        },
+        publishedAt: {
+          roles: ["published_at"],
+          legacyKeys: ["date", "published"],
+          types: ["datetime", "date"],
+        },
+        sourceName: {
+          roles: ["source_name"],
+          legacyKeys: ["source"],
+          types: ["text"],
+        },
+      }),
+    ).toEqual({
+      headline: "title",
+      summary: "description",
+      publishedAt: "date",
+      sourceName: "source",
+    });
+  });
 });

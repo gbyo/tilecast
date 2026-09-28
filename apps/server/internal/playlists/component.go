@@ -50,15 +50,26 @@ func (s *Service) compileWidgetComponent(provider string, raw json.RawMessage) (
 		return nil, fmt.Errorf("compile %s component: %w", provider, err)
 	}
 	dataSources := []string{}
-	for _, key := range spec.DataSourceFields {
-		value, _ := configuration[key].(string)
+	grant := func(value string) {
 		id, parseErr := uuid.Parse(value)
 		if parseErr != nil || id == uuid.Nil {
-			continue
+			return
 		}
 		if !containsString(dataSources, id.String()) {
 			dataSources = append(dataSources, id.String())
 		}
+	}
+	for _, key := range spec.DataSourceFields {
+		value, _ := configuration[key].(string)
+		grant(value)
+	}
+	if definition.Recipe != nil {
+		// An App recipe's author schema intentionally hides its managed
+		// source, so no declared data_source control names it. The compiled
+		// configuration still carries the explicit relationship, exactly as
+		// manifest dependency resolution and Studio preview grants read it.
+		managed, _ := configuration["managedDataSourceId"].(string)
+		grant(managed)
 	}
 	return &WidgetPresentation{
 		SchemaVersion:        contentdefs.ComponentPresentationSchemaVersion,

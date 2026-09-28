@@ -35,6 +35,7 @@ export {
 } from "./format.ts";
 export {
   AGENDA_FIELD_ROLES,
+  FEED_FIELD_ROLES,
   fieldForRole,
   MENU_FIELD_ROLES,
   suggestFieldMapping,

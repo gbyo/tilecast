@@ -15,6 +15,8 @@ import qrManifest from "../../../../../widgets/qr-code/tilecast.widget.json";
 import listManifest from "../../../../../widgets/list/tilecast.widget.json";
 import agendaManifest from "../../../../../widgets/agenda/tilecast.widget.json";
 import weatherManifest from "../../../../../widgets/weather/tilecast.widget.json";
+import newsManifest from "../../../../../widgets/news/tilecast.widget.json";
+import tickerManifest from "../../../../../widgets/ticker/tilecast.widget.json";
 import { V2ZonePreview } from "./V2ZonePreview";
 
 afterEach(() => {
@@ -202,6 +204,100 @@ function weatherDefinition(): WidgetDefinition {
   };
 }
 
+function newsDefinition(): WidgetDefinition {
+  return {
+    id: "news",
+    version: 1,
+    apiVersion: 1,
+    name: "News",
+    description: "Present normalized feed and news records.",
+    category: "Data display",
+    icon: "newspaper",
+    runtime: "native",
+    configurationSchema: newsManifest.configurationSchema as {
+      fields: ContentDefinitionField[];
+    },
+    defaultConfiguration: newsManifest.defaultConfiguration,
+    component: {
+      type: "tilecast.news",
+      version: 1,
+      tagName: "tc-widget-news",
+      entrypoint: "./runtime/index.ts",
+      configTemplate: newsManifest.component.configTemplate,
+      dataSourceFields: newsManifest.component.dataSourceFields,
+      empty: "skip-eligible",
+    },
+    compatibility: { fallback: "none" },
+    presentationSchemaVersion: 1,
+    requiredCapabilities: {},
+    emptyStateBehavior: "text",
+  };
+}
+
+function tickerDefinition(): WidgetDefinition {
+  return {
+    id: "ticker",
+    version: 1,
+    apiVersion: 1,
+    name: "Ticker",
+    description: "Scroll short items from any records source.",
+    category: "Data display",
+    icon: "text",
+    runtime: "native",
+    configurationSchema: tickerManifest.configurationSchema as {
+      fields: ContentDefinitionField[];
+    },
+    defaultConfiguration: tickerManifest.defaultConfiguration,
+    component: {
+      type: "tilecast.ticker",
+      version: 1,
+      tagName: "tc-widget-ticker",
+      entrypoint: "./runtime/index.ts",
+      configTemplate: tickerManifest.component.configTemplate,
+      dataSourceFields: tickerManifest.component.dataSourceFields,
+      empty: "skip-eligible",
+    },
+    compatibility: { fallback: "legacy" },
+    presentationSchemaVersion: 1,
+    requiredCapabilities: {},
+    emptyStateBehavior: "text",
+  };
+}
+
+function rssTickerDefinition(): WidgetDefinition {
+  // A saved RSS Ticker keeps its content mode and managed source; the alias
+  // template projects both into the shared ticker contract.
+  return {
+    ...tickerDefinition(),
+    id: "rss-ticker",
+    name: "RSS Ticker",
+    deprecation: { deprecated: true, replacement: "ticker" },
+    compatibility: { fallback: "template" },
+    component: {
+      ...tickerDefinition().component!,
+      configTemplate: {
+        dataSourceId: { $config: "managedDataSourceId", default: "" },
+        primaryField: "title",
+        secondaryField: "",
+        legacyFields: [],
+        legacyContentMode: {
+          $config: "contentMode",
+          default: "title_source",
+        },
+        leadingLabel: { $config: "leadingLabel", default: "NEWS" },
+        separator: { $config: "separator", default: " • " },
+        fieldSeparator: " — ",
+        maxItems: { $config: "maxStories", default: 15 },
+        direction: { $config: "direction", default: "left" },
+        speed: { $config: "speed", default: "normal" },
+        emptyText: { $config: "emptyState", default: "" },
+        background: "",
+        foreground: "",
+      },
+    },
+  };
+}
+
 function catalog(): ContentDefinitionCatalog {
   return {
     revision: "test",
@@ -214,6 +310,9 @@ function catalog(): ContentDefinitionCatalog {
       listDefinition(),
       agendaDefinition(),
       weatherDefinition(),
+      newsDefinition(),
+      tickerDefinition(),
+      rssTickerDefinition(),
     ],
     dataSources: [],
   };
@@ -497,6 +596,205 @@ describe("V2ZonePreview", () => {
         .trim() ?? null;
     expect(weatherText(".temp")).toBe("21.5 °C");
     expect(weatherText(".condition")).toBe("Clear Sky");
+  });
+
+  it("mounts the real News element for a normalized feed source", async () => {
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue(catalog());
+    vi.spyOn(api, "settings").mockResolvedValue({ values: {} } as never);
+    vi.spyOn(api, "previewSavedDataSource").mockResolvedValue({
+      fields: [
+        { key: "title", label: "Title", type: "text", role: "headline" },
+        {
+          key: "description",
+          label: "Description",
+          type: "text",
+          role: "summary",
+        },
+        {
+          key: "date",
+          label: "Publication time",
+          type: "datetime",
+          role: "published_at",
+        },
+        { key: "source", label: "Source", type: "text", role: "source_name" },
+      ],
+      records: [
+        {
+          id: "s1",
+          values: {
+            title: "Library extends weekend hours",
+            description: "The main branch opens Sundays.",
+            date: "2026-09-27T14:00:00Z",
+            source: "City Wire",
+          },
+        },
+      ],
+      cachedAt: "2026-09-28T15:00:00Z",
+      usingCachedData: false,
+      attribution: "City Wire",
+      unavailable: false,
+    });
+    const asset = {
+      widget: {
+        authorConfiguration: {
+          dataSourceId: "source-1",
+          heading: "Latest news",
+          maxStories: 8,
+          showSummary: true,
+          showPublicationTime: true,
+          showSource: true,
+          displayStyle: "headlines",
+        },
+      },
+    } as unknown as Asset;
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const { container } = render(
+      <QueryClientProvider client={client}>
+        <V2ZonePreview provider="news" asset={asset} width={480} height={270} />
+      </QueryClientProvider>,
+    );
+    const frame = await screen.findByRole("img", {
+      name: "Live Widget preview",
+    });
+    await waitFor(() => frame.querySelector("tc-widget-news"));
+    const news = container.querySelector("tc-widget-news");
+    expect(news).toBeInTheDocument();
+    expect(
+      news?.shadowRoot?.querySelector(".story .headline")?.textContent,
+    ).toBe("Library extends weekend hours");
+    expect(
+      news?.shadowRoot?.querySelector(".story .summary")?.textContent,
+    ).toBe("The main branch opens Sundays.");
+  });
+
+  it("mounts the real Ticker element for a records source", async () => {
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue(catalog());
+    vi.spyOn(api, "settings").mockResolvedValue({ values: {} } as never);
+    vi.spyOn(api, "previewSavedDataSource").mockResolvedValue({
+      fields: [
+        { key: "title", label: "Title", type: "text", role: "headline" },
+        { key: "source", label: "Source", type: "text", role: "source_name" },
+      ],
+      records: [
+        {
+          id: "s1",
+          values: { title: "Pool reopens Monday", source: "City Wire" },
+        },
+      ],
+      cachedAt: "2026-09-28T15:00:00Z",
+      usingCachedData: false,
+      attribution: "City Wire",
+      unavailable: false,
+    });
+    const asset = {
+      widget: {
+        authorConfiguration: {
+          dataSourceId: "source-1",
+          primaryField: "title",
+          secondaryField: "source",
+          leadingLabel: "News",
+          separator: " • ",
+          maxItems: 15,
+          direction: "left",
+          speed: "normal",
+        },
+      },
+    } as unknown as Asset;
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const { container } = render(
+      <QueryClientProvider client={client}>
+        <V2ZonePreview
+          provider="ticker"
+          asset={asset}
+          width={960}
+          height={120}
+        />
+      </QueryClientProvider>,
+    );
+    const frame = await screen.findByRole("img", {
+      name: "Live Widget preview",
+    });
+    await waitFor(() => frame.querySelector("tc-widget-ticker"));
+    const ticker = container.querySelector("tc-widget-ticker");
+    expect(ticker).toBeInTheDocument();
+    expect(ticker?.shadowRoot?.querySelector(".label")?.textContent).toBe(
+      "News",
+    );
+    expect(ticker?.shadowRoot?.querySelector(".track")?.textContent).toContain(
+      "Pool reopens Monday",
+    );
+  });
+
+  it("mounts the Ticker element for saved RSS Ticker content", async () => {
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue(catalog());
+    vi.spyOn(api, "settings").mockResolvedValue({ values: {} } as never);
+    vi.spyOn(api, "previewSavedDataSource").mockResolvedValue({
+      fields: [
+        { key: "title", label: "Title", type: "text" },
+        { key: "date", label: "Date", type: "datetime" },
+        { key: "source", label: "Source", type: "text" },
+      ],
+      records: [
+        {
+          id: "s1",
+          values: {
+            title: "Council meets Tuesday",
+            date: "2026-09-26T18:00:00Z",
+            source: "City Wire",
+          },
+        },
+      ],
+      cachedAt: "2026-09-28T15:00:00Z",
+      usingCachedData: false,
+      attribution: "City Wire",
+      unavailable: false,
+    });
+    // Saved content keeps its content mode; the alias template projects it
+    // into the shared ticker contract with the managed source grant.
+    const asset = {
+      widget: {
+        managedDataSourceId: "source-1",
+        authorConfiguration: {
+          managedDataSourceId: "source-1",
+          feedUrl: "https://example.com/feed.xml",
+          leadingLabel: "NEWS",
+          contentMode: "title_source",
+          separator: " • ",
+          speed: "normal",
+          direction: "left",
+          maxStories: 15,
+        },
+      },
+    } as unknown as Asset;
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const { container } = render(
+      <QueryClientProvider client={client}>
+        <V2ZonePreview
+          provider="rss-ticker"
+          asset={asset}
+          width={960}
+          height={120}
+        />
+      </QueryClientProvider>,
+    );
+    const frame = await screen.findByRole("img", {
+      name: "Live Widget preview",
+    });
+    await waitFor(() => frame.querySelector("tc-widget-ticker"));
+    const ticker = container.querySelector("tc-widget-ticker");
+    expect(ticker).toBeInTheDocument();
+    expect(ticker?.shadowRoot?.querySelector(".track")?.textContent).toContain(
+      "Council meets Tuesday",
+    );
+    expect(ticker?.shadowRoot?.querySelector(".track")?.textContent).toContain(
+      "City Wire",
+    );
   });
 
   it("renders nothing while definitions load or the provider is unknown", () => {
