@@ -303,6 +303,39 @@ func (e AuthMethod) Valid() bool {
 	}
 }
 
+// Defines values for AuthStatusAuthMethod.
+const (
+	AuthStatusAuthMethodDemo         AuthStatusAuthMethod = "demo"
+	AuthStatusAuthMethodOauth        AuthStatusAuthMethod = "oauth"
+	AuthStatusAuthMethodPasskey      AuthStatusAuthMethod = "passkey"
+	AuthStatusAuthMethodPassword     AuthStatusAuthMethod = "password"
+	AuthStatusAuthMethodPat          AuthStatusAuthMethod = "pat"
+	AuthStatusAuthMethodRecoveryCode AuthStatusAuthMethod = "recovery_code"
+	AuthStatusAuthMethodTotp         AuthStatusAuthMethod = "totp"
+)
+
+// Valid indicates whether the value is a known member of the AuthStatusAuthMethod enum.
+func (e AuthStatusAuthMethod) Valid() bool {
+	switch e {
+	case AuthStatusAuthMethodDemo:
+		return true
+	case AuthStatusAuthMethodOauth:
+		return true
+	case AuthStatusAuthMethodPasskey:
+		return true
+	case AuthStatusAuthMethodPassword:
+		return true
+	case AuthStatusAuthMethodPat:
+		return true
+	case AuthStatusAuthMethodRecoveryCode:
+		return true
+	case AuthStatusAuthMethodTotp:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BackupJobKind.
 const (
 	BackupJobKindBackup  BackupJobKind = "backup"
@@ -485,13 +518,16 @@ func (e CatalogPluginCategory) Valid() bool {
 
 // Defines values for CompiledWidgetPresentationKind.
 const (
-	CompiledWidgetPresentationKindNative CompiledWidgetPresentationKind = "native"
-	CompiledWidgetPresentationKindWeb    CompiledWidgetPresentationKind = "web"
+	CompiledWidgetPresentationKindComponent CompiledWidgetPresentationKind = "component"
+	CompiledWidgetPresentationKindNative    CompiledWidgetPresentationKind = "native"
+	CompiledWidgetPresentationKindWeb       CompiledWidgetPresentationKind = "web"
 )
 
 // Valid indicates whether the value is a known member of the CompiledWidgetPresentationKind enum.
 func (e CompiledWidgetPresentationKind) Valid() bool {
 	switch e {
+	case CompiledWidgetPresentationKindComponent:
+		return true
 	case CompiledWidgetPresentationKindNative:
 		return true
 	case CompiledWidgetPresentationKindWeb:
@@ -678,21 +714,45 @@ func (e ContentDefinitionOutputSchemaKind) Valid() bool {
 	}
 }
 
-// Defines values for ContentExtensionSourceKind.
+// Defines values for ContentExtensionSource0Kind.
 const (
-	Core    ContentExtensionSourceKind = "core"
-	Package ContentExtensionSourceKind = "package"
-	Plugin  ContentExtensionSourceKind = "plugin"
+	Core ContentExtensionSource0Kind = "core"
 )
 
-// Valid indicates whether the value is a known member of the ContentExtensionSourceKind enum.
-func (e ContentExtensionSourceKind) Valid() bool {
+// Valid indicates whether the value is a known member of the ContentExtensionSource0Kind enum.
+func (e ContentExtensionSource0Kind) Valid() bool {
 	switch e {
 	case Core:
 		return true
-	case Package:
-		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ContentExtensionSource1Kind.
+const (
+	Plugin ContentExtensionSource1Kind = "plugin"
+)
+
+// Valid indicates whether the value is a known member of the ContentExtensionSource1Kind enum.
+func (e ContentExtensionSource1Kind) Valid() bool {
+	switch e {
 	case Plugin:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ContentExtensionSource2Kind.
+const (
+	Package ContentExtensionSource2Kind = "package"
+)
+
+// Valid indicates whether the value is a known member of the ContentExtensionSource2Kind enum.
+func (e ContentExtensionSource2Kind) Valid() bool {
+	switch e {
+	case Package:
 		return true
 	default:
 		return false
@@ -3837,6 +3897,33 @@ func (e SpanStatusDisplayMode) Valid() bool {
 	}
 }
 
+// Defines values for StructuredSourceFieldType.
+const (
+	StructuredSourceFieldTypeDate     StructuredSourceFieldType = "date"
+	StructuredSourceFieldTypeDatetime StructuredSourceFieldType = "datetime"
+	StructuredSourceFieldTypeNumber   StructuredSourceFieldType = "number"
+	StructuredSourceFieldTypeText     StructuredSourceFieldType = "text"
+	StructuredSourceFieldTypeUrl      StructuredSourceFieldType = "url"
+)
+
+// Valid indicates whether the value is a known member of the StructuredSourceFieldType enum.
+func (e StructuredSourceFieldType) Valid() bool {
+	switch e {
+	case StructuredSourceFieldTypeDate:
+		return true
+	case StructuredSourceFieldTypeDatetime:
+		return true
+	case StructuredSourceFieldTypeNumber:
+		return true
+	case StructuredSourceFieldTypeText:
+		return true
+	case StructuredSourceFieldTypeUrl:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SystemHealthService.
 const (
 	SystemHealthServiceTilecastServer SystemHealthService = "tilecast-server"
@@ -5469,16 +5556,20 @@ type AuthMethod string
 
 // AuthStatus defines model for AuthStatus.
 type AuthStatus struct {
-	AuthMethod                *string `json:"authMethod,omitempty"`
-	Authenticated             bool    `json:"authenticated"`
-	CsrfToken                 *string `json:"csrfToken,omitempty"`
-	DemoMode                  *bool   `json:"demoMode,omitempty"`
-	MfaEnrollmentRequired     *bool   `json:"mfaEnrollmentRequired,omitempty"`
-	PasskeysAvailable         bool    `json:"passkeysAvailable"`
-	PasskeysUnavailableReason *string `json:"passkeysUnavailableReason,omitempty"`
-	SetupRequired             bool    `json:"setupRequired"`
-	User                      *User   `json:"user,omitempty"`
+	// AuthMethod The factor that completed the session sign-in, or pat or oauth when the caller authenticated with a bearer grant.
+	AuthMethod                *AuthStatusAuthMethod `json:"authMethod,omitempty"`
+	Authenticated             bool                  `json:"authenticated"`
+	CsrfToken                 *string               `json:"csrfToken,omitempty"`
+	DemoMode                  *bool                 `json:"demoMode,omitempty"`
+	MfaEnrollmentRequired     *bool                 `json:"mfaEnrollmentRequired,omitempty"`
+	PasskeysAvailable         bool                  `json:"passkeysAvailable"`
+	PasskeysUnavailableReason *string               `json:"passkeysUnavailableReason,omitempty"`
+	SetupRequired             bool                  `json:"setupRequired"`
+	User                      *User                 `json:"user,omitempty"`
 }
+
+// AuthStatusAuthMethod The factor that completed the session sign-in, or pat or oauth when the caller authenticated with a bearer grant.
+type AuthStatusAuthMethod string
 
 // AuthUser defines model for AuthUser.
 type AuthUser struct {
@@ -5915,6 +6006,17 @@ type CompiledWebReload struct {
 
 // CompiledWidgetPresentation defines model for CompiledWidgetPresentation.
 type CompiledWidgetPresentation struct {
+	// Component Set for kind component (docs/widgets-v2.md).
+	Component *struct {
+		Config      map[string]interface{} `json:"config"`
+		DataSources []string               `json:"dataSources"`
+		Media       []struct {
+			AssetId   string `json:"assetId"`
+			VariantId string `json:"variantId"`
+		} `json:"media"`
+		Type    string `json:"type"`
+		Version int    `json:"version"`
+	} `json:"component,omitempty"`
 	Kind   CompiledWidgetPresentationKind `json:"kind"`
 	Native *struct {
 		Root CompiledPresentationNode `json:"root"`
@@ -6162,15 +6264,36 @@ type ContentDefinitionWebIntegration struct {
 
 // ContentExtensionSource Where the definition came from; an absent source means release-owned core.
 type ContentExtensionSource struct {
-	Digest         *string                     `json:"digest,omitempty"`
-	Kind           *ContentExtensionSourceKind `json:"kind,omitempty"`
-	PackageId      *string                     `json:"packageId,omitempty"`
-	PackageVersion *string                     `json:"packageVersion,omitempty"`
-	PluginId       *string                     `json:"pluginId,omitempty"`
+	union json.RawMessage
 }
 
-// ContentExtensionSourceKind defines model for ContentExtensionSource.Kind.
-type ContentExtensionSourceKind string
+// ContentExtensionSource0 defines model for ContentExtensionSource.0.
+type ContentExtensionSource0 struct {
+	Kind ContentExtensionSource0Kind `json:"kind"`
+}
+
+// ContentExtensionSource0Kind defines model for ContentExtensionSource.0.Kind.
+type ContentExtensionSource0Kind string
+
+// ContentExtensionSource1 defines model for ContentExtensionSource.1.
+type ContentExtensionSource1 struct {
+	Kind     ContentExtensionSource1Kind `json:"kind"`
+	PluginId string                      `json:"pluginId"`
+}
+
+// ContentExtensionSource1Kind defines model for ContentExtensionSource.1.Kind.
+type ContentExtensionSource1Kind string
+
+// ContentExtensionSource2 defines model for ContentExtensionSource.2.
+type ContentExtensionSource2 struct {
+	Digest         string                      `json:"digest"`
+	Kind           ContentExtensionSource2Kind `json:"kind"`
+	PackageId      string                      `json:"packageId"`
+	PackageVersion string                      `json:"packageVersion"`
+}
+
+// ContentExtensionSource2Kind defines model for ContentExtensionSource.2.Kind.
+type ContentExtensionSource2Kind string
 
 // ContentFolder defines model for ContentFolder.
 type ContentFolder struct {
@@ -6444,7 +6567,7 @@ type CreateUploadRequest struct {
 	SizeBytes int64  `json:"sizeBytes"`
 }
 
-// DataSource Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider stays an open string because definition and plugin providers extend the registry beyond the request-side enum.
+// DataSource Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider is an open string because definition and plugin providers extend the built-in registry.
 type DataSource struct {
 	ConfigVersion int                    `json:"configVersion"`
 	Configuration map[string]interface{} `json:"configuration"`
@@ -9530,11 +9653,14 @@ type StructuredPreviewRecord struct {
 
 // StructuredSourceField defines model for StructuredSourceField.
 type StructuredSourceField struct {
-	Key     string   `json:"key"`
-	Label   string   `json:"label"`
-	Samples []string `json:"samples"`
-	Type    string   `json:"type"`
+	Key     string                    `json:"key"`
+	Label   string                    `json:"label"`
+	Samples []string                  `json:"samples"`
+	Type    StructuredSourceFieldType `json:"type"`
 }
+
+// StructuredSourceFieldType defines model for StructuredSourceField.Type.
+type StructuredSourceFieldType string
 
 // StructuredSourceFields defines model for StructuredSourceFields.
 type StructuredSourceFields struct {
@@ -12227,6 +12353,94 @@ type CompileWidgetPreviewJSONRequestBody CompileWidgetPreviewJSONBody
 
 // UpdateWidgetJSONRequestBody defines body for UpdateWidget for application/json ContentType.
 type UpdateWidgetJSONRequestBody = WidgetInput
+
+// AsContentExtensionSource0 returns the union data inside the ContentExtensionSource as a ContentExtensionSource0
+func (t ContentExtensionSource) AsContentExtensionSource0() (ContentExtensionSource0, error) {
+	var body ContentExtensionSource0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromContentExtensionSource0 overwrites any union data inside the ContentExtensionSource as the provided ContentExtensionSource0
+func (t *ContentExtensionSource) FromContentExtensionSource0(v ContentExtensionSource0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeContentExtensionSource0 performs a merge with any union data inside the ContentExtensionSource, using the provided ContentExtensionSource0
+func (t *ContentExtensionSource) MergeContentExtensionSource0(v ContentExtensionSource0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsContentExtensionSource1 returns the union data inside the ContentExtensionSource as a ContentExtensionSource1
+func (t ContentExtensionSource) AsContentExtensionSource1() (ContentExtensionSource1, error) {
+	var body ContentExtensionSource1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromContentExtensionSource1 overwrites any union data inside the ContentExtensionSource as the provided ContentExtensionSource1
+func (t *ContentExtensionSource) FromContentExtensionSource1(v ContentExtensionSource1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeContentExtensionSource1 performs a merge with any union data inside the ContentExtensionSource, using the provided ContentExtensionSource1
+func (t *ContentExtensionSource) MergeContentExtensionSource1(v ContentExtensionSource1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsContentExtensionSource2 returns the union data inside the ContentExtensionSource as a ContentExtensionSource2
+func (t ContentExtensionSource) AsContentExtensionSource2() (ContentExtensionSource2, error) {
+	var body ContentExtensionSource2
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromContentExtensionSource2 overwrites any union data inside the ContentExtensionSource as the provided ContentExtensionSource2
+func (t *ContentExtensionSource) FromContentExtensionSource2(v ContentExtensionSource2) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeContentExtensionSource2 performs a merge with any union data inside the ContentExtensionSource, using the provided ContentExtensionSource2
+func (t *ContentExtensionSource) MergeContentExtensionSource2(v ContentExtensionSource2) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t ContentExtensionSource) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *ContentExtensionSource) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
 
 // AsCalendarPreview returns the union data inside the DataSourcePreviewResult as a CalendarPreview
 func (t DataSourcePreviewResult) AsCalendarPreview() (CalendarPreview, error) {
@@ -49590,14 +49804,14 @@ type CreateDataSourceResponse struct {
 	HTTPResponse *http.Response
 	// JSON201 the response for an HTTP 201 `application/json` response
 	JSON201 *struct {
-		// Data Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider stays an open string because definition and plugin providers extend the registry beyond the request-side enum.
+		// Data Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider is an open string because definition and plugin providers extend the built-in registry.
 		Data DataSource `json:"data"`
 	}
 }
 
 // GetJSON201 returns the response for an HTTP 201 `application/json` response
 func (r CreateDataSourceResponse) GetJSON201() *struct {
-	// Data Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider stays an open string because definition and plugin providers extend the registry beyond the request-side enum.
+	// Data Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider is an open string because definition and plugin providers extend the built-in registry.
 	Data DataSource `json:"data"`
 } {
 	return r.JSON201
@@ -49716,14 +49930,14 @@ type UpdateDataSourceResponse struct {
 	HTTPResponse *http.Response
 	// JSON200 the response for an HTTP 200 `application/json` response
 	JSON200 *struct {
-		// Data Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider stays an open string because definition and plugin providers extend the registry beyond the request-side enum.
+		// Data Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider is an open string because definition and plugin providers extend the built-in registry.
 		Data DataSource `json:"data"`
 	}
 }
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
 func (r UpdateDataSourceResponse) GetJSON200() *struct {
-	// Data Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider stays an open string because definition and plugin providers extend the registry beyond the request-side enum.
+	// Data Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider is an open string because definition and plugin providers extend the built-in registry.
 	Data DataSource `json:"data"`
 } {
 	return r.JSON200
@@ -49876,14 +50090,14 @@ type DuplicateDataSourceResponse struct {
 	HTTPResponse *http.Response
 	// JSON201 the response for an HTTP 201 `application/json` response
 	JSON201 *struct {
-		// Data Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider stays an open string because definition and plugin providers extend the registry beyond the request-side enum.
+		// Data Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider is an open string because definition and plugin providers extend the built-in registry.
 		Data DataSource `json:"data"`
 	}
 }
 
 // GetJSON201 returns the response for an HTTP 201 `application/json` response
 func (r DuplicateDataSourceResponse) GetJSON201() *struct {
-	// Data Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider stays an open string because definition and plugin providers extend the registry beyond the request-side enum.
+	// Data Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider is an open string because definition and plugin providers extend the built-in registry.
 	Data DataSource `json:"data"`
 } {
 	return r.JSON201
@@ -71133,7 +71347,7 @@ func ParseCreateDataSourceResponse(rsp *http.Response) (*CreateDataSourceRespons
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
 		var dest struct {
-			// Data Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider stays an open string because definition and plugin providers extend the registry beyond the request-side enum.
+			// Data Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider is an open string because definition and plugin providers extend the built-in registry.
 			Data DataSource `json:"data"`
 		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -71212,7 +71426,7 @@ func ParseUpdateDataSourceResponse(rsp *http.Response) (*UpdateDataSourceRespons
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest struct {
-			// Data Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider stays an open string because definition and plugin providers extend the registry beyond the request-side enum.
+			// Data Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider is an open string because definition and plugin providers extend the built-in registry.
 			Data DataSource `json:"data"`
 		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -71307,7 +71521,7 @@ func ParseDuplicateDataSourceResponse(rsp *http.Response) (*DuplicateDataSourceR
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
 		var dest struct {
-			// Data Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider stays an open string because definition and plugin providers extend the registry beyond the request-side enum.
+			// Data Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider is an open string because definition and plugin providers extend the built-in registry.
 			Data DataSource `json:"data"`
 		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {

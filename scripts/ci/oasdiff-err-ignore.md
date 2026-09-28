@@ -6,8 +6,10 @@ plus the change description text. Every entry below is a spec correction,
 not a runtime break. A body entry names a handler that rejects a missing body
 through the strict JSON decoder (`decodeJSON` answers 400 `invalid_request` on
 an empty body), so no client that works against the running server can break.
-An enum entry names a request property that the contract now describes as an
-open string: every earlier value stays accepted. A new
+A request enum entry names a request property that the contract now describes as
+an open string: every earlier value stays accepted. A response enum entry names a
+response property that the contract used to describe as a bare string and now
+describes with the closed vocabulary the Server already returned. A new
 finding that is not listed here describes a real behavior change and must
 be fixed, not appended.
 
@@ -68,3 +70,10 @@ PATCH /api/v1/data-sources/{id} removed the enum value `manual` of the request p
 PATCH /api/v1/data-sources/{id} removed the enum value `rss` of the request property `provider`: the request property is now an open string, so the value is still accepted; the Server resolves provider against its live registry, which includes definition and plugin providers.
 PATCH /api/v1/data-sources/{id} removed the enum value `transit` of the request property `provider`: the request property is now an open string, so the value is still accepted; the Server resolves provider against its live registry, which includes definition and plugin providers.
 PATCH /api/v1/data-sources/{id} removed the enum value `weather` of the request property `provider`: the request property is now an open string, so the value is still accepted; the Server resolves provider against its live registry, which includes definition and plugin providers.
+GET /api/v1/auth/status added the new `demo` enum value to the `authMethod` response property for the response status `200`: the value was already returned; the contract now names the vocabulary instead of a bare string.
+GET /api/v1/auth/status added the new `oauth` enum value to the `authMethod` response property for the response status `200`: the value was already returned; the contract now names the vocabulary instead of a bare string.
+GET /api/v1/auth/status added the new `passkey` enum value to the `authMethod` response property for the response status `200`: the value was already returned; the contract now names the vocabulary instead of a bare string.
+GET /api/v1/auth/status added the new `password` enum value to the `authMethod` response property for the response status `200`: the value was already returned; the contract now names the vocabulary instead of a bare string.
+GET /api/v1/auth/status added the new `pat` enum value to the `authMethod` response property for the response status `200`: the value was already returned; the contract now names the vocabulary instead of a bare string.
+GET /api/v1/auth/status added the new `recovery_code` enum value to the `authMethod` response property for the response status `200`: the value was already returned; the contract now names the vocabulary instead of a bare string.
+GET /api/v1/auth/status added the new `totp` enum value to the `authMethod` response property for the response status `200`: the value was already returned; the contract now names the vocabulary instead of a bare string.

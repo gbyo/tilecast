@@ -10822,7 +10822,10 @@ components:
           submittedAt,
           status,
           reviewRequired,
-          allowSelfApproval, newerWorkingDraft, affectedScreenCount, affectedLocationCount,
+          allowSelfApproval,
+          newerWorkingDraft,
+          affectedScreenCount,
+          affectedLocationCount,
         ]
       properties:
         id: { type: string, format: uuid }
@@ -10902,17 +10905,29 @@ components:
           type: array
           items: { $ref: "#/components/schemas/ProviderCatalogEntry" }
     ContentExtensionSource:
-      type: object
-      additionalProperties: false
       description: >-
         Where the definition came from; an absent source means
         release-owned core.
-      properties:
-        kind: { type: string, enum: [core, plugin, package] }
-        pluginId: { type: string }
-        packageId: { type: string }
-        packageVersion: { type: string }
-        digest: { type: string }
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [kind]
+          properties:
+            kind: { type: string, enum: [core] }
+        - type: object
+          additionalProperties: false
+          required: [kind, pluginId]
+          properties:
+            kind: { type: string, enum: [plugin] }
+            pluginId: { type: string }
+        - type: object
+          additionalProperties: false
+          required: [kind, packageId, packageVersion, digest]
+          properties:
+            kind: { type: string, enum: [package] }
+            packageId: { type: string }
+            packageVersion: { type: string }
+            digest: { type: string }
     ContentDefinitionSetup:
       type: object
       additionalProperties: false
@@ -13715,7 +13730,7 @@ components:
       required: [schemaVersion, kind, requiredCapabilities]
       properties:
         schemaVersion: { type: integer, minimum: 1 }
-        kind: { type: string, enum: [native, web] }
+        kind: { type: string, enum: [native, web, component] }
         requiredCapabilities:
           type: object
           additionalProperties: { type: integer, minimum: 1 }
@@ -13726,6 +13741,27 @@ components:
           properties:
             root: { $ref: "#/components/schemas/CompiledPresentationNode" }
         web: { $ref: "#/components/schemas/CompiledWebPresentation" }
+        component:
+          type: object
+          additionalProperties: false
+          description: Set for kind component (docs/widgets-v2.md).
+          required: [type, version, config, dataSources, media]
+          properties:
+            type: { type: string }
+            version: { type: integer, minimum: 1 }
+            config: { type: object, additionalProperties: true }
+            dataSources:
+              type: array
+              items: { type: string }
+            media:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                required: [assetId, variantId]
+                properties:
+                  assetId: { type: string }
+                  variantId: { type: string }
     WidgetInput:
       type: object
       additionalProperties: false
@@ -13758,9 +13794,9 @@ components:
       additionalProperties: false
       description: >-
         Stored Data Source as the mutations return it: no refresh
-        status, diagnostics, or usage. The provider stays an open
-        string because definition and plugin providers extend the
-        registry beyond the request-side enum.
+        status, diagnostics, or usage. The provider is an open string
+        because definition and plugin providers extend the built-in
+        registry.
       required:
         [
           id,
@@ -14172,7 +14208,7 @@ components:
         samples:
           type: array
           items: { type: string }
-        type: { type: string }
+        type: { type: string, enum: [text, number, date, datetime, url] }
     StructuredSourceMapping:
       type: object
       additionalProperties: false
@@ -15082,7 +15118,12 @@ components:
         demoMode: { type: boolean }
         user: { $ref: "#/components/schemas/User" }
         csrfToken: { type: string }
-        authMethod: { type: string }
+        authMethod:
+          type: string
+          enum: [password, totp, passkey, recovery_code, demo, pat, oauth]
+          description: >-
+            The factor that completed the session sign-in, or pat or oauth
+            when the caller authenticated with a bearer grant.
         mfaEnrollmentRequired: { type: boolean }
     SettingsUpdate:
       type: object

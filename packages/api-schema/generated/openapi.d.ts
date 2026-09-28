@@ -7222,14 +7222,23 @@ export interface components {
       providers: components["schemas"]["ProviderCatalogEntry"][];
     };
     /** @description Where the definition came from; an absent source means release-owned core. */
-    ContentExtensionSource: {
-      /** @enum {string} */
-      kind?: "core" | "plugin" | "package";
-      pluginId?: string;
-      packageId?: string;
-      packageVersion?: string;
-      digest?: string;
-    };
+    ContentExtensionSource:
+      | {
+          /** @enum {string} */
+          kind: "core";
+        }
+      | {
+          /** @enum {string} */
+          kind: "plugin";
+          pluginId: string;
+        }
+      | {
+          /** @enum {string} */
+          kind: "package";
+          packageId: string;
+          packageVersion: string;
+          digest: string;
+        };
     ContentDefinitionSetup: {
       eyebrow?: string;
       tip?: string;
@@ -9284,7 +9293,7 @@ export interface components {
     CompiledWidgetPresentation: {
       schemaVersion: number;
       /** @enum {string} */
-      kind: "native" | "web";
+      kind: "native" | "web" | "component";
       requiredCapabilities: {
         [key: string]: number;
       };
@@ -9292,6 +9301,19 @@ export interface components {
         root: components["schemas"]["CompiledPresentationNode"];
       };
       web?: components["schemas"]["CompiledWebPresentation"];
+      /** @description Set for kind component (docs/widgets-v2.md). */
+      component?: {
+        type: string;
+        version: number;
+        config: {
+          [key: string]: unknown;
+        };
+        dataSources: string[];
+        media: {
+          assetId: string;
+          variantId: string;
+        }[];
+      };
     };
     WidgetInput: {
       provider: components["schemas"]["WidgetProvider"];
@@ -9311,7 +9333,7 @@ export interface components {
         [key: string]: unknown;
       };
     };
-    /** @description Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider stays an open string because definition and plugin providers extend the registry beyond the request-side enum. */
+    /** @description Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider is an open string because definition and plugin providers extend the built-in registry. */
     DataSource: {
       /** Format: uuid */
       id: string;
@@ -9601,7 +9623,8 @@ export interface components {
       key: string;
       label: string;
       samples: string[];
-      type: string;
+      /** @enum {string} */
+      type: "text" | "number" | "date" | "datetime" | "url";
     };
     StructuredSourceMapping: {
       rootList: string;
@@ -10245,7 +10268,18 @@ export interface components {
       demoMode?: boolean;
       user?: components["schemas"]["User"];
       csrfToken?: string;
-      authMethod?: string;
+      /**
+       * @description The factor that completed the session sign-in, or pat or oauth when the caller authenticated with a bearer grant.
+       * @enum {string}
+       */
+      authMethod?:
+        | "password"
+        | "totp"
+        | "passkey"
+        | "recovery_code"
+        | "demo"
+        | "pat"
+        | "oauth";
       mfaEnrollmentRequired?: boolean;
     };
     SettingsUpdate: {
