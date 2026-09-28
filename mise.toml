@@ -1,10 +1,14 @@
-# Tilecast contributor tooling. Runtime selection only: the versions below
-# match CI and the Go module files. They deliberately do not follow the
-# Docker builder images (node:26, golang:1.26), which drifted ahead and
-# must not be silently bumped here. Rust is pinned by
-# apps/edge/rust-toolchain.toml and Java must stay 17 for the Android
-# build; both are checked by make doctor.
+# Tilecast contributor tooling. Runtime selection only: mise picks the
+# versions contributors run and primary CI runs (Node 22, Go 1.26 to match
+# go.work and every go.mod, Java 17 for the Android build). Rust is pinned
+# by apps/edge/rust-toolchain.toml, so it is not repeated here.
+#
+# The production Docker image (deploy/docker/Dockerfile) is a separate build
+# environment. Its builder images may run newer, validated versions than this
+# baseline; that never redefines what contributors or CI use, and a bump of
+# either side is a deliberate change validated on its own. `make doctor`
+# reports the versions installed here.
 [tools]
 node = "22"
-go = "1.25.7"
+go = "1.26"
 java = "17"

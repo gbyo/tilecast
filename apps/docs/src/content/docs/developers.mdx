@@ -30,7 +30,7 @@ import { FileTree, LinkButton, Steps } from "@astrojs/starlight/components";
 
 ## Run the server and Studio locally
 
-You need Go (use the version in `apps/server/go.mod`), Node.js with npm, and a PostgreSQL database. From the repository root:
+You need Go, Node.js with npm, and a PostgreSQL database. Use the versions in [`mise.toml`](https://github.com/gbyo/tilecast/blob/main/mise.toml): Node.js 22 and Go 1.26 (Android work also needs Java 17). The Docker image is built with its own, possibly newer, builder versions, so it does not change what you install. Run `make doctor` to see what is missing. From the repository root:
 
 <Steps>
 
