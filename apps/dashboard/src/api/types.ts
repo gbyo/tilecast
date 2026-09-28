@@ -8,6 +8,12 @@ export type User = {
   lastLoginAt?: string;
 };
 
+/** A user row with the MFA enrollment state the user list carries. */
+export type ManagedUser = User & {
+  mfaEnrolled: boolean;
+  mfaRequired: boolean;
+};
+
 export type AuthStatus = {
   setupRequired: boolean;
   authenticated: boolean;

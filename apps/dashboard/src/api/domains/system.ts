@@ -21,6 +21,7 @@ import type {
   IntegrationToken,
   IntegrationTokenCreated,
   MaintenanceAction,
+  ManagedUser,
   NotificationCategory,
   NotificationDelivery,
   NotificationStatus,
@@ -220,10 +221,68 @@ export function resetSettings(
   );
 }
 
-export function listUsers(): Promise<{ items: User[]; total: number }> {
-  return apiGet<"/api/v1/users", { items: User[]; total: number }>(
-    "/api/v1/users",
-  );
+export async function listUsers(): Promise<{
+  items: ManagedUser[];
+  total: number;
+}> {
+  const wire = await apiGet("/api/v1/users");
+  return {
+    // Never-logged-in rows serialize lastLoginAt as null; Studio models
+    // an absent timestamp as undefined.
+    items: wire.items.map((item) => ({
+      ...item,
+      lastLoginAt: item.lastLoginAt ?? undefined,
+    })),
+    total: wire.total,
+  };
+}
+
+export function createUser(
+  input: {
+    name: string;
+    username: string;
+    password: string;
+    role: User["role"];
+    active?: boolean;
+  },
+  csrfToken: string,
+) {
+  return apiPost("/api/v1/users", { body: input, csrfToken });
+}
+
+export function updateUser(
+  id: string,
+  input: {
+    name?: string;
+    username?: string;
+    password?: string;
+    role?: User["role"];
+    active?: boolean;
+  },
+  csrfToken: string,
+) {
+  return apiPatch("/api/v1/users/{id}", {
+    params: { path: { id } },
+    body: input,
+    csrfToken,
+  });
+}
+
+export function deactivateUser(id: string, csrfToken: string): Promise<void> {
+  return apiDelete("/api/v1/users/{id}", {
+    params: { path: { id } },
+    csrfToken,
+  });
+}
+
+export function permanentlyDeleteUser(
+  id: string,
+  csrfToken: string,
+): Promise<void> {
+  return apiDelete("/api/v1/users/{id}/permanent", {
+    params: { path: { id } },
+    csrfToken,
+  });
 }
 
 export function getPreferences(): Promise<SettingsDocument> {
