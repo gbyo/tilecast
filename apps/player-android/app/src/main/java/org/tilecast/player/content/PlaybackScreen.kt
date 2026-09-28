@@ -146,6 +146,41 @@ private fun FullscreenPlaybackBody(
         true,
     )
     val activityReporter = rememberPlaybackActivityReporter(session, takeoverDecision)
+    // Shared-runtime cutover (PR2): fully runtime-renderable playlists play
+    // in the trusted Player Runtime WebView. The gate defaults off until
+    // device validation flips it; everything else keeps the legacy path.
+    val sharedRuntimeItems = session.content.manifest.playlist?.items ?: emptyList()
+    if (org.tilecast.player.runtime.RuntimeCutover.useSharedRuntime(session.content.manifest, sharedRuntimeItems)) {
+        val runtimeManifest = session.content.manifest
+        val runtimeActivationId = "manifest-${runtimeManifest.manifestVersion}"
+        val runtimeMessage = org.tilecast.player.runtime.RuntimePresentationBuilder.hostMessage(
+            org.tilecast.player.runtime.RuntimeScreenState.Playing(
+                content = session.content,
+                items = sharedRuntimeItems,
+                fullscreenLayout = null,
+                playbackDefaults = session.playbackDefaults,
+                websitePolicy = session.websitePolicy,
+                activationId = runtimeActivationId,
+                generation = runtimeManifest.manifestVersion,
+                takeover = runtimeManifest.effectiveTakeover != null,
+                nowMillis = session.content.serverNow().toEpochMilli(),
+                clockOffsetMillis = session.content.serverClockOffsetMillis ?: 0L,
+            ),
+        )
+        val runtimeContext = androidx.compose.ui.platform.LocalContext.current
+        org.tilecast.player.runtime.SharedRuntimePlayback(
+            session = session,
+            message = runtimeMessage,
+            activationId = runtimeActivationId,
+            hostVersion = org.tilecast.player.BuildConfig.VERSION_NAME,
+            engineVersion = androidx.webkit.WebViewCompat.getCurrentWebViewPackage(runtimeContext)?.versionName ?: "unknown",
+            onBoundary = onBoundary,
+            onError = onError,
+            onProgress = onProgress,
+            onFirstFrame = { onProgress() },
+        )
+        return
+    }
     session.content.manifest.layout?.let { layout ->
         FullscreenLayoutPlayback(session, layout, onError, onWebsiteStatus, onWidgetStatus, onProgress, activityReporter)
         return
