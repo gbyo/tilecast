@@ -5247,13 +5247,30 @@ paths:
       operationId: previewSchedule
       description: >-
         Preview schedule. Requires an authenticated dashboard user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [screenId]
+              properties:
+                screenId: { type: string, format: uuid }
+                timestamp: { type: string, format: date-time }
+                proposedSchedule: { $ref: "#/components/schemas/ScheduleInput" }
       responses:
-        {
-          "200":
-            { description: "Production resolution result, conflicts, fallback,
-                and next transition" },
-          "403": { description: Scheduling access required },
-        }
+        "200":
+          description: >-
+            Production resolution result, conflicts, fallback, and next
+            transition
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/SchedulePreview" }
+        "403": { description: Scheduling access required }
   /api/v1/assets/websites:
     post:
       operationId: createWebsiteAsset
@@ -5307,7 +5324,15 @@ paths:
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses:
-        { "200": { description: Safe categorized player website diagnostics } }
+        "200":
+          description: Safe categorized player website diagnostics
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/WebsiteDiagnostics" }
   /api/v1/widgets:
     post:
       operationId: createWidget
@@ -5365,9 +5390,30 @@ paths:
       operationId: compileWidgetPreview
       description: >-
         Compile widget preview. Requires an authenticated dashboard user.
+        Definitions without a player fallback answer a null data body.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [provider, configuration]
+              properties:
+                provider: { $ref: "#/components/schemas/WidgetProvider" }
+                configuration: { type: object }
       responses:
         "200":
           description: Declarative presentation schema v1 document
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    anyOf:
+                      - { $ref: "#/components/schemas/CompiledWidgetPresentation" }
+                      - { type: "null" }
         "400":
           description: Draft configuration cannot be compiled
   /api/v1/widgets/{id}:
@@ -12131,6 +12177,21 @@ components:
         - required: [layoutId]
           properties:
             layoutId: { type: string, format: uuid }
+    SchedulePreview:
+      type: object
+      additionalProperties: false
+      required: [screenId, at, applicableSchedules, conflicts]
+      properties:
+        screenId: { type: string, format: uuid }
+        at: { type: string, format: date-time }
+        winningSchedule: { $ref: "#/components/schemas/Schedule" }
+        winningPlaylistId: { type: string, format: uuid }
+        directFallbackPlaylistId: { type: string, format: uuid }
+        applicableSchedules:
+          type: array
+          items: { $ref: "#/components/schemas/Schedule" }
+        nextTransition: { type: string, format: date-time }
+        conflicts: { type: array, items: { type: string } }
     ScheduleInput:
       type: object
       additionalProperties: false
@@ -12790,6 +12851,115 @@ components:
             type: object,
             description: "Provider-specific configuration. Native text Widgets omit textScale for automatic bounds-first sizing or use 25–500 percent; contentPadding defaults to 10 percent per edge and accepts 0–40.",
           }
+    CompiledPresentationBinding:
+      type: object
+      additionalProperties: false
+      required: [source]
+      properties:
+        source: { type: string }
+        dataset: { type: string }
+        path: { type: string }
+        selector: { type: string }
+        startField: { type: string }
+        endField: { type: string }
+        value: { type: string }
+        fields: { type: array, items: { type: string } }
+        format: { type: string }
+        precision: { type: integer }
+        prefix: { type: string }
+        suffix: { type: string }
+        fallback: { type: string }
+        separator: { type: string }
+    CompiledPresentationRepeat:
+      type: object
+      additionalProperties: false
+      required: [dataset, limit]
+      properties:
+        dataset: { type: string }
+        limit: { type: integer, minimum: 0 }
+        selector: { type: string }
+        startField: { type: string }
+        endField: { type: string }
+        offset: { type: integer, minimum: 0 }
+    CompiledPresentationCondition:
+      type: object
+      additionalProperties: false
+      required: [binding, op]
+      properties:
+        binding: { $ref: "#/components/schemas/CompiledPresentationBinding" }
+        op: { type: string }
+        value: { type: string }
+    CompiledPresentationNode:
+      type: object
+      additionalProperties: false
+      required: [type]
+      properties:
+        id: { type: string }
+        type: { type: string }
+        props:
+          type: object
+          description: Renderer-specific node properties.
+        binding: { $ref: "#/components/schemas/CompiledPresentationBinding" }
+        repeat: { $ref: "#/components/schemas/CompiledPresentationRepeat" }
+        condition:
+          { $ref: "#/components/schemas/CompiledPresentationCondition" }
+        children:
+          type: array
+          items: { $ref: "#/components/schemas/CompiledPresentationNode" }
+    CompiledWebReload:
+      type: object
+      additionalProperties: false
+      required: [mode, intervalSeconds]
+      properties:
+        mode: { type: string }
+        intervalSeconds: { type: integer, minimum: 0 }
+    CompiledWebPresentation:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          mode,
+          allowedHosts,
+          externalNetworkAccess,
+          onlineOnly,
+          fallbackBehavior,
+          loadTimeoutSeconds,
+          lifecycle,
+          warmSeconds,
+        ]
+      properties:
+        mode: { type: string }
+        url: { type: string }
+        bundleId: { type: string }
+        entryPoint: { type: string }
+        integritySha256: { type: string }
+        packageSize: { type: integer, format: int64, minimum: 0 }
+        downloadPath: { type: string }
+        allowedHosts: { type: array, items: { type: string } }
+        externalNetworkAccess: { type: boolean }
+        onlineOnly: { type: boolean }
+        fallbackBehavior: { type: string }
+        loadTimeoutSeconds: { type: integer, minimum: 0 }
+        lifecycle: { type: string }
+        warmSeconds: { type: integer, minimum: 0 }
+        reload: { $ref: "#/components/schemas/CompiledWebReload" }
+    CompiledWidgetPresentation:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, kind, requiredCapabilities]
+      properties:
+        schemaVersion: { type: integer, minimum: 1 }
+        kind: { type: string, enum: [native, web] }
+        requiredCapabilities:
+          type: object
+          additionalProperties: { type: integer, minimum: 1 }
+        native:
+          type: object
+          additionalProperties: false
+          required: [root]
+          properties:
+            root: { $ref: "#/components/schemas/CompiledPresentationNode" }
+        web: { $ref: "#/components/schemas/CompiledWebPresentation" }
     WidgetInput:
       type: object
       additionalProperties: false
@@ -13551,6 +13721,30 @@ components:
           items: { $ref: "#/components/schemas/ContentHealthUnassignedScreen" }
         thresholds: { $ref: "#/components/schemas/ContentHealthThresholds" }
         generatedAt: { type: string, format: date-time }
+    WebsiteReportingScreen:
+      type: object
+      additionalProperties: false
+      required: [id, name, state]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        state: { type: string }
+        host: { type: string }
+    WebsiteDiagnostics:
+      type: object
+      additionalProperties: false
+      required: [assetId, configuredUrl, allowedHosts, reportingScreens]
+      properties:
+        assetId: { type: string, format: uuid }
+        configuredUrl: { type: string }
+        allowedHosts: { type: array, items: { type: string } }
+        lastSuccessfulLoad: { type: string, format: date-time }
+        lastFailure: { type: string, format: date-time }
+        lastFailureCategory: { type: string }
+        reportingScreens:
+          type: array
+          items: { $ref: "#/components/schemas/WebsiteReportingScreen" }
+        fallbackImageAssetId: { type: string, format: uuid }
     WebsiteConfig:
       type: object
       additionalProperties: false

@@ -20,4 +20,6 @@ POST /api/v1/system/settings/import/preview added required request body: preview
 POST /api/v1/system/settings/import/apply added required request body: applySettingsImport always decoded a settings export body.
 POST /api/v1/presentation-overrides/{id}/stop added required request body: stopPresentationOverride always decoded a reason body.
 PUT /api/v1/screens/{id}/power-assist added required request body: confirmPowerAssist always decoded a power confirmation body.
+POST /api/v1/schedules/preview added required request body: previewSchedule always decoded a screen and timestamp body.
+POST /api/v1/widgets/compile-preview added required request body: compileWidgetPreview always decoded a provider plus configuration body.
 POST /api/v1/playlists/{id}/publish removed the success response with the status `200`: publishPlaylist answers 201 on publish and 202 on review submission, never 200.

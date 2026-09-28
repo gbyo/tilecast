@@ -3254,7 +3254,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Compile widget preview. Requires an authenticated dashboard user. */
+    /** @description Compile widget preview. Requires an authenticated dashboard user. Definitions without a player fallback answer a null data body. */
     post: operations["compileWidgetPreview"];
     delete?: never;
     options?: never;
@@ -8416,6 +8416,21 @@ export interface components {
           /** Format: uuid */
           layoutId: string;
         };
+    SchedulePreview: {
+      /** Format: uuid */
+      screenId: string;
+      /** Format: date-time */
+      at: string;
+      winningSchedule?: components["schemas"]["Schedule"];
+      /** Format: uuid */
+      winningPlaylistId?: string;
+      /** Format: uuid */
+      directFallbackPlaylistId?: string;
+      applicableSchedules: components["schemas"]["Schedule"][];
+      /** Format: date-time */
+      nextTransition?: string;
+      conflicts: string[];
+    };
     ScheduleInput: {
       name: string;
       description?: string;
@@ -8911,6 +8926,79 @@ export interface components {
       managedDataSourceId?: string;
       /** @description Provider-specific configuration. Native text Widgets omit textScale for automatic bounds-first sizing or use 25–500 percent; contentPadding defaults to 10 percent per edge and accepts 0–40. */
       configuration: Record<string, never>;
+    };
+    CompiledPresentationBinding: {
+      source: string;
+      dataset?: string;
+      path?: string;
+      selector?: string;
+      startField?: string;
+      endField?: string;
+      value?: string;
+      fields?: string[];
+      format?: string;
+      precision?: number;
+      prefix?: string;
+      suffix?: string;
+      fallback?: string;
+      separator?: string;
+    };
+    CompiledPresentationRepeat: {
+      dataset: string;
+      limit: number;
+      selector?: string;
+      startField?: string;
+      endField?: string;
+      offset?: number;
+    };
+    CompiledPresentationCondition: {
+      binding: components["schemas"]["CompiledPresentationBinding"];
+      op: string;
+      value?: string;
+    };
+    CompiledPresentationNode: {
+      id?: string;
+      type: string;
+      /** @description Renderer-specific node properties. */
+      props?: Record<string, never>;
+      binding?: components["schemas"]["CompiledPresentationBinding"];
+      repeat?: components["schemas"]["CompiledPresentationRepeat"];
+      condition?: components["schemas"]["CompiledPresentationCondition"];
+      children?: components["schemas"]["CompiledPresentationNode"][];
+    };
+    CompiledWebReload: {
+      mode: string;
+      intervalSeconds: number;
+    };
+    CompiledWebPresentation: {
+      mode: string;
+      url?: string;
+      bundleId?: string;
+      entryPoint?: string;
+      integritySha256?: string;
+      /** Format: int64 */
+      packageSize?: number;
+      downloadPath?: string;
+      allowedHosts: string[];
+      externalNetworkAccess: boolean;
+      onlineOnly: boolean;
+      fallbackBehavior: string;
+      loadTimeoutSeconds: number;
+      lifecycle: string;
+      warmSeconds: number;
+      reload?: components["schemas"]["CompiledWebReload"];
+    };
+    CompiledWidgetPresentation: {
+      schemaVersion: number;
+      /** @enum {string} */
+      kind: "native" | "web";
+      requiredCapabilities: {
+        [key: string]: number;
+      };
+      native?: {
+        root: components["schemas"]["CompiledPresentationNode"];
+      };
+      web?: components["schemas"]["CompiledWebPresentation"];
     };
     WidgetInput: {
       provider: components["schemas"]["WidgetProvider"];
@@ -9453,6 +9541,27 @@ export interface components {
       thresholds: components["schemas"]["ContentHealthThresholds"];
       /** Format: date-time */
       generatedAt: string;
+    };
+    WebsiteReportingScreen: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      state: string;
+      host?: string;
+    };
+    WebsiteDiagnostics: {
+      /** Format: uuid */
+      assetId: string;
+      configuredUrl: string;
+      allowedHosts: string[];
+      /** Format: date-time */
+      lastSuccessfulLoad?: string;
+      /** Format: date-time */
+      lastFailure?: string;
+      lastFailureCategory?: string;
+      reportingScreens: components["schemas"]["WebsiteReportingScreen"][];
+      /** Format: uuid */
+      fallbackImageAssetId?: string;
     };
     WebsiteConfig: {
       url: string;
@@ -18571,14 +18680,28 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": {
+          /** Format: uuid */
+          screenId: string;
+          /** Format: date-time */
+          timestamp?: string;
+          proposedSchedule?: components["schemas"]["ScheduleInput"];
+        };
+      };
+    };
     responses: {
       /** @description Production resolution result, conflicts, fallback, and next transition */
       200: {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["SchedulePreview"];
+          };
+        };
       };
       /** @description Scheduling access required */
       403: {
@@ -18671,7 +18794,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["WebsiteDiagnostics"];
+          };
+        };
       };
     };
   };
@@ -18759,14 +18886,25 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": {
+          provider: components["schemas"]["WidgetProvider"];
+          configuration: Record<string, never>;
+        };
+      };
+    };
     responses: {
       /** @description Declarative presentation schema v1 document */
       200: {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["CompiledWidgetPresentation"] | null;
+          };
+        };
       };
       /** @description Draft configuration cannot be compiled */
       400: {

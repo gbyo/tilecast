@@ -483,6 +483,24 @@ func (e CatalogPluginCategory) Valid() bool {
 	}
 }
 
+// Defines values for CompiledWidgetPresentationKind.
+const (
+	CompiledWidgetPresentationKindNative CompiledWidgetPresentationKind = "native"
+	CompiledWidgetPresentationKindWeb    CompiledWidgetPresentationKind = "web"
+)
+
+// Valid indicates whether the value is a known member of the CompiledWidgetPresentationKind enum.
+func (e CompiledWidgetPresentationKind) Valid() bool {
+	switch e {
+	case CompiledWidgetPresentationKindNative:
+		return true
+	case CompiledWidgetPresentationKindWeb:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ComplianceReportDimension.
 const (
 	ComplianceReportDimensionDate         ComplianceReportDimension = "date"
@@ -5609,6 +5627,93 @@ type ChangesRequest struct {
 	Note string `json:"note"`
 }
 
+// CompiledPresentationBinding defines model for CompiledPresentationBinding.
+type CompiledPresentationBinding struct {
+	Dataset    *string   `json:"dataset,omitempty"`
+	EndField   *string   `json:"endField,omitempty"`
+	Fallback   *string   `json:"fallback,omitempty"`
+	Fields     *[]string `json:"fields,omitempty"`
+	Format     *string   `json:"format,omitempty"`
+	Path       *string   `json:"path,omitempty"`
+	Precision  *int      `json:"precision,omitempty"`
+	Prefix     *string   `json:"prefix,omitempty"`
+	Selector   *string   `json:"selector,omitempty"`
+	Separator  *string   `json:"separator,omitempty"`
+	Source     string    `json:"source"`
+	StartField *string   `json:"startField,omitempty"`
+	Suffix     *string   `json:"suffix,omitempty"`
+	Value      *string   `json:"value,omitempty"`
+}
+
+// CompiledPresentationCondition defines model for CompiledPresentationCondition.
+type CompiledPresentationCondition struct {
+	Binding CompiledPresentationBinding `json:"binding"`
+	Op      string                      `json:"op"`
+	Value   *string                     `json:"value,omitempty"`
+}
+
+// CompiledPresentationNode defines model for CompiledPresentationNode.
+type CompiledPresentationNode struct {
+	Binding   *CompiledPresentationBinding   `json:"binding,omitempty"`
+	Children  *[]CompiledPresentationNode    `json:"children,omitempty"`
+	Condition *CompiledPresentationCondition `json:"condition,omitempty"`
+	Id        *string                        `json:"id,omitempty"`
+
+	// Props Renderer-specific node properties.
+	Props  *map[string]interface{}     `json:"props,omitempty"`
+	Repeat *CompiledPresentationRepeat `json:"repeat,omitempty"`
+	Type   string                      `json:"type"`
+}
+
+// CompiledPresentationRepeat defines model for CompiledPresentationRepeat.
+type CompiledPresentationRepeat struct {
+	Dataset    string  `json:"dataset"`
+	EndField   *string `json:"endField,omitempty"`
+	Limit      int     `json:"limit"`
+	Offset     *int    `json:"offset,omitempty"`
+	Selector   *string `json:"selector,omitempty"`
+	StartField *string `json:"startField,omitempty"`
+}
+
+// CompiledWebPresentation defines model for CompiledWebPresentation.
+type CompiledWebPresentation struct {
+	AllowedHosts          []string           `json:"allowedHosts"`
+	BundleId              *string            `json:"bundleId,omitempty"`
+	DownloadPath          *string            `json:"downloadPath,omitempty"`
+	EntryPoint            *string            `json:"entryPoint,omitempty"`
+	ExternalNetworkAccess bool               `json:"externalNetworkAccess"`
+	FallbackBehavior      string             `json:"fallbackBehavior"`
+	IntegritySha256       *string            `json:"integritySha256,omitempty"`
+	Lifecycle             string             `json:"lifecycle"`
+	LoadTimeoutSeconds    int                `json:"loadTimeoutSeconds"`
+	Mode                  string             `json:"mode"`
+	OnlineOnly            bool               `json:"onlineOnly"`
+	PackageSize           *int64             `json:"packageSize,omitempty"`
+	Reload                *CompiledWebReload `json:"reload,omitempty"`
+	Url                   *string            `json:"url,omitempty"`
+	WarmSeconds           int                `json:"warmSeconds"`
+}
+
+// CompiledWebReload defines model for CompiledWebReload.
+type CompiledWebReload struct {
+	IntervalSeconds int    `json:"intervalSeconds"`
+	Mode            string `json:"mode"`
+}
+
+// CompiledWidgetPresentation defines model for CompiledWidgetPresentation.
+type CompiledWidgetPresentation struct {
+	Kind   CompiledWidgetPresentationKind `json:"kind"`
+	Native *struct {
+		Root CompiledPresentationNode `json:"root"`
+	} `json:"native,omitempty"`
+	RequiredCapabilities map[string]int           `json:"requiredCapabilities"`
+	SchemaVersion        int                      `json:"schemaVersion"`
+	Web                  *CompiledWebPresentation `json:"web,omitempty"`
+}
+
+// CompiledWidgetPresentationKind defines model for CompiledWidgetPresentation.Kind.
+type CompiledWidgetPresentationKind string
+
 // ComplianceBreakdown defines model for ComplianceBreakdown.
 type ComplianceBreakdown struct {
 	CompliancePercent    *float32 `json:"compliancePercent"`
@@ -8396,6 +8501,18 @@ type ScheduleList struct {
 	Total           int        `json:"total"`
 }
 
+// SchedulePreview defines model for SchedulePreview.
+type SchedulePreview struct {
+	ApplicableSchedules      []Schedule          `json:"applicableSchedules"`
+	At                       time.Time           `json:"at"`
+	Conflicts                []string            `json:"conflicts"`
+	DirectFallbackPlaylistId *openapi_types.UUID `json:"directFallbackPlaylistId,omitempty"`
+	NextTransition           *time.Time          `json:"nextTransition,omitempty"`
+	ScreenId                 openapi_types.UUID  `json:"screenId"`
+	WinningPlaylistId        *openapi_types.UUID `json:"winningPlaylistId,omitempty"`
+	WinningSchedule          *Schedule           `json:"winningSchedule,omitempty"`
+}
+
 // SchedulePublicationRequest defines model for SchedulePublicationRequest.
 type SchedulePublicationRequest struct {
 	RequestedPublicationAt time.Time `json:"requestedPublicationAt"`
@@ -9576,6 +9693,26 @@ type WebsiteConfigFailureBehavior string
 
 // WebsiteConfigReloadPolicy defines model for WebsiteConfig.ReloadPolicy.
 type WebsiteConfigReloadPolicy string
+
+// WebsiteDiagnostics defines model for WebsiteDiagnostics.
+type WebsiteDiagnostics struct {
+	AllowedHosts         []string                 `json:"allowedHosts"`
+	AssetId              openapi_types.UUID       `json:"assetId"`
+	ConfiguredUrl        string                   `json:"configuredUrl"`
+	FallbackImageAssetId *openapi_types.UUID      `json:"fallbackImageAssetId,omitempty"`
+	LastFailure          *time.Time               `json:"lastFailure,omitempty"`
+	LastFailureCategory  *string                  `json:"lastFailureCategory,omitempty"`
+	LastSuccessfulLoad   *time.Time               `json:"lastSuccessfulLoad,omitempty"`
+	ReportingScreens     []WebsiteReportingScreen `json:"reportingScreens"`
+}
+
+// WebsiteReportingScreen defines model for WebsiteReportingScreen.
+type WebsiteReportingScreen struct {
+	Host  *string            `json:"host,omitempty"`
+	Id    openapi_types.UUID `json:"id"`
+	Name  string             `json:"name"`
+	State string             `json:"state"`
+}
 
 // Widget defines model for Widget.
 type Widget struct {
@@ -10824,6 +10961,13 @@ type ListSchedulesParams struct {
 	PageSize *int    `form:"pageSize,omitempty" json:"pageSize,omitempty"`
 }
 
+// PreviewScheduleJSONBody defines parameters for PreviewSchedule.
+type PreviewScheduleJSONBody struct {
+	ProposedSchedule *ScheduleInput     `json:"proposedSchedule,omitempty"`
+	ScreenId         openapi_types.UUID `json:"screenId"`
+	Timestamp        *time.Time         `json:"timestamp,omitempty"`
+}
+
 // CreateScreenGroupParams defines parameters for CreateScreenGroup.
 type CreateScreenGroupParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
@@ -11180,6 +11324,14 @@ type ResetUserSecurityParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
+// CompileWidgetPreviewJSONBody defines parameters for CompileWidgetPreview.
+type CompileWidgetPreviewJSONBody struct {
+	Configuration map[string]interface{} `json:"configuration"`
+
+	// Provider Closed renderable Widget or App identifier from the release-owned content-definition catalog.
+	Provider WidgetProvider `json:"provider"`
+}
+
 // UpdateIncidentJSONRequestBody defines body for UpdateIncident for application/json ContentType.
 type UpdateIncidentJSONRequestBody UpdateIncidentJSONBody
 
@@ -11414,6 +11566,9 @@ type StopPresentationOverrideJSONRequestBody StopPresentationOverrideJSONBody
 // CreateScheduleJSONRequestBody defines body for CreateSchedule for application/json ContentType.
 type CreateScheduleJSONRequestBody = ScheduleInput
 
+// PreviewScheduleJSONRequestBody defines body for PreviewSchedule for application/json ContentType.
+type PreviewScheduleJSONRequestBody PreviewScheduleJSONBody
+
 // ApplyDisplayGroupControlJSONRequestBody defines body for ApplyDisplayGroupControl for application/json ContentType.
 type ApplyDisplayGroupControlJSONRequestBody ApplyDisplayGroupControlJSONBody
 
@@ -11491,6 +11646,9 @@ type UpdateUserJSONRequestBody UpdateUserJSONBody
 
 // CreateWidgetJSONRequestBody defines body for CreateWidget for application/json ContentType.
 type CreateWidgetJSONRequestBody = WidgetInput
+
+// CompileWidgetPreviewJSONRequestBody defines body for CompileWidgetPreview for application/json ContentType.
+type CompileWidgetPreviewJSONRequestBody CompileWidgetPreviewJSONBody
 
 // UpdateWidgetJSONRequestBody defines body for UpdateWidget for application/json ContentType.
 type UpdateWidgetJSONRequestBody = WidgetInput
@@ -14229,10 +14387,17 @@ type ClientInterface interface {
 	// Requires the Owner or Administrator role and an authenticated user with the write scope. Cookie requests also require CSRF. The request contains exactly one of playlistId, layoutId, or displayAction. Display Control actions use the closed typed command registry; display_probe is not schedulable.
 	CreateSchedule(ctx context.Context, body CreateScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// PreviewSchedule performs a POST /api/v1/schedules/preview (the `PreviewSchedule` operationId) request.
+	// PreviewScheduleWithBody performs a POST /api/v1/schedules/preview (the `PreviewSchedule` operationId) request,
+	// with any type of body and a specified content type.
 	//
 	// Preview schedule. Requires an authenticated dashboard user.
-	PreviewSchedule(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PreviewScheduleWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PreviewSchedule performs a POST /api/v1/schedules/preview (the `PreviewSchedule` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Preview schedule. Requires an authenticated dashboard user.
+	PreviewSchedule(ctx context.Context, body PreviewScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteSchedule performs a DELETE /api/v1/schedules/{id} (the `DeleteSchedule` operationId) request.
 	//
@@ -15017,10 +15182,17 @@ type ClientInterface interface {
 	// Requires an authenticated dashboard session. Creates a reusable Widget or catalog App. An App recipe may atomically provision one hidden managed Data Source while preserving normal dependency and manifest behavior.
 	CreateWidget(ctx context.Context, body CreateWidgetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CompileWidgetPreview performs a POST /api/v1/widgets/compile-preview (the `CompileWidgetPreview` operationId) request.
+	// CompileWidgetPreviewWithBody performs a POST /api/v1/widgets/compile-preview (the `CompileWidgetPreview` operationId) request,
+	// with any type of body and a specified content type.
 	//
-	// Compile widget preview. Requires an authenticated dashboard user.
-	CompileWidgetPreview(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// Compile widget preview. Requires an authenticated dashboard user. Definitions without a player fallback answer a null data body.
+	CompileWidgetPreviewWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CompileWidgetPreview performs a POST /api/v1/widgets/compile-preview (the `CompileWidgetPreview` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Compile widget preview. Requires an authenticated dashboard user. Definitions without a player fallback answer a null data body.
+	CompileWidgetPreview(ctx context.Context, body CompileWidgetPreviewJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpdateWidgetWithBody performs a PATCH /api/v1/widgets/{id} (the `UpdateWidget` operationId) request,
 	// with any type of body and a specified content type.
@@ -20413,11 +20585,28 @@ func (c *Client) CreateSchedule(ctx context.Context, body CreateScheduleJSONRequ
 	return c.Client.Do(req)
 }
 
-// PreviewSchedule performs a POST /api/v1/schedules/preview (the `PreviewSchedule` operationId) request.
+// PreviewScheduleWithBody performs a POST /api/v1/schedules/preview (the `PreviewSchedule` operationId) request,
+// with any type of body and a specified content type.
 //
 // Preview schedule. Requires an authenticated dashboard user.
-func (c *Client) PreviewSchedule(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPreviewScheduleRequest(c.Server)
+func (c *Client) PreviewScheduleWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewScheduleRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PreviewSchedule performs a POST /api/v1/schedules/preview (the `PreviewSchedule` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Preview schedule. Requires an authenticated dashboard user.
+func (c *Client) PreviewSchedule(ctx context.Context, body PreviewScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewScheduleRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -22531,11 +22720,28 @@ func (c *Client) CreateWidget(ctx context.Context, body CreateWidgetJSONRequestB
 	return c.Client.Do(req)
 }
 
-// CompileWidgetPreview performs a POST /api/v1/widgets/compile-preview (the `CompileWidgetPreview` operationId) request.
+// CompileWidgetPreviewWithBody performs a POST /api/v1/widgets/compile-preview (the `CompileWidgetPreview` operationId) request,
+// with any type of body and a specified content type.
 //
-// Compile widget preview. Requires an authenticated dashboard user.
-func (c *Client) CompileWidgetPreview(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCompileWidgetPreviewRequest(c.Server)
+// Compile widget preview. Requires an authenticated dashboard user. Definitions without a player fallback answer a null data body.
+func (c *Client) CompileWidgetPreviewWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCompileWidgetPreviewRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CompileWidgetPreview performs a POST /api/v1/widgets/compile-preview (the `CompileWidgetPreview` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Compile widget preview. Requires an authenticated dashboard user. Definitions without a player fallback answer a null data body.
+func (c *Client) CompileWidgetPreview(ctx context.Context, body CompileWidgetPreviewJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCompileWidgetPreviewRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -35378,8 +35584,19 @@ func NewCreateScheduleRequestWithBody(server string, contentType string, body io
 	return req, nil
 }
 
-// NewPreviewScheduleRequest constructs an http.Request for the PreviewSchedule method
-func NewPreviewScheduleRequest(server string) (*http.Request, error) {
+// NewPreviewScheduleRequest calls the generic PreviewSchedule builder with application/json body
+func NewPreviewScheduleRequest(server string, body PreviewScheduleJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPreviewScheduleRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPreviewScheduleRequestWithBody constructs an http.Request for the PreviewSchedule method, with any body, and a specified content type
+func NewPreviewScheduleRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -35397,10 +35614,12 @@ func NewPreviewScheduleRequest(server string) (*http.Request, error) {
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -39730,8 +39949,19 @@ func NewCreateWidgetRequestWithBody(server string, contentType string, body io.R
 	return req, nil
 }
 
-// NewCompileWidgetPreviewRequest constructs an http.Request for the CompileWidgetPreview method
-func NewCompileWidgetPreviewRequest(server string) (*http.Request, error) {
+// NewCompileWidgetPreviewRequest calls the generic CompileWidgetPreview builder with application/json body
+func NewCompileWidgetPreviewRequest(server string, body CompileWidgetPreviewJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCompileWidgetPreviewRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCompileWidgetPreviewRequestWithBody constructs an http.Request for the CompileWidgetPreview method, with any body, and a specified content type
+func NewCompileWidgetPreviewRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -39749,10 +39979,12 @@ func NewCompileWidgetPreviewRequest(server string) (*http.Request, error) {
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -42505,12 +42737,19 @@ type ClientWithResponsesInterface interface {
 	// Requires the Owner or Administrator role and an authenticated user with the write scope. Cookie requests also require CSRF. The request contains exactly one of playlistId, layoutId, or displayAction. Display Control actions use the closed typed command registry; display_probe is not schedulable.
 	CreateScheduleWithResponse(ctx context.Context, body CreateScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateScheduleResponse, error)
 
-	// PreviewScheduleWithResponse performs a POST /api/v1/schedules/preview (the `PreviewSchedule` operationId) request.
+	// PreviewScheduleWithBodyWithResponse performs a POST /api/v1/schedules/preview (the `PreviewSchedule` operationId) request,
+	// with any type of body and a specified content type.
 	//
 	// Preview schedule. Requires an authenticated dashboard user.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	PreviewScheduleWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PreviewScheduleResponse, error)
+	PreviewScheduleWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewScheduleResponse, error)
+
+	// PreviewScheduleWithResponse performs a POST /api/v1/schedules/preview (the `PreviewSchedule` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Preview schedule. Requires an authenticated dashboard user.
+	PreviewScheduleWithResponse(ctx context.Context, body PreviewScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewScheduleResponse, error)
 
 	// DeleteScheduleWithResponse performs a DELETE /api/v1/schedules/{id} (the `DeleteSchedule` operationId) request.
 	//
@@ -43495,12 +43734,19 @@ type ClientWithResponsesInterface interface {
 	// Requires an authenticated dashboard session. Creates a reusable Widget or catalog App. An App recipe may atomically provision one hidden managed Data Source while preserving normal dependency and manifest behavior.
 	CreateWidgetWithResponse(ctx context.Context, body CreateWidgetJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateWidgetResponse, error)
 
-	// CompileWidgetPreviewWithResponse performs a POST /api/v1/widgets/compile-preview (the `CompileWidgetPreview` operationId) request.
+	// CompileWidgetPreviewWithBodyWithResponse performs a POST /api/v1/widgets/compile-preview (the `CompileWidgetPreview` operationId) request,
+	// with any type of body and a specified content type.
 	//
-	// Compile widget preview. Requires an authenticated dashboard user.
+	// Compile widget preview. Requires an authenticated dashboard user. Definitions without a player fallback answer a null data body.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	CompileWidgetPreviewWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*CompileWidgetPreviewResponse, error)
+	CompileWidgetPreviewWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CompileWidgetPreviewResponse, error)
+
+	// CompileWidgetPreviewWithResponse performs a POST /api/v1/widgets/compile-preview (the `CompileWidgetPreview` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Compile widget preview. Requires an authenticated dashboard user. Definitions without a player fallback answer a null data body.
+	CompileWidgetPreviewWithResponse(ctx context.Context, body CompileWidgetPreviewJSONRequestBody, reqEditors ...RequestEditorFn) (*CompileWidgetPreviewResponse, error)
 
 	// UpdateWidgetWithBodyWithResponse performs a PATCH /api/v1/widgets/{id} (the `UpdateWidget` operationId) request,
 	// with any type of body and a specified content type.
@@ -45306,6 +45552,17 @@ func (r UpdateWebsiteAssetResponse) ContentType() string {
 type WebsiteDiagnosticsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data WebsiteDiagnostics `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r WebsiteDiagnosticsResponse) GetJSON200() *struct {
+	Data WebsiteDiagnostics `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -54563,6 +54820,17 @@ func (r CreateScheduleResponse) ContentType() string {
 type PreviewScheduleResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data SchedulePreview `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PreviewScheduleResponse) GetJSON200() *struct {
+	Data SchedulePreview `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -59099,6 +59367,17 @@ func (r CreateWidgetResponse) ContentType() string {
 type CompileWidgetPreviewResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data *CompiledWidgetPresentation `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CompileWidgetPreviewResponse) GetJSON200() *struct {
+	Data *CompiledWidgetPresentation `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -63922,13 +64201,26 @@ func (c *ClientWithResponses) CreateScheduleWithResponse(ctx context.Context, bo
 	return ParseCreateScheduleResponse(rsp)
 }
 
-// PreviewScheduleWithResponse performs a POST /api/v1/schedules/preview (the `PreviewSchedule` operationId) request.
+// PreviewScheduleWithBodyWithResponse performs a POST /api/v1/schedules/preview (the `PreviewSchedule` operationId) request,
+// with any type of body and a specified content type.
 //
 // Preview schedule. Requires an authenticated dashboard user.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) PreviewScheduleWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PreviewScheduleResponse, error) {
-	rsp, err := c.PreviewSchedule(ctx, reqEditors...)
+func (c *ClientWithResponses) PreviewScheduleWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewScheduleResponse, error) {
+	rsp, err := c.PreviewScheduleWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreviewScheduleResponse(rsp)
+}
+
+// PreviewScheduleWithResponse performs a POST /api/v1/schedules/preview (the `PreviewSchedule` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Preview schedule. Requires an authenticated dashboard user.
+func (c *ClientWithResponses) PreviewScheduleWithResponse(ctx context.Context, body PreviewScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewScheduleResponse, error) {
+	rsp, err := c.PreviewSchedule(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -65710,13 +66002,26 @@ func (c *ClientWithResponses) CreateWidgetWithResponse(ctx context.Context, body
 	return ParseCreateWidgetResponse(rsp)
 }
 
-// CompileWidgetPreviewWithResponse performs a POST /api/v1/widgets/compile-preview (the `CompileWidgetPreview` operationId) request.
+// CompileWidgetPreviewWithBodyWithResponse performs a POST /api/v1/widgets/compile-preview (the `CompileWidgetPreview` operationId) request,
+// with any type of body and a specified content type.
 //
-// Compile widget preview. Requires an authenticated dashboard user.
+// Compile widget preview. Requires an authenticated dashboard user. Definitions without a player fallback answer a null data body.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) CompileWidgetPreviewWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*CompileWidgetPreviewResponse, error) {
-	rsp, err := c.CompileWidgetPreview(ctx, reqEditors...)
+func (c *ClientWithResponses) CompileWidgetPreviewWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CompileWidgetPreviewResponse, error) {
+	rsp, err := c.CompileWidgetPreviewWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCompileWidgetPreviewResponse(rsp)
+}
+
+// CompileWidgetPreviewWithResponse performs a POST /api/v1/widgets/compile-preview (the `CompileWidgetPreview` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Compile widget preview. Requires an authenticated dashboard user. Definitions without a player fallback answer a null data body.
+func (c *ClientWithResponses) CompileWidgetPreviewWithResponse(ctx context.Context, body CompileWidgetPreviewJSONRequestBody, reqEditors ...RequestEditorFn) (*CompileWidgetPreviewResponse, error) {
+	rsp, err := c.CompileWidgetPreview(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -67022,6 +67327,18 @@ func ParseWebsiteDiagnosticsResponse(rsp *http.Response) (*WebsiteDiagnosticsRes
 	response := &WebsiteDiagnosticsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data WebsiteDiagnostics `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	}
 
 	return response, nil
@@ -73042,6 +73359,21 @@ func ParsePreviewScheduleResponse(rsp *http.Response) (*PreviewScheduleResponse,
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data SchedulePreview `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -76179,6 +76511,21 @@ func ParseCompileWidgetPreviewResponse(rsp *http.Response) (*CompileWidgetPrevie
 	response := &CompileWidgetPreviewResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data *CompiledWidgetPresentation `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
 	}
 
 	return response, nil
