@@ -252,6 +252,67 @@ export function formatNumber(value: number, options: NumberOptions): string {
 }
 
 /**
+ * Read a finite number from a prepared value. Non-finite numbers are
+ * display data, never signage output: callers drop the value instead of
+ * rendering NaN or Infinity.
+ */
+export function toFiniteNumber(
+  value: WidgetValue | null | undefined,
+): number | null {
+  if (!value) return null;
+  const numeric =
+    typeof value.number === "number"
+      ? value.number
+      : typeof value.integer === "number"
+        ? value.integer
+        : null;
+  return numeric !== null && Number.isFinite(numeric) ? numeric : null;
+}
+
+/** Bounded numeric styles a Widget author may choose. No format strings. */
+export type NumericDisplayStyle = "number" | "integer" | "percent" | "currency";
+
+export interface NumericDisplayOptions {
+  readonly locale: string;
+  readonly style: NumericDisplayStyle;
+  /** ISO 4217 code from the field metadata; without one currency is plain. */
+  readonly currency?: string;
+  /** Digits after the decimal point, from none to six. */
+  readonly precision: number;
+}
+
+/**
+ * Format one finite number with an author-chosen style and precision in
+ * the Widget locale. Percent values arrive as whole units, matching the
+ * record convention the legacy renderer uses. A currency without a valid
+ * ISO code formats as a plain number, like legacy rows without metadata.
+ */
+export function formatDisplayNumber(
+  value: number,
+  options: NumericDisplayOptions,
+): string {
+  const precision =
+    Number.isInteger(options.precision) && options.precision >= 0
+      ? Math.min(options.precision, 6)
+      : 1;
+  // Intl knows decimal, percent, and currency. The author-facing number
+  // and integer styles both render decimal digits; integer fixes none.
+  const style =
+    options.style === "percent"
+      ? "percent"
+      : options.style === "currency" &&
+          /^[A-Z]{3}$/.test(options.currency ?? "")
+        ? "currency"
+        : "decimal";
+  return formatNumber(value, {
+    locale: options.locale,
+    style,
+    currency: options.currency,
+    maximumFractionDigits: options.style === "integer" ? 0 : precision,
+  });
+}
+
+/**
  * Render one prepared Data Document value as display text, following the
  * field's typed metadata and the Widget locale. Raw format strings are
  * never exposed: numbers, currencies, dates and durations format through

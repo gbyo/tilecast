@@ -1,0 +1,20 @@
+{
+  "name": "No source",
+  "description": "Progress with no connected source reports the empty state instead of failing.",
+  "configuration": {
+    "dataSourceId": "",
+    "valueField": "",
+    "targetField": "",
+    "label": "",
+    "labelField": "",
+    "format": "number",
+    "precision": 1,
+    "showPercent": true,
+    "completionText": "",
+    "style": "bar",
+    "emptyText": "",
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "expect": "empty"
+}

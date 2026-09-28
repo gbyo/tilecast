@@ -1,0 +1,12 @@
+{
+  "name": "No source",
+  "description": "Metrics with no connected source report the empty state instead of failing.",
+  "configuration": {
+    "dataSourceId": "",
+    "metrics": [],
+    "emptyText": "",
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "expect": "empty"
+}

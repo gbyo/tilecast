@@ -1,0 +1,51 @@
+{
+  "name": "Horizontal",
+  "description": "Milestones flow left to right in landscape.",
+  "configuration": {
+    "dataSourceId": "11111111-1111-4111-8111-111111111111",
+    "dateField": "date",
+    "titleField": "title",
+    "bodyField": "",
+    "statusField": "status",
+    "orientation": "horizontal",
+    "maximumItems": 8,
+    "emptyText": "",
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "documents": {
+    "11111111-1111-4111-8111-111111111111": {
+      "schemaVersion": 1,
+      "datasets": [
+        {
+          "id": "records",
+          "kind": "records",
+          "fields": [
+            { "key": "date", "label": "Date", "type": "date" },
+            { "key": "title", "label": "Title", "type": "text" },
+            { "key": "status", "label": "Status", "type": "text" }
+          ],
+          "records": [
+            {
+              "id": "r1",
+              "values": {
+                "date": { "kind": "date", "date": "2026-09-01" },
+                "title": { "kind": "text", "text": "First day" },
+                "status": { "kind": "text", "text": "Done" }
+              }
+            },
+            {
+              "id": "r2",
+              "values": {
+                "date": { "kind": "date", "date": "2026-09-28" },
+                "title": { "kind": "text", "text": "Fall festival" },
+                "status": { "kind": "text", "text": "Next" }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expect": "ready"
+}

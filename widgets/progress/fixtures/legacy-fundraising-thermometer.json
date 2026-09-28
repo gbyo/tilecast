@@ -1,0 +1,64 @@
+{
+  "name": "Legacy Fundraising Thermometer",
+  "description": "A saved Fundraising Thermometer maps into the thermometer style.",
+  "provider": "fundraising-thermometer",
+  "configuration": {
+    "dataSourceId": "11111111-1111-4111-8111-111111111111",
+    "currentField": "current",
+    "targetField": "target",
+    "heading": "Our goal",
+    "valueFormat": "currency",
+    "showPercent": true,
+    "completionText": "Goal reached. Thank you!",
+    "foregroundColor": "#ffffff",
+    "backgroundColor": "#123b2c"
+  },
+  "documents": {
+    "11111111-1111-4111-8111-111111111111": {
+      "schemaVersion": 1,
+      "datasets": [
+        {
+          "id": "object",
+          "kind": "object",
+          "fields": [
+            {
+              "key": "current",
+              "label": "Current",
+              "type": "currency",
+              "currency": "USD"
+            },
+            {
+              "key": "target",
+              "label": "Target",
+              "type": "currency",
+              "currency": "USD"
+            }
+          ],
+          "value": {
+            "kind": "object",
+            "object": {
+              "current": { "kind": "number", "number": 48250 },
+              "target": { "kind": "number", "number": 100000 }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "expectConfig": {
+    "dataSourceId": "11111111-1111-4111-8111-111111111111",
+    "valueField": "current",
+    "targetField": "target",
+    "label": "Our goal",
+    "labelField": "",
+    "format": "currency",
+    "precision": 1,
+    "showPercent": true,
+    "completionText": "Goal reached. Thank you!",
+    "style": "thermometer",
+    "emptyText": "",
+    "background": "#123b2c",
+    "foreground": "#ffffff"
+  },
+  "expect": "ready"
+}

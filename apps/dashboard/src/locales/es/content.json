@@ -575,55 +575,6 @@
         "formatPercent": "Porcentaje",
         "formatCurrency": "Moneda"
       },
-      "native": {
-        "editTitle": "Editar widget {{provider}}",
-        "createTitle": "Crear widget {{provider}}",
-        "guidanceData": "Conecta la información que mostrarás, elige cómo se presenta y revisa la vista previa en vivo.",
-        "guidanceSimple": "Configura lo que aparece en pantalla y revisa la vista previa mientras trabajas.",
-        "contentGuidanceData": "Empieza eligiendo los datos que usará este widget, luego asigna y formatea los campos.",
-        "contentGuidanceText": "Escribe el contenido visible y elige su comportamiento en pantalla.",
-        "presetNotice": "Preajuste guiado: <strong>{{preset}}</strong>. Se guarda como widget {{provider}} reutilizable; la reproducción no depende del preajuste.",
-        "contentTitle": "Contenido y comportamiento",
-        "nameHint": "Se usa para encontrar este widget en Contenido y en las listas de reproducción.",
-        "completeFields": "Completa los campos obligatorios para ver una vista previa."
-      },
-      "metric": {
-        "staticLabel": "Etiqueta fija",
-        "precision": "Decimales",
-        "prefix": "Prefijo",
-        "suffix": "Sufijo",
-        "emptyState": "Estado vacío"
-      },
-      "spotlight": {
-        "image": "Imagen subida",
-        "noImage": "Sin imagen"
-      },
-      "statGrid": {
-        "metrics": "Métricas",
-        "formatFor": "Formato de la métrica {{index}}",
-        "addMetric": "Añadir métrica"
-      },
-      "chart": {
-        "chartType": "Tipo de gráfico",
-        "chartLine": "Línea",
-        "chartBar": "Barras",
-        "chartDonut": "Dona",
-        "dataset": "Conjunto de datos",
-        "series": "Series",
-        "numericField": "Campo numérico",
-        "seriesColor": "Color",
-        "addSeries": "Añadir serie"
-      },
-      "progress": {
-        "targetField": "Campo objetivo",
-        "staticTarget": "Objetivo fijo"
-      },
-      "timeline": {
-        "orientation": "Orientación",
-        "orientationVertical": "Vertical",
-        "orientationHorizontal": "Horizontal",
-        "statusField": "Campo de estado"
-      },
       "appearance": {
         "title": "Apariencia",
         "hint": "Ajusta espaciado, escala y colores cuando el contenido se vea bien.",
@@ -737,17 +688,6 @@
       },
       "dataSourceDescription": "Elige la información que mostrará este widget. Puedes conectar una fuente nueva sin salir del editor.",
       "fieldDescription": "Elige el campo de los datos conectados que aporta este valor."
-    },
-    "defaults": {
-      "noValue": "Sin valor disponible",
-      "noInformation": "Sin información disponible",
-      "noChartData": "Sin datos de gráfico disponibles",
-      "noMilestones": "Sin hitos disponibles",
-      "complete": "Completado",
-      "metricLabel": "Valor",
-      "seriesFirst": "Serie 1",
-      "seriesAdded": "Serie",
-      "progressLabel": "Progreso"
     },
     "errors": {
       "previewWait": "Espera a la vista previa del widget antes de guardar.",

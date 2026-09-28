@@ -1,0 +1,37 @@
+{
+  "name": "Minimal",
+  "description": "A title alone renders when every optional slot is missing.",
+  "configuration": {
+    "dataSourceId": "11111111-1111-4111-8111-111111111111",
+    "titleField": "title",
+    "subtitleField": "",
+    "bodyField": "",
+    "badgeField": "",
+    "metadataField": "",
+    "imageAssetId": "",
+    "emptyText": "",
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "documents": {
+    "11111111-1111-4111-8111-111111111111": {
+      "schemaVersion": 1,
+      "datasets": [
+        {
+          "id": "records",
+          "kind": "records",
+          "fields": [{ "key": "title", "label": "Title", "type": "text" }],
+          "records": [
+            {
+              "id": "r1",
+              "values": {
+                "title": { "kind": "text", "text": "Early dismissal Friday" }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expect": "ready"
+}
