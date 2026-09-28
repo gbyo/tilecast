@@ -6651,6 +6651,28 @@ export interface components {
       items: components["schemas"]["Screen"][];
       total: number;
     };
+    Location: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      addressLine1: string;
+      addressLine2: string;
+      city: string;
+      state: string;
+      postalCode: string;
+      country: string;
+      latitude?: number;
+      longitude?: number;
+      screenCount: number;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      updatedAt: string;
+    };
+    LocationList: {
+      items: components["schemas"]["Location"][];
+      total: number;
+    };
     User: {
       /** Format: uuid */
       id: string;
@@ -12695,7 +12717,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["LocationList"];
+          };
+        };
       };
     };
   };
@@ -12713,7 +12739,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["Location"];
+          };
+        };
       };
       /** @description Owner or Administrator required */
       403: {
@@ -12774,7 +12804,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["Location"];
+          };
+        };
       };
       /** @description A case-insensitive matching location already exists */
       409: {
