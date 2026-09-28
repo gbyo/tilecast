@@ -206,6 +206,7 @@ function checkRequestBody(
 
 function checkResponses(
   operation: YAMLMap,
+  method: string,
   location: string,
   problems: Problem[],
 ): void {
@@ -231,17 +232,39 @@ function checkResponses(
     });
     return;
   }
-  if (!isMap(success.value)) return;
-  const content = findPair(success.value, "content");
-  if (content === null || !isMap(content)) return;
-  for (const media of content.items) {
-    const schema = isMap(media.value) ? findPair(media.value, "schema") : null;
-    if (!isMap(schema)) {
-      const mediaType = scalar(media.key) ?? "unknown";
+  // Every 2xx carries a described body, except 204 No Content (which is
+  // bodyless by definition) and HEAD responses (which describe headers,
+  // never a body).
+  for (const pair of responses.items) {
+    const code = scalar(pair.key);
+    if (code === null || !code.startsWith("2") || code === "204") continue;
+    if (method === "head") continue;
+    if (!isMap(pair.value)) {
       problems.push({
         file: COMPOSED_OPENAPI,
-        message: `${location} ${mediaType} success body needs a schema`,
+        message: `${location} ${code} success body needs content`,
       });
+      continue;
+    }
+    const content = findPair(pair.value, "content");
+    if (content === null || !isMap(content)) {
+      problems.push({
+        file: COMPOSED_OPENAPI,
+        message: `${location} ${code} success body needs content`,
+      });
+      continue;
+    }
+    for (const media of content.items) {
+      const schema = isMap(media.value)
+        ? findPair(media.value, "schema")
+        : null;
+      if (!isMap(schema)) {
+        const mediaType = scalar(media.key) ?? "unknown";
+        problems.push({
+          file: COMPOSED_OPENAPI,
+          message: `${location} ${mediaType} success body needs a schema`,
+        });
+      }
     }
   }
 }
@@ -392,7 +415,7 @@ export function checkDerivedConformance(
     if (excluded.has(id)) continue;
     checkParameters(entry.operation, location, problems);
     checkRequestBody(entry.operation, location, problems);
-    checkResponses(entry.operation, location, problems);
+    checkResponses(entry.operation, entry.method, location, problems);
     checkAuth(entry.operation, location, problems);
   }
   checkReferences(composed, problems);
