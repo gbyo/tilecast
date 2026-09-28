@@ -127,12 +127,6 @@ fun SharedRuntimePlayback(
         refs.localFiles = session.content.localFiles
         refs.mimeByVariant = mimeByVariant
 
-        fun handlePageMessage(payload: String, generation: Long, reply: JavaScriptReplyProxy?) {
-            val response = runtimeSession.handlePageMessage(payload, generation, reply)
-            if (response != null) runCatching { reply?.postMessage(response) }
-            surfaces = runtimeSession.remoteWeb.snapshot()
-        }
-
         // Fail closed before creating anything when the secure bridge is
         // unavailable on this device/WebView combination.
         val context = LocalContext.current
@@ -158,7 +152,13 @@ fun SharedRuntimePlayback(
                 onError = onError,
                 onHandlePageMessage = { payload, generation, reply ->
                     val response = runtimeSession.handlePageMessage(payload, generation, reply)
-                    if (response != null) runCatching { reply?.postMessage(response) }
+                    if (response != null && reply != null) {
+                        val delivered = runCatching {
+                            reply.postMessage(response)
+                            true
+                        }.getOrDefault(false)
+                        if (delivered) runtimeSession.responseDelivered(response)
+                    }
                     surfaces = runtimeSession.remoteWeb.snapshot()
                 },
             )
