@@ -7466,18 +7466,33 @@ paths:
         Requires an authenticated dashboard user.
       operationId: listUpdateDeployments
       summary: List Player update deployments, narrowed to the caller's screen scope
-      responses: { "200": { description: Deployment list } }
+      responses:
+        "200":
+          description: Deployment list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/UpdateDeploymentList" }
     post:
       description: >-
         Requires an authenticated dashboard user.
       operationId: createUpdateDeployment
       summary: Create a deduplicated screen and group deployment with an optional canary cohort
       responses:
-        {
-          "201": { description: Deployment created },
-          "403": { description: Targets outside the caller's screen scope },
-          "422": { description: Invalid or unverified release/targets },
-        }
+        "201":
+          description: Deployment created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/UpdateDeploymentCreated" }
+        "403": { description: Targets outside the caller's screen scope }
+        "422": { description: Invalid or unverified release/targets }
   /api/v1/update-deployments/{id}:
     parameters:
       - { $ref: "#/components/parameters/ResourceID" }
@@ -7489,13 +7504,17 @@ paths:
         Read the deployment header, release artifact size, and per-screen update
         state for the screens in the caller's scope
       responses:
-        {
-          "200": { description: Deployment detail },
-          "404":
-            {
-              description: "Scoped callers only - unknown or reaching no screen in scope",
-            },
-        }
+        "200":
+          description: Deployment detail
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/UpdateDeploymentDetail" }
+        "404":
+          description: "Scoped callers only - unknown or reaching no screen in scope"
   /api/v1/update-deployments/{id}/cancel:
     parameters:
       - { $ref: "#/components/parameters/ResourceID" }
@@ -7505,18 +7524,21 @@ paths:
       operationId: cancelUpdateDeployment
       summary: Cancel pending update work on every screen the deployment reaches
       responses:
-        {
-          "200": { description: Cancelled },
-          "403": { description: Reaches screens outside the caller's scope },
-          "404":
-            {
-              description: "Scoped callers only - unknown or reaching no screen in scope",
-            },
-          "409":
-            {
-              description: "Already complete, or unknown to an unscoped caller",
-            },
-        }
+        "200":
+          description: Cancelled
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    { $ref: "#/components/schemas/UpdateDeploymentCancelled" }
+        "403": { description: Reaches screens outside the caller's scope }
+        "404":
+          description: "Scoped callers only - unknown or reaching no screen in scope"
+        "409":
+          description: "Already complete, or unknown to an unscoped caller"
   /api/v1/update-deployments/{id}/screens/{screenId}/retry:
     parameters:
       - { $ref: "#/components/parameters/ResourceID" }
@@ -10522,6 +10544,188 @@ components:
       properties:
         id: { type: string, format: uuid }
         cacheStatus: { $ref: "#/components/schemas/PlayerReleaseCacheStatus" }
+    UpdateDeploymentMode:
+      type: string
+      enum: [download_only, install_now, maintenance_window]
+    UpdateDeploymentStatus:
+      type: string
+      enum: [pending, active, paused, completed, cancelled]
+    UpdateRolloutMode:
+      type: string
+      enum: [full, canary]
+    UpdateRolloutPhase:
+      type: string
+      enum: [full, canary, paused]
+    UpdateScreenState:
+      type: string
+      enum:
+        [
+          pending,
+          offline,
+          incompatible,
+          already_current,
+          held,
+          cancelled,
+          downloading,
+          downloaded,
+          verifying,
+          ready,
+          waiting_for_permission,
+          waiting_for_user,
+          installing,
+          reconnecting,
+          failed,
+          succeeded,
+        ]
+    UpdateDeploymentCreated:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          status,
+          targetCount,
+          apkSizeBytes,
+          rolloutMode,
+          rolloutPhase,
+          canarySize,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [active] }
+        targetCount: { type: integer, minimum: 0 }
+        apkSizeBytes: { type: integer, format: int64, minimum: 0 }
+        rolloutMode: { $ref: "#/components/schemas/UpdateRolloutMode" }
+        rolloutPhase: { $ref: "#/components/schemas/UpdateRolloutPhase" }
+        canarySize: { type: integer, minimum: 0, maximum: 50 }
+    UpdateDeploymentSummary:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          name,
+          mode,
+          status,
+          createdAt,
+          platform,
+          playerFamily,
+          architecture,
+          versionCode,
+          versionName,
+          targetCount,
+          succeededCount,
+          failedCount,
+          waitingForUserCount,
+          rolloutMode,
+          rolloutPhase,
+          canarySize,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        mode: { $ref: "#/components/schemas/UpdateDeploymentMode" }
+        status: { $ref: "#/components/schemas/UpdateDeploymentStatus" }
+        createdAt: { type: string, format: date-time }
+        platform: { type: string }
+        playerFamily: { type: string }
+        architecture: { type: string }
+        versionCode: { type: integer, format: int64, minimum: 0 }
+        versionName: { type: string }
+        targetCount: { type: integer, minimum: 0 }
+        succeededCount: { type: integer, minimum: 0 }
+        failedCount: { type: integer, minimum: 0 }
+        waitingForUserCount: { type: integer, minimum: 0 }
+        rolloutMode: { $ref: "#/components/schemas/UpdateRolloutMode" }
+        rolloutPhase: { $ref: "#/components/schemas/UpdateRolloutPhase" }
+        canarySize: { type: integer, minimum: 0, maximum: 50 }
+        pauseReason: { type: [string, "null"] }
+        lastFailure: { type: [string, "null"] }
+    UpdateDeploymentList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/UpdateDeploymentSummary" }
+    UpdateDeploymentScreen:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          screenId,
+          screenName,
+          expectedVersionCode,
+          downloadedBytes,
+          state,
+          updatedAt,
+          isCanary,
+        ]
+      properties:
+        screenId: { type: string, format: uuid }
+        screenName: { type: string }
+        previousVersionCode: { type: [integer, "null"], format: int64 }
+        expectedVersionCode: { type: integer, format: int64, minimum: 0 }
+        downloadedBytes: { type: integer, format: int64, minimum: 0 }
+        permissionStatus: { type: [string, "null"] }
+        installerStatus: { type: [string, "null"] }
+        state: { $ref: "#/components/schemas/UpdateScreenState" }
+        safeError: { type: [string, "null"] }
+        updatedAt: { type: string, format: date-time }
+        isCanary: { type: boolean }
+        downloadStartedAt: { type: [string, "null"], format: date-time }
+        downloadedAt: { type: [string, "null"], format: date-time }
+        installStartedAt: { type: [string, "null"], format: date-time }
+        completedAt: { type: [string, "null"], format: date-time }
+    UpdateDeploymentDetail:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          name,
+          mode,
+          status,
+          createdAt,
+          rolloutMode,
+          rolloutPhase,
+          canarySize,
+          platform,
+          playerFamily,
+          architecture,
+          versionCode,
+          versionName,
+          artifactSizeBytes,
+          screens,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        mode: { $ref: "#/components/schemas/UpdateDeploymentMode" }
+        status: { $ref: "#/components/schemas/UpdateDeploymentStatus" }
+        createdAt: { type: string, format: date-time }
+        completedAt: { type: [string, "null"], format: date-time }
+        rolloutMode: { $ref: "#/components/schemas/UpdateRolloutMode" }
+        rolloutPhase: { $ref: "#/components/schemas/UpdateRolloutPhase" }
+        canarySize: { type: integer, minimum: 0, maximum: 50 }
+        pauseReason: { type: [string, "null"] }
+        platform: { type: string }
+        playerFamily: { type: string }
+        architecture: { type: string }
+        versionCode: { type: integer, format: int64, minimum: 0 }
+        versionName: { type: string }
+        artifactSizeBytes: { type: integer, format: int64, minimum: 0 }
+        screens:
+          type: array
+          items: { $ref: "#/components/schemas/UpdateDeploymentScreen" }
+    UpdateDeploymentCancelled:
+      type: object
+      additionalProperties: false
+      required: [id, status]
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [cancelled] }
     PlayerReleaseDeleteResult:
       type: object
       additionalProperties: false
