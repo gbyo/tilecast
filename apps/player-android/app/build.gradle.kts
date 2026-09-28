@@ -110,19 +110,21 @@ dependencies {
 val sharedRuntimeSource = layout.projectDirectory.dir("../../../packages/player-runtime/dist/runtime")
 val sharedRuntimeAssets = layout.projectDirectory.dir("src/main/assets/shared-runtime")
 
-tasks.register<Sync>("syncSharedRuntime") {
+tasks.register("syncSharedRuntime") {
     group = "tilecast"
     description = "Copies the built shared Player Runtime into app assets."
-    val manifest = sharedRuntimeSource.file("runtime-manifest.json").asFile
-    inputs.file(manifest)
     outputs.dir(sharedRuntimeAssets)
-    doFirst {
+    doLast {
+        val manifest = sharedRuntimeSource.file("runtime-manifest.json").asFile
         check(manifest.isFile) {
             "packages/player-runtime/dist/runtime is missing; run: npm run build --workspace @tilecast/player-runtime"
         }
+        project.delete(sharedRuntimeAssets)
+        project.copy {
+            from(sharedRuntimeSource)
+            into(sharedRuntimeAssets)
+        }
     }
-    from(sharedRuntimeSource)
-    into(sharedRuntimeAssets)
 }
 
 tasks.register<Exec>("verifySharedRuntime") {
