@@ -32,6 +32,13 @@ object RemoteWebCallHandler {
         call: HostChannel.PageMessage.Call,
         tracker: RemoteWebHostManager.Tracker,
         generation: Long,
+    ): CallOutcome = runCatching { handleOrThrow(call, tracker, generation) }
+        .getOrDefault(CallOutcome.Refused("bad_message"))
+
+    private fun handleOrThrow(
+        call: HostChannel.PageMessage.Call,
+        tracker: RemoteWebHostManager.Tracker,
+        generation: Long,
     ): CallOutcome = when (call.call) {
         "remoteWeb.create" -> create(call.payload, tracker, generation)
         "remoteWeb.updateViewport",

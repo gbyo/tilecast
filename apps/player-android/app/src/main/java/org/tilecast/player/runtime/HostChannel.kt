@@ -31,9 +31,12 @@ object HostChannel {
         data object EventsWant : PageMessage
     }
 
-    fun parsePageMessage(raw: String): PageMessage? {
+    fun parsePageMessage(raw: String): PageMessage? =
+        runCatching { parseOrThrow(raw) }.getOrNull()
+
+    private fun parseOrThrow(raw: String): PageMessage? {
         if (raw.isBlank() || raw.length > 2_000_000) return null
-        val obj = runCatching { json.parseToJsonElement(raw).jsonObject }.getOrNull() ?: return null
+        val obj = json.parseToJsonElement(raw).jsonObject
         return when (obj["type"]?.jsonPrimitive?.contentOrNull) {
             "host-state" -> PageMessage.StateWant(
                 obj["wantGeneration"]?.jsonPrimitive?.longOrNull,

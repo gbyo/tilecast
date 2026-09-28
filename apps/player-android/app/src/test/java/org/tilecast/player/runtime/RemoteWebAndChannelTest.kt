@@ -100,6 +100,18 @@ class RemoteWebCallHandlerTest {
         )
     }
 
+    @Test fun malformedShapesAreRefusedNeverThrown() {
+        val tracker = RemoteWebHostManager.Tracker(7)
+        val badPayload = Json.parseToJsonElement(
+            """{"surfaceId":{},"content":[],"viewport":1,"muted":"yes"}""",
+        ).jsonObject
+        val outcome = RemoteWebCallHandler.handle(
+            HostChannel.PageMessage.Call("c", "remoteWeb.create", badPayload), tracker, 7,
+        )
+        assertTrue(outcome is RemoteWebCallHandler.CallOutcome.Refused)
+        assertNull(HostChannel.parsePageMessage("""{"type":"host-call","id":{},"call":"x","payload":{}}"""))
+    }
+
     @Test fun advertisesHostViewWithoutSetupOrDiscovery() {
         val caps = RemoteWebCallHandler.capabilities()
         assertEquals("host-view", caps["remoteWeb"])
