@@ -5417,6 +5417,42 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** @description Organization document as carried by settings exports. Definitions are stripped on export; the settings read carries them instead. */
+    SettingsExportOrganization: {
+      schemaVersion: number;
+      /** Format: int64 */
+      revision: number;
+      values: Record<string, never>;
+      /** Format: date-time */
+      updatedAt: string;
+    };
+    SettingsExport: {
+      /**
+       * @description Only version 1 is accepted.
+       * @enum {integer}
+       */
+      schemaVersion: 1;
+      /** Format: date-time */
+      exportedAt: string;
+      tilecastVersion: string;
+      organization: components["schemas"]["SettingsExportOrganization"];
+      groupPolicies: Record<string, never>[];
+      screenPolicies?: Record<string, never>[];
+    };
+    SettingsImportPreview: {
+      /** @enum {boolean} */
+      valid: true;
+      changedKeys: string[];
+      groupPolicyCount: number;
+      screenPolicyCount: number;
+      /** @enum {boolean} */
+      requiresConfirmation: true;
+    };
+    MaintenanceResult: {
+      action: string;
+      /** @enum {string} */
+      status: "accepted";
+    };
     BackupComponent: {
       name: string;
       fileCount: number;
@@ -19423,7 +19459,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["MaintenanceResult"];
+          };
+        };
       };
       /** @description Unsupported action */
       422: {
@@ -19448,7 +19488,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["SettingsExport"];
+          };
+        };
       };
     };
   };
@@ -19459,14 +19503,22 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SettingsExport"];
+      };
+    };
     responses: {
       /** @description Import preview */
       200: {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["SettingsImportPreview"];
+          };
+        };
       };
       /** @description Invalid import */
       422: {
@@ -19484,14 +19536,22 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SettingsExport"];
+      };
+    };
     responses: {
       /** @description Import applied */
       200: {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["SettingsDocument"];
+          };
+        };
       };
       /** @description Revision conflict */
       409: {

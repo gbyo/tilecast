@@ -1068,6 +1068,21 @@ func (e MFAPolicy) Valid() bool {
 	}
 }
 
+// Defines values for MaintenanceResultStatus.
+const (
+	Accepted MaintenanceResultStatus = "accepted"
+)
+
+// Valid indicates whether the value is a known member of the MaintenanceResultStatus enum.
+func (e MaintenanceResultStatus) Valid() bool {
+	switch e {
+	case Accepted:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ManifestScheduleType.
 const (
 	ManifestScheduleTypeOneTime ManifestScheduleType = "one_time"
@@ -1601,13 +1616,13 @@ func (e PlaylistTagRuleInputMatch) Valid() bool {
 
 // Defines values for PluginAutomationApiVersion.
 const (
-	N1 PluginAutomationApiVersion = 1
+	PluginAutomationApiVersionN1 PluginAutomationApiVersion = 1
 )
 
 // Valid indicates whether the value is a known member of the PluginAutomationApiVersion enum.
 func (e PluginAutomationApiVersion) Valid() bool {
 	switch e {
-	case N1:
+	case PluginAutomationApiVersionN1:
 		return true
 	default:
 		return false
@@ -2160,6 +2175,51 @@ func (e SettingDefinitionScope) Valid() bool {
 	case Policy:
 		return true
 	case Preference:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SettingsExportSchemaVersion.
+const (
+	SettingsExportSchemaVersionN1 SettingsExportSchemaVersion = 1
+)
+
+// Valid indicates whether the value is a known member of the SettingsExportSchemaVersion enum.
+func (e SettingsExportSchemaVersion) Valid() bool {
+	switch e {
+	case SettingsExportSchemaVersionN1:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SettingsImportPreviewRequiresConfirmation.
+const (
+	SettingsImportPreviewRequiresConfirmationTrue SettingsImportPreviewRequiresConfirmation = true
+)
+
+// Valid indicates whether the value is a known member of the SettingsImportPreviewRequiresConfirmation enum.
+func (e SettingsImportPreviewRequiresConfirmation) Valid() bool {
+	switch e {
+	case SettingsImportPreviewRequiresConfirmationTrue:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SettingsImportPreviewValid.
+const (
+	SettingsImportPreviewValidTrue SettingsImportPreviewValid = true
+)
+
+// Valid indicates whether the value is a known member of the SettingsImportPreviewValid enum.
+func (e SettingsImportPreviewValid) Valid() bool {
+	switch e {
+	case SettingsImportPreviewValidTrue:
 		return true
 	default:
 		return false
@@ -4330,6 +4390,15 @@ type LoginBackground struct {
 // MFAPolicy defines model for MFAPolicy.
 type MFAPolicy string
 
+// MaintenanceResult defines model for MaintenanceResult.
+type MaintenanceResult struct {
+	Action string                  `json:"action"`
+	Status MaintenanceResultStatus `json:"status"`
+}
+
+// MaintenanceResultStatus defines model for MaintenanceResult.Status.
+type MaintenanceResultStatus string
+
 // ManagedUser defines model for ManagedUser.
 type ManagedUser struct {
 	Active      bool               `json:"active"`
@@ -5539,6 +5608,46 @@ type SettingsDocument struct {
 	UpdatedAt     time.Time              `json:"updatedAt"`
 	Values        map[string]interface{} `json:"values"`
 }
+
+// SettingsExport defines model for SettingsExport.
+type SettingsExport struct {
+	ExportedAt    time.Time                `json:"exportedAt"`
+	GroupPolicies []map[string]interface{} `json:"groupPolicies"`
+
+	// Organization Organization document as carried by settings exports. Definitions are stripped on export; the settings read carries them instead.
+	Organization SettingsExportOrganization `json:"organization"`
+
+	// SchemaVersion Only version 1 is accepted.
+	SchemaVersion   SettingsExportSchemaVersion `json:"schemaVersion"`
+	ScreenPolicies  *[]map[string]interface{}   `json:"screenPolicies,omitempty"`
+	TilecastVersion string                      `json:"tilecastVersion"`
+}
+
+// SettingsExportSchemaVersion Only version 1 is accepted.
+type SettingsExportSchemaVersion int
+
+// SettingsExportOrganization Organization document as carried by settings exports. Definitions are stripped on export; the settings read carries them instead.
+type SettingsExportOrganization struct {
+	Revision      int64                  `json:"revision"`
+	SchemaVersion int                    `json:"schemaVersion"`
+	UpdatedAt     time.Time              `json:"updatedAt"`
+	Values        map[string]interface{} `json:"values"`
+}
+
+// SettingsImportPreview defines model for SettingsImportPreview.
+type SettingsImportPreview struct {
+	ChangedKeys          []string                                  `json:"changedKeys"`
+	GroupPolicyCount     int                                       `json:"groupPolicyCount"`
+	RequiresConfirmation SettingsImportPreviewRequiresConfirmation `json:"requiresConfirmation"`
+	ScreenPolicyCount    int                                       `json:"screenPolicyCount"`
+	Valid                SettingsImportPreviewValid                `json:"valid"`
+}
+
+// SettingsImportPreviewRequiresConfirmation defines model for SettingsImportPreview.RequiresConfirmation.
+type SettingsImportPreviewRequiresConfirmation bool
+
+// SettingsImportPreviewValid defines model for SettingsImportPreview.Valid.
+type SettingsImportPreviewValid bool
 
 // SettingsUpdate defines model for SettingsUpdate.
 type SettingsUpdate struct {
@@ -7689,6 +7798,12 @@ type ResetSettingsJSONRequestBody ResetSettingsJSONBody
 
 // RestoreBackupJSONRequestBody defines body for RestoreBackup for application/json ContentType.
 type RestoreBackupJSONRequestBody RestoreBackupJSONBody
+
+// ApplySettingsImportJSONRequestBody defines body for ApplySettingsImport for application/json ContentType.
+type ApplySettingsImportJSONRequestBody = SettingsExport
+
+// PreviewSettingsImportJSONRequestBody defines body for PreviewSettingsImport for application/json ContentType.
+type PreviewSettingsImportJSONRequestBody = SettingsExport
 
 // CreateTakeoverJSONRequestBody defines body for CreateTakeover for application/json ContentType.
 type CreateTakeoverJSONRequestBody CreateTakeoverJSONBody
@@ -10753,19 +10868,41 @@ type ClientInterface interface {
 	// Corresponds with GET /api/v1/system/settings/export (the `ExportSettings` operationId).
 	ExportSettings(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ApplySettingsImportWithBody Apply confirmed settings import
+	//
+	// Requires an authenticated dashboard user.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/system/settings/import/apply (the `ApplySettingsImport` operationId).
+	ApplySettingsImportWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ApplySettingsImport Apply confirmed settings import
 	//
 	// Requires an authenticated dashboard user.
 	//
+	// Takes a body of the `application/json` content type.
+	//
 	// Corresponds with POST /api/v1/system/settings/import/apply (the `ApplySettingsImport` operationId).
-	ApplySettingsImport(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ApplySettingsImport(ctx context.Context, body ApplySettingsImportJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PreviewSettingsImportWithBody Validate settings import without applying
+	//
+	// Requires an authenticated dashboard user.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/system/settings/import/preview (the `PreviewSettingsImport` operationId).
+	PreviewSettingsImportWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PreviewSettingsImport Validate settings import without applying
 	//
 	// Requires an authenticated dashboard user.
 	//
+	// Takes a body of the `application/json` content type.
+	//
 	// Corresponds with POST /api/v1/system/settings/import/preview (the `PreviewSettingsImport` operationId).
-	PreviewSettingsImport(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PreviewSettingsImport(ctx context.Context, body PreviewSettingsImportJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetSnapshotUsage performs a GET /api/v1/system/snapshots/usage (the `GetSnapshotUsage` operationId) request.
 	//
@@ -17873,13 +18010,53 @@ func (c *Client) ExportSettings(ctx context.Context, reqEditors ...RequestEditor
 	return c.Client.Do(req)
 }
 
+// ApplySettingsImportWithBody Apply confirmed settings import
+//
+// Requires an authenticated dashboard user.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/system/settings/import/apply (the `ApplySettingsImport` operationId).
+func (c *Client) ApplySettingsImportWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewApplySettingsImportRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ApplySettingsImport Apply confirmed settings import
 //
 // Requires an authenticated dashboard user.
 //
+// Takes a body of the `application/json` content type.
+//
 // Corresponds with POST /api/v1/system/settings/import/apply (the `ApplySettingsImport` operationId).
-func (c *Client) ApplySettingsImport(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewApplySettingsImportRequest(c.Server)
+func (c *Client) ApplySettingsImport(ctx context.Context, body ApplySettingsImportJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewApplySettingsImportRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PreviewSettingsImportWithBody Validate settings import without applying
+//
+// Requires an authenticated dashboard user.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/system/settings/import/preview (the `PreviewSettingsImport` operationId).
+func (c *Client) PreviewSettingsImportWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewSettingsImportRequestWithBody(c.Server, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -17894,9 +18071,11 @@ func (c *Client) ApplySettingsImport(ctx context.Context, reqEditors ...RequestE
 //
 // Requires an authenticated dashboard user.
 //
+// Takes a body of the `application/json` content type.
+//
 // Corresponds with POST /api/v1/system/settings/import/preview (the `PreviewSettingsImport` operationId).
-func (c *Client) PreviewSettingsImport(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPreviewSettingsImportRequest(c.Server)
+func (c *Client) PreviewSettingsImport(ctx context.Context, body PreviewSettingsImportJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewSettingsImportRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -33823,8 +34002,19 @@ func NewExportSettingsRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewApplySettingsImportRequest constructs an http.Request for the ApplySettingsImport method
-func NewApplySettingsImportRequest(server string) (*http.Request, error) {
+// NewApplySettingsImportRequest calls the generic ApplySettingsImport builder with application/json body
+func NewApplySettingsImportRequest(server string, body ApplySettingsImportJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewApplySettingsImportRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewApplySettingsImportRequestWithBody constructs an http.Request for the ApplySettingsImport method, with any body, and a specified content type
+func NewApplySettingsImportRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -33842,16 +34032,29 @@ func NewApplySettingsImportRequest(server string) (*http.Request, error) {
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
 
+	req.Header.Add("Content-Type", contentType)
+
 	return req, nil
 }
 
-// NewPreviewSettingsImportRequest constructs an http.Request for the PreviewSettingsImport method
-func NewPreviewSettingsImportRequest(server string) (*http.Request, error) {
+// NewPreviewSettingsImportRequest calls the generic PreviewSettingsImport builder with application/json body
+func NewPreviewSettingsImportRequest(server string, body PreviewSettingsImportJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPreviewSettingsImportRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPreviewSettingsImportRequestWithBody constructs an http.Request for the PreviewSettingsImport method, with any body, and a specified content type
+func NewPreviewSettingsImportRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -33869,10 +34072,12 @@ func NewPreviewSettingsImportRequest(server string) (*http.Request, error) {
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -38325,23 +38530,41 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /api/v1/system/settings/export (the `ExportSettings` operationId).
 	ExportSettingsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ExportSettingsResponse, error)
 
+	// ApplySettingsImportWithBodyWithResponse Apply confirmed settings import
+	//
+	// Requires an authenticated dashboard user.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/system/settings/import/apply (the `ApplySettingsImport` operationId).
+	ApplySettingsImportWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApplySettingsImportResponse, error)
+
 	// ApplySettingsImportWithResponse Apply confirmed settings import
 	//
 	// Requires an authenticated dashboard user.
 	//
-	// Returns a wrapper object for the known response body format(s).
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/system/settings/import/apply (the `ApplySettingsImport` operationId).
-	ApplySettingsImportWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ApplySettingsImportResponse, error)
+	ApplySettingsImportWithResponse(ctx context.Context, body ApplySettingsImportJSONRequestBody, reqEditors ...RequestEditorFn) (*ApplySettingsImportResponse, error)
+
+	// PreviewSettingsImportWithBodyWithResponse Validate settings import without applying
+	//
+	// Requires an authenticated dashboard user.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/system/settings/import/preview (the `PreviewSettingsImport` operationId).
+	PreviewSettingsImportWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewSettingsImportResponse, error)
 
 	// PreviewSettingsImportWithResponse Validate settings import without applying
 	//
 	// Requires an authenticated dashboard user.
 	//
-	// Returns a wrapper object for the known response body format(s).
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/system/settings/import/preview (the `PreviewSettingsImport` operationId).
-	PreviewSettingsImportWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PreviewSettingsImportResponse, error)
+	PreviewSettingsImportWithResponse(ctx context.Context, body PreviewSettingsImportJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewSettingsImportResponse, error)
 
 	// GetSnapshotUsageWithResponse performs a GET /api/v1/system/snapshots/usage (the `GetSnapshotUsage` operationId) request.
 	//
@@ -51980,6 +52203,17 @@ func (r InstallationIdentityResponse) ContentType() string {
 type RunSystemMaintenanceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *struct {
+		Data MaintenanceResult `json:"data"`
+	}
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r RunSystemMaintenanceResponse) GetJSON202() *struct {
+	Data MaintenanceResult `json:"data"`
+} {
+	return r.JSON202
 }
 
 // GetBody returns the raw response body bytes
@@ -52059,6 +52293,17 @@ func (r GetMediaDiagnosticsResponse) ContentType() string {
 type ExportSettingsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data SettingsExport `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ExportSettingsResponse) GetJSON200() *struct {
+	Data SettingsExport `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -52093,6 +52338,19 @@ func (r ExportSettingsResponse) ContentType() string {
 type ApplySettingsImportResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Data Versioned organization or preference document. Definitions always ride along; callers never merge a second read to render titles.
+		Data SettingsDocument `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ApplySettingsImportResponse) GetJSON200() *struct {
+	// Data Versioned organization or preference document. Definitions always ride along; callers never merge a second read to render titles.
+	Data SettingsDocument `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -52127,6 +52385,17 @@ func (r ApplySettingsImportResponse) ContentType() string {
 type PreviewSettingsImportResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data SettingsImportPreview `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PreviewSettingsImportResponse) GetJSON200() *struct {
+	Data SettingsImportPreview `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -59186,30 +59455,60 @@ func (c *ClientWithResponses) ExportSettingsWithResponse(ctx context.Context, re
 	return ParseExportSettingsResponse(rsp)
 }
 
-// ApplySettingsImportWithResponse Apply confirmed settings import
+// ApplySettingsImportWithBodyWithResponse Apply confirmed settings import
 //
 // Requires an authenticated dashboard user.
 //
-// Returns a wrapper object for the known response body format(s).
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /api/v1/system/settings/import/apply (the `ApplySettingsImport` operationId).
-func (c *ClientWithResponses) ApplySettingsImportWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ApplySettingsImportResponse, error) {
-	rsp, err := c.ApplySettingsImport(ctx, reqEditors...)
+func (c *ClientWithResponses) ApplySettingsImportWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApplySettingsImportResponse, error) {
+	rsp, err := c.ApplySettingsImportWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseApplySettingsImportResponse(rsp)
 }
 
+// ApplySettingsImportWithResponse Apply confirmed settings import
+//
+// Requires an authenticated dashboard user.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/system/settings/import/apply (the `ApplySettingsImport` operationId).
+func (c *ClientWithResponses) ApplySettingsImportWithResponse(ctx context.Context, body ApplySettingsImportJSONRequestBody, reqEditors ...RequestEditorFn) (*ApplySettingsImportResponse, error) {
+	rsp, err := c.ApplySettingsImport(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseApplySettingsImportResponse(rsp)
+}
+
+// PreviewSettingsImportWithBodyWithResponse Validate settings import without applying
+//
+// Requires an authenticated dashboard user.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/system/settings/import/preview (the `PreviewSettingsImport` operationId).
+func (c *ClientWithResponses) PreviewSettingsImportWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewSettingsImportResponse, error) {
+	rsp, err := c.PreviewSettingsImportWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreviewSettingsImportResponse(rsp)
+}
+
 // PreviewSettingsImportWithResponse Validate settings import without applying
 //
 // Requires an authenticated dashboard user.
 //
-// Returns a wrapper object for the known response body format(s).
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /api/v1/system/settings/import/preview (the `PreviewSettingsImport` operationId).
-func (c *ClientWithResponses) PreviewSettingsImportWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PreviewSettingsImportResponse, error) {
-	rsp, err := c.PreviewSettingsImport(ctx, reqEditors...)
+func (c *ClientWithResponses) PreviewSettingsImportWithResponse(ctx context.Context, body PreviewSettingsImportJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewSettingsImportResponse, error) {
+	rsp, err := c.PreviewSettingsImport(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -67694,6 +67993,21 @@ func ParseRunSystemMaintenanceResponse(rsp *http.Response) (*RunSystemMaintenanc
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest struct {
+			Data MaintenanceResult `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -67744,6 +68058,18 @@ func ParseExportSettingsResponse(rsp *http.Response) (*ExportSettingsResponse, e
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data SettingsExport `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
 	return response, nil
 }
 
@@ -67760,6 +68086,22 @@ func ParseApplySettingsImportResponse(rsp *http.Response) (*ApplySettingsImportR
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Data Versioned organization or preference document. Definitions always ride along; callers never merge a second read to render titles.
+			Data SettingsDocument `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -67774,6 +68116,21 @@ func ParsePreviewSettingsImportResponse(rsp *http.Response) (*PreviewSettingsImp
 	response := &PreviewSettingsImportResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data SettingsImportPreview `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
