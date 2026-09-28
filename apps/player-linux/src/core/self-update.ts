@@ -109,7 +109,7 @@ export interface SelfUpdateDeps {
 export function parseVersionCode(version: string): number {
   const core = version.trim().split(/[-+]/, 1)[0] ?? "";
   const parts = core.split(".");
-  if (parts.length !== 3 || parts.some((part) => !/^\\d+$/.test(part))) {
+  if (parts.length !== 3 || parts.some((part) => !/^\d+$/.test(part))) {
     return 0;
   }
 
