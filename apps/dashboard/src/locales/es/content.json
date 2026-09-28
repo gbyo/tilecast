@@ -772,6 +772,8 @@
       "v2": {
         "unavailable": "El componente de vista previa de este Widget no forma parte de esta compilación de Studio, por lo que aún no se puede editar aquí.",
         "unsaved": "Cambios sin guardar",
+        "savedUpdated": "Widget actualizado.",
+        "savedCreated": "Widget creado.",
         "noControls": "Esta sección no tiene controles para la configuración actual.",
         "zonePreview": "Vista previa del Widget",
         "sizeLabel": "Tamaño de vista previa",
