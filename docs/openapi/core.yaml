@@ -5796,8 +5796,27 @@ paths:
                 expectedDraftRevision:
                   { type: integer, format: int64, minimum: 1 }
       responses:
-        "201": { description: Campaign release published atomically }
-        "202": { description: Campaign release submitted for review }
+        "201":
+          description: Campaign release published atomically
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    {
+                      $ref: "#/components/schemas/ContentSubmissionPublication",
+                    }
+        "202":
+          description: Campaign release submitted for review
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ContentSubmission" }
         "409": { description: Root revision or draft conflict }
         "422": { description: Preflight failed }
   /api/v1/takeovers:

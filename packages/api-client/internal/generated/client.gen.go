@@ -41709,6 +41709,30 @@ func (r PreflightCampaignResponse) ContentType() string {
 type PublishCampaignResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		// Data Exact submitted snapshot published and recorded in history. The published record carries untagged Go-cased keys from the editorial package.
+		Data ContentSubmissionPublication `json:"data"`
+	}
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *struct {
+		Data ContentSubmission `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r PublishCampaignResponse) GetJSON201() *struct {
+	// Data Exact submitted snapshot published and recorded in history. The published record carries untagged Go-cased keys from the editorial package.
+	Data ContentSubmissionPublication `json:"data"`
+} {
+	return r.JSON201
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r PublishCampaignResponse) GetJSON202() *struct {
+	Data ContentSubmission `json:"data"`
+} {
+	return r.JSON202
 }
 
 // GetBody returns the raw response body bytes
@@ -62245,6 +62269,34 @@ func ParsePublishCampaignResponse(rsp *http.Response) (*PublishCampaignResponse,
 	response := &PublishCampaignResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			// Data Exact submitted snapshot published and recorded in history. The published record carries untagged Go-cased keys from the editorial package.
+			Data ContentSubmissionPublication `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest struct {
+			Data ContentSubmission `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
