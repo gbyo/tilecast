@@ -357,6 +357,51 @@ func (e DisplayControlActionType) Valid() bool {
 	}
 }
 
+// Defines values for GitHubAuthSource.
+const (
+	Anonymous   GitHubAuthSource = "anonymous"
+	Device      GitHubAuthSource = "device"
+	Environment GitHubAuthSource = "environment"
+)
+
+// Valid indicates whether the value is a known member of the GitHubAuthSource enum.
+func (e GitHubAuthSource) Valid() bool {
+	switch e {
+	case Anonymous:
+		return true
+	case Device:
+		return true
+	case Environment:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GitHubDevicePollStatus.
+const (
+	GitHubDevicePollStatusConnected GitHubDevicePollStatus = "connected"
+	GitHubDevicePollStatusDenied    GitHubDevicePollStatus = "denied"
+	GitHubDevicePollStatusExpired   GitHubDevicePollStatus = "expired"
+	GitHubDevicePollStatusPending   GitHubDevicePollStatus = "pending"
+)
+
+// Valid indicates whether the value is a known member of the GitHubDevicePollStatus enum.
+func (e GitHubDevicePollStatus) Valid() bool {
+	switch e {
+	case GitHubDevicePollStatusConnected:
+		return true
+	case GitHubDevicePollStatusDenied:
+		return true
+	case GitHubDevicePollStatusExpired:
+		return true
+	case GitHubDevicePollStatusPending:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ManifestScheduleType.
 const (
 	ManifestScheduleTypeOneTime ManifestScheduleType = "one_time"
@@ -429,6 +474,105 @@ func (e PlayerManifestSchemaVersion) Valid() bool {
 	case PlayerManifestSchemaVersionN14:
 		return true
 	case PlayerManifestSchemaVersionN15:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PlayerPlatform.
+const (
+	Android PlayerPlatform = "android"
+	Linux   PlayerPlatform = "linux"
+)
+
+// Valid indicates whether the value is a known member of the PlayerPlatform enum.
+func (e PlayerPlatform) Valid() bool {
+	switch e {
+	case Android:
+		return true
+	case Linux:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PlayerReleaseChannel.
+const (
+	Beta   PlayerReleaseChannel = "beta"
+	Stable PlayerReleaseChannel = "stable"
+)
+
+// Valid indicates whether the value is a known member of the PlayerReleaseChannel enum.
+func (e PlayerReleaseChannel) Valid() bool {
+	switch e {
+	case Beta:
+		return true
+	case Stable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PlayerReleaseSource.
+const (
+	Github PlayerReleaseSource = "github"
+	Upload PlayerReleaseSource = "upload"
+)
+
+// Valid indicates whether the value is a known member of the PlayerReleaseSource enum.
+func (e PlayerReleaseSource) Valid() bool {
+	switch e {
+	case Github:
+		return true
+	case Upload:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PlayerReleaseCacheStatus.
+const (
+	PlayerReleaseCacheStatusCached      PlayerReleaseCacheStatus = "cached"
+	PlayerReleaseCacheStatusDownloading PlayerReleaseCacheStatus = "downloading"
+	PlayerReleaseCacheStatusFailed      PlayerReleaseCacheStatus = "failed"
+	PlayerReleaseCacheStatusMissing     PlayerReleaseCacheStatus = "missing"
+)
+
+// Valid indicates whether the value is a known member of the PlayerReleaseCacheStatus enum.
+func (e PlayerReleaseCacheStatus) Valid() bool {
+	switch e {
+	case PlayerReleaseCacheStatusCached:
+		return true
+	case PlayerReleaseCacheStatusDownloading:
+		return true
+	case PlayerReleaseCacheStatusFailed:
+		return true
+	case PlayerReleaseCacheStatusMissing:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PlayerReleaseVerificationStatus.
+const (
+	PlayerReleaseVerificationStatusFailed           PlayerReleaseVerificationStatus = "failed"
+	PlayerReleaseVerificationStatusVerified         PlayerReleaseVerificationStatus = "verified"
+	PlayerReleaseVerificationStatusVerifiedManifest PlayerReleaseVerificationStatus = "verified_manifest"
+)
+
+// Valid indicates whether the value is a known member of the PlayerReleaseVerificationStatus enum.
+func (e PlayerReleaseVerificationStatus) Valid() bool {
+	switch e {
+	case PlayerReleaseVerificationStatusFailed:
+		return true
+	case PlayerReleaseVerificationStatusVerified:
+		return true
+	case PlayerReleaseVerificationStatusVerifiedManifest:
 		return true
 	default:
 		return false
@@ -2298,6 +2442,42 @@ type DisplayControlAction struct {
 // DisplayControlActionType defines model for DisplayControlAction.Type.
 type DisplayControlActionType string
 
+// GitHubAuthSource defines model for GitHubAuthSource.
+type GitHubAuthSource string
+
+// GitHubAuthStatus defines model for GitHubAuthStatus.
+type GitHubAuthStatus struct {
+	Available     bool             `json:"available"`
+	CanDisconnect bool             `json:"canDisconnect"`
+	Connected     bool             `json:"connected"`
+	Login         *string          `json:"login,omitempty"`
+	Source        GitHubAuthSource `json:"source"`
+}
+
+// GitHubClientConfigured defines model for GitHubClientConfigured.
+type GitHubClientConfigured struct {
+	Configured bool `json:"configured"`
+}
+
+// GitHubDevicePoll defines model for GitHubDevicePoll.
+type GitHubDevicePoll struct {
+	Login             *string                `json:"login,omitempty"`
+	RetryAfterSeconds *int                   `json:"retryAfterSeconds,omitempty"`
+	Status            GitHubDevicePollStatus `json:"status"`
+}
+
+// GitHubDevicePollStatus defines model for GitHubDevicePoll.Status.
+type GitHubDevicePollStatus string
+
+// GitHubDeviceStart defines model for GitHubDeviceStart.
+type GitHubDeviceStart struct {
+	ExpiresAt           time.Time          `json:"expiresAt"`
+	FlowId              openapi_types.UUID `json:"flowId"`
+	PollIntervalSeconds int                `json:"pollIntervalSeconds"`
+	UserCode            string             `json:"userCode"`
+	VerificationUri     string             `json:"verificationUri"`
+}
+
 // InstallationIdentity defines model for InstallationIdentity.
 type InstallationIdentity struct {
 	ApiVersion       string             `json:"apiVersion"`
@@ -2458,6 +2638,76 @@ type PlayerManifestMode string
 
 // PlayerManifestSchemaVersion defines model for PlayerManifest.SchemaVersion.
 type PlayerManifestSchemaVersion int
+
+// PlayerPlatform defines model for PlayerPlatform.
+type PlayerPlatform string
+
+// PlayerRelease defines model for PlayerRelease.
+type PlayerRelease struct {
+	ActiveDeploymentCount int                      `json:"activeDeploymentCount"`
+	ApkSha256             string                   `json:"apkSha256"`
+	ApkSizeBytes          int64                    `json:"apkSizeBytes"`
+	Architecture          string                   `json:"architecture"`
+	CacheStatus           PlayerReleaseCacheStatus `json:"cacheStatus"`
+	Channel               PlayerReleaseChannel     `json:"channel"`
+	DeploymentCount       int                      `json:"deploymentCount"`
+	DownloadedBytes       int64                    `json:"downloadedBytes"`
+	Id                    openapi_types.UUID       `json:"id"`
+	ManifestSignature     string                   `json:"manifestSignature"`
+	MinimumSdk            *int                     `json:"minimumSdk"`
+	Platform              PlayerPlatform           `json:"platform"`
+
+	// PlayerFamily The Player release family. A deployment reaches only screens of its release's family, and for `edge` only screens of its architecture.
+	PlayerFamily             PlayerFamily                    `json:"playerFamily"`
+	PublishedAt              time.Time                       `json:"publishedAt"`
+	ReleaseNotes             string                          `json:"releaseNotes"`
+	SigningCertificateSha256 string                          `json:"signingCertificateSha256"`
+	Source                   PlayerReleaseSource             `json:"source"`
+	Tag                      string                          `json:"tag"`
+	VerificationError        *string                         `json:"verificationError,omitempty"`
+	VerificationStatus       PlayerReleaseVerificationStatus `json:"verificationStatus"`
+	VersionCode              int                             `json:"versionCode"`
+	VersionName              string                          `json:"versionName"`
+}
+
+// PlayerReleaseChannel defines model for PlayerRelease.Channel.
+type PlayerReleaseChannel string
+
+// PlayerReleaseSource defines model for PlayerRelease.Source.
+type PlayerReleaseSource string
+
+// PlayerReleaseCacheResult defines model for PlayerReleaseCacheResult.
+type PlayerReleaseCacheResult struct {
+	CacheStatus PlayerReleaseCacheStatus `json:"cacheStatus"`
+	Id          openapi_types.UUID       `json:"id"`
+}
+
+// PlayerReleaseCacheStatus defines model for PlayerReleaseCacheStatus.
+type PlayerReleaseCacheStatus string
+
+// PlayerReleaseCheck defines model for PlayerReleaseCheck.
+type PlayerReleaseCheck struct {
+	Checked bool `json:"checked"`
+}
+
+// PlayerReleaseDeleteResult defines model for PlayerReleaseDeleteResult.
+type PlayerReleaseDeleteResult struct {
+	Deleted bool               `json:"deleted"`
+	Id      openapi_types.UUID `json:"id"`
+}
+
+// PlayerReleaseList defines model for PlayerReleaseList.
+type PlayerReleaseList struct {
+	GithubAuth            GitHubAuthStatus `json:"githubAuth"`
+	Items                 []PlayerRelease  `json:"items"`
+	LastCheckedAt         *time.Time       `json:"lastCheckedAt"`
+	ManifestKeyConfigured bool             `json:"manifestKeyConfigured"`
+	ProviderError         *string          `json:"providerError"`
+	Repository            string           `json:"repository"`
+}
+
+// PlayerReleaseVerificationStatus defines model for PlayerReleaseVerificationStatus.
+type PlayerReleaseVerificationStatus string
 
 // PlayerUpdateMetadata defines model for PlayerUpdateMetadata.
 type PlayerUpdateMetadata struct {
@@ -44116,6 +44366,17 @@ func (r IssueOAuthTokensResponse) ContentType() string {
 type ListPlayerReleasesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PlayerReleaseList `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListPlayerReleasesResponse) GetJSON200() *struct {
+	Data PlayerReleaseList `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -44150,6 +44411,17 @@ func (r ListPlayerReleasesResponse) ContentType() string {
 type CheckPlayerReleaseResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PlayerReleaseCheck `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CheckPlayerReleaseResponse) GetJSON200() *struct {
+	Data PlayerReleaseCheck `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -44218,6 +44490,17 @@ func (r DisconnectGitHubResponse) ContentType() string {
 type ConfigureGitHubReleasesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data GitHubClientConfigured `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ConfigureGitHubReleasesResponse) GetJSON200() *struct {
+	Data GitHubClientConfigured `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -44252,6 +44535,17 @@ func (r ConfigureGitHubReleasesResponse) ContentType() string {
 type StartGitHubDeviceFlowResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data GitHubDeviceStart `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r StartGitHubDeviceFlowResponse) GetJSON201() *struct {
+	Data GitHubDeviceStart `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -44286,6 +44580,17 @@ func (r StartGitHubDeviceFlowResponse) ContentType() string {
 type PollGitHubDeviceFlowResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data GitHubDevicePoll `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PollGitHubDeviceFlowResponse) GetJSON200() *struct {
+	Data GitHubDevicePoll `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -44397,6 +44702,17 @@ func (r UploadPlayerReleaseResponse) ContentType() string {
 type DeletePlayerReleaseResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PlayerReleaseDeleteResult `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DeletePlayerReleaseResponse) GetJSON200() *struct {
+	Data PlayerReleaseDeleteResult `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -44431,6 +44747,17 @@ func (r DeletePlayerReleaseResponse) ContentType() string {
 type CachePlayerReleaseResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *struct {
+		Data PlayerReleaseCacheResult `json:"data"`
+	}
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r CachePlayerReleaseResponse) GetJSON202() *struct {
+	Data PlayerReleaseCacheResult `json:"data"`
+} {
+	return r.JSON202
 }
 
 // GetBody returns the raw response body bytes
@@ -61012,6 +61339,18 @@ func ParseListPlayerReleasesResponse(rsp *http.Response) (*ListPlayerReleasesRes
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PlayerReleaseList `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
 	return response, nil
 }
 
@@ -61026,6 +61365,21 @@ func ParseCheckPlayerReleaseResponse(rsp *http.Response) (*CheckPlayerReleaseRes
 	response := &CheckPlayerReleaseResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PlayerReleaseCheck `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 502:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -61060,6 +61414,36 @@ func ParseConfigureGitHubReleasesResponse(rsp *http.Response) (*ConfigureGitHubR
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data GitHubClientConfigured `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
+	case rsp.StatusCode == 503:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -61076,6 +61460,21 @@ func ParseStartGitHubDeviceFlowResponse(rsp *http.Response) (*StartGitHubDeviceF
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data GitHubDeviceStart `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 503:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -61090,6 +61489,24 @@ func ParsePollGitHubDeviceFlowResponse(rsp *http.Response) (*PollGitHubDeviceFlo
 	response := &PollGitHubDeviceFlowResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data GitHubDevicePoll `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 410:
+		break // No content-type
+
+	case rsp.StatusCode == 502:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -61161,6 +61578,30 @@ func ParseDeletePlayerReleaseResponse(rsp *http.Response) (*DeletePlayerReleaseR
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PlayerReleaseDeleteResult `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -61175,6 +61616,21 @@ func ParseCachePlayerReleaseResponse(rsp *http.Response) (*CachePlayerReleaseRes
 	response := &CachePlayerReleaseResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest struct {
+			Data PlayerReleaseCacheResult `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
 	}
 
 	return response, nil

@@ -6044,6 +6044,93 @@ export interface components {
      * @enum {unknown}
      */
     PlayerFamily: "android" | "electron-linux" | "edge";
+    /** @enum {string} */
+    PlayerPlatform: "android" | "linux";
+    /** @enum {string} */
+    PlayerReleaseCacheStatus: "missing" | "downloading" | "cached" | "failed";
+    /** @enum {string} */
+    PlayerReleaseVerificationStatus:
+      "verified_manifest" | "verified" | "failed";
+    /** @enum {string} */
+    GitHubAuthSource: "anonymous" | "device" | "environment";
+    GitHubAuthStatus: {
+      available: boolean;
+      connected: boolean;
+      source: components["schemas"]["GitHubAuthSource"];
+      login?: string;
+      canDisconnect: boolean;
+    };
+    GitHubDeviceStart: {
+      /** Format: uuid */
+      flowId: string;
+      userCode: string;
+      /** Format: uri */
+      verificationUri: string;
+      /** Format: date-time */
+      expiresAt: string;
+      pollIntervalSeconds: number;
+    };
+    GitHubDevicePoll: {
+      /** @enum {string} */
+      status: "pending" | "connected" | "denied" | "expired";
+      login?: string;
+      retryAfterSeconds?: number;
+    };
+    PlayerRelease: {
+      /** Format: uuid */
+      id: string;
+      tag: string;
+      platform: components["schemas"]["PlayerPlatform"];
+      playerFamily: components["schemas"]["PlayerFamily"];
+      architecture: string;
+      /** @enum {string} */
+      source: "upload" | "github";
+      /** @enum {string} */
+      channel: "stable" | "beta";
+      versionCode: number;
+      versionName: string;
+      minimumSdk: number | null;
+      releaseNotes: string;
+      /** Format: date-time */
+      publishedAt: string;
+      /** Format: int64 */
+      apkSizeBytes: number;
+      /** Format: int64 */
+      downloadedBytes: number;
+      apkSha256: string;
+      signingCertificateSha256: string;
+      manifestSignature: string;
+      cacheStatus: components["schemas"]["PlayerReleaseCacheStatus"];
+      verificationStatus: components["schemas"]["PlayerReleaseVerificationStatus"];
+      verificationError?: string;
+      deploymentCount: number;
+      activeDeploymentCount: number;
+    };
+    PlayerReleaseList: {
+      repository: string;
+      /** Format: date-time */
+      lastCheckedAt: string | null;
+      providerError: string | null;
+      manifestKeyConfigured: boolean;
+      githubAuth: components["schemas"]["GitHubAuthStatus"];
+      items: components["schemas"]["PlayerRelease"][];
+    };
+    PlayerReleaseCheck: {
+      checked: boolean;
+    };
+    PlayerReleaseCacheResult: {
+      /** Format: uuid */
+      id: string;
+      cacheStatus: components["schemas"]["PlayerReleaseCacheStatus"];
+    };
+    PlayerReleaseDeleteResult: {
+      /** Format: uuid */
+      id: string;
+      deleted: boolean;
+    };
+    GitHubClientConfigured: {
+      configured: boolean;
+    };
     PlayerUpdateMetadata: {
       /** Format: uuid */
       releaseId: string;
@@ -10807,7 +10894,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["PlayerReleaseDeleteResult"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -10862,7 +10953,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["GitHubClientConfigured"];
+          };
+        };
       };
       /** @description Invalid request body */
       400: {
@@ -18102,7 +18197,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["PlayerReleaseList"];
+          };
+        };
       };
     };
   };
@@ -18120,7 +18219,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["PlayerReleaseCheck"];
+          };
+        };
       };
       /** @description GitHub or verification failure */
       502: {
@@ -18145,7 +18248,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["GitHubDeviceStart"];
+          };
+        };
       };
       /** @description GitHub OAuth client ID is not configured */
       503: {
@@ -18177,7 +18284,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["GitHubDevicePoll"];
+          };
+        };
       };
       /** @description Device flow expired or was not found */
       410: {
@@ -18302,7 +18413,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["PlayerReleaseCacheResult"];
+          };
+        };
       };
       /** @description Release cannot be cached */
       409: {

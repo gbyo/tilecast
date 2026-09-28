@@ -1761,7 +1761,16 @@ paths:
         - { $ref: "#/components/parameters/ResourceID" }
         - { $ref: "#/components/parameters/CSRFToken" }
       responses:
-        "200": { description: Player release deleted }
+        "200":
+          description: Player release deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    { $ref: "#/components/schemas/PlayerReleaseDeleteResult" }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
         "404": { description: Player release not found }
@@ -1785,7 +1794,15 @@ paths:
               properties:
                 clientId: { type: string }
       responses:
-        "200": { description: GitHub releases configured }
+        "200":
+          description: GitHub releases configured
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/GitHubClientConfigured" }
         "400": { description: Invalid request body }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
@@ -5847,7 +5864,16 @@ paths:
         Requires an authenticated dashboard user.
       operationId: listPlayerReleases
       summary: List fixed-repository Tilecast Player releases and verification state
-      responses: { "200": { description: Release list } }
+      responses:
+        "200":
+          description: Release list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PlayerReleaseList" }
   /api/v1/player-releases/check:
     post:
       description: >-
@@ -5855,10 +5881,16 @@ paths:
       operationId: checkPlayerRelease
       summary: Check Gibsonmb71/tilecast GitHub Releases
       responses:
-        {
-          "200": { description: Check completed },
-          "502": { description: GitHub or verification failure },
-        }
+        "200":
+          description: Check completed
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PlayerReleaseCheck" }
+        "502": { description: GitHub or verification failure }
   /api/v1/player-releases/github/device:
     post:
       description: >-
@@ -5866,7 +5898,15 @@ paths:
       operationId: startGitHubDeviceFlow
       summary: Start Owner-authorized GitHub OAuth device flow
       responses:
-        "201": { description: One-time user code and verification URL }
+        "201":
+          description: One-time user code and verification URL
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/GitHubDeviceStart" }
         "503": { description: GitHub OAuth client ID is not configured }
   /api/v1/player-releases/github/device/poll:
     post:
@@ -5884,7 +5924,15 @@ paths:
               properties:
                 flowId: { type: string, format: uuid }
       responses:
-        "200": { description: "Pending, connected, denied, or expired state" }
+        "200":
+          description: "Pending, connected, denied, or expired state"
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/GitHubDevicePoll" }
         "410": { description: Device flow expired or was not found }
         "502": { description: GitHub authorization failure }
   /api/v1/player-releases/github:
@@ -5962,10 +6010,17 @@ paths:
       operationId: cachePlayerRelease
       summary: Download and verify a signed Player APK into private cache
       responses:
-        {
-          "202": { description: Verification started },
-          "409": { description: Release cannot be cached },
-        }
+        "202":
+          description: Verification started
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    { $ref: "#/components/schemas/PlayerReleaseCacheResult" }
+        "409": { description: Release cannot be cached }
   /api/v1/update-deployments:
     get:
       description: >-
@@ -7164,6 +7219,145 @@ components:
       description: >-
         The Player release family. A deployment reaches only screens of its
         release's family, and for `edge` only screens of its architecture.
+    PlayerPlatform:
+      type: string
+      enum: [android, linux]
+    PlayerReleaseCacheStatus:
+      type: string
+      enum: [missing, downloading, cached, failed]
+    PlayerReleaseVerificationStatus:
+      type: string
+      enum: [verified_manifest, verified, failed]
+    GitHubAuthSource:
+      type: string
+      enum: [anonymous, device, environment]
+    GitHubAuthStatus:
+      type: object
+      additionalProperties: false
+      required: [available, connected, source, canDisconnect]
+      properties:
+        available: { type: boolean }
+        connected: { type: boolean }
+        source: { $ref: "#/components/schemas/GitHubAuthSource" }
+        login: { type: string }
+        canDisconnect: { type: boolean }
+    GitHubDeviceStart:
+      type: object
+      additionalProperties: false
+      required:
+        [flowId, userCode, verificationUri, expiresAt, pollIntervalSeconds]
+      properties:
+        flowId: { type: string, format: uuid }
+        userCode: { type: string }
+        verificationUri: { type: string, format: uri }
+        expiresAt: { type: string, format: date-time }
+        pollIntervalSeconds: { type: integer, minimum: 1 }
+    GitHubDevicePoll:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status: { type: string, enum: [pending, connected, denied, expired] }
+        login: { type: string }
+        retryAfterSeconds: { type: integer, minimum: 0 }
+    PlayerRelease:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          tag,
+          platform,
+          playerFamily,
+          architecture,
+          source,
+          channel,
+          versionCode,
+          versionName,
+          minimumSdk,
+          releaseNotes,
+          publishedAt,
+          apkSizeBytes,
+          downloadedBytes,
+          apkSha256,
+          signingCertificateSha256,
+          manifestSignature,
+          cacheStatus,
+          verificationStatus,
+          deploymentCount,
+          activeDeploymentCount,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        tag: { type: string }
+        platform: { $ref: "#/components/schemas/PlayerPlatform" }
+        playerFamily: { $ref: "#/components/schemas/PlayerFamily" }
+        architecture: { type: string }
+        source: { type: string, enum: [upload, github] }
+        channel: { type: string, enum: [stable, beta] }
+        versionCode: { type: integer }
+        versionName: { type: string }
+        minimumSdk: { type: [integer, "null"], minimum: 23 }
+        releaseNotes: { type: string }
+        publishedAt: { type: string, format: date-time }
+        apkSizeBytes: { type: integer, format: int64 }
+        downloadedBytes: { type: integer, format: int64 }
+        apkSha256: { type: string, pattern: "^[0-9a-f]{64}$" }
+        signingCertificateSha256: { type: string }
+        manifestSignature: { type: string }
+        cacheStatus: { $ref: "#/components/schemas/PlayerReleaseCacheStatus" }
+        verificationStatus:
+          { $ref: "#/components/schemas/PlayerReleaseVerificationStatus" }
+        verificationError: { type: string }
+        deploymentCount: { type: integer, minimum: 0 }
+        activeDeploymentCount: { type: integer, minimum: 0 }
+    PlayerReleaseList:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          repository,
+          lastCheckedAt,
+          providerError,
+          manifestKeyConfigured,
+          githubAuth,
+          items,
+        ]
+      properties:
+        repository: { type: string }
+        lastCheckedAt: { type: [string, "null"], format: date-time }
+        providerError: { type: [string, "null"] }
+        manifestKeyConfigured: { type: boolean }
+        githubAuth: { $ref: "#/components/schemas/GitHubAuthStatus" }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/PlayerRelease" }
+    PlayerReleaseCheck:
+      type: object
+      additionalProperties: false
+      required: [checked]
+      properties:
+        checked: { type: boolean }
+    PlayerReleaseCacheResult:
+      type: object
+      additionalProperties: false
+      required: [id, cacheStatus]
+      properties:
+        id: { type: string, format: uuid }
+        cacheStatus: { $ref: "#/components/schemas/PlayerReleaseCacheStatus" }
+    PlayerReleaseDeleteResult:
+      type: object
+      additionalProperties: false
+      required: [id, deleted]
+      properties:
+        id: { type: string, format: uuid }
+        deleted: { type: boolean }
+    GitHubClientConfigured:
+      type: object
+      additionalProperties: false
+      required: [configured]
+      properties:
+        configured: { type: boolean }
     PlayerUpdateMetadata:
       type: object
       required: [releaseId, platform, versionCode, versionName]
