@@ -14461,6 +14461,15 @@ export interface operations {
         status?: string;
         severity?: string;
         type?: string;
+        screen?: string;
+        group?: string;
+        location?: string;
+        assignee?: string;
+        failureCode?: string;
+        search?: string;
+        from?: string;
+        to?: string;
+        dateBasis?: "opened" | "recovered" | "resolved";
       };
       header?: never;
       path?: never;
