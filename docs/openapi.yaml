@@ -3293,7 +3293,15 @@ paths:
             schema: { type: string, format: uuid },
           }
       responses:
-        "200": { description: Incident detail with timeline }
+        "200":
+          description: Incident detail with timeline
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/IncidentDetail" }
         "401": { description: Dashboard authentication required }
         "404": { description: incident_not_found }
     patch:
@@ -8225,6 +8233,54 @@ components:
         items:
           type: array
           items: { $ref: "#/components/schemas/Incident" }
+    IncidentTimelineEntry:
+      type: object
+      additionalProperties: false
+      required: [id, role, occurredAt, summary]
+      properties:
+        id: { type: string, format: uuid }
+        role: { type: string }
+        occurredAt: { type: string, format: date-time }
+        actorName: { type: string }
+        summary: { type: string }
+    IncidentScreenRef:
+      type: object
+      additionalProperties: false
+      required: [screenId, screenName]
+      properties:
+        screenId: { type: string, format: uuid }
+        screenName: { type: string }
+    IncidentDetail:
+      allOf:
+        - { $ref: "#/components/schemas/Incident" }
+        - type: object
+          additionalProperties: false
+          required:
+            [
+              timeline,
+              screens,
+              relatedEvents,
+              proofSessions,
+              auditChanges,
+              recoveryPath,
+            ]
+          properties:
+            timeline:
+              type: array
+              items: { $ref: "#/components/schemas/IncidentTimelineEntry" }
+            screens:
+              type: array
+              items: { $ref: "#/components/schemas/IncidentScreenRef" }
+            relatedEvents:
+              type: array
+              items: { $ref: "#/components/schemas/ScreenEventRecord" }
+            proofSessions:
+              type: array
+              items: { $ref: "#/components/schemas/ProofOfPlayRecord" }
+            auditChanges:
+              type: array
+              items: { $ref: "#/components/schemas/AuditActivityRecord" }
+            recoveryPath: { type: string }
     ProofResult:
       type: string
       enum:

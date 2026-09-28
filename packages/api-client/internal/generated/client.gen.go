@@ -5335,9 +5335,54 @@ type Incident struct {
 // IncidentAction defines model for IncidentAction.
 type IncidentAction string
 
+// IncidentDetail defines model for IncidentDetail.
+type IncidentDetail struct {
+	AcknowledgedAt    *time.Time              `json:"acknowledgedAt,omitempty"`
+	AcknowledgedBy    *string                 `json:"acknowledgedBy,omitempty"`
+	AffectedScreens   int                     `json:"affectedScreens"`
+	AssignedTo        *openapi_types.UUID     `json:"assignedTo,omitempty"`
+	AssignedToName    *string                 `json:"assignedToName,omitempty"`
+	AuditChanges      []AuditActivityRecord   `json:"auditChanges"`
+	Description       string                  `json:"description"`
+	DeviceModel       *string                 `json:"deviceModel,omitempty"`
+	FailureCode       *string                 `json:"failureCode,omitempty"`
+	GroupName         *string                 `json:"groupName,omitempty"`
+	Id                openapi_types.UUID      `json:"id"`
+	IncidentType      IncidentType            `json:"incidentType"`
+	LastSeenAt        time.Time               `json:"lastSeenAt"`
+	LocationName      *string                 `json:"locationName,omitempty"`
+	OccurrenceCount   int                     `json:"occurrenceCount"`
+	OpenedAt          time.Time               `json:"openedAt"`
+	PlayerVersion     *string                 `json:"playerVersion,omitempty"`
+	PrimaryScreenId   *openapi_types.UUID     `json:"primaryScreenId,omitempty"`
+	PrimaryScreenName *string                 `json:"primaryScreenName,omitempty"`
+	ProbableCause     *string                 `json:"probableCause,omitempty"`
+	ProofSessions     []ProofOfPlayRecord     `json:"proofSessions"`
+	RecoveredAt       *time.Time              `json:"recoveredAt,omitempty"`
+	RecoveryMode      *string                 `json:"recoveryMode,omitempty"`
+	RecoveryPath      string                  `json:"recoveryPath"`
+	RelatedEvents     []ScreenEventRecord     `json:"relatedEvents"`
+	RelatedId         *string                 `json:"relatedId,omitempty"`
+	RelatedType       *string                 `json:"relatedType,omitempty"`
+	ResolutionNotes   *string                 `json:"resolutionNotes,omitempty"`
+	ResolutionReason  *string                 `json:"resolutionReason,omitempty"`
+	ResolvedAt        *time.Time              `json:"resolvedAt,omitempty"`
+	Screens           []IncidentScreenRef     `json:"screens"`
+	Severity          IncidentSeverity        `json:"severity"`
+	Status            IncidentStatus          `json:"status"`
+	Timeline          []IncidentTimelineEntry `json:"timeline"`
+	Title             string                  `json:"title"`
+}
+
 // IncidentList defines model for IncidentList.
 type IncidentList struct {
 	Items []Incident `json:"items"`
+}
+
+// IncidentScreenRef defines model for IncidentScreenRef.
+type IncidentScreenRef struct {
+	ScreenId   openapi_types.UUID `json:"screenId"`
+	ScreenName string             `json:"screenName"`
 }
 
 // IncidentSeverity defines model for IncidentSeverity.
@@ -5345,6 +5390,15 @@ type IncidentSeverity string
 
 // IncidentStatus defines model for IncidentStatus.
 type IncidentStatus string
+
+// IncidentTimelineEntry defines model for IncidentTimelineEntry.
+type IncidentTimelineEntry struct {
+	ActorName  *string            `json:"actorName,omitempty"`
+	Id         openapi_types.UUID `json:"id"`
+	OccurredAt time.Time          `json:"occurredAt"`
+	Role       string             `json:"role"`
+	Summary    string             `json:"summary"`
+}
 
 // IncidentType defines model for IncidentType.
 type IncidentType string
@@ -41468,6 +41522,17 @@ func (r GetIncidentAnalyticsResponse) ContentType() string {
 type GetIncidentResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data IncidentDetail `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetIncidentResponse) GetJSON200() *struct {
+	Data IncidentDetail `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -63294,6 +63359,24 @@ func ParseGetIncidentResponse(rsp *http.Response) (*GetIncidentResponse, error) 
 	response := &GetIncidentResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data IncidentDetail `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
 	}
 
 	return response, nil
