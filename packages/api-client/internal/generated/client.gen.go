@@ -2098,6 +2098,23 @@ type InstallationIdentity struct {
 	Product          string             `json:"product"`
 }
 
+// Location defines model for Location.
+type Location struct {
+	AddressLine1 string             `json:"addressLine1"`
+	AddressLine2 string             `json:"addressLine2"`
+	City         string             `json:"city"`
+	Country      string             `json:"country"`
+	CreatedAt    time.Time          `json:"createdAt"`
+	Id           openapi_types.UUID `json:"id"`
+	Latitude     *float32           `json:"latitude,omitempty"`
+	Longitude    *float32           `json:"longitude,omitempty"`
+	Name         string             `json:"name"`
+	PostalCode   string             `json:"postalCode"`
+	ScreenCount  int                `json:"screenCount"`
+	State        string             `json:"state"`
+	UpdatedAt    time.Time          `json:"updatedAt"`
+}
+
 // LocationInput defines model for LocationInput.
 type LocationInput struct {
 	AddressLine1 *string  `json:"addressLine1,omitempty"`
@@ -2109,6 +2126,12 @@ type LocationInput struct {
 	Name         string   `json:"name"`
 	PostalCode   *string  `json:"postalCode,omitempty"`
 	State        *string  `json:"state,omitempty"`
+}
+
+// LocationList defines model for LocationList.
+type LocationList struct {
+	Items []Location `json:"items"`
+	Total int        `json:"total"`
 }
 
 // ManifestResponse defines model for ManifestResponse.
@@ -42564,6 +42587,17 @@ func (r RestoreLayoutRevisionResponse) ContentType() string {
 type ListLocationsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data LocationList `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListLocationsResponse) GetJSON200() *struct {
+	Data LocationList `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -42598,6 +42632,17 @@ func (r ListLocationsResponse) ContentType() string {
 type CreateLocationResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data Location `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateLocationResponse) GetJSON201() *struct {
+	Data Location `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -42666,6 +42711,17 @@ func (r DeleteLocationResponse) ContentType() string {
 type UpdateLocationResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data Location `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateLocationResponse) GetJSON200() *struct {
+	Data Location `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -59799,6 +59855,18 @@ func ParseListLocationsResponse(rsp *http.Response) (*ListLocationsResponse, err
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data LocationList `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
 	return response, nil
 }
 
@@ -59813,6 +59881,24 @@ func ParseCreateLocationResponse(rsp *http.Response) (*CreateLocationResponse, e
 	response := &CreateLocationResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data Location `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -59845,6 +59931,21 @@ func ParseUpdateLocationResponse(rsp *http.Response) (*UpdateLocationResponse, e
 	response := &UpdateLocationResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data Location `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
 	}
 
 	return response, nil

@@ -2875,7 +2875,15 @@ paths:
       description: >-
         List locations. Requires an authenticated dashboard user.
       responses:
-        "200": { description: Reusable locations with assigned screen counts }
+        "200":
+          description: Reusable locations with assigned screen counts
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/LocationList" }
     post:
       operationId: createLocation
       description: >-
@@ -2886,7 +2894,15 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/LocationInput" }
       responses:
-        "201": { description: Location created }
+        "201":
+          description: Location created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Location" }
         "403": { description: Owner or Administrator required }
         "409":
           { description: A case-insensitive matching location already exists }
@@ -2908,7 +2924,15 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/LocationInput" }
       responses:
-        "200": { description: Location updated }
+        "200":
+          description: Location updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Location" }
         "409":
           { description: A case-insensitive matching location already exists }
     delete:
@@ -7885,6 +7909,46 @@ components:
         items:
           type: array
           items: { $ref: "#/components/schemas/Screen" }
+        total: { type: integer, minimum: 0 }
+    Location:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          name,
+          addressLine1,
+          addressLine2,
+          city,
+          state,
+          postalCode,
+          country,
+          screenCount,
+          createdAt,
+          updatedAt,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        addressLine1: { type: string }
+        addressLine2: { type: string }
+        city: { type: string }
+        state: { type: string }
+        postalCode: { type: string }
+        country: { type: string }
+        latitude: { type: number }
+        longitude: { type: number }
+        screenCount: { type: integer }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    LocationList:
+      type: object
+      additionalProperties: false
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Location" }
         total: { type: integer, minimum: 0 }
     User:
       type: object
