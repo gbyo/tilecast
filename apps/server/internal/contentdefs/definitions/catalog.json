@@ -488,7 +488,12 @@
                 "label": "Value field",
                 "control": "data_source_field",
                 "dataSourceKey": "dataSourceId",
-                "dataSourceFieldTypes": ["number", "integer", "percent", "currency"],
+                "dataSourceFieldTypes": [
+                  "number",
+                  "integer",
+                  "percent",
+                  "currency"
+                ],
                 "default": ""
               },
               {
@@ -503,7 +508,16 @@
                 "label": "Label field",
                 "control": "data_source_field",
                 "dataSourceKey": "dataSourceId",
-                "dataSourceFieldTypes": ["text", "number", "integer", "currency", "percent", "boolean", "date", "datetime"],
+                "dataSourceFieldTypes": [
+                  "text",
+                  "number",
+                  "integer",
+                  "currency",
+                  "percent",
+                  "boolean",
+                  "date",
+                  "datetime"
+                ],
                 "default": ""
               },
               {
@@ -511,7 +525,16 @@
                 "label": "Detail field",
                 "control": "data_source_field",
                 "dataSourceKey": "dataSourceId",
-                "dataSourceFieldTypes": ["text", "number", "integer", "currency", "percent", "boolean", "date", "datetime"],
+                "dataSourceFieldTypes": [
+                  "text",
+                  "number",
+                  "integer",
+                  "currency",
+                  "percent",
+                  "boolean",
+                  "date",
+                  "datetime"
+                ],
                 "default": ""
               },
               {

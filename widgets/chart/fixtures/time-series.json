@@ -23,9 +23,18 @@
           "kind": "time_series",
           "fields": [{ "key": "value", "label": "Value", "type": "number" }],
           "points": [
-            { "at": "2026-09-26T09:00:00Z", "value": { "kind": "number", "number": 61 } },
-            { "at": "2026-09-27T09:00:00Z", "value": { "kind": "number", "number": 64 } },
-            { "at": "2026-09-28T09:00:00Z", "value": { "kind": "number", "number": 59 } }
+            {
+              "at": "2026-09-26T09:00:00Z",
+              "value": { "kind": "number", "number": 61 }
+            },
+            {
+              "at": "2026-09-27T09:00:00Z",
+              "value": { "kind": "number", "number": 64 }
+            },
+            {
+              "at": "2026-09-28T09:00:00Z",
+              "value": { "kind": "number", "number": 59 }
+            }
           ]
         }
       ]

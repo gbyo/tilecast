@@ -52,9 +52,7 @@ const fields = [
 function recordsDocument(
   records: WidgetDataDocument["datasets"][number]["records"],
 ): Record<string, WidgetDataDocument> {
-  return documentWith([
-    { id: "records", kind: "records", fields, records },
-  ]);
+  return documentWith([{ id: "records", kind: "records", fields, records }]);
 }
 
 const values = {
@@ -225,12 +223,7 @@ describe("Metrics data resolution", () => {
       recordsDocument([{ id: "r1", values }]),
       "no_source",
     ],
-    [
-      "no records",
-      base,
-      recordsDocument([]),
-      "no_records",
-    ],
+    ["no records", base, recordsDocument([]), "no_records"],
   ])("%s empties with %s", (_label, config, documents, reason) => {
     const resources = fixtureResources(
       documents === undefined
@@ -263,10 +256,7 @@ describe("Metrics data resolution", () => {
 
 describe("Metrics rendering", () => {
   it("shows the label, formatted value, and detail", async () => {
-    const { text } = await render(
-      {},
-      recordsDocument([{ id: "r1", values }]),
-    );
+    const { text } = await render({}, recordsDocument([{ id: "r1", values }]));
     expect(text(".metric-label")).toBe("Attendance");
     expect(text(".metric-value")).toBe("96.4%");
     expect(text(".metric-detail")).toBe("Up 1.2 points");
@@ -277,7 +267,13 @@ describe("Metrics rendering", () => {
       {
         metrics: [
           { ...item, label: "", labelField: "note" },
-          { ...item, valueField: "students", label: "", format: "integer", precision: 0 },
+          {
+            ...item,
+            valueField: "students",
+            label: "",
+            format: "integer",
+            precision: 0,
+          },
         ],
       },
       recordsDocument([{ id: "r1", values }]),
@@ -307,9 +303,16 @@ describe("Metrics rendering", () => {
           id: "records",
           kind: "records",
           fields: [
-            { key: "budget", label: "Budget", type: "currency", currency: "USD" },
+            {
+              key: "budget",
+              label: "Budget",
+              type: "currency",
+              currency: "USD",
+            },
           ],
-          records: [{ id: "r1", values: { budget: { kind: "number", number: 1200 } } }],
+          records: [
+            { id: "r1", values: { budget: { kind: "number", number: 1200 } } },
+          ],
         },
       ]),
     );

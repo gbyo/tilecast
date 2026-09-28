@@ -25,7 +25,12 @@
           "id": "object",
           "kind": "object",
           "fields": [
-            { "key": "raised", "label": "Raised", "type": "currency", "currency": "USD" }
+            {
+              "key": "raised",
+              "label": "Raised",
+              "type": "currency",
+              "currency": "USD"
+            }
           ],
           "value": {
             "kind": "object",

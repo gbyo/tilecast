@@ -32,7 +32,10 @@
               "values": {
                 "date": { "kind": "date", "date": "2026-09-01" },
                 "title": { "kind": "text", "text": "First day" },
-                "body": { "kind": "text", "text": "Doors opened with forty students." },
+                "body": {
+                  "kind": "text",
+                  "text": "Doors opened with forty students."
+                },
                 "status": { "kind": "text", "text": "Done" }
               }
             },
@@ -41,7 +44,10 @@
               "values": {
                 "date": { "kind": "date", "date": "2026-09-28" },
                 "title": { "kind": "text", "text": "Fall festival" },
-                "body": { "kind": "text", "text": "Music and games on the quad." },
+                "body": {
+                  "kind": "text",
+                  "text": "Music and games on the quad."
+                },
                 "status": { "kind": "text", "text": "Next" }
               }
             },
@@ -50,7 +56,10 @@
               "values": {
                 "date": { "kind": "date", "date": "2026-12-18" },
                 "title": { "kind": "text", "text": "Winter concert" },
-                "body": { "kind": "text", "text": "Evening performance in the gym." },
+                "body": {
+                  "kind": "text",
+                  "text": "Evening performance in the gym."
+                },
                 "status": { "kind": "text", "text": "Planned" }
               }
             }

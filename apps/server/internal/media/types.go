@@ -507,77 +507,6 @@ type WidgetVisualConfig struct {
 	EmptyState      string `json:"emptyState,omitempty"`
 }
 
-type SpotlightWidgetConfig struct {
-	WidgetVisualConfig
-	DataSourceID  uuid.UUID  `json:"dataSourceId"`
-	TitleField    string     `json:"titleField"`
-	SubtitleField string     `json:"subtitleField,omitempty"`
-	BodyField     string     `json:"bodyField,omitempty"`
-	BadgeField    string     `json:"badgeField,omitempty"`
-	DateField     string     `json:"dateField,omitempty"`
-	ImageAssetID  *uuid.UUID `json:"imageAssetId,omitempty"`
-}
-
-type StatGridMetric struct {
-	Label      string `json:"label,omitempty"`
-	LabelField string `json:"labelField,omitempty"`
-	ValueField string `json:"valueField"`
-	Format     string `json:"format,omitempty"`
-	Precision  int    `json:"precision,omitempty"`
-	Prefix     string `json:"prefix,omitempty"`
-	Suffix     string `json:"suffix,omitempty"`
-}
-
-type StatGridWidgetConfig struct {
-	WidgetVisualConfig
-	DataSourceID uuid.UUID        `json:"dataSourceId"`
-	Metrics      []StatGridMetric `json:"metrics"`
-	Columns      int              `json:"columns"`
-}
-
-type ChartSeries struct {
-	Field string `json:"field"`
-	Label string `json:"label,omitempty"`
-	Color string `json:"color,omitempty"`
-}
-
-type ChartWidgetConfig struct {
-	WidgetVisualConfig
-	DataSourceID  uuid.UUID     `json:"dataSourceId"`
-	Dataset       string        `json:"dataset,omitempty"`
-	ChartType     string        `json:"chartType"`
-	CategoryField string        `json:"categoryField,omitempty"`
-	TimeField     string        `json:"timeField,omitempty"`
-	Series        []ChartSeries `json:"series"`
-	ShowLegend    bool          `json:"showLegend"`
-	ShowAxes      bool          `json:"showAxes"`
-	Minimum       *float64      `json:"minimum,omitempty"`
-	Maximum       *float64      `json:"maximum,omitempty"`
-}
-
-type ProgressWidgetConfig struct {
-	WidgetVisualConfig
-	DataSourceID   uuid.UUID `json:"dataSourceId"`
-	ValueField     string    `json:"valueField"`
-	TargetField    string    `json:"targetField,omitempty"`
-	StaticTarget   *float64  `json:"staticTarget,omitempty"`
-	Label          string    `json:"label,omitempty"`
-	LabelField     string    `json:"labelField,omitempty"`
-	ShowPercent    bool      `json:"showPercent"`
-	CompletionText string    `json:"completionText,omitempty"`
-}
-
-type TimelineWidgetConfig struct {
-	WidgetVisualConfig
-	DataSourceID uuid.UUID `json:"dataSourceId"`
-	DateField    string    `json:"dateField"`
-	TitleField   string    `json:"titleField"`
-	BodyField    string    `json:"bodyField,omitempty"`
-	StatusField  string    `json:"statusField,omitempty"`
-	Orientation  string    `json:"orientation"`
-	MaximumItems int       `json:"maximumItems"`
-}
-
 type WorldClockZone struct {
 	Label    string `json:"label"`
 	Timezone string `json:"timezone"`
@@ -694,24 +623,6 @@ type DisplayWidgetConfig struct {
 	LocationField    string        `json:"locationField,omitempty"`
 	DescriptionField string        `json:"descriptionField,omitempty"`
 	GroupByDay       bool          `json:"groupByDay,omitempty"`
-}
-
-type MetricWidgetConfig struct {
-	DataSourceID    uuid.UUID `json:"dataSourceId"`
-	ValueField      string    `json:"valueField"`
-	Label           string    `json:"label,omitempty"`
-	LabelField      string    `json:"labelField,omitempty"`
-	SecondaryField  string    `json:"secondaryField,omitempty"`
-	Format          string    `json:"format"`
-	Precision       int       `json:"precision"`
-	Prefix          string    `json:"prefix,omitempty"`
-	Suffix          string    `json:"suffix,omitempty"`
-	Alignment       string    `json:"alignment"`
-	EmptyState      string    `json:"emptyState"`
-	ForegroundColor string    `json:"foregroundColor"`
-	BackgroundColor string    `json:"backgroundColor"`
-	TextScale       *int      `json:"textScale,omitempty"`
-	ContentPadding  *int      `json:"contentPadding,omitempty"`
 }
 
 type CardsWidgetConfig struct {

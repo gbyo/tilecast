@@ -29,8 +29,14 @@
             {
               "id": "r1",
               "values": {
-                "title": { "kind": "text", "text": "Annual spring concert and fundraiser gala with the city symphonic band and three guest choirs" },
-                "body": { "kind": "text", "text": "Doors open at half past five with a bake sale in the lobby. The overture begins at six. The second half features graduating seniors. A reception follows in the courtyard, weather permitting, with refreshments from local sponsors." },
+                "title": {
+                  "kind": "text",
+                  "text": "Annual spring concert and fundraiser gala with the city symphonic band and three guest choirs"
+                },
+                "body": {
+                  "kind": "text",
+                  "text": "Doors open at half past five with a bake sale in the lobby. The overture begins at six. The second half features graduating seniors. A reception follows in the courtyard, weather permitting, with refreshments from local sponsors."
+                },
                 "status": { "kind": "text", "text": "Tickets open" }
               }
             }

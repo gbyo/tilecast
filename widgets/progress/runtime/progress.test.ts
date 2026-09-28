@@ -65,9 +65,9 @@ async function render(
     root.querySelector(selector)?.textContent?.replace(/\s+/g, " ").trim() ??
     null;
   const style = (selector: string, property: string) =>
-    (root.querySelector(selector) as HTMLElement | null)?.style.getPropertyValue(
-      property,
-    ) ?? null;
+    (
+      root.querySelector(selector) as HTMLElement | null
+    )?.style.getPropertyValue(property) ?? null;
   return { test, element, root, text, style };
 }
 
@@ -213,9 +213,7 @@ describe("Progress data resolution", () => {
   ])("%s empties", (_label, config, reason) => {
     const documents =
       _label === "no value"
-        ? recordsDocument([
-            { id: "r1", values: { goal: values.goal } },
-          ])
+        ? recordsDocument([{ id: "r1", values: { goal: values.goal } }])
         : undefined;
     expect(
       resolveProgressData(config, fixtureResources({ documents })),
@@ -226,12 +224,17 @@ describe("Progress data resolution", () => {
     ["missing target", { ...base, targetField: "", staticTarget: null }],
     ["zero fixed target", { ...base, targetField: "", staticTarget: 0 }],
     ["negative fixed target", { ...base, targetField: "", staticTarget: -4 }],
-    ["missing field target", { ...base, targetField: "absent", staticTarget: null }],
+    [
+      "missing field target",
+      { ...base, targetField: "absent", staticTarget: null },
+    ],
   ])("%s fails", (_label, config) => {
     expect(
       resolveProgressData(
         config,
-        fixtureResources({ documents: recordsDocument([{ id: "r1", values }]) }),
+        fixtureResources({
+          documents: recordsDocument([{ id: "r1", values }]),
+        }),
       ),
     ).toMatchObject({ state: "error", code: "invalid_target" });
   });

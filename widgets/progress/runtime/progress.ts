@@ -222,9 +222,7 @@ export function resolveProgressData(
         ? (usable.values[config.labelField] ?? null)
         : null,
     labelField:
-      config.labelField !== ""
-        ? usable.fields[config.labelField]
-        : undefined,
+      config.labelField !== "" ? usable.fields[config.labelField] : undefined,
     percent,
     complete: current >= target,
     style: config.style,
@@ -429,11 +427,13 @@ export class TilecastProgressWidget extends TilecastWidgetElement<
       style: data.style,
     };
     return html`<div class="progress-wrap">
-      ${view.style === "ring"
-        ? this.renderRing(view)
-        : view.style === "thermometer"
-          ? this.renderThermometer(view)
-          : this.renderBar(view)}
+      ${
+        view.style === "ring"
+          ? this.renderRing(view)
+          : view.style === "thermometer"
+            ? this.renderThermometer(view)
+            : this.renderBar(view)
+      }
     </div>`;
   }
 
@@ -446,16 +446,22 @@ export class TilecastProgressWidget extends TilecastWidgetElement<
     completionText: string;
   }): TemplateResult {
     const fill = Math.max(0, Math.min(100, view.percent));
-    return html`${view.label
-        ? html`<div class="progress-label">${view.label}</div>`
-        : nothing}
+    return html`${
+        view.label
+          ? html`<div class="progress-label">${view.label}</div>`
+          : nothing
+      }
       <div class="progress-main">${view.valueText}</div>
-      ${view.percentText
-        ? html`<div class="progress-sub">${view.percentText}</div>`
-        : nothing}
-      ${view.complete && view.completionText
-        ? html`<div class="progress-sub">${view.completionText}</div>`
-        : nothing}
+      ${
+        view.percentText
+          ? html`<div class="progress-sub">${view.percentText}</div>`
+          : nothing
+      }
+      ${
+        view.complete && view.completionText
+          ? html`<div class="progress-sub">${view.completionText}</div>`
+          : nothing
+      }
       <div
         class="bar-track"
         role="img"
@@ -478,9 +484,11 @@ export class TilecastProgressWidget extends TilecastWidgetElement<
     const circumference = 2 * Math.PI * radius;
     const offset = circumference * (1 - fill / 100);
     const label = `${view.valueText}${view.percentText ? `, ${view.percentText}` : ""}`;
-    return html`${view.label
-        ? html`<div class="progress-label">${view.label}</div>`
-        : nothing}
+    return html`${
+        view.label
+          ? html`<div class="progress-label">${view.label}</div>`
+          : nothing
+      }
       <div class="ring-wrap">
         <svg
           class="ring-svg"
@@ -511,12 +519,16 @@ export class TilecastProgressWidget extends TilecastWidgetElement<
         </svg>
         <div>
           <div class="ring-center">${view.valueText}</div>
-          ${view.percentText
-            ? html`<div class="progress-sub">${view.percentText}</div>`
-            : nothing}
-          ${view.complete && view.completionText
-            ? html`<div class="progress-sub">${view.completionText}</div>`
-            : nothing}
+          ${
+            view.percentText
+              ? html`<div class="progress-sub">${view.percentText}</div>`
+              : nothing
+          }
+          ${
+            view.complete && view.completionText
+              ? html`<div class="progress-sub">${view.completionText}</div>`
+              : nothing
+          }
         </div>
       </div>`;
   }
@@ -531,25 +543,27 @@ export class TilecastProgressWidget extends TilecastWidgetElement<
   }): TemplateResult {
     const fill = Math.max(0, Math.min(100, view.percent));
     const label = `${view.valueText}${view.percentText ? `, ${view.percentText}` : ""}`;
-    return html`${view.label
-        ? html`<div class="progress-label">${view.label}</div>`
-        : nothing}
+    return html`${
+        view.label
+          ? html`<div class="progress-label">${view.label}</div>`
+          : nothing
+      }
       <div class="thermo-wrap">
-        <div
-          class="thermo-tube"
-          role="img"
-          aria-label=${label}
-        >
+        <div class="thermo-tube" role="img" aria-label=${label}>
           <div class="thermo-fill" style="height:${fill}%"></div>
         </div>
         <div class="thermo-side">
           <div class="progress-main">${view.valueText}</div>
-          ${view.percentText
-            ? html`<div class="progress-sub">${view.percentText}</div>`
-            : nothing}
-          ${view.complete && view.completionText
-            ? html`<div class="progress-sub">${view.completionText}</div>`
-            : nothing}
+          ${
+            view.percentText
+              ? html`<div class="progress-sub">${view.percentText}</div>`
+              : nothing
+          }
+          ${
+            view.complete && view.completionText
+              ? html`<div class="progress-sub">${view.completionText}</div>`
+              : nothing
+          }
         </div>
       </div>`;
   }

@@ -138,7 +138,10 @@ export function resolveChartStyle(
   style: unknown,
   chartType: unknown,
 ): ChartStyle {
-  if (typeof style === "string" && (CHART_STYLES as readonly string[]).includes(style)) {
+  if (
+    typeof style === "string" &&
+    (CHART_STYLES as readonly string[]).includes(style)
+  ) {
     return style as ChartStyle;
   }
   if (typeof chartType === "string" && chartType in LEGACY_STYLE) {
@@ -257,7 +260,10 @@ function recordLabelRaw(
   if (config.timeField !== "" && values[config.timeField] !== undefined) {
     return values[config.timeField] ?? null;
   }
-  if (config.categoryField !== "" && values[config.categoryField] !== undefined) {
+  if (
+    config.categoryField !== "" &&
+    values[config.categoryField] !== undefined
+  ) {
     return values[config.categoryField] ?? null;
   }
   return null;
@@ -270,7 +276,10 @@ function recordLabelField(
   if (config.timeField !== "" && fields[config.timeField] !== undefined) {
     return fields[config.timeField];
   }
-  if (config.categoryField !== "" && fields[config.categoryField] !== undefined) {
+  if (
+    config.categoryField !== "" &&
+    fields[config.categoryField] !== undefined
+  ) {
     return fields[config.categoryField];
   }
   return undefined;
@@ -461,19 +470,22 @@ export class TilecastChartWidget extends TilecastWidgetElement<
       `${labels.length} ${labels.length === 1 ? "point" : "points"}: ` +
       data.series.map((entry) => entry.label).join(", ");
     return html`<div class="chart-wrap">
-      ${data.showLegend && data.series.length > 1
-        ? html`<div class="chart-legend">
-            ${data.series.map(
-              (entry) => html`<span
-                ><span
-                  class="chart-swatch"
-                  style="background:${entry.color}"
-                ></span
-                >${entry.label}</span
-              >`,
+      ${
+        data.showLegend && data.series.length > 1
+          ? html`<div class="chart-legend">
+              ${data.series.map(
+              (entry) =>
+                html`<span
+                  ><span
+                    class="chart-swatch"
+                    style="background:${entry.color}"
+                  ></span
+                  >${entry.label}</span
+                >`,
             )}
-          </div>`
-        : nothing}
+            </div>`
+          : nothing
+      }
       <svg
         class="chart-svg"
         viewBox="0 0 ${CHART_WIDTH} ${CHART_HEIGHT}"
@@ -520,10 +532,9 @@ export class TilecastChartWidget extends TilecastWidgetElement<
             ${tick}
           </text>`,
       )}
-      ${labels.map(
-        (label, index) =>
-          index % stride === 0
-            ? svg`<text
+      ${labels.map((label, index) =>
+        index % stride === 0
+          ? svg`<text
                 class="chart-tick chart-tick-label"
                 x=${scaleX(index, labels.length)}
                 y=${PLOT_BOTTOM + 14}
@@ -531,7 +542,7 @@ export class TilecastChartWidget extends TilecastWidgetElement<
               >
                 ${label.length > 10 ? `${label.slice(0, 9)}…` : label}
               </text>`
-            : svg``,
+          : svg``,
       )}`;
   }
 
@@ -573,7 +584,8 @@ export class TilecastChartWidget extends TilecastWidgetElement<
     const all = data.series.map((other) => other.points);
     return svg`${entry.points.map((_, pointIndex) => {
       const column = all.map((points) => points[pointIndex] ?? null);
-      const rect = barRects(pointIndex, count, column, data.domain)[self] ?? null;
+      const rect =
+        barRects(pointIndex, count, column, data.domain)[self] ?? null;
       if (!rect) return svg``;
       return svg`<rect
         x=${rect.x}

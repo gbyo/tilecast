@@ -59,7 +59,16 @@
         "description": "Optional. A date or detail shown with the title.",
         "control": "data_source_field",
         "dataSourceKey": "dataSourceId",
-        "dataSourceFieldTypes": ["text", "number", "integer", "currency", "percent", "boolean", "date", "datetime"],
+        "dataSourceFieldTypes": [
+          "text",
+          "number",
+          "integer",
+          "currency",
+          "percent",
+          "boolean",
+          "date",
+          "datetime"
+        ],
         "default": "",
         "ui": { "section": "data", "order": 6 }
       },

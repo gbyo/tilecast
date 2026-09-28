@@ -26,7 +26,9 @@
         {
           "id": "records",
           "kind": "records",
-          "fields": [{ "key": "students", "label": "Students", "type": "integer" }],
+          "fields": [
+            { "key": "students", "label": "Students", "type": "integer" }
+          ],
           "records": []
         }
       ]

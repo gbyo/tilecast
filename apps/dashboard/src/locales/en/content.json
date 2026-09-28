@@ -560,55 +560,6 @@
         "formatPercent": "Percent",
         "formatCurrency": "Currency"
       },
-      "native": {
-        "editTitle": "Edit {{provider}} Widget",
-        "createTitle": "Create {{provider}} Widget",
-        "guidanceData": "Connect the information to show, choose how it is presented, and check the live preview.",
-        "guidanceSimple": "Configure what appears on screen and check the live preview as you work.",
-        "contentGuidanceData": "Start by choosing the data this Widget should use, then map and format the fields that appear.",
-        "contentGuidanceText": "Enter the content people should see and choose how it behaves on screen.",
-        "presetNotice": "Guided preset: <strong>{{preset}}</strong>. This saves as a reusable {{provider}} Widget; playback does not depend on the preset.",
-        "contentTitle": "Content and behavior",
-        "nameHint": "Used to find this Widget in Content and playlists.",
-        "completeFields": "Complete the required fields to see a preview."
-      },
-      "metric": {
-        "staticLabel": "Static label",
-        "precision": "Decimal places",
-        "prefix": "Prefix",
-        "suffix": "Suffix",
-        "emptyState": "Empty state"
-      },
-      "spotlight": {
-        "image": "Uploaded image",
-        "noImage": "No image"
-      },
-      "statGrid": {
-        "metrics": "Metrics",
-        "formatFor": "Format for metric {{index}}",
-        "addMetric": "Add metric"
-      },
-      "chart": {
-        "chartType": "Chart type",
-        "chartLine": "Line",
-        "chartBar": "Bar",
-        "chartDonut": "Donut",
-        "dataset": "Dataset",
-        "series": "Series",
-        "numericField": "Numeric field",
-        "seriesColor": "Color",
-        "addSeries": "Add series"
-      },
-      "progress": {
-        "targetField": "Target field",
-        "staticTarget": "Static target"
-      },
-      "timeline": {
-        "orientation": "Orientation",
-        "orientationVertical": "Vertical",
-        "orientationHorizontal": "Horizontal",
-        "statusField": "Status field"
-      },
       "appearance": {
         "title": "Appearance",
         "hint": "Adjust spacing, scale, and colors after the content looks right.",
@@ -720,17 +671,6 @@
       },
       "dataSourceDescription": "Choose the information this Widget should display. You can connect a new source without leaving the editor.",
       "fieldDescription": "Choose which field from the connected data supplies this value."
-    },
-    "defaults": {
-      "noValue": "No value available",
-      "noInformation": "No information available",
-      "noChartData": "No chart data available",
-      "noMilestones": "No milestones available",
-      "complete": "Complete",
-      "metricLabel": "Value",
-      "seriesFirst": "Series 1",
-      "seriesAdded": "Series",
-      "progressLabel": "Progress"
     },
     "errors": {
       "previewWait": "Wait for the Widget preview before saving.",

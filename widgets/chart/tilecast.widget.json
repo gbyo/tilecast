@@ -43,7 +43,12 @@
             "description": "The numeric field this series plots.",
             "control": "data_source_field",
             "dataSourceKey": "dataSourceId",
-            "dataSourceFieldTypes": ["number", "integer", "percent", "currency"],
+            "dataSourceFieldTypes": [
+              "number",
+              "integer",
+              "percent",
+              "currency"
+            ],
             "default": ""
           },
           {

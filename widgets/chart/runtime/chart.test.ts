@@ -127,7 +127,11 @@ describe("Chart domain correctness", () => {
   });
 
   it("leaves gaps at missing and non-finite values", () => {
-    const paths = seriesPaths([1, null, 3, Number.NaN, 5], { min: 0, max: 6 }, false);
+    const paths = seriesPaths(
+      [1, null, 3, Number.NaN, 5],
+      { min: 0, max: 6 },
+      false,
+    );
     // Three isolated points draw nothing as lines; areas fill slivers.
     expect(paths).toEqual([]);
     const areas = seriesPaths([1, null, 3], { min: 0, max: 6 }, true);
@@ -176,7 +180,11 @@ describe("Chart configuration", () => {
     });
   });
 
-  it.each([["bar", "bar"], ["line", "line"], ["area", "area"]] as const)(
+  it.each([
+    ["bar", "bar"],
+    ["line", "line"],
+    ["area", "area"],
+  ] as const)(
     "uses a valid new style %s over any legacy type",
     (style, want) => {
       expect(resolveChartStyle(style, "donut")).toBe(want);
@@ -239,8 +247,14 @@ describe("Chart data resolution", () => {
                 id: "series",
                 kind: "time_series",
                 points: [
-                  { at: "2026-09-26T09:00:00Z", value: { kind: "number", number: 3 } },
-                  { at: "2026-09-27T09:00:00Z", value: { kind: "number", number: 5 } },
+                  {
+                    at: "2026-09-26T09:00:00Z",
+                    value: { kind: "number", number: 3 },
+                  },
+                  {
+                    at: "2026-09-27T09:00:00Z",
+                    value: { kind: "number", number: 5 },
+                  },
                 ],
               },
             ],
@@ -275,8 +289,7 @@ describe("Chart data resolution", () => {
     ["no series", { ...base, series: [] }, "no_series"],
     ["no records", base, "no_records"],
   ])("%s empties", (_label, config, reason) => {
-    const documents =
-      _label === "no records" ? recordsDocument([]) : undefined;
+    const documents = _label === "no records" ? recordsDocument([]) : undefined;
     expect(
       resolveChartData(config, fixtureResources({ documents })),
     ).toMatchObject({ state: "empty", reason });
@@ -336,7 +349,9 @@ describe("Chart rendering", () => {
     );
     expect(root.querySelectorAll("rect").length).toBe(6);
     expect(root.querySelector(".chart-legend")?.textContent).toContain("Sales");
-    expect(root.querySelector(".chart-legend")?.textContent).toContain("Returns");
+    expect(root.querySelector(".chart-legend")?.textContent).toContain(
+      "Returns",
+    );
     expect(root.querySelectorAll(".chart-tick").length).toBeGreaterThan(0);
     expect(
       root.querySelector("svg.chart-svg")?.getAttribute("aria-label"),
@@ -344,20 +359,14 @@ describe("Chart rendering", () => {
   });
 
   it("draws lines and areas as paths", async () => {
-    const line = await render(
-      { style: "line" },
-      recordsDocument(records),
-    );
+    const line = await render({ style: "line" }, recordsDocument(records));
     const linePaths = line.root.querySelectorAll("path");
     expect(linePaths.length).toBe(1);
     expect(linePaths[0]!.getAttribute("d")).toMatch(/^M/);
     expect(linePaths[0]!.getAttribute("d")).not.toContain("NaN");
     line.test.dispose();
     document.body.replaceChildren();
-    const area = await render(
-      { style: "area" },
-      recordsDocument(records),
-    );
+    const area = await render({ style: "area" }, recordsDocument(records));
     expect(area.root.querySelectorAll("path").length).toBe(2);
   });
 
@@ -373,7 +382,10 @@ describe("Chart rendering", () => {
   });
 
   it("shows the empty message when configured", async () => {
-    const { root } = await render({ emptyText: "No sales yet" }, recordsDocument([]));
+    const { root } = await render(
+      { emptyText: "No sales yet" },
+      recordsDocument([]),
+    );
     expect(root.querySelector(".tc-empty-title")?.textContent).toBe(
       "No sales yet",
     );

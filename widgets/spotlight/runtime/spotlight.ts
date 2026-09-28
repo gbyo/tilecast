@@ -273,9 +273,7 @@ export class TilecastSpotlightWidget extends TilecastWidgetElement<
     return super.renderEmpty(reason);
   }
 
-  protected override renderContent(
-    data: SpotlightData | null,
-  ): TemplateResult {
+  protected override renderContent(data: SpotlightData | null): TemplateResult {
     if (!data || !this.config) return html``;
     const locale = this.context.locale;
     const slot = (key: string) =>
@@ -291,24 +289,26 @@ export class TilecastSpotlightWidget extends TilecastWidgetElement<
     const metadata = slot(this.config.metadataField);
     return html`<div class="spotlight-wrap">
       <div class="spotlight">
-        ${data.src
-          ? html`<img
-              class="spotlight-art"
-              src=${data.src}
-              alt=""
-            />`
-          : nothing}
+        ${
+          data.src
+            ? html`<img class="spotlight-art" src=${data.src} alt="" />`
+            : nothing
+        }
         <div class="spotlight-copy">
           <div class="spotlight-badge-row">
             ${badgeText ? badge(badgeText) : nothing}
-            ${metadata
-              ? html`<span class="spotlight-meta">${metadata}</span>`
-              : nothing}
+            ${
+              metadata
+                ? html`<span class="spotlight-meta">${metadata}</span>`
+                : nothing
+            }
           </div>
           <div class="spotlight-title">${title}</div>
-          ${subtitle
-            ? html`<div class="spotlight-subtitle">${subtitle}</div>`
-            : nothing}
+          ${
+            subtitle
+              ? html`<div class="spotlight-subtitle">${subtitle}</div>`
+              : nothing
+          }
           ${body ? html`<div class="spotlight-body">${body}</div>` : nothing}
         </div>
       </div>

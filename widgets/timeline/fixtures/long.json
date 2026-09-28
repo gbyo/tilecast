@@ -55,7 +55,10 @@
               "values": {
                 "date": { "kind": "date", "date": "2026-09-04" },
                 "title": { "kind": "text", "text": "Fourth" },
-                "body": { "kind": "text", "text": "Fourth milestone stays out of view." }
+                "body": {
+                  "kind": "text",
+                  "text": "Fourth milestone stays out of view."
+                }
               }
             }
           ]

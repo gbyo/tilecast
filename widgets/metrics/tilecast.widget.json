@@ -34,7 +34,12 @@
             "description": "The numeric field this metric displays.",
             "control": "data_source_field",
             "dataSourceKey": "dataSourceId",
-            "dataSourceFieldTypes": ["number", "integer", "percent", "currency"],
+            "dataSourceFieldTypes": [
+              "number",
+              "integer",
+              "percent",
+              "currency"
+            ],
             "default": ""
           },
           {
@@ -51,7 +56,16 @@
             "description": "Optional. Reads the title from another field.",
             "control": "data_source_field",
             "dataSourceKey": "dataSourceId",
-            "dataSourceFieldTypes": ["text", "number", "integer", "currency", "percent", "boolean", "date", "datetime"],
+            "dataSourceFieldTypes": [
+              "text",
+              "number",
+              "integer",
+              "currency",
+              "percent",
+              "boolean",
+              "date",
+              "datetime"
+            ],
             "default": ""
           },
           {
@@ -60,7 +74,16 @@
             "description": "Optional. A small supporting value below the metric.",
             "control": "data_source_field",
             "dataSourceKey": "dataSourceId",
-            "dataSourceFieldTypes": ["text", "number", "integer", "currency", "percent", "boolean", "date", "datetime"],
+            "dataSourceFieldTypes": [
+              "text",
+              "number",
+              "integer",
+              "currency",
+              "percent",
+              "boolean",
+              "date",
+              "datetime"
+            ],
             "default": ""
           },
           {

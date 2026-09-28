@@ -63,16 +63,16 @@ export function scaleY(value: number, domain: ChartDomain): number {
   const span = domain.max - domain.min;
   const clamped = Math.min(Math.max(value, domain.min), domain.max);
   if (!(span > 0)) return (PLOT_TOP + PLOT_BOTTOM) / 2;
-  return PLOT_BOTTOM - ((clamped - domain.min) / span) * (PLOT_BOTTOM - PLOT_TOP);
+  return (
+    PLOT_BOTTOM - ((clamped - domain.min) / span) * (PLOT_BOTTOM - PLOT_TOP)
+  );
 }
 
 /** Even point positions across the plot; one point centers. */
 export function scaleX(index: number, count: number): number {
   if (count <= 1) return (PLOT_LEFT + PLOT_RIGHT) / 2;
   const bounded = Math.min(Math.max(index, 0), count - 1);
-  return (
-    PLOT_LEFT + (bounded / (count - 1)) * (PLOT_RIGHT - PLOT_LEFT)
-  );
+  return PLOT_LEFT + (bounded / (count - 1)) * (PLOT_RIGHT - PLOT_LEFT);
 }
 
 /** The bar baseline: zero when it belongs in the domain, else the edge. */
@@ -133,7 +133,8 @@ function pathFrom(
   for (const point of points.slice(1)) {
     path += `L${round(point.x)},${round(point.y)}`;
   }
-  if (close) path += `L${round(points[points.length - 1]!.x)},${round(base)}L${round(first.x)},${round(base)}Z`;
+  if (close)
+    path += `L${round(points[points.length - 1]!.x)},${round(base)}L${round(first.x)},${round(base)}Z`;
   return path;
 }
 

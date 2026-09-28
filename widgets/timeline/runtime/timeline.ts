@@ -96,9 +96,7 @@ export function parseTimelineConfig(
     return { ok: false, problem: "mapped fields must be field names" };
   }
   const orientation = raw["orientation"] ?? "vertical";
-  if (
-    !TIMELINE_ORIENTATIONS.includes(orientation as never)
-  ) {
+  if (!TIMELINE_ORIENTATIONS.includes(orientation as never)) {
     return { ok: false, problem: "orientation is not a Timeline orientation" };
   }
   const maximumItems = raw["maximumItems"] ?? 8;
@@ -108,7 +106,10 @@ export function parseTimelineConfig(
     maximumItems < 1 ||
     maximumItems > 20
   ) {
-    return { ok: false, problem: "maximumItems must be an integer from 1 to 20" };
+    return {
+      ok: false,
+      problem: "maximumItems must be an integer from 1 to 20",
+    };
   }
   const emptyText = boundText(raw["emptyText"] ?? "", 200);
   return {
@@ -317,18 +318,14 @@ export class TilecastTimelineWidget extends TilecastWidgetElement<
     return super.renderEmpty(reason);
   }
 
-  protected override renderContent(
-    data: TimelineData | null,
-  ): TemplateResult {
+  protected override renderContent(data: TimelineData | null): TemplateResult {
     if (!data) return html``;
     const locale = this.context.locale;
     const text = (
       value: WidgetValue | null,
       field: WidgetField | undefined,
     ): string =>
-      value
-        ? formatWidgetValue(value, field, { locale }).trim()
-        : "";
+      value ? formatWidgetValue(value, field, { locale }).trim() : "";
     return html`<div class="timeline-wrap">
       <div
         class="timeline"
@@ -341,18 +338,18 @@ export class TilecastTimelineWidget extends TilecastWidgetElement<
             const body = text(milestone.body, milestone.bodyField);
             const status = text(milestone.status, undefined);
             return html`<div class="milestone">
-              ${date
-                ? html`<div class="milestone-date">${date}</div>`
-                : nothing}
+              ${
+                date ? html`<div class="milestone-date">${date}</div>` : nothing
+              }
               <div class="milestone-title">${title}</div>
-              ${status
-                ? html`<div class="milestone-status">
-                    ${badge(status)}
-                  </div>`
-                : nothing}
-              ${body
-                ? html`<div class="milestone-body">${body}</div>`
-                : nothing}
+              ${
+                status
+                  ? html`<div class="milestone-status">${badge(status)}</div>`
+                  : nothing
+              }
+              ${
+                body ? html`<div class="milestone-body">${body}</div>` : nothing
+              }
             </div>`;
           })}
         </div>

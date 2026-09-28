@@ -21,8 +21,18 @@
           "id": "object",
           "kind": "object",
           "fields": [
-            { "key": "current", "label": "Current", "type": "currency", "currency": "USD" },
-            { "key": "target", "label": "Target", "type": "currency", "currency": "USD" }
+            {
+              "key": "current",
+              "label": "Current",
+              "type": "currency",
+              "currency": "USD"
+            },
+            {
+              "key": "target",
+              "label": "Target",
+              "type": "currency",
+              "currency": "USD"
+            }
           ],
           "value": {
             "kind": "object",

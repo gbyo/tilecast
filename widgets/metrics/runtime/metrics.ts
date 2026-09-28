@@ -132,7 +132,9 @@ function parseMetricItem(value: unknown): MetricItem | "skip" | null {
   };
 }
 
-export function parseMetricsConfig(value: unknown): ConfigResult<MetricsConfig> {
+export function parseMetricsConfig(
+  value: unknown,
+): ConfigResult<MetricsConfig> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return { ok: false, problem: "configuration must be an object" };
   }
@@ -177,7 +179,10 @@ function fieldsByKey(
 
 function firstObjectValues(
   document: WidgetDataDocument,
-): { values: Readonly<Record<string, WidgetValue>>; fields: Readonly<Record<string, WidgetField>> } | null {
+): {
+  values: Readonly<Record<string, WidgetValue>>;
+  fields: Readonly<Record<string, WidgetField>>;
+} | null {
   for (const dataset of document.datasets) {
     if (dataset.kind !== "object") continue;
     const object = dataset.value?.object;
@@ -233,9 +238,7 @@ export function resolveMetricsData(
       labelValue: item.labelField
         ? (usable.values[item.labelField] ?? null)
         : null,
-      labelField: item.labelField
-        ? usable.fields[item.labelField]
-        : undefined,
+      labelField: item.labelField ? usable.fields[item.labelField] : undefined,
       detailValue: item.detailField
         ? (usable.values[item.detailField] ?? null)
         : null,
@@ -268,10 +271,7 @@ export class TilecastMetricsWidget extends TilecastWidgetElement<
         gap: min(3cqh, 3cqw);
         width: 100%;
         margin: auto;
-        grid-template-columns: repeat(
-          auto-fit,
-          minmax(min(100%, 220px), 1fr)
-        );
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
       }
       .metrics-grid[data-single] {
         grid-template-columns: minmax(0, 1fr);
@@ -322,7 +322,10 @@ export class TilecastMetricsWidget extends TilecastWidgetElement<
           display: none;
         }
         .metrics-grid {
-          grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+          grid-template-columns: repeat(
+            auto-fit,
+            minmax(min(100%, 160px), 1fr)
+          );
         }
         .metric-value {
           font-size: clamp(16px, 12cqh, 96px);
@@ -370,9 +373,7 @@ export class TilecastMetricsWidget extends TilecastWidgetElement<
       <div class="metric-value">
         ${formatMetricValue(entry.item, entry.raw, entry.field, locale)}
       </div>
-      ${detail
-        ? html`<div class="metric-detail">${detail}</div>`
-        : nothing}
+      ${detail ? html`<div class="metric-detail">${detail}</div>` : nothing}
     </div>`;
   }
 

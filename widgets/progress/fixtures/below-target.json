@@ -24,7 +24,9 @@
         {
           "id": "records",
           "kind": "records",
-          "fields": [{ "key": "balance", "label": "Balance", "type": "number" }],
+          "fields": [
+            { "key": "balance", "label": "Balance", "type": "number" }
+          ],
           "records": [
             {
               "id": "r1",

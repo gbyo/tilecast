@@ -33,7 +33,10 @@
               "values": {
                 "title": { "kind": "text", "text": "Spring concert" },
                 "subtitle": { "kind": "text", "text": "City Symphonic Band" },
-                "body": { "kind": "text", "text": "An evening of overtures on the library lawn at half past six." },
+                "body": {
+                  "kind": "text",
+                  "text": "An evening of overtures on the library lawn at half past six."
+                },
                 "status": { "kind": "text", "text": "Tickets open" },
                 "date": { "kind": "text", "text": "2026-09-28" }
               }

@@ -162,8 +162,7 @@ describe("Timeline data resolution", () => {
     ["no source", { ...base, dataSourceId: "" }, "no_source"],
     ["no records", base, "no_records"],
   ])("%s empties", (_label, config, reason) => {
-    const documents =
-      _label === "no records" ? recordsDocument([]) : undefined;
+    const documents = _label === "no records" ? recordsDocument([]) : undefined;
     expect(
       resolveTimelineData(config, fixtureResources({ documents })),
     ).toMatchObject({ state: "empty", reason });
@@ -188,10 +187,7 @@ describe("Timeline data resolution", () => {
 
 describe("Timeline rendering", () => {
   it("shows date, title, body, and status", async () => {
-    const { text } = await render(
-      {},
-      recordsDocument([{ id: "r1", values }]),
-    );
+    const { text } = await render({}, recordsDocument([{ id: "r1", values }]));
     expect(text(".milestone-date")).toBe("Sep 28, 2026");
     expect(text(".milestone-title")).toBe("Founded");
     expect(text(".milestone-body")).toBe("Doors opened with forty students.");
@@ -203,9 +199,9 @@ describe("Timeline rendering", () => {
       { orientation: "horizontal" },
       recordsDocument([{ id: "r1", values }]),
     );
-    expect(root.querySelector(".timeline")?.hasAttribute("data-horizontal")).toBe(
-      true,
-    );
+    expect(
+      root.querySelector(".timeline")?.hasAttribute("data-horizontal"),
+    ).toBe(true);
   });
 
   it("omits missing optional slots", async () => {

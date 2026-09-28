@@ -62,7 +62,16 @@
         "description": "Optional. Reads the label from another field.",
         "control": "data_source_field",
         "dataSourceKey": "dataSourceId",
-        "dataSourceFieldTypes": ["text", "number", "integer", "currency", "percent", "boolean", "date", "datetime"],
+        "dataSourceFieldTypes": [
+          "text",
+          "number",
+          "integer",
+          "currency",
+          "percent",
+          "boolean",
+          "date",
+          "datetime"
+        ],
         "default": "",
         "ui": { "section": "content", "order": 2 }
       },

@@ -4,10 +4,7 @@ import {
   type WidgetDataDocument,
   type WidgetResources,
 } from "@tilecast/widget-sdk";
-import {
-  fixtureResources,
-  mountForTest,
-} from "@tilecast/widget-sdk/testing";
+import { fixtureResources, mountForTest } from "@tilecast/widget-sdk/testing";
 import widget from "./index.ts";
 import {
   parseSpotlightConfig,
@@ -156,7 +153,10 @@ describe("Spotlight data resolution", () => {
       fixtureResources({
         documents: recordsDocument([
           { id: "r1", values },
-          { id: "r2", values: { ...values, title: { kind: "text", text: "Other" } } },
+          {
+            id: "r2",
+            values: { ...values, title: { kind: "text", text: "Other" } },
+          },
         ]),
       }),
     );
@@ -173,10 +173,7 @@ describe("Spotlight data resolution", () => {
       resolveSpotlightData(config, granted(documents).resources),
     ).toMatchObject({ state: "ready", data: { src: uri } });
     expect(
-      resolveSpotlightData(
-        config,
-        fixtureResources({ documents }),
-      ),
+      resolveSpotlightData(config, fixtureResources({ documents })),
     ).toMatchObject({ state: "empty", reason: "image_unavailable" });
   });
 
@@ -184,8 +181,7 @@ describe("Spotlight data resolution", () => {
     ["no source", { ...base, dataSourceId: "" }, "no_source"],
     ["no records", base, "no_records"],
   ])("%s empties", (_label, config, reason) => {
-    const documents =
-      _label === "no records" ? recordsDocument([]) : undefined;
+    const documents = _label === "no records" ? recordsDocument([]) : undefined;
     expect(
       resolveSpotlightData(config, fixtureResources({ documents })),
     ).toMatchObject({ state: "empty", reason });
@@ -210,10 +206,7 @@ describe("Spotlight data resolution", () => {
 
 describe("Spotlight rendering", () => {
   it("shows every slot with badge and metadata", async () => {
-    const { text } = await render(
-      {},
-      recordsDocument([{ id: "r1", values }]),
-    );
+    const { text } = await render({}, recordsDocument([{ id: "r1", values }]));
     expect(text(".spotlight-title")).toBe("Spring concert");
     expect(text(".spotlight-subtitle")).toBe("City Symphonic Band");
     expect(text(".spotlight-body")).toContain("library lawn");
@@ -244,7 +237,10 @@ describe("Spotlight rendering", () => {
   });
 
   it("shows the empty message when configured", async () => {
-    const { text } = await render({ emptyText: "Nothing featured" }, recordsDocument([]));
+    const { text } = await render(
+      { emptyText: "Nothing featured" },
+      recordsDocument([]),
+    );
     expect(text(".tc-empty-title")).toBe("Nothing featured");
   });
 });

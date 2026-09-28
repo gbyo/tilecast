@@ -24,8 +24,18 @@
           "id": "records",
           "kind": "records",
           "fields": [
-            { "key": "raised", "label": "Raised", "type": "currency", "currency": "USD" },
-            { "key": "goal", "label": "Goal", "type": "currency", "currency": "USD" }
+            {
+              "key": "raised",
+              "label": "Raised",
+              "type": "currency",
+              "currency": "USD"
+            },
+            {
+              "key": "goal",
+              "label": "Goal",
+              "type": "currency",
+              "currency": "USD"
+            }
           ],
           "records": [
             {
