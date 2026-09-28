@@ -8,7 +8,8 @@ function focusCommandPaletteInput(dialog: Element) {
 
 function focusInsertedCommandPalettes(node: Node) {
   if (!(node instanceof Element)) return;
-  if (node.matches(commandPaletteDialogSelector)) focusCommandPaletteInput(node);
+  if (node.matches(commandPaletteDialogSelector))
+    focusCommandPaletteInput(node);
   node
     .querySelectorAll(commandPaletteDialogSelector)
     .forEach(focusCommandPaletteInput);
