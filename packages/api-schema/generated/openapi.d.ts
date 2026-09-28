@@ -5717,6 +5717,40 @@ export interface components {
       items: components["schemas"]["ScreenEventRecord"][];
       nextCursor?: string;
     };
+    AuditActivityRecord: {
+      /** Format: uuid */
+      id: string;
+      /** Format: date-time */
+      timestamp: string;
+      /** Format: uuid */
+      actorId?: string;
+      actorName: string;
+      actorUsername?: string;
+      action: string;
+      resourceType: string;
+      resourceId?: string;
+      resourceName?: string;
+      result: string;
+      ipAddress?: string;
+      requestId?: string;
+      summary: string;
+      /** @description Allowlisted audit metadata, filtered for the caller's role. Sensitive values stay server-side. */
+      metadata: Record<string, never>;
+    };
+    AuditActivityPage: {
+      items: components["schemas"]["AuditActivityRecord"][];
+      nextCursor?: string;
+    };
+    ActivityRetention: {
+      rawEventDays: number;
+      playbackSessionDays: number;
+      screenStateDays: number;
+      auditLogDays: number;
+      diagnosticMetadataDays: number;
+      telemetryRollupDays: number;
+      /** Format: date-time */
+      updatedAt: string;
+    };
     /** @description Token-authenticated fleet summary for monitoring systems. Screen buckets mirror the Studio status thresholds, except there is deliberately no online count: live presence lives in the process-local socket hub, which a database read cannot see. */
     FleetHealth: {
       /** Format: date-time */
@@ -12540,6 +12574,12 @@ export interface operations {
         to?: string;
         page?: number;
         pageSize?: number;
+        cursor?: string;
+        actor?: string;
+        action?: string;
+        resourceType?: string;
+        result?: string;
+        search?: string;
       };
       header?: never;
       path?: never;
@@ -12552,7 +12592,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["AuditActivityPage"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -12765,7 +12809,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ActivityRetention"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -12811,7 +12859,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ActivityRetention"];
+          };
+        };
       };
       /** @description Retention values invalid */
       400: {
