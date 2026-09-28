@@ -64,7 +64,7 @@ func fetchScreens(ctx context.Context, transport *apiclient.Client) ([]screenRec
 		return nil, err
 	}
 	var screens []screenRecord
-	if err := apiclient.DecodeData(status, body, "screens", &screens); err != nil {
+	if err := apiclient.DecodeData(status, body, "items", &screens); err != nil {
 		return nil, err
 	}
 	return screens, nil

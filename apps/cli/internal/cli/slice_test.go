@@ -2,8 +2,10 @@ package cli
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -37,6 +39,52 @@ func TestStatusHumanAndJSON(t *testing.T) {
 	if payload["username"] != "op" || payload["authenticated"] != true {
 		t.Fatalf("status payload = %v", payload)
 	}
+}
+
+// Result data belongs on stdout so pipelines such as `tilecast screen list
+// --json | jq` receive it; stderr is for progress and warnings only. The
+// process streams are captured directly because production sets no Cobra
+// writers, and Cobra's Print helpers fall back to stderr in that case.
+func TestResultDataGoesToStdout(t *testing.T) {
+	f := sliceFixture(t)
+	for _, args := range [][]string{
+		{"screen", "list", "--json"},
+		{"status", "--json"},
+		{"whoami"},
+		{"context", "current"},
+	} {
+		stdout, stderr := captureProcessOutput(t, func() {
+			root := NewRootCommandWithEnv(f.env)
+			root.SetArgs(args)
+			if err := root.Execute(); err != nil {
+				t.Errorf("%v: %v", args, err)
+			}
+		})
+		if stdout == "" || stderr != "" {
+			t.Fatalf("%v: stdout %q, stderr %q", args, stdout, stderr)
+		}
+	}
+}
+
+func captureProcessOutput(t *testing.T, run func()) (string, string) {
+	t.Helper()
+	outRead, outWrite, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	errRead, errWrite, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	savedOut, savedErr := os.Stdout, os.Stderr
+	os.Stdout, os.Stderr = outWrite, errWrite
+	run()
+	os.Stdout, os.Stderr = savedOut, savedErr
+	_ = outWrite.Close()
+	_ = errWrite.Close()
+	stdout, _ := io.ReadAll(outRead)
+	stderr, _ := io.ReadAll(errRead)
+	return string(stdout), string(stderr)
 }
 
 func TestScreenListAndGet(t *testing.T) {

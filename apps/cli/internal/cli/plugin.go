@@ -702,12 +702,12 @@ func executeDynamicOp(cmd *cobra.Command, operation automationOp, transport *api
 		if err != nil {
 			return err
 		}
-		cmd.Println(string(raw))
-		return nil
+		_, err = fmt.Fprintln(cmd.OutOrStdout(), string(raw))
+		return err
 	}
 	raw, _ := json.MarshalIndent(data, "", "  ")
-	cmd.Println(string(raw))
-	return nil
+	_, err = fmt.Fprintln(cmd.OutOrStdout(), string(raw))
+	return err
 }
 
 // readAutomationInput loads the JSON request body from --input or --file.

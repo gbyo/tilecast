@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 
 	apiclient "github.com/tilecast/tilecast/packages/api-client"
@@ -26,7 +28,9 @@ func newWhoamiCommand(env *environment) *cobra.Command {
 			if !caps.Authenticated {
 				return silentError("the server did not accept this credential; run \"tilecast auth login\" again")
 			}
-			cmd.Printf("%s (%s) on %s\n", caps.Username, caps.Role, resolved.ServerURL)
+			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "%s (%s) on %s\n", caps.Username, caps.Role, resolved.ServerURL); err != nil {
+				return err
+			}
 			if caps.EnrollMFA {
 				cmd.Printf("Warning: this account still owes the organization a second factor.\n")
 			}
