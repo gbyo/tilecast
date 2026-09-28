@@ -122,10 +122,9 @@ export function listPendingPairings(): Promise<{
 }
 
 export function listBulkOperations(limit = 10): Promise<BulkOperation[]> {
-  return apiGet<"/api/v1/screens/bulk/operations", BulkOperation[]>(
-    "/api/v1/screens/bulk/operations",
-    { params: { query: { limit } } },
-  );
+  return apiGet("/api/v1/screens/bulk/operations", {
+    params: { query: { limit } },
+  });
 }
 
 export function confirmPowerAssist(

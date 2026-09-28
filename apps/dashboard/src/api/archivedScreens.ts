@@ -11,14 +11,11 @@ export async function archivedScreens(): Promise<{
   items: ArchivedScreen[];
   total: number;
 }> {
-  const result = await apiGet<
-    "/api/v1/screens/archive",
-    { items?: ArchivedScreen[]; total?: number } | null
-  >("/api/v1/screens/archive");
+  const result = await apiGet("/api/v1/screens/archive");
   return {
-    items: (Array.isArray(result?.items) ? result.items : []).map(
+    items: (Array.isArray(result.items) ? result.items : []).map(
       (screen) => normalizeScreen(screen) as ArchivedScreen,
     ),
-    total: result?.total ?? 0,
+    total: result.total ?? 0,
   };
 }

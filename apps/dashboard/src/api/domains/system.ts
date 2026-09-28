@@ -342,30 +342,24 @@ export function revokeIntegrationToken(
 export function previewBulkOperation(
   body: BulkOperationRequest,
 ): Promise<BulkPreview> {
-  return apiPost<"/api/v1/screens/bulk/preview", BulkPreview>(
-    "/api/v1/screens/bulk/preview",
-    { body },
-  );
+  return apiPost("/api/v1/screens/bulk/preview", { body });
 }
 
 export function applyBulkOperation(
   body: BulkOperationRequest & { expectedChangeCount: number },
   csrfToken: string,
 ): Promise<BulkOperation> {
-  return apiPost<"/api/v1/screens/bulk/apply", BulkOperation>(
-    "/api/v1/screens/bulk/apply",
-    { body, csrfToken },
-  );
+  return apiPost("/api/v1/screens/bulk/apply", { body, csrfToken });
 }
 
 export function undoBulkOperation(
   id: string,
   csrfToken: string,
 ): Promise<BulkOperation> {
-  return apiPost<"/api/v1/screens/bulk/operations/{id}/undo", BulkOperation>(
-    "/api/v1/screens/bulk/operations/{id}/undo",
-    { params: { path: { id } }, csrfToken },
-  );
+  return apiPost("/api/v1/screens/bulk/operations/{id}/undo", {
+    params: { path: { id } },
+    csrfToken,
+  });
 }
 
 export function getNotificationStatus(): Promise<NotificationStatus> {
