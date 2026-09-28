@@ -13,10 +13,7 @@ import {
   type WidgetComponentRef,
   type WidgetMountState,
 } from "@tilecast/widget-sdk/mount";
-import type {
-  WidgetContext,
-  WidgetResources,
-} from "@tilecast/widget-sdk";
+import type { WidgetContext, WidgetResources } from "@tilecast/widget-sdk";
 import { studioWidgetDiscovery } from "./studioWidgets";
 
 export interface PreviewFrame {
