@@ -1,0 +1,230 @@
+{
+  "$schema": "../../packages/widget-sdk/schema/tilecast-widget.schema.json",
+  "apiVersion": 1,
+  "id": "ticker",
+  "version": 1,
+  "name": "Ticker",
+  "description": "Scroll short items from any compatible records source: a feed, a manual table, a Google Sheet, a plugin source, or anything else with text columns.",
+  "category": "Data display",
+  "icon": "text",
+  "runtime": "native",
+  "configurationSchema": {
+    "fields": [
+      {
+        "key": "dataSourceId",
+        "label": "Data Source",
+        "description": "The records source this Ticker reads.",
+        "control": "data_source",
+        "acceptedDataSourceKinds": ["records"],
+        "default": "",
+        "ui": { "section": "data", "order": 1 }
+      },
+      {
+        "key": "primaryField",
+        "label": "Primary text field",
+        "description": "The main text of each scrolled item.",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": [
+          "text",
+          "number",
+          "integer",
+          "currency",
+          "boolean",
+          "date",
+          "datetime",
+          "url"
+        ],
+        "default": "",
+        "ui": {
+          "section": "data",
+          "order": 2,
+          "semanticRole": "headline",
+          "legacyKeys": ["title", "headline", "field", "name"]
+        }
+      },
+      {
+        "key": "secondaryField",
+        "label": "Secondary text field",
+        "description": "A quieter value after the primary one.",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": [
+          "text",
+          "number",
+          "integer",
+          "currency",
+          "boolean",
+          "date",
+          "datetime",
+          "url"
+        ],
+        "default": "",
+        "ui": {
+          "section": "data",
+          "order": 3,
+          "semanticRole": "summary",
+          "legacyKeys": ["description", "summary", "source", "date"]
+        }
+      },
+      {
+        "key": "leadingLabel",
+        "label": "Leading label",
+        "control": "text",
+        "maxLength": 24,
+        "default": "",
+        "ui": { "section": "content", "order": 1 }
+      },
+      {
+        "key": "separator",
+        "label": "Separator",
+        "description": "Drawn between scrolled items.",
+        "control": "text",
+        "minLength": 1,
+        "maxLength": 12,
+        "default": " • ",
+        "ui": { "section": "content", "order": 2 }
+      },
+      {
+        "key": "fieldSeparator",
+        "label": "Field separator",
+        "description": "Drawn between the primary and secondary text of one item.",
+        "control": "text",
+        "minLength": 1,
+        "maxLength": 12,
+        "default": " — ",
+        "ui": { "section": "content", "order": 3 }
+      },
+      {
+        "key": "maxItems",
+        "label": "Maximum items",
+        "control": "integer",
+        "minimum": 1,
+        "maximum": 50,
+        "default": 15,
+        "ui": { "section": "content", "order": 4 }
+      },
+      {
+        "key": "direction",
+        "label": "Direction",
+        "control": "select",
+        "options": [
+          { "value": "left", "label": "Left" },
+          { "value": "right", "label": "Right" }
+        ],
+        "default": "left",
+        "ui": { "section": "content", "order": 5 }
+      },
+      {
+        "key": "speed",
+        "label": "Speed",
+        "control": "select",
+        "options": [
+          { "value": "slow", "label": "Slow" },
+          { "value": "normal", "label": "Normal" },
+          { "value": "fast", "label": "Fast" }
+        ],
+        "default": "normal",
+        "ui": { "section": "content", "order": 6 }
+      },
+      {
+        "key": "emptyText",
+        "label": "Empty message",
+        "description": "Shown when the source returns no usable items.",
+        "control": "text",
+        "maxLength": 240,
+        "default": "",
+        "ui": { "section": "content", "order": 7 }
+      },
+      {
+        "key": "backgroundColor",
+        "label": "Background color",
+        "control": "color",
+        "default": "",
+        "ui": { "section": "appearance", "order": 1 }
+      },
+      {
+        "key": "foregroundColor",
+        "label": "Text color",
+        "control": "color",
+        "default": "",
+        "ui": { "section": "appearance", "order": 2 }
+      },
+      {
+        "key": "textScale",
+        "label": "Text scale",
+        "control": "integer",
+        "minimum": 25,
+        "maximum": 500,
+        "ui": { "hidden": true }
+      },
+      {
+        "key": "contentPadding",
+        "label": "Content padding",
+        "control": "integer",
+        "minimum": 0,
+        "maximum": 40,
+        "ui": { "hidden": true }
+      }
+    ]
+  },
+  "defaultConfiguration": {
+    "dataSourceId": "",
+    "primaryField": "",
+    "secondaryField": "",
+    "leadingLabel": "",
+    "separator": " • ",
+    "fieldSeparator": " — ",
+    "maxItems": 15,
+    "direction": "left",
+    "speed": "normal",
+    "emptyText": "",
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "presentationSchemaVersion": 1,
+  "requiredCapabilities": {
+    "layout.surface": 1,
+    "layout.row": 1,
+    "content.marquee": 1,
+    "content.text": 1,
+    "binding.core": 2
+  },
+  "emptyStateBehavior": "text",
+  "legacyEditor": true,
+  "deprecation": {},
+  "component": {
+    "type": "tilecast.ticker",
+    "version": 1,
+    "tagName": "tc-widget-ticker",
+    "entrypoint": "./runtime/index.ts",
+    "configTemplate": {
+      "dataSourceId": { "$config": "dataSourceId", "default": "" },
+      "primaryField": {
+        "$config": "primaryField",
+        "default": { "$config": "field", "default": "" }
+      },
+      "secondaryField": { "$config": "secondaryField", "default": "" },
+      "legacyFields": { "$config": "fields", "default": [] },
+      "legacyContentMode": { "$config": "contentMode", "default": "" },
+      "leadingLabel": { "$config": "leadingLabel", "default": "" },
+      "separator": { "$config": "separator", "default": " • " },
+      "fieldSeparator": { "$config": "fieldSeparator", "default": " — " },
+      "maxItems": {
+        "$config": "maxItems",
+        "default": { "$config": "maxStories", "default": 15 }
+      },
+      "direction": { "$config": "direction", "default": "left" },
+      "speed": { "$config": "speed", "default": "normal" },
+      "emptyText": {
+        "$config": "emptyText",
+        "default": { "$config": "emptyState", "default": "" }
+      },
+      "background": { "$config": "backgroundColor", "default": "" },
+      "foreground": { "$config": "foregroundColor", "default": "" }
+    },
+    "dataSourceFields": ["dataSourceId"],
+    "empty": "skip-eligible"
+  },
+  "compatibility": {
+    "fallback": "legacy"
+  }
+}

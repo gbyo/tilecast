@@ -3,11 +3,6 @@
     "target": "ES2023",
     "module": "node16",
     "moduleResolution": "node16",
-    // The renderer and its helpers are deliberately plain global scripts (no
-    // module syntax) so they run directly in the sandboxed page. node16 would
-    // otherwise default moduleDetection to "force" and treat them as modules,
-    // breaking the shared global scope they rely on.
-    "moduleDetection": "legacy",
     "lib": ["ES2023", "DOM"],
     "outDir": "dist",
     "rootDir": "src",

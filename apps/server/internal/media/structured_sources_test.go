@@ -244,6 +244,36 @@ func TestStructuredValueFieldsAdvertiseTheirDeclaredType(t *testing.T) {
 	}
 }
 
+// Feed records share one normalized contract: every fixed feed field declares
+// its semantic role (§5.8), so News and Ticker map by role instead of by
+// column name. The unified Feed provider advertises the same contract as RSS
+// and Atom.
+func TestFeedFieldsAdvertiseSemanticRoles(t *testing.T) {
+	config := StructuredSourceConfig{Fields: StructuredFields{Title: true, Date: true, Author: true, Description: true, Image: true, Link: true}}
+	raw, _ := json.Marshal(config)
+	catalog, err := contentdefs.New(nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := &Service{}
+	service.SetContentDefinitions(catalog)
+	for _, provider := range []string{"rss", "atom", "feed"} {
+		roles := map[string]string{}
+		for _, field := range service.availableDataSourceFields(provider, raw) {
+			roles[field.Key] = field.Role
+		}
+		want := map[string]string{
+			"title": "headline", "description": "summary", "date": "published_at",
+			"source": "source_name", "author": "author", "link": "link", "imageUrl": "image",
+		}
+		for key, role := range want {
+			if roles[key] != role {
+				t.Fatalf("%s: field %q role=%q, want %q (all=%#v)", provider, key, roles[key], role, roles)
+			}
+		}
+	}
+}
+
 func TestStructuredMappingRejectsUnusableValueTypes(t *testing.T) {
 	unmapped := StructuredMapping{Title: "title", ValueFieldTypes: map[string]string{"startTime": "datetime"}}
 	if err := validateStructuredMapping(unmapped, "csv"); err == nil {
@@ -252,6 +282,26 @@ func TestStructuredMappingRejectsUnusableValueTypes(t *testing.T) {
 	unknown := StructuredMapping{Title: "title", ValueFields: map[string]string{"startTime": "startTime"}, ValueFieldTypes: map[string]string{"startTime": "instant"}}
 	if err := validateStructuredMapping(unknown, "csv"); err == nil {
 		t.Fatal("expected an unknown value type to be rejected")
+	}
+}
+
+// RSS2 publishers may carry authorship as Dublin Core (the New York Times
+// preset publishes dc:creator instead of author). The unified Feed provider
+// normalizes it into the same author slot as author/name.
+func TestFeedParserNormalizesDublinCoreCreator(t *testing.T) {
+	raw := []byte(`<?xml version="1.0"?>
+<rss xmlns:dc="http://purl.org/dc/elements/1.1/" version="2.0">
+  <channel><title>NYT &gt; Top Stories</title>
+    <item><title>First story</title><link>https://example.com/first</link><dc:creator>Reporter</dc:creator><pubDate>Sun, 27 Sep 2026 15:16:23 +0000</pubDate><guid>https://example.com/first</guid></item>
+  </channel>
+</rss>`)
+	records, err := parseFeed(raw, StructuredSourceConfig{MaxItems: 10, Sort: "source"})
+	if err != nil || len(records) != 1 {
+		t.Fatalf("records=%#v err=%v", records, err)
+	}
+	record := records[0]
+	if record.Author != "Reporter" || record.Source != "NYT > Top Stories" || record.Link != "https://example.com/first" || record.Date == "" {
+		t.Fatalf("record=%#v", record)
 	}
 }
 

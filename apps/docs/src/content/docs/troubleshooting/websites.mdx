@@ -1,0 +1,34 @@
+---
+title: Websites
+description: Troubleshoot Website content that is blank, blocked, stale, or unavailable on a Player.
+---
+
+Website content loads on the Player, not in the administrator's browser.
+
+A site that works on your computer can still fail on the display because the Player may have different DNS, routing, certificates, filtering, or browser behavior.
+
+## Check the address
+
+Public Website content requires HTTPS.
+
+Private HTTP works only when the server deployment and **Settings** > **Websites** both allow it for a private-network destination.
+
+Check that redirects stay on hosts you intended to allow.
+
+Tilecast does not ignore certificate errors or copy browser login cookies, OAuth sessions, or Tilecast credentials into Website content.
+
+## Check the Player network
+
+The Player itself must be able to reach the website. Test DNS, routing, filtering, and TLS from the display network.
+
+Website content is not saved as a complete offline copy.
+
+If the website is unavailable, the Website item's failure settings decide whether Tilecast keeps the last rendered page, shows a fallback image, shows a placeholder, or skips the item.
+
+## Clear Website data only when needed
+
+For a persistent Website storage problem, use the supported screen action to clear Website data. The Player must receive that command before it expires.
+
+Do not clear the Player's media cache just because one Website is stale. Website storage is separate from downloaded media.
+
+See [Add website content](../../website-content/) for host restrictions, timeout, reload, and fallback settings.

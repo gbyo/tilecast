@@ -264,7 +264,7 @@ func (s *Service) InspectStructured(ctx context.Context, provider string, raw js
 		return inspectCSV(body, c)
 	case "json":
 		return inspectJSON(body)
-	case "rss", "atom":
+	case "rss", "atom", "feed":
 		return inspectFeed(provider, body)
 	}
 	return StructuredInspection{}, errors.New("this Data Source provider does not support field detection")
@@ -280,7 +280,7 @@ func (s *Service) InspectStructuredByID(ctx context.Context, id uuid.UUID) (Stru
 		return StructuredInspection{}, err
 	}
 	switch raw.Provider {
-	case "rss", "atom", "json", "csv":
+	case "rss", "atom", "feed", "json", "csv":
 		return s.InspectStructured(ctx, raw.Provider, raw.Configuration)
 	}
 	return StructuredInspection{}, errors.New("this Data Source provider does not support field detection")

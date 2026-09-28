@@ -1,0 +1,10 @@
+{
+  "records": [
+    {
+      "title": "Sample announcement",
+      "body": "Doors open at nine.",
+      "category": "General",
+      "priority": 50
+    }
+  ]
+}

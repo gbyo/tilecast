@@ -35,7 +35,7 @@ Data Sources appear under the Data tab of the Studio Content workspace, and are 
 
 A Widget owns how content appears. A Widget is either **standalone** or references exactly **one** Data Source. It owns visual settings, the selected Data Source, selected fields, labels, typography, colors, spacing, record count, empty-state presentation, and provider-specific behavior. It does **not** own fetching, parsing, source refresh, cached records, date selection, or source diagnostics — those belong to the Data Source.
 
-- Standalone providers: **Website, YouTube, Clock, Date, QR Code, Countdown, World Clock**, plus the release-defined **Text Notice, Image Notice, and QR Call to Action**.
+- Standalone providers: **Website, YouTube, Clock, QR Code, Countdown, and Text**. Date and World Clock are Clock modes, Text Notice maps into Text, and Image Notice is compatibility only. See [Widgets V2 final catalog](widgets-v2-catalog.md).
 - Data-driven providers: **Ticker, Menu / Price Board, List, Table, Agenda, Metric, Cards, Weather, Spotlight, Stat Grid, Chart, Progress, Timeline**, plus the release-defined **School Status Banner, Alert Banner, Fundraising Thermometer, Now and Next, Recognition Board, and School Schedule**.
 
 Studio also offers the guided presets **Leaderboard, Status Board, Queue Board, Schedule / Departures, Opening Hours, and Directory**. Presets persist authoring-only `presetId` metadata and compile through their underlying generic provider; the Player does not dispatch on preset identity.
@@ -47,6 +47,16 @@ Native Widget content automatically follows the Widget's rendered bounds, whethe
 Both values are percentages the whole way down. A v13 presentation carries them on its `surface` node as `paddingPercent` and `textScale`, and every renderer resolves the padding against the Widget's own bounds — never as absolute pixels or dp. The legacy `padding` prop remains on the node for Players that predate the percentage props.
 
 Countdown Widgets may run once or repeat daily, weekly, monthly, or yearly in their configured IANA timezone. Monthly and yearly recurrences preserve the selected local day and time, clamping dates such as the 31st or February 29 to the final valid day when necessary. The title can appear above the countdown, beside it, or be hidden with the countdown-only layout. Recurrence is available for count-down mode; one-time countdowns retain their completion-text, hide, and continue-counting-up behaviors.
+
+### Widgets V2
+
+A migrated Widget has one renderer: a first-class component in `widgets/<name>/` that the shared Player Runtime and Studio mount unchanged. [widgets-v2.md](widgets-v2.md) is the binding design. Clock is the first Widgets V2 Widget:
+
+- It has three styles (Standard, Minimal and Analog) and an optional date line. The optional `style` and `showDate` configuration keys add to the existing Clock configuration. A Player that predates Clock V2 ignores them and shows the time alone.
+- Its layout follows its own box. It becomes one row in a wide strip, stacks hours over minutes in a tall sidebar, and shows only the time in a small Layout zone.
+- The Server sends the component only to a Player that reports `widget.tilecast.clock@1` and presentation schema 2 (manifest v16). Every other Player receives the Clock's compatibility presentation, exactly as before. The persisted Widget does not change.
+
+The Data Source and Widget boundary does not change: a Widgets V2 component reads only the prepared Data Documents and verified media variants its presentation declares.
 
 ### Data-driven Widget compatibility
 
@@ -112,9 +122,11 @@ Feed images are deliberately not enabled yet. The Server recognizes common image
 
 Release-owned Web Integration definitions provide provider-specific names, setup guidance, URL fields, fixed host allowlists (or an explicit per-installation HTTPS host for self-hosted Grafana), a closed built-in URL transform, timeout, fallback, lifecycle, warm window, and optional bounded reload interval. Definitions cannot contain JavaScript, regex replacements, HTML, or executable expressions. The Server validates and canonicalizes the URL and emits the same provider-neutral web presentation descriptor to Android and Linux.
 
-The initial integrations are **Google Sheets, Google Slides, Canva, Grafana, Power BI, Tableau, Looker Studio, Airtable, and Smartsheet**. They require the provider's public/published/embed mechanism and cannot bypass authentication, `X-Frame-Options`, or CSP. Private documents and dashboards need a future server-side Connection. **Google Sheets Data** and **Notion** remain visible but disabled with a specific explanation rather than pretending an unsupported mechanism works.
+The initial integrations are **Google Sheets — Display, Google Slides, Canva, Grafana, Power BI, Tableau, Looker Studio, Airtable, and Smartsheet**. They require the provider's public/published/embed mechanism and cannot bypass authentication, `X-Frame-Options`, or CSP. Private documents and dashboards need a future server-side Connection. **Notion** remains visible but disabled with a specific explanation rather than pretending an unsupported mechanism works. The **Google Sheets Data** placeholder is removed; the existing Google Sheet Data Source is the structured-record path.
 
-Google Sheets is a visual web App; the existing Google Sheet Data Source is the structured-record path for a published CSV. Google Slides and Sheets normal links are converted on the Server to their provider embed/preview forms. Canva accepts only public `www.canva.com/design/...` links. Dashboard Apps accept only the provider's documented public/embed path, except Grafana, whose self-hosted hostname is selected by the submitted HTTPS URL and then pinned in the manifest.
+Google Sheets — Display is a visual web App for showing the spreadsheet itself; the existing Google Sheet Data Source is the structured-record path for a published CSV and powers lists, tables, cards, tickers, and News. Google Slides and Sheets normal links are converted on the Server to their provider embed/preview forms. Canva accepts only public `www.canva.com/design/...` links. Dashboard Apps accept only the provider's documented public/embed path, except Grafana, whose self-hosted hostname is selected by the submitted HTTPS URL and then pinned in the manifest.
+
+Future Google Connections may add private authenticated Sheets and a Slides API/export path behind Tilecast-managed slide images for offline-capable slideshows. That path is separate from the Widget migration and changes no Widget contract: private Sheets arrive as the same Google Sheet records, and managed slide images arrive as Tilecast media.
 
 Web Integration Apps that opt into periodic reload require manifest v15 and `web.remote@2`. The closed reload mode is `periodic`, with an interval from 30 seconds through 24 hours. Android and Linux reuse their existing website reload timer, do not reload a hidden destroyed view, and preserve the descriptor's warm lifecycle and offline placeholder behavior. Assignment compatibility rejects Players that only report web runtime 1. Manifest v14 semantics and cached v1-v14 manifests remain unchanged; v15 also formalizes the optional canvas/viewport fields used by video-wall playback.
 
@@ -142,7 +154,11 @@ Manifest v13 adds a stable declarative runtime boundary. Data Sources project pr
 
 Capability revision 2 implements native icons, downloaded Tilecast asset images, line/bar/donut charts, target progress, repeat indexes, numeric/date conditions, legends, bounded chart axes, and collection empty states. Remote images remain unsupported.
 
-Provider creation remains limited to Tilecast releases. The Server embeds and validates one content-definition catalog and exposes it through `GET /api/v1/content-definitions`; the injected catalog is the single runtime source of truth for validation, compilation, dependency discovery, v13 requirement detection, manifest compilation, and fingerprint reconciliation. Studio does not maintain a second provider list for newly release-defined content. Supported generated controls are text, multiline text, number, integer, boolean, select, color, date, datetime, timezone, URL, Data Source, Data Source field, media asset, and bounded repeating group. Raw JSON, scripts, executable expressions, arbitrary HTML, uploaded definitions, and user-provided presentation trees are not exposed.
+Provider creation is currently limited to Tilecast releases. The Server embeds and validates one content-definition catalog and exposes it through `GET /api/v1/content-definitions`; the injected catalog is the single runtime source of truth for validation, compilation, dependency discovery, v13 requirement detection, manifest compilation, and fingerprint reconciliation. Studio does not maintain a second provider list for newly release-defined content. Supported generated controls are text, multiline text, number, integer, boolean, select, color, date, datetime, timezone, URL, Data Source, Data Source field, media asset, and bounded repeating group. Raw JSON, scripts, executable expressions, arbitrary HTML, uploaded definitions, and user-provided presentation trees are not exposed.
+
+The accepted future extension model keeps those validation and data/presentation
+boundaries while allowing source-owned Widget and declarative Data Source
+definitions. See [Tilecast content extension model](content-extension-model.md).
 
 Startup validation of the catalog is conservative and bounded. It rejects duplicate output field keys, unsupported output field types, unknown capability names, capability versions below one, presentation nodes whose capability is not declared, unknown binding sources or condition operators, dataset bindings without a dataset reference, malformed node structure, excessive presentation depth or node count, empty repeating groups, contradictory numeric or string bounds, select defaults outside their options, required fields with empty defaults, and deprecation replacements that do not exist.
 
@@ -158,6 +174,8 @@ Two narrow additions extend what a definition may express without weakening that
 - A `repeat` node may declare an **offset**, so one Widget can feature the current record and list the ones that follow it. Now and Next uses an offset of one.
 
 The Widget editor's live preview renders at the current instant by default and can instead render at a date and time the author picks, read in the author's own time zone. The chosen instant drives everything the preview derives from the clock — clock and date formats, countdowns, and the current/next/upcoming record selection — because Studio evaluates those in the browser rather than at compile time; the compiled presentation itself is unchanged. The thumbnail captured on save reflects whatever the preview shows.
+
+The Layout preview fills the Studio window. The canvas retains its aspect ratio and fits below the preview toolbar in both portrait and landscape orientations. Widgets use the shared renderer at the scale of that canvas.
 
 Studio draws a catalog preview for each Widget rather than an icon. The preview is inline SVG built from the definition's `thumbnail` name, follows the active theme, and needs no asset or network request. An unknown or missing name falls back to a generic preview, so a definition from a later release never breaks the gallery.
 

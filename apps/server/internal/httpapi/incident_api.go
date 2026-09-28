@@ -229,6 +229,11 @@ func (s *server) listIncidents(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) getIncident(w http.ResponseWriter, r *http.Request) {
+	role, ok := activityRole(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
 	id, err := incidentIDFromPath(r.URL.Path)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "incident_not_found", "Incident was not found.")
@@ -265,7 +270,7 @@ func (s *server) getIncident(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	s.attachIncidentEvidence(r, &detail)
+	s.attachIncidentEvidence(r, &detail, role)
 	detail.RecoveryPath = incidentRecoveryPath(record)
 	writeJSON(w, http.StatusOK, map[string]any{"data": detail})
 }
@@ -281,6 +286,11 @@ type incidentActionInput struct {
 // incident timeline with its actor, so who closed a problem and why is never a
 // matter of memory.
 func (s *server) updateIncident(w http.ResponseWriter, r *http.Request) {
+	principal, ok := activityPrincipal(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
 	id, err := incidentIDFromPath(r.URL.Path)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "incident_not_found", "Incident was not found.")
@@ -291,7 +301,7 @@ func (s *server) updateIncident(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "incident_action_invalid", err.Error())
 		return
 	}
-	actor := activitySession(r).User
+	actor := principal.User
 	input.Reason = safeActivityText(input.Reason, 240)
 	input.Notes = safeActivityText(input.Notes, 2000)
 
@@ -435,7 +445,7 @@ func incidentWindow(record incidentRecord) (time.Time, time.Time) {
 // incident was live. Commands and updates are activity events with their own
 // categories, so they arrive through the same stream rather than needing
 // separate joins.
-func (s *server) attachIncidentEvidence(r *http.Request, detail *incidentDetail) {
+func (s *server) attachIncidentEvidence(r *http.Request, detail *incidentDetail, role string) {
 	detail.RelatedEvents = []screenEventRecord{}
 	detail.ProofSessions = []proofOfPlayRecord{}
 	detail.AuditChanges = []auditActivityRecord{}
@@ -444,7 +454,6 @@ func (s *server) attachIncidentEvidence(r *http.Request, detail *incidentDetail)
 	}
 	screenID := *detail.PrimaryScreenID
 	from, to := incidentWindow(detail.incidentRecord)
-	role := activitySession(r).User.Role
 
 	if activityCanSeeSensitive(role) {
 		eventRows, err := s.db.Query(r.Context(), `

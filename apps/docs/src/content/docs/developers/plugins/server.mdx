@@ -1,0 +1,62 @@
+---
+title: Add server behavior
+description: Use Plugin API v1 Host services for routes, workers, status, removal checks, and core Tilecast resources.
+---
+
+Server code lives in the plugin directory and imports the Go Plugin SDK. It must not import `apps/server/internal`.
+
+## Receive Host services
+
+Implement `plugin.Initializer` when the plugin needs Tilecast services:
+
+```go
+func (p *Plugin) Init(_ context.Context, host plugin.Host) error {
+    p.host = host
+    p.db = host.DB
+    return nil
+}
+```
+
+`Host.DB` is for the plugin's own tables. Use the other Host services for core state.
+
+Common services include `Installation`, `Audit`, `Manifests`, `Targets`, `Takeovers`, `ManagedPresentations`, `BackgroundJobs`, `Screens`, `Organization`, `Clock`, `Logger`, `DataSources`, `Users`, and `PluginAssets`.
+
+If a plugin needs a core table that is not represented by a Host service, don't query that table directly. Extend the API deliberately.
+
+## Register HTTP routes
+
+Implement `plugin.RouteProvider` and register routes below one of the manifest's `api.basePaths`.
+
+Choose the access level that matches the endpoint:
+
+- `AccessViewer` is for enrolled read-only `GET` and `HEAD` requests.
+- `AccessManager` requires Owner or Administrator and CSRF on mutations.
+- `AccessSession` requires an enrolled session and leaves resource-specific authorization to the plugin.
+
+Use `plugin.PrincipalFrom` for the signed-in user and `plugin.DecodeJSON` for strict JSON requests.
+
+Use `HandleWithRateLimit` with `plugin.RateLimitOperations` for an operation that needs the shared operations limiter.
+
+Keep matching paths in `api/openapi.yaml`. `plugins:generate` composes the fragments into Tilecast's canonical OpenAPI document.
+
+## Report status and removal blockers
+
+`StatusReporter` supplies configured, active, instance-count, and attention state to the plugin catalog.
+
+`RemovalGuard` runs inside the Remove transaction. Return blockers when the operator must delete, disable, or wait for plugin-owned resources before removing the installation row.
+
+Removing an installation does not delete plugin data.
+
+## Run background work
+
+A `WorkerProvider` returns named workers. Automatic work should check the plugin installation and `Host.BackgroundJobs.Allowed()`.
+
+The second gate pauses background changes during backup and restore. An explicit operator action does not use that gate.
+
+Emergency Alerts is the current example of a networked background worker.
+
+## Seed Demo Mode
+
+Implement `DemoSeeder` when the plugin should add useful sample data to Demo Mode. Countdown Bar uses it to add a lunch countdown.
+
+Keep demo seeding thin. It should use the same plugin behavior that normal product code uses.

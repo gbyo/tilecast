@@ -1,12 +1,11 @@
 package httpapi
 
 import (
-	"errors"
+	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/plugins"
 )
 
@@ -23,7 +22,12 @@ func (s *server) listPlugins(w http.ResponseWriter, r *http.Request) {
 // installation answers 201; repeating it answers 200 with the same current
 // representation.
 func (s *server) installPlugin(w http.ResponseWriter, r *http.Request) {
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	item, created, err := s.plugins.Install(r.Context(), chi.URLParam(r, "pluginId"), user.ID)
 	if err != nil {
 		s.writePluginError(w, r, err)
@@ -40,7 +44,12 @@ func (s *server) installPlugin(w http.ResponseWriter, r *http.Request) {
 // while the plugin still owns resources the answer is 409 plugin_in_use with
 // what remains.
 func (s *server) removePlugin(w http.ResponseWriter, r *http.Request) {
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	if err := s.plugins.Remove(r.Context(), chi.URLParam(r, "pluginId"), user.ID); err != nil {
 		s.writePluginError(w, r, err)
 		return
@@ -48,9 +57,27 @@ func (s *server) removePlugin(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// getPluginAutomation serves a known, installed plugin's resolved automation
+// document. Operator clients dispatch generic commands on it without naming
+// the plugin in their own source. Unknown plugins answer 404
+// plugin_not_found, known-but-uninstalled ones 409 plugin_not_installed,
+// and plugins with no automation mapping 404 plugin_automation_not_found.
+func (s *server) getPluginAutomation(w http.ResponseWriter, r *http.Request) {
+	document, err := s.plugins.Automation(r.Context(), chi.URLParam(r, "pluginId"))
+	if err != nil {
+		s.writePluginError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": json.RawMessage(document)})
+}
+
 func (s *server) dependencyGraph(w http.ResponseWriter, r *http.Request) {
-	session := r.Context().Value(sessionContextKey).(auth.Session)
-	screens, err := s.devices.ListScreensForUser(r.Context(), session.User.ID, session.User.Role)
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	screens, err := s.devices.ListScreensForUser(r.Context(), principal.User.ID, principal.User.Role)
 	if err != nil {
 		s.internalError(w, r, err)
 		return
@@ -67,233 +94,6 @@ func (s *server) dependencyGraph(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"data": graph})
 }
 
-func (s *server) listCountdownBars(w http.ResponseWriter, r *http.Request) {
-	items, err := s.plugins.ListCountdownBars(r.Context())
-	if err != nil {
-		s.internalError(w, r, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{"items": items, "total": len(items)}})
-}
-
-func (s *server) getCountdownBar(w http.ResponseWriter, r *http.Request) {
-	id, ok := urlUUID(w, r, "id")
-	if !ok {
-		return
-	}
-	item, err := s.plugins.GetCountdownBar(r.Context(), id)
-	if err != nil {
-		s.writePluginError(w, r, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"data": item})
-}
-
-func (s *server) createCountdownBar(w http.ResponseWriter, r *http.Request) {
-	var input plugins.CountdownBarInput
-	if err := decodeJSON(w, r, &input); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
-		return
-	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
-	item, err := s.plugins.CreateCountdownBar(r.Context(), user.ID, input)
-	if err != nil {
-		s.writePluginError(w, r, err)
-		return
-	}
-	writeJSON(w, http.StatusCreated, map[string]any{"data": item})
-}
-
-func (s *server) updateCountdownBar(w http.ResponseWriter, r *http.Request) {
-	id, ok := urlUUID(w, r, "id")
-	if !ok {
-		return
-	}
-	var input plugins.CountdownBarInput
-	if err := decodeJSON(w, r, &input); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
-		return
-	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
-	item, err := s.plugins.UpdateCountdownBar(r.Context(), id, user.ID, input)
-	if err != nil {
-		s.writePluginError(w, r, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"data": item})
-}
-
-func (s *server) deleteCountdownBar(w http.ResponseWriter, r *http.Request) {
-	id, ok := urlUUID(w, r, "id")
-	if !ok {
-		return
-	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
-	if err := s.plugins.DeleteCountdownBar(r.Context(), id, user.ID); err != nil {
-		s.writePluginError(w, r, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
-}
-
-func (s *server) listBrandBugs(w http.ResponseWriter, r *http.Request) {
-	items, err := s.plugins.ListBrandBugs(r.Context())
-	if err != nil {
-		s.internalError(w, r, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{"items": items, "total": len(items)}})
-}
-
-func (s *server) getBrandBug(w http.ResponseWriter, r *http.Request) {
-	id, ok := urlUUID(w, r, "id")
-	if !ok {
-		return
-	}
-	item, err := s.plugins.GetBrandBug(r.Context(), id)
-	if err != nil {
-		s.writePluginError(w, r, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"data": item})
-}
-
-func (s *server) createBrandBug(w http.ResponseWriter, r *http.Request) {
-	var input plugins.BrandBugInput
-	if err := decodeJSON(w, r, &input); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
-		return
-	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
-	item, err := s.plugins.CreateBrandBug(r.Context(), user.ID, input)
-	if err != nil {
-		s.writePluginError(w, r, err)
-		return
-	}
-	writeJSON(w, http.StatusCreated, map[string]any{"data": item})
-}
-
-func (s *server) updateBrandBug(w http.ResponseWriter, r *http.Request) {
-	id, ok := urlUUID(w, r, "id")
-	if !ok {
-		return
-	}
-	var input plugins.BrandBugInput
-	if err := decodeJSON(w, r, &input); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
-		return
-	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
-	item, err := s.plugins.UpdateBrandBug(r.Context(), id, user.ID, input)
-	if err != nil {
-		s.writePluginError(w, r, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"data": item})
-}
-
-func (s *server) deleteBrandBug(w http.ResponseWriter, r *http.Request) {
-	id, ok := urlUUID(w, r, "id")
-	if !ok {
-		return
-	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
-	if err := s.plugins.DeleteBrandBug(r.Context(), id, user.ID); err != nil {
-		s.writePluginError(w, r, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
-}
-
-func (s *server) listNoiseMeters(w http.ResponseWriter, r *http.Request) {
-	items, err := s.plugins.ListNoiseMeters(r.Context())
-	if err != nil {
-		s.internalError(w, r, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{"items": items, "total": len(items)}})
-}
-
-func (s *server) getNoiseMeter(w http.ResponseWriter, r *http.Request) {
-	id, ok := urlUUID(w, r, "id")
-	if !ok {
-		return
-	}
-	item, err := s.plugins.GetNoiseMeter(r.Context(), id)
-	if err != nil {
-		s.writePluginError(w, r, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"data": item})
-}
-
-func (s *server) createNoiseMeter(w http.ResponseWriter, r *http.Request) {
-	var input plugins.NoiseMeterInput
-	if err := decodeJSON(w, r, &input); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
-		return
-	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
-	item, err := s.plugins.CreateNoiseMeter(r.Context(), user.ID, input)
-	if err != nil {
-		s.writePluginError(w, r, err)
-		return
-	}
-	writeJSON(w, http.StatusCreated, map[string]any{"data": item})
-}
-
-func (s *server) updateNoiseMeter(w http.ResponseWriter, r *http.Request) {
-	id, ok := urlUUID(w, r, "id")
-	if !ok {
-		return
-	}
-	var input plugins.NoiseMeterInput
-	if err := decodeJSON(w, r, &input); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
-		return
-	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
-	item, err := s.plugins.UpdateNoiseMeter(r.Context(), id, user.ID, input)
-	if err != nil {
-		s.writePluginError(w, r, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"data": item})
-}
-
-func (s *server) deleteNoiseMeter(w http.ResponseWriter, r *http.Request) {
-	id, ok := urlUUID(w, r, "id")
-	if !ok {
-		return
-	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
-	if err := s.plugins.DeleteNoiseMeter(r.Context(), id, user.ID); err != nil {
-		s.writePluginError(w, r, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
-}
-
 func (s *server) writePluginError(w http.ResponseWriter, r *http.Request, err error) {
-	var inUse *plugins.InUseError
-	switch {
-	case errors.As(err, &inUse):
-		writeJSON(w, http.StatusConflict, map[string]any{"error": map[string]any{
-			"code":    "plugin_in_use",
-			"message": inUse.Error(),
-			"details": map[string]any{"pluginId": inUse.PluginID, "resources": inUse.Resources},
-		}})
-	case errors.Is(err, plugins.ErrPluginNotFound):
-		writeError(w, http.StatusNotFound, "plugin_not_found", "The plugin was not found.")
-	case errors.Is(err, plugins.ErrPluginNotInstallable):
-		writeError(w, http.StatusConflict, "plugin_not_installable", "This plugin cannot be installed.")
-	case errors.Is(err, plugins.ErrPluginNotInstalled):
-		writeError(w, http.StatusConflict, "plugin_not_installed", "Install this plugin before configuring it.")
-	case errors.Is(err, plugins.ErrNotFound):
-		writeError(w, http.StatusNotFound, "plugin_instance_not_found", "The plugin instance was not found.")
-	case errors.Is(err, plugins.ErrInvalid):
-		writeError(w, http.StatusBadRequest, "invalid_plugin_configuration", err.Error())
-	default:
-		s.internalError(w, r, err)
-	}
+	plugins.WriteError(w, r, err, s.logger)
 }

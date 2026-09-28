@@ -1,0 +1,5 @@
+{
+  "type": "evaluate",
+  "surfaceId": "s-1",
+  "script": "alert(1)"
+}

@@ -3,6 +3,7 @@
     {
       "id": "news-feed",
       "version": 1,
+      "apiVersion": 1,
       "name": "News Feed",
       "description": "Present normalized news and feed records in a TV-ready layout.",
       "category": "Building Blocks / Advanced",
@@ -310,11 +311,43 @@
         "eyebrow": "Advanced",
         "tip": "Connect any records Data Source that exposes a title field."
       },
-      "deprecation": {}
+      "deprecation": {
+        "deprecated": true,
+        "replacement": "news",
+        "message": "Create a News Widget instead. Saved News Feed content keeps working."
+      },
+      "compatibility": { "fallback": "template" },
+      "component": {
+        "type": "tilecast.news",
+        "version": 1,
+        "tagName": "tc-widget-news",
+        "entrypoint": "./runtime/index.ts",
+        "configTemplate": {
+          "dataSourceId": { "$config": "sourceId", "default": "" },
+          "heading": { "$config": "heading", "default": "Latest news" },
+          "maxStories": { "$config": "maxStories", "default": 8 },
+          "showSummary": {
+            "$config": "showSummary",
+            "default": { "$config": "showDescription", "default": true }
+          },
+          "showTime": { "$config": "showPublicationTime", "default": true },
+          "showSource": { "$config": "showSource", "default": true },
+          "emptyText": {
+            "$config": "emptyText",
+            "default": { "$config": "emptyState", "default": "" }
+          },
+          "displayStyle": { "$config": "displayStyle", "default": "headlines" },
+          "background": { "$config": "backgroundColor", "default": "" },
+          "foreground": { "$config": "foregroundColor", "default": "" }
+        },
+        "dataSourceFields": ["sourceId"],
+        "empty": "skip-eligible"
+      }
     },
     {
       "id": "espn",
       "version": 1,
+      "apiVersion": 1,
       "name": "ESPN",
       "description": "Sports headlines and stories from ESPN.",
       "category": "News",
@@ -477,11 +510,42 @@
         "eyebrow": "Sports news",
         "tip": "Choose an ESPN feed. Tilecast refreshes and caches it on the Server for offline playback."
       },
-      "deprecation": {}
+      "deprecation": {
+        "deprecated": true,
+        "replacement": "news",
+        "message": "Create a News Widget with an RSS / Atom Feed instead. Saved ESPN content keeps working."
+      },
+      "compatibility": { "fallback": "template" },
+      "component": {
+        "type": "tilecast.news",
+        "version": 1,
+        "tagName": "tc-widget-news",
+        "entrypoint": "./runtime/index.ts",
+        "configTemplate": {
+          "dataSourceId": { "$config": "managedDataSourceId", "default": "" },
+          "heading": { "$config": "heading", "default": "Latest news" },
+          "maxStories": { "$config": "maxStories", "default": 8 },
+          "showSummary": {
+            "$config": "showSummary",
+            "default": { "$config": "showDescription", "default": true }
+          },
+          "showTime": { "$config": "showPublicationTime", "default": true },
+          "showSource": { "$config": "showSource", "default": true },
+          "emptyText": {
+            "$config": "emptyText",
+            "default": { "$config": "emptyState", "default": "" }
+          },
+          "displayStyle": { "$config": "displayStyle", "default": "headlines" },
+          "background": { "$config": "backgroundColor", "default": "" },
+          "foreground": { "$config": "foregroundColor", "default": "" }
+        },
+        "empty": "skip-eligible"
+      }
     },
     {
       "id": "custom-rss",
       "version": 1,
+      "apiVersion": 1,
       "name": "Custom RSS",
       "description": "Display headlines from any public RSS feed.",
       "category": "News",
@@ -622,11 +686,42 @@
         ],
         "tip": "Feed images are not displayed until Tilecast can cache them through its managed asset pipeline."
       },
-      "deprecation": {}
+      "deprecation": {
+        "deprecated": true,
+        "replacement": "news",
+        "message": "Create a News Widget with an RSS / Atom Feed instead. Saved Custom RSS content keeps working."
+      },
+      "compatibility": { "fallback": "template" },
+      "component": {
+        "type": "tilecast.news",
+        "version": 1,
+        "tagName": "tc-widget-news",
+        "entrypoint": "./runtime/index.ts",
+        "configTemplate": {
+          "dataSourceId": { "$config": "managedDataSourceId", "default": "" },
+          "heading": { "$config": "heading", "default": "Latest news" },
+          "maxStories": { "$config": "maxStories", "default": 8 },
+          "showSummary": {
+            "$config": "showSummary",
+            "default": { "$config": "showDescription", "default": true }
+          },
+          "showTime": { "$config": "showPublicationTime", "default": true },
+          "showSource": { "$config": "showSource", "default": true },
+          "emptyText": {
+            "$config": "emptyText",
+            "default": { "$config": "emptyState", "default": "" }
+          },
+          "displayStyle": { "$config": "displayStyle", "default": "headlines" },
+          "background": { "$config": "backgroundColor", "default": "" },
+          "foreground": { "$config": "foregroundColor", "default": "" }
+        },
+        "empty": "skip-eligible"
+      }
     },
     {
       "id": "atom-feed",
       "version": 1,
+      "apiVersion": 1,
       "name": "Atom Feed",
       "description": "Display entries from a public Atom feed.",
       "category": "Feeds",
@@ -761,11 +856,42 @@
         "eyebrow": "Public feed",
         "tip": "Tilecast fetches, normalizes, and caches the feed on the Server."
       },
-      "deprecation": {}
+      "deprecation": {
+        "deprecated": true,
+        "replacement": "news",
+        "message": "Create a News Widget with an RSS / Atom Feed instead. Saved Atom Feed content keeps working."
+      },
+      "compatibility": { "fallback": "template" },
+      "component": {
+        "type": "tilecast.news",
+        "version": 1,
+        "tagName": "tc-widget-news",
+        "entrypoint": "./runtime/index.ts",
+        "configTemplate": {
+          "dataSourceId": { "$config": "managedDataSourceId", "default": "" },
+          "heading": { "$config": "heading", "default": "Latest news" },
+          "maxStories": { "$config": "maxStories", "default": 8 },
+          "showSummary": {
+            "$config": "showSummary",
+            "default": { "$config": "showDescription", "default": true }
+          },
+          "showTime": { "$config": "showPublicationTime", "default": true },
+          "showSource": { "$config": "showSource", "default": true },
+          "emptyText": {
+            "$config": "emptyText",
+            "default": { "$config": "emptyState", "default": "" }
+          },
+          "displayStyle": { "$config": "displayStyle", "default": "headlines" },
+          "background": { "$config": "backgroundColor", "default": "" },
+          "foreground": { "$config": "foregroundColor", "default": "" }
+        },
+        "empty": "skip-eligible"
+      }
     },
     {
       "id": "rss-ticker",
       "version": 1,
+      "apiVersion": 1,
       "name": "RSS Ticker",
       "description": "Scroll headlines from any RSS or Atom feed.",
       "category": "Feeds",
@@ -990,11 +1116,46 @@
         "eyebrow": "Headline strip",
         "tip": "Tilecast fetches the feed on the Server; Players only receive the normalized cached records."
       },
-      "deprecation": {}
+      "deprecation": {
+        "deprecated": true,
+        "replacement": "ticker",
+        "message": "Create a Ticker Widget instead. Saved RSS Ticker content keeps working."
+      },
+      "compatibility": { "fallback": "template" },
+      "component": {
+        "type": "tilecast.ticker",
+        "version": 1,
+        "tagName": "tc-widget-ticker",
+        "entrypoint": "./runtime/index.ts",
+        "configTemplate": {
+          "dataSourceId": { "$config": "managedDataSourceId", "default": "" },
+          "primaryField": "title",
+          "secondaryField": "",
+          "legacyFields": [],
+          "legacyContentMode": {
+            "$config": "contentMode",
+            "default": "title_source"
+          },
+          "leadingLabel": { "$config": "leadingLabel", "default": "NEWS" },
+          "separator": { "$config": "separator", "default": " • " },
+          "fieldSeparator": " — ",
+          "maxItems": { "$config": "maxStories", "default": 15 },
+          "direction": { "$config": "direction", "default": "left" },
+          "speed": { "$config": "speed", "default": "normal" },
+          "emptyText": {
+            "$config": "emptyText",
+            "default": { "$config": "emptyState", "default": "" }
+          },
+          "background": "",
+          "foreground": ""
+        },
+        "empty": "skip-eligible"
+      }
     },
     {
       "id": "bbc-news",
       "version": 1,
+      "apiVersion": 1,
       "name": "BBC News",
       "description": "Headlines from BBC News.",
       "category": "News",
@@ -1137,11 +1298,42 @@
         "eyebrow": "BBC News",
         "tip": "Uses BBC's public Top Stories RSS feed and keeps the latest successful refresh cached."
       },
-      "deprecation": {}
+      "deprecation": {
+        "deprecated": true,
+        "replacement": "news",
+        "message": "Create a News Widget with an RSS / Atom Feed instead. Saved BBC News content keeps working."
+      },
+      "compatibility": { "fallback": "template" },
+      "component": {
+        "type": "tilecast.news",
+        "version": 1,
+        "tagName": "tc-widget-news",
+        "entrypoint": "./runtime/index.ts",
+        "configTemplate": {
+          "dataSourceId": { "$config": "managedDataSourceId", "default": "" },
+          "heading": { "$config": "heading", "default": "Latest news" },
+          "maxStories": { "$config": "maxStories", "default": 8 },
+          "showSummary": {
+            "$config": "showSummary",
+            "default": { "$config": "showDescription", "default": true }
+          },
+          "showTime": { "$config": "showPublicationTime", "default": true },
+          "showSource": { "$config": "showSource", "default": true },
+          "emptyText": {
+            "$config": "emptyText",
+            "default": { "$config": "emptyState", "default": "" }
+          },
+          "displayStyle": { "$config": "displayStyle", "default": "headlines" },
+          "background": { "$config": "backgroundColor", "default": "" },
+          "foreground": { "$config": "foregroundColor", "default": "" }
+        },
+        "empty": "skip-eligible"
+      }
     },
     {
       "id": "sky-news",
       "version": 1,
+      "apiVersion": 1,
       "name": "Sky News",
       "description": "Headlines from Sky News.",
       "category": "News",
@@ -1283,11 +1475,42 @@
         "eyebrow": "Sky News",
         "tip": "Uses Sky News's public RSS feed and keeps the latest successful refresh cached."
       },
-      "deprecation": {}
+      "deprecation": {
+        "deprecated": true,
+        "replacement": "news",
+        "message": "Create a News Widget with an RSS / Atom Feed instead. Saved Sky News content keeps working."
+      },
+      "compatibility": { "fallback": "template" },
+      "component": {
+        "type": "tilecast.news",
+        "version": 1,
+        "tagName": "tc-widget-news",
+        "entrypoint": "./runtime/index.ts",
+        "configTemplate": {
+          "dataSourceId": { "$config": "managedDataSourceId", "default": "" },
+          "heading": { "$config": "heading", "default": "Latest news" },
+          "maxStories": { "$config": "maxStories", "default": 8 },
+          "showSummary": {
+            "$config": "showSummary",
+            "default": { "$config": "showDescription", "default": true }
+          },
+          "showTime": { "$config": "showPublicationTime", "default": true },
+          "showSource": { "$config": "showSource", "default": true },
+          "emptyText": {
+            "$config": "emptyText",
+            "default": { "$config": "emptyState", "default": "" }
+          },
+          "displayStyle": { "$config": "displayStyle", "default": "headlines" },
+          "background": { "$config": "backgroundColor", "default": "" },
+          "foreground": { "$config": "foregroundColor", "default": "" }
+        },
+        "empty": "skip-eligible"
+      }
     },
     {
       "id": "the-guardian",
       "version": 1,
+      "apiVersion": 1,
       "name": "The Guardian",
       "description": "Headlines from The Guardian's public feeds.",
       "category": "News",
@@ -1449,7 +1672,37 @@
         "eyebrow": "The Guardian",
         "tip": "Choose one of The Guardian's public section RSS feeds. Review the publisher's feed-use terms for your deployment."
       },
-      "deprecation": {}
+      "deprecation": {
+        "deprecated": true,
+        "replacement": "news",
+        "message": "Create a News Widget with an RSS / Atom Feed instead. Saved Guardian content keeps working."
+      },
+      "compatibility": { "fallback": "template" },
+      "component": {
+        "type": "tilecast.news",
+        "version": 1,
+        "tagName": "tc-widget-news",
+        "entrypoint": "./runtime/index.ts",
+        "configTemplate": {
+          "dataSourceId": { "$config": "managedDataSourceId", "default": "" },
+          "heading": { "$config": "heading", "default": "Latest news" },
+          "maxStories": { "$config": "maxStories", "default": 8 },
+          "showSummary": {
+            "$config": "showSummary",
+            "default": { "$config": "showDescription", "default": true }
+          },
+          "showTime": { "$config": "showPublicationTime", "default": true },
+          "showSource": { "$config": "showSource", "default": true },
+          "emptyText": {
+            "$config": "emptyText",
+            "default": { "$config": "emptyState", "default": "" }
+          },
+          "displayStyle": { "$config": "displayStyle", "default": "headlines" },
+          "background": { "$config": "backgroundColor", "default": "" },
+          "foreground": { "$config": "foregroundColor", "default": "" }
+        },
+        "empty": "skip-eligible"
+      }
     }
   ],
   "dataSources": []

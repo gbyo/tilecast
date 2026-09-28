@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/tilecast/tilecast/apps/server/internal/ids"
 )
 
 type Location struct {
@@ -102,9 +103,9 @@ func (s *Service) CreateLocation(ctx context.Context, userID uuid.UUID, input Lo
 		return Location{}, err
 	}
 	var id uuid.UUID
-	err = s.db.QueryRow(ctx, `INSERT INTO locations(organization_id,name,address_line_1,address_line_2,city,state,postal_code,country,latitude,longitude)
-		SELECT id,$1,$2,$3,$4,$5,$6,$7,$8,$9 FROM organization_settings WHERE singleton=TRUE RETURNING id`,
-		input.Name, input.AddressLine1, input.AddressLine2, input.City, input.State, input.PostalCode, input.Country, input.Latitude, input.Longitude).Scan(&id)
+	err = s.db.QueryRow(ctx, `INSERT INTO locations(id,organization_id,name,address_line_1,address_line_2,city,state,postal_code,country,latitude,longitude)
+		SELECT $10,id,$1,$2,$3,$4,$5,$6,$7,$8,$9 FROM organization_settings WHERE singleton=TRUE RETURNING id`,
+		input.Name, input.AddressLine1, input.AddressLine2, input.City, input.State, input.PostalCode, input.Country, input.Latitude, input.Longitude, ids.New(ctx)).Scan(&id)
 	if err != nil {
 		var postgresError *pgconn.PgError
 		if errors.As(err, &postgresError) && postgresError.Code == "23505" {

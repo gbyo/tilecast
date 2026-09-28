@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/presentations"
 )
 
@@ -59,7 +58,12 @@ func (s *server) createPresentationOverride(w http.ResponseWriter, r *http.Reque
 		writeError(w, http.StatusUnprocessableEntity, "validation_failed", "Choose a screen or Display Group destination.")
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	item, err := s.presentations.Create(r.Context(), presentations.CreateInput{
 		TargetType:  body.TargetType,
 		TargetID:    body.TargetID,
@@ -105,7 +109,12 @@ func (s *server) stopPresentationOverride(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	user := r.Context().Value(sessionContextKey).(auth.Session).User
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	user := principal.User
 	item, err := s.presentations.Stop(r.Context(), id, user.ID, body.Reason)
 	if errors.Is(err, presentations.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "presentation_not_found", "Quick Present is no longer active.")

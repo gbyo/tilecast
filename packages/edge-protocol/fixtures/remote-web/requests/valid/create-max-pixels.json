@@ -1,0 +1,21 @@
+{
+  "type": "create",
+  "surfaceId": "s-1",
+  "width": 3840,
+  "height": 2160,
+  "muted": true,
+  "visible": false,
+  "content": {
+    "kind": "page",
+    "url": "https://signage.example.org/board?x=1",
+    "allowedHosts": ["signage.example.org", "cdn.example.org."],
+    "javascriptEnabled": true,
+    "domStorageEnabled": true,
+    "cookiePolicy": "first_party",
+    "userAgent": "",
+    "zoomPercent": 100,
+    "scrollX": 0,
+    "scrollY": 120,
+    "backgroundColor": "#0E141B"
+  }
+}

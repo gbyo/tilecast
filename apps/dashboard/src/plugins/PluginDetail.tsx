@@ -23,7 +23,7 @@ export function PluginDetail({ plugin }: { plugin: PluginSummary }) {
     <div className="grid gap-5 pr-2">
       <Item className="px-0 py-0">
         <ItemMedia variant="image" className="size-12 bg-muted">
-          <PluginIcon icon={plugin.icon} />
+          <PluginIcon pluginId={plugin.id} />
         </ItemMedia>
         <ItemContent>
           <ItemTitle className="text-base">{plugin.name}</ItemTitle>

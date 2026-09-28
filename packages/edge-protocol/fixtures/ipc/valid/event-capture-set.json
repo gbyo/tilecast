@@ -1,0 +1,10 @@
+{
+  "frame": {
+    "type": "event",
+    "seq": 1,
+    "event": "capture.set",
+    "data": {
+      "enabled": true
+    }
+  }
+}

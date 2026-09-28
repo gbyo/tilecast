@@ -99,7 +99,11 @@ func (s *server) screenTimeline(w http.ResponseWriter, r *http.Request) {
 	response.Range.From, response.Range.To = window.From, window.To
 	response.Status = s.screenCurrentStatus(r, screenID)
 
-	role := activitySession(r).User.Role
+	role, ok := activityRole(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
 	for _, source := range []func(*http.Request, uuid.UUID, activityWindow, string) []screenTimelineEntry{
 		s.timelineFromEvents, s.timelineFromStateIntervals,
 		s.timelineFromPlayback, s.timelineFromIncidents, s.timelineFromAudit,

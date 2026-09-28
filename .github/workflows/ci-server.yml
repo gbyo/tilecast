@@ -1,24 +1,23 @@
-name: Server CI
+name: ci-server
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "apps/server/**"
-      - ".github/workflows/ci-server.yml"
-  workflow_dispatch:
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  workflow_call:
+    inputs:
+      race:
+        type: boolean
+        default: false
 
 permissions:
   contents: read
   checks: write
 
 jobs:
-  server:
+  validate:
+    name: Server CI
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
     services:
       postgres:
         image: postgres:17-alpine
@@ -38,12 +37,17 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: apps/server/go.mod
-          cache-dependency-path: apps/server/go.sum
+          cache-dependency-path: |
+            apps/server/go.sum
+            apps/cli/go.sum
+            plugins/go.sum
+            packages/plugin-sdk/go/go.sum
+      # go.work puts the bundled plugins and the plugin SDK in the same build.
       - working-directory: apps/server
-        run: go vet ./...
+        run: go vet ./... github.com/tilecast/tilecast/plugins/... github.com/tilecast/tilecast/packages/plugin-sdk/go/... github.com/tilecast/tilecast/widgets/... github.com/tilecast/tilecast/data-sources/...
       - name: Test
         working-directory: apps/server
-        run: go test -json -p 1 ./... > test-results.json
+        run: go test ${{ inputs.race && '-race' || '' }} -json -coverprofile=coverage.out -p 1 ./... github.com/tilecast/tilecast/plugins/... github.com/tilecast/tilecast/packages/plugin-sdk/go/... github.com/tilecast/tilecast/widgets/... github.com/tilecast/tilecast/data-sources/... > test-results.json
         env:
           TEST_DATABASE_URL: postgres://tilecast:tilecast_test_password@localhost:5432/tilecast_test?sslmode=disable
       - name: Test Reporter
@@ -55,4 +59,13 @@ jobs:
           reporter: golang-json
           fail-on-empty: false
       - working-directory: apps/server
-        run: go build ./cmd/tilecast
+        run: go build ./cmd/tilecast-server
+      - name: Coverage summary
+        if: ${{ !cancelled() }}
+        working-directory: apps/server
+        run: go tool cover -func=coverage.out | tail -1 >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: server-coverage
+          path: apps/server/coverage.out

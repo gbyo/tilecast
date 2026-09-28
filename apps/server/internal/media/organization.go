@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/tilecast/tilecast/apps/server/internal/ids"
 	"github.com/tilecast/tilecast/apps/server/internal/manifestchanges"
 )
 
@@ -186,7 +187,7 @@ func (s *Service) CreateTag(ctx context.Context, userID uuid.UUID, name, color s
 	if !regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`).MatchString(color) {
 		return ContentTag{}, errors.New("color must be a six-digit hexadecimal color")
 	}
-	id := uuid.New()
+	id := ids.New(ctx)
 	var v ContentTag
 	err = s.db.QueryRow(ctx, `INSERT INTO content_tags(id,organization_id,name,color,created_by) SELECT $1,id,$2,$3,$4 FROM organization_settings RETURNING id,name,color,0`, id, name, color, userID).Scan(&v.ID, &v.Name, &v.Color, &v.AssetCount)
 	return v, err

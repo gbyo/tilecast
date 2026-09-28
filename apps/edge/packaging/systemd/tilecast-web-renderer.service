@@ -1,0 +1,90 @@
+# The Tilecast Edge remote web helper (M11): the isolated, untrusted Website
+# and YouTube renderer. It runs remote pages in headless WPE WebViews as the
+# dedicated tilecast-web account and sends only file-descriptor-backed video
+# frames and closed remote-web-protocol-v1 events to the trusted renderer
+# (docs/tilecast-edge-remote-web-threat-review.md).
+#
+# It is enabled with Edge. The daemon, helper, renderer start order lives
+# in the units (After/Wants below and on the renderer), not in start call
+# timing, so boot, the migrator, activation and the guard all converge on
+# it; the helper maps files under /opt/tilecast-edge/current. Non-web
+# playback never depends on it: a helper exit fails only live remote
+# surfaces through the runtime's Website failure and recovery path.
+[Unit]
+Description=Tilecast Edge remote web helper
+Documentation=https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-remote-web-threat-review.md
+After=tilecast-edge.service network-online.target
+Wants=tilecast-edge.service network-online.target
+
+[Service]
+Type=simple
+User=tilecast-web
+Group=tilecast-web
+# GPU render nodes and audio for unmuted pages. The account is otherwise
+# isolated: it is not a member of tilecast, tilecast-display,
+# tilecast-network, video or input (threat review §3).
+SupplementaryGroups=render audio
+ExecStart=/opt/tilecast-edge/current/bin/tilecast-web-renderer-wpe --control-socket=/run/tilecast-web/control.sock --frames-dir=/run/tilecast-web/frames --data-dir=/var/lib/tilecast-web --cache-dir=/var/cache/tilecast-web --client-user=tilecast
+Restart=always
+RestartSec=2
+TimeoutStopSec=10s
+UMask=0077
+
+# Directories. /run/tilecast-web is 0750 tilecast-web:tilecast-web so only
+# the trusted renderer (which joins tilecast-web as a supplementary group)
+# can reach the control and frame sockets; the persistent website profiles
+# stay 0700 tilecast-web so the renderer cannot read web storage.
+RuntimeDirectory=tilecast-web
+RuntimeDirectoryMode=0750
+StateDirectory=tilecast-web
+StateDirectoryMode=0700
+CacheDirectory=tilecast-web
+CacheDirectoryMode=0700
+
+# Filesystem isolation (threat review §4). The helper reads its binary and
+# the release's WPE WebKit under current, system libraries, fonts and the CA
+# store; it writes only its own state, cache and runtime directories. Edge
+# private state, Edge IPC, the update helper, the Presentation Network
+# helper and the trusted renderer's cache are explicitly hidden, and their
+# modes would refuse tilecast-web even without the hiding.
+ProtectHome=yes
+ProtectSystem=strict
+InaccessiblePaths=-/var/lib/tilecast-edge
+InaccessiblePaths=-/run/tilecast-edge
+InaccessiblePaths=-/run/tilecast-edge-update
+InaccessiblePaths=-/run/tilecast
+InaccessiblePaths=-/var/cache/tilecast-renderer
+PrivateTmp=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+LockPersonality=yes
+RestrictSUIDSGID=yes
+# Outbound web access is the helper's job: loopback for GStreamer-local
+# signaling, unicast IP for pages and media, netlink for the resolver.
+# No SystemCallFilter and no namespace restrictions: they break WebKit's
+# auxiliary processes (bubblewrap). No PrivateDevices: the helper needs GPU
+# render nodes and audio devices. Device access is otherwise closed: only
+# DRM (GPU render nodes) and ALSA (page audio output) are allowed, so a
+# compromised helper cannot open cameras, input, disks or other host
+# devices even where group math alone would not stop it. A V4L2-decode
+# target would add char-video4linux here with hardware validation.
+DevicePolicy=closed
+DeviceAllow=char-drm rw
+DeviceAllow=char-alsa rw
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+SystemCallArchitectures=native
+
+# A compromised page must not take memory or processes from the machine,
+# and stays deprioritized under CPU contention (threat review §14:
+# MemoryMax and TasksMax are hard bounds; CPUWeight is a weight, not a
+# quota, because a quota would also throttle legitimate web rendering).
+MemoryHigh=1G
+MemoryMax=1536M
+TasksMax=512
+CPUWeight=50
+
+[Install]
+WantedBy=multi-user.target

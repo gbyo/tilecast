@@ -44,15 +44,17 @@ func TestPluginInstallationBackfill(t *testing.T) {
 	}
 	rerun := func() []string {
 		t.Helper()
-		goose.SetBaseFS(migrations)
+		if err := useCatalog(); err != nil {
+			t.Fatal(err)
+		}
 		if current, err := goose.GetDBVersionContext(ctx, db); err != nil {
 			t.Fatal(err)
 		} else if current == pluginInstallationsMigration {
-			if err = goose.DownContext(ctx, db, "migrations"); err != nil {
+			if err = goose.DownContext(ctx, db, migrationDir); err != nil {
 				t.Fatal(err)
 			}
 		}
-		if err := goose.UpToContext(ctx, db, "migrations", pluginInstallationsMigration); err != nil {
+		if err := goose.UpToContext(ctx, db, migrationDir, pluginInstallationsMigration); err != nil {
 			t.Fatal(err)
 		}
 		rows, err := db.QueryContext(ctx, `SELECT plugin_id FROM plugin_installations`)

@@ -182,3 +182,45 @@ describe("SettingsShell mobile section picker", () => {
     );
   });
 });
+
+describe("SettingsShell workspace sections", () => {
+  it("gives the Dependency Explorer the full width and a Sheet of sections", async () => {
+    const onNavigate = vi.fn(() => true);
+    renderShell({ active: "dependency-graph", onNavigate });
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Dependency Explorer" }),
+    ).toBeInTheDocument();
+    // No permanent column and no mobile picker.
+    expect(
+      screen.queryByRole("navigation", { name: "Settings sections" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: "Settings section" }),
+    ).not.toBeInTheDocument();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Settings sections" }));
+    const sheet = await screen.findByRole("dialog", {
+      name: "Settings sections",
+    });
+    const nav = within(sheet).getByRole("navigation", {
+      name: "Settings sections",
+    });
+    expect(
+      within(nav).getByRole("link", { name: "Dependency Explorer" }),
+    ).toHaveAttribute("aria-current", "page");
+    await user.click(within(nav).getByRole("link", { name: "Data retention" }));
+    expect(onNavigate).toHaveBeenCalledWith("retention");
+    expect(screen.getByLabelText("location")).toHaveTextContent(
+      "/settings/operations/retention",
+    );
+  });
+
+  it("keeps the standard layout for ordinary sections", () => {
+    renderShell({ active: "general" });
+    expect(sections()).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Settings sections" }),
+    ).not.toBeInTheDocument();
+  });
+});

@@ -1,0 +1,13 @@
+{
+  "name": "Date and seconds",
+  "configuration": {
+    "timezone": "",
+    "format": "locale",
+    "showSeconds": true,
+    "showDate": true,
+    "style": "standard",
+    "foregroundColor": "#F5F7FA",
+    "backgroundColor": "#0E141B"
+  },
+  "expect": "ready"
+}

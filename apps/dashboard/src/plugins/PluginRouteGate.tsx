@@ -54,7 +54,7 @@ export function PluginRouteGate({
       <Empty className="border border-dashed">
         <EmptyHeader>
           <EmptyMedia variant="icon">
-            <PluginIcon icon={plugin.icon} />
+            <PluginIcon pluginId={plugin.id} />
           </EmptyMedia>
           <EmptyTitle>
             {t("gate.notInstalled", { name: plugin.name })}

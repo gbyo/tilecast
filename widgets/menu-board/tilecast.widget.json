@@ -1,0 +1,224 @@
+{
+  "$schema": "../../packages/widget-sdk/schema/tilecast-widget.schema.json",
+  "apiVersion": 1,
+  "id": "menu",
+  "version": 1,
+  "name": "Menu Board",
+  "description": "Show items with descriptions and aligned prices, grouped into sections.",
+  "category": "Data display",
+  "icon": "utensils",
+  "runtime": "native",
+  "configurationSchema": {
+    "fields": [
+      {
+        "key": "dataSourceId",
+        "label": "Data Source",
+        "description": "The records source this Menu Board reads.",
+        "control": "data_source",
+        "acceptedDataSourceKinds": ["records"],
+        "default": "",
+        "ui": { "section": "data", "order": 1 }
+      },
+      {
+        "key": "titleField",
+        "label": "Title field",
+        "description": "The item name in each row.",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": ["text"],
+        "default": "",
+        "ui": {
+          "section": "data",
+          "order": 2,
+          "semanticRole": "title",
+          "legacyKeys": ["labelField", "primaryField"]
+        }
+      },
+      {
+        "key": "descriptionField",
+        "label": "Description field",
+        "description": "A quieter line under the item name.",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": ["text"],
+        "default": "",
+        "ui": {
+          "section": "data",
+          "order": 3,
+          "semanticRole": "description",
+          "legacyKeys": ["secondaryField"]
+        }
+      },
+      {
+        "key": "priceField",
+        "label": "Price field",
+        "description": "Aligned to the end of each row, formatted as currency when typed.",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": ["text", "number", "integer", "currency"],
+        "default": "",
+        "ui": {
+          "section": "data",
+          "order": 4,
+          "semanticRole": "price",
+          "legacyKeys": ["valueField", "trailingField"]
+        }
+      },
+      {
+        "key": "categoryField",
+        "label": "Category field",
+        "description": "Groups items under section headings. Empty without it.",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": ["text"],
+        "default": "",
+        "ui": {
+          "section": "data",
+          "order": 5,
+          "semanticRole": "category",
+          "legacyKeys": ["section"]
+        }
+      },
+      {
+        "key": "heading",
+        "label": "Heading",
+        "control": "text",
+        "maxLength": 120,
+        "default": "",
+        "ui": { "section": "content", "order": 1 }
+      },
+      {
+        "key": "maximumItems",
+        "label": "Maximum items",
+        "control": "integer",
+        "minimum": 1,
+        "maximum": 100,
+        "default": 12,
+        "ui": { "section": "content", "order": 2 }
+      },
+      {
+        "key": "emptyText",
+        "label": "Empty message",
+        "description": "Shown when the source returns no usable records.",
+        "control": "text",
+        "maxLength": 200,
+        "default": "",
+        "ui": { "section": "content", "order": 3 }
+      },
+      {
+        "key": "density",
+        "label": "Density",
+        "control": "select",
+        "options": [
+          { "value": "comfortable", "label": "Comfortable" },
+          { "value": "compact", "label": "Compact" }
+        ],
+        "default": "comfortable",
+        "ui": { "section": "appearance", "order": 1, "styleCard": true }
+      },
+      {
+        "key": "showDividers",
+        "label": "Dividers",
+        "description": "Draw a line between items.",
+        "control": "boolean",
+        "default": true,
+        "ui": { "section": "appearance", "order": 2 }
+      },
+      {
+        "key": "backgroundColor",
+        "label": "Background color",
+        "control": "color",
+        "default": "",
+        "ui": { "section": "appearance", "order": 3 }
+      },
+      {
+        "key": "foregroundColor",
+        "label": "Text color",
+        "control": "color",
+        "default": "",
+        "ui": { "section": "appearance", "order": 4 }
+      },
+      {
+        "key": "textScale",
+        "label": "Text scale",
+        "control": "integer",
+        "minimum": 25,
+        "maximum": 500,
+        "ui": { "hidden": true }
+      },
+      {
+        "key": "contentPadding",
+        "label": "Content padding",
+        "control": "integer",
+        "minimum": 0,
+        "maximum": 40,
+        "ui": { "hidden": true }
+      }
+    ]
+  },
+  "defaultConfiguration": {
+    "dataSourceId": "",
+    "titleField": "",
+    "descriptionField": "",
+    "priceField": "",
+    "categoryField": "",
+    "heading": "",
+    "maximumItems": 12,
+    "emptyText": "",
+    "density": "comfortable",
+    "showDividers": true,
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "presentationSchemaVersion": 1,
+  "requiredCapabilities": {
+    "layout.surface": 1,
+    "layout.column": 1,
+    "collection.repeat": 2,
+    "collection.grouped_sections": 1,
+    "content.text": 1,
+    "binding.core": 2
+  },
+  "emptyStateBehavior": "text",
+  "legacyEditor": true,
+  "deprecation": {},
+  "component": {
+    "type": "tilecast.menu-board",
+    "version": 1,
+    "tagName": "tc-widget-menu-board",
+    "entrypoint": "./runtime/index.ts",
+    "configTemplate": {
+      "dataSourceId": { "$config": "dataSourceId", "default": "" },
+      "titleField": {
+        "$config": "titleField",
+        "default": {
+          "$config": "labelField",
+          "default": { "$config": "primaryField", "default": "" }
+        }
+      },
+      "descriptionField": {
+        "$config": "descriptionField",
+        "default": { "$config": "secondaryField", "default": "" }
+      },
+      "priceField": {
+        "$config": "priceField",
+        "default": { "$config": "valueField", "default": "" }
+      },
+      "categoryField": { "$config": "categoryField", "default": "" },
+      "heading": { "$config": "heading", "default": "" },
+      "maximumItems": { "$config": "maximumItems", "default": 12 },
+      "emptyText": {
+        "$config": "emptyText",
+        "default": { "$config": "emptyState", "default": "" }
+      },
+      "density": {
+        "$config": "density",
+        "default": { "$config": "rowSpacing", "default": "comfortable" }
+      },
+      "showDividers": { "$config": "showDividers", "default": true },
+      "background": { "$config": "backgroundColor", "default": "" },
+      "foreground": { "$config": "foregroundColor", "default": "" }
+    },
+    "dataSourceFields": ["dataSourceId"],
+    "empty": "skip-eligible"
+  },
+  "compatibility": {
+    "fallback": "legacy"
+  }
+}

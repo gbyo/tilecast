@@ -1,0 +1,84 @@
+---
+title: Add migrations and test a plugin
+description: Reserve database migrations, run Plugin API conformance, and test server, Studio, and Player behavior.
+---
+
+A plugin change should pass both the shared Plugin API checks and the tests beside its implementation.
+
+## Reserve a migration
+
+Tilecast has one Goose migration sequence across core and every plugin.
+
+Create the next migration from the repository root:
+
+```sh
+npm run plugins:migration -- transit_alerts create_feeds
+```
+
+Keep both Goose sections:
+
+```sql
+-- +goose Up
+
+-- schema change
+
+-- +goose Down
+
+-- reverse the schema change
+```
+
+Do not edit a migration that has shipped. Add another migration.
+
+Plugin migrations run during the Tilecast release upgrade, not when an operator installs a plugin.
+
+## Keep the conformance test
+
+The scaffold creates:
+
+```go
+func TestConformance(t *testing.T) {
+    plugintest.Conformance(t, New())
+}
+```
+
+This checks the embedded manifest, contribution declarations, routes, migrations, and initialization contract.
+
+Run the repository check too:
+
+```sh
+npm run plugins:check
+```
+
+It checks manifest and directory rules, import boundaries, route and docs ownership, OpenAPI fragments, CSS scoping, generated files, migration metadata, and nearby tests.
+
+## Test server behavior with PostgreSQL
+
+Use `apps/server/pluginharness` from plugin `_test.go` files when behavior depends on real database constraints, transactions, installation state, Host services, or migrations.
+
+The harness is the one server package plugin tests are allowed to import.
+
+Use PostgreSQL tests for locking, uniqueness, foreign keys, migration compatibility, and transaction ordering instead of replacing those checks with mocks.
+
+## Test Studio and Player code beside the plugin
+
+Keep Studio tests under `plugins/<name>/studio/`. Shared plugin-host tests cover discovery, route collisions, and secondary-navigation rules.
+
+Keep runtime tests under `runtime/`. Use `@tilecast/plugin-sdk/runtime/testing` for the manual clock and deterministic context.
+
+## Regenerate before you commit
+
+Run:
+
+```sh
+npm run plugins:generate
+npm run plugins:check
+```
+
+Then run the tests for the parts you changed. For docs changes, also run:
+
+```sh
+npm run docs:check
+npm run docs:build
+```
+
+Generated files such as the Go registry, `CODEOWNERS`, migration lock, and composed OpenAPI document should not be edited by hand.

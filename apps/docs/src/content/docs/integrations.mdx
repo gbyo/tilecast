@@ -1,20 +1,80 @@
 ---
 title: Integrations
-description: Move data between Tilecast and other systems, or send Tilecast events to your own service.
+description: Choose how to automate Tilecast, connect another system, or send Tilecast events to your own service.
 ---
 
-Choose an integration by the direction data needs to move:
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
 
-- To display data Tilecast fetches, create a [Data Source](../studio/). Widgets can show its records on a screen.
-- To push table rows into Tilecast or read a fleet summary, use an [integration token](./tokens/).
-- To receive Tilecast notifications, configure [email or a webhook](./notifications/).
+Tilecast connects to other tools in several ways. Choose by who is acting and which direction the data moves.
 
-Use [Manual Table rows](./manual-table/) to connect an external system that owns the source data. Use [fleet health](./fleet-health/) to connect an existing monitoring system.
+## Automate Tilecast as a user
 
-The integration API is deliberately scoped. Tokens cannot administer Tilecast, create content, or control screens. The API overview covers the shared request and authentication conventions.
+These tools act as your own Studio account. Your role and screen access apply to everything they do.
 
-import { LinkButton } from "@astrojs/starlight/components";
+<CardGrid>
+  <LinkCard
+    title="Command-line interface"
+    description="Manage screens, pairing, Playlists, settings, plugins, and Activity from a terminal or a script."
+    href="./cli/"
+  />
+  <LinkCard
+    title="MCP"
+    description="Let an AI assistant or other MCP client use Tilecast, with read-only mode and confirmation for risky actions."
+    href="./mcp/"
+  />
+  <LinkCard
+    title="Personal access tokens"
+    description="Give a script, CI job, or the CLI an expiring credential that acts as your account."
+    href="./personal-access-tokens/"
+  />
+  <LinkCard
+    title="HTTP API"
+    description="Call the same API that Studio and the CLI use, with a personal access token."
+    href="../reference/api/"
+  />
+</CardGrid>
 
-<LinkButton href="../reference/api/" variant="secondary" icon="right-arrow">
-  Read the HTTP API overview
-</LinkButton>
+## Connect another system
+
+These integrations don't act as a person. Each one has a narrow, fixed purpose.
+
+<CardGrid>
+  <LinkCard
+    title="Integration tokens"
+    description="Create an Owner-managed token that can only update Manual Tables or read fleet health."
+    href="./tokens/"
+  />
+  <LinkCard
+    title="Replace Manual Table rows"
+    description="Push rows from a system that owns the data, such as a room booking or menu system."
+    href="./manual-table/"
+  />
+  <LinkCard
+    title="Read fleet health"
+    description="Scrape screen and incident counts into an existing monitoring system."
+    href="./fleet-health/"
+  />
+  <LinkCard
+    title="Notifications and webhooks"
+    description="Send Tilecast alerts to people by email, or post signed events to your own service."
+    href="./notifications/"
+  />
+</CardGrid>
+
+## Show data from another service
+
+To show information that lives somewhere else, such as a calendar, a news feed, a spreadsheet, or a weather forecast, create a [Data Source](../data-sources/). Tilecast Server fetches the data on a schedule, and a [Widget](../widgets/) shows it on screen. You don't need a token for this.
+
+## Which one do I need?
+
+| You want to                                                 | Use                                                                                                              |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Run Tilecast tasks from a terminal                          | The [CLI](./cli/), signed in through your browser                                                                |
+| Run Tilecast tasks from a script or CI job                  | The [CLI](./cli/) or the [HTTP API](../reference/api/) with a [personal access token](./personal-access-tokens/) |
+| Let an AI assistant read or manage Tilecast                 | [MCP](./mcp/), preferably with `--read-only` or a read-only credential                                           |
+| Keep a Manual Table in sync with another system             | An [integration token](./tokens/) with **Write Manual Table rows**                                               |
+| Monitor screen health from Prometheus or another monitor    | An [integration token](./tokens/) with **Read fleet health**                                                     |
+| Get told when something goes wrong                          | [Email or webhook notifications](./notifications/)                                                               |
+| Show a calendar, feed, spreadsheet, or forecast on a screen | A [Data Source](../data-sources/) and a [Widget](../widgets/)                                                    |
+
+Plugins can add their own CLI commands and MCP tools. See [Commands from plugins](./cli/#commands-from-plugins).

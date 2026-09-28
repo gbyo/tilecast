@@ -1,0 +1,32 @@
+---
+title: Hardware and host integrations
+description: See how Tilecast Edge uses HDMI-CEC, DDC/CI, and Presentation Network, and how it reports what each Player can do.
+---
+
+Edge reports a hardware feature as available only when it works on that Player. A missing CEC adapter, DDC/CI support, or Wi-Fi adapter turns that feature off with a reason. Normal playback continues.
+
+The Edge software for each of these features is complete. Real TVs, monitors, and Wi-Fi adapters haven't been qualified yet, so check each feature on your own hardware before you depend on it.
+
+## Check what a Player can do
+
+Studio shows the hardware features each screen reports. On the Edge computer, `tilecastctl capabilities` lists every feature with its state and a reason code:
+
+```sh title="On the Edge computer"
+/opt/tilecast-edge/current/bin/tilecastctl capabilities
+```
+
+A reason such as `cec_adapter_absent` or `ddc_ci_not_responding` tells you what to fix. The [engineering capability matrix](https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-capabilities.md#hardware-capabilities-m9) lists every state and reason.
+
+## Display Control
+
+Edge talks to the Linux HDMI-CEC and I²C/DDC devices directly. It doesn't need `cec-ctl` or `ddcutil`. It supports power and input over HDMI-CEC, and brightness, volume, and mute over DDC/CI.
+
+Edge reports a display change as confirmed only when the display reads it back. Input switching over CEC has no readback, so Edge reports it as sent. See [Display Control](../../screens/display-control/) for the Studio side.
+
+## Presentation Network
+
+Edge uses the same small root helper as the stable Linux Player to set up the Presentation Network through NetworkManager. The main Edge service gets no general network-control access. The computer needs NetworkManager and a Wi-Fi adapter. See [Presentation Networks](../../administration/presentation-networks/).
+
+## Device permissions
+
+The Edge installer gives the `tilecast` account access to the CEC and I²C devices through a dedicated group and udev rule. Don't run `tilecastd` as root to work around a device permission problem.

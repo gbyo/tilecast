@@ -226,7 +226,7 @@ func TestLinuxGitHubReleaseSyncAndCache(t *testing.T) {
 	if downloadedBytes != int64(len(artifact)) {
 		t.Fatalf("download progress = %d, want %d", downloadedBytes, len(artifact))
 	}
-	path, size, hash, cachedPlatform, err := service.ArtifactPath(ctx, releaseID)
+	path, size, hash, cachedFamily, err := service.ArtifactPath(ctx, releaseID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -234,8 +234,8 @@ func TestLinuxGitHubReleaseSyncAndCache(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(cached, artifact) || size != int64(len(artifact)) || hash != manifest.ArtifactSHA256 || cachedPlatform != PlatformLinux {
-		t.Fatalf("cached artifact mismatch: bytes=%q size=%d hash=%q platform=%q", cached, size, hash, cachedPlatform)
+	if !bytes.Equal(cached, artifact) || size != int64(len(artifact)) || hash != manifest.ArtifactSHA256 || cachedFamily != FamilyElectronLinux {
+		t.Fatalf("cached artifact mismatch: bytes=%q size=%d hash=%q family=%q", cached, size, hash, cachedFamily)
 	}
 }
 
@@ -267,4 +267,106 @@ func (p *integrationProvider) Open(_ context.Context, rawURL string) (*http.Resp
 		ContentLength: int64(len(value)),
 		Body:          io.NopCloser(bytes.NewReader(value)),
 	}, nil
+}
+
+// A Tilecast Edge GitHub release carries one signed envelope and archive per
+// architecture. Each becomes its own release of the edge family, with the
+// exact envelope bytes kept for the screens to verify; an envelope whose
+// archive is missing is not imported.
+func TestEdgeGitHubReleaseImportsEachArchitecture(t *testing.T) {
+	databaseURL := os.Getenv("TEST_DATABASE_URL")
+	if databaseURL == "" {
+		t.Skip("TEST_DATABASE_URL is not set")
+	}
+	ctx := context.Background()
+	lockPool, err := pgxpool.New(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lockPool.Close()
+	lock, err := lockPool.Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lock.Release()
+	if _, err = lock.Exec(ctx, `SELECT pg_advisory_lock(7421999)`); err != nil {
+		t.Fatal(err)
+	}
+	defer lock.Exec(ctx, `SELECT pg_advisory_unlock(7421999)`) //nolint:errcheck
+	if err = database.Migrate(ctx, databaseURL); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	pool, err := database.Open(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	if _, err = pool.Exec(ctx, `TRUNCATE update_provider_state,player_releases CASCADE`); err != nil {
+		t.Fatal(err)
+	}
+	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assets := []Asset{}
+	downloads := map[string][]byte{}
+	artifacts := map[string][]byte{}
+	envelopes := map[string][]byte{}
+	for _, arch := range []string{"x86_64", "aarch64"} {
+		archive := []byte("edge release archive for " + arch)
+		digest := sha256.Sum256(archive)
+		envelope := Manifest{SchemaVersion: 1, Product: EdgeProduct, PlayerFamily: FamilyEdge, Platform: PlatformLinux, Arch: arch, VersionName: "0.2.0", VersionCode: 2000, Channel: "stable", ArtifactAssetName: EdgeArtifactName("0.2.0", arch), ArtifactSizeBytes: int64(len(archive)), ArtifactSHA256: hex.EncodeToString(digest[:]), ReleaseManifestSHA256: "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", SBOMSHA256: "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", StateSchemaVersion: 6}
+		raw, _ := json.Marshal(envelope)
+		// Indented bytes: the stored copy must be these bytes, not jsonb's.
+		var indented bytes.Buffer
+		_ = json.Indent(&indented, raw, "", "  ")
+		raw = indented.Bytes()
+		envelopes[arch] = raw
+		signature := []byte(base64.StdEncoding.EncodeToString(ed25519.Sign(privateKey, raw)))
+		manifestName := "tilecast-edge-update-" + arch + ".json"
+		assets = append(assets,
+			Asset{Name: manifestName, URL: manifestName, Size: int64(len(raw))},
+			Asset{Name: manifestName + ".sig", URL: manifestName + ".sig", Size: int64(len(signature))},
+		)
+		downloads[manifestName] = raw
+		downloads[manifestName+".sig"] = signature
+		if arch == "x86_64" {
+			assets = append(assets, Asset{Name: envelope.ArtifactAssetName, URL: "archive-" + arch, Size: int64(len(archive))})
+			artifacts["archive-"+arch] = archive
+		}
+	}
+	provider := &integrationProvider{
+		result:    ProviderResult{ETag: `"edge"`, Releases: []ProviderRelease{{ID: 300, Tag: "edge-v0.2.0", PublishedAt: time.Now().UTC(), Assets: assets}}},
+		downloads: downloads,
+		artifacts: artifacts,
+	}
+	service, err := NewService(pool, provider, Config{Root: t.TempDir(), TrustedPublicKey: base64.StdEncoding.EncodeToString(publicKey), MaxAPKBytes: 10 << 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = service.Check(ctx); err != nil {
+		t.Fatalf("sync edge release: %v", err)
+	}
+	var id uuid.UUID
+	var family, architecture, name string
+	var stored []byte
+	var schema int
+	if err = pool.QueryRow(ctx, `SELECT id,player_family,architecture,apk_name,manifest_bytes,state_schema_version FROM player_releases WHERE github_release_id=300`).Scan(&id, &family, &architecture, &name, &stored, &schema); err != nil {
+		t.Fatal(err)
+	}
+	if family != FamilyEdge || architecture != "x86_64" || name != "tilecast-edge-0.2.0-x86_64.tar.zst" || !bytes.Equal(stored, envelopes["x86_64"]) || schema != 6 {
+		t.Fatalf("unexpected edge release: %s %s %s schema=%d exact=%v", family, architecture, name, schema, bytes.Equal(stored, envelopes["x86_64"]))
+	}
+	var count int
+	_ = pool.QueryRow(ctx, `SELECT count(*) FROM player_releases WHERE github_release_id=300`).Scan(&count)
+	if count != 1 {
+		t.Fatalf("the aarch64 envelope without its archive must not import: %d rows", count)
+	}
+	if err = service.Cache(ctx, id); err != nil {
+		t.Fatalf("cache edge release: %v", err)
+	}
+	path, _, _, cachedFamily, err := service.ArtifactPath(ctx, id)
+	if err != nil || cachedFamily != FamilyEdge || len(path) < 8 || path[len(path)-8:] != ".tar.zst" {
+		t.Fatalf("edge artifact path: %q %q %v", path, cachedFamily, err)
+	}
 }

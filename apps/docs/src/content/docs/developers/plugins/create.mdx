@@ -1,0 +1,71 @@
+---
+title: Create a plugin
+description: Scaffold a bundled Tilecast plugin and get it through the Plugin API v1 checks.
+---
+
+import { Steps } from "@astrojs/starlight/components";
+
+When you finish this page, you'll have a plugin directory with a manifest, Go entry point, Studio page, public docs page, and conformance test.
+
+## Before you start
+
+Use a checkout that already passes the repository checks. Install the dependencies with `make bootstrap`.
+
+## Scaffold the plugin
+
+<Steps>
+
+1. Choose a stable snake_case ID. It is stored in Tilecast data and should not change later.
+
+2. Run the scaffold command from the repository root:
+
+   ```sh title="Repository root"
+   npm run plugins:new -- transit_alerts --name "Transit Alerts" --category Automation --api
+   ```
+
+   Omit `--api` if the plugin will not register HTTP routes.
+
+3. Open `plugins/transit-alerts/tilecast.plugin.json` and replace the generated description, icon, maintainers, requirements, and `uses` entries.
+
+4. Implement only the parts the plugin needs. A plugin that shows nothing on screens does not need Player projection; a plugin with no background work does not need a worker.
+
+5. Check the plugin:
+
+   ```sh title="Repository root"
+   npm run plugins:check
+   ```
+
+</Steps>
+
+The scaffold also regenerates the Go registry, `CODEOWNERS`, and composed API files.
+
+## Keep the entry point small
+
+`plugin.go` embeds the manifest and migrations and returns the server contribution. Put product logic under `server/`.
+
+```go
+package transitalerts
+
+import (
+    _ "embed"
+
+    "github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
+)
+
+//go:embed tilecast.plugin.json
+var manifest []byte
+
+func New() plugin.Plugin {
+    return &Plugin{Bundle: plugin.NewBundle(manifest, nil)}
+}
+```
+
+The scaffold creates a matching conformance test. Keep it.
+
+## Don't add central registration
+
+You should not need to add the plugin ID to Tilecast Server startup, Studio routing, the Player runtime, or the docs sidebar. Those paths use generated registries or build-time discovery.
+
+If the plugin needs a core fact that no Host service exposes, treat that as a Plugin API design change instead of reading a core table directly.
+
+Next, read [Write the plugin manifest](../manifest/), then use the server, Studio, or Player pages only for the parts your plugin needs.
