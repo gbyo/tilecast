@@ -6247,6 +6247,57 @@ export interface components {
         name?: string;
       }[];
     };
+    ScheduleTarget: {
+      /** @enum {string} */
+      type: "screen" | "group";
+      /** Format: uuid */
+      id: string;
+      name?: string;
+    };
+    Schedule: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      description: string;
+      /** Format: uuid */
+      playlistId?: string;
+      playlistName: string;
+      /** Format: uuid */
+      layoutId?: string;
+      layoutName?: string;
+      /** @enum {string} */
+      presentationType: "playlist" | "layout" | "display_control";
+      /** @enum {string} */
+      type: "one_time" | "weekly";
+      timezone: string;
+      priority: number;
+      specificity: number;
+      enabled: boolean;
+      /** Format: date */
+      startDate?: string;
+      /** Format: date */
+      endDate?: string;
+      /** Format: date-time */
+      oneTimeStart?: string;
+      /** Format: date-time */
+      oneTimeEnd?: string;
+      dailyStart?: string;
+      dailyEnd?: string;
+      daysOfWeek: number[];
+      displayAction?: components["schemas"]["DisplayControlAction"];
+      targets: components["schemas"]["ScheduleTarget"][];
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      updatedAt: string;
+    };
+    ScheduleList: {
+      items: components["schemas"]["Schedule"][];
+      total: number;
+      page: number;
+      pageSize: number;
+      defaultTimezone: string;
+    };
     /** @description A bounded Display Control action. A schedule may contain one action instead of a playlist or Layout. The server validates that only the field belonging to the selected type is present. */
     DisplayControlAction: {
       /** @enum {string} */
@@ -14725,7 +14776,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ScheduleList"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -14754,7 +14809,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["Schedule"];
+          };
+        };
       };
       /** @description Authentication required */
       401: {
@@ -14795,7 +14854,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["Schedule"];
+          };
+        };
       };
     };
   };
@@ -14839,7 +14902,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["Schedule"];
+          };
+        };
       };
     };
   };
@@ -14859,7 +14926,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["Schedule"];
+          };
+        };
       };
     };
   };
@@ -14879,7 +14950,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["Schedule"];
+          };
+        };
       };
     };
   };

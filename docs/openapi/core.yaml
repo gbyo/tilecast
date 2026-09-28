@@ -3993,7 +3993,15 @@ paths:
             schema: { type: integer, minimum: 1, maximum: 100 },
           }
       responses:
-        "200": { description: Paginated schedules }
+        "200":
+          description: Paginated schedules
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ScheduleList" }
         "401": { description: Dashboard authentication required }
     post:
       operationId: createSchedule
@@ -4010,13 +4018,19 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/ScheduleInput" }
       responses:
-        {
-          "201": { description: Validated schedule created },
-          "401": { description: Authentication required },
-          "403":
-            { description: "Role, scope, or cookie CSRF requirement not met" },
-          "422": { description: Schedule or target validation failed },
-        }
+        "201":
+          description: Validated schedule created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Schedule" }
+        "401": { description: Authentication required }
+        "403":
+          { description: "Role, scope, or cookie CSRF requirement not met" }
+        "422": { description: Schedule or target validation failed }
   /api/v1/schedules/{id}:
     get:
       operationId: getSchedule
@@ -4025,7 +4039,16 @@ paths:
       security: [{ sessionCookie: [] }, { userBearer: [] }]
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
-      responses: { "200": { description: Schedule and normalized targets } }
+      responses:
+        "200":
+          description: Schedule and normalized targets
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Schedule" }
     patch:
       operationId: updateSchedule
       description: >-
@@ -4038,10 +4061,15 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/ScheduleInput" }
       responses:
-        {
-          "200":
-            { description: Schedule updated and affected manifests revised },
-        }
+        "200":
+          description: Schedule updated and affected manifests revised
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Schedule" }
     delete:
       operationId: deleteSchedule
       description: >-
@@ -4056,7 +4084,16 @@ paths:
         Enable schedule. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
-      responses: { "200": { description: Schedule enabled } }
+      responses:
+        "200":
+          description: Schedule enabled
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Schedule" }
   /api/v1/schedules/{id}/disable:
     post:
       operationId: disableSchedule
@@ -4064,7 +4101,16 @@ paths:
         Disable schedule. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
-      responses: { "200": { description: Schedule disabled } }
+      responses:
+        "200":
+          description: Schedule disabled
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Schedule" }
   /api/v1/schedules/preview:
     post:
       operationId: previewSchedule
@@ -7318,6 +7364,76 @@ components:
               type: { type: string, enum: [screen, group] }
               id: { type: string, format: uuid }
               name: { type: string }
+    ScheduleTarget:
+      type: object
+      additionalProperties: false
+      required: [type, id]
+      properties:
+        type: { type: string, enum: [screen, group] }
+        id: { type: string, format: uuid }
+        name: { type: string }
+    Schedule:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          name,
+          description,
+          playlistName,
+          presentationType,
+          type,
+          timezone,
+          priority,
+          specificity,
+          enabled,
+          daysOfWeek,
+          targets,
+          createdAt,
+          updatedAt,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+        playlistId: { type: string, format: uuid }
+        playlistName: { type: string }
+        layoutId: { type: string, format: uuid }
+        layoutName: { type: string }
+        presentationType:
+          { type: string, enum: [playlist, layout, display_control] }
+        type: { type: string, enum: [one_time, weekly] }
+        timezone: { type: string }
+        priority: { type: integer, minimum: -999, maximum: 999 }
+        specificity: { type: integer }
+        enabled: { type: boolean }
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+        oneTimeStart: { type: string, format: date-time }
+        oneTimeEnd: { type: string, format: date-time }
+        dailyStart: { type: string }
+        dailyEnd: { type: string }
+        daysOfWeek:
+          type: array
+          items: { type: integer, minimum: 0, maximum: 6 }
+        displayAction: { $ref: "#/components/schemas/DisplayControlAction" }
+        targets:
+          type: array
+          items: { $ref: "#/components/schemas/ScheduleTarget" }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ScheduleList:
+      type: object
+      additionalProperties: false
+      required: [items, total, page, pageSize, defaultTimezone]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Schedule" }
+        total: { type: integer, minimum: 0 }
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1 }
+        defaultTimezone: { type: string }
     DisplayControlAction:
       type: object
       additionalProperties: false
