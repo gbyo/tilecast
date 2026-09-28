@@ -505,7 +505,7 @@ func regionalFormatting(values map[string]any) RegionalFormatting {
 		// legacy or unreadable stored value. It is not derived from the device.
 		locale = "en-US"
 	}
-	firstDay := stringValue("organization.first_day_of_week", "sunday")
+	firstDay := stringValue("organization.first_day_of_week", "locale")
 	if firstDay == "locale" {
 		firstDay = regional.FirstDayOfWeek(locale)
 	}
