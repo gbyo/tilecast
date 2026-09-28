@@ -85,7 +85,10 @@ describe("Data Source gallery provenance", () => {
     const onChoose = vi.fn();
     const { editor } = renderGalleryWithPluginSource(true, onChoose);
     render(editor);
-    const card = await screen.findByRole("button", { name: /Intake/ });
+    // The badge shows the plugin's name only after the plugin catalog
+    // query resolves, so waiting for it waits for installation state too.
+    await screen.findByText("Plugin · Emergency Alerts");
+    const card = screen.getByRole("button", { name: /Intake/ });
     expect(card).not.toBeDisabled();
     expect(within(card).getByText("Plugin · Emergency Alerts")).toBeTruthy();
     expect(within(card).queryByText(/Requires/)).toBeNull();
@@ -97,9 +100,9 @@ describe("Data Source gallery provenance", () => {
     const onChoose = vi.fn();
     const { editor } = renderGalleryWithPluginSource(false, onChoose);
     render(editor);
-    const card = await screen.findByRole("button", { name: /Intake/ });
+    await screen.findByText("Plugin · Emergency Alerts");
+    const card = screen.getByRole("button", { name: /Intake/ });
     expect(card).toBeDisabled();
-    expect(screen.getByText("Plugin · Emergency Alerts")).toBeTruthy();
     expect(screen.getByText("Requires Emergency Alerts")).toBeTruthy();
     expect(onChoose).not.toHaveBeenCalled();
   });

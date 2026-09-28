@@ -1,4 +1,10 @@
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -214,6 +220,25 @@ describe("plugin Widget scaffold", () => {
     expect(manifest.id).toBe("countdown_bar_race");
     expect(manifest.component.type).toBe("countdownbar.race");
     expect(manifest.component.tagName).toBe("tc-widget-countdownbar-race");
+  });
+
+  it("refuses a Widget whose derived identity another plugin already uses", () => {
+    const root = tempRoot();
+    writePluginManifest(root, "ab-c", "ab_c");
+    writePluginManifest(root, "a-bc", "a_bc");
+    scaffold(root, {
+      name: "x",
+      displayName: "X",
+      plugin: { dir: "ab-c", id: "ab_c" },
+    });
+    expect(() =>
+      scaffold(root, {
+        name: "x",
+        displayName: "X",
+        plugin: { dir: "a-bc", id: "a_bc" },
+      }),
+    ).toThrow(/would reuse .*plugins\/ab-c\/widgets\/x.*abc\.x/);
+    expect(existsSync(join(root, "plugins/a-bc/widgets/x"))).toBe(false);
   });
 
   it("refuses an overlong derived provider id", () => {

@@ -251,6 +251,10 @@ function checkWidgetContributions(
   for (const name of names.sort()) {
     const manifestPath = join(widgetsDir, name, "tilecast.widget.json");
     const relativePath = relative(root, manifestPath);
+    if (!existsSync(manifestPath)) {
+      add(`widgets/${name} has no tilecast.widget.json`);
+      continue;
+    }
     let manifest: unknown;
     try {
       manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
