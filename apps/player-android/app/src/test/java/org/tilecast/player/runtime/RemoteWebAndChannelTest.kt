@@ -164,7 +164,7 @@ class HostChannelTest {
         assertFalse(script.contains("evil()"))
         assertFalse(script.contains("if (host =="))
         assertTrue(script.contains("resolve({ok:true,target:message.result})"))
-        assertFalse(script.contains('id:""'))
+        assertFalse(script.contains("id:\"\""))
     }
 }
 
