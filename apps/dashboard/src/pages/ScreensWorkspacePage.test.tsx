@@ -6,7 +6,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { api } from "../api/client";
-import { PairScreenDialog, ScreensPage, ScreensWorkspacePage } from "./ScreensPage";
+import {
+  PairScreenDialog,
+  ScreensPage,
+  ScreensWorkspacePage,
+} from "./ScreensPage";
 
 vi.mock("../auth/AuthProvider", () => ({
   useAuth: () => ({
@@ -59,7 +63,6 @@ function renderWorkspace(pathname: string) {
     </QueryClientProvider>,
   );
 }
-
 
 function renderFleetWorkspace() {
   vi.spyOn(api, "screens").mockResolvedValue({ items: [], total: 0 });
@@ -144,7 +147,9 @@ describe("Screens workspace tabs", () => {
     expect(
       await screen.findAllByRole("heading", { name: "Screens", level: 1 }),
     ).toHaveLength(1);
-    expect(screen.getAllByRole("button", { name: "Takeover" })).toHaveLength(1);
+    expect(
+      screen.getAllByRole("button", { name: "Takeover" }),
+    ).toHaveLength(1);
 
     const header = screen
       .getByRole("heading", { name: "Screens", level: 1 })
@@ -154,5 +159,4 @@ describe("Screens workspace tabs", () => {
       within(header as HTMLElement).getByRole("link", { name: "Pair screen" }),
     ).toBeInTheDocument();
   });
-
 });
